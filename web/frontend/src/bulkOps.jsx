@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { json, errText } from './api.js'
 import { t } from './i18n.js'
-import { followJob, isLive, jobOutcome, jobStateLabel, jobTitle, jobWaitingText, startJob } from './jobs.js'
+import { followJob, isLive, jobOutcome, jobStateLabel, jobTitle, jobWaitingText, mergeJobs, startJobs } from './jobs.js'
 import { quoteKindOptions } from './quoteKind.js'
 import { formatPartialDate, toast } from './ui.jsx'
 
@@ -137,6 +137,11 @@ export function useBulkOps({ kind, ids = [], onDone }) {
   // one work at a time behind whatever else is running, and it is still going —
   // with its log — whatever this screen does next.
   //
+  // A SELECTION OVER ONE JOB'S CAP (2,000 works — Select all on a big library) IS
+  // SEVERAL JOBS, started in order (startJobs), and still one press with one toast:
+  // the jobs run one after another, the press waits for each, and the toast adds
+  // them up. Sent whole, the server would refuse the set that the old loop filled.
+  //
   // EACH PRESS IS A JOB OF ITS OWN; a second press on the same selection while
   // the first still runs is the one the server refuses as a duplicate, and that
   // refusal names the running job, which is followed instead of reported.
@@ -148,27 +153,36 @@ export function useBulkOps({ kind, ids = [], onDone }) {
     if (fill) return
     setFill({ job: null })
     const key = kind === 'book' ? 'book_ids' : 'movie_ids'
-    const r = await startJob('fill', { [key]: ids })
-    const id = r.ok ? r.job?.id : r.jobId
-    if (!id) {
+    const r = await startJobs('fill', { [key]: ids })
+    if (!r.ok || !r.jobs.length) {
       if (mounted.current) setFill(null)
-      return toast(r.error)
+      return toast(r.error || t('error.fill.generic'))
     }
-    let job = r.ok ? r.job : null
-    if (mounted.current) setFill({ job })
+    // The pieces that did start run; the rest were refused, and that is said now,
+    // while the reader is still looking at the selection that did not all go.
+    if (r.cut) toast(r.cut.error)
+    // A joined duplicate comes back as its id alone, with no state to read yet.
+    const first = r.jobs[0].state ? r.jobs[0] : null
+    if (mounted.current) setFill({ job: first })
     // BEHIND SOMEBODY ELSE'S JOB, FILL GAPS STAYS PRESSED FOR A WHILE. The press
     // is answered at once with where it stands — the card's menu has closed by
     // now and has nowhere else to say it — and the bar's Fill control goes on
     // saying it (`fillStatus`) for as long as the job waits.
-    if (job?.state === 'queued') toast(jobWaitingText(job))
-    if (!job || isLive(job)) {
-      job = await followJob(id, {
-        alive: () => mounted.current,
-        onJob: (j) => { if (mounted.current) setFill({ job: j }) },
-      })
+    if (!r.cut && first?.state === 'queued') toast(jobWaitingText(first))
+    const ends = []
+    for (const started of r.jobs) {
+      let end = started.state ? started : null
+      if (!end || isLive(end)) {
+        end = await followJob(started.id, {
+          alive: () => mounted.current,
+          onJob: (j) => { if (mounted.current) setFill({ job: j }) },
+        })
+      }
+      if (!mounted.current) return
+      ends.push(end)
     }
-    if (!mounted.current) return
     setFill(null)
+    const job = mergeJobs(ends)
     if (!job) return toast(t('error.fill.generic'))
     if (job.state === 'failed') toast(job.error || t('error.fill.generic'))
     // Stopped from Settings › Jobs, or cut short by a restart: what it filled

@@ -4294,6 +4294,10 @@ reverify.checking.progress = দেখা হচ্ছে · {done}/{total}
 # Under the checking bar. The check is a job on the server since 3.1.0, so
 # closing the dialog does not stop it — Cancel does, and asks first.
 reverify.checking.away = এটা বন্ধ করলেও মিলিয়ে দেখা চলতে থাকবে — সেটিংস › কাজ-এ পাবেন।
+# Above the check when the selection was bigger than one check holds (500).
+# {kept} is that cap, {total} the selection's size; the rest are not checked.
+# ?? draft for the owner (3.1.0 jobs callers): এবারে for "this one", তালিকা ছোট করে নিন for "narrow the list"
+reverify.capped = একবারে সর্বোচ্চ {kept}টা মিলিয়ে দেখা যায়, তাই এবারে {total}টার প্রথম {kept}টাই আছে। বাকিগুলোর জন্য তালিকা ছোট করে নিন।
 # The tally across the top once the checking is done.
 reverify.summary = {checked}টা দেখা হল · {changed}টায় বদল · {clean}টা আগের মতোই ঠিক
 reverify.summary.skipped = {n}টা বাদ (বাঁধা id নেই)

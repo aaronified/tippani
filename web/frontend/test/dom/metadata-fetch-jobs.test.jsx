@@ -20,6 +20,11 @@
 // THE NETWORK IS FAKED the way the neighbouring Metadata tests fake it, with the
 // jobs routes answered by test/dom/helpers/jobsServer.js (its header declares
 // what it knows). What is read back from it is only what a request SAID.
+//
+// DECLARED EXCEPTION, one case: "over one job's cap" lowers jobs.js's JOB_CAPS
+// for People to one record and puts it back after. The real cap is 2,000, and a
+// console drawing 2,001 rows would be a test of rendering rows, not of how a set
+// too big for one job is sent and drawn.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
@@ -51,6 +56,7 @@ vi.mock('../../src/api.js', async (orig) => ({
 }))
 
 const { default: MetadataPage, PeopleConsole } = await import('../../src/MetadataPage.jsx')
+const { JOB_CAPS } = await import('../../src/jobs.js')
 const { useScreenBarState } = await import('../../src/ui.jsx')
 
 let BAR = { keys: null }
@@ -188,6 +194,31 @@ describe('fetching what People is missing, as a job', () => {
     JOBS.finish(id, { counts: { ok: 1, failed: 1, first_error: 'not found' } })
     await waitFor(() => expect(flashes).toContain('people: 1 fetched · 1 failed (not found)'), { timeout: 4000 })
     await waitFor(() => expect(recordReads()).toBeGreaterThan(before))
+  })
+
+  // MORE THAN ONE JOB'S WORTH is consecutive jobs, drawn as one run: one bar over
+  // every row, the button held until the last one ends, one line for the lot.
+  it('fetches a set over one job’s cap as consecutive jobs, drawn as one run', async () => {
+    const cap = JOB_CAPS.people
+    JOB_CAPS.people = 1
+    try {
+      JOBS.hold('people')
+      JOBS.plan('people', {})
+      JOBS.plan('people', { counts: { ok: 1, failed: 0 } })
+      const flashes = await people()
+      fireEvent.click(screen.getByRole('button', { name: 'Fetch missing (2)' }))
+      await waitFor(() => expect(JOBS.started()).toEqual([['people', { ids: [7] }], ['people', { ids: [9] }]]))
+      // The second piece has finished; the first is still running. The bar is over
+      // both, and the button waits for the whole run.
+      expect(await screen.findByRole('progressbar', { name: 'fetching photos & links · 0/2' })).toBeTruthy()
+      expect(fetchMissing().disabled).toBe(true)
+      const [id] = [...JOBS.jobs.keys()]
+      JOBS.finish(id, { counts: { ok: 0, failed: 1, first_error: 'not found' } })
+      await waitFor(() => expect(flashes).toContain('people: 1 fetched · 1 failed (not found)'), { timeout: 4000 })
+      expect(flashes, 'the run said something before its last job ended').toHaveLength(1)
+    } finally {
+      JOB_CAPS.people = cap
+    }
   })
 
   it('draws a people fetch already running when the console opens, and starts no other', async () => {

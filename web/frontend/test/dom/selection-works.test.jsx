@@ -300,6 +300,39 @@ describe('the bar over a selection of works', () => {
     expect(fill.disabled, 'the skip ended the fill’s wait').toBe(true)
   })
 
+  // OVER ONE JOB'S CAP — 2,000 works, which Select all reaches on a big library —
+  // the server refuses a job whole, and the loop this replaced had no ceiling. So
+  // the set goes as consecutive jobs, and the press still says one thing at the
+  // end. The selection here is the bar's own shape with 2,001 ids, because two
+  // thousand covers on a board would be a test of rendering, not of the fill.
+  it('fills a selection over one job’s cap as consecutive jobs, and adds them up', async () => {
+    const ids = Array.from({ length: 2001 }, (_, i) => i + 1)
+    const selection = { kind: 'book', ids, count: ids.length, open: true, isSelected: () => true, deselectAll() {}, dismiss() {} }
+    JOBS.plan('fill', { counts: { fields: 3, failed: 0 } })
+    JOBS.plan('fill', { counts: { fields: 4, failed: 1 } })
+    render(<><SelectionBar selection={selection} rows={[]} onDone={() => {}} /><ToastHost /></>)
+    fireEvent.click(screen.getByRole('button', { name: 'Fill gaps' }))
+    await waitFor(() => expect(JOBS.started()).toHaveLength(2))
+    const [[, first], [, second]] = JOBS.started()
+    expect(first.book_ids).toEqual(ids.slice(0, 2000))
+    expect(second).toEqual({ book_ids: [2001] })
+    expect(await screen.findByText('filled 7 fields')).toBeTruthy()
+  })
+
+  it('says so when the rest of a big selection could not start, and fills what did', async () => {
+    const ids = Array.from({ length: 2001 }, (_, i) => i + 1)
+    const selection = { kind: 'book', ids, count: ids.length, open: true, isSelected: () => true, deselectAll() {}, dismiss() {} }
+    JOBS.hold('fill')
+    render(<><SelectionBar selection={selection} rows={[]} onDone={() => {}} /><ToastHost /></>)
+    // The first piece starts; the second is refused at this reader's limit.
+    JOBS.refuse(429, { error: 'You already have 5 jobs running or waiting.', limit: 5 }, { after: 1 })
+    fireEvent.click(screen.getByRole('button', { name: 'Fill gaps' }))
+    expect(await screen.findByText('You already have 5 jobs running or waiting.')).toBeTruthy()
+    const [id] = [...JOBS.jobs.keys()]
+    JOBS.finish(id, { counts: { fields: 2, failed: 0 } })
+    expect(await screen.findByText('filled 2 fields', {}, { timeout: 4000 })).toBeTruthy()
+  })
+
   // THE JOB OUTLIVES THE BAR. Leaving is not stopping: the fill goes on and is in
   // Settings › Jobs; what the bar owes a reader who left is silence, not a toast
   // landing on whatever screen they went to.

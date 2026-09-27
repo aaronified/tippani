@@ -249,6 +249,59 @@ function refusal(r) {
   return { ok: false, status: r.status, error: errText(r), busy: !!d.busy, jobId: d.job_id || null, limit: d.limit || null }
 }
 
+// ---- how much one job may hold ------------------------------------------------
+//
+// THE SERVER'S CAPS, per kind (the spec's D): a fill or a people fetch of at most
+// 2,000 records, a re-verify of at most 500 items, and an apply of at most 500.
+// Past the cap the server refuses the whole job — so a screen that sends a set
+// without looking gets a refusal after the press for a set it knew the size of
+// before it. The loops these jobs replaced chunked in the browser and had no
+// ceiling at all, so "Select all → Fill gaps" on a big library used to work.
+export const JOB_CAPS = { fill: 2000, people: 2000, reverify: 500, 'reverify-apply': 500 }
+
+// THE LISTS A KIND'S SET IS MADE OF, in the order they are counted and cut.
+const SET_KEYS = {
+  fill: ['book_ids', 'movie_ids'],
+  people: ['ids'],
+  reverify: ['book_ids', 'movie_ids', 'people'],
+  'reverify-apply': ['items'],
+}
+
+const setSize = (kind, params) =>
+  (SET_KEYS[kind] || []).reduce((n, k) => n + (Array.isArray(params?.[k]) ? params[k].length : 0), 0)
+
+// The set cut into consecutive pieces of at most the cap, each piece the same
+// params with only its share of the lists. A set within the cap is one piece and
+// goes exactly as it came.
+function cutSet(kind, params) {
+  const cap = JOB_CAPS[kind]
+  const keys = SET_KEYS[kind] || []
+  if (!cap || setSize(kind, params) <= cap) return [params]
+  const rest = { ...params }
+  for (const k of keys) delete rest[k]
+  const all = keys.flatMap((k) => (Array.isArray(params[k]) ? params[k].map((v) => [k, v]) : []))
+  const out = []
+  for (let i = 0; i < all.length; i += cap) {
+    // Every list the set came with is in every piece, empty where this piece has
+    // none of it, so each job's params keep the shape the caller sent.
+    const piece = { ...rest }
+    for (const k of keys) if (Array.isArray(params[k])) piece[k] = []
+    for (const [k, v] of all.slice(i, i + cap)) piece[k].push(v)
+    out.push(piece)
+  }
+  return out
+}
+
+// limitJob — the first cap's worth of a set, and how much was left out. For the
+// one kind whose pieces could not be separate jobs: a re-verify ends in ONE review
+// the reader decides as a whole, and several checks would be several reviews.
+// `kept < total` is the screen's cue to say so before anything is checked.
+export function limitJob(kind, params) {
+  const total = setSize(kind, params)
+  const [first] = cutSet(kind, params)
+  return { params: first, total, kept: setSize(kind, first) }
+}
+
 // A POLL'S READ HAS A BOUND, AND IT IS THE ONE PLACE IN THIS MODULE THAT DOES.
 //
 // Both polls below hold a `busy` flag so two reads never overlap — which means a
@@ -287,6 +340,64 @@ export async function startJob(kind, params = {}) {
   return { ok: true, status: r.status, job }
 }
 
+// startJobs — a set over one job's cap as consecutive jobs, for the kinds whose
+// items stand alone (a fill, a people fetch: nothing about one work's gaps waits on
+// another's). They queue in the order started and run one after another, as any
+// jobs do. A piece the server already has running comes back as its id and is
+// joined, the way a single duplicate is.
+//
+// `jobs` holds every job that is now on the server. When the first piece is
+// refused nothing started, and the refusal is the answer; when a later one is —
+// five of this reader's jobs already queued, a restore begun between two presses
+// — the pieces before it still run, and `cut` carries the refusal so the screen
+// can say the rest did not start.
+export async function startJobs(kind, params = {}) {
+  const pieces = cutSet(kind, params)
+  const jobs = []
+  let status = 0
+  for (const piece of pieces) {
+    const r = await startJob(kind, piece)
+    if (r.ok) {
+      if (r.job?.id) jobs.push(r.job)
+      status = r.status
+      continue
+    }
+    if (r.jobId) {
+      jobs.push({ id: r.jobId })
+      continue
+    }
+    if (!jobs.length) return r
+    return { ok: true, status, job: jobs[0], jobs, cut: r }
+  }
+  return { ok: true, status, job: jobs[0] || null, jobs, cut: null }
+}
+
+// mergeJobs — what a run of several jobs did, as one job a screen already knows
+// how to read: the counts added up, the run's state the first piece's that did not
+// succeed (a stop or a failure part-way is what the reader needs to hear first),
+// and its error with it. Null when any piece could not be read to its end — a run
+// with a hole in it has no honest total.
+export function mergeJobs(jobs) {
+  if (!jobs.length || jobs.some((j) => !j)) return null
+  if (jobs.length === 1) return jobs[0]
+  const counts = {}
+  for (const j of jobs) {
+    for (const [k, v] of Object.entries(j.counts && typeof j.counts === 'object' ? j.counts : {})) {
+      if (typeof v === 'number') counts[k] = (counts[k] || 0) + v
+      else if (counts[k] === undefined && v) counts[k] = v
+    }
+  }
+  const odd = jobs.find((j) => j.state !== 'succeeded')
+  return {
+    ...jobs[jobs.length - 1],
+    state: odd ? odd.state : 'succeeded',
+    error: odd?.error || '',
+    counts,
+    total: jobs.reduce((n, j) => n + num(j.total), 0),
+    done: jobs.reduce((n, j) => n + num(j.done), 0),
+  }
+}
+
 export async function listJobs({ view = 'past', state = '', kind = '', before = null, limit = 30, prune = false } = {}) {
   const q = new URLSearchParams({ view })
   if (state) q.set('state', state)
@@ -304,16 +415,16 @@ export async function listJobs({ view = 'past', state = '', kind = '', before = 
   return { ok: true, jobs: list(d.jobs), running: num(d.running), waiting: num(d.waiting), more: !!d.more }
 }
 
-// findLiveJob — the reader's own job of one kind that is running or waiting, or
-// null. The screens that start a covers or a people fetch ask this first, so a
-// second press — or a press on a second device — shows the run already under way
-// instead of queueing the same work twice behind it. Own only: an admin's current
-// view holds every reader's jobs, and somebody else's fetch is not this reader's
-// progress bar.
-export async function findLiveJob(kind) {
+// findLiveJobs — the reader's own jobs of one kind that are running or waiting,
+// in the order they run (a set over one job's cap is several). The screens that
+// start a covers or a people fetch ask this first, so a second press — or a press
+// on a second device — shows the run already under way instead of queueing the
+// same work twice behind it. Own only: an admin's current view holds every
+// reader's jobs, and somebody else's fetch is not this reader's progress bar.
+export async function findLiveJobs(kind) {
   const r = await listJobs({ view: 'current', kind, limit: 0 })
-  if (!r.ok) return null
-  return r.jobs.find((j) => j.kind === kind && j.own && isLive(j)) || null
+  if (!r.ok) return []
+  return r.jobs.filter((j) => j.kind === kind && j.own && isLive(j)).sort((a, b) => (a.id || 0) - (b.id || 0))
 }
 
 export async function readJobsSummary() {
@@ -620,6 +731,12 @@ export async function followJob(id, { alive = () => true, onJob = null } = {}) {
 // useKindJob — the one run of a kind this screen shows: a covers fetch on
 // Metadata, a people fetch on its console, a backup on the Server card.
 //
+// A RUN IS USUALLY ONE JOB, and several when the set was over one job's cap
+// (startJobs) or several were found waiting. The screen draws the run as one:
+// the job in hand, with the run's done and total, and `onSettled` once, with
+// what the whole run did (mergeJobs). One job at a time is watched — the next
+// piece cannot start before the one ahead of it has finished anyway.
+//
 // IT LOOKS BEFORE IT STARTS, and — with `discover` — once when the screen opens.
 // A fetch started on the phone and still running when the reader sits down at
 // the desk is the same fetch, and the console should be drawing its progress
@@ -632,64 +749,97 @@ export async function followJob(id, { alive = () => true, onJob = null } = {}) {
 // with the running job's id is joined rather than reported, because "that one is
 // already running" is not an error to the reader who wanted it running.
 //
-// `onSettled(job)` IS CALLED ONCE PER JOB, when the job this screen is watching
-// turns final while the screen is up: the moment to reload the rows the job
-// wrote and say what it did. A job that finishes after the screen closed says so
-// in Settings › Jobs instead.
+// `onSettled(job)` IS CALLED ONCE PER RUN, when the last job of the run this
+// screen is watching turns final while the screen is up: the moment to reload the
+// rows the run wrote and say what it did. A run that finishes after the screen
+// closed says so in Settings › Jobs instead.
 export function useKindJob(kind, { discover = true, onSettled = null } = {}) {
-  const [id, setId] = useState(null)
+  const [run, setRun] = useState([])
+  const [at, setAt] = useState(0)
   const [looked, setLooked] = useState(!discover)
+  const id = run[at] ?? null
   const watched = useJob(id)
   // useJob resets on a new id one render late; a job from the last id is not
   // this one.
-  const job = watched.job && watched.job.id === id ? watched.job : null
+  const current = watched.job && watched.job.id === id ? watched.job : null
   const settle = useRef(onSettled)
   settle.current = onSettled
-  const settled = useRef(new Set())
+  // What is known of each job of the run before it is watched (the start's
+  // answer, the list's row), and each one as it finished.
+  const known = useRef(new Map())
+  const ended = useRef(new Map())
+
+  const begin = (jobs) => {
+    for (const j of jobs) if (j?.id && !known.current.get(j.id)?.state) known.current.set(j.id, j)
+    setRun(jobs.map((j) => j.id))
+    setAt(0)
+  }
 
   useEffect(() => {
     if (!discover) return undefined
     let alive = true
-    findLiveJob(kind).then((found) => {
+    findLiveJobs(kind).then((found) => {
       if (!alive) return
-      if (found) setId((cur) => cur || found.id)
+      if (found.length) {
+        setRun((cur) => {
+          if (cur.length) return cur
+          for (const j of found) known.current.set(j.id, j)
+          return found.map((j) => j.id)
+        })
+      }
       setLooked(true)
     })
     return () => { alive = false }
   }, [kind, discover])
 
   useEffect(() => {
-    if (!job || isLive(job) || settled.current.has(job.id)) return
-    settled.current.add(job.id)
-    settle.current?.(job)
+    if (!current || isLive(current) || ended.current.has(current.id)) return
+    ended.current.set(current.id, current)
+    if (at < run.length - 1) {
+      setAt(at + 1)
+      return
+    }
+    settle.current?.(mergeJobs(run.map((i) => ended.current.get(i))) || current)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [job?.id, job?.state])
+  }, [current?.id, current?.state])
+
+  // THE RUN AS ONE JOB for the screen's bar: the job in hand — its state, its
+  // place in the queue — with the run's progress, every finished piece counted
+  // whole.
+  let job = current
+  if (current && run.length > 1) {
+    let done = 0
+    let total = 0
+    run.forEach((rid, n) => {
+      const j = n === at ? current : ended.current.get(rid) || known.current.get(rid)
+      total += num(j?.total)
+      if (n < at) done += num(j?.done)
+      else if (n === at) done += num(current.done)
+    })
+    job = { ...current, done, total }
+  }
 
   async function start(params, { reuse = true } = {}) {
     if (reuse) {
-      if (job && isLive(job)) return { ok: true, job, joined: true }
-      const found = await findLiveJob(kind)
-      if (found) {
-        setId(found.id)
-        return { ok: true, job: found, joined: true }
+      if (live) return { ok: true, job, joined: true }
+      const found = await findLiveJobs(kind)
+      if (found.length) {
+        begin(found)
+        return { ok: true, job: found[0], joined: true }
       }
     }
-    const r = await startJob(kind, params)
-    if (!r.ok) {
-      if (r.jobId) {
-        setId(r.jobId)
-        return { ok: true, job: null, joined: true }
-      }
-      return r
-    }
-    if (r.job?.id) setId(r.job.id)
+    const r = await startJobs(kind, params)
+    if (!r.ok) return r
+    if (r.jobs.length) begin(r.jobs)
     return r
   }
 
   // LIVE FROM THE PRESS, not from the first read: between the answer to the POST
   // and the first poll there is an id and no job yet, and a button that
   // re-enabled for that beat would invite the second press this exists to stop.
+  // So is the beat between one piece of a run finishing and the next being read.
   // A job that cannot be read at all (it is gone) is not live.
-  const live = !!id && (job ? isLive(job) : !watched.error)
+  const more = at < run.length - 1
+  const live = !!id && (current ? isLive(current) || more : more || !watched.error)
   return { job, live, looked, start }
 }

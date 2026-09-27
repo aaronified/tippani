@@ -81,6 +81,26 @@ describe('the check', () => {
     expect(screen.getByText('Close this and it carries on — Settings › Jobs has it.')).toBeTruthy()
   })
 
+  // ONE CHECK HOLDS 500 ITEMS. The People console's re-verify sends every person
+  // it shows, and a Select all over the works can be more than that; the server
+  // refuses a bigger check whole. So the first 500 are checked — works first, as
+  // the selection lists them — and the dialog says so before anything is checked.
+  it('checks the first 500 of a bigger selection, and says so', async () => {
+    JOBS.hold('reverify')
+    const book_ids = Array.from({ length: 499 }, (_, i) => i + 1)
+    open({ selection: { book_ids, movie_ids: [7], people: [{ kind: 'author', name: 'Tagore' }] } })
+    await waitFor(() => expect(JOBS.started()).toHaveLength(1))
+    expect(JOBS.started()[0]).toEqual(['reverify', { book_ids, movie_ids: [7], people: [], fills_only: false }])
+    expect(screen.getByText('A check holds 500 at most, so this one has the first 500 of 501. Narrow the list for the rest.')).toBeTruthy()
+  })
+
+  it('says nothing about a cap over a selection within it', async () => {
+    JOBS.hold('reverify')
+    open()
+    await screen.findByRole('progressbar')
+    expect(screen.queryByText(/A check holds/)).toBeNull()
+  })
+
   it('says where it stands while it waits behind another job', async () => {
     JOBS.plan('reverify', { queued: true, ahead: 2 })
     JOBS.hold('reverify')

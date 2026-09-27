@@ -10,7 +10,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { coverImgURL } from './api.js'
 import { t } from './i18n.js'
-import { isLive, jobStateLabel, jobTitle, jobWaitingText, readJobResult, startJob, stopJob, useJob } from './jobs.js'
+import { isLive, jobStateLabel, jobTitle, jobWaitingText, limitJob, readJobResult, startJob, stopJob, useJob } from './jobs.js'
 
 import {
   ariaLabelText,
@@ -343,6 +343,9 @@ export function ReverifyFlow({ selection = null, fillsOnly: fillsOnlyProp = fals
   const [results, setResults] = useState(null) // apply results
   const [err, setErr] = useState('')
   const [checkId, setCheckId] = useState(jobId)
+  // `{kept, total}` when the selection was over what one check holds — see the
+  // start below.
+  const [capped, setCapped] = useState(null)
   const [applyId, setApplyId] = useState(null)
   const check = useJob(checkId)
   const applied = useJob(applyId)
@@ -397,15 +400,24 @@ export function ReverifyFlow({ selection = null, fillsOnly: fillsOnlyProp = fals
   // check to the fills itself, so the findings arrive already filtered. A second
   // dialog over the same selection while the first check runs gets the server's
   // "already running" with that job's id, and watches it.
+  //
+  // ONE CHECK HOLDS 500 ITEMS, and a bigger selection — every person the People
+  // console shows, a Select all over the works — is checked up to that and SAYS
+  // so, above everything else, before anything is checked. The server refuses a
+  // bigger job whole, and a refusal after the press is news the screen had before
+  // it. Not split into several checks: a check ends in one review the reader
+  // decides as a whole, and several would be several reviews.
   useEffect(() => {
     if (jobId || !selection) return
     ;(async () => {
-      const r = await startJob('reverify', {
+      const { params, kept, total } = limitJob('reverify', {
         book_ids: selection.book_ids || [],
         movie_ids: selection.movie_ids || [],
         people: selection.people || [],
         fills_only: !!fillsOnlyProp,
       })
+      if (kept < total) setCapped({ kept, total })
+      const r = await startJob('reverify', params)
       if (!alive.current) return
       const id = r.ok ? r.job?.id : r.jobId
       if (!id) {
@@ -604,6 +616,9 @@ export function ReverifyFlow({ selection = null, fillsOnly: fillsOnlyProp = fals
   const running = checkJob && checkJob.state === 'running' ? checkJob : null
   const body = (
     <div className="space-y-3">
+      {capped && phase !== 'failed' && phase !== 'done' && (
+        <p className="microcopy">{t('reverify.capped', capped)}</p>
+      )}
       {phase === 'loading' && <p className="microcopy">{t('common.state.loading')}</p>}
       {(phase === 'starting' || phase === 'checking') && (
         <>

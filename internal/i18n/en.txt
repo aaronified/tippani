@@ -4375,6 +4375,9 @@ reverify.checking.progress = checking · {done}/{total}
 # Under the checking bar. The check is a job on the server since 3.1.0, so
 # closing the dialog does not stop it — Cancel does, and asks first.
 reverify.checking.away = Close this and it carries on — Settings › Jobs has it.
+# Above the check when the selection was bigger than one check holds (500).
+# {kept} is that cap, {total} the selection's size; the rest are not checked.
+reverify.capped = A check holds {kept} at most, so this one has the first {kept} of {total}. Narrow the list for the rest.
 # The tally across the top once the checking is done.
 reverify.summary = {checked} checked · {changed} with changes · {clean} up to date
 reverify.summary.skipped = {n} skipped (no pinned id)

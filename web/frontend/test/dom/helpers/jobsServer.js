@@ -17,16 +17,18 @@
 // `const a = jobs.answer(method, path, body); if (a) return a`. By default a job
 // finishes the moment it is started (offline, a small job does); `hold(kind)`
 // keeps the next job of that kind running until `finish(id, …)` is called, and
-// `plan(kind, {counts, result, state, error})` says how the next one ends.
+// `plan(kind, {counts, result, state, error})` says how the next one ends —
+// called twice, the next two, in order (a set over one job's cap is several jobs;
+// a held job uses up its plan too, since `finish` says how it ends).
 
 const NOW = () => Date.now()
 
 export function jobsServer({ own = true } = {}) {
   const jobs = new Map() // id → job
   const results = new Map() // id → result
-  const plans = new Map() // kind → how the next job of it ends
+  const plans = new Map() // kind → how the next jobs of it end, in order
   const held = new Set() // kinds whose next job stays running
-  const refusals = [] // the next POST /jobs answers, in order
+  const refusals = [] // the next POST /jobs answers, in order: [status, data, starts to let through first]
   const calls = [] // every request this server answered: [method, path, body]
   let next = 100
 
@@ -60,8 +62,7 @@ export function jobsServer({ own = true } = {}) {
   }
 
   function start(kind, params) {
-    const plan = plans.get(kind) || {}
-    plans.delete(kind)
+    const plan = (plans.get(kind) || []).shift() || {}
     const total = plan.total ?? (params?.book_ids?.length || 0) + (params?.movie_ids?.length || 0) +
       (params?.ids?.length || 0) + (params?.people?.length || 0) + (params?.items?.length || 0)
     const j = add({ kind, params, total, state: plan.queued ? 'queued' : 'running', ahead: plan.ahead || 0, started_at: NOW(), from_job: params?.from_job ?? null })
@@ -79,7 +80,10 @@ export function jobsServer({ own = true } = {}) {
     const q = new URLSearchParams(qs)
     let a = null
     if (method === 'POST' && p === '/jobs') {
-      if (refusals.length) {
+      if (refusals.length && refusals[0][2] > 0) {
+        refusals[0][2] -= 1
+        a = ok({ job: { ...start(body.kind, body.params) } }, 202)
+      } else if (refusals.length) {
         const [status, data] = refusals.shift()
         a = { ok: false, status, data }
       } else {
@@ -125,7 +129,9 @@ export function jobsServer({ own = true } = {}) {
     started: () => calls.filter(([m, p]) => m === 'POST' && p === '/jobs').map(([, , b]) => [b.kind, b.params]),
     stops: () => calls.filter(([m, p]) => m === 'POST' && /^\/jobs\/\d+\/stop$/.test(p)).map(([, p]) => Number(p.split('/')[2])),
     hold: (kind) => held.add(kind),
-    plan: (kind, how) => plans.set(kind, how),
-    refuse: (status, data) => refusals.push([status, data]),
+    plan: (kind, how) => plans.set(kind, [...(plans.get(kind) || []), how]),
+    // `after` lets that many starts through first — the second piece of a big set
+    // refused while the first runs.
+    refuse: (status, data, { after = 0 } = {}) => refusals.push([status, data, after]),
   }
 }

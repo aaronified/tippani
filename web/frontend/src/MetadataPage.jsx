@@ -2920,6 +2920,10 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, onOpenWork = null
   // ONE AT A TIME, AND A SECOND PRESS SHOWS THE FIRST: a people fetch already
   // running (pressed on the phone, or a minute ago) is drawn instead of starting
   // another, and the console looks for one when it opens.
+  //
+  // MORE THAN ONE JOB'S WORTH (2,000 records) IS SEVERAL JOBS, drawn as one run —
+  // one bar over every row, one line at the end. A cast-heavy library has that
+  // many people missing a portrait, and the loop this replaced had no ceiling.
   const peopleJob = useKindJob('people', {
     onSettled: (job) => {
       const { ok, failed, firstError } = jobOutcome(job)
@@ -2946,7 +2950,10 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, onOpenWork = null
     setAsking(true)
     const r = await peopleJob.start({ ids: missing.map((p) => p.id) })
     setAsking(false)
+    // A refusal part-way through a run — the rest did not start — is said while
+    // the part that did start runs.
     if (!r.ok) setErr(r.error)
+    else if (r.cut) setErr(r.cut.error)
   }
   const bulk = peopleJob.live ? peopleJob.job : null
 
