@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"tippani/internal/olog"
+	"tippani/internal/outbound"
 )
 
 // browserUA is sent on Amazon requests — Amazon serves a bot wall to obvious
@@ -99,9 +100,10 @@ func FetchAmazonBook(ctx context.Context, asin, cookie, domain string) (*BookCan
 	req.Header.Set("Accept-Language", "en-US,en;q=0.9")
 	resp, err := httpClient.Do(req)
 	if err != nil {
+		err = outbound.RedactError(err)
 		// Amazon errors are swallowed by the caller (best-effort source), so a
 		// DEBUG trace is the only place they surface.
-		olog.Tracef("[meta] amazon GET %s failed: %v", target, err)
+		olog.Tracef("[meta] amazon GET %s failed: %v", outbound.Redact(target), err)
 		return nil, fmt.Errorf("amazon: %w", err)
 	}
 	defer resp.Body.Close()

@@ -22,6 +22,11 @@ func TestRedactHidesEveryProviderKeyAndNothingElse(t *testing.T) {
 		// Every name on the list, one each.
 		{"https://x.test/?apikey=1&api-key=2&token=3&access_token=4&refresh_token=5&id_token=6&client_secret=7&secret=8&password=9&passwd=10&pass=11&sig=12&signature=13&auth=14&code=15",
 			"https://x.test/?apikey=…&api-key=…&token=…&access_token=…&refresh_token=…&id_token=…&client_secret=…&secret=…&password=…&passwd=…&pass=…&sig=…&signature=…&auth=…&code=…"},
+		// A presigned storage link pasted as a cover, both clouds.
+		{"https://b.s3.amazonaws.com/c.png?X-Amz-Algorithm=AWS4&X-Amz-Credential=AK%2F1&X-Amz-Signature=ab12&X-Amz-Security-Token=st",
+			"https://b.s3.amazonaws.com/c.png?X-Amz-Algorithm=AWS4&X-Amz-Credential=…&X-Amz-Signature=…&X-Amz-Security-Token=…"},
+		{"https://storage.googleapis.com/b/c.png?X-Goog-Credential=sa%2F1&X-Goog-Signature=cd34&X-Goog-Expires=60",
+			"https://storage.googleapis.com/b/c.png?X-Goog-Credential=…&X-Goog-Signature=…&X-Goog-Expires=60"},
 		// cx is an engine id, which a reader needs to see.
 		{"https://customsearch.googleapis.com/customsearch/v1?cx=engine42&q=dune&key=k",
 			"https://customsearch.googleapis.com/customsearch/v1?cx=engine42&q=dune&key=…"},

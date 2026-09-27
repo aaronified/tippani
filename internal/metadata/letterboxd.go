@@ -43,6 +43,7 @@ import (
 	"unicode"
 
 	"tippani/internal/olog"
+	"tippani/internal/outbound"
 )
 
 const defaultLetterboxdBase = "https://letterboxd.com"
@@ -120,7 +121,7 @@ func LetterboxdDetails(ctx context.Context, title string) (*MovieDetails, error)
 	req.Header.Set("Accept-Language", "en-US,en;q=0.9")
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		olog.Tracef("[meta] letterboxd %s: %v", slug, err)
+		olog.Tracef("[meta] letterboxd %s: %v", slug, outbound.RedactError(err))
 		return nil, nil
 	}
 	defer resp.Body.Close()

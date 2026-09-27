@@ -23,6 +23,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 
@@ -90,5 +91,43 @@ func TestImageFetchIsOfflineGated(t *testing.T) {
 	}
 	if got := hits.Load(); got != 1 {
 		t.Fatalf("switch on: the stub was asked %d times — an image fetch went out anyway", got)
+	}
+}
+
+// A FAILED LOOKUP SAYS WHICH CALL FAILED, AND NOT WITH WHAT KEY. net/http quotes
+// the whole URL in the error it returns, and these errors go on up to handlers
+// that print them to stdout and stderr, which the log's own redaction never sees.
+// Offline, every one of these fails at the gate, so the errors are the real
+// clients' own, from the real URLs the providers build: Google Books' key= and
+// TMDB v3's api_key=, and a pasted cover address presigned for a private bucket.
+func TestAFailedLookupsErrorNamesTheCallButNotItsKey(t *testing.T) {
+	t.Setenv(outbound.EnvVar, "1")
+	ctx := context.Background()
+	const googleKey, tmdbKey, bucketSig = "AIzaGoogleSecret51", "0f1e2d3c4b5a69788796a5b4c3d2e1f0", "bucketsig77"
+
+	_, gErr := SearchBooks(ctx, "", "Dune", "", googleKey)
+	_, vErr := FetchGoogleVolume(ctx, "vol42", googleKey)
+	_, tErr := (&TMDB{Key: tmdbKey}).Search(ctx, "Dune", 0)
+	_, cErr := FetchUserImage(ctx, "https://shelf.s3.amazonaws.com/c.png?X-Amz-Signature="+bucketSig, t.TempDir())
+	for _, c := range []struct {
+		name  string
+		err   error
+		call  string // what the error still says, so it is still worth reading
+		naked string
+	}{
+		{"a Google Books search", gErr, "googleapis.com/books/v1/volumes", googleKey},
+		{"a pinned Google volume", vErr, "googleapis.com/books/v1/volumes/vol42?key=…", googleKey},
+		{"a TMDB v3 search", tErr, "api.themoviedb.org/3/search/movie", tmdbKey},
+		{"a pasted presigned cover", cErr, "shelf.s3.amazonaws.com/c.png?X-Amz-Signature=…", bucketSig},
+	} {
+		if c.err == nil {
+			t.Fatalf("%s: offline, and it did not fail", c.name)
+		}
+		if !errors.Is(c.err, outbound.ErrOffline) {
+			t.Errorf("%s: %v no longer unwraps to ErrOffline", c.name, c.err)
+		}
+		if msg := c.err.Error(); strings.Contains(msg, c.naked) || !strings.Contains(msg, c.call) {
+			t.Errorf("%s failed with %q: want the call named (%s) and the secret gone", c.name, msg, c.call)
+		}
 	}
 }

@@ -117,7 +117,7 @@ func getJSON(ctx context.Context, url string, into any) error {
 	client := &http.Client{Timeout: 8 * time.Second, Transport: outbound.Transport(nil)}
 	resp, err := client.Do(req)
 	if err != nil {
-		return err
+		return outbound.RedactError(err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {

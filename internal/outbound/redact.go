@@ -1,6 +1,7 @@
 package outbound
 
 import (
+	"errors"
 	"net/url"
 	"regexp"
 	"strings"
@@ -17,19 +18,34 @@ import (
 //
 // IT LIVES HERE, NOT IN THE LOGBOOK, because this package is the leaf every
 // outward call already passes through and every logger can import: the jobs
-// package's one door for log text uses it, and metadata's own trace lines are to
-// join it (its redactURL is the older, two-name copy of this list), so there is
-// one list and not three.
+// package's one door for log text uses it, the outbound hook's own lines use it,
+// and so do metadata's trace lines, which had a two-name copy of their own
+// (redactURL) until it was folded in here. One list, and not three.
 
 // secretParams are the query names whose values never reach a log. Compared
 // case-insensitively. cx is deliberately absent: it is a Custom Search engine id,
 // not a secret, and the one thing a reader debugging a search needs to see.
+//
+// WHICH PROVIDER PUTS WHAT WHERE, read at every outward call site (internal/
+// metadata, internal/updater, internal/auth, httpapi's notify.go): Google Books
+// sends key= and TMDB v3 sends api_key= in the query. Everything else travels
+// outside the URL: IGDB's client_secret and TheTVDB's key in a POST body,
+// Pushover's token in a form body, the OIDC client secret in a Basic header or a
+// form body, TMDB v4 and TheTVDB's session token in an Authorization header. No
+// Custom Search client exists yet; its key= is covered by the first name.
+//
+// The last five names are the one URL here that nobody in this repo builds: a
+// cover, poster or portrait address a reader pastes in, which the server then
+// fetches. A presigned S3 or Google Cloud Storage link carries its credential
+// under these names, and the link is somebody's private bucket.
 var secretParams = map[string]bool{
 	"key": true, "api_key": true, "apikey": true, "api-key": true,
 	"token": true, "access_token": true, "refresh_token": true, "id_token": true,
 	"client_secret": true, "secret": true,
 	"password": true, "passwd": true, "pass": true,
 	"sig": true, "signature": true, "auth": true, "code": true,
+	"x-amz-signature": true, "x-amz-credential": true, "x-amz-security-token": true,
+	"x-goog-signature": true, "x-goog-credential": true,
 }
 
 // hidden is what a secret's value becomes. One character that cannot be mistaken
@@ -128,4 +144,22 @@ func RedactText(s string) string {
 		return s
 	}
 	return urlShaped.ReplaceAllStringFunc(s, Redact)
+}
+
+// RedactError hides the secrets in the URL of the *url.Error inside err, if there
+// is one, and returns err. net/http's client wraps every failed call in one that
+// quotes the whole URL — `Get "https://…&key=AIza…": dial tcp …` — and that text
+// then goes wherever the error goes: a trace line, a handler's [warn], stdout and
+// stderr, a reader's 502 message. The logbook's door redacts what it keeps, but
+// stdout and stderr never pass it, so the key has to go from the error itself,
+// where the client made it.
+//
+// The *url.Error is changed in place. It is the one the client just built for
+// this call, and nobody else holds it.
+func RedactError(err error) error {
+	var ue *url.Error
+	if errors.As(err, &ue) {
+		ue.URL = Redact(ue.URL)
+	}
+	return err
 }

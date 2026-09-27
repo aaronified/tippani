@@ -35,6 +35,7 @@ import (
 	"strings"
 
 	"tippani/internal/olog"
+	"tippani/internal/outbound"
 )
 
 var googleScrapeBase = "https://www.google.com"
@@ -103,7 +104,7 @@ func GoogleImageScrape(ctx context.Context, query string, enabled bool, n int) (
 	req.Header.Set("Cookie", "CONSENT=YES+; SOCS=CAESHAgBEhJnd3NfMjAyNDA4MTUtMF9SQzIaAmVuIAEaBgiA_LyaBg")
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		olog.Tracef("[meta] google image scrape failed: %v", err)
+		olog.Tracef("[meta] google image scrape failed: %v", outbound.RedactError(err))
 		return nil, "google could not be reached"
 	}
 	defer resp.Body.Close()

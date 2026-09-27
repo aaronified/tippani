@@ -13,6 +13,7 @@ import (
 	"sync"
 
 	"tippani/internal/olog"
+	"tippani/internal/outbound"
 )
 
 const tvdbBase = "https://api4.thetvdb.com/v4"
@@ -75,6 +76,7 @@ func (t *TVDB) login(ctx context.Context) error {
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := httpClient.Do(req)
 	if err != nil {
+		err = outbound.RedactError(err)
 		olog.Tracef("[meta] tvdb POST /login failed: %v", err)
 		return fmt.Errorf("tvdb: %w", err)
 	}

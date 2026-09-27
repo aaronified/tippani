@@ -110,7 +110,7 @@ func (s *Server) pushover(ctx context.Context, n notifySettings, title, message 
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	resp, err := pushoverClient.Do(req)
 	if err != nil {
-		return err
+		return outbound.RedactError(err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {

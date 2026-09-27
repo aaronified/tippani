@@ -196,7 +196,9 @@ func fetchImage(ctx context.Context, rawURL, destDir string, anyHost bool) (stri
 	req.Header.Set("User-Agent", userAgent)
 	resp, err := client.Do(req)
 	if err != nil {
-		olog.Tracef("[meta] image GET %s failed: %v", u.String(), err)
+		// A reader's pasted address may be a presigned link to their own bucket.
+		err = outbound.RedactError(err)
+		olog.Tracef("[meta] image GET %s failed: %v", outbound.Redact(u.String()), err)
 		return "", fmt.Errorf("cover fetch: %w", err)
 	}
 	defer resp.Body.Close()

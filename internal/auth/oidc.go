@@ -102,7 +102,7 @@ func (o *OIDC) discovery(ctx context.Context) (*oidcDiscovery, error) {
 	}
 	resp, err := o.client().Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("oidc discovery: %w", err)
+		return nil, fmt.Errorf("oidc discovery: %w", outbound.RedactError(err))
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
@@ -211,7 +211,7 @@ func (o *OIDC) Finish(ctx context.Context, l OIDCLogin, code string) (Claims, er
 	}
 	resp, err := o.client().Do(req)
 	if err != nil {
-		return Claims{}, fmt.Errorf("oidc token: %w", err)
+		return Claims{}, fmt.Errorf("oidc token: %w", outbound.RedactError(err))
 	}
 	defer resp.Body.Close()
 	var tok struct {
