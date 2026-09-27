@@ -4,8 +4,10 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"image"
 	_ "image/gif"  // register decoders: coverWidth reads stored art headers
 	_ "image/jpeg" //
@@ -513,8 +515,6 @@ func (s *Server) coversWorkload(uid int64) (int, error) {
 // also keep each HTTP request short, so proxy timeouts and tab navigation
 // can no longer silently abort a long run.
 func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-
 	var req struct {
 		Cursor string `json:"cursor"`
 		Limit  int    `json:"limit"`
@@ -528,17 +528,67 @@ func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
 	if req.Limit <= 0 || req.Limit > 100 {
 		req.Limit = 20
 	}
+	uid := userID(r)
+	// A failed read is logged by providerKeys, rather than the refetch silently
+	// proceeding as if no key or cookie were configured; it goes on with what was
+	// read. It asks no film supplier: a poster is fetched from the address cached
+	// when the film was added.
+	keys, _ := s.providerKeys()
+	c, err := s.coversRefetchChunk(r.Context(), uid, req.Cursor, req.Limit, req.MissingOnly, keys)
+	if err != nil {
+		if ref, ok := asRefusal(err); ok {
+			writeErr(w, ref.status, ref.msg)
+			return
+		}
+		internalError(w, r, "covers refetch", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"fetched": c.fetched, "failed": c.failed, "enriched": c.enriched, "skipped": c.skipped,
+		"next_cursor": c.next, "done": c.next == "", "total": c.total, "remaining": c.remaining,
+	})
+	// The LAST chunk of a run is the only one that knows the run is over; the
+	// per-chunk counts are the client's to sum, so the message names the run's
+	// size rather than a total this request never saw.
+	if c.next == "" && c.total >= notifyFetchMin {
+		s.notifyAfter(w, r, uid, "fetch", coversDoneTitle, coversDoneMessage(c.total))
+	}
+}
+
+// What a covers pass that walked at least notifyFetchMin works says when it ends,
+// whether the chunked route or the covers job walked it.
+const coversDoneTitle = "Metadata fetch finished"
+
+func coversDoneMessage(total int) string {
+	return "Covers and details checked for " + countOf(total, "work", "works") + "."
+}
+
+// coversChunk is one stretch of a covers pass: what it did, and where the next
+// stretch starts ("" when the pass is over).
+type coversChunk struct {
+	fetched, enriched, failed, skipped int
+	next                               string
+	// total is the whole pass's workload at this instant; remaining is how much
+	// of it the stretches after this one will still see.
+	total, remaining int
+}
+
+// coversRefetchChunk walks up to limit of uid's works after cursor, as
+// POST /covers/refetch describes, and fills what each is missing. The chunked
+// route calls it once per request; the covers job calls it one work at a time,
+// so a Stop lands after the work in hand. An unreadable cursor is a *refusal.
+func (s *Server) coversRefetchChunk(ctx context.Context, uid int64, cursor string, limit int, missingOnly bool, keys providerKeys) (coversChunk, error) {
+	var c coversChunk
 	phase, after := "books", int64(0)
-	if c := strings.TrimSpace(req.Cursor); c != "" {
-		p, aStr, ok := strings.Cut(c, ":")
+	if cur := strings.TrimSpace(cursor); cur != "" {
+		p, aStr, ok := strings.Cut(cur, ":")
 		a, perr := strconv.ParseInt(aStr, 10, 64)
 		if !ok || perr != nil || (p != "books" && p != "movies") {
-			writeErr(w, http.StatusBadRequest, "invalid cursor")
-			return
+			return c, badParams("invalid cursor")
 		}
 		phase, after = p, a
 	}
-	olog.Tracef("[meta] handleCoversRefetch phase=%v after=%v limit=%v missing_only=%v", phase, after, req.Limit, req.MissingOnly)
+	olog.Tracef("[meta] covers refetch phase=%v after=%v limit=%v missing_only=%v", phase, after, limit, missingOnly)
 
 	// total is the full workload at this instant (all books get a backfill
 	// pass; sourced movies get a poster pass — missing or low-res). The client
@@ -546,19 +596,12 @@ func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
 	// THE CALLER'S OWN LIBRARY ONLY. The route is admin-gated, and that gate once
 	// read as licence to walk every account's shelf; an admin never touches
 	// another reader's rows, so every query below is scoped like any other.
-	uid := userID(r)
 	const movieWhere = coversMovieWhere
 	total, err := s.coversWorkload(uid)
 	if err != nil {
-		internalError(w, r, "count refetch total", err)
-		return
+		return c, fmt.Errorf("count refetch total: %w", err)
 	}
-
-	// A failed read is logged by providerKeys, rather than the refetch silently
-	// proceeding as if no key or cookie were configured; it goes on with what was
-	// read. It asks no film supplier: a poster is fetched from the address cached
-	// when the film was added.
-	keys, _ := s.providerKeys()
+	c.total = total
 	gkey, cookie, domain := keys.googleBooks, keys.amazonCookie, keys.amazonDomain
 
 	type bookRow struct {
@@ -574,10 +617,9 @@ func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
 	rows, err := s.Store.DB.Query(`SELECT id, user_id, title, COALESCE(author,''), COALESCE(isbn,''), COALESCE(asin,''),
 		COALESCE(cover_path,''), COALESCE(source_metadata,''),
 		(SELECT COUNT(*) FROM book_genres bg WHERE bg.book_id = books.id)
-		FROM books WHERE user_id = ? AND ? = 'books' AND id > ? ORDER BY id LIMIT ?`, uid, phase, after, req.Limit)
+		FROM books WHERE user_id = ? AND ? = 'books' AND id > ? ORDER BY id LIMIT ?`, uid, phase, after, limit)
 	if err != nil {
-		internalError(w, r, "query books", err)
-		return
+		return c, fmt.Errorf("query books: %w", err)
 	}
 	for rows.Next() {
 		var b bookRow
@@ -692,7 +734,7 @@ func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
 		if b.cover != "" {
 			oldW = s.coverWidth(b.cover)
 		}
-		lowRes := !req.MissingOnly && b.cover != "" && oldW > 0 && oldW < lowResCoverWidth
+		lowRes := !missingOnly && b.cover != "" && oldW > 0 && oldW < lowResCoverWidth
 		if b.cover == "" || lowRes {
 			var urls []string
 			// Amazon's ISBN-10 image CDN is keyless and serves the full-size
@@ -759,7 +801,7 @@ func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
 	var movies []movieTarget
 	mScanned := 0 // chunk fullness = rows scanned, not posters found
 	mrows, err := s.Store.DB.Query(`SELECT id, COALESCE(poster_path, ''), COALESCE(source_metadata, '') FROM movies
-		WHERE `+movieWhere+` AND ? = 'movies' AND id > ? ORDER BY id LIMIT ?`, uid, phase, after, req.Limit)
+		WHERE `+movieWhere+` AND ? = 'movies' AND id > ? ORDER BY id LIMIT ?`, uid, phase, after, limit)
 	if err == nil {
 		for mrows.Next() {
 			var id int64
@@ -781,7 +823,7 @@ func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
 			if poster != "" {
 				oldW = s.coverWidth(poster)
 			}
-			if poster == "" || (!req.MissingOnly && oldW > 0 && oldW < lowResCoverWidth) {
+			if poster == "" || (!missingOnly && oldW > 0 && oldW < lowResCoverWidth) {
 				movies = append(movies, movieTarget{id, metadata.TMDBPosterURL(meta.PosterPath), poster, oldW})
 			}
 		}
@@ -817,13 +859,13 @@ func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
 	next := ""
 	switch phase {
 	case "books":
-		if len(books) == req.Limit {
+		if len(books) == limit {
 			next = "books:" + strconv.FormatInt(lastID, 10)
 		} else {
 			next = "movies:0"
 		}
 	case "movies":
-		if mScanned == req.Limit {
+		if mScanned == limit {
 			next = "movies:" + strconv.FormatInt(lastID, 10)
 		}
 	}
@@ -845,15 +887,7 @@ func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	writeJSON(w, http.StatusOK, map[string]any{
-		"fetched": fetched, "failed": failed, "enriched": enriched, "skipped": skipped,
-		"next_cursor": next, "done": next == "", "total": total, "remaining": remaining,
-	})
-	// The LAST chunk of a run is the only one that knows the run is over; the
-	// per-chunk counts are the client's to sum, so the message names the run's
-	// size rather than a total this request never saw.
-	if next == "" && total >= notifyFetchMin {
-		s.notifyAfter(w, r, uid, "fetch", "Metadata fetch finished",
-			"Covers and details checked for "+countOf(total, "work", "works")+".")
-	}
+	c.fetched, c.enriched, c.failed, c.skipped = fetched, enriched, failed, skipped
+	c.next, c.remaining = next, remaining
+	return c, nil
 }
