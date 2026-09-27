@@ -52,8 +52,11 @@ var jobKinds = map[string]string{
 	"PUT /people/id/{id}":        "person.save",
 	"PUT /characters/{id}/image": "character.save",
 
-	// The loops the screens still drive one request at a time. Named as the
-	// queued kinds that replace them are, so the two read alike in Past jobs.
+	// The chunked routes an API caller loops, which the app's own Fill gaps and
+	// Fetch covers stopped looping in 3.1.0, and the single apply the field-offers
+	// panel sends when a reader takes a supplier's value for one work. Named as
+	// the queued kinds that replaced the screens' loops are, so the two read alike
+	// in Past jobs.
 	"POST /metadata/fill":           "fill",
 	"POST /covers/refetch":          "covers",
 	"POST /metadata/reverify/apply": "reverify-apply",
