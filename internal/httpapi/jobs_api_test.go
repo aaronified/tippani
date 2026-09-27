@@ -570,6 +570,34 @@ func TestAReaderSeesOnlyTheirOwnJobsAndAnAdminSeesEveryonesUnderTheirName(t *tes
 		t.Fatalf("bob's job as bob sees it: %+v", own)
 	}
 	bob.mustDo("GET", fmt.Sprintf("/jobs/%d/result", job.ID), nil, http.StatusOK)
+
+	// While bob's job runs and another of his waits, carol's phone tile and her
+	// current jobs hold nothing of his: no running job, no count.
+	running := bob.mustStart("test.hold", map[string]any{"tag": "bob's running", "subject": "Bob's Library"})
+	bob.waitJob(running.ID, "running")
+	waiting := bob.mustStart("test.hold", map[string]any{"tag": "bob's waiting"})
+	type summary struct {
+		Running *wireJob `json:"running"`
+		Waiting int      `json:"waiting"`
+	}
+	if s := decode[summary](t, carol.mustDo("GET", "/jobs/summary", nil, http.StatusOK)); s.Running != nil || s.Waiting != 0 {
+		t.Fatalf("carol's summary while bob's jobs run and wait: %+v", s)
+	}
+	if cur := carol.jobs("view=current"); len(cur.Jobs) != 0 || cur.Running != 0 || cur.Waiting != 0 {
+		t.Fatalf("carol's current jobs while bob's run and wait: %+v", cur)
+	}
+	// Bob's own, and the admin's view of everybody's, do hold them.
+	if s := decode[summary](t, bob.mustDo("GET", "/jobs/summary", nil, http.StatusOK)); s.Running == nil || s.Running.ID != running.ID || s.Waiting != 1 {
+		t.Fatalf("bob's summary: %+v", s)
+	}
+	if s := decode[summary](t, alice.mustDo("GET", "/jobs/summary", nil, http.StatusOK)); s.Running == nil || s.Running.ID != running.ID ||
+		s.Running.Username != "bob" || s.Waiting != 1 {
+		t.Fatalf("the admin's summary: %+v", s)
+	}
+	for _, j := range []wireJob{waiting, running} {
+		bob.mustDo("POST", fmt.Sprintf("/jobs/%d/stop", j.ID), nil, http.StatusOK)
+		bob.waitJob(j.ID, "stopped")
+	}
 }
 
 func TestAnAdminStopsAReadersJobAndAReaderCannotStopAnothers(t *testing.T) {
