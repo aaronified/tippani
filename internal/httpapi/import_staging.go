@@ -6,11 +6,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 
 	"tippani/internal/importer"
+	"tippani/internal/jobs"
 	"tippani/internal/metadata"
 	"tippani/internal/olog"
 	"tippani/internal/store"
@@ -100,7 +103,7 @@ func (s *Server) stageBooks(w http.ResponseWriter, r *http.Request, source, file
 		if err != nil {
 			var ce importClientError
 			if errors.As(err, &ce) {
-				writeErr(w, http.StatusBadRequest, ce.msg)
+				importRefused(w, r, ce.msg)
 			} else {
 				codedError(w, r, olog.CodeImportStage, "stage books: quotes", err)
 			}
@@ -185,7 +188,7 @@ func (s *Server) stageMovies(w http.ResponseWriter, r *http.Request, source, fil
 		if err != nil {
 			var ce importClientError
 			if errors.As(err, &ce) {
-				writeErr(w, http.StatusBadRequest, ce.msg)
+				importRefused(w, r, ce.msg)
 			} else {
 				codedError(w, r, olog.CodeImportStage, "stage titles: quotes", err)
 			}
@@ -240,6 +243,11 @@ func (s *Server) replyStaged(w http.ResponseWriter, r *http.Request, source stri
 	if err != nil {
 		olog.Warnf(olog.CodeImportRowScan, "[import] pending count after staging: %v", err)
 	}
+	noteJob(r, jobs.LevelInfo, "staged %s from %s as batch %d; %d waiting in the queue to be approved",
+		countOf(staged, "quote", "quotes"), countOf(len(works), "work", "works"), batchID, pending)
+	if counted := importCounted(extra); counted != "" {
+		noteJob(r, jobs.LevelInfo, "the format counted, beside the quotes: %s", counted)
+	}
 	reply := map[string]any{
 		"source":              source,
 		"batch_id":            batchID,
@@ -256,6 +264,20 @@ func (s *Server) replyStaged(w http.ResponseWriter, r *http.Request, source stri
 		s.notifyAfter(w, r, userID(r), "import", "Import ready to review",
 			countOf(staged, "quote", "quotes")+" waiting in the import queue.")
 	}
+}
+
+// importCounted is what a format counted beside the quotes it staged (a Kindle
+// file's bookmarks and merged notes, Readest's unmapped colours), as a line for
+// the import's log: "bookmarks skipped 3, notes merged 1". Only the counts that
+// are not zero, in name order so the line reads the same every time.
+func importCounted(extra map[string]any) string {
+	var parts []string
+	for _, k := range slices.Sorted(maps.Keys(extra)) {
+		if n, ok := extra[k].(int); ok && n != 0 {
+			parts = append(parts, fmt.Sprintf("%s %d", strings.ReplaceAll(k, "_", " "), n))
+		}
+	}
+	return strings.Join(parts, ", ")
 }
 
 func insertImportBatch(tx *sql.Tx, uid int64, source, filename string, extra map[string]any) (int64, error) {

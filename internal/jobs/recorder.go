@@ -11,7 +11,9 @@ import (
 // Recorder is where a line goes when something looks outward: the queued job it
 // is part of (the runner's *Job), or the request it is part of (*Lazy). The outbound hook and
 // the queued kinds' item loops write lines; handlers only name a subject — the
-// title, ISBN or name a reader typed — and never write prose into a job.
+// title, ISBN or name a reader typed — and never write prose into a job. The one
+// exception is an import, whose request looks outward for nothing: it says what
+// it read the file as and what it staged, since nothing else would.
 type Recorder interface {
 	Log(level, format string, args ...any)
 	Subject(s string)

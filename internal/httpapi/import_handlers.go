@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"tippani/internal/importer"
+	"tippani/internal/jobs"
 	"tippani/internal/metadata"
 	"tippani/internal/store"
 )
@@ -31,12 +32,36 @@ const maxImportBody = 5 << 20
 // to one, and the reader's "Read this as…" override needs a way to name a format
 // — but they no longer each own their own flow. importSources (import_auto.go) is
 // the single table they and the sniffer both go through.
+//
+// AN IMPORT IS KEPT AS A JOB, IN ITS REQUEST (jobs.Begin, named by the file). It
+// is one sub-second request that stages and writes nothing to the library, so it
+// needs no queue; but it is something a reader did that is worth finding again
+// in Settings › Jobs, and it looks outward for nothing, so no line would reach
+// its log on its own. It says what it knows as it goes: what it read the file as
+// (or what the file turned out to be), what it staged and under which batch,
+// what the format counted beside the quotes, and why it refused a file.
 func (s *Server) importRoute(w http.ResponseWriter, r *http.Request, source string) {
 	data, filename, ok := readUpload(w, r)
 	if !ok {
 		return
 	}
+	jobs.Begin(r.Context(), "import", filename)
+	noteJob(r, jobs.LevelInfo, "read as %s, the format its route names", source)
 	importSources[source](s, w, r, data, filename)
+}
+
+// noteJob adds a line to the job r is part of, when it is part of one.
+func noteJob(r *http.Request, level, format string, args ...any) {
+	if rec := jobs.From(r.Context()); rec != nil {
+		rec.Log(level, format, args...)
+	}
+}
+
+// importRefused answers an upload that will not be staged, because of the file,
+// with a 400, and says why in the import's log.
+func importRefused(w http.ResponseWriter, r *http.Request, msg string) {
+	noteJob(r, jobs.LevelWarn, "not imported: %s", msg)
+	writeErr(w, http.StatusBadRequest, msg)
 }
 
 func (s *Server) handleImportMarkdown(w http.ResponseWriter, r *http.Request) {
@@ -56,7 +81,7 @@ func (s *Server) stageMarkdownBytes(w http.ResponseWriter, r *http.Request, data
 	if importer.MarkdownKind(data) == importer.KindAnthology {
 		an, err := importer.AnthologyMarkdown(bytes.NewReader(data))
 		if err != nil {
-			writeErr(w, http.StatusBadRequest, err.Error())
+			importRefused(w, r, err.Error())
 			return
 		}
 		s.stageQuotesFile(w, r, importer.SourceMarkdown, filename, an.Entries)
@@ -65,11 +90,11 @@ func (s *Server) stageMarkdownBytes(w http.ResponseWriter, r *http.Request, data
 	if importer.MarkdownKind(data) == importer.KindQuotes {
 		us, err := importer.QuoteMarkdownAll(bytes.NewReader(data))
 		if err != nil {
-			writeErr(w, http.StatusBadRequest, err.Error())
+			importRefused(w, r, err.Error())
 			return
 		}
 		if len(us) == 0 {
-			writeErr(w, http.StatusBadRequest, "no quotes found in file")
+			importRefused(w, r, "no quotes found in file")
 			return
 		}
 		s.stageQuotesFile(w, r, importer.SourceMarkdown, filename, us)
@@ -78,11 +103,11 @@ func (s *Server) stageMarkdownBytes(w http.ResponseWriter, r *http.Request, data
 	if importer.LooksLikeMovieMarkdown(data) {
 		results, err := importer.MovieMarkdownAll(bytes.NewReader(data))
 		if err != nil {
-			writeErr(w, http.StatusBadRequest, err.Error())
+			importRefused(w, r, err.Error())
 			return
 		}
 		if len(results) == 0 {
-			writeErr(w, http.StatusBadRequest, "no titles found in file")
+			importRefused(w, r, "no titles found in file")
 			return
 		}
 		s.stageMovies(w, r, importer.SourceMarkdown, filename, results, nil)
@@ -90,11 +115,11 @@ func (s *Server) stageMarkdownBytes(w http.ResponseWriter, r *http.Request, data
 	}
 	results, err := importer.MarkdownAll(bytes.NewReader(data))
 	if err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		importRefused(w, r, err.Error())
 		return
 	}
 	if len(results) == 0 {
-		writeErr(w, http.StatusBadRequest, "no books found in file")
+		importRefused(w, r, "no books found in file")
 		return
 	}
 	s.stageBooks(w, r, importer.SourceMarkdown, filename, results, nil)
@@ -144,7 +169,7 @@ func (s *Server) stageKindleNotebookBytes(w http.ResponseWriter, r *http.Request
 func (s *Server) stageReadestJSONBytes(w http.ResponseWriter, r *http.Request, data []byte, filename string) {
 	res, stats, err := importer.ReadestJSON(bytes.NewReader(data))
 	if err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		importRefused(w, r, err.Error())
 		return
 	}
 	s.stageBooks(w, r, importer.SourceReadestJSON, filename, []*importer.Result{res}, map[string]any{
@@ -165,11 +190,11 @@ func (s *Server) handleImportKindleClippings(w http.ResponseWriter, r *http.Requ
 func (s *Server) stageKindleClippingsBytes(w http.ResponseWriter, r *http.Request, data []byte, filename string) {
 	results, stats, err := importer.KindleClippings(bytes.NewReader(data))
 	if err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		importRefused(w, r, err.Error())
 		return
 	}
 	if len(results) == 0 {
-		writeErr(w, http.StatusBadRequest, "no books found in file")
+		importRefused(w, r, "no books found in file")
 		return
 	}
 	s.stageBooks(w, r, importer.SourceKindleClippings, filename, results, map[string]any{
@@ -197,7 +222,7 @@ func (s *Server) stageOneBook(w http.ResponseWriter, r *http.Request, source str
 
 	res, err := parse(bytes.NewReader(data))
 	if err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		importRefused(w, r, err.Error())
 		return
 	}
 	s.stageBooks(w, r, source, filename, []*importer.Result{res}, nil)

@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"tippani/internal/importer"
+	"tippani/internal/jobs"
 	"tippani/internal/olog"
 )
 
@@ -128,19 +129,24 @@ func (s *Server) handleImportAuto(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	// Kept as a job whether it stages or not: a file refused is as worth finding
+	// again as one staged (importRoute says why an import is a job at all).
+	jobs.Begin(r.Context(), "import", filename)
 	// The reader has asserted a format. Their answer outranks the sniffer's, which
 	// is the whole point of offering it — but an unknown slug is a client bug, not
 	// a file problem, and saying so beats silently sniffing instead.
 	if as := r.FormValue("as"); as != "" {
 		stage, known := importSources[as]
 		if !known {
-			writeErr(w, http.StatusBadRequest, "unknown import source: "+as)
+			importRefused(w, r, "unknown import source: "+as)
 			return
 		}
+		noteJob(r, jobs.LevelInfo, "read as %s, the format the reader chose", as)
 		stage(s, w, r, data, filename)
 		return
 	}
 	if source := importer.Detect(data); source != "" {
+		noteJob(r, jobs.LevelInfo, "read as %s, the format the file says it is", source)
 		importSources[source](s, w, r, data, filename)
 		return
 	}
@@ -148,20 +154,40 @@ func (s *Server) handleImportAuto(w http.ResponseWriter, r *http.Request) {
 	// answering "unrecognised" to a backup archive, or to the app's own export
 	// (which is a zip), is a worse failure than the wall of cards was.
 	if miss := importer.NearMiss(data); miss != "" {
+		noteJob(r, jobs.LevelWarn, "not imported: the file is %s, not highlights or quotes", importNearMissNoun(miss))
 		writeErrDetail(w, http.StatusBadRequest, importNearMissMessage(miss),
 			map[string]any{"near_miss": miss})
 		return
 	}
 	for _, source := range importProbeOrder {
 		if importProbes[source](data) {
+			noteJob(r, jobs.LevelInfo, "read as %s: the file names no format, and that reader was the first to take it", source)
 			importSources[source](s, w, r, data, filename)
 			return
 		}
 	}
 	olog.Warnf(olog.CodeImportUnknown, "[import] no parser claimed %q (%d bytes)", filename, len(data))
+	noteJob(r, jobs.LevelWarn, "not imported: no reader could tell what the file is (%d bytes, %s)", len(data), olog.CodeImportUnknown)
 	writeErrDetail(w, http.StatusBadRequest,
 		"could not tell what this file is — pick a format with “Read this as…”",
 		map[string]any{"near_miss": ""})
+}
+
+// importNearMissNoun names what a near miss is, for the import's log.
+func importNearMissNoun(miss string) string {
+	switch miss {
+	case "backup":
+		return "a Tippani backup"
+	case "zip":
+		return "a zip archive"
+	case "epub":
+		return "a book"
+	case "image":
+		return "an image"
+	case "font":
+		return "a typeface"
+	}
+	return "a file that is not text"
 }
 
 // importNearMissMessage says what the file actually is. The client draws its own

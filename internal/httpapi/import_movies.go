@@ -30,7 +30,7 @@ func (s *Server) handleImportIMDb(w http.ResponseWriter, r *http.Request) {
 func (s *Server) stageIMDbBytes(w http.ResponseWriter, r *http.Request, data []byte, filename string) {
 	res, err := importer.IMDbQuotes(bytes.NewReader(data))
 	if err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		importRefused(w, r, err.Error())
 		return
 	}
 	s.stageMovies(w, r, importer.SourceIMDb, filename, []*importer.MovieResult{res}, nil)

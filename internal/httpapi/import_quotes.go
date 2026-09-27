@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"tippani/internal/importer"
+	"tippani/internal/jobs"
 	"tippani/internal/metadata"
 	"tippani/internal/olog"
 	"tippani/internal/store"
@@ -63,7 +64,7 @@ func (s *Server) stageQuotesFile(w http.ResponseWriter, r *http.Request, source,
 	if err != nil {
 		var ce importClientError
 		if errors.As(err, &ce) {
-			writeErr(w, http.StatusBadRequest, ce.msg)
+			importRefused(w, r, ce.msg)
 		} else {
 			codedError(w, r, olog.CodeImportStage, "stage quotes: rows", err)
 		}
@@ -77,6 +78,8 @@ func (s *Server) stageQuotesFile(w http.ResponseWriter, r *http.Request, source,
 	if err != nil {
 		olog.Warnf(olog.CodeImportRowScan, "[import] pending count after staging quotes: %v", err)
 	}
+	noteJob(r, jobs.LevelInfo, "staged %s as batch %d; %d waiting in the queue to be approved",
+		countOf(staged, "quote", "quotes"), batchID, pending)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"source":   source,
 		"batch_id": batchID,
