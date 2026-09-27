@@ -33,8 +33,9 @@ import (
 // THE ROWS ARE READ ON THE LIBRARY POOL, like every other read. The queue writes
 // a queued job's row there too, synchronously, so a job is in the table by the
 // time POST /jobs answers; the logbook writes lines and in-request jobs in
-// batches, so the reads that show them wait up to 200 ms for what was logged
-// before they asked (flushWait).
+// batches, so the reads that show a log — a job's poll, its Markdown export, the
+// system log — wait up to 200 ms for what was logged before they asked
+// (flushWait). The list of past jobs does not (handleListJobs says why).
 
 // jobsBusyMessage is what a job refused by a restore, a reset, a search rebuild
 // or an update in progress is told, and — the runner answers them alike — a job
@@ -471,10 +472,12 @@ func (s *Server) handleListJobs(w http.ResponseWriter, r *http.Request) {
 	if view == "current" {
 		where = append(where, `queued = 1 AND state IN ('queued', 'running')`)
 	} else {
-		// What ran in a request is written when the request ends, in the
-		// logbook's next batch: waited for, so the list a lookup's screen
-		// refreshes to already holds it.
-		s.flushWait(r)
+		// NO WAIT FOR THE LOG WRITER HERE, unlike a job's poll. What ran in a
+		// request lands in the logbook's next batch, milliseconds after the
+		// request ends, and nobody opens Settings › Jobs faster than that. A
+		// queued job's row is written as it happens. The list is read again
+		// when a job ends or somebody presses something. The wait would cost its
+		// whole 200 ms on every read while the log writer is held up.
 		where = append(where, `state NOT IN ('queued', 'running') AND created_at >= ?`)
 		args = append(args, time.Now().Add(-jobsRetention).UnixMilli())
 		order = "id DESC"
@@ -689,6 +692,9 @@ func (s *Server) handleJobLogMarkdown(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	v := viewer(r)
+	// Waited for, as a poll waits: the export is the file somebody is handed to
+	// read a failure from, and one that stops short of the job's last line is
+	// the one read where the next poll having it is no answer.
 	s.flushWait(r)
 	row, found, err := s.visibleJob(id, v)
 	if err != nil {
