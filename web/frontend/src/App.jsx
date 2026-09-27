@@ -2591,6 +2591,10 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
                 setDetail({ type: 'section', id })
                 if (!DEMO) seedRoute(statePath('metadata', { type: 'section', id }))
               }}
+              // A FINISHED RE-VERIFY TO REVIEW, BY ITS JOB — the address Settings ›
+              // Jobs' Review sends a reader to (routes.js). Null on every other
+              // visit, which is how the console knows nobody asked.
+              reverifyJob={detail?.type === 'reverify' ? detail.id : null}
             />
           </div>
         )}
@@ -2675,6 +2679,9 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
               // because "go to Metadata" and "go to the language table" are
               // different asks and only one of them is a door.
               onGo={(nextTab, id = null) => go(nextTab, id ? { type: 'section', id } : null)}
+              // THE OTHER DOOR OUT: a past re-verify's Review opens Metadata on
+              // that job, because the flow that applies a review lives there.
+              onReviewJob={(id) => go('metadata', { type: 'reverify', id })}
             />
           </div>
         )}
