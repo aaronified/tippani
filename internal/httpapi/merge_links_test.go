@@ -23,7 +23,9 @@ import "testing"
 // What each case guards, in a sentence a person would say: a fetch leaves the
 // names on my links alone and adds the link it found; a link I never named stays
 // exactly as I typed it; two links on one line with a name after them are still
-// two links, and the name stays on the one it was written against.
+// two links, and the name stays on the one it was written against; an address
+// the browser takes with a bare % in it is an address here too, and keeps its
+// name.
 func TestMergeLinksKeepsTheReadersNames(t *testing.T) {
 	const (
 		imdb  = "https://www.imdb.com/name/nm0000123/"
@@ -61,6 +63,26 @@ func TestMergeLinksKeepsTheReadersNames(t *testing.T) {
 		got := mergeLinks(mine+" "+other+" | Their talks", nil)
 		if want := mine + "\n" + other + " | Their talks"; got != want {
 			t.Fatalf("the folded field:\n%s\nwant\n%s", got, want)
+		}
+	})
+
+	t.Run("an address with a bare % in it is still an address, and keeps its name", func(t *testing.T) {
+		// A browser takes a % that begins no escape as it is; Go's own parser
+		// does not, and the name on the link went with it.
+		const sale = "https://example.org/sale-50%-off"
+		if got, want := mergeLinks(sale+" | The sale", nil), sale+" | The sale"; got != want {
+			t.Fatalf("the folded field: %q, want %q", got, want)
+		}
+		// And a provider's page with one is still that provider's, and wins over
+		// the one fetched.
+		const search = "https://www.imdb.com/find?q=100%"
+		after := parseLinks(mergeLinks(search+" | My search", map[string]string{"imdb": imdb}))
+		if after.known["imdb"] != search || after.labels[search] != "My search" {
+			t.Fatalf("a stored IMDb page with a bare %%: known %q, names %q", after.known, after.labels)
+		}
+		// Something with no scheme is no address, % or not, and takes no name.
+		if got := mergeLinks("50%-off | A name", nil); got != "50%-off" {
+			t.Fatalf("the folded field: %q, want the token without a name", got)
 		}
 	})
 }

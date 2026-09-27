@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"errors"
 	"maps"
 	"net/url"
 	"regexp"
@@ -111,18 +112,71 @@ func parseLinks(text string) parsedLinks {
 // reads the same near enough: an address has a scheme, and on the web's own
 // schemes a host (`https://` alone is not one). A mailto: is an address with no
 // host, as it is to the browser, so it can be named and belongs to no provider.
+//
+// GO'S PARSER IS STRICTER THAN THE BROWSER'S, so what it refuses is read again
+// by hand (hostByHand). It refuses a `%` not followed by two hex digits, which
+// the URL standard passes through as it is: `https://example.org/sale-50%-off`
+// is an address to new URL() and was not one here, so the name on it was
+// dropped at the fold, the loss this file exists to stop.
 func linkHost(tok string) (string, bool) {
-	u, err := url.Parse(tok)
-	if err != nil || u.Scheme == "" {
+	scheme, host := "", ""
+	if u, err := url.Parse(tok); err == nil {
+		scheme, host = u.Scheme, u.Hostname()
+	} else if scheme, host, err = hostByHand(tok); err != nil {
 		return "", false
 	}
-	switch strings.ToLower(u.Scheme) {
+	if scheme == "" {
+		return "", false
+	}
+	switch strings.ToLower(scheme) {
 	case "http", "https", "ftp", "ws", "wss":
-		if u.Hostname() == "" {
+		if host == "" {
 			return "", false
 		}
 	}
-	return strings.ToLower(u.Hostname()), true
+	return strings.ToLower(host), true
+}
+
+// linkScheme is an address's scheme, as RFC 3986 spells one.
+var linkScheme = regexp.MustCompile(`^([A-Za-z][A-Za-z0-9+.\-]*):`)
+
+// errNotAnAddress is hostByHand's answer for a token with no scheme, or a host
+// no browser would take.
+var errNotAnAddress = errors.New("not an address")
+
+// hostByHand reads the scheme and the host of an address url.Parse refused: the
+// scheme up to the first colon, and the host between `//` and the first `/`, `?`
+// or `#`, without its user and port. Only the host is checked, for the `%` a
+// browser refuses there too; the path, the query and the fragment may hold
+// anything.
+func hostByHand(tok string) (scheme, host string, err error) {
+	m := linkScheme.FindStringSubmatch(tok)
+	if m == nil {
+		return "", "", errNotAnAddress
+	}
+	rest, ok := strings.CutPrefix(tok[len(m[0]):], "//")
+	if !ok {
+		return m[1], "", nil // mailto:, tel: and the like, which carry no host
+	}
+	if i := strings.IndexAny(rest, "/?#"); i >= 0 {
+		rest = rest[:i]
+	}
+	if i := strings.LastIndex(rest, "@"); i >= 0 {
+		rest = rest[i+1:]
+	}
+	if strings.HasPrefix(rest, "[") { // an IPv6 literal keeps its colons
+		end := strings.Index(rest, "]")
+		if end < 0 {
+			return "", "", errNotAnAddress
+		}
+		rest = rest[1:end]
+	} else if i := strings.LastIndex(rest, ":"); i >= 0 {
+		rest = rest[:i]
+	}
+	if strings.Contains(rest, "%") {
+		return "", "", errNotAnAddress
+	}
+	return m[1], rest, nil
 }
 
 // linkProvider is the slug of the provider a host belongs to, or "".
