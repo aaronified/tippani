@@ -71,15 +71,15 @@ the measurement, stamped with the commit it was counted at and re-counted by the
 kit's `ai_census.py --check`. The breakdown by model, and the commits that carry no
 trailer, follow it under *By model*.
 
-## Measured as of `1c7969d9eaf76c081b768f7b73c7c1b280a8196d` (2026-09-28)
+## Measured as of `09a6f7ab7ec4d4f6850e56782f427101f0a26944` (2026-09-29)
 
 | Figure | Value |
 | --- | --- |
-| Commits, no merges, exclusions applied | 1,918 |
-| AI-assisted commits | 1,906 — 99.4% |
-| Lines added / removed, AI-assisted commits | +873,802 / -356,663 |
-| Lines added / removed, all commits | +883,397 / -365,119 |
-| **Surviving lines from AI-assisted commits** | **513,989 of 518,163 — 99.2%** |
+| Commits, no merges, exclusions applied | 1,954 |
+| AI-assisted commits | 1,942 — 99.4% |
+| Lines added / removed, AI-assisted commits | +876,063 / -357,185 |
+| Lines added / removed, all commits | +885,658 / -365,641 |
+| **Surviving lines from AI-assisted commits** | **515,732 of 519,902 — 99.2%** |
 
 These figures describe the tree at that sha and change with every commit, which is why
 they are stamped: an unstamped percentage cannot be checked against anything, and so is
@@ -145,7 +145,7 @@ awk 'NR == FNR { ai[$1]; next }
 - **Blame flags.** `git blame` with no `-M` and no `-C`. Move and copy detection
   reattributes moved lines to their original commit and can shift the surviving share by
   tens of points, so the flags used are declared rather than left for the reader to guess.
-- **Coverage.** Tracked files: 1,541 blamed, 4 removed by the exclusion list, 459 skipped as
+- **Coverage.** Tracked files: 1,546 blamed, 4 removed by the exclusion list, 459 skipped as
   binary, 1 skipped over the 2,000,000-byte blame cap, 0 staged but absent at the stamped
   sha, 0 whose blame failed and were counted as unattributed. Blame is taken at that sha, so
   uncommitted working-tree edits sit outside every figure. Nothing was sampled: every other
@@ -161,7 +161,7 @@ awk 'NR == FNR { ai[$1]; next }
 ## By model
 
 Models used, by commit count, at the same commit. Merges are excluded, and the block's
-exclusion list is not applied, so the rows sum to 1,916 against the block's 1,906. One
+exclusion list is not applied, so the rows sum to 1,952 against the block's 1,942. One
 commit, `b77a22e5`, carries its line outside git's trailer block, so the count and the
 breakdown below grep the message. The per-commit listing asks git for trailers, and shows
 `b77a22e5` with none:
@@ -169,16 +169,16 @@ breakdown below grep the message. The per-commit listing asks git for trailers, 
 | Model | Commits |
 | :-- | --: |
 | Claude Opus 5 | 1,169 |
-| Claude Opus 5.5 | 525 |
+| Claude Opus 5.5 | 558 |
 | Claude Opus 4.8 | 150 |
 | Claude Fable 5 | 54 |
-| Claude Sonnet 5 | 8 |
+| Claude Sonnet 5 | 11 |
 | Claude Haiku 4.5 | 5 |
 | Claude Fable 5.1 | 4 |
 | Claude Sonnet 4.6 | 1 |
 
 Some of those trailers carry a `(1M context)` suffix naming the long-context
-variant: 450 of the Opus 5 commits, 428 of the Opus 5.5 ones and 146 of the Opus 4.8
+variant: 450 of the Opus 5 commits, 461 of the Opus 5.5 ones and 146 of the Opus 4.8
 ones. It is the same model with a larger window, so the table folds them; the last
 command below prints them unfolded if you would rather see it raw.
 
@@ -198,7 +198,7 @@ fixed, because a disclosure that rounds its own gaps away is not one.
 To see it yourself:
 
 ```bash
-SHA=1c7969d9   # the commit the block above is stamped with
+SHA=09a6f7ab   # the commit the block above is stamped with
 
 # every commit, with the model that co-authored it
 git log --no-merges --date=short "$SHA" \
