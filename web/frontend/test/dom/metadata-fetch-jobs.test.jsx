@@ -65,20 +65,24 @@ const Probe = () => {
   return null
 }
 
-// Two records still missing something and one that is complete, so "the rows
-// still missing something" is a set a wrong answer cannot hit by accident.
+// One record missing only its links, one only its photo, and one that is
+// complete, so "the rows still missing something" is a set a wrong answer cannot
+// hit by accident — either half of the rule, dropped, loses a row. What each lacks
+// is the server's to say (no_links, no_photo on every row of GET /people/records),
+// so each row says it, as the server would of its links and its photo.
 const person = (over) => ({
   id: 1, name: '', sort_name: '', bio: '', image_path: '', born: '', died: '',
-  links: '', source: '', source_id: '', kinds: ['author'], spellings: [], works: 1, quotes: 1, ...over,
+  links: '', source: '', source_id: '', kinds: ['author'], spellings: [], works: 1, quotes: 1,
+  no_links: true, no_photo: true, ...over,
 })
 
 beforeEach(() => {
   CALLS = []
   JOBS = jobsServer()
   PEOPLE = [
-    person({ id: 7, name: 'Ursula K. Le Guin' }),
-    person({ id: 8, name: 'Complete Person', image_path: 'people/c.jpg', links: 'https://www.imdb.com/name/nm0000001/' }),
-    person({ id: 9, name: 'Mikhail Bulgakov', image_path: 'people/mb.jpg' }),
+    person({ id: 7, name: 'Ursula K. Le Guin', image_path: 'people/ukl.jpg', no_photo: false }),
+    person({ id: 8, name: 'Complete Person', image_path: 'people/c.jpg', links: 'https://www.imdb.com/name/nm0000001/', no_links: false, no_photo: false }),
+    person({ id: 9, name: 'Mikhail Bulgakov', links: 'https://en.wikipedia.org/wiki/Mikhail_Bulgakov', no_links: false }),
   ]
   WIDTH = 1280
   localStorage.clear()
