@@ -9292,7 +9292,7 @@ package."*
 - **Ten, from six, in 3.1.1.** 3.1.0's stop proofs, each about three minutes raced, brought all six shards to 53 to 61 minutes against their hour, and the sweep run by hand on 28 September (run 36457262379) lost shard 3 to the timeout, with no failure and no race, 8 s into a test. Ten brings a shard to about 33 minutes. The count is still only the matrix's size.
 - **The package is not a matrix axis,** because that is what keeps the matrix's size equal
   to the shard count. It was one at first. A second entry there would have doubled the
-  size, so each job would take every twelfth test and half of both packages would go
+  size, so each job would take every twentieth test (every twelfth, when there were six) and half of both packages would go
   unraced, with every per-name check green. A second package that needs splitting gets a
   job of its own.
 - **Every shard checks every test it was dealt, by name,** as the per-push job checks each of its
@@ -9318,7 +9318,7 @@ package."*
   raced sweep passed too. A flake is still possible, and a first failure there would be
   worth reading as one before reading it as a race.
 
-<sub>3.0.1 — `.github/workflows/ci.yml` · `docs/wiki/Developing.md`</sub>
+<sub>3.0.1; ten shards 3.1.1 — `.github/workflows/ci.yml` · `docs/wiki/Developing.md`</sub>
 
 ### The work detail is two columns, and it opts out of the window's scroll
 
