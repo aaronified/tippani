@@ -37,9 +37,9 @@ import (
 // through its API and its data directory:
 //
 //   - the job reads stopped within 300 ms of the press (three times that under
-//     the race detector, stopWithin), its log names who
-//     pressed, a call that was on the wire saw its request cancelled, and the
-//     log says which item the Stop left as it was;
+//     the race detector, stopWithin), its log names who pressed, a call that
+//     was on the wire saw its request cancelled, and the log says which item
+//     the Stop left as it was;
 //   - every item is done whole or untouched: the one finished before the Stop
 //     has everything it was given, the one in hand has nothing of it;
 //   - nothing temporary or partial is anywhere in the data directory, every
@@ -1016,7 +1016,7 @@ func runKillCase(t *testing.T, c killCase, press string) {
 		go func() { deleted <- w.admin.do("DELETE", "/admin/users/"+itoa(bobID), nil).Code }()
 	}
 
-	// STOPPED WITHIN 300 MS OF THE PRESS.
+	// STOPPED WITHIN 300 MS OF THE PRESS (stopWithin: three times that under -race).
 	var stopped wireJob
 	for {
 		stopped = viewer.job(job.ID)
