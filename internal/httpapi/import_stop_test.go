@@ -362,6 +362,74 @@ func TestAStopOnAJobWaitingBehindARunningImportIsAnsweredAtOnce(t *testing.T) {
 	}
 }
 
+// AND A READ OF THE JOB SAYS STOPPED WHEN ITS ROW IS WRITTEN UNDER THE READ. The
+// row of a job its Stop held is written once the lock frees, and the queue lets
+// go of the mark after that write. A read of one job that took the row first and
+// the queue's memory after could land that write between them: the row still
+// waiting, the mark already gone, and the job answered as waiting after its Stop
+// had said stopped. Here a Stop on the job holds it while another writer has the
+// lock, so its row still reads waiting, and a second Stop, on another waiting
+// job, writes both rows in the one instant between the read's two halves.
+//
+// WHAT IT KNOWS, declared: afterJobRowRead, the seam at that instant. Nothing on
+// the wire holds it open.
+//
+// Mutation: visibleJob reading the queue's memory after the row, as it did: red,
+// "the job reads queued".
+func TestAJobItsStopHeldReadsStoppedWhenItsRowIsWrittenMidRead(t *testing.T) {
+	srv := newTestServer(t)
+	queueing(t, srv)
+	c := signupAdmin(t, srv.Handler())
+	ahead := c.mustStart("test.hold", map[string]any{"tag": "ahead"})
+	c.waitJob(ahead.ID, "running")
+	behind := c.mustStart("test.hold", map[string]any{"tag": "behind"})
+	other := c.mustStart("test.hold", map[string]any{"tag": "other"})
+
+	// Somebody else's write holds the lock, so the Stop can only hold the job.
+	tx, err := srv.Store.DB.Begin()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(`INSERT INTO system_logs (at, level, line) VALUES (?, 'info', 'somebody else')`, time.Now().UnixMilli()); err != nil {
+		t.Fatal(err)
+	}
+	c.mustDo("POST", fmt.Sprintf("/jobs/%d/stop", behind.ID), nil, http.StatusOK)
+	if err := tx.Rollback(); err != nil {
+		t.Fatal(err)
+	}
+	var row string
+	if err := srv.Store.DB.QueryRow(`SELECT state FROM jobs WHERE id = ?`, behind.ID).Scan(&row); err != nil || row != "queued" {
+		t.Fatalf("the held job's row reads %q (%v) before the read; the test needs it still owed", row, err)
+	}
+
+	var once sync.Once
+	fired := make(chan struct{})
+	afterJobRowRead = func() {
+		select {
+		case <-fired:
+			return // the second Stop's own answer reads its job too
+		default:
+		}
+		once.Do(func() {
+			close(fired)
+			c.mustDo("POST", fmt.Sprintf("/jobs/%d/stop", other.ID), nil, http.StatusOK)
+		})
+	}
+	t.Cleanup(func() { afterJobRowRead = nil })
+	got := c.job(behind.ID)
+	select {
+	case <-fired:
+	default:
+		t.Fatal("the read never reached the seam")
+	}
+	if got.State != "stopped" {
+		t.Fatalf("its row written between the read's two halves, the job reads %s", got.State)
+	}
+	if err := srv.Store.DB.QueryRow(`SELECT state FROM jobs WHERE id = ?`, behind.ID).Scan(&row); err != nil || row != "stopped" {
+		t.Fatalf("the second Stop did not write the held row (it reads %q, %v)", row, err)
+	}
+}
+
 // Mutations, each red here: approveStaged's check before a work ignoring a Stop
 // (approve.work 0 writes the first book, approve.work 1 the second — and each goes
 // on to that work's approve.commit); approveWork's check before its commit
