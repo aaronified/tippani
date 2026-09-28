@@ -288,6 +288,26 @@ describe('stopping one', () => {
     r.current = null
     expect(await within(card).findByRole('button', { name: 'Run again: Fill gaps in every work' }, { timeout: 1000 })).toBeTruthy()
     expect(within(card).getByRole('button', { name: /^Last run of Fill gaps in every work: Stopped, / })).toBeTruthy()
+    // And the close watch is over: with nothing running, the card is back to
+    // reading every ten seconds, not five times a second. (At most one read more,
+    // when Current jobs sees the job gone and says so.)
+    const ended = reads()
+    await new Promise((r) => setTimeout(r, 1000))
+    expect(reads() - ended).toBeLessThanOrEqual(1)
+  })
+
+  it('stops watching closely three seconds after the Stop when the job has still not ended', async () => {
+    running(28)
+    const card = await page()
+    fireEvent.click(within(card).getByRole('button', { name: 'Stop Fill gaps in every work' }))
+    await waitFor(() => expect(posted('/jobs/28/stop')).toHaveLength(1))
+    // Past the watch: the job still runs, so the card reads at the running
+    // cadence again, every two seconds.
+    await new Promise((r) => setTimeout(r, 3400))
+    const late = reads()
+    await new Promise((r) => setTimeout(r, 1500))
+    expect(reads() - late).toBeLessThanOrEqual(1)
+    within(card).getByText('Stopping after the item in hand…')
   })
 
   // A WAITING JOB HAS NO ITEM IN HAND: its Stop takes it out of the queue at once.
