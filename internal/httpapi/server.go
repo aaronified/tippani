@@ -152,9 +152,9 @@ type Server struct {
 	castArtFlights castArtFlights
 
 	// itemSeam and backupSeam are test seams and nothing else: the one way to land
-	// a Stop between two of a job's items (goOn), or between a backup's steps
-	// (backupStep), where nothing is on the wire for a stub of a supplier to hold.
-	// nil in every server but a test's.
+	// a Stop between two of a job's items (goOn), or between a backup's steps or
+	// inside one of its file copies (backupStep), where nothing is on the wire for
+	// a stub of a supplier to hold. nil in every server but a test's.
 	itemSeam   func(j *jobs.Job, next int)
 	backupSeam func(ctx context.Context, step string)
 }

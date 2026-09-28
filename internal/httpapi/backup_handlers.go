@@ -525,8 +525,9 @@ func backupReady(meta map[string]any) string {
 }
 
 // backupStep is where a backup asks whether to go on: before its snapshot
-// ("snapshot"), before each file it archives ("file") and before its promote
-// ("promote"). backupSeam runs first, when a test has set it.
+// ("snapshot"), before each file it archives ("file"), before each read of a
+// file's copy ("copy", ctxReader) and before its promote ("promote").
+// backupSeam runs first, when a test has set it.
 func (s *Server) backupStep(ctx context.Context, step string) error {
 	if s.backupSeam != nil {
 		s.backupSeam(ctx, step)
@@ -535,14 +536,16 @@ func (s *Server) backupStep(ctx context.Context, step string) error {
 }
 
 // ctxReader is r, ended by ctx: a Stop landing in the middle of a large file —
-// the snapshot of a big library — ends the copy there, not at the file's end.
+// the snapshot of a big library, on a slow disk — ends the copy there, not at
+// the file's end. Each read is a step of the backup's ("copy").
 type ctxReader struct {
+	s   *Server
 	ctx context.Context
 	r   io.Reader
 }
 
 func (c ctxReader) Read(p []byte) (int, error) {
-	if err := c.ctx.Err(); err != nil {
+	if err := c.s.backupStep(c.ctx, "copy"); err != nil {
 		return 0, err
 	}
 	return c.r.Read(p)
@@ -808,7 +811,7 @@ func (s *Server) writeBackupArchive(ctx context.Context, dest, snap string, mode
 			return err
 		}
 		defer f.Close()
-		_, err = io.Copy(tw, ctxReader{ctx, f})
+		_, err = io.Copy(tw, ctxReader{s, ctx, f})
 		return err
 	}
 

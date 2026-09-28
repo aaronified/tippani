@@ -87,8 +87,10 @@ import (
 //   - TMDB's /movie/{id} as a stub (filmsTMDB, covers_pass_test.go), for the
 //     films a covers pass walks;
 //   - two test seams, srv.itemSeam and srv.backupSeam: the one way to hold a job
-//     before its first item, between two, or between a backup's steps, where
-//     nothing is on the wire for a stub to hold;
+//     before its first item, between two, or between a backup's steps or inside
+//     a file's copy, where nothing is on the wire for a stub to hold — and, for
+//     the copy, to make the disk slow, a read at a time, as a big library's on a
+//     slow disk is, so that a copy that went on past the Stop would show;
 //   - the data directory (srv.DataDir), walked for what a Stop could leave, and
 //     its MediaCover folder, listed against the pictures the API names;
 //   - olog's sink goes into the queue's logbook, as serve() routes it, so the
@@ -443,6 +445,7 @@ func (w *killWorld) twoFilms(c *testClient, mode string) [2]int64 {
 type killFilm struct {
 	Description string `json:"description"`
 	Year        int    `json:"release_year"`
+	Poster      string `json:"poster_path"`
 }
 
 func filmOf(t *testing.T, c *testClient, id int64) killFilm {
@@ -619,6 +622,35 @@ func applyCase(point string, outward bool, done int, hold func(w *killWorld)) ki
 		}}
 }
 
+// applyFilmCase is a review's apply of two items — a book's year, then a film's
+// year and poster — held at one point in the film's poster: the film writer's,
+// which a fill of films reaches too.
+func applyFilmCase(point string, hold func(w *killWorld)) killCase {
+	return killCase{kind: "reverify-apply", point: point, outward: true, done: 1,
+		arm: func(w *killWorld) (any, func(*testClient, int64, int)) {
+			book := twoBooks(w.t, w.reader, "Frank Herbert")[0]
+			film := decode[movieDetail](w.t, w.reader.mustDo("POST", "/movies",
+				map[string]any{"title": "The Matrix", "media_type": "movie"}, http.StatusCreated)).ID
+			hold(w)
+			items := []map[string]any{
+				{"type": "book", "id": book, "set": map[string]any{"published_year": 1965}},
+				{"type": "movie", "id": film, "set": map[string]any{"release_year": 1999, "poster": w.picture("matrix-poster")}},
+			}
+			return map[string]any{"items": items}, func(c *testClient, _ int64, done int) {
+				if b := bookOf(w.t, c, book); b.Year != 1965 {
+					w.t.Fatalf("the book was applied before the Stop and is not written: %+v", b)
+				}
+				f := filmOf(w.t, c, film)
+				if written := f.Year == 1999 && f.Poster != ""; done >= 2 && !written {
+					w.t.Fatalf("the film was applied and is not written whole: %+v", f)
+				}
+				if done < 2 && (f.Year != 0 || f.Poster != "") {
+					w.t.Fatalf("the film was in hand, and something of the apply was written: %+v", f)
+				}
+			}
+		}}
+}
+
 // coversCase is an admin's covers pass over two books with no author and no
 // cover, held at one point.
 func coversCase(point string, outward bool, done int, hold func(w *killWorld)) killCase {
@@ -641,9 +673,11 @@ func coversCase(point string, outward bool, done int, hold func(w *killWorld)) k
 		}}
 }
 
-// backupCase is an admin's backup held at one of its steps. Its one item is
-// the archive, and a stopped one leaves the archive kept before it as it was.
-func backupCase(point, step string, nth int) killCase {
+// backupCase is an admin's backup held at the nth of one of its steps. Its one
+// item is the archive, and a stopped one leaves the archive kept before it as it
+// was. A slow step, from the one held on, takes slow each until the job has read
+// stopped: a disk giving the copy a read at a time.
+func backupCase(point, step string, nth int, slow time.Duration) killCase {
 	return killCase{kind: "backup", admin: true, point: point,
 		arm: func(w *killWorld) (any, func(*testClient, int64, int)) {
 			// A book with a cover, so the archive holds a file after its snapshot:
@@ -656,9 +690,15 @@ func backupCase(point, step string, nth int) killCase {
 			}
 			var seen atomic.Int32
 			w.srv.backupSeam = func(ctx context.Context, at string) {
-				if at == step && w.holding.Load() && int(seen.Add(1)) == nth {
+				if at != step || !w.holding.Load() {
+					return
+				}
+				switch n := int(seen.Add(1)); {
+				case n == nth:
 					w.reach(point)
 					<-ctx.Done()
+				case n > nth:
+					time.Sleep(slow)
 				}
 			}
 			return map[string]any{"password": "supersecret"}, func(c *testClient, _ int64, done int) {
@@ -824,6 +864,8 @@ func TestAStopInAnApplyIsInstantAndLeavesEachItemWholeOrUntouched(t *testing.T) 
 		every(applyCase("inside the portrait's download", true, 1, func(w *killWorld) { w.holdPicture.Store(ptr("butler-portrait.png")) })),
 		applyCase("between its items", false, 1, func(w *killWorld) { w.atItem(1, "between the items") }),
 		applyCase("just before the write, the portrait arrived", true, 1, func(w *killWorld) { w.latePicture.Store(ptr("butler-portrait.png")) }),
+		applyFilmCase("inside a film's poster download", func(w *killWorld) { w.holdPicture.Store(ptr("matrix-poster.png")) }),
+		applyFilmCase("just before the write, a film's poster arrived", func(w *killWorld) { w.latePicture.Store(ptr("matrix-poster.png")) }),
 	})
 }
 
@@ -853,9 +895,10 @@ func TestAStopInACoversPassIsInstantAndLeavesEachWorkWholeOrUntouched(t *testing
 
 func TestAStopInABackupIsInstantAndKeepsTheArchiveThereWas(t *testing.T) {
 	runKillCases(t, []killCase{
-		backupCase("before its snapshot", "snapshot", 1),
-		every(backupCase("between two of its files", "file", 2)),
-		backupCase("just before its promote", "promote", 1),
+		backupCase("before its snapshot", "snapshot", 1, 0),
+		every(backupCase("between two of its files", "file", 2, 0)),
+		backupCase("inside its snapshot's copy, on a slow disk", "copy", 1, 100*time.Millisecond),
+		backupCase("just before its promote", "promote", 1, 0),
 	})
 }
 
