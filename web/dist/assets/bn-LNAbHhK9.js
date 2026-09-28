@@ -4344,14 +4344,17 @@ reverify.kept.review = যা পাওয়া গেছে, রাখা আ�
 # Cancel while the check runs STOPS it, which is why it asks.
 # ?? draft for the owner (3.1.0 jobs callers): থামাবেন? for "Stop the check?"
 reverify.stop.confirm.title = মিলিয়ে দেখা থামাবেন?
-# ?? draft for the owner (3.1.0 jobs callers): হাতেরটুকু সেরে থামবে, the Stop all confirm's own words for "after the item in hand"
-reverify.stop.confirm.body = হাতেরটুকু সেরে থামবে, আর তার লগ নিয়ে সেটিংস → কাজ-এ থেকে যাবে।
+# ?? draft for the owner (3.1.0): সঙ্গে সঙ্গে থামবে for "stops at once", হাতেরটুকু যেমন ছিল তেমনই থাকবে for "leaves the item in hand untouched" — the Stop all confirm's own words
+reverify.stop.confirm.body = সঙ্গে সঙ্গে থামবে, হাতেরটুকু যেমন ছিল তেমনই থাকবে, আর তার লগ নিয়ে সেটিংস → কাজ-এ থেকে যাবে।
 # The same confirm over a check still in the queue: it has no item in hand, so
 # the server ends it before it starts.
 # ?? draft for the owner (3.1.0 jobs callers): শুরুই হবে না, the Stop all confirm's own words for a job stopped before it starts
 reverify.stop.confirm.body.waiting = শুরুই হবে না, আর তার লগ নিয়ে সেটিংস → কাজ-এ থেকে যাবে।
 # ?? draft for the owner (3.1.0 jobs callers): থামান, the Stop word of Settings › Jobs
 reverify.stop.confirm.verb = থামান
+# Said in the dialog from the moment Stop it is pressed until the check reads stopped, which is a moment.
+# ?? draft for the owner (3.1.0): থামছে… for "Stopping…", the row's own word in Settings › Jobs
+reverify.stop.stopping = থামছে…
 error.reverify.preview = আগে থেকে দেখানো গেল না
 error.reverify.apply = বসানো গেল না
 
@@ -4467,6 +4470,14 @@ import.summary.arrow = {files} → {quotes} · গ্রন্থাগারে
 # One row per file.
 import.row.staged.one = {n}টা উদ্ধৃতি বাকি
 import.row.staged.other = {n}টা উদ্ধৃতি বাকি
+# ?? draft for the owner (3.1.0 imports): পাঠানো for "sent", as a file handed to the server; the row before its upload has gone
+import.row.unsent = এখনও পাঠানো হয়নি
+# ?? draft for the owner (3.1.0 imports): {state} is the state chip's own word; আবার চালানো, the Run again word of Settings → Jobs
+import.row.halted = {state} — সেটিংস → কাজ-এ আবার চালানো যায়
+# ?? draft for the owner (3.1.0 imports): সার্ভারে আর নেই for "the server no longer has"; আবার দিন for "drop it again", as a file handed over again (import.row.unsent's পাঠানো is the upload itself)
+import.row.lost = {state} — ফাইলটা সার্ভারে আর নেই; আবার দিন
+# ?? draft for the owner (3.1.0 imports): চলতে থাকবে as reverify.checking.away says it; পর্দা for "screen" (v3)
+import.queued.note = যে ফাইল পাঠানো হয়ে গেছে, এই পর্দা ছেড়ে গেলেও সেটা সেটিংস → কাজ-এ চলতে থাকবে; যেটা এখনও পাঠানো হয়নি, সেটা নয়।
 import.row.duplicate = ⚠ মনে হচ্ছে বইটা আগে থেকেই আছে: {titles} — অপেক্ষার তালিকায় উদ্ধৃতিগুলো সেখানে সরিয়ে দিন, বা আলাদা বই হিসেবে অনুমোদন দিন
 # The hand-over to the queue.
 import.review.one = বাকি পড়ে থাকা {n}টা উদ্ধৃতি দেখুন
@@ -4923,6 +4934,10 @@ staging.flash.updated = {n}টা বদলেছে
 staging.flash.approved.added = {n}টা যোগ হয়েছে
 staging.flash.approved.skipped = {n}টা বাদ
 staging.flash.approved.enriched = {n}টায় মেটাডেটা এসেছে
+# ?? draft for the owner (3.1.0 imports): মেনে নেওয়া চলছে for "Approving"; {total}-এর মধ্যে {done} is settings.jobs.progress's own order
+staging.approving.progress = মেনে নেওয়া চলছে — {total}-এর মধ্যে {done}
+# ?? draft for the owner (3.1.0 imports): reverify.checking.away's own words, for the approval
+staging.approving.away = এই পর্দা ছেড়ে গেলেও এটা চলতে থাকবে — সেটিংস → কাজ-এ পাবেন।
 staging.flash.discarded = {n}টা ফেলে দেওয়া হয়েছে
 staging.flash.saved = সেভ হয়েছে
 # {name} is the CATEGORY's name, not the stored colour token — it said
@@ -5604,6 +5619,12 @@ settings.safety.busy = কপি তৈরি হচ্ছে…
 settings.safety.first.reason = আগে একটা ব্যাকআপ ডাউনলোড করুন
 settings.safety.password.label = কপি সিল করার জন্য আপনার পাসওয়ার্ড
 settings.safety.passphrase.label = কপি সিল করার জন্য পাসফ্রেজ
+# ?? draft for the owner (3.1.0 backups): কাজ for "job", as Settings → কাজ names the queue; সিল করা হয় as settings.safety.why.prose says it; খোলা রাখুন for "keep this open"
+settings.safety.wait.prose = কপিটা সার্ভারে একটা কাজ হিসেবে সিল করা হয়, তৈরি হলে এখানেই ডাউনলোড হবে। ততক্ষণ এটা খোলা রাখুন।
+# ?? draft for the owner (3.1.0 backups): Current jobs' "থামান: {title}" frame, with settings.safety.busy's কপি তৈরি as the title
+settings.safety.stop.aria = থামান: কপি তৈরি
+# ?? draft for the owner (3.1.0 backups): থামানো হয়েছে is the state chip's own word (settings.jobs.state.stopped); যখন চান for "when you are ready"
+settings.safety.stopped = থামানো হয়েছে: কোনো কপি তৈরি হয়নি, সার্ভারে তার কিছুই থেকে যায়নি। যখন চান আবার নিন।
 settings.restore.password.recoverable.prose = এই আর্কাইভ এই সার্ভারেরই তৈরি, তাই আপনার এখনকার পাসওয়ার্ডেই খুলবে।
 settings.restore.password.named.prose = অন্য সার্ভারে ‘{name}’-এর তৈরি, তাই তখন ওই অ্যাকাউন্টের যে পাসওয়ার্ড ছিল সেটাই লাগবে।
 settings.restore.password.era.prose = অন্য সার্ভারে তৈরি, তাই তৈরির সময় যে পাসওয়ার্ড ছিল সেটাই লাগবে।
@@ -5769,6 +5790,8 @@ settings.jobs.kind.work-save = উৎস সেভ
 settings.jobs.kind.person-save = মানুষের তথ্য সেভ
 settings.jobs.kind.character-save = চরিত্রের ছবি
 settings.jobs.kind.import = ইমপোর্ট
+# ?? draft for the owner (3.1.0 imports): মেনে নেওয়া, the staging screen's own verb (সব মেনে নিন) as a noun phrase, as every kind's name is
+settings.jobs.kind.import-approve = ইমপোর্টের উদ্ধৃতি মেনে নেওয়া
 settings.jobs.kind.restore = ফিরিয়ে আনা
 settings.jobs.kind.reset = সব ডেটা মুছে ফেলা
 settings.jobs.kind.notify-daily = দৈনিক অনুশীলনী
@@ -5792,6 +5815,12 @@ settings.jobs.state.interrupted = মাঝপথে থেমেছে
 
 # --- what a finished job did, one phrase per count. The screen joins them with
 # " · " in code, so each phrase carries its own word order.
+# ?? draft for the owner (3.1.0 imports): the import row's own words for what an import staged (import.row.staged)
+settings.jobs.count.staged.one = {n}টা উদ্ধৃতি বাকি
+settings.jobs.count.staged.other = {n}টা উদ্ধৃতি বাকি
+# ?? draft for the owner (3.1.0 imports): the approval's own flash for what it added (staging.flash.approved.added)
+settings.jobs.count.added.one = {n}টা যোগ হয়েছে
+settings.jobs.count.added.other = {n}টা যোগ হয়েছে
 settings.jobs.count.fields.one = {n}টা ঘর ভরেছে
 settings.jobs.count.fields.other = {n}টা ঘর ভরেছে
 settings.jobs.count.fetched.one = {n}টা এসেছে
@@ -5848,13 +5877,14 @@ settings.jobs.current.stop.running.aria = থামান: {title} (চলছে
 settings.jobs.current.stop.next.aria = থামান: {title} (এরপরেই)
 settings.jobs.current.stop.ahead.aria.one = থামান: {title} (আগে একটা কাজ)
 settings.jobs.current.stop.ahead.aria.other = থামান: {title} (আগে {n}টা কাজ)
-# bn: "after the item in hand" → হাতেরটুকু সেরে, finishing the bit in hand.
-settings.jobs.current.stop.done = হাতেরটুকু সেরে থামছে
-settings.jobs.current.stopping = হাতেরটুকু সেরে থামছে…
+# A Stop is at once, and the job's item in hand is left untouched.
+# ?? draft for the owner (3.1.0): থামছে… for "Stopping…"; it was হাতেরটুকু সেরে থামছে… while a Stop waited for the item in hand
+settings.jobs.current.stopping = থামছে…
 settings.jobs.current.stop-all.label = সব থামান
 settings.jobs.current.stop-all.confirm.title = সব কাজ থামাবেন?
 # The confirm's body is these sentences, the ones that apply, joined in code.
-settings.jobs.current.stop-all.confirm.running = যেটা চলছে, সেটা হাতেরটুকু সেরে থামবে।
+# ?? draft for the owner (3.1.0): সঙ্গে সঙ্গে থামবে for "stops at once", যেমন ছিল তেমনই থাকবে for "is left untouched"
+settings.jobs.current.stop-all.confirm.running = যেটা চলছে, সেটা সঙ্গে সঙ্গে থামবে, আর হাতেরটুকু যেমন ছিল তেমনই থাকবে।
 settings.jobs.current.stop-all.confirm.waiting.one = অপেক্ষার তালিকার কাজটা শুরুই হবে না।
 settings.jobs.current.stop-all.confirm.waiting.other = অপেক্ষার তালিকার {n}টা কাজ শুরুই হবে না।
 settings.jobs.current.stop-all.confirm.kept = প্রতিটা তার লগ নিয়ে থেকে যাবে, আর যিনি চালিয়েছিলেন তিনি আবার চালাতে পারবেন।
@@ -5863,6 +5893,60 @@ settings.jobs.current.stop-all.confirm.admin = অন্য পাঠকদে�
 settings.jobs.current.stop-all.confirm.verb = থামান
 settings.jobs.current.stop-all.done.one = {n}টা কাজ থামানো হল
 settings.jobs.current.stop-all.done.other = {n}টা কাজ থামানো হল
+
+# --- Common jobs: the jobs a reader runs again and again, each with a place of
+# its own. A row is the job's name, one line of what it does, how it went the last
+# time, and Run (Run again once it has run) — or Stop while that job runs or waits.
+# bn: a row's name is a noun phrase, as every job's is (কভার আনা), because the two
+# library-wide rows name the job in Current and Past jobs too.
+# ?? draft for the owner (3.1.0 common jobs): নিয়মিত for "common" — the jobs a reader runs as a matter of course; সাধারণ would read as "ordinary"
+settings.jobs.common.title = নিয়মিত কাজ
+# ?? draft for the owner (3.1.0 common jobs): উৎস for "work", as unit.work says it; the job's name in the lists too
+settings.jobs.common.fill-all.label = সব উৎসের শূন্যস্থান পূরণ
+# ?? draft for the owner (3.1.0 common jobs): ফাঁকা ঘর is common.action.fill.tip's "empty fields"
+settings.jobs.common.fill-all.prose = প্রতিটা বই আর সিনেমার যা নেই, খুঁজে দেখে শুধু ফাঁকা ঘরগুলো ভরায়।
+# ?? draft for the owner (3.1.0 common jobs): "missing people" is the people whose details are missing, not people who are lost: না-থাকা তথ্য
+settings.jobs.common.people-missing.label = মানুষের না-থাকা তথ্য আনা
+# ?? draft for the owner (3.1.0 common jobs): মুখের ছবি is common.field.portrait.label, তথ্যসূত্রের লিংক the sheet's "reference page"
+settings.jobs.common.people-missing.prose = যাঁদের মুখের ছবি বা তথ্যসূত্রের লিংক নেই, তাঁদের সবার জন্য আনে।
+# ?? draft for the owner (3.1.0 common jobs): তথ্য for "details", as the sheet's jobs-pass table gives it
+settings.jobs.common.covers.label = কভার আর তথ্য আনা
+# ?? draft for the owner (3.1.0 common jobs): সংগ্রহ for "the library", as settings.backup.what.prose says it
+settings.jobs.common.covers.prose = পুরো সংগ্রহের কভার, পোস্টার আর উৎসগুলোর যা তথ্য নেই।
+# ?? draft for the owner (3.1.0 common jobs): the Server card's button (settings.backup.now.label) as a noun phrase
+settings.jobs.common.backup.label = এখনই ব্যাকআপ নেওয়া
+# ?? draft for the owner (3.1.0 common jobs): "seals" is the archive being encrypted (v3.1: এনক্রিপ্ট করা); "the one archive" — the server keeps only the newest
+settings.jobs.common.backup.prose = পুরো সংগ্রহ এনক্রিপ্ট করে সার্ভারের একমাত্র আর্কাইভে রাখে।
+# ?? draft for the owner (3.1.0 common jobs): চালান, the sheet's "run"
+settings.jobs.common.run.label = চালান
+# ?? draft for the owner (3.1.0 common jobs): Past jobs' own words (settings.jobs.past.rerun.label)
+settings.jobs.common.again.label = আবার চালান
+# The covers pass's quick run: only what is missing, never a better picture over one already stored.
+# ?? draft for the owner (3.1.0 common jobs): the People console's "Fetch missing" is যা নেই, আনুন; this is its half-phrase
+settings.jobs.common.missing-only.label = শুধু যা নেই
+# ?? draft for the owner (3.1.0 common jobs): একটা থাকলে সেটাই থাকবে — "one already stored is kept"
+settings.jobs.common.missing-only.tip = শুধু যে কভার আর পোস্টার নেই; একটা থাকলে সেটাই থাকবে
+# Each press's name for a screen reader, since every row has one. {title} is the row's name.
+# bn: the hole stays bare (§5.4), so the frame puts the name after a colon, as the Stop buttons do.
+# ?? draft for the owner (3.1.0 common jobs): Current jobs' "থামান: {title}" frame
+settings.jobs.common.run.aria = চালান: {title}
+# ?? draft for the owner (3.1.0 common jobs): the same frame
+settings.jobs.common.again.aria = আবার চালান: {title}
+# ?? draft for the owner (3.1.0 common jobs): the same frame
+settings.jobs.common.missing-only.aria = শুধু যা নেই: {title}
+# ?? draft for the owner (3.1.0 common jobs): the same frame
+settings.jobs.common.stop.aria = থামান: {title}
+# Under a row: how its last run ended. The state, the time and what it did are
+# drawn after this word; {state} and {when} are the same two in the button's name.
+# ?? draft for the owner (3.1.0 common jobs): শেষবার for "last run", which the state and the time follow
+settings.jobs.common.last.label = শেষবার
+# ?? draft for the owner (3.1.0 common jobs): the colon frame again, with the state and the time after a dash
+settings.jobs.common.last.aria = শেষবার: {title} — {state}, {when}
+# ?? draft for the owner (3.1.0 common jobs): Latin digits, as settings.jobs.past.empty has them
+settings.jobs.common.never = গত 30 দিনে চালানো হয়নি
+# A server that runs no jobs (a test server's, the daily-deck command's) has no row to offer.
+# ?? draft for the owner (3.1.0 common jobs): rarely seen: a server that runs no jobs at all
+settings.jobs.common.empty = এই সার্ভারে এখান থেকে কিছুই চালানো যায় না।
 
 # --- Past jobs: everything that finished in the last 30 days, newest first.
 settings.jobs.past.title = আগের কাজ
