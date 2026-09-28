@@ -29,6 +29,10 @@
 //     is answered with a job and the step says "Backup failed".
 //   - the step's Stop taken out: red at "Stop the copy", which nothing on the
 //     screen is named.
+//   - Past jobs' state chips not filtering (every finished job listed under
+//     each): red at gone('Safety backup') under Succeeded. The check it replaced,
+//     see('Stopped') after opening the row, passed with the row's own state
+//     label reading Failed, since the Stopped chip is always on the screen.
 //
 // It otherwise knows the words on the screen.
 
@@ -55,11 +59,15 @@ it('the copy a reset asks for waits its turn with a Stop, and stopped, it is kep
   await app.see('Download a backup first')
   await app.gone('Waiting — next')
 
-  // AND PAST JOBS KEEPS IT, as the stopped job it is.
+  // AND PAST JOBS KEEPS IT, as the stopped job it is: listed under its Stopped
+  // chip, and not under Succeeded. A bare see('Stopped') here was answered by
+  // that chip itself, which Past jobs always draws, whatever the row said.
   await app.goto('/settings/jobs')
   await app.see('Past jobs')
-  await app.press('Safety backup')
-  await app.see('Stopped')
+  await app.press('Stopped')
+  await app.see('Safety backup')
+  await app.press('Succeeded')
+  await app.gone('Safety backup')
 
   expect(app.pageErrors(), 'the page threw on the way').toEqual([])
 })
