@@ -12430,7 +12430,7 @@ My asks of 28 September, as the build was being merged, and my answers to the tw
 
 ### Decisions awaiting my ruling
 
-Each was built as written and put to me with 3.1.0; the line changes when I rule on it.
+Each was built as written and put to me with 3.1.0, or, for F15 and F16, after its release; the line changes when I rule on it.
 
 | | The decision | Why it went this way |
 |---|---|---|
