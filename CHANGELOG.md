@@ -5,6 +5,47 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.1] - 2026-09-29
+
+### Fixed
+
+- **Typing quickly into a quote or film line box, or a work's description, could drop a
+  letter.** A fast burst of keystrokes overwhelmed the box's own save indicator, and it
+  lost one along the way. It is fixed in both places, and the same defect was already in
+  3.0.4.
+- **A job carried over from a restore can no longer be run again, reviewed or applied
+  against your restored library.** Right after a restore, a job that belonged to the
+  server you replaced could still be re-run, its findings reviewed, or applied — and it
+  would then act on the restored library's rows under ids that belonged to the old one.
+  A carried-over job is now kept as history only.
+- **Pressing Stop on a waiting job right as a restore, recovery or factory reset began
+  could be lost.** The job would then run anyway once the swap finished, or its row
+  would read interrupted instead of stopped. A restore, recovery or reset that cannot
+  first record the Stop is now refused, with a message saying so, rather than risk
+  losing it.
+- **A factory reset that is refused before it starts no longer cancels your pairing
+  codes, pending sign-on links or waiting safety copies.** All three used to be cleared
+  even when the reset failed immediately and changed nothing else.
+- **An import uploaded while a restore is under way no longer removes every upload you
+  were keeping.** Uploading a file during the brief moment a restore was swapping in
+  your library could wipe out every import's saved upload, including ones still waiting
+  to run.
+- **An imported file's own row now shows what it staged, instead of "…".** After a
+  successful import the file's row kept showing "…" beneath its own summary line, for as
+  long as the Import screen stayed open.
+- **The System logs card's export buttons no longer run past the card at the largest
+  text size on a phone, and the Import screen's arrows and warning glyphs now sit on the
+  same line as their words.** The export buttons used to spill past the card's edge at
+  175% text; the arrows and warning glyphs used to print on a line of their own instead
+  of beside their words.
+
+### Changed
+
+- **The phone's Jobs tile now counts the job that is running, as well as the ones
+  waiting.** It used to show only how many were waiting.
+- **The Bengali wording across the jobs screens is settled**, and a staged count now
+  reads জমা হয়েছে instead of a word that means "left".
+
 ## [3.1.0] - 2026-09-28
 
 ### Added
