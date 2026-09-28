@@ -286,6 +286,23 @@ describe('Past jobs', () => {
     expect(within(stranger).getByText('from a later server')).toBeTruthy()
   })
 
+  // AN IMPORT AND ITS APPROVAL ARE JOBS FROM 3.1.0, and each is named in words
+  // and says what it did: the quotes a file put in Pending import, and the quotes
+  // an approval put in the library. Both are counts only the kind knows how to
+  // read, so they are asked of the rows as a reader reads them.
+  it('names an import and its approval, and says what each did', async () => {
+    PAST = [
+      job({ id: 4, kind: 'import', subject: 'My Clippings.txt', state: 'succeeded', counts: { staged: 12 }, finished_at: NOW - HOUR }),
+      job({ id: 3, kind: 'import.approve', subject: 'My Clippings.txt', state: 'succeeded', counts: { added: 10, skipped: 2 }, finished_at: NOW - 2 * HOUR }),
+    ]
+    await page()
+    const past = await card('Past jobs')
+    fireEvent.click(await within(past).findByRole('button', { name: /^Import/ }))
+    expect(await within(past).findByText('12 quotes staged', { selector: 'dd' })).toBeTruthy()
+    fireEvent.click(within(past).getByRole('button', { name: /^Approve imported quotes/ }))
+    expect(await within(past).findByText('10 added · 2 skipped', { selector: 'dd' })).toBeTruthy()
+  })
+
   // A WARNING IN A JOB'S LOG SAYS SO IN WORDS. It was a line in the accent — the
   // colour of a press — with nothing else to tell it from the rest; the word is
   // what a reader scanning the column finds, whatever colours they can see.

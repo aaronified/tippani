@@ -5917,6 +5917,9 @@ settings.jobs.kind.person-save = Save a person
 # A character's picture saved from an address.
 settings.jobs.kind.character-save = Character picture
 settings.jobs.kind.import = Import
+# The approval of staged quotes out of Pending import, which writes them into the
+# library: a job of its own since 3.1.0, beside the import that staged them.
+settings.jobs.kind.import-approve = Approve imported quotes
 settings.jobs.kind.restore = Restore
 settings.jobs.kind.reset = Reset all data
 settings.jobs.kind.notify-daily = Daily deck
@@ -5936,6 +5939,12 @@ settings.jobs.state.interrupted = Interrupted
 
 # --- what a finished job did, one phrase per count. The screen joins them with
 # " · " in code, so each phrase carries its own word order.
+# An import's one count, the quotes it put in Pending import; and an approval's,
+# the quotes it put in the library.
+settings.jobs.count.staged.one = {n} quote staged
+settings.jobs.count.staged.other = {n} quotes staged
+settings.jobs.count.added.one = {n} added
+settings.jobs.count.added.other = {n} added
 settings.jobs.count.fields.one = {n} field filled
 settings.jobs.count.fields.other = {n} fields filled
 settings.jobs.count.fetched.one = {n} fetched

@@ -1052,6 +1052,23 @@ as every other kind's is (কভার আনা, not কভার আনুন)
 | --- | --- | --- |
 | `settings.jobs.kind.backup-safety` | Safety backup | ব্যাকআপ ডাউনলোড |
 
+#### When an import and its approval became jobs
+
+An import and the approval of what it staged are jobs on the server's queue from 3.1.0, so
+the Import and Pending import screens say where a file stands and Settings → Jobs names
+the approval and counts what each did. Marked `# ?? draft for the owner (3.1.0 imports)` at
+its key; `grep -n '3.1.0 imports' internal/i18n/bn.txt` lists them. Each reuses a sibling's
+words where one already said the same fact: the staged count is the import row's own
+(*উদ্ধৃতি বাকি*), the added count the approval flash's (*যোগ হয়েছে*), the approval's name the
+staging screen's verb as a noun phrase (*মেনে নেওয়া*), and the line beside its Stop the
+re-verify dialog's (*চলতে থাকবে — সেটিংস → কাজ-এ পাবেন*).
+
+| Key | English | Bengali |
+| --- | --- | --- |
+| `settings.jobs.kind.import-approve` | Approve imported quotes | ইমপোর্টের উদ্ধৃতি মেনে নেওয়া |
+| `settings.jobs.count.staged` | {n} quote staged / {n} quotes staged | {n}টা উদ্ধৃতি বাকি |
+| `settings.jobs.count.added` | {n} added | {n}টা যোগ হয়েছে |
+
 ---
 
 ## v3 decisions

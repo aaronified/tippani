@@ -5769,6 +5769,8 @@ settings.jobs.kind.work-save = উৎস সেভ
 settings.jobs.kind.person-save = মানুষের তথ্য সেভ
 settings.jobs.kind.character-save = চরিত্রের ছবি
 settings.jobs.kind.import = ইমপোর্ট
+# ?? draft for the owner (3.1.0 imports): মেনে নেওয়া, the staging screen's own verb (সব মেনে নিন) as a noun phrase, as every kind's name is
+settings.jobs.kind.import-approve = ইমপোর্টের উদ্ধৃতি মেনে নেওয়া
 settings.jobs.kind.restore = ফিরিয়ে আনা
 settings.jobs.kind.reset = সব ডেটা মুছে ফেলা
 settings.jobs.kind.notify-daily = দৈনিক অনুশীলনী
@@ -5792,6 +5794,12 @@ settings.jobs.state.interrupted = মাঝপথে থেমেছে
 
 # --- what a finished job did, one phrase per count. The screen joins them with
 # " · " in code, so each phrase carries its own word order.
+# ?? draft for the owner (3.1.0 imports): the import row's own words for what an import staged (import.row.staged)
+settings.jobs.count.staged.one = {n}টা উদ্ধৃতি বাকি
+settings.jobs.count.staged.other = {n}টা উদ্ধৃতি বাকি
+# ?? draft for the owner (3.1.0 imports): the approval's own flash for what it added (staging.flash.approved.added)
+settings.jobs.count.added.one = {n}টা যোগ হয়েছে
+settings.jobs.count.added.other = {n}টা যোগ হয়েছে
 settings.jobs.count.fields.one = {n}টা ঘর ভরেছে
 settings.jobs.count.fields.other = {n}টা ঘর ভরেছে
 settings.jobs.count.fetched.one = {n}টা এসেছে
