@@ -4929,6 +4929,10 @@ staging.flash.updated = {n}টা বদলেছে
 staging.flash.approved.added = {n}টা যোগ হয়েছে
 staging.flash.approved.skipped = {n}টা বাদ
 staging.flash.approved.enriched = {n}টায় মেটাডেটা এসেছে
+# ?? draft for the owner (3.1.0 imports): মেনে নেওয়া চলছে for "Approving"; {total}-এর মধ্যে {done} is settings.jobs.progress's own order
+staging.approving.progress = মেনে নেওয়া চলছে — {total}-এর মধ্যে {done}
+# ?? draft for the owner (3.1.0 imports): reverify.checking.away's own words, for the approval
+staging.approving.away = এই পর্দা ছেড়ে গেলেও এটা চলতে থাকবে — সেটিংস → কাজ-এ পাবেন।
 staging.flash.discarded = {n}টা ফেলে দেওয়া হয়েছে
 staging.flash.saved = সেভ হয়েছে
 # {name} is the CATEGORY's name, not the stored colour token — it said

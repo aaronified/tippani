@@ -1071,6 +1071,8 @@ re-verify dialog's (*চলতে থাকবে — সেটিংস → ক
 | `import.row.unsent` | not sent yet | এখনও পাঠানো হয়নি |
 | `import.row.halted` | {state} — Settings → Jobs can run it again | {state} — সেটিংস → কাজ-এ আবার চালানো যায় |
 | `import.queued.note` | A file already sent carries on in Settings → Jobs if you leave this screen; one not sent yet does not. | যে ফাইল পাঠানো হয়ে গেছে, এই পর্দা ছেড়ে গেলেও সেটা সেটিংস → কাজ-এ চলতে থাকবে; যেটা এখনও পাঠানো হয়নি, সেটা নয়। |
+| `staging.approving.progress` | Approving — {done} of {total} | মেনে নেওয়া চলছে — {total}-এর মধ্যে {done} |
+| `staging.approving.away` | Leave this screen and it carries on — Settings → Jobs has it. | এই পর্দা ছেড়ে গেলেও এটা চলতে থাকবে — সেটিংস → কাজ-এ পাবেন। |
 
 ---
 

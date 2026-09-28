@@ -32,11 +32,21 @@ vi.mock('../../src/api.js', () => ({
     if (method === 'GET' && path === '/import/staged') {
       return { ok: true, data: { pending: 4, batches: BATCHES, works: WORKS, quotes: QUOTES } }
     }
+    // An approval is a job on the server's queue (3.1.0): answered 202 with the
+    // job, which the page follows to its result. These cases are about the ids
+    // it sends, so the job has already finished when it is read.
+    if (method === 'GET' && path.startsWith('/jobs')) {
+      if (path.startsWith('/jobs?')) return { ok: true, data: { jobs: [], running: 0, waiting: 0 } }
+      if (path.endsWith('/result')) {
+        return { ok: true, data: { kind: 'import.approve', result: { status: 200, body: { added: 1, skipped: 0, enriched: 0 } } } }
+      }
+      return { ok: true, data: { job: { id: 9, kind: 'import.approve', state: 'succeeded' }, lines: [] } }
+    }
     // The verb matters: a discard is DELETE /import/staged, an approve is POST
     // /import/staged/approve, and a case keyed on the path alone would not tell
     // the queue's own GET from its discard.
     posts.push({ method, path, body })
-    if (path === '/import/staged/approve') return { ok: true, data: { added: 1, skipped: 0, enriched: 0 } }
+    if (path === '/import/staged/approve') return { ok: true, status: 202, data: { job: { id: 9, kind: 'import.approve', state: 'queued', ahead: 0 } } }
     if (method === 'DELETE') return { ok: true, data: { discarded: 1 } }
     return { ok: true, data: {} }
   },

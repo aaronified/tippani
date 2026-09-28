@@ -5026,6 +5026,11 @@ staging.flash.updated = updated {n}
 staging.flash.approved.added = {n} added
 staging.flash.approved.skipped = {n} skipped
 staging.flash.approved.enriched = {n} enriched
+# The approval's bar while it runs, in works written. (From 3.1.0 approving is a
+# job on the server's queue.)
+staging.approving.progress = Approving — {done} of {total}
+# Beside the approval's Stop.
+staging.approving.away = Leave this screen and it carries on — Settings → Jobs has it.
 staging.flash.discarded = discarded {n}
 staging.flash.saved = saved
 # {name} is the CATEGORY's name, not the stored colour token — it said
