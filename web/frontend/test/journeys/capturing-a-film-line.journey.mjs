@@ -12,15 +12,21 @@
 // it with Enter used to lose the name silently: no error, no warning, and gone
 // after a reload too. `TokenInput`'s own blur handler carries a comment promising
 // that could not happen — it fired, and the value still did not arrive, because
-// `save` is published upward to the host's title bar by an effect that runs after
+// `save` was published upward to the host's title bar by an effect that runs after
 // paint, and the blur that commits the token is the one caused by mousedown on
-// Save. The closure the click ran was one render stale. `AddSurface.jsx` keeps a
-// ref of the draft now, the way `usePanelStack` already did for the same reason.
+// Save. The closure the click ran was one render stale. The repair was a ref of
+// the draft that `save` read; `AddSurface.jsx` now hands the title bar one stable
+// verb that runs the latest render's `save` through a ref, which covers the same
+// order.
 //
 // So the second case below is the quick path — type, press Save, never confirm —
-// and it is the one that would go red if that ref were removed. The first is the
-// careful path, and both have to work. The first pass writing this file also
-// carried a quieter mistake worth naming: its character name
+// and it is the one that goes red on its own when the bar is handed the render's
+// own `save` again, re-published with every change to the draft (the case's note
+// below). Take the ref out and leave the effect as it is, and both cases go red:
+// the bar then keeps the `save` it was handed when the form last changed whether
+// it could be saved, closed over a draft from before most of the line was typed.
+// The first is the careful path, and both have to work. The first pass writing
+// this file also carried a quieter mistake worth naming: its character name
 // ("The Harbourmaster") was a case-folded substring of its own quote text
 // ("...the harbourmaster to agree"), so `see(CHARACTER)` passed whether or not
 // the character was ever actually saved — the quote text alone satisfied it.
@@ -104,9 +110,10 @@ it('a viewer captures a line of dialogue with its character, and both are still 
 
 // THE QUICK PATH, AND THE REGRESSION GUARD. A reader who types a character and
 // goes straight for Save — never pressing Enter, never thinking about tokens —
-// must keep the name. This is the case that was broken; delete the draft ref in
-// AddSurface.jsx and this goes red while the careful path above stays green,
-// which is exactly how the bug hid.
+// must keep the name. This is the case that was broken; hand the title bar the
+// render's own `save` again, re-published with every change to the draft (the
+// ref gone), and this goes red while the careful path above stays green, which
+// is exactly how the bug hid.
 const QUICK_LINE = 'The lamps were lit early that winter, and nobody said why.'
 const QUICK_CHARACTER = 'Perrin Vosschart'
 

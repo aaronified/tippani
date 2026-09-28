@@ -1035,13 +1035,24 @@ function FieldSheet({ kind, item, spec, label, genreSuggestions, onChanged, onDo
   }, [value, seeded])
   const host = useFormHost('')
   // The chrome's guard reads a COUNT of unsaved things, and a sheet holds one.
+  //
+  // WORKED OUT HERE AND HANDED UP ONLY WHEN IT FLIPS, NOT ON EVERY LETTER. With
+  // the draft itself in the deps, each letter ran the cleanup and the effect —
+  // setDirty(0), then setDirty(1) — which is an update to the panel around the
+  // sheet that React leaves for a turn of its own. Typed faster than the browser
+  // gives it that turn, every letter's render ended with one still waiting, React
+  // counted them as a chain, and past fifty it threw "Maximum update depth
+  // exceeded" out of the next letter's own setState and lost that letter: the
+  // capture form's defect (QuoteForm's publish to its title bar, AddSurface.jsx),
+  // one screen over. The count is 0 or 1, and it changes on the first letter and
+  // when the text is typed back to what is stored.
+  const dirty = spec.kind === 'tokens'
+    ? JSON.stringify([...(draft || [])]) !== JSON.stringify([...(value || [])])
+    : String(draft ?? '') !== String(value ?? '')
   useEffect(() => {
-    const dirty = spec.kind === 'tokens'
-      ? JSON.stringify([...(draft || [])]) !== JSON.stringify([...(value || [])])
-      : String(draft ?? '') !== String(value ?? '')
     host?.setDirty?.(dirty ? 1 : 0)
     return () => host?.setDirty?.(0)
-  }, [host, draft, value, spec.kind])
+  }, [host, dirty])
 
   async function submit(e) {
     // Somebody else's submit is not this one's — see the field list's own note.
