@@ -880,32 +880,48 @@ var errExportSwapped = errors.New("the database was replaced (a restore or a res
 // not sent, and the export ends with a line saying so: after a reset the ids
 // below the export's last one name other lines, and a restore could have been
 // of anything, so the rest would not be the log the fence was measured over.
+//
+// EACH BATCH IS READ THROUGH Store.Steady, and its generation asked there. A swap
+// counts its generation only once the new pools are open, so a batch read on the
+// store's own pool, with the generation asked afterwards, could land inside the
+// swap. It then failed on the closed pool, and the export ended without its line,
+// or it read the new file and counted it as the old one. Under the race detector
+// the first happened on every run of the test of an export swapped under part-way.
+// The lock is let go before the batch is sent, so a client that stops reading
+// holds up no restore.
 func (s *Server) eachExportLine(gen uint64, emit func(string) error, q string, args ...any) error {
+	type row struct {
+		id                int64
+		at                int64
+		level, code, line string
+	}
 	var after int64
 	for {
-		type row struct {
-			id                int64
-			at                int64
-			level, code, line string
-		}
 		batch := make([]row, 0, exportBatch)
-		rows, err := s.Store.DB.Query(q+` AND id > ? ORDER BY id LIMIT ?`, append(slices.Clone(args), after, exportBatch)...)
+		swapped := false
+		err := s.Store.Steady(func(db *sql.DB, now uint64) error {
+			if now != gen {
+				swapped = true
+				return nil
+			}
+			rows, err := db.Query(q+` AND id > ? ORDER BY id LIMIT ?`, append(slices.Clone(args), after, exportBatch)...)
+			if err != nil {
+				return err
+			}
+			defer rows.Close()
+			for rows.Next() {
+				var l row
+				if err := rows.Scan(&l.id, &l.at, &l.level, &l.code, &l.line); err != nil {
+					return err
+				}
+				batch = append(batch, l)
+			}
+			return rows.Err()
+		})
 		if err != nil {
 			return err
 		}
-		for rows.Next() {
-			var l row
-			if err := rows.Scan(&l.id, &l.at, &l.level, &l.code, &l.line); err != nil {
-				rows.Close()
-				return err
-			}
-			batch = append(batch, l)
-		}
-		rows.Close()
-		if err := rows.Err(); err != nil {
-			return err
-		}
-		if s.Store.Generation() != gen {
+		if swapped {
 			if err := emit("… the export stops here: " + errExportSwapped.Error()); err != nil {
 				return err
 			}

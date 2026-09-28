@@ -215,6 +215,25 @@ func (s *Store) LogWrite(fn func(db *sql.DB) error) error {
 	return fn(s.LogDB)
 }
 
+// Steady runs fn with the library pool and that pool's generation, with no swap
+// under way from before fn starts until it returns: it holds the swap lock for
+// reading, as LogWrite does. A swap closes the library pool, moves the files and
+// reopens it, and counts its generation only at the end, so a read begun in
+// between either fails on the closed pool or reads the new file under the old
+// number. A reader that has to tell those apart reads through here: an export,
+// which must end with a line saying the file changed under it, not with an error
+// or with lines from a file its fence was never measured over.
+//
+// fn IS ONE SHORT READ AND NOTHING ELSE. A swap waits for it, so it must not write
+// to the network or wait on a client. It must not take the swap lock again, or
+// log through anything that waits on the logbook: a swap already waiting for the
+// lock holds off a second read lock, and neither would move.
+func (s *Store) Steady(fn func(db *sql.DB, gen uint64) error) error {
+	s.logMu.RLock()
+	defer s.logMu.RUnlock()
+	return fn(s.DB, s.gen.Load())
+}
+
 // Generation counts the swaps of the database files so far: restores, recoveries
 // and factory resets. Anything that noted a user id must note this with it, and
 // drop the id when the number has moved (see Store.gen).

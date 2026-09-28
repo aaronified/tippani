@@ -1409,7 +1409,24 @@ func TestTheHoldSeamHoldsOnlyAnOfflineServer(t *testing.T) {
 	online := g.enqueue(g.mitra(), "quick", map[string]any{"online": true})
 	g.waitState(online, "succeeded")
 
-	t.Setenv(outbound.EnvVar, "1")
+	// The worker that ran it goes on to look for the next job, and one between
+	// its hold check and its claim would claim the job below past a switch
+	// flipped in that moment. It failed that way under the race detector, 1 run
+	// in 20 on a loaded machine. In real use the seam is set before the server
+	// starts, so only a test can open that gap. Exclusive waits out a claim in
+	// progress and lets none begin, so flipped inside it the switch is on before
+	// any worker looks again. It is refused as busy while the worker is still
+	// finishing the online job's end.
+	for {
+		err := g.r.Exclusive(func() error { t.Setenv(outbound.EnvVar, "1"); return nil })
+		if err == nil {
+			break
+		}
+		if !errors.Is(err, jobs.ErrBusy) {
+			t.Fatal(err)
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
 	offline := g.enqueue(g.mitra(), "quick", map[string]any{"offline": true})
 	time.Sleep(300 * time.Millisecond)
 	if g.state(offline) != "queued" {
