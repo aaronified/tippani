@@ -83,7 +83,7 @@ settings.section.lang.label = ভাষা ও ফন্ট
 settings.section.review.label = রিভিউ
 settings.section.sections.label = বিভাগ
 settings.section.server.label = সার্ভার
-# ?? "job" → কাজ, the everyday word; the Additions table already gives কাজ to an arithmetic "operation" in a mono Select, a different screen
+# bn: "job" → কাজ, the everyday word; the Additions table already gives কাজ to an arithmetic "operation" in a mono Select, a different screen
 settings.section.jobs.label = কাজ
 # The information dot beside that row.
 settings.language.info.title = ভাষা
@@ -1221,7 +1221,7 @@ shell.search.where.works = বই আর ছবি
 shell.search.where.characters = এই লাইব্রেরির চরিত্র
 shell.search.where.people = এই লাইব্রেরির মানুষ
 # The system logs card in Settings › Jobs takes the bar while that section is open.
-# ?? "log" → লগ, the word a programmer says; খাতা stays the read log's ledger
+# bn: "log" → লগ, the word a programmer says; খাতা stays the read log's ledger
 shell.search.where.logs = সিস্টেম লগ
 shell.search.aria.screen = {where} খুঁজুন
 shell.search.aria.all = সবকিছুতে খুঁজুন
@@ -5761,7 +5761,7 @@ settings.jobs.kind.lookup-movie = টাইটেল খুঁজে দেখ�
 settings.jobs.kind.lookup-images = ছবি খোঁজা
 settings.jobs.kind.lookup-portrait = মুখের ছবি খোঁজা
 settings.jobs.kind.lookup-links = তথ্যসূত্রের পাতা খোঁজা
-# ?? names what the row's Fetch does (a photo and links) rather than "person lookup"; the row's subject is the person's name
+# bn: names what the row's Fetch does (a photo and links) rather than "person lookup"; the row's subject is the person's name
 settings.jobs.kind.lookup-person = ছবি ও লিংক আনা
 settings.jobs.kind.lookup-reverify = একটা আবার মিলিয়ে দেখা
 settings.jobs.kind.lookup-cast-image = কাস্টের একটা ছবি
@@ -5771,11 +5771,11 @@ settings.jobs.kind.lookup-cast-art = কাস্টের ছবি
 settings.jobs.kind.update-check = আপডেট আছে কি না দেখা
 settings.jobs.kind.update-apply = আপডেট
 settings.jobs.kind.metadata-test = সূত্র পরীক্ষা
-# ?? বিজ্ঞপ্তির পরীক্ষা, not পরীক্ষার বিজ্ঞপ্তি, which reads as an exam notice
+# bn: বিজ্ঞপ্তির পরীক্ষা, not পরীক্ষার বিজ্ঞপ্তি, which reads as an exam notice
 settings.jobs.kind.notify-test = বিজ্ঞপ্তির পরীক্ষা
 settings.jobs.kind.signin-oidc = সিঙ্গল সাইন-অন
 settings.jobs.kind.work-save = উৎস সেভ
-# ?? মানুষের তথ্য, the words the bulk people fetch already uses (মানুষের তথ্য আনা); মানুষ সেভ alone reads as saving a human
+# bn: মানুষের তথ্য, the words the bulk people fetch already uses (মানুষের তথ্য আনা); মানুষ সেভ alone reads as saving a human
 settings.jobs.kind.person-save = মানুষের তথ্য সেভ
 settings.jobs.kind.character-save = চরিত্রের ছবি
 settings.jobs.kind.import = ইমপোর্ট
@@ -5784,7 +5784,7 @@ settings.jobs.kind.import-approve = ইমপোর্টের উদ্ধৃ�
 settings.jobs.kind.restore = ফিরিয়ে আনা
 settings.jobs.kind.reset = সব ডেটা মুছে ফেলা
 settings.jobs.kind.notify-daily = দৈনিক অনুশীলনী
-# ?? an HTTP request → রিকোয়েস্ট; অনুরোধ is a favour asked of a person
+# bn: an HTTP request → রিকোয়েস্ট; অনুরোধ is a favour asked of a person
 settings.jobs.kind.request = রিকোয়েস্ট
 settings.jobs.kind.other = কাজ
 
@@ -5797,7 +5797,7 @@ settings.jobs.kind.other = কাজ
 settings.jobs.state.queued = অপেক্ষার তালিকায়
 settings.jobs.state.running = চলছে
 settings.jobs.state.succeeded = সফল
-# ?? ব্যর্থ for the chip; a count of failures elsewhere says পারা গেল না, which is a sentence and too long for a chip
+# bn: ব্যর্থ for the chip; a count of failures elsewhere says পারা গেল না, which is a sentence and too long for a chip
 settings.jobs.state.failed = ব্যর্থ
 settings.jobs.state.stopped = থামানো হয়েছে
 settings.jobs.state.interrupted = মাঝপথে থেমেছে
@@ -5945,7 +5945,7 @@ settings.jobs.past.review.tip = যা যা বদল পাওয়া গ�
 
 # --- System logs: the app's own log, for an admin.
 settings.logs.title = সিস্টেম লগ
-# ?? a log "level" → স্তর; the chips below name the levels themselves
+# bn: a log "level" → স্তর; the chips below name the levels themselves
 settings.logs.level.aria = কোন স্তরের লাইন দেখাবে
 settings.logs.level.error.label = গোলমাল
 settings.logs.level.warn.label = সতর্কতা

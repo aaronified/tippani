@@ -994,9 +994,11 @@ constraint was length as much as sense.
 
 ### From the jobs pass (3.1.0, Settings › Jobs)
 
-Settings grew a sixth section for the server's queue and its logs. The five term rows here
-are still marked `# ?? ` at their keys; the rest of the section's words are the sheet's own
-(থামান, আবার চালান, এক্সপোর্ট, অপেক্ষার তালিকা, বাকি).
+Settings grew a sixth section for the server's queue and its logs. The five term rows here,
+and three kinds' names (`lookup-person`, `notify-test`, `person-save`), were marked `# ?? ` at
+their keys; on the owner's *"F7: do your best"* (28 September) the session kept all eight as they
+stand and turned the marks into `# bn:` notes. The owner may still correct any. The rest of the
+section's words are the sheet's own (থামান, আবার চালান, এক্সপোর্ট, অপেক্ষার তালিকা, বাকি).
 
 | English | Bengali | Reason |
 | --- | --- | --- |
