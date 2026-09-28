@@ -38,6 +38,14 @@
 // so a stylesheet edit that has not been through `make frontend` is not in the
 // thing being measured.
 //
+// THE THIRD CASE IS THE SYSTEM LOGS CARD AT THE LARGEST TYPE (3.1.0's card). Its
+// export row holds "Everything kept (30 days)", and a button never wraps its
+// label, so at 175% on a 390 screen that one button ended past the card's inset
+// and past the screen, and the page slid under it. The reader turns the type up
+// the way a reader does, with the Text size dial, and then opens Jobs. THE
+// MUTATION, run: take the `.logs-export > .tp-btn` rule back out of index.css and
+// this case goes red, "expected 6 to be +0", with the other two green.
+//
 // It knows the words on the screen and nothing else.
 
 import { expect, it } from 'vitest'
@@ -60,4 +68,18 @@ it('the typeface row keeps its buttons inside the card on a phone', async () => 
   await app.press('Language and font')
   await app.see('Interface')
   expect(await app.sideways()).toBe(0)
+})
+
+// LAST, because it leaves the reader's type at the top of the dial. A fresh page
+// after the choice, so the size is the one the server kept, not only the one the
+// dial applied to the page it was on.
+it('the System logs card keeps its export buttons inside it at the largest type', async () => {
+  await app.goto('/settings')
+  await app.press('Language and font')
+  await app.choose('Text size', '175%')
+  await app.see('175%')
+  await app.goto('/settings/jobs')
+  await app.see('System logs')
+  await app.see('Everything kept (30 days)')
+  expect(await app.sideways(), 'the Jobs section slides sideways at 175% type').toBe(0)
 })

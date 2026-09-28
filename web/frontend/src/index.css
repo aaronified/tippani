@@ -11917,6 +11917,14 @@ button.work-pill:hover { color: var(--ink); border-color: var(--ink-border); }
 .logs-filters { display: grid; gap: 8px; margin-bottom: 10px; min-width: 0; }
 .logs-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
 .logs-export { margin-top: 10px; }
+/* THE LABEL WRAPS INSIDE ITS BUTTON, rather than the button running past the card.
+   `.tp-btn` never wraps, and "Everything kept (30 days)" at 175% type is wider than
+   a phone's card: on a 390 screen, over the owner's archive, it ended 43px past the
+   card's inset and 7px past the screen, and the whole page slid sideways under it. A flex item keeps its
+   min-content width, so the label breaks between words and never inside one; the
+   typescale rule's answer to text that does not fit is a taller box, not a
+   frozen size or a clip. */
+.logs-export > .tp-btn { white-space: normal; text-align: center; }
 /* COMMON JOBS (commonJobs.jsx) IS THE SAME ROW, with the job's name and one line
    of what it does in its head, its presses at the end of that line, and under them
    one line more: how it went last time — the release log's door again, opening that
