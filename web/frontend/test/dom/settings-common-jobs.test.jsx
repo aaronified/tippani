@@ -7,8 +7,8 @@
 // every work and Fetch missing people.
 //
 // WHAT A READER COMES HERE TO DO, and so what this file presses: find the job by
-// its name, see how it went the last time, run it (again) from its row, find a
-// Stop in the same place while it waits, and open the last run's log. An admin
+// its name, see how it went the last time, run it (again) from its row, stop it
+// from the same row while it runs or waits, and open the last run's log. An admin
 // has four rows; a reader the two they may run.
 //
 // THE NETWORK IS A SMALL FAKE SERVER, answering GET /jobs/common, POST /jobs and
@@ -16,13 +16,15 @@
 // settings-jobs.test.jsx fakes the rest of the section. Which rows a viewer gets
 // is the server's decision (the Go tier, common_jobs_test.go, holds it), so each
 // case hands the fake the rows that viewer would get. What the test reads back
-// from it is only what a request SAID — which kind and params a Run sent.
+// from it is only what a request SAID — which kind and params a Run sent, whether
+// a Stop was sent — and how often the card asked, because "it reads again closely
+// after a Stop" is a claim about requests.
 //
 // No declared exception beyond that fake: nothing here names a class, a component
 // or a module of the app.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { openSettingsSection } from './helpers/settingsSection.jsx'
 
 let CALLS
@@ -191,6 +193,53 @@ describe('running one', () => {
     fireEvent.click(within(prompt).getByRole('button', { name: /^Back up$/ }))
     await waitFor(() => expect(posted('/jobs').map(([, , b]) => b)).toEqual([{ kind: 'backup', params: { password: 'hunter2' } }]))
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Back up' })).toBeNull())
+  })
+})
+
+describe('stopping one', () => {
+  const running = () => {
+    rowOf('fill-all').current = job({ id: 21, kind: 'fill', params: { all: true }, state: 'running', total: 12, done: 3, finished_at: null })
+  }
+
+  it('says Stopping… at the press, before the server has answered', async () => {
+    running()
+    let answer
+    STOP = (id) => new Promise((resolve) => { answer = () => resolve({ ok: true, data: { job: { id } } }) })
+    const card = await page()
+    within(card).getByText('Running · 3 of 12')
+    fireEvent.click(within(card).getByRole('button', { name: 'Stop Fill gaps in every work' }))
+    // The server has not answered yet.
+    expect(within(card).getByText('Stopping after the item in hand…')).toBeTruthy()
+    expect(within(card).queryByRole('button', { name: 'Stop Fill gaps in every work' })).toBeNull()
+    expect(posted('/jobs/21/stop')).toHaveLength(1)
+    await act(async () => answer())
+  })
+
+  it('reads the row again closely after the Stop, and shows how the job ended as soon as it has', async () => {
+    running()
+    const card = await page()
+    fireEvent.click(within(card).getByRole('button', { name: 'Stop Fill gaps in every work' }))
+    await waitFor(() => expect(posted('/jobs/21/stop')).toHaveLength(1))
+    // Still running on the server: the card asks again well inside the two
+    // seconds it waits between reads while a job runs.
+    const pressed = reads()
+    await waitFor(() => expect(reads() - pressed).toBeGreaterThanOrEqual(3), { timeout: 1500 })
+    // It ends: the row says so at the next read and offers Run again.
+    const r = rowOf('fill-all')
+    r.last = { ...r.current, state: 'stopped', finished_at: Date.now() }
+    r.current = null
+    expect(await within(card).findByRole('button', { name: 'Run again: Fill gaps in every work' }, { timeout: 1000 })).toBeTruthy()
+    expect(within(card).getByRole('button', { name: /^Last run of Fill gaps in every work: Stopped, / })).toBeTruthy()
+  })
+
+  it('puts the Stop back when the server refuses it, and says why', async () => {
+    running()
+    STOP = () => ({ ok: false, status: 404, data: { error: 'job not found' } })
+    const card = await page()
+    fireEvent.click(within(card).getByRole('button', { name: 'Stop Fill gaps in every work' }))
+    expect(await screen.findByText('job not found')).toBeTruthy()
+    expect(within(card).getByRole('button', { name: 'Stop Fill gaps in every work' })).toBeTruthy()
+    expect(within(card).queryByText('Stopping after the item in hand…')).toBeNull()
   })
 })
 

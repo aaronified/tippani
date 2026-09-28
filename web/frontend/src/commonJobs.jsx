@@ -71,10 +71,21 @@ const rowTitle = (id) => t(`settings.jobs.common.${id}.label`)
 // seals it, and the prompt a reader meets for it must be the one they met on the
 // Server card — same fields, same rules.
 export function CommonJobsCard({ user, credentialPrompt = null }) {
-  const { rows, loaded, error, reload } = useCommonJobs()
+  const { rows, loaded, error, reload, watchStop } = useCommonJobs()
   const [asking, setAsking] = useState(null) // a row waiting for its credential
   const [busy, setBusy] = useState('') // the row whose press is on its way
-  const [stopping, setStopping] = useState(() => new Set()) // jobs a Stop was pressed on
+  // THE JOBS A STOP WAS PRESSED ON, which say "Stopping…" from the instant of the
+  // press, before the server has answered: a row that went on offering Stop until
+  // the answer came would read as a press that did nothing. The row goes back to
+  // Run again when the close read after the Stop (useCommonJobs) finds the job
+  // ended.
+  const [stopping, setStopping] = useState(() => new Set())
+  const markStopping = (id, on) => setStopping((s) => {
+    const next = new Set(s)
+    if (on) next.add(id)
+    else next.delete(id)
+    return next
+  })
   const [open, setOpen] = useState('') // the row whose last run's log is open
   const shown = rows.filter((row) => ROWS[row.id])
 
@@ -92,9 +103,14 @@ export function CommonJobsCard({ user, credentialPrompt = null }) {
   }
 
   async function stop(row) {
-    const r = await stopJob(row.current.id)
-    if (!r.ok) return toast(r.error)
-    setStopping((s) => new Set(s).add(row.current.id))
+    const id = row.current.id
+    markStopping(id, true)
+    const r = await stopJob(id)
+    if (!r.ok) {
+      markStopping(id, false)
+      return toast(r.error)
+    }
+    watchStop(id)
   }
 
   return (

@@ -734,14 +734,28 @@ export function useCurrentJobs({ enabled = true } = {}) {
 // every ten while none does, nothing while the tab is hidden. It reads again at
 // once on every announcement, a job that SETTLED included — that is the moment a
 // row's last run changes, and the current poll is the one that saw it.
+//
+// AND CLOSELY AFTER A STOP. The owner's, for 3.1.0: the cancel button is "the most
+// responsive kill switch. No dillydallying after it has been pressed." So once the
+// card has pressed Stop on a row's job, `watchStop(id)` has the card read every
+// STOP_POLL_MS until that job is no row's current one — it has ended, and the row
+// shows how — for STOP_WATCH_MS at most, and then the ordinary cadence again. The
+// bound is for a job that takes longer to end than that, which the ordinary poll
+// then picks up.
+const STOP_POLL_MS = 200
+const STOP_WATCH_MS = 3000
+
 export function useCommonJobs() {
   const [state, setState] = useState({ rows: [], loaded: false, error: '' })
   const kick = useRef(() => {})
+  const watch = useRef(() => {})
   useEffect(() => {
     let alive = true
     let timer = null
     let busy = false
     let again = false
+    // The jobs a Stop was just pressed on, watched closely: {ids, until}, or null.
+    let hurry = null
     async function read() {
       clearTimeout(timer)
       timer = null
@@ -760,9 +774,14 @@ export function useCommonJobs() {
         setState((s) => ({ ...s, loaded: true, error: r.error }))
       }
       if (again) { again = false; return read() }
-      timer = setTimeout(read, live ? 2000 : 10000)
+      if (hurry && (Date.now() >= hurry.until || (r.ok && !r.rows.some((row) => hurry.ids.has(row.current?.id))))) hurry = null
+      timer = setTimeout(read, hurry ? STOP_POLL_MS : live ? 2000 : 10000)
     }
     kick.current = read
+    watch.current = (id) => {
+      hurry = { ids: new Set([...(hurry?.ids || []), id]), until: Date.now() + STOP_WATCH_MS }
+      read()
+    }
     const onVisible = () => { if (!hidden()) read() }
     document.addEventListener('visibilitychange', onVisible)
     read()
@@ -770,11 +789,12 @@ export function useCommonJobs() {
       alive = false
       clearTimeout(timer)
       kick.current = () => {}
+      watch.current = () => {}
       document.removeEventListener('visibilitychange', onVisible)
     }
   }, [])
   useJobsAnnounced(() => kick.current())
-  return { ...state, reload: () => kick.current() }
+  return { ...state, reload: () => kick.current(), watchStop: (id) => watch.current(id) }
 }
 
 // ---- a screen that started a job and waits for its end -----------------------
