@@ -445,12 +445,16 @@ func TestAnImportCutOffAfterItsStagingCommittedIsNeverStagedTwice(t *testing.T) 
 
 	reached, crashed := make(chan struct{}), make(chan struct{})
 	var once sync.Once
-	importStopSeam = func(_ context.Context, point string, _ int) {
+	setImportSeam(t, srv, func(_ context.Context, point string, _ int) {
 		if point == importStagedPoint {
 			once.Do(func() { close(reached); <-crashed })
 		}
-	}
-	t.Cleanup(func() { importStopSeam = nil })
+	})
+	// Let go before the seam is taken away, on every way out: a failing test's
+	// cleanups run before setImportSeam's, and the job held here would otherwise
+	// wait on crashed for good.
+	crash := sync.OnceFunc(func() { close(crashed) })
+	t.Cleanup(crash)
 
 	j := queuedJob(t, c.uploadOnly("/import/markdown", "sandworm.md", []byte(stagedBookMD)))
 	select {
@@ -490,7 +494,7 @@ func TestAnImportCutOffAfterItsStagingCommittedIsNeverStagedTwice(t *testing.T) 
 	}
 
 	// The old job's goroutine is let go, and waited for, before the store closes.
-	close(crashed)
+	crash()
 	wait, done := context.WithTimeout(context.Background(), 10*time.Second)
 	defer done()
 	if err := old.WaitOwnerIdle(wait, 1); err != nil {
