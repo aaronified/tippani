@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 	"time"
 )
@@ -22,7 +23,8 @@ import (
 // tables' names and columns (jobs, job_logs, system_logs). It writes its rows
 // through srv.Store.DB because no request can make them: one is a job reading
 // running when the restore comes, which a server with a queue never lets happen
-// (the restore waits for a running job to end), so this server runs no queue and
+// (the restore waits for a running job to end), so this server stops its queue
+// once the two archives are made — each is a queued job, as every backup is — and
 // the row is written as a crash would leave it; and the marker it looks for has
 // to sit in a job's subject, one of that job's lines and a request line, which
 // keeps no value a request carries. It
@@ -41,7 +43,6 @@ const archiveMarker = "Wv-archive-journal-marker-5540"
 
 func TestABackupLeavesTheJobHistoryBehindAndARestoreKeepsTheServersOwn(t *testing.T) {
 	srv := newTestServer(t)
-	unqueued(t, srv) // the header's "this server runs no queue"
 	h := srv.Handler()
 	admin := signupAdmin(t, h)
 	addUser(t, h, admin, "bob")
@@ -67,14 +68,16 @@ func TestABackupLeavesTheJobHistoryBehindAndARestoreKeepsTheServersOwn(t *testin
 	kept := admin.mustDo("GET", "/admin/backup/download", nil, http.StatusOK).Body.Bytes()
 	assertNoJournal(t, "the kept backup", plaintextOf(t, kept, testPw))
 
-	// After the archive: bob starts a job that is still running when the restore
-	// comes.
-	exec(`INSERT INTO jobs (id, user_id, username, kind, state, created_at, started_at)
-		VALUES (32, ?, 'bob', 'covers', 'running', ?, ?)`, bobID, now, now)
-
 	// The safety copy the restore insists on first is an archive too.
 	safety := admin.mustDo("POST", "/admin/backup/safety", map[string]string{"passphrase": "safety-copy-1"}, http.StatusOK).Body.Bytes()
 	assertNoJournal(t, "the safety copy", plaintextOf(t, safety, "safety-copy-1"))
+
+	// After the archives: bob starts a job that is still running when the restore
+	// comes (the header's "this server stops its queue").
+	unqueued(t, srv)
+	const running = 132
+	exec(`INSERT INTO jobs (id, user_id, username, kind, state, created_at, started_at)
+		VALUES (?, ?, 'bob', 'covers', 'running', ?, ?)`, running, bobID, now, now)
 
 	admin.mustDo("POST", "/admin/restore", map[string]any{"password": testPw}, http.StatusOK)
 
@@ -95,8 +98,10 @@ func TestABackupLeavesTheJobHistoryBehindAndARestoreKeepsTheServersOwn(t *testin
 			Line string `json:"line"`
 		} `json:"lines"`
 	}
-	if all := alice.jobs("view=past"); len(all.Jobs) != 2 {
-		t.Fatalf("past jobs after the restore: %v, want the server's two", jobIDs(all.Jobs))
+	// Four: the two written above, and the backup and the safety copy that made
+	// the archives.
+	if all := alice.jobs("view=past"); len(all.Jobs) != 4 || !slices.Contains(jobIDs(all.Jobs), 31) || !slices.Contains(jobIDs(all.Jobs), running) {
+		t.Fatalf("past jobs after the restore: %v, want the server's four", jobIDs(all.Jobs))
 	}
 	finished := decode[poll](t, alice.mustDo("GET", "/jobs/31", nil, http.StatusOK))
 	if j := finished.Job; j.State != "succeeded" || !j.Own {
@@ -107,7 +112,7 @@ func TestABackupLeavesTheJobHistoryBehindAndARestoreKeepsTheServersOwn(t *testin
 	}
 	// Bob is in the archive under the same id and name, so the job stays his; it
 	// was running, and nothing resumes on its own.
-	if j := bob.job(32); j.State != "interrupted" || !j.Own {
+	if j := bob.job(running); j.State != "interrupted" || !j.Own {
 		t.Fatalf("bob's running job after the restore: %+v, want interrupted and still his", j)
 	}
 	carried := false

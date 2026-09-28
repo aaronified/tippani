@@ -506,12 +506,20 @@ func TestTheServersBackupNeverCarriesAFileWaitingToBeImported(t *testing.T) {
 
 	held := admin.mustStart("test.hold", map[string]any{"tag": "ahead"})
 	admin.waitJob(held.ID, "running")
+	// The backup is a job too, queued ahead of the import, so it runs while the
+	// upload waits its turn in the spool.
+	backup := decode[struct {
+		Job wireJob `json:"job"`
+	}](t, admin.mustDo("POST", "/admin/backup", map[string]any{"password": testPw}, http.StatusAccepted)).Job
 	rec := admin.uploadOnly("/import/markdown", "sandworm.md", []byte(stagedBookMD))
 	queuedJob(t, rec)
 	if len(spooled(t, srv)) != 1 {
 		t.Fatalf("no upload waiting in the spool: %v", spooled(t, srv))
 	}
-	backupNow(admin)
+	q.let()
+	if end := admin.jobEnded(backup.ID); end.State != "succeeded" {
+		t.Fatalf("the backup ahead of the import: %+v", end)
+	}
 	name, _ := srv.newestBackup()
 	enc, err := os.ReadFile(filepath.Join(srv.backupsDir(), name))
 	if err != nil {
@@ -522,7 +530,6 @@ func TestTheServersBackupNeverCarriesAFileWaitingToBeImported(t *testing.T) {
 			t.Fatalf("the archive carries %s", n)
 		}
 	}
-	q.let()
 	if ans := admin.followed(rec); ans.Code != http.StatusOK {
 		t.Fatalf("the import after the backup: %d %s", ans.Code, ans.Body)
 	}

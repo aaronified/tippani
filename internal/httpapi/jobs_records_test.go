@@ -8,9 +8,10 @@ import (
 	"time"
 )
 
-// WHAT AN ADMIN DOES TO THE WHOLE SERVER IS KEPT AS A JOB, THOUGH IT RUNS IN ITS
-// REQUEST: a backup through the API, a safety copy, an update, a restore (the
-// first-run one too) and a factory reset, each found afterwards in Past jobs.
+// WHAT AN ADMIN DOES TO THE WHOLE SERVER IS KEPT AS A JOB: a backup through the
+// API, which queues as the Server card's does, and, though they run in their
+// request, a safety copy, an update, a restore (the first-run one too) and a
+// factory reset, each found afterwards in Past jobs.
 //
 // Driven through the API as the Server and Updates cards drive them, and read
 // back through GET /jobs as Settings › Jobs reads it.
@@ -20,8 +21,8 @@ import (
 // update's Docker client stubbed as update_test.go stubs it (srv.newDocker).
 //
 // What each one guards, in a sentence a person would say: each of those is in
-// Past jobs afterwards, as having run in its request, named after what it was
-// about; a restore's and a reset's belong to nobody, since the account that
+// Past jobs afterwards, as queued or as having run in its request, named after
+// what it was about; a restore's and a reset's belong to nobody, since the account that
 // pressed them belonged to the database they replaced, and an admin still sees
 // them; a restore keeps the jobs from before it, and a reset keeps nothing but
 // its own.
@@ -67,7 +68,11 @@ func TestWhatAnAdminDoesToTheWholeServerIsKeptAsAJob(t *testing.T) {
 	}](t, admin.mustDo("GET", "/admin/backup", nil, http.StatusOK)).Backup.Name
 	safetyBackup(t, admin)
 
-	for _, kind := range []string{"backup", "backup.safety"} {
+	// The API's backup is the Server card's job, queued like it.
+	if j := pastJob(admin, "backup"); !j.Queued || !j.Own || j.State != "succeeded" || j.Subject != "" || j.Username != "alice" {
+		t.Fatalf("the backup in past jobs: %+v", j)
+	}
+	for _, kind := range []string{"backup.safety"} {
 		j := pastJob(admin, kind)
 		if j.Queued || !j.Own || j.State != "succeeded" || j.Subject != "" || j.Username != "alice" {
 			t.Fatalf("the %s in past jobs: %+v", kind, j)

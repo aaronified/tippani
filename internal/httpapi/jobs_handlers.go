@@ -384,6 +384,7 @@ func noQueue(w http.ResponseWriter) {
 
 // handleStartJob: POST /jobs {kind, params} → 202 {job}. The kind's validate
 // reads the params; the queue refuses with its reasons (writeJobRefusal).
+// startKind is the rest of it, which POST /admin/backup shares.
 func (s *Server) handleStartJob(w http.ResponseWriter, r *http.Request) {
 	if s.Jobs == nil {
 		noQueue(w)
@@ -410,6 +411,15 @@ func (s *Server) handleStartJob(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "no such kind of job")
 		return
 	}
+	s.startKind(w, r, k, req.Params)
+}
+
+// startKind queues a job of kind k with params, as POST /jobs does, and answers
+// 202 {job} or the refusal. POST /jobs calls it with the kind it was sent, and
+// POST /admin/backup with the backup kind and its body, so the API's backup and
+// the Server card's are one job reached two ways: the same checks in the same
+// order, the same duplicate and the same answer.
+func (s *Server) startKind(w http.ResponseWriter, r *http.Request, k queuedKind, params json.RawMessage) {
 	v := viewer(r)
 	// Before the params are read: a reader is not told what an admin's job
 	// would have accepted, nor made to type the admin's password to learn it is
@@ -418,7 +428,7 @@ func (s *Server) handleStartJob(w http.ResponseWriter, r *http.Request) {
 		s.writeJobRefusal(w, r, jobs.ErrAdminOnly)
 		return
 	}
-	in, err := k.validate(s, req.Params, v)
+	in, err := k.validate(s, params, v)
 	if err != nil {
 		if ref, ok := asRefusal(err); ok {
 			writeErr(w, ref.status, ref.msg)

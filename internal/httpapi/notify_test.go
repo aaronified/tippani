@@ -223,9 +223,7 @@ func TestPushoverOnBackup(t *testing.T) {
 	push := newFakePushover(t, srv)
 	c := signupAdmin(t, srv.Handler())
 	c.mustDo("PUT", "/auth/notifications", map[string]any{"pushover_user": testPushoverUser}, 200)
-	name := decode[struct {
-		Backup struct{ Name string } `json:"backup"`
-	}](t, backupNow(c)).Backup.Name
+	name := backupNow(c).Name
 	msgs := push.sent()
 	if len(msgs) != 1 || msgs[0]["title"] != "Backup ready" || name == "" || !strings.Contains(msgs[0]["message"], name) {
 		t.Fatalf("backup %q sent %+v", name, msgs)
