@@ -95,6 +95,43 @@ describe('the summary and the system log', () => {
   })
 })
 
+describe('GET /jobs/common', () => {
+  const ROW_FIELDS = ['admin_only', 'current', 'id', 'kind', 'last', 'params']
+
+  it('answers the four rows an admin may run, in the server’s order, each in the full row shape', () => {
+    const [status, body] = get('/jobs/common')
+    expect(status).toBe(200)
+    expect(body.jobs.map((r) => [r.id, r.kind, r.admin_only])).toEqual([
+      ['fill-all', 'fill', false],
+      ['people-missing', 'people', false],
+      ['covers', 'covers', true],
+      ['backup', 'backup', true],
+    ])
+    expect(body.jobs.map((r) => r.params)).toEqual([{ all: true }, { missing: true }, { missing_only: false }, {}])
+    for (const row of body.jobs) {
+      expect(Object.keys(row).sort()).toEqual(ROW_FIELDS)
+      // Nothing runs in a demo, so nothing is ever current.
+      expect(row.current).toBeNull()
+      if (row.last) expect(Object.keys(row.last).sort()).toEqual([...JOB_FIELDS].sort())
+    }
+    // The fixture's interrupted cover fetch is the covers row's last run; its fill
+    // of a selection is no row's.
+    expect(body.jobs.find((r) => r.id === 'covers').last.state).toBe('interrupted')
+  })
+
+  it('makes a Run pressed in the demo its row’s last run, and keeps no credential', () => {
+    const [, started] = post('/jobs', { kind: 'fill', params: { all: true } })
+    post('/jobs', { kind: 'fill', params: { book_ids: [1] } })
+    const [, backup] = post('/jobs', { kind: 'backup', params: { password: 'the reader’s own' } })
+    const [, body] = get('/jobs/common')
+    const row = (id) => body.jobs.find((r) => r.id === id)
+    expect(row('fill-all').last.id).toBe(started.job.id)
+    expect(row('fill-all').last.state).toBe('failed')
+    expect(row('backup').last.id).toBe(backup.job.id)
+    expect(JSON.stringify(body)).not.toContain('the reader’s own')
+  })
+})
+
 describe('the writes a read-only demo still answers', () => {
   it('answers a started job as the server does — 202 and the job — and keeps it for the poll', () => {
     const [status, body] = post('/jobs', { kind: 'fill', params: { book_ids: [1] } })
