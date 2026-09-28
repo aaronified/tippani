@@ -994,9 +994,11 @@ constraint was length as much as sense.
 
 ### From the jobs pass (3.1.0, Settings › Jobs)
 
-Settings grew a sixth section for the server's queue and its logs. Each row here is
-marked `# ?? ` at its key; the rest of the section's words are the sheet's own
-(থামান, আবার চালান, এক্সপোর্ট, অপেক্ষার তালিকা, বাকি).
+Settings grew a sixth section for the server's queue and its logs. The five term rows here,
+and three kinds' names (`lookup-person`, `notify-test`, `person-save`), were marked `# ?? ` at
+their keys; on the owner's *"F7: do your best"* (28 September) the session kept all eight as they
+stand and turned the marks into `# bn:` notes. The owner may still correct any. The rest of the
+section's words are the sheet's own (থামান, আবার চালান, এক্সপোর্ট, অপেক্ষার তালিকা, বাকি).
 
 | English | Bengali | Reason |
 | --- | --- | --- |
@@ -1005,7 +1007,6 @@ marked `# ?? ` at its key; the rest of the section's words are the sheet's own
 | level (of a log line) | স্তর | Names the error / warning / info tiers as a group; each chip names its own tier |
 | request (an HTTP request, as a log level and a job kind) | রিকোয়েস্ট | অনুরোধ is a favour asked of a person, which is not what a browser sends |
 | failed (a job's end, on a chip) | ব্যর্থ | Short enough for a chip. A *count* of failures keeps the sheet's পারা গেল না, which is a sentence |
-| Review findings (a past re-verify's button, `settings.jobs.past.review.label`) | যা পাওয়া গেছে, দেখে নিন | Not রিভিউ, which is the Settings rail's tab on the same desk screen. যা পাওয়া গেছে is *Findings kept*'s own phrase (`reverify.kept.review`); দেখে নিন is the sheet's verb for looking a thing over before it is taken, as the staging card's is. Marked `# ?? draft for the owner (3.1.0)` |
 
 A waiting job is **বাকি** in a count and **অপেক্ষার তালিকায়** as a state — the job is in
 the queue, and nothing inanimate is said to wait (v3.7).
@@ -1014,13 +1015,59 @@ the queue, and nothing inanimate is said to wait (v3.7).
 nobody re-decides them: Updates আপডেট · Changelog চেঞ্জলগ · version ভার্সন · release
 রিলিজ · cookie কুকি. **Changed in v3:** API key and archive key are both **চাবি** (কি was a homonym of the question particle, and the two keys are one idea) · pair / unpair **পেয়ার করুন / আনপেয়ার করুন**.
 
-#### The screens that start a job (the callers)
+#### Settled on the owner's *"F7: do your best"*, 28 September
+
+The 3.1.0 jobs work drafted its sentences for the owner: 54 lines, each marked `# ?? draft for
+the owner (3.1.0…)` at its key, put to the owner as F7 of Design-decisions §18 (*Decisions
+awaiting my ruling*). The owner's answer, on 28 September, was *"F7: do your best"*. **So the
+session settled them, on that answer. The owner did not rule on any one of them. The owner is
+the authority on the language and may correct any of them**, and a correction replaces the line
+at its key and in the tables below.
+
+Each line was read against its English in `en.txt` and against the same words wherever
+`bn.txt` already had them, so that one English term has one Bengali term. The mark came off.
+Where the choice was not obvious, a `# bn:` comment above the key says what was chosen and why,
+and names the other rendering where there were two. The words the six passes share were checked
+across all of them, and agree: job **কাজ** (Settings → Jobs is *সেটিংস → কাজ-এ*), the queue
+**অপেক্ষার তালিকা**, a waiting job **অপেক্ষার তালিকায়** as a state and **বাকি** in a count,
+running **চলছে**, stopped **থামানো হয়েছে** on a chip and **থামানো হল** in a toast, interrupted
+**মাঝপথে থেমেছে**, log **লগ**, backup **ব্যাকআপ**, import **ইমপোর্ট**, approve **মেনে নিন**
+with its noun **মেনে নেওয়া**, and Stop, Run and Run again **থামান**, **চালান** and **আবার
+চালান**. Two had drifted and were brought back to this sheet:
+
+- **A screen is স্ক্রিন** (v3.1). Two import drafts said পর্দা.
+- **An archive that is "sealed" is এনক্রিপ্ট করা** (v3.1), as every other backup line says
+  it. The safety copy's step said সিল করা, so its three older lines moved with its new one:
+  `settings.safety.why.prose` and the two password labels under it, which date from 25
+  September and were never drafts. The step now says one word.
+
+Five lines changed from their drafts. The other 49 stand as drafted.
+
+| Key | Draft | Settled | Why |
+| --- | --- | --- | --- |
+| `import.queued.note` | …এই পর্দা ছেড়ে গেলেও… | …এই স্ক্রিন ছেড়ে গেলেও… | স্ক্রিন (v3.1) |
+| `staging.approving.away` | এই পর্দা ছেড়ে গেলেও এটা চলতে থাকবে — সেটিংস → কাজ-এ পাবেন। | এই স্ক্রিন ছেড়ে গেলেও মেনে নেওয়া চলতে থাকবে — সেটিংস → কাজ-এ পাবেন। | স্ক্রিন; and it names the approval, as `reverify.checking.away` names the check, where the draft's এটা was a translated *it* (§1.3) |
+| `settings.safety.wait.prose` | কপিটা সার্ভারে একটা কাজ হিসেবে সিল করা হয়, … | কপিটা সার্ভারে একটা কাজ হিসেবে এনক্রিপ্ট করা হয়, … | "sealed" is এনক্রিপ্ট করা (v3.1) |
+| `settings.safety.stopped` | থামানো হয়েছে: কোনো কপি তৈরি হয়নি, … | থামানো হয়েছে: কোনও কপি তৈরি হয়নি, … | কোনও (v3.7) |
+| `settings.jobs.common.covers.prose` | পুরো সংগ্রহের কভার, পোস্টার আর উৎসগুলোর যা তথ্য নেই। | পুরো সংগ্রহ জুড়ে কভার আর পোস্টার আনে, সঙ্গে উৎসগুলোর যা তথ্য নেই সেটুকুও। | A sentence with a verb, as the other three rows' are. The draft's list ended on নেই and read as saying the details were not there |
+
+The 54, by the pass that wrote them, as settled:
+
+##### Review findings (the jobs pass)
+
+| Key | English | Bengali |
+| --- | --- | --- |
+| `settings.jobs.past.review.label` | Review findings | যা পাওয়া গেছে, দেখে নিন |
+
+Not রিভিউ, which is the Settings rail's tab on the same desk screen. যা পাওয়া গেছে is *Findings
+kept*'s own phrase (`reverify.kept.review`); দেখে নিন is the sheet's verb for looking a thing
+over before it is taken, as the staging card's is.
+
+##### The screens that start a job (the callers)
 
 Sentences, not terms: the lines the re-verify dialog, the backup and the restore and reset
-prompts say now that their work runs on the server's queue. Each is drafted to this sheet
-and marked `# ?? draft for the owner (3.1.0 jobs callers)` at its key, with what to check;
-`grep -n 'jobs callers' internal/i18n/bn.txt` lists them. Where a sibling already said the
-same fact, the draft reuses its words — *শুরুই হবে না* is the Stop all confirm's, *মাঝপথে
+prompts say now that their work runs on the server's queue. Where a sibling already said the
+same fact, the line reuses its words — *শুরুই হবে না* is the Stop all confirm's, *মাঝপথে
 থেমেছে* is the interrupted state's chip. (The confirm's *হাতেরটুকু সেরে থামবে* went when Stop
 became instant; its row is in the table below this one.)
 
@@ -1042,18 +1089,17 @@ became instant; its row is in the table below this one.)
 | `account.reset.queue.waiting.one` | One job is waiting; a reset deletes it with everything else. | অপেক্ষার তালিকায় একটা কাজ আছে — বাকি সবকিছুর সঙ্গে সেটাও মুছে যাবে। |
 | `account.reset.queue.waiting.other` | {n} jobs are waiting; a reset deletes them with everything else. | অপেক্ষার তালিকায় {n}টা কাজ আছে — বাকি সবকিছুর সঙ্গে সেগুলোও মুছে যাবে। |
 
-#### Stop is at once (3.1.0)
+##### Stop is at once (3.1.0)
 
 The owner made Stop a kill switch — "No dillydallying after it has been pressed", and "it
 still shall not break anything" — so a job stops the moment Stop is pressed and the item in
 hand is left exactly as it was, where before it finished that item first. Every sentence
-that promised "after the item in hand" says so now. Marked `# ?? draft for the owner (3.1.0)`
-at its key; `grep -n 'owner (3.1.0):' internal/i18n/bn.txt` lists them. *সঙ্গে সঙ্গে* is "at
-once" as it is said aloud; *যেমন ছিল তেমনই থাকবে* ("stays as it was") is "left untouched"
-without a form-Bengali word for untouched; *হাতেরটুকু* keeps the jobs pass's word for the item
-in hand. A single Stop's toast went with it: the row says *থামছে…* at the press, and a toast at
-the server's answer could not know whether the job would end stopped or, its last item already
-written, succeeded.
+that promised "after the item in hand" says so now. *সঙ্গে সঙ্গে* is "at once" as it is said
+aloud; *যেমন ছিল তেমনই থাকবে* ("stays as it was") is "left untouched" without a form-Bengali
+word for untouched; *হাতেরটুকু* keeps the jobs pass's word for the item in hand. A single
+Stop's toast went with it: the row says *থামছে…* at the press, and a toast at the server's
+answer could not know whether the job would end stopped or, its last item already written,
+succeeded.
 
 | Key | English | Bengali |
 | --- | --- | --- |
@@ -1062,49 +1108,49 @@ written, succeeded.
 | `reverify.stop.confirm.body` | It stops at once and leaves the item in hand untouched, and it is kept in Settings → Jobs with its log. | সঙ্গে সঙ্গে থামবে, হাতেরটুকু যেমন ছিল তেমনই থাকবে, আর তার লগ নিয়ে সেটিংস → কাজ-এ থেকে যাবে। |
 | `reverify.stop.stopping` | Stopping… | থামছে… |
 
-#### Added when the halves were merged
+##### Added when the halves were merged
 
 A job's name the server records and Settings › Jobs had no words for until the backend and
-the screen met. Marked `# ?? draft for the owner (3.1.0 integration)` at its key;
-`grep -n '3.1.0 integration' internal/i18n/bn.txt` lists it. A job's name is a noun phrase,
-as every other kind's is (কভার আনা, not কভার আনুন).
+the screen met. A job's name is a noun phrase, as every other kind's is (কভার আনা, not কভার
+আনুন). This one is the step's own button (*আগে একটা ব্যাকআপ ডাউনলোড করুন*) as a noun
+phrase, so Current jobs says what the reader pressed; *আগাম কপি*, which names the "safety",
+was the other.
 
 | Key | English | Bengali |
 | --- | --- | --- |
 | `settings.jobs.kind.backup-safety` | Safety backup | ব্যাকআপ ডাউনলোড |
 
-#### When an import and its approval became jobs
+##### When an import and its approval became jobs
 
 An import and the approval of what it staged are jobs on the server's queue from 3.1.0, so
 the Import and Pending import screens say where a file stands and Settings → Jobs names
-the approval and counts what each did. Marked `# ?? draft for the owner (3.1.0 imports)` at
-its key; `grep -n '3.1.0 imports' internal/i18n/bn.txt` lists them. Each reuses a sibling's
-words where one already said the same fact: the staged count is the import row's own
-(*উদ্ধৃতি বাকি*), the added count the approval flash's (*যোগ হয়েছে*), the approval's name the
-staging screen's verb as a noun phrase (*মেনে নেওয়া*), and the line beside its Stop the
-re-verify dialog's (*চলতে থাকবে — সেটিংস → কাজ-এ পাবেন*).
+the approval and counts what each did. Each reuses a sibling's words where one already said
+the same fact: the staged count is the import row's own (*উদ্ধৃতি জমা হয়েছে*, since 28 September; it said *বাকি*, which is the waiting count's word and reads as "left", where the sheet's word for staged is *জমা*), the added count the
+approval flash's (*যোগ হয়েছে*), the approval's name the staging screen's verb as a noun phrase
+(*মেনে নেওয়া*), and the line beside its Stop the re-verify dialog's (*চলতে থাকবে — সেটিংস →
+কাজ-এ পাবেন*), naming the approval as that one names the check.
 
 | Key | English | Bengali |
 | --- | --- | --- |
 | `settings.jobs.kind.import-approve` | Approve imported quotes | ইমপোর্টের উদ্ধৃতি মেনে নেওয়া |
-| `settings.jobs.count.staged` | {n} quote staged / {n} quotes staged | {n}টা উদ্ধৃতি বাকি |
+| `settings.jobs.count.staged` | {n} quote staged / {n} quotes staged | {n}টা উদ্ধৃতি জমা হয়েছে |
 | `settings.jobs.count.added` | {n} added | {n}টা যোগ হয়েছে |
 | `import.row.unsent` | not sent yet | এখনও পাঠানো হয়নি |
 | `import.row.halted` | {state} — Settings → Jobs can run it again | {state} — সেটিংস → কাজ-এ আবার চালানো যায় |
 | `import.row.lost` | {state} — the server no longer has this file; drop it again | {state} — ফাইলটা সার্ভারে আর নেই; আবার দিন |
-| `import.queued.note` | A file already sent carries on in Settings → Jobs if you leave this screen; one not sent yet does not. | যে ফাইল পাঠানো হয়ে গেছে, এই পর্দা ছেড়ে গেলেও সেটা সেটিংস → কাজ-এ চলতে থাকবে; যেটা এখনও পাঠানো হয়নি, সেটা নয়। |
+| `import.queued.note` | A file already sent carries on in Settings → Jobs if you leave this screen; one not sent yet does not. | যে ফাইল পাঠানো হয়ে গেছে, এই স্ক্রিন ছেড়ে গেলেও সেটা সেটিংস → কাজ-এ চলতে থাকবে; যেটা এখনও পাঠানো হয়নি, সেটা নয়। |
 | `staging.approving.progress` | Approving — {done} of {total} | মেনে নেওয়া চলছে — {total}-এর মধ্যে {done} |
-| `staging.approving.away` | Leave this screen and it carries on — Settings → Jobs has it. | এই পর্দা ছেড়ে গেলেও এটা চলতে থাকবে — সেটিংস → কাজ-এ পাবেন। |
+| `staging.approving.away` | Leave this screen and it carries on — Settings → Jobs has it. | এই স্ক্রিন ছেড়ে গেলেও মেনে নেওয়া চলতে থাকবে — সেটিংস → কাজ-এ পাবেন। |
 
-#### The common jobs (Settings → Jobs → Common jobs)
+##### The common jobs (Settings → Jobs → Common jobs)
 
 The four jobs a reader runs again and again, each on a row of its own with Run, Run again
-and Stop in place (and, for the covers pass, Missing only). Each line is drafted to this
-sheet and marked `# ?? draft for the owner (3.1.0 common jobs)` at its key, with what to
-check; `grep -n '3.1.0 common jobs' internal/i18n/bn.txt` lists them. A row's name is a
-noun phrase, as every job's is, because the two library-wide rows also name their job in
-Current jobs and Past jobs. A press's name puts the row's name after a colon, as the Stop
-buttons do (*থামান: {title}*), so the hole stays bare (§5.4).
+and Stop in place (and, for the covers pass, Missing only). A row's name is a noun phrase, as
+every job's is, because the two library-wide rows also name their job in Current jobs and Past
+jobs. A press's name puts the row's name after a colon, as the Stop buttons do (*থামান:
+{title}*), so the hole stays bare (§5.4). The card is *নিয়মিত কাজ*, the jobs run as a matter of
+course; *বারবারের কাজ* was the other, and সাধারণ would read as "ordinary". Each row names its
+own Run, so নিয়মিত promises no timer.
 
 | Key | English | Bengali |
 | --- | --- | --- |
@@ -1114,7 +1160,7 @@ buttons do (*থামান: {title}*), so the hole stays bare (§5.4).
 | `settings.jobs.common.people-missing.label` | Fetch missing people | মানুষের না-থাকা তথ্য আনা |
 | `settings.jobs.common.people-missing.prose` | A portrait and reference links for everyone still missing either. | যাঁদের মুখের ছবি বা তথ্যসূত্রের লিংক নেই, তাঁদের সবার জন্য আনে। |
 | `settings.jobs.common.covers.label` | Fetch covers and details | কভার আর তথ্য আনা |
-| `settings.jobs.common.covers.prose` | Covers, posters and the details your works are missing, across the library. | পুরো সংগ্রহের কভার, পোস্টার আর উৎসগুলোর যা তথ্য নেই। |
+| `settings.jobs.common.covers.prose` | Covers, posters and the details your works are missing, across the library. | পুরো সংগ্রহ জুড়ে কভার আর পোস্টার আনে, সঙ্গে উৎসগুলোর যা তথ্য নেই সেটুকুও। |
 | `settings.jobs.common.backup.label` | Back up now | এখনই ব্যাকআপ নেওয়া |
 | `settings.jobs.common.backup.prose` | Seals the library into the one archive the server keeps. | পুরো সংগ্রহ এনক্রিপ্ট করে সার্ভারের একমাত্র আর্কাইভে রাখে। |
 | `settings.jobs.common.run.label` | Run | চালান |
@@ -1130,22 +1176,21 @@ buttons do (*থামান: {title}*), so the hole stays bare (§5.4).
 | `settings.jobs.common.never` | Not run in the last 30 days | গত 30 দিনে চালানো হয়নি |
 | `settings.jobs.common.empty` | Nothing can be run from here on this server. | এই সার্ভারে এখান থেকে কিছুই চালানো যায় না। |
 
-#### When the safety copy became a job (3.1.0 backups)
+##### When the safety copy became a job (3.1.0 backups)
 
 The copy a restore or a factory reset takes first waits its turn on the server's queue from
-3.1.0, so its step says where the copy stands and offers a Stop. Marked `# ?? draft for the
-owner (3.1.0 backups)` at its key; `grep -n '3.1.0 backups' internal/i18n/bn.txt` lists them.
-Each reuses a sibling's words: the step's own *সিল করা* and *কপি তৈরি* (`settings.safety.why.prose`,
+3.1.0, so its step says where the copy stands and offers a Stop. Each line reuses a sibling's
+words: the step's own *এনক্রিপ্ট করা* and *কপি তৈরি* (`settings.safety.why.prose`,
 `settings.safety.busy`), Current jobs' Stop frame (*থামান: {title}*), and the state chip's
 *থামানো হয়েছে*. While the job waits, the step shows Current jobs' own waiting line
 (*অপেক্ষার তালিকায় — এরপরেই*), and its Stop button and *থামছে…* are Current jobs' keys, so
-nothing new is drafted for them.
+nothing new was drafted for them.
 
 | Key | English | Bengali |
 | --- | --- | --- |
-| `settings.safety.wait.prose` | The copy is sealed on the server as a job, and downloads here when it is ready. Keep this open until then. | কপিটা সার্ভারে একটা কাজ হিসেবে সিল করা হয়, তৈরি হলে এখানেই ডাউনলোড হবে। ততক্ষণ এটা খোলা রাখুন। |
+| `settings.safety.wait.prose` | The copy is sealed on the server as a job, and downloads here when it is ready. Keep this open until then. | কপিটা সার্ভারে একটা কাজ হিসেবে এনক্রিপ্ট করা হয়, তৈরি হলে এখানেই ডাউনলোড হবে। ততক্ষণ এটা খোলা রাখুন। |
 | `settings.safety.stop.aria` | Stop the copy | থামান: কপি তৈরি |
-| `settings.safety.stopped` | Stopped: no copy was made, and nothing of it is left on the server. Take it again when you are ready. | থামানো হয়েছে: কোনো কপি তৈরি হয়নি, সার্ভারে তার কিছুই থেকে যায়নি। যখন চান আবার নিন। |
+| `settings.safety.stopped` | Stopped: no copy was made, and nothing of it is left on the server. Take it again when you are ready. | থামানো হয়েছে: কোনও কপি তৈরি হয়নি, সার্ভারে তার কিছুই থেকে যায়নি। যখন চান আবার নিন। |
 
 ---
 
