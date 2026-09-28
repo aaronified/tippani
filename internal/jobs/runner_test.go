@@ -316,12 +316,17 @@ func TestStopStopsAtOnceAndTheJobKeepsItsLog(t *testing.T) {
 	g.stoppedWithin(x, pressed, stopWithin)
 	g.steps.quiet(300 * time.Millisecond) // and the stopped waiting job never starts
 
-	var done, total, stopReq int
-	if err := g.st.DB.QueryRow(`SELECT done, total, stop_requested FROM jobs WHERE id = ?`, x).Scan(&done, &total, &stopReq); err != nil {
+	// Not stop_requested: Stop cancels the job before it writes anything (so a
+	// Stop never waits on the write lock), and the flag it writes afterwards is
+	// for a claim, WHERE state = 'running'. A job that has already recorded its
+	// end by then keeps the flag 0, rightly, and CI saw exactly that once
+	// (run 36487821781). The end itself is what stoppedWithin asserted.
+	var done, total int
+	if err := g.st.DB.QueryRow(`SELECT done, total FROM jobs WHERE id = ?`, x).Scan(&done, &total); err != nil {
 		t.Fatal(err)
 	}
-	if done != 1 || total != 5 || stopReq != 1 {
-		t.Fatalf("stopped job: done %d/%d, stop_requested %d; want the one item finished before the press", done, total, stopReq)
+	if done != 1 || total != 5 {
+		t.Fatalf("stopped job: done %d/%d; want the one item finished before the press", done, total)
 	}
 	// In the order it happened: item 0 finished, Stop was pressed with item 1 in
 	// hand, and item 1 never finished.
