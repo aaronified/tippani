@@ -24,6 +24,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 
 import { apiURL, errText, json } from './api.js'
 import { t } from './i18n.js'
+import { registerSessionCache } from './sessionCaches.js'
 
 // ---- the vocabulary ----------------------------------------------------------
 
@@ -546,6 +547,11 @@ function watchStopping(fn) {
     if (stoppingWatchers.size === 0) stoppingIDs = new Set()
   }
 }
+// AND SIGNING OUT FORGETS THEM, as it forgets every module-scope memory of one
+// reader's (sessionCaches.js). Log out swaps the shell in place, so the cards
+// unmount and the marks go with them anyway; enrolled, they go even if a card
+// that draws a Stop is ever left mounted across the change of reader.
+registerSessionCache(() => markStopping([...stoppingIDs], false))
 
 // useStoppingJobs — the ids of the jobs a Stop was pressed on in this tab, as a
 // Set that is replaced, never changed, when one is added.
