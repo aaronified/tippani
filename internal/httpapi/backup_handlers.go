@@ -14,7 +14,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -215,7 +214,10 @@ func (s *Server) controlEntry(name string) bool {
 	// The import spool (spoolDirName) is one too: an upload waiting for its job is
 	// not the library, and a restore that moved it aside would take the file from
 	// under the job that names it.
-	for _, p := range []string{".backup-", ".restore-", preRestorePrefix, recoveryKeyFile + ".new-", spoolDirName} {
+	// So is a safety copy waiting for its download (safetyCopyPrefix): archived, it
+	// would ride inside the next backup; moved aside by a restore, it would be kept
+	// in the restore's safety generation instead of going with its token.
+	for _, p := range []string{".backup-", ".restore-", preRestorePrefix, recoveryKeyFile + ".new-", spoolDirName, safetyCopyPrefix} {
 		if strings.HasPrefix(name, p) {
 			return true
 		}
@@ -309,6 +311,9 @@ func (s *Server) backupMetaAt(dir, name string, info os.FileInfo) map[string]any
 // account?}} or {backup: null}. Feeds the Settings card: the date it shows, and
 // which credential its restore prompt asks for.
 func (s *Server) handleBackupStatus(w http.ResponseWriter, r *http.Request) {
+	// The Server card's read is one of the moments an undownloaded safety copy
+	// past its time is let go of (safety_copy.go).
+	s.safetyCopies.sweep()
 	name, info := s.newestBackup()
 	if name == "" {
 		writeJSON(w, http.StatusOK, map[string]any{"backup": nil})
@@ -509,7 +514,8 @@ func backupReady(meta map[string]any) string {
 
 // backupStep is where a backup asks whether to go on: before its snapshot
 // ("snapshot"), before each file it archives ("file"), before each read of a
-// file's copy ("copy", ctxReader) and before its promote ("promote").
+// file's copy ("copy", ctxReader) and before its promote ("promote"), which for
+// a safety copy is its publishing (runSafetyBackup).
 // backupSeam runs first, when a test has set it.
 func (s *Server) backupStep(ctx context.Context, step string) error {
 	if s.backupSeam != nil {
@@ -593,28 +599,12 @@ func (s *Server) sealArchive(ctx context.Context, uid int64, account string, mod
 	return nil
 }
 
-// sealCredentials reads how an archive is to be sealed: the caller's password, or
-// a passphrase of their choosing. It writes its own 400; false means it did.
-func sealCredentials(w http.ResponseWriter, r *http.Request) (mode byte, account, secret string, ok bool) {
-	r.Body = http.MaxBytesReader(w, r.Body, maxAuthBody)
-	var req struct {
-		Password   string `json:"password"`
-		Passphrase string `json:"passphrase"`
-	}
-	_ = json.NewDecoder(r.Body).Decode(&req)
-	mode, account, secret, msg := sealWith(req.Password, req.Passphrase, username(r))
-	if msg != "" {
-		writeErr(w, http.StatusBadRequest, msg)
-		return 0, "", "", false
-	}
-	return mode, account, secret, true
-}
-
 // sealWith is how an archive is to be sealed, from what the caller sent: the
 // passphrase when there is one, else account's password. msg is the 400 when
-// neither will do. The API's backup and the backup job read it the same way, so a
-// credential one accepts the other does too; whether a password is really the
-// account's is the caller's to check.
+// neither will do. Every backup reads it through backupSecret — the kept one
+// however it was asked for, and the safety copy — so a credential one accepts the
+// other does too; whether a password is really the account's is the caller's to
+// check.
 func sealWith(password, passphrase, account string) (mode byte, acct, secret, msg string) {
 	switch {
 	case passphrase != "":
@@ -630,7 +620,8 @@ func sealWith(password, passphrase, account string) (mode byte, acct, secret, ms
 
 // SAFETY BACKUP — THE COPY TAKEN ON THE WAY TO A RESTORE OR A RESET. The owner:
 // an admin "must take a backup and download it before this can be done (as part
-// of the process of the reset)". It is streamed to the admin and NEVER KEPT: the
+// of the process of the reset)". It is a queued job that seals the copy beside
+// the backups and never among them, and hands it over once (safety_copy.go): the
 // server keeps one archive, and a restore from the kept one would otherwise
 // restore the copy just taken of what it is about to replace. The server notes
 // that the download finished, for that admin, and restore and reset refuse
@@ -682,57 +673,6 @@ func (s *Server) safetyGuard(uid int64) func() error {
 		}
 		return nil
 	}
-}
-
-func (s *Server) handleSafetyBackup(w http.ResponseWriter, r *http.Request) {
-	mode, account, secret, ok := sealCredentials(w, r)
-	if !ok {
-		return
-	}
-	if !s.backupMu.TryLock() {
-		writeErr(w, http.StatusConflict, "a backup or restore is already running")
-		return
-	}
-	defer s.backupMu.Unlock()
-	if mode == backupModePassword && !s.passwordIsCallers(r, secret) {
-		writeErr(w, http.StatusUnauthorized, "that is not your password — the archive would be sealed with a key you could not reproduce")
-		return
-	}
-	jobs.Begin(r.Context(), "backup.safety", "")
-	tmp, err := os.CreateTemp(s.DataDir, ".safety-*"+backupExt)
-	if err != nil {
-		internalError(w, r, "safety backup temp", err)
-		return
-	}
-	dest := tmp.Name()
-	_ = tmp.Close()
-	defer os.Remove(dest)
-	if err := s.sealArchive(context.Background(), userID(r), account, mode, secret, dest); err != nil {
-		writeErr(w, http.StatusInternalServerError, backupErrorText(err))
-		return
-	}
-	f, err := os.Open(dest)
-	if err != nil {
-		internalError(w, r, "open safety backup", err)
-		return
-	}
-	defer f.Close()
-	info, _ := f.Stat()
-	_ = http.NewResponseController(w).SetWriteDeadline(time.Time{})
-	name := backupPrefix + time.Now().UTC().Format(backupTimeLayout) + "-safety-copy" + backupExt
-	w.Header().Set("Content-Type", "application/octet-stream")
-	w.Header().Set("Content-Disposition", `attachment; filename="`+name+`"`)
-	if info != nil {
-		w.Header().Set("Content-Length", strconv.FormatInt(info.Size(), 10))
-	}
-	// NOTED ONLY WHEN THE WHOLE FILE LEFT. A copy that stopped halfway is not a
-	// backup, and the note is what lets the destructive step run.
-	if _, err := io.Copy(w, f); err != nil {
-		olog.Warnf(olog.CodeBackupArchive, "[backup] safety backup download cut short: %v", err)
-		return
-	}
-	s.safety.set(userID(r))
-	olog.Printf("[backup] safety backup downloaded by user %d (%s)", userID(r), username(r))
 }
 
 // humanBytes is a size for a sentence: one decimal, binary units.
@@ -1606,13 +1546,15 @@ func renameWithRetry(from, to string) error {
 }
 
 // CleanupBackupStaging removes orphaned backup/restore staging dirs left by a
-// crash mid-operation. Called from serve() at boot; .pre-restore-* safety
-// copies are deliberately kept.
+// crash mid-operation, and every safety copy the last run left undownloaded
+// (cleanupSafetyCopies). Called from serve() at boot; .pre-restore-* safety
+// generations are deliberately kept.
 func CleanupBackupStaging(dataDir string) {
 	entries, err := os.ReadDir(dataDir)
 	if err != nil {
 		return
 	}
+	cleanupSafetyCopies(dataDir, entries)
 	for _, e := range entries {
 		n := e.Name()
 		if strings.HasPrefix(n, ".backup-") || strings.HasPrefix(n, ".restore-") {

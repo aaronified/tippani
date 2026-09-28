@@ -277,11 +277,11 @@ var Registry = map[Code]string{
 	CodeTrashRowScan: "A bin list row failed to scan; that entry was left out of the list.",
 
 	CodeBackupSnapshot: "The backup's database snapshot (VACUUM INTO) failed; no archive was produced.",
-	CodeBackupArchive:  "The backup archive could not be written or promoted into the backups directory.",
+	CodeBackupArchive:  "The backup archive could not be written or promoted into the backups directory, or a safety copy could not be sealed or its download was cut short.",
 	CodeBackupExtract:  "Restore could not extract the backup archive to staging (server-side I/O).",
 	CodeBackupSwap:     "The restore swap failed; the previous data directory was rolled back intact.",
 	CodeBackupRollback: "The restore rollback failed; the server exited so Docker restarts it cleanly — previous data is in .pre-restore-<ts>.",
-	CodeBackupCleanup:  "Backup/restore temporary files could not be cleaned up; leftovers consume disk space.",
+	CodeBackupCleanup:  "Backup/restore temporary files, or a safety copy's file, could not be cleaned up; leftovers consume disk space.",
 	CodeBackupUpload:   "An uploaded restore archive could not be spooled to disk (server-side I/O, or the disk is full).",
 	CodeBackupStrip:    "The backup could not leave the job history and system log out of its database snapshot; no archive was produced.",
 	CodeBackupCarry:    "A restore could not carry the job history and system log over from the database it replaced; the restore itself went ahead, with no history.",

@@ -37,9 +37,9 @@ func Title(kind, subject string, total int) string {
 		t = "Import"
 	case "import.approve":
 		t = "Approve imported quotes" + counted(" from", total, "work", "works")
-	// What runs in its request and is kept as a job all the same.
 	case "backup.safety":
-		t = "Download a safety backup"
+		t = "Take a safety copy"
+	// What runs in its request and is kept as a job all the same.
 	case "restore":
 		t = "Restore a backup"
 	case "reset":

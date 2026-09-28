@@ -218,7 +218,7 @@ The route groups themselves, so you can find the noun you want:
 | `covers_handler.go` · `avatar_handlers.go` · `sticker_handlers.go` | The three image kinds, all under `<DataDir>/MediaCover`. |
 | `taxonomy_handlers.go` | Tags and genres, and the starter vocabulary seeded per account. |
 | `seed_stickers.go` · `assets/stickers/` | The five starter seals, embedded as SVG and copied into each account's own cover store — plus the one-shot backfill that hands them to accounts older than the feature. |
-| `backup_handlers.go` · `backup_recovery.go` | Archive create, download and in-process restore; the per-instance recovery key. |
+| `backup_handlers.go` · `backup_recovery.go` · `safety_copy.go` | Archive create, download and in-process restore; the per-instance recovery key; the safety copy a restore or a reset takes first, and its one download. |
 | `jobs_handlers.go` · `jobs_kinds.go` · `jobkinds.go` · `logs_handlers.go` | The jobs API — start, list, watch, stop, rerun, export — and the kinds a person may start with the params each accepts; which kind a request is when it looks outward, by route; and the admin's system log. |
 | `admin_handlers.go` · `maintenance_handlers.go` · `update_handlers.go` · `update_progress.go` | User management, FTS rebuild and factory reset, and the self-updater — which writes down which step it reached as it goes, because the apply outlasts the reply and the page cannot otherwise see what happened. |
 | `pairing_handlers.go` · `capabilities_handler.go` · `share_handlers.go` | Phone pairing by QR, the client version handshake, and one-shot share-image downloads. |

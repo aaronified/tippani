@@ -57,13 +57,18 @@ func (s *Server) forgetPairingCodes() {
 }
 
 // forgetAccountGrants drops everything held in memory that names an account by
-// id: pairing codes and pending sign-on links. Both database swaps, a factory
+// id: pairing codes, pending sign-on links and safety copies waiting for their
+// download. Both database swaps, a factory
 // reset and a restore, call this one function, so a third kind of grant is added
 // here and reaches both, rather than being remembered at one and missed at the
 // other.
 func (s *Server) forgetAccountGrants() {
 	s.forgetPairingCodes()
 	s.oidc.forgetLinks()
+	// And every safety copy waiting for its download, with its file: each is
+	// somebody's library as it was before, promised to an account that is not
+	// there any more, or is there under an id the restore gave somebody else.
+	s.safetyCopies.forget(nil)
 }
 
 type pairingCode struct {

@@ -737,13 +737,50 @@ func TestOnboardRestoreUpload(t *testing.T) {
 // A passphrase seals it, so the step does not depend on the caller's password.
 func safetyBackup(t *testing.T, c *testClient) {
 	t.Helper()
-	c.mustDo("POST", "/admin/backup/safety", map[string]string{"passphrase": "safety-copy-1"}, http.StatusOK)
+	takeSafetyCopy(t, c, map[string]string{"passphrase": "safety-copy-1"})
+}
+
+// safetyReady is a safety copy's job's result: the copy's name and size, where
+// its one download is, and until when.
+type safetyReady struct {
+	Name      string `json:"name"`
+	Size      int64  `json:"size"`
+	URL       string `json:"url"`
+	ExpiresAt int64  `json:"expires_at"`
+}
+
+// takeSafetyCopy takes the copy as the restore and reset prompts take it: POST
+// /admin/backup/safety queues its job, the job is followed to its end, and the
+// download its result names is fetched, once. It returns the file.
+func takeSafetyCopy(t *testing.T, c *testClient, creds any) []byte {
+	t.Helper()
+	return c.mustDo("GET", sealSafetyCopy(t, c, creds).URL, nil, http.StatusOK).Body.Bytes()
+}
+
+// sealSafetyCopy is takeSafetyCopy up to the download: the job's result, the
+// copy sealed and waiting. A job that ends any way but succeeded fails the test.
+func sealSafetyCopy(t *testing.T, c *testClient, creds any) safetyReady {
+	t.Helper()
+	job := decode[struct {
+		Job wireJob `json:"job"`
+	}](t, c.mustDo("POST", "/admin/backup/safety", creds, http.StatusAccepted)).Job
+	if end := c.jobEnded(job.ID); end.State != "succeeded" {
+		t.Fatalf("the safety copy's job #%d ended %s: %q", job.ID, end.State, end.Error)
+	}
+	res := decode[struct {
+		Result *safetyReady `json:"result"`
+	}](t, c.mustDo("GET", fmt.Sprintf("/jobs/%d/result", job.ID), nil, http.StatusOK)).Result
+	if res == nil || res.URL == "" {
+		t.Fatalf("the safety copy's job #%d names no download: %+v", job.ID, res)
+	}
+	return *res
 }
 
 // Restore and factory reset replace everything, so each begins with a fresh
 // backup the admin has downloaded. The server refuses both until that download
-// has finished, and the copy is streamed to the admin rather than kept, so it
-// never replaces the archive a restore is about to read.
+// has finished — a copy sealed and waiting is not enough — and the copy is
+// handed to the admin rather than kept among the backups, so it never replaces
+// the archive a restore is about to read.
 func TestRestoreAndResetWaitForAFreshDownloadedBackup(t *testing.T) {
 	srv := newTestServer(t)
 	h := srv.Handler()
@@ -768,7 +805,10 @@ func TestRestoreAndResetWaitForAFreshDownloadedBackup(t *testing.T) {
 		t.Fatal("a refused reset still wiped the library")
 	}
 
-	rec := admin.mustDo("POST", "/admin/backup/safety", map[string]string{"password": testPw}, 200)
+	// A copy sealed and not yet downloaded notes nothing.
+	ready := sealSafetyCopy(t, admin, map[string]string{"password": testPw})
+	admin.mustDo("POST", "/admin/restore", map[string]any{"password": testPw}, http.StatusPreconditionRequired)
+	rec := admin.mustDo("GET", ready.URL, nil, http.StatusOK)
 	if rec.Body.Len() == 0 || !strings.Contains(rec.Header().Get("Content-Disposition"), "attachment") {
 		t.Fatalf("the safety backup did not arrive as a download: %q", rec.Header().Get("Content-Disposition"))
 	}

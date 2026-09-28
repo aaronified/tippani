@@ -51,7 +51,7 @@ const (
 // Lazy is one request's job, before it is known whether there is one. The
 // request logger puts one in every request's context; it becomes an in-request
 // job only when something is logged into it (an outbound call) or a handler
-// names it with Begin (a restore, a backup through the API). A request that
+// names it with Begin (a restore, a factory reset). A request that
 // does neither leaves no row.
 //
 // NO DATABASE WRITE ON THE REQUEST PATH. The lines are held here, and Finish
@@ -138,7 +138,7 @@ func (l *Lazy) Subject(s string) {
 
 // Begin makes the request in ctx a job of kind, whether or not anything is ever
 // logged into it: the routes whose work is worth a record in itself (a restore, a
-// factory reset, a backup through the API, an update, the daily deck). A context
+// factory reset, an update, the daily deck). A context
 // without a *Lazy — a queued job's, or none — is left alone.
 func Begin(ctx context.Context, kind, subject string) {
 	l, ok := From(ctx).(*Lazy)

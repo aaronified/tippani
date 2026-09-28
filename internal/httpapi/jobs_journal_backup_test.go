@@ -69,7 +69,7 @@ func TestABackupLeavesTheJobHistoryBehindAndARestoreKeepsTheServersOwn(t *testin
 	assertNoJournal(t, "the kept backup", plaintextOf(t, kept, testPw))
 
 	// The safety copy the restore insists on first is an archive too.
-	safety := admin.mustDo("POST", "/admin/backup/safety", map[string]string{"passphrase": "safety-copy-1"}, http.StatusOK).Body.Bytes()
+	safety := takeSafetyCopy(t, admin, map[string]string{"passphrase": "safety-copy-1"})
 	assertNoJournal(t, "the safety copy", plaintextOf(t, safety, "safety-copy-1"))
 
 	// After the archives: bob starts a job that is still running when the restore

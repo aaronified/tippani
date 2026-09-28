@@ -9,9 +9,9 @@ import (
 )
 
 // WHAT AN ADMIN DOES TO THE WHOLE SERVER IS KEPT AS A JOB: a backup through the
-// API, which queues as the Server card's does, and, though they run in their
-// request, a safety copy, an update, a restore (the first-run one too) and a
-// factory reset, each found afterwards in Past jobs.
+// API, which queues as the Server card's does, and a safety copy, which queues
+// too, and, though they run in their request, an update, a restore (the
+// first-run one too) and a factory reset, each found afterwards in Past jobs.
 //
 // Driven through the API as the Server and Updates cards drive them, and read
 // back through GET /jobs as Settings › Jobs reads it.
@@ -68,13 +68,11 @@ func TestWhatAnAdminDoesToTheWholeServerIsKeptAsAJob(t *testing.T) {
 	}](t, admin.mustDo("GET", "/admin/backup", nil, http.StatusOK)).Backup.Name
 	safetyBackup(t, admin)
 
-	// The API's backup is the Server card's job, queued like it.
-	if j := pastJob(admin, "backup"); !j.Queued || !j.Own || j.State != "succeeded" || j.Subject != "" || j.Username != "alice" {
-		t.Fatalf("the backup in past jobs: %+v", j)
-	}
-	for _, kind := range []string{"backup.safety"} {
+	// The API's backup is the Server card's job, queued like it, and the safety
+	// copy is queued too.
+	for _, kind := range []string{"backup", "backup.safety"} {
 		j := pastJob(admin, kind)
-		if j.Queued || !j.Own || j.State != "succeeded" || j.Subject != "" || j.Username != "alice" {
+		if !j.Queued || !j.Own || j.State != "succeeded" || j.Subject != "" || j.Username != "alice" {
 			t.Fatalf("the %s in past jobs: %+v", kind, j)
 		}
 	}
