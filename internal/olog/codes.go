@@ -113,9 +113,9 @@ const (
 	CodeShelfMediaType Code = "TIP-SHELF-001"
 
 	// IMPORT — the staging queue a bulk import lands in before it is approved.
-	CodeImportStage    Code = "TIP-IMPORT-001" // a parsed import could not be written into the staging tables; nothing was staged
+	CodeImportStage    Code = "TIP-IMPORT-001" // a parsed import could not be staged, or its upload kept or read back for its job; nothing was staged
 	CodeImportRowScan  Code = "TIP-IMPORT-002" // a staged batch/work/quote row could not be scanned while listing the queue
-	CodeImportApprove  Code = "TIP-IMPORT-003" // approving staged quotes failed; the transaction rolled back, so nothing entered the library
+	CodeImportApprove  Code = "TIP-IMPORT-003" // approving staged quotes failed; the work it failed on rolled back, and it and every work after it are still queued
 	CodeImportStagedOp Code = "TIP-IMPORT-004" // a staging-queue mutation (bulk edit, retarget or discard) failed; the queue is unchanged
 	CodeImportUnknown  Code = "TIP-IMPORT-005" // no signature matched and no parser claimed the upload; nothing was staged and the reader is offered "Read this as…"
 
@@ -253,9 +253,9 @@ var Registry = map[Code]string{
 
 	CodeShelfMediaType: "A shelf cap was requested for an unrecognised media_type; the tightest (film) cap was used. Indicates a media type reached the shelf that shelfCap was never taught.",
 
-	CodeImportStage:    "A parsed import could not be written into the staging tables; the batch was rolled back and nothing was staged.",
+	CodeImportStage:    "A parsed import could not be written into the staging tables, or its upload could not be kept or read back for its job; nothing was staged.",
 	CodeImportRowScan:  "A staged batch, work or quote row could not be scanned while listing the import queue; that row was left out of the response.",
-	CodeImportApprove:  "Approving staged quotes failed; the transaction rolled back, so nothing entered the library and the queue still holds them.",
+	CodeImportApprove:  "Approving staged quotes failed; the work it failed on rolled back, and the queue still holds it and every work after it (the works before it were approved).",
 	CodeImportStagedOp: "A staging-queue mutation (bulk edit, retarget or discard) failed; the queue is unchanged.",
 	CodeImportUnknown:  "No signature matched and no parser claimed the upload; nothing was staged, and the row offers \u201cRead this as\u2026\u201d so the format can be named by hand.",
 

@@ -53,7 +53,8 @@ import (
 // THE ROW'S STOP IS PRESSED AT EVERY POINT; Stop all, and an admin deleting the
 // reader whose job it is, at one point of each kind, a call on the wire where the
 // kind has one. The three reach the job through the same stop (the runner's
-// stopHeldLocked) and differ only in how they find it, which one point shows as
+// stopLocked, by signalRunning at the press or by stopHeldLocked once a claim in
+// progress ends) and differ only in how they find it, which one point shows as
 // well as every point would, and the plan asks for them on the call that never
 // answers. Every
 // point crossed with every press was 84 servers: two and a half minutes of the

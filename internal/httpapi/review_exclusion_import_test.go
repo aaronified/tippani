@@ -40,7 +40,7 @@ const stagedFilmMDAgain = "---\ntitle: The Long Goodbye\ndirector: Robert Altman
 
 func approveStaged(t *testing.T, c *testClient, batchID int64) approveReply {
 	t.Helper()
-	return decode[approveReply](t, c.mustDo("POST", "/import/staged/approve",
+	return decode[approveReply](t, c.mustFollow("POST", "/import/staged/approve",
 		map[string]any{"batch_id": batchID}, http.StatusOK))
 }
 

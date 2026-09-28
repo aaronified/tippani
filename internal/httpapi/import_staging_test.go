@@ -131,7 +131,7 @@ func TestStagedImportHoldsUntilApproved(t *testing.T) {
 	}
 
 	// Approve, and now it is real.
-	ap := decode[approveReply](t, c.mustDo("POST", "/import/staged/approve", map[string]any{"batch_id": res.BatchID}, 200))
+	ap := decode[approveReply](t, c.mustFollow("POST", "/import/staged/approve", map[string]any{"batch_id": res.BatchID}, 200))
 	if ap.Approved != 2 || ap.Added != 2 || ap.Skipped != 0 || ap.Pending != 0 {
 		t.Fatalf("approve: %+v", ap)
 	}
@@ -228,11 +228,11 @@ func TestStagedApproveIsIdempotentPerBatch(t *testing.T) {
 		t.Fatalf("both batches should be queued: %+v", q)
 	}
 
-	first := decode[approveReply](t, c.mustDo("POST", "/import/staged/approve", map[string]any{"batch_id": a.BatchID}, 200))
+	first := decode[approveReply](t, c.mustFollow("POST", "/import/staged/approve", map[string]any{"batch_id": a.BatchID}, 200))
 	if first.Added != 2 {
 		t.Fatalf("first approve: %+v", first)
 	}
-	second := decode[approveReply](t, c.mustDo("POST", "/import/staged/approve", map[string]any{"batch_id": b.BatchID}, 200))
+	second := decode[approveReply](t, c.mustFollow("POST", "/import/staged/approve", map[string]any{"batch_id": b.BatchID}, 200))
 	if second.Added != 0 || second.Skipped != 2 {
 		t.Fatalf("second approve must be a no-op: %+v", second)
 	}
@@ -294,7 +294,7 @@ func TestStagedBulkEdit(t *testing.T) {
 	}
 
 	// The edits survive into the library.
-	c.mustDo("POST", "/import/staged/approve", map[string]any{"batch_id": res.BatchID}, 200)
+	c.mustFollow("POST", "/import/staged/approve", map[string]any{"batch_id": res.BatchID}, 200)
 	anns := decode[annList](t, c.mustDo("GET", "/annotations", nil, 200))
 	if len(anns.Annotations) != 2 {
 		t.Fatalf("approved: %+v", anns.Annotations)
@@ -354,7 +354,7 @@ func TestStagedBulkValidation(t *testing.T) {
 	// Another user's batch is not theirs to touch, and reads as absent (404, not 403).
 	other := addUser(t, h, c, "bob")
 	other.mustDo("POST", "/import/staged/bulk", map[string]any{"batch_id": res.BatchID, "color": "blue"}, http.StatusNotFound)
-	other.mustDo("POST", "/import/staged/approve", map[string]any{"batch_id": res.BatchID}, http.StatusNotFound)
+	other.mustFollow("POST", "/import/staged/approve", map[string]any{"batch_id": res.BatchID}, http.StatusNotFound)
 	other.mustDo("DELETE", "/import/staged", map[string]any{"batch_id": res.BatchID}, http.StatusNotFound)
 	if q := queue(t, other, ""); q.Pending != 0 {
 		t.Fatalf("another user's queue leaked: %+v", q)
@@ -459,7 +459,7 @@ func TestStagedRetargetAcrossKinds(t *testing.T) {
 		}
 	}
 
-	ap := decode[approveReply](t, c.mustDo("POST", "/import/staged/approve", map[string]any{"batch_id": res.BatchID}, 200))
+	ap := decode[approveReply](t, c.mustFollow("POST", "/import/staged/approve", map[string]any{"batch_id": res.BatchID}, 200))
 	if ap.Added != 2 || len(ap.MovieIDs) != 1 || ap.MovieIDs[0] != m.ID || len(ap.BookIDs) != 0 {
 		t.Fatalf("approve after cross-kind retarget: %+v", ap)
 	}
@@ -511,7 +511,7 @@ func TestStagedRetargetOntoAnotherStagedWork(t *testing.T) {
 		t.Fatalf("merge should leave Alpha holding both: %+v", q.Works)
 	}
 
-	ap := decode[approveReply](t, c.mustDo("POST", "/import/staged/approve", map[string]any{"batch_id": res.BatchID}, 200))
+	ap := decode[approveReply](t, c.mustFollow("POST", "/import/staged/approve", map[string]any{"batch_id": res.BatchID}, 200))
 	if ap.Added != 2 || len(ap.BookIDs) != 1 {
 		t.Fatalf("approve after merge: %+v", ap)
 	}
@@ -545,7 +545,7 @@ func TestStagedRetargetSurvivesADeletedTarget(t *testing.T) {
 	if len(q.Works) != 1 || q.Works[0].Pinned {
 		t.Fatalf("stale pin should not read as pinned: %+v", q.Works)
 	}
-	ap := decode[approveReply](t, c.mustDo("POST", "/import/staged/approve", map[string]any{"batch_id": res.BatchID}, 200))
+	ap := decode[approveReply](t, c.mustFollow("POST", "/import/staged/approve", map[string]any{"batch_id": res.BatchID}, 200))
 	if ap.Added != 2 || len(ap.BookIDs) != 1 {
 		t.Fatalf("approve with a stale pin: %+v", ap)
 	}
@@ -592,7 +592,7 @@ func TestStagedApprovePartialSelection(t *testing.T) {
 	stage(t, c, "/import/markdown", "sandworm.md", []byte(stagedBookMD))
 	ids := stagedIDs(queue(t, c, ""))
 
-	ap := decode[approveReply](t, c.mustDo("POST", "/import/staged/approve", map[string]any{"ids": ids[:1]}, 200))
+	ap := decode[approveReply](t, c.mustFollow("POST", "/import/staged/approve", map[string]any{"ids": ids[:1]}, 200))
 	if ap.Approved != 1 || ap.Added != 1 || ap.Pending != 1 {
 		t.Fatalf("partial approve: %+v", ap)
 	}
@@ -609,7 +609,7 @@ func TestStagedApprovePartialSelection(t *testing.T) {
 	}
 
 	// `all` approves whatever is left.
-	rest := decode[approveReply](t, c.mustDo("POST", "/import/staged/approve", map[string]any{"all": true}, 200))
+	rest := decode[approveReply](t, c.mustFollow("POST", "/import/staged/approve", map[string]any{"all": true}, 200))
 	if rest.Approved != 1 || rest.Added != 1 || rest.Pending != 0 {
 		t.Fatalf("approve all: %+v", rest)
 	}
@@ -681,7 +681,7 @@ func TestStagedApproveMergesWorksOntoOneBook(t *testing.T) {
 		t.Fatalf("two batches should stage two groups: %+v", q)
 	}
 
-	ap := decode[approveReply](t, c.mustDo("POST", "/import/staged/approve", map[string]any{"all": true}, 200))
+	ap := decode[approveReply](t, c.mustFollow("POST", "/import/staged/approve", map[string]any{"all": true}, 200))
 	if ap.Added != 2 || len(ap.Books) != 2 {
 		t.Fatalf("both quotes should land, from two groups: %+v", ap)
 	}
@@ -760,7 +760,7 @@ func TestStagedWithinFileDuplicateEnriches(t *testing.T) {
 	}
 
 	// And it survives approval with those values.
-	c.mustDo("POST", "/import/staged/approve", map[string]any{"batch_id": res.BatchID}, 200)
+	c.mustFollow("POST", "/import/staged/approve", map[string]any{"batch_id": res.BatchID}, 200)
 	anns := decode[annList](t, c.mustDo("GET", "/annotations", nil, 200))
 	if len(anns.Annotations) != 1 {
 		t.Fatalf("annotations: %+v", anns.Annotations)
@@ -794,7 +794,7 @@ func TestStagedRepeatedBlocksKeepTheirIdentity(t *testing.T) {
 		t.Fatalf("the later block's identity should be backfilled: %+v", q.Works)
 	}
 
-	ap := decode[approveReply](t, c.mustDo("POST", "/import/staged/approve", map[string]any{"batch_id": res.BatchID}, 200))
+	ap := decode[approveReply](t, c.mustFollow("POST", "/import/staged/approve", map[string]any{"batch_id": res.BatchID}, 200))
 	b := decode[bookDetail](t, c.mustDo("GET", "/books/"+itoa(ap.BookIDs[0]), nil, 200))
 	if b.ISBN != "9780441013593" || b.Series != "Dune" || b.SeriesIndex != 1 {
 		t.Fatalf("approved book should carry the identity: %+v", b)
@@ -846,7 +846,7 @@ func TestStagedQueueBeyondSQLiteParameterLimit(t *testing.T) {
 	}, 200)
 	c.mustDo("POST", "/import/staged/bulk", map[string]any{"all": true, "add_tags": []string{"bulkbulk"}}, 200)
 
-	ap := decode[approveReply](t, c.mustDo("POST", "/import/staged/approve", map[string]any{"batch_id": res.BatchID}, 200))
+	ap := decode[approveReply](t, c.mustFollow("POST", "/import/staged/approve", map[string]any{"batch_id": res.BatchID}, 200))
 	if ap.Added != n || ap.Pending != 0 {
 		t.Fatalf("approve the whole batch: added=%d pending=%d want %d/0", ap.Added, ap.Pending, n)
 	}
@@ -882,7 +882,7 @@ func TestStagedQuotelessWorkStillApproves(t *testing.T) {
 		t.Fatalf("the group should be queued with no quotes: %+v", q)
 	}
 
-	ap := decode[approveReply](t, c.mustDo("POST", "/import/staged/approve", map[string]any{"batch_id": res.BatchID}, 200))
+	ap := decode[approveReply](t, c.mustFollow("POST", "/import/staged/approve", map[string]any{"batch_id": res.BatchID}, 200))
 	if ap.Added != 0 || len(ap.BookIDs) != 1 || len(ap.Books) != 1 || !ap.Books[0].Created {
 		t.Fatalf("approving a quoteless work must still create the book: %+v", ap)
 	}

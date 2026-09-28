@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 	"tippani/internal/importer"
 	"tippani/internal/jobs"
 	"tippani/internal/metadata"
+	"tippani/internal/olog"
 	"tippani/internal/store"
 )
 
@@ -21,58 +23,53 @@ const maxImportBody = 5 << 20
 
 // Every import endpoint parses the upload and then STAGES it (ROADMAP 1.2.0):
 // nothing reaches annotations/dialogues until the pending queue is approved. The
-// reply is therefore a batch id and a staged count, not added/skipped/enriched —
-// those counters now come back from POST /import/staged/approve, which is where
-// the writing actually happens.
+// answer is therefore a batch id and a staged count, not added/skipped/enriched —
+// those counters come back from the approval, which is where the writing
+// actually happens.
+//
+// AND FROM 3.1.0 THE ANSWER IS A JOB'S (import_queue.go). The route reads the
+// upload and queues it; the stagers below run in that job and say what the route
+// used to answer, as an importAnswer the job keeps for the Import screen to read.
 
-// importRoute is every POST /import/<source> route: cap the upload, then hand
-// the bytes to that source's stager.
-//
-// The seven per-source routes STAY — they are the API, every existing test posts
-// to one, and the reader's "Read this as…" override needs a way to name a format
-// — but they no longer each own their own flow. importSources (import_auto.go) is
+// The per-source routes STAY — they are the API, every existing test posts to
+// one, and the reader's "Read this as…" override needs a way to name a format —
+// but they no longer each own their own flow. importSources (import_auto.go) is
 // the single table they and the sniffer both go through.
-//
-// AN IMPORT IS KEPT AS A JOB, IN ITS REQUEST (jobs.Begin, named by the file). It
-// is one sub-second request that stages and writes nothing to the library, so it
-// needs no queue; but it is something a reader did that is worth finding again
-// in Settings › Jobs, and it looks outward for nothing, so no line would reach
-// its log on its own. It says what it knows as it goes: what it read the file as
-// (or what the file turned out to be), what it staged and under which batch,
-// what the format counted beside the quotes, and why it refused a file.
-func (s *Server) importRoute(w http.ResponseWriter, r *http.Request, source string) {
-	data, filename, ok := readUpload(w, r)
-	if !ok {
-		return
-	}
-	jobs.Begin(r.Context(), "import", filename)
-	noteJob(r, jobs.LevelInfo, "read as %s, the format its route names", source)
-	importSources[source](s, w, r, data, filename)
+func (s *Server) handleImportMarkdown(w http.ResponseWriter, r *http.Request) {
+	s.queueImport(w, r, importer.SourceMarkdown)
 }
 
-// noteJob adds a line to the job r is part of, when it is part of one.
-func noteJob(r *http.Request, level, format string, args ...any) {
-	if rec := jobs.From(r.Context()); rec != nil {
+// noteJob adds a line to the job ctx is part of, when it is part of one: an
+// import's, whose stagers say what they read the file as, what they staged and
+// why they refused a file, since an import looks outward for nothing and no
+// line would reach its log on its own.
+func noteJob(ctx context.Context, level, format string, args ...any) {
+	if rec := jobs.From(ctx); rec != nil {
 		rec.Log(level, format, args...)
 	}
 }
 
-// importRefused answers an upload that will not be staged, because of the file,
-// with a 400, and says why in the import's log.
-func importRefused(w http.ResponseWriter, r *http.Request, msg string) {
-	noteJob(r, jobs.LevelWarn, "not imported: %s", msg)
-	writeErr(w, http.StatusBadRequest, msg)
+// importRefused is the answer to an upload that will not be staged, because of
+// the file: a 400, and why in the import's log.
+func importRefused(ctx context.Context, msg string) importAnswer {
+	noteJob(ctx, jobs.LevelWarn, "not imported: %s", msg)
+	return importAnswer{Status: http.StatusBadRequest, Body: map[string]any{"error": msg}}
 }
 
-func (s *Server) handleImportMarkdown(w http.ResponseWriter, r *http.Request) {
-	s.importRoute(w, r, importer.SourceMarkdown)
+// importFault is the answer to an import the server failed, not the file: the
+// 500 codedError answered in the request, with the cause in the system log under
+// code and only the code in the import's own log.
+func importFault(ctx context.Context, code olog.Code, what string, err error) importAnswer {
+	olog.Errorf(code, "[import] %s: %v", what, err)
+	noteJob(ctx, jobs.LevelError, "not imported: the server could not %s (%s)", what, code)
+	return importAnswer{Status: http.StatusInternalServerError, Body: map[string]any{"error": "internal error"}}
 }
 
 // stageMarkdownBytes routes a markdown upload by its own content. Markdown is
 // four formats in one extension — a book export, a catalogue (movie/show/game)
 // export, a quotes file and an anthology — so MarkdownKind peeks first; both
 // round-trip our own exports.
-func (s *Server) stageMarkdownBytes(w http.ResponseWriter, r *http.Request, data []byte, filename string) {
+func (s *Server) stageMarkdownBytes(ctx context.Context, uid int64, data []byte, filename string) importAnswer {
 	// An anthology file (0043) is a quotes file with prose and an order around it,
 	// so it stages through the SAME queue: one group, one row per entry, in the
 	// file's order. What it carries extra is the anthology's title on every row and
@@ -81,84 +78,74 @@ func (s *Server) stageMarkdownBytes(w http.ResponseWriter, r *http.Request, data
 	if importer.MarkdownKind(data) == importer.KindAnthology {
 		an, err := importer.AnthologyMarkdown(bytes.NewReader(data))
 		if err != nil {
-			importRefused(w, r, err.Error())
-			return
+			return importRefused(ctx, err.Error())
 		}
-		s.stageQuotesFile(w, r, importer.SourceMarkdown, filename, an.Entries)
-		return
+		return s.stageQuotesFile(ctx, uid, importer.SourceMarkdown, filename, an.Entries)
 	}
 	if importer.MarkdownKind(data) == importer.KindQuotes {
 		us, err := importer.QuoteMarkdownAll(bytes.NewReader(data))
 		if err != nil {
-			importRefused(w, r, err.Error())
-			return
+			return importRefused(ctx, err.Error())
 		}
 		if len(us) == 0 {
-			importRefused(w, r, "no quotes found in file")
-			return
+			return importRefused(ctx, "no quotes found in file")
 		}
-		s.stageQuotesFile(w, r, importer.SourceMarkdown, filename, us)
-		return
+		return s.stageQuotesFile(ctx, uid, importer.SourceMarkdown, filename, us)
 	}
 	if importer.LooksLikeMovieMarkdown(data) {
 		results, err := importer.MovieMarkdownAll(bytes.NewReader(data))
 		if err != nil {
-			importRefused(w, r, err.Error())
-			return
+			return importRefused(ctx, err.Error())
 		}
 		if len(results) == 0 {
-			importRefused(w, r, "no titles found in file")
-			return
+			return importRefused(ctx, "no titles found in file")
 		}
-		s.stageMovies(w, r, importer.SourceMarkdown, filename, results, nil)
-		return
+		return s.stageMovies(ctx, uid, importer.SourceMarkdown, filename, results, nil)
 	}
 	results, err := importer.MarkdownAll(bytes.NewReader(data))
 	if err != nil {
-		importRefused(w, r, err.Error())
-		return
+		return importRefused(ctx, err.Error())
 	}
 	if len(results) == 0 {
-		importRefused(w, r, "no books found in file")
-		return
+		return importRefused(ctx, "no books found in file")
 	}
-	s.stageBooks(w, r, importer.SourceMarkdown, filename, results, nil)
+	return s.stageBooks(ctx, uid, importer.SourceMarkdown, filename, results, nil)
 }
 
 func (s *Server) handleImportBookcision(w http.ResponseWriter, r *http.Request) {
-	s.importRoute(w, r, importer.SourceBookcision)
+	s.queueImport(w, r, importer.SourceBookcision)
 }
 
 func (s *Server) handleImportHardcover(w http.ResponseWriter, r *http.Request) {
-	s.importRoute(w, r, importer.SourceHardcoverHTML) // PLAN §5e
+	s.queueImport(w, r, importer.SourceHardcoverHTML) // PLAN §5e
 }
 
 func (s *Server) handleImportGoodreads(w http.ResponseWriter, r *http.Request) {
-	s.importRoute(w, r, importer.SourceGoodreadsHTML)
+	s.queueImport(w, r, importer.SourceGoodreadsHTML)
 }
 
 func (s *Server) handleImportKindleNotebook(w http.ResponseWriter, r *http.Request) {
-	s.importRoute(w, r, importer.SourceKindleNotebook) // read.amazon.com/notebook (PLAN §5)
+	s.queueImport(w, r, importer.SourceKindleNotebook) // read.amazon.com/notebook (PLAN §5)
 }
 
 func (s *Server) handleImportReadestJSON(w http.ResponseWriter, r *http.Request) {
-	s.importRoute(w, r, importer.SourceReadestJSON)
+	s.queueImport(w, r, importer.SourceReadestJSON)
 }
 
-func (s *Server) stageBookcisionBytes(w http.ResponseWriter, r *http.Request, data []byte, filename string) {
-	s.stageOneBook(w, r, importer.SourceBookcision, importer.Bookcision, data, filename)
+func (s *Server) stageBookcisionBytes(ctx context.Context, uid int64, data []byte, filename string) importAnswer {
+	return s.stageOneBook(ctx, uid, importer.SourceBookcision, importer.Bookcision, data, filename)
 }
 
-func (s *Server) stageHardcoverBytes(w http.ResponseWriter, r *http.Request, data []byte, filename string) {
-	s.stageOneBook(w, r, importer.SourceHardcoverHTML, importer.HardcoverHTML, data, filename)
+func (s *Server) stageHardcoverBytes(ctx context.Context, uid int64, data []byte, filename string) importAnswer {
+	return s.stageOneBook(ctx, uid, importer.SourceHardcoverHTML, importer.HardcoverHTML, data, filename)
 }
 
-func (s *Server) stageGoodreadsBytes(w http.ResponseWriter, r *http.Request, data []byte, filename string) {
-	s.stageOneBook(w, r, importer.SourceGoodreadsHTML, importer.Goodreads, data, filename)
+func (s *Server) stageGoodreadsBytes(ctx context.Context, uid int64, data []byte, filename string) importAnswer {
+	return s.stageOneBook(ctx, uid, importer.SourceGoodreadsHTML, importer.Goodreads, data, filename)
 }
 
-func (s *Server) stageKindleNotebookBytes(w http.ResponseWriter, r *http.Request, data []byte, filename string) {
-	s.stageOneBook(w, r, importer.SourceKindleNotebook, importer.AmazonNotebook, data, filename)
+func (s *Server) stageKindleNotebookBytes(ctx context.Context, uid int64, data []byte, filename string) importAnswer {
+	return s.stageOneBook(ctx, uid, importer.SourceKindleNotebook, importer.AmazonNotebook, data, filename)
 }
 
 // stageReadestJSONBytes stages Readest's own annotations export (0072-era, the
@@ -166,13 +153,12 @@ func (s *Server) stageKindleNotebookBytes(w http.ResponseWriter, r *http.Request
 // cannot: a highlight in a colour with no slot, and Readest's underline styles.
 // The My Clippings path set that precedent — a best-effort parser that quietly
 // returns less than the file held is worse than one that says so.
-func (s *Server) stageReadestJSONBytes(w http.ResponseWriter, r *http.Request, data []byte, filename string) {
+func (s *Server) stageReadestJSONBytes(ctx context.Context, uid int64, data []byte, filename string) importAnswer {
 	res, stats, err := importer.ReadestJSON(bytes.NewReader(data))
 	if err != nil {
-		importRefused(w, r, err.Error())
-		return
+		return importRefused(ctx, err.Error())
 	}
-	s.stageBooks(w, r, importer.SourceReadestJSON, filename, []*importer.Result{res}, map[string]any{
+	return s.stageBooks(ctx, uid, importer.SourceReadestJSON, filename, []*importer.Result{res}, map[string]any{
 		"colors_unmapped": stats.ColorUnmapped,
 		"styles_dropped":  stats.StyleDropped,
 	})
@@ -184,20 +170,18 @@ func (s *Server) stageReadestJSONBytes(w http.ResponseWriter, r *http.Request, d
 // it reports what it skipped instead of failing the whole file, and the UI
 // labels the source experimental.
 func (s *Server) handleImportKindleClippings(w http.ResponseWriter, r *http.Request) {
-	s.importRoute(w, r, importer.SourceKindleClippings)
+	s.queueImport(w, r, importer.SourceKindleClippings)
 }
 
-func (s *Server) stageKindleClippingsBytes(w http.ResponseWriter, r *http.Request, data []byte, filename string) {
+func (s *Server) stageKindleClippingsBytes(ctx context.Context, uid int64, data []byte, filename string) importAnswer {
 	results, stats, err := importer.KindleClippings(bytes.NewReader(data))
 	if err != nil {
-		importRefused(w, r, err.Error())
-		return
+		return importRefused(ctx, err.Error())
 	}
 	if len(results) == 0 {
-		importRefused(w, r, "no books found in file")
-		return
+		return importRefused(ctx, "no books found in file")
 	}
-	s.stageBooks(w, r, importer.SourceKindleClippings, filename, results, map[string]any{
+	return s.stageBooks(ctx, uid, importer.SourceKindleClippings, filename, results, map[string]any{
 		"bookmarks_skipped": stats.Bookmarks,
 		"blocks_malformed":  stats.Malformed,
 		"notes_merged":      stats.NotesMerged,
@@ -217,15 +201,14 @@ func (e importClientError) Error() string { return e.msg }
 //
 // IT TAKES BYTES, NOT A REQUEST BODY. A body can be read once, and the sniffer
 // has already read it — which is the reason this is no longer a handler.
-func (s *Server) stageOneBook(w http.ResponseWriter, r *http.Request, source string,
-	parse func(io.Reader) (*importer.Result, error), data []byte, filename string) {
+func (s *Server) stageOneBook(ctx context.Context, uid int64, source string,
+	parse func(io.Reader) (*importer.Result, error), data []byte, filename string) importAnswer {
 
 	res, err := parse(bytes.NewReader(data))
 	if err != nil {
-		importRefused(w, r, err.Error())
-		return
+		return importRefused(ctx, err.Error())
 	}
-	s.stageBooks(w, r, source, filename, []*importer.Result{res}, nil)
+	return s.stageBooks(ctx, uid, source, filename, []*importer.Result{res}, nil)
 }
 
 // readUpload pulls the multipart "file" field's bytes (capped) and its name —

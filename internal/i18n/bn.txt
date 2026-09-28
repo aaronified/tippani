@@ -4470,6 +4470,14 @@ import.summary.arrow = {files} → {quotes} · গ্রন্থাগারে
 # One row per file.
 import.row.staged.one = {n}টা উদ্ধৃতি বাকি
 import.row.staged.other = {n}টা উদ্ধৃতি বাকি
+# ?? draft for the owner (3.1.0 imports): পাঠানো for "sent", as a file handed to the server; the row before its upload has gone
+import.row.unsent = এখনও পাঠানো হয়নি
+# ?? draft for the owner (3.1.0 imports): {state} is the state chip's own word; আবার চালানো, the Run again word of Settings → Jobs
+import.row.halted = {state} — সেটিংস → কাজ-এ আবার চালানো যায়
+# ?? draft for the owner (3.1.0 imports): সার্ভারে আর নেই for "the server no longer has"; আবার দিন for "drop it again", as a file handed over again (import.row.unsent's পাঠানো is the upload itself)
+import.row.lost = {state} — ফাইলটা সার্ভারে আর নেই; আবার দিন
+# ?? draft for the owner (3.1.0 imports): চলতে থাকবে as reverify.checking.away says it; পর্দা for "screen" (v3)
+import.queued.note = যে ফাইল পাঠানো হয়ে গেছে, এই পর্দা ছেড়ে গেলেও সেটা সেটিংস → কাজ-এ চলতে থাকবে; যেটা এখনও পাঠানো হয়নি, সেটা নয়।
 import.row.duplicate = ⚠ মনে হচ্ছে বইটা আগে থেকেই আছে: {titles} — অপেক্ষার তালিকায় উদ্ধৃতিগুলো সেখানে সরিয়ে দিন, বা আলাদা বই হিসেবে অনুমোদন দিন
 # The hand-over to the queue.
 import.review.one = বাকি পড়ে থাকা {n}টা উদ্ধৃতি দেখুন
@@ -4926,6 +4934,10 @@ staging.flash.updated = {n}টা বদলেছে
 staging.flash.approved.added = {n}টা যোগ হয়েছে
 staging.flash.approved.skipped = {n}টা বাদ
 staging.flash.approved.enriched = {n}টায় মেটাডেটা এসেছে
+# ?? draft for the owner (3.1.0 imports): মেনে নেওয়া চলছে for "Approving"; {total}-এর মধ্যে {done} is settings.jobs.progress's own order
+staging.approving.progress = মেনে নেওয়া চলছে — {total}-এর মধ্যে {done}
+# ?? draft for the owner (3.1.0 imports): reverify.checking.away's own words, for the approval
+staging.approving.away = এই পর্দা ছেড়ে গেলেও এটা চলতে থাকবে — সেটিংস → কাজ-এ পাবেন।
 staging.flash.discarded = {n}টা ফেলে দেওয়া হয়েছে
 staging.flash.saved = সেভ হয়েছে
 # {name} is the CATEGORY's name, not the stored colour token — it said
@@ -5772,6 +5784,8 @@ settings.jobs.kind.work-save = উৎস সেভ
 settings.jobs.kind.person-save = মানুষের তথ্য সেভ
 settings.jobs.kind.character-save = চরিত্রের ছবি
 settings.jobs.kind.import = ইমপোর্ট
+# ?? draft for the owner (3.1.0 imports): মেনে নেওয়া, the staging screen's own verb (সব মেনে নিন) as a noun phrase, as every kind's name is
+settings.jobs.kind.import-approve = ইমপোর্টের উদ্ধৃতি মেনে নেওয়া
 settings.jobs.kind.restore = ফিরিয়ে আনা
 settings.jobs.kind.reset = সব ডেটা মুছে ফেলা
 settings.jobs.kind.notify-daily = দৈনিক অনুশীলনী
@@ -5795,6 +5809,12 @@ settings.jobs.state.interrupted = মাঝপথে থেমেছে
 
 # --- what a finished job did, one phrase per count. The screen joins them with
 # " · " in code, so each phrase carries its own word order.
+# ?? draft for the owner (3.1.0 imports): the import row's own words for what an import staged (import.row.staged)
+settings.jobs.count.staged.one = {n}টা উদ্ধৃতি বাকি
+settings.jobs.count.staged.other = {n}টা উদ্ধৃতি বাকি
+# ?? draft for the owner (3.1.0 imports): the approval's own flash for what it added (staging.flash.approved.added)
+settings.jobs.count.added.one = {n}টা যোগ হয়েছে
+settings.jobs.count.added.other = {n}টা যোগ হয়েছে
 settings.jobs.count.fields.one = {n}টা ঘর ভরেছে
 settings.jobs.count.fields.other = {n}টা ঘর ভরেছে
 settings.jobs.count.fetched.one = {n}টা এসেছে

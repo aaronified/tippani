@@ -40,9 +40,10 @@ export const isLive = (job) => !!job && (job.state === 'queued' || job.state ===
 // the server may learn a kind before this screen does, and the row has to survive
 // that release.
 export const JOB_KINDS = [
-  // The queued ones: the five loops a reader starts from a screen, and the backup.
-  'fill', 'covers', 'people', 'reverify', 'reverify-apply', 'backup',
-  // Recorded in their request (F1, F2): lookups a reader starts one at a time,
+  // The queued ones: the five loops a reader starts from a screen, the backup,
+  // and — from 3.1.0 — an import and its approval, which their own routes queue.
+  'fill', 'covers', 'people', 'reverify', 'reverify-apply', 'backup', 'import', 'import.approve',
+  // Recorded in their request (F2): lookups a reader starts one at a time,
   // saves that fetch a picture from an address, and the acts that swap the
   // database under the queue. THE SERVER'S ROUTE TABLE IS THE LIST TO KEEP THIS
   // BESIDE (internal/httpapi/jobkinds.go, plus the kinds a handler names through
@@ -53,7 +54,7 @@ export const JOB_KINDS = [
   'lookup.cast-tvdb', 'lookup.cast-art',
   'update.check', 'update.apply', 'metadata.test', 'notify.test', 'signin.oidc',
   'work.save', 'person.save', 'character.save',
-  'import', 'restore', 'reset', 'backup.safety', 'notify.daily', 'request',
+  'restore', 'reset', 'backup.safety', 'notify.daily', 'request',
 ]
 const kindSlug = (kind) => (JOB_KINDS.includes(kind) ? kind.replace(/\./g, '-') : 'other')
 
@@ -67,6 +68,10 @@ const kindSlug = (kind) => (JOB_KINDS.includes(kind) ? kind.replace(/\./g, '-') 
 // one segment, so `settings.jobs.count.${k}` would name a namespace with nothing
 // directly in it and the locale scan would rightly call it pointing at nothing.
 export const COUNT_KEYS = [
+  // An import's and an approval's, first because each is the whole of what its
+  // job did: the quotes it staged, the quotes it put in the library.
+  ['staged', 'settings.jobs.count.staged'],
+  ['added', 'settings.jobs.count.added'],
   ['fields', 'settings.jobs.count.fields'],
   ['fetched', 'settings.jobs.count.fetched'],
   ['enriched', 'settings.jobs.count.enriched'],
@@ -811,6 +816,42 @@ export async function followJob(id, { alive = () => true, onJob = null } = {}) {
     last = sig
     await sleep(quiet >= 10 ? 3000 : 1000)
   }
+}
+
+// jobAnswer — what a route that queues its work answered, as the screen always
+// read it: {ok, status, data}.
+//
+// AN IMPORT AND AN APPROVAL ARE JOBS (3.1.0). Their routes used to answer with
+// what they had done; now they answer 202 {job}, and what they used to answer is
+// the job's result, {status, body}. So a 202 is followed to its end (followJob)
+// and its result read back, and the screen maps `ok` and `data` exactly as it
+// mapped the request's. A route that refused before anything queued — no file, a
+// file over the limit, a restore under way, five jobs already waiting — is its own
+// answer, unchanged, and so is a 409 that names no job. A 409 that does name one
+// (the same approval pressed twice) is that job, followed as if this press had
+// started it.
+//
+// `onJob` sees the job whenever it is read, which is what a screen draws while it
+// waits: where it stands in the queue, then that it runs. `alive` is the screen's
+// "am I still here" (followJob): a screen that is gone gets `{gone: true}` and
+// draws nothing. A job that ended with no answer to read — stopped before it ran,
+// cut off by a restart — comes back as a refusal carrying the job, its error the
+// job's own or the name of its state.
+export async function jobAnswer(r, { alive = () => true, onJob = null } = {}) {
+  const queued = r?.status === 202 ? r.data?.job : r?.status === 409 && r.data?.job_id ? { id: r.data.job_id } : null
+  if (!queued?.id) return r
+  let job = queued
+  if (job.state) onJob?.(job)
+  if (!job.state || isLive(job)) {
+    job = await followJob(job.id, { alive, onJob })
+    if (!job) return { ok: false, status: 0, data: null, gone: true }
+  }
+  const res = await readJobResult(job.id)
+  const answer = res.ok && res.result && typeof res.result === 'object' ? res.result : null
+  if (answer && typeof answer.status === 'number') {
+    return { ok: answer.status >= 200 && answer.status < 300, status: answer.status, data: answer.body ?? null, job }
+  }
+  return { ok: false, status: 0, data: { error: job.error || jobStateLabel(job.state) }, job }
 }
 
 // useKindJob — the one run of a kind this screen shows: a covers fetch on

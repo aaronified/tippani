@@ -32,11 +32,21 @@ vi.mock('../../src/api.js', () => ({
     if (method === 'GET' && path === '/import/staged') {
       return { ok: true, data: { pending: 4, batches: BATCHES, works: WORKS, quotes: QUOTES } }
     }
+    // An approval is a job on the server's queue (3.1.0): answered 202 with the
+    // job, which the page follows to its result. These cases are about the ids
+    // it sends, so the job has already finished when it is read.
+    if (method === 'GET' && path.startsWith('/jobs')) {
+      if (path.startsWith('/jobs?')) return { ok: true, data: { jobs: [], running: 0, waiting: 0 } }
+      if (path.endsWith('/result')) {
+        return { ok: true, data: { kind: 'import.approve', result: { status: 200, body: { added: 1, skipped: 0, enriched: 0 } } } }
+      }
+      return { ok: true, data: { job: { id: 9, kind: 'import.approve', state: 'succeeded' }, lines: [] } }
+    }
     // The verb matters: a discard is DELETE /import/staged, an approve is POST
     // /import/staged/approve, and a case keyed on the path alone would not tell
     // the queue's own GET from its discard.
     posts.push({ method, path, body })
-    if (path === '/import/staged/approve') return { ok: true, data: { added: 1, skipped: 0, enriched: 0 } }
+    if (path === '/import/staged/approve') return { ok: true, status: 202, data: { job: { id: 9, kind: 'import.approve', state: 'queued', ahead: 0 } } }
     if (method === 'DELETE') return { ok: true, data: { discarded: 1 } }
     return { ok: true, data: {} }
   },
@@ -144,6 +154,37 @@ describe('a file’s own verbs', () => {
     await waitFor(() => expect(lastPost('/import/staged/approve')).toBeTruthy())
     // kindle.txt brought Dune's two AND Solaris's one; notes.md's row is not its.
     expect(lastPost('/import/staged/approve').body).toEqual({ ids: [11, 12, 13] })
+  })
+})
+
+// "ALL" IS WHAT THE PAGE SHOWED. From 3.1.0 a file dropped earlier can finish
+// staging while the reader reads this page, so the header's approve-all and
+// discard-all name the newest file the page drew (`through`), and the server
+// leaves anything staged after it for the reader to see. A press that sent a
+// bare `all` would approve — or throw away — a file nobody on this page looked at.
+//
+// Mutation: approve and discard sending `{ all: true }` again: both red.
+describe('the header’s everything is everything shown', () => {
+  const headerVerb = (re) => [...document.querySelectorAll('button')].find((b) => re.test(b.textContent.trim()))
+
+  it('Approve all names the newest file the page drew', async () => {
+    await page()
+    fireEvent.click(headerVerb(/^Approve all/))
+    await waitFor(() => expect(lastPost('/import/staged/approve')).toBeTruthy())
+    expect(lastPost('/import/staged/approve').body).toEqual({ all: true, through: 2 })
+  })
+
+  it('and so does Discard all, once asked', async () => {
+    await page()
+    fireEvent.click(headerVerb(/^Discard all/))
+    const confirm = await waitFor(() => {
+      const found = [...document.querySelectorAll('button')].filter((b) => /^Discard/.test(b.textContent.trim()))
+      expect(found.length, 'pressing Discard all opened no confirm').toBeGreaterThan(1)
+      return found[found.length - 1]
+    })
+    fireEvent.click(confirm)
+    await waitFor(() => expect(lastDelete()).toBeTruthy())
+    expect(lastDelete().body).toEqual({ all: true, through: 2 })
   })
 })
 

@@ -212,7 +212,10 @@ func (s *Server) controlEntry(name string) bool {
 	if name == backupsDirName || name == recoveryKeyFile {
 		return true
 	}
-	for _, p := range []string{".backup-", ".restore-", preRestorePrefix, recoveryKeyFile + ".new-"} {
+	// The import spool (spoolDirName) is one too: an upload waiting for its job is
+	// not the library, and a restore that moved it aside would take the file from
+	// under the job that names it.
+	for _, p := range []string{".backup-", ".restore-", preRestorePrefix, recoveryKeyFile + ".new-", spoolDirName} {
 		if strings.HasPrefix(name, p) {
 			return true
 		}
@@ -1278,6 +1281,11 @@ func (s *Server) restoreArchive(w http.ResponseWriter, archive, label, requested
 			}
 		}
 	}
+	// The uploads waiting for their imports stay where they were (the spool is a
+	// control entry), and the carried history may have let go of their owners: a
+	// job keeps its owner only where the restored accounts hold them. An upload
+	// nobody can run again goes now, not at the next upload or restart.
+	s.sweepSpool()
 	olog.Alertf("[backup] RESTORE applied from %s — previous data kept in %s", label, preDir)
 	// The caller's session may not exist in the restored database.
 	http.SetCookie(w, s.sessionCookie("", -1))

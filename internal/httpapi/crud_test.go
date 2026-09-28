@@ -2,7 +2,9 @@ package httpapi
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -12,7 +14,9 @@ import (
 	"strings"
 	"testing"
 	"testing/fstest"
+	"time"
 
+	"tippani/internal/jobs"
 	"tippani/internal/metadata"
 	"tippani/internal/store"
 )
@@ -81,7 +85,46 @@ func newTestServer(t *testing.T) *Server {
 	// ordinary case for a guessed slug, so that is the honest silent stub here
 	// rather than an empty-but-200 one.
 	metadata.SetLetterboxdBaseForTest(t, notFoundServer(t))
+
+	// EVERY TEST SERVER HAS THE QUEUE serve() GIVES THE REAL ONE: a logbook, a
+	// runner on it, and the built-in kinds. From 3.1.0 an import is a queued job,
+	// and a server with no queue answers every upload 503 — so a test server
+	// without one would test a server serve() never builds. The alternative, a
+	// queue only in the tests that import, was a line in thirty-odd files that the
+	// next import test forgets; forgetting it would fail loudly, but it would fail
+	// on a harness detail rather than on anything a reader does. queueing adds a
+	// test's own kinds to this queue, and keeping hands back this logbook.
+	lb := jobs.NewLogbook()
+	lb.Attach(st)
+	srv.Logbook = lb
+	runner := jobs.NewRunner(st, lb, jobs.Options{})
+	srv.Jobs = runner
+	srv.RegisterJobKinds()
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		runner.Close(ctx)
+		lb.Close(ctx)
+	})
 	return srv
+}
+
+// unqueued takes away the queue and the logbook newTestServer gave srv, for a
+// test whose subject is a server's state that a queue would not let happen — a
+// row reading running with no job behind it, as a crash leaves one — and whose
+// ids a request's own job rows would otherwise take. Such a server cannot import
+// (it answers 503), which the test does not.
+func unqueued(t *testing.T, srv *Server) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := srv.Jobs.Close(ctx); err != nil {
+		t.Fatalf("closing the queue: %v", err)
+	}
+	if err := srv.Logbook.Close(ctx); err != nil {
+		t.Fatalf("closing the logbook: %v", err)
+	}
+	srv.Jobs, srv.Logbook = nil, nil
 }
 
 // notFoundServer answers everything with a 404 — the shape a guessed-wrong slug
@@ -123,6 +166,9 @@ type testClient struct {
 	h      http.Handler
 	cookie *http.Cookie
 	bearer string
+	// noFollow has importFile and importAs hand back the route's own answer, the
+	// job it queued, rather than the job's answer (withoutFollowing).
+	noFollow bool
 }
 
 func (c *testClient) do(method, path string, body any) *httptest.ResponseRecorder {
@@ -160,6 +206,10 @@ func (c *testClient) mustDo(method, path string, body any, want int) *httptest.R
 	return rec
 }
 
+// importFile uploads a file to an import endpoint, as the Import screen does, and
+// follows the job it queues to its end: what comes back is the import's answer,
+// the status and body the endpoint answered with before imports queued (followed).
+// A refusal that queued nothing (no file, one over 5 MB) comes back as it was.
 func (c *testClient) importFile(path, name string, content []byte) *httptest.ResponseRecorder {
 	c.t.Helper()
 	var buf bytes.Buffer
@@ -172,7 +222,98 @@ func (c *testClient) importFile(path, name string, content []byte) *httptest.Res
 		c.t.Fatal(err)
 	}
 	_ = mw.Close()
-	return c.doRaw("POST", path, &buf, mw.FormDataContentType())
+	return c.followed(c.doRaw("POST", path, &buf, mw.FormDataContentType()))
+}
+
+// follow is do for a route that queues its work — an approval of staged quotes:
+// the job is followed to its end, and its answer comes back (followed).
+func (c *testClient) follow(method, path string, body any) *httptest.ResponseRecorder {
+	c.t.Helper()
+	return c.followed(c.do(method, path, body))
+}
+
+// mustFollow is follow, failing the test unless the answer has status want.
+func (c *testClient) mustFollow(method, path string, body any, want int) *httptest.ResponseRecorder {
+	c.t.Helper()
+	rec := c.follow(method, path, body)
+	if rec.Code != want {
+		c.t.Fatalf("%s %s: got %d want %d: %s", method, path, rec.Code, want, rec.Body)
+	}
+	return rec
+}
+
+// followed is the answer of a request that queued an import or an approval
+// (202 {job}), once that job has ended: the job read as the screens read it,
+// GET /jobs/{id} until it is no longer waiting or running, and then its result
+// from GET /jobs/{id}/result, whose {status, body} is what the request answered
+// before it queued. It comes back as a recorder carrying that status and body, so
+// a test of what an import staged or an approval wrote reads the answer it always
+// read. Any other answer — a refusal before anything queued — is handed back as
+// it is; a job that ended with no answer to read fails the test with its state.
+func (c *testClient) followed(rec *httptest.ResponseRecorder) *httptest.ResponseRecorder {
+	c.t.Helper()
+	if c.noFollow || rec.Code != http.StatusAccepted {
+		return rec
+	}
+	var started struct {
+		Job struct {
+			ID   int64  `json:"id"`
+			Kind string `json:"kind"`
+		} `json:"job"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &started); err != nil || started.Job.ID == 0 {
+		c.t.Fatalf("a 202 that names no job: %s", rec.Body)
+	}
+	if started.Job.Kind != "import" && started.Job.Kind != "import.approve" {
+		return rec
+	}
+	return c.answerOf(started.Job.ID)
+}
+
+// answerOf is the answer of import or approval job id once it has ended, as
+// followed reads it: its result's {status, body}, as a recorder.
+func (c *testClient) answerOf(id int64) *httptest.ResponseRecorder {
+	c.t.Helper()
+	// Generous, because the suite shares a machine: an approval of the 33,000
+	// quotes TestStagedQueueBeyondSQLiteParameterLimit stages took longer than
+	// thirty seconds under a loaded run, and the request it replaced had no
+	// deadline at all. A job that never ends still fails here, with its state.
+	deadline := time.Now().Add(5 * time.Minute)
+	var job struct {
+		Job struct {
+			State string `json:"state"`
+			Error string `json:"error"`
+		} `json:"job"`
+	}
+	for {
+		poll := c.do("GET", fmt.Sprintf("/jobs/%d", id), nil)
+		if poll.Code != http.StatusOK {
+			c.t.Fatalf("reading job %d: %d %s", id, poll.Code, poll.Body)
+		}
+		_ = json.Unmarshal(poll.Body.Bytes(), &job)
+		if job.Job.State != "queued" && job.Job.State != "running" {
+			break
+		}
+		if time.Now().After(deadline) {
+			c.t.Fatalf("job %d is still %s", id, job.Job.State)
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	res := c.do("GET", fmt.Sprintf("/jobs/%d/result", id), nil)
+	var answer struct {
+		Result *struct {
+			Status int             `json:"status"`
+			Body   json.RawMessage `json:"body"`
+		} `json:"result"`
+	}
+	if res.Code != http.StatusOK || json.Unmarshal(res.Body.Bytes(), &answer) != nil || answer.Result == nil {
+		c.t.Fatalf("job %d ended %s (%q) with no answer: %d %s", id, job.Job.State, job.Job.Error, res.Code, res.Body)
+	}
+	out := httptest.NewRecorder()
+	out.Header().Set("Content-Type", "application/json")
+	out.WriteHeader(answer.Result.Status)
+	_, _ = out.Write(answer.Result.Body)
+	return out
 }
 
 // importApprove uploads a file to an import endpoint and then approves exactly
@@ -202,7 +343,7 @@ func (c *testClient) importApprove(path, name string, content []byte) *httptest.
 	if staged.BatchID == 0 {
 		c.t.Fatalf("import did not answer a batch id: %s", rec.Body)
 	}
-	return c.do("POST", "/import/staged/approve", map[string]any{"batch_id": staged.BatchID})
+	return c.follow("POST", "/import/staged/approve", map[string]any{"batch_id": staged.BatchID})
 }
 
 // signupAdmin creates the first (admin) user via onboarding and logs them in.

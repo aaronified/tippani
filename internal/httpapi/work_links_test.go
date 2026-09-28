@@ -79,7 +79,7 @@ func TestLinksRoundTripThroughTheExportAndTheQueue(t *testing.T) {
 
 	c2 := signupAdmin(t, newTestServer(t).Handler())
 	res := stage(t, c2, "/import/markdown", "mm.md", []byte(md))
-	c2.mustDo("POST", "/import/staged/approve", map[string]any{"batch_id": res.BatchID}, http.StatusOK)
+	c2.mustFollow("POST", "/import/staged/approve", map[string]any{"batch_id": res.BatchID}, http.StatusOK)
 	list := decode[struct {
 		Books []linked `json:"books"`
 	}](t, c2.mustDo("GET", "/books", nil, http.StatusOK))
@@ -103,7 +103,7 @@ func TestACatalogueImportKeepsThePublisherAndTheLinks(t *testing.T) {
 		"publisher: ZA/UM Studio\nlinks: https://www.igdb.com/games/disco-elysium\n---\n\n" +
 		"> The world is a mess.\n- character: Kim Kitsuragi\n"
 	res := stage(t, c, "/import/markdown", "game.md", []byte(md))
-	c.mustDo("POST", "/import/staged/approve", map[string]any{"batch_id": res.BatchID}, http.StatusOK)
+	c.mustFollow("POST", "/import/staged/approve", map[string]any{"batch_id": res.BatchID}, http.StatusOK)
 
 	list := decode[struct {
 		Movies []struct {

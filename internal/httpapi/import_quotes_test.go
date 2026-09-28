@@ -50,7 +50,7 @@ func stageQuotesMD(t *testing.T, c *testClient, filename, body string) quotesSta
 // nothing.
 func approveBatch(t *testing.T, c *testClient, batchID int64) quotesApproveResp {
 	t.Helper()
-	return decode[quotesApproveResp](t, c.mustDo("POST", "/import/staged/approve",
+	return decode[quotesApproveResp](t, c.mustFollow("POST", "/import/staged/approve",
 		map[string]any{"batch_id": batchID}, http.StatusOK))
 }
 

@@ -4546,6 +4546,19 @@ import.summary.arrow = {files} → {quotes} · nothing has entered your library 
 # One row per file.
 import.row.staged.one = {n} quote staged
 import.row.staged.other = {n} quotes staged
+# A file's row before its upload has gone: it is only in this page, and leaving
+# the page takes it. (From 3.1.0 a file that has gone is a job on the server.)
+import.row.unsent = not sent yet
+# A file whose job was stopped, or cut off by a restart, before it staged
+# anything. {state} is that state's own word (Stopped, Interrupted). The upload is
+# kept, so Run again in Settings → Jobs finishes it.
+import.row.halted = {state} — Settings → Jobs can run it again
+# The same, where the job has no upload left to run again: cut off by a restart
+# just after it let go of the file and before its staging committed. The page
+# still holds the file, so dropping it again is the way on.
+import.row.lost = {state} — the server no longer has this file; drop it again
+# Under the rows while a batch of several files is still sending.
+import.queued.note = A file already sent carries on in Settings → Jobs if you leave this screen; one not sent yet does not.
 import.row.duplicate = ⚠ looks like a book you already have: {titles} — move the staged quotes onto it in the queue, or approve them as a separate book
 # The hand-over to the queue.
 import.review.one = Review {n} staged quote
@@ -5019,6 +5032,11 @@ staging.flash.updated = updated {n}
 staging.flash.approved.added = {n} added
 staging.flash.approved.skipped = {n} skipped
 staging.flash.approved.enriched = {n} enriched
+# The approval's bar while it runs, in works written. (From 3.1.0 approving is a
+# job on the server's queue.)
+staging.approving.progress = Approving — {done} of {total}
+# Beside the approval's Stop.
+staging.approving.away = Leave this screen and it carries on — Settings → Jobs has it.
 staging.flash.discarded = discarded {n}
 staging.flash.saved = saved
 # {name} is the CATEGORY's name, not the stored colour token — it said
@@ -5919,6 +5937,9 @@ settings.jobs.kind.person-save = Save a person
 # A character's picture saved from an address.
 settings.jobs.kind.character-save = Character picture
 settings.jobs.kind.import = Import
+# The approval of staged quotes out of Pending import, which writes them into the
+# library: a job of its own since 3.1.0, beside the import that staged them.
+settings.jobs.kind.import-approve = Approve imported quotes
 settings.jobs.kind.restore = Restore
 settings.jobs.kind.reset = Reset all data
 settings.jobs.kind.notify-daily = Daily deck
@@ -5938,6 +5959,12 @@ settings.jobs.state.interrupted = Interrupted
 
 # --- what a finished job did, one phrase per count. The screen joins them with
 # " · " in code, so each phrase carries its own word order.
+# An import's one count, the quotes it put in Pending import; and an approval's,
+# the quotes it put in the library.
+settings.jobs.count.staged.one = {n} quote staged
+settings.jobs.count.staged.other = {n} quotes staged
+settings.jobs.count.added.one = {n} added
+settings.jobs.count.added.other = {n} added
 settings.jobs.count.fields.one = {n} field filled
 settings.jobs.count.fields.other = {n} fields filled
 settings.jobs.count.fetched.one = {n} fetched

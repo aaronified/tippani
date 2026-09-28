@@ -318,6 +318,9 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.parkFiles(covers)
+	// Their imports' uploads go too, now that the account is: 0079's trigger has
+	// cleared the owner of every job they had, and nobody can run those again.
+	s.sweepSpool()
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "trash_id": trashID})
 }
 

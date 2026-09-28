@@ -8,6 +8,7 @@ import { WorkPicker, workFromBook, workFromMovie } from './AddSurface.jsx'
 import { chapterLabel, episodeLabel } from './text.js'
 import { CastCombo, LanguageCombo, SuggestCombo, useVocabulary, useWorkSuggestions } from './suggest.jsx'
 import { fieldKeys, QUOTE_KIND_DOORS } from './addFields.js'
+import { findLiveJobs, jobAnswer, jobStateLabel, jobWaitingText, stopJob } from './jobs.js'
 // THE APP'S ONE ANSWER to "a path stored is not a picture arriving" — the same
 // component every other face and cover in the app goes through, so a missing
 // cover draws this screen's stand-in rather than a broken tile.
@@ -44,6 +45,8 @@ import {
   Tooltip,
   useIsMobileScreen,
   IconHeartOn,
+  IconStop,
+  ProgressBar,
 } from './ui.jsx'
 
 // Pending import — the staging queue (ROADMAP 1.2.0). A bulk import no longer
@@ -54,6 +57,13 @@ import {
 //
 // Every mutation is one POST to /import/staged/bulk over the selection, so the
 // screen never walks rows one request at a time.
+//
+// APPROVING IS A JOB ON THE SERVER'S QUEUE (3.1.0): the one import step that
+// writes to the library, and until then the one Settings → Jobs never saw. The
+// press is answered with the job; this screen follows it — waiting, then how far
+// it has got, with a Stop — and reloads the queue when it ends, saying what it
+// added. A reader who leaves has not stopped it, and a reader who comes back while
+// it runs finds this screen following it again.
 
 // OPS — the six things a location formula can do, as STORED TOKENS ONLY. The
 // words sat beside them here until the i18n pass: a table of copy at module scope
@@ -102,6 +112,16 @@ export default function StagingPage({ onPending, onOpenBook, onOpenMovie, onAppr
   const [dest, setDest] = useState('all')
   const mobile = useIsMobileScreen()
   const reqSeq = useRef(0)
+  // The approval's job while it waits or runs, and whether its Stop was pressed.
+  const [approving, setApproving] = useState(null)
+  const [stopping, setStopping] = useState(false)
+  // Whether this screen is still up (followJob's `alive`): leaving stops the
+  // following, never the approval.
+  const up = useRef(true)
+  useEffect(() => {
+    up.current = true
+    return () => { up.current = false }
+  }, [])
 
   async function load() {
     const seq = ++reqSeq.current
@@ -121,11 +141,31 @@ export default function StagingPage({ onPending, onOpenBook, onOpenMovie, onAppr
   }
   useEffect(() => {
     load()
+    // AN APPROVAL ALREADY UNDER WAY — pressed on another device, or before the
+    // reader left this screen — is followed as if pressed here, so its rows are not
+    // offered for a second approval while it writes them.
+    let alive = true
+    findLiveJobs('import.approve').then(async (found) => {
+      if (!alive || !found.length) return
+      setBusy(true)
+      for (const job of found) {
+        if (!alive) return
+        await settleApproval({ status: 202, data: { job } })
+      }
+    })
+    return () => { alive = false }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const batches = queue?.batches || []
   const works = queue?.works || []
   const quotes = queue?.quotes || []
+
+  // "ALL" IS WHAT THIS SCREEN SHOWS, NOT WHAT THE QUEUE HOLDS WHEN THE PRESS LANDS.
+  // From 3.1.0 an import is a job that can finish while the reader is reading
+  // here, so Approve all and Discard all send the newest file this screen drew
+  // (`through`: batch ids only grow), and a file staged after it is left for the
+  // reader to see — never approved into the library, nor thrown away, unread.
+  const everythingShown = () => ({ all: true, through: Math.max(0, ...batches.map((b) => Number(b.id) || 0)) })
 
   // NARROWING BY DESTINATION, WHICH IS THE OTHER QUESTION. The file filter answers
   // "what did THIS export bring"; this answers "what is going into THIS book", and a
@@ -230,10 +270,34 @@ export default function StagingPage({ onPending, onOpenBook, onOpenMovie, onAppr
     if (busy) return
     setBusy(true)
     setErr('')
-    const r = await json('POST', '/import/staged/approve', ids ? { ids } : { all: true })
+    const sent = await json('POST', '/import/staged/approve', ids ? { ids } : everythingShown())
+    await settleApproval(sent)
+  }
+
+  // settleApproval follows the approval's job to its end — `approving` is what the
+  // bar draws meanwhile — and says what it did. A refusal before anything queued
+  // (nothing selected, a restore under way) is its own answer, as it always was;
+  // the same approval pressed twice is the job already queued, followed.
+  //
+  // A STOPPED APPROVAL SAYS WHAT IT ADDED AND THAT IT STOPPED. It stops between
+  // two works, so every work before the stop is in the library and the rest are
+  // still here, which the reload shows; stopped before its first work, it added
+  // nothing and has no answer to read.
+  async function settleApproval(sent) {
+    const r = await jobAnswer(sent, { alive: () => up.current, onJob: setApproving })
+    if (r.gone) return
+    setApproving(null)
+    setStopping(false)
     setBusy(false)
-    if (!r.ok) return setErr(errText(r, t('error.approve.generic')))
-    const { added = 0, skipped = 0, enriched = 0 } = r.data
+    const halted = r.job && (r.job.state === 'stopped' || r.job.state === 'interrupted') ? r.job.state : ''
+    if (!r.ok && !(halted && !r.status)) {
+      setErr(errText(r, t('error.approve.generic')))
+      // A failure part-way leaves the works before it approved: the queue is
+      // read again so it shows what is still here.
+      await load()
+      return
+    }
+    const { added = 0, skipped = 0, enriched = 0 } = r.data || {}
     // Three fragments joined HERE rather than one value with an optional tail:
     // the locale parser trims a value, so a file cannot carry the leading
     // separator a third fragment would need.
@@ -242,13 +306,26 @@ export default function StagingPage({ onPending, onOpenBook, onOpenMovie, onAppr
         t('staging.flash.approved.added', { n: added }),
         t('staging.flash.approved.skipped', { n: skipped }),
         enriched > 0 && t('staging.flash.approved.enriched', { n: enriched }),
+        halted && jobStateLabel(halted),
       ]
         .filter(Boolean)
         .join(' · '),
     )
     clearSel()
     await load()
-    onApproved?.(r.data)
+    if (added > 0 || r.ok) onApproved?.(r.data)
+  }
+
+  // THE SAME STOP Settings → Jobs puts on the job's row, and the same word after
+  // the press: the job is on the server, and this is one more door to it.
+  async function stopApproval() {
+    if (!approving || stopping) return
+    setStopping(true)
+    const r = await stopJob(approving.id)
+    if (!r.ok) {
+      setStopping(false)
+      setErr(r.error)
+    }
   }
 
   // ONE PLACE THAT ASKS, so a scoped discard and the BulkBar's put the same
@@ -266,7 +343,7 @@ export default function StagingPage({ onPending, onOpenBook, onOpenMovie, onAppr
     if (busy) return
     setBusy(true)
     setErr('')
-    const r = await json('DELETE', '/import/staged', ids ? { ids } : { all: true })
+    const r = await json('DELETE', '/import/staged', ids ? { ids } : everythingShown())
     setBusy(false)
     if (!r.ok) return setErr(errText(r, t('error.discard.generic')))
     setFlash(t('staging.flash.discarded', { n: r.data.discarded }))
@@ -351,6 +428,30 @@ export default function StagingPage({ onPending, onOpenBook, onOpenMovie, onAppr
         />
       </div>
       {mobile && <div className="flex flex-wrap items-center gap-2">{pageActions}</div>}
+
+      {/* THE APPROVAL'S OWN PROGRESS, read from the server: where it stands in the
+          queue while it waits, how many works it has written while it runs. */}
+      {approving && (
+        <div className="space-y-2">
+          <ProgressBar
+            value={approving.state === 'running' ? approving.done || 0 : 0}
+            max={approving.state === 'running' ? approving.total || 0 : 0}
+            label={approving.state === 'queued'
+              ? jobWaitingText(approving)
+              : t('staging.approving.progress', { done: approving.done || 0, total: approving.total || 0 })}
+          />
+          <div className="flex flex-wrap items-center gap-3">
+            {stopping ? (
+              <span className="microcopy">{t('settings.jobs.current.stopping')}</span>
+            ) : (
+              <GhostButton icon={<IconStop />} keepLabel className="tp-btn-danger" onClick={stopApproval}>
+                {t('settings.jobs.current.stop.label')}
+              </GhostButton>
+            )}
+            <span className="microcopy">{t('staging.approving.away')}</span>
+          </div>
+        </div>
+      )}
 
       <div className="filter-row">
         <label className="flex items-center gap-2">

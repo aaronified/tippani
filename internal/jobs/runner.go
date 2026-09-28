@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"runtime/debug"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -720,6 +721,17 @@ func (r *Runner) Stop(id int64, viewer Owner) error {
 	if !visible(viewer, uid) {
 		return ErrNotFound
 	}
+	// The job in hand is stopped before anything is written (signalRunning), and
+	// its log says who pressed, once.
+	//
+	// THE LINE SAYS WHO PRESSED, AND NOTHING THE JOB'S END COULD CONTRADICT. A
+	// Stop that lands once the last item is written leaves the job succeeded
+	// (finish), so a line claiming it was stopped, or that an item was left
+	// untouched, would sit in a finished job's log saying otherwise. What became
+	// of the item in hand is the kind's to say, and it says it (abandoned, in
+	// httpapi), on the item it left.
+	pressed := fmt.Sprintf("%s pressed Stop", viewer.Username)
+	r.signalRunning(func(j *Job) bool { return j.id == id }, pressed)
 	res, err := r.st.DB.Exec(`UPDATE jobs SET state = 'stopped', finished_at = ? WHERE id = ? AND state = 'queued'`,
 		time.Now().UnixMilli(), id)
 	if err != nil {
@@ -730,14 +742,9 @@ func (r *Runner) Stop(id int64, viewer Owner) error {
 		r.lb.jobLineIn(viewer.Gen, id, LevelInfo, fmt.Sprintf("%s stopped it before it started", viewer.Username))
 		return nil
 	}
-	// THE LINE SAYS WHO PRESSED, AND NOTHING THE JOB'S END COULD CONTRADICT. A
-	// Stop that lands once the last item is written leaves the job succeeded
-	// (finish), so a line claiming it was stopped, or that an item was left
-	// untouched, would sit in a finished job's log saying otherwise. What became
-	// of the item in hand is the kind's to say, and it says it (abandoned, in
-	// httpapi), on the item it left.
+	// A claim in progress, which signalRunning leaves alone, is waited out here.
 	r.mu.Lock()
-	held := r.stopHeldLocked(id, fmt.Sprintf("%s pressed Stop", viewer.Username))
+	held := r.stopHeldLocked(id, pressed)
 	r.mu.Unlock()
 	if !held {
 		_, err := r.settleOrphan(viewer.Gen, id, fmt.Sprintf("its end was never recorded; %s stopped it, and it is marked interrupted", viewer.Username))
@@ -748,13 +755,54 @@ func (r *Runner) Stop(id int64, viewer Owner) error {
 	return err
 }
 
+// signalRunning stops the job in the worker's hands, if match picks it, before a
+// Stop, a Stop all or an account's delete writes anything, and says which job
+// that was (0 for none). Stopping it is what stopHeldLocked does to a job it
+// finds held (stopLocked): the line naming who pressed, the flag and the cancel.
+// The paths after this find the flag already set, so they do not log it again.
+//
+// THE JOB HEARS A STOP BEFORE THE STOP WRITES. Each of those writes waits for
+// SQLite's write lock, and a job can be the one holding it: an import stages its
+// whole file in one transaction, and an approval writes each work in one, and
+// either asks whether to stop from inside it (between works, before its commit)
+// so that a Stop rolls it back whole. Signalled only after its own writes, a Stop
+// waited for that transaction to finish by itself — committed, the Stop too late
+// for it — or gave up after busy_timeout's five seconds and answered an error.
+// Told first, the job rolls back and lets go of the lock, and the writes that
+// follow go through. AND ITS CONTEXT IS CANCELLED HERE TOO, at the press rather
+// than after the writes (the owner's "most responsive kill switch"): what the run
+// has in flight aborts then, not once the writes that follow have had the lock
+// and answered. A claim in progress is left to stopHeldLocked, which waits it
+// out; the claim is one statement, and no job is in hand until it ends. A job
+// whose run is over (ended) is left to finish, as stopHeldLocked leaves it.
+func (r *Runner) signalRunning(match func(*Job) bool, line string) (id int64) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	j := r.running
+	if r.claiming || j == nil || !match(j) || j.ended.Load() {
+		return 0
+	}
+	r.stopLocked(j, line)
+	return j.id
+}
+
+// stopLocked stops a job the worker holds, whose run is not over. It is three
+// things, in this order: the line naming who pressed it, logged once however
+// many presses land; the flag the run's own checks read; and the cancel, which
+// aborts whatever the run has in flight. The line goes first so that it is in the
+// log ahead of anything the cancelled run says on its way out. Called with r.mu
+// held, which is what makes the line once.
+func (r *Runner) stopLocked(j *Job, line string) {
+	if !j.stop.Load() {
+		j.Log(LevelInfo, "%s", line)
+	}
+	j.stop.Store(true)
+	j.cancel()
+}
+
 // stopHeldLocked stops the job in the worker's hands, if it is id, and reports
-// whether it was held. Stopping it is three things, in this order: the line
-// naming who pressed it, logged once however many presses land; the flag the
-// run's own checks read; and the cancel, which aborts whatever the run has in
-// flight. The line goes first so that it is in the log ahead of anything the
-// cancelled run says on its way out. A job the worker does not hold has ended,
-// whatever its row says, and nothing is kept for it.
+// whether it was held (stopLocked says what stopping it is). A job the worker
+// does not hold has ended, whatever its row says, and nothing is kept for it.
 //
 // A CLAIM IN PROGRESS IS WAITED OUT. Until it ends, the row the claim took reads
 // running while the worker has not yet said which job it holds, so a running row
@@ -781,11 +829,7 @@ func (r *Runner) stopHeldLocked(id int64, line string) (held bool) {
 	if j.ended.Load() {
 		return true // its run is over and its end is being written: nothing is left to stop
 	}
-	if !j.stop.Load() {
-		j.Log(LevelInfo, "%s", line)
-	}
-	j.stop.Store(true)
-	j.cancel()
+	r.stopLocked(j, line)
 	return true
 }
 
@@ -826,7 +870,7 @@ func (r *Runner) StopAll(viewer Owner) (stopping, stoppedWaiting int, err error)
 	if !viewer.IsAdmin {
 		scope, args = " AND user_id = ?", []any{viewer.UserID}
 	}
-	return r.stopWhere(viewer.Gen, scope, args,
+	return r.stopWhere(viewer.Gen, scope, args, func(j *Job) bool { return visible(viewer, j.uid) },
 		fmt.Sprintf("%s stopped it before it started", viewer.Username),
 		fmt.Sprintf("%s pressed Stop all", viewer.Username),
 		fmt.Sprintf("its end was never recorded; %s stopped every job, and it is marked interrupted", viewer.Username))
@@ -856,7 +900,7 @@ func (r *Runner) StopOwner(uid int64) (release func(), err error) {
 	})
 	// Read before the statements that find the jobs: store.Generation says why.
 	gen := r.st.Generation()
-	_, _, err = r.stopWhere(gen, " AND user_id = ?", []any{uid},
+	_, _, err = r.stopWhere(gen, " AND user_id = ?", []any{uid}, func(j *Job) bool { return j.uid.Valid && j.uid.Int64 == uid },
 		"stopped before it started: the account that started it is being deleted",
 		"Stop, because the account that started this job is being deleted",
 		"its end was never recorded; the account that started it is being deleted, and it is marked interrupted")
@@ -895,9 +939,12 @@ func (r *Runner) WaitOwnerIdle(ctx context.Context, uid int64) error {
 	}
 }
 
-// stopWhere stops the jobs scope picks. gen is the generation read before it, so
-// its lines go only into the file its statements found the jobs in.
-func (r *Runner) stopWhere(gen uint64, scope string, args []any, waitingLine, runningLine, orphanLine string) (stopping, stoppedWaiting int, err error) {
+// stopWhere stops the jobs scope picks, and match picks the same jobs in memory,
+// for the job in hand to hear it first (signalRunning). gen is the generation
+// read before it, so its lines go only into the file its statements found the
+// jobs in.
+func (r *Runner) stopWhere(gen uint64, scope string, args []any, match func(*Job) bool, waitingLine, runningLine, orphanLine string) (stopping, stoppedWaiting int, err error) {
+	early := r.signalRunning(match, runningLine)
 	waiting, err := r.ids(`UPDATE jobs SET state = 'stopped', finished_at = ? WHERE state = 'queued'`+scope+` RETURNING id`,
 		append([]any{time.Now().UnixMilli()}, args...)...)
 	if err != nil {
@@ -911,6 +958,11 @@ func (r *Runner) stopWhere(gen uint64, scope string, args []any, waitingLine, ru
 	running, err := r.ids(`UPDATE jobs SET stop_requested = 1 WHERE state = 'running'`+scope+` RETURNING id`, args...)
 	if err != nil {
 		return 0, stoppedWaiting, err
+	}
+	// The job told first may have heard it and ended before that statement
+	// looked: it was running when the press came, and it is counted so.
+	if early != 0 && !slices.Contains(running, early) {
+		stopping++
 	}
 	for _, id := range running {
 		r.mu.Lock()

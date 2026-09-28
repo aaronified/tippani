@@ -41,6 +41,7 @@ const archiveMarker = "Wv-archive-journal-marker-5540"
 
 func TestABackupLeavesTheJobHistoryBehindAndARestoreKeepsTheServersOwn(t *testing.T) {
 	srv := newTestServer(t)
+	unqueued(t, srv) // the header's "this server runs no queue"
 	h := srv.Handler()
 	admin := signupAdmin(t, h)
 	addUser(t, h, admin, "bob")

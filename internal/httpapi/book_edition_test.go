@@ -96,7 +96,7 @@ func TestTheEditionFieldsRoundTripThroughTheExport(t *testing.T) {
 	// silently with a successful import and matching counts.
 	c2 := signupAdmin(t, newTestServer(t).Handler())
 	res := stage(t, c2, "/import/markdown", "mm.md", []byte(md))
-	c2.mustDo("POST", "/import/staged/approve", map[string]any{"batch_id": res.BatchID}, http.StatusOK)
+	c2.mustFollow("POST", "/import/staged/approve", map[string]any{"batch_id": res.BatchID}, http.StatusOK)
 	list := decode[struct {
 		Books []bookEdition `json:"books"`
 	}](t, c2.mustDo("GET", "/books", nil, http.StatusOK))

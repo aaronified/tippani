@@ -14,6 +14,7 @@ package httpapi
 // indistinguishable from a parse failure.
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -38,49 +39,50 @@ const (
 
 // stageQuotesFile stages a parsed standalone-quote file. It mirrors stageBooks,
 // minus the per-work loop: there is one group, always.
-func (s *Server) stageQuotesFile(w http.ResponseWriter, r *http.Request, source, filename string,
-	us []importer.Utterance) {
+func (s *Server) stageQuotesFile(ctx context.Context, uid int64, source, filename string,
+	us []importer.Utterance) importAnswer {
 
 	olog.Tracef("[import] stage quotes source=%s file=%q quotes=%d", source, filename, len(us))
-	uid := userID(r)
 	tx, err := s.Store.DB.Begin()
 	if err != nil {
-		codedError(w, r, olog.CodeImportStage, "stage quotes: begin tx", err)
-		return
+		return importFault(ctx, olog.CodeImportStage, "stage quotes: begin tx", err)
 	}
 	defer tx.Rollback()
 
 	batchID, err := insertImportBatch(tx, uid, source, filename, nil)
 	if err != nil {
-		codedError(w, r, olog.CodeImportStage, "stage quotes: batch", err)
-		return
+		return importFault(ctx, olog.CodeImportStage, "stage quotes: batch", err)
+	}
+	// One group, so one work: the Stop checks are stageBooks' with n = 0.
+	if importHalted(ctx, stopStageWork, 0) {
+		return importAnswer{stopped: true}
 	}
 	workID, err := stageQuotesWork(tx, batchID)
 	if err != nil {
-		codedError(w, r, olog.CodeImportStage, "stage quotes: work", err)
-		return
+		return importFault(ctx, olog.CodeImportStage, "stage quotes: work", err)
 	}
 	staged, err := stageUtterances(tx, workID, us)
 	if err != nil {
 		var ce importClientError
 		if errors.As(err, &ce) {
-			importRefused(w, r, ce.msg)
-		} else {
-			codedError(w, r, olog.CodeImportStage, "stage quotes: rows", err)
+			return importRefused(ctx, ce.msg)
 		}
-		return
+		return importFault(ctx, olog.CodeImportStage, "stage quotes: rows", err)
 	}
+	if importHalted(ctx, stopStageCommit, 0) {
+		return importAnswer{stopped: true}
+	}
+	releaseSpool(ctx)
 	if err := tx.Commit(); err != nil {
-		codedError(w, r, olog.CodeImportStage, "stage quotes: commit", err)
-		return
+		return importFault(ctx, olog.CodeImportStage, "stage quotes: commit", err)
 	}
 	pending, err := s.pendingStagedCount(uid)
 	if err != nil {
 		olog.Warnf(olog.CodeImportRowScan, "[import] pending count after staging quotes: %v", err)
 	}
-	noteJob(r, jobs.LevelInfo, "staged %s as batch %d; %d waiting in the queue to be approved",
+	noteJob(ctx, jobs.LevelInfo, "staged %s as batch %d; %d waiting in the queue to be approved",
 		countOf(staged, "quote", "quotes"), batchID, pending)
-	writeJSON(w, http.StatusOK, map[string]any{
+	return importAnswer{Status: http.StatusOK, Body: map[string]any{
 		"source":   source,
 		"batch_id": batchID,
 		"staged":   staged,
@@ -88,7 +90,7 @@ func (s *Server) stageQuotesFile(w http.ResponseWriter, r *http.Request, source,
 		"works": []stagedWorkPreview{{
 			ID: workID, Kind: stagedKindQuotes, Title: stagedQuotesTitle, Staged: staged,
 		}},
-	})
+	}}
 }
 
 // importCategory normalises a file's `category` binding into one of the three

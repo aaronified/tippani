@@ -38,6 +38,44 @@ var idFloorTables = map[string]bool{
 	"utterances":  true,
 }
 
+// batchFloorTable is the one table outside the bin that allocates from the floor,
+// and for another guarantee: an import batch's id says when it was staged. An
+// approval is a queued job that can run long after its press, and it approves
+// only the batches there were at the press — every batch id up to the one it
+// recorded (stagingThrough). With rowids, a batch approved or discarded while the
+// approval waited would hand its id to the next file staged, and that file,
+// which nobody has looked at, would be inside the bound. Kept apart from
+// idFloorTables because the bin reads that list as the kinds it can hold.
+const batchFloorTable = "import_batches"
+
+// floored says whether table allocates its ids from the floor.
+func floored(table string) bool { return idFloorTables[table] || table == batchFloorTable }
+
+// raiseFloor makes table's floor row exist and stand above every id the table
+// holds, inside the caller's transaction, and returns it: the lowest id the
+// table may hand out next.
+func raiseFloor(tx *sql.Tx, table string) (int64, error) {
+	if !floored(table) {
+		return 0, fmt.Errorf("id floor: %q is not a floored table", table)
+	}
+	if _, err := tx.Exec(
+		`INSERT INTO id_floor (table_name, next_id) VALUES (?, 1)
+		 ON CONFLICT(table_name) DO NOTHING`, table); err != nil {
+		return 0, err
+	}
+	if _, err := tx.Exec(
+		`UPDATE id_floor SET next_id = MAX(next_id, (SELECT COALESCE(MAX(id), 0) + 1 FROM `+table+`))
+		 WHERE table_name = ?`, table); err != nil {
+		return 0, err
+	}
+	var next int64
+	if err := tx.QueryRow(
+		`SELECT next_id FROM id_floor WHERE table_name = ?`, table).Scan(&next); err != nil {
+		return 0, err
+	}
+	return next, nil
+}
+
 // nextID reserves one id for `table` inside the caller's transaction.
 //
 // The floor is raised to the table's own high-water mark first, which is what
@@ -56,25 +94,11 @@ func nextID(tx *sql.Tx, table string) (int64, error) {
 // ids in a block are simply skipped — an id is not a scarce resource, and a gap
 // costs nothing, whereas a reused one costs a restore.
 func nextIDs(tx *sql.Tx, table string, n int) (int64, error) {
-	if !idFloorTables[table] {
-		return 0, fmt.Errorf("id floor: %q is not a floored table", table)
-	}
 	if n < 1 {
 		return 0, fmt.Errorf("id floor: block of %d", n)
 	}
-	if _, err := tx.Exec(
-		`INSERT INTO id_floor (table_name, next_id) VALUES (?, 1)
-		 ON CONFLICT(table_name) DO NOTHING`, table); err != nil {
-		return 0, err
-	}
-	if _, err := tx.Exec(
-		`UPDATE id_floor SET next_id = MAX(next_id, (SELECT COALESCE(MAX(id), 0) + 1 FROM `+table+`))
-		 WHERE table_name = ?`, table); err != nil {
-		return 0, err
-	}
-	var first int64
-	if err := tx.QueryRow(
-		`SELECT next_id FROM id_floor WHERE table_name = ?`, table).Scan(&first); err != nil {
+	first, err := raiseFloor(tx, table)
+	if err != nil {
 		return 0, err
 	}
 	if _, err := tx.Exec(

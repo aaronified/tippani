@@ -61,18 +61,13 @@ var jobKinds = map[string]string{
 	"POST /covers/refetch":          "covers",
 	"POST /metadata/reverify/apply": "reverify-apply",
 
-	// The imports (every route stages; a handler that calls jobs.Begin names the
-	// kind itself) and the API's synchronous backup.
-	"POST /import/auto":             "import",
-	"POST /import/markdown":         "import",
-	"POST /import/readest-json":     "import",
-	"POST /import/bookcision":       "import",
-	"POST /import/hardcover-html":   "import",
-	"POST /import/goodreads-html":   "import",
-	"POST /import/kindle-notebook":  "import",
-	"POST /import/imdb-quotes":      "import",
-	"POST /import/kindle-clippings": "import",
-	"POST /admin/backup":            "backup",
+	// The API's synchronous backup. THE IMPORT ROUTES ARE NOT HERE ANY MORE: from
+	// 3.1.0 each queues a job of kind import (import_queue.go) and records nothing
+	// in its request, and so does the approval (import.approve). A row for them
+	// would name an unexpected outward call from one of those requests "import",
+	// beside the queued job of the same name; without one it is kept as a
+	// "request" under its pattern, which is what an unexpected call should be.
+	"POST /admin/backup": "backup",
 
 	// The admin's questions to somebody else's server.
 	"GET /admin/update/check":       "update.check",

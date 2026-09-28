@@ -63,9 +63,14 @@ import (
 // and a lookup whose database was restored under it is kept for nobody.
 
 // keeping gives srv a logbook, as serve() does, and closes it (flushed) before the
-// store closes.
+// store closes. A server newTestServer made already has one, with the queue on
+// it, and that one is handed back: a second logbook beside the queue's would be
+// a server serve() never builds, its lines split between two writers.
 func keeping(t *testing.T, srv *Server) *jobs.Logbook {
 	t.Helper()
+	if srv.Logbook != nil {
+		return srv.Logbook
+	}
 	lb := jobs.NewLogbook()
 	lb.Attach(srv.Store)
 	srv.Logbook = lb

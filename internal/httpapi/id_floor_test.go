@@ -144,7 +144,7 @@ func TestImportedIDsAreNeverReused(t *testing.T) {
 	md := "---\ntitle: A Wizard of Earthsea\nauthor: Ursula K. Le Guin\n---\n\n" +
 		"> To light a candle is to cast a shadow.\n"
 	res := stage(t, c, "/import/markdown", "earthsea.md", []byte(md))
-	c.mustDo("POST", "/import/staged/approve", map[string]any{"batch_id": res.BatchID}, http.StatusOK)
+	c.mustFollow("POST", "/import/staged/approve", map[string]any{"batch_id": res.BatchID}, http.StatusOK)
 
 	// Every annotation the account has, rather than this book's: the importer
 	// resolves its own target (author included in the identity), so which book the

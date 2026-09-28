@@ -84,12 +84,15 @@ type testQueue struct {
 	done    chan struct{}
 }
 
-// queueing gives srv a queue as serve() does, and the test's kinds.
+// queueing gives srv a queue as serve() does, and the test's kinds. A server
+// newTestServer made has its queue already, and the kinds join that one.
 func queueing(t *testing.T, srv *Server) *testQueue {
 	t.Helper()
 	lb := keeping(t, srv)
-	srv.Jobs = jobs.NewRunner(srv.Store, lb, jobs.Options{})
-	srv.RegisterJobKinds()
+	if srv.Jobs == nil {
+		srv.Jobs = jobs.NewRunner(srv.Store, lb, jobs.Options{})
+		srv.RegisterJobKinds()
+	}
 	q := &testQueue{t: t, srv: srv, lb: lb, release: make(chan struct{}), done: make(chan struct{})}
 	t.Cleanup(func() {
 		close(q.done)
@@ -1228,6 +1231,7 @@ func TestAServerShuttingDownStartsNothing(t *testing.T) {
 
 func TestAServerWithNoQueueStartsNothing(t *testing.T) {
 	srv := newTestServer(t)
+	unqueued(t, srv)
 	h := srv.Handler()
 	alice := signupAdmin(t, h)
 	alice.mustDo("POST", "/jobs", map[string]any{"kind": "fill", "params": map[string]any{"book_ids": []int{1}}}, http.StatusServiceUnavailable)

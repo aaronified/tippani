@@ -31,7 +31,7 @@ func TestApprovingAnImportLinksTheSpeakerItWrites(t *testing.T) {
 		map[string]any{"character": "Woland"}, http.StatusCreated))
 
 	res := stage(t, c, "/import/markdown", "mm.md", []byte(stagedSpokenBookMD))
-	c.mustDo("POST", "/import/staged/approve", map[string]any{"batch_id": res.BatchID}, http.StatusOK)
+	c.mustFollow("POST", "/import/staged/approve", map[string]any{"batch_id": res.BatchID}, http.StatusOK)
 
 	anns := decode[struct {
 		Annotations []annotationRow `json:"annotations"`
@@ -52,7 +52,7 @@ func TestAnImportThatDonatesASpeakerLinksTheRowItEnriched(t *testing.T) {
 	bookID := createTestBook(t, c, "The Master and Margarita", "Mikhail Bulgakov")
 
 	first := stage(t, c, "/import/markdown", "quiet.md", []byte(stagedSilentBookMD))
-	c.mustDo("POST", "/import/staged/approve", map[string]any{"batch_id": first.BatchID}, http.StatusOK)
+	c.mustFollow("POST", "/import/staged/approve", map[string]any{"batch_id": first.BatchID}, http.StatusOK)
 
 	// The cast row arrives BETWEEN the two imports, so the first approval had
 	// nothing to link to and the second one is the only chance the link gets.
@@ -60,7 +60,7 @@ func TestAnImportThatDonatesASpeakerLinksTheRowItEnriched(t *testing.T) {
 		map[string]any{"character": "Woland"}, http.StatusCreated))
 
 	second := stage(t, c, "/import/markdown", "loud.md", []byte(stagedSpokenBookMD))
-	ap := decode[approveReply](t, c.mustDo("POST", "/import/staged/approve",
+	ap := decode[approveReply](t, c.mustFollow("POST", "/import/staged/approve",
 		map[string]any{"batch_id": second.BatchID}, http.StatusOK))
 	if ap.Enriched != 1 {
 		t.Fatalf("want one enriched highlight, got %+v", ap)

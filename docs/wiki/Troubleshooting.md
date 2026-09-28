@@ -179,13 +179,16 @@ the subsystem and the underlying error.
 A bulk import parses into a holding area and nothing enters the library until it
 is approved, so these failures leave the library untouched by construction: a
 failed stage means the file was not taken in, and a failed approve means the
-quotes are still queued. Nothing is half-applied — every one of these paths runs
-in a single transaction.
+work it failed on, and every work after it, is still queued. Nothing is
+half-applied: a staging is one transaction per file, and an approval one per
+work — since 3.1.0, when an approval became a queued job that a Stop can land in,
+so the works it approved before a failure stay in the library and its log in
+Settings › Jobs names them.
 
 | Code | Meaning | Likely cause | What to do |
 | --- | --- | --- | --- |
-| `TIP-IMPORT-001` | A parsed import could not be written into the staging tables; nothing was staged. | A database write failed mid-batch (disk full, or corruption — check for `TIP-STORE-002`). | Retry the upload. The file parsed fine, so nothing is wrong with it; the library and the existing queue are unchanged. |
-| `TIP-IMPORT-003` | Approving staged quotes failed; the transaction rolled back. | A write failed while resolving the destination work or inserting quotes — often a book or film that was deleted while its quotes sat staged. | The quotes are still in the queue, so retry the approval. If it recurs, approve one batch (or one work) at a time to find the row that fails. |
+| `TIP-IMPORT-001` | A parsed import could not be written into the staging tables, or an upload could not be kept (or read back) for its import's job; nothing was staged. | A database write failed mid-batch, or the data directory's `.jobs-spool` could not be written or read (disk full, permissions, or corruption — check for `TIP-STORE-002`). | Retry the upload. Nothing is wrong with the file; the library and the existing queue are unchanged. |
+| `TIP-IMPORT-003` | Approving staged quotes failed; the work it failed on rolled back. | A write failed while resolving the destination work or inserting quotes — often a book or film that was deleted while its quotes sat staged. | That work's quotes, and every work's after it, are still in the queue (the works before it were approved, and the approval's log in Settings › Jobs names them), so retry the approval. If it recurs, approve one batch (or one work) at a time to find the row that fails. |
 | `TIP-IMPORT-004` | A staging-queue mutation (bulk edit, retarget or discard) failed; the queue is unchanged. | A write failed, or a retarget named a book/film that was deleted mid-edit. | Reload the queue so it reflects the current library, then retry. Nothing was partially applied. |
 | `TIP-IMPORT-005` | No signature matched and no parser claimed the upload; nothing was staged. | The file is text, but it is not one of the eight formats the drop target reads — a hand-written note, a CSV, or a saved page the site has since restructured. | The row offers **Read this as…**: pick the format it came from and it is parsed again. If the right format is already picked and it still fails, the page was probably saved as “complete” rather than “HTML only”. |
 

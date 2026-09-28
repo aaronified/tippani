@@ -89,7 +89,7 @@ func TestABookCharacterSurvivesItsOwnExport(t *testing.T) {
 	if q := oneStaged(t, bob); q.Character != "Ishmael" {
 		t.Fatalf("the queue cannot show what it is about to approve: %+v", q)
 	}
-	bob.mustDo("POST", "/import/staged/approve", map[string]any{"all": true}, http.StatusOK)
+	bob.mustFollow("POST", "/import/staged/approve", map[string]any{"all": true}, http.StatusOK)
 
 	anns := annotationsOf(t, bob)
 	if len(anns) != 1 {
@@ -193,7 +193,7 @@ func TestAGamesActAndQuestSurviveTheirOwnExport(t *testing.T) {
 	if quests["The Whirling-in-Rags"] != "1" || quests["Martinaise"] != "2" {
 		t.Fatalf("the queue cannot show what it is about to approve: %+v", staged)
 	}
-	bob.mustDo("POST", "/import/staged/approve", map[string]any{"all": true}, http.StatusOK)
+	bob.mustFollow("POST", "/import/staged/approve", map[string]any{"all": true}, http.StatusOK)
 
 	dlgs := dialoguesOf(t, bob)
 	if len(dlgs) != 2 {
@@ -266,7 +266,7 @@ func TestAnEpisodeNameSurvivesItsOwnExport(t *testing.T) {
 	if q := oneStaged(t, bob); q.EpisodeName != "All Prologue" {
 		t.Fatalf("the queue cannot show what it is about to approve: %+v", q)
 	}
-	bob.mustDo("POST", "/import/staged/approve", map[string]any{"all": true}, http.StatusOK)
+	bob.mustFollow("POST", "/import/staged/approve", map[string]any{"all": true}, http.StatusOK)
 
 	dlgs := dialoguesOf(t, bob)
 	if len(dlgs) != 1 || dlgs[0].EpisodeName != "All Prologue" {

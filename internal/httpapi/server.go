@@ -157,6 +157,11 @@ type Server struct {
 	// a stub of a supplier to hold. nil in every server but a test's.
 	itemSeam   func(j *jobs.Job, next int)
 	backupSeam func(ctx context.Context, step string)
+
+	// spoolMu is held while an upload is written to the spool and its import
+	// queued, and while the spool is swept, so a sweep never finds a file whose
+	// job is not in the table yet (import_queue.go).
+	spoolMu sync.Mutex
 }
 
 func New(st *store.Store, static fs.FS, dataDir string, cookieSecure, trustedProxy bool) *Server {

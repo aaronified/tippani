@@ -641,7 +641,7 @@ func TestImportKindleClippings(t *testing.T) {
 		t.Fatalf("staging must not create books: %+v", list.Books)
 	}
 
-	res := decode[clipResult](t, c.do("POST", "/import/staged/approve", map[string]any{"batch_id": staged.BatchID}))
+	res := decode[clipResult](t, c.follow("POST", "/import/staged/approve", map[string]any{"batch_id": staged.BatchID}))
 	if len(res.BookIDs) != 2 {
 		t.Fatalf("a clippings file lands every book: %+v", res)
 	}

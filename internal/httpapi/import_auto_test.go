@@ -24,7 +24,8 @@ func fixture(t *testing.T, name string) []byte {
 	return data
 }
 
-// importAs posts to /import/auto with the reader's "Read this as…" override.
+// importAs posts to /import/auto with the reader's "Read this as…" override, and
+// follows the job it queues to its end, as importFile does.
 func (c *testClient) importAs(name string, content []byte, as string) *httptest.ResponseRecorder {
 	c.t.Helper()
 	var buf bytes.Buffer
@@ -42,7 +43,7 @@ func (c *testClient) importAs(name string, content []byte, as string) *httptest.
 		c.t.Fatal(err)
 	}
 	_ = mw.Close()
-	return c.doRaw("POST", "/import/auto", &buf, mw.FormDataContentType())
+	return c.followed(c.doRaw("POST", "/import/auto", &buf, mw.FormDataContentType()))
 }
 
 type autoReply struct {
@@ -217,7 +218,7 @@ func TestReadestJSONImportsWhatTheMarkdownCannot(t *testing.T) {
 	if got.ColorsUnmapped != 2 || got.StylesDropped != 2 {
 		t.Fatalf("counters = %d unmapped / %d styles, want 2/2", got.ColorsUnmapped, got.StylesDropped)
 	}
-	approved := decode[approveReply](t, c.do("POST", "/import/staged/approve",
+	approved := decode[approveReply](t, c.follow("POST", "/import/staged/approve",
 		map[string]any{"batch_id": got.BatchID}))
 	if approved.Added != 4 {
 		t.Fatalf("approved %d, want 4: %+v", approved.Added, approved)

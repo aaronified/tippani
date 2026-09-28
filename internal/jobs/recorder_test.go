@@ -91,14 +91,16 @@ func TestARequestThatLookedNowhereLeavesNoJob(t *testing.T) {
 	}
 }
 
-func TestBeginKeepsAnImportEvenWithNothingToSay(t *testing.T) {
+// A restore is the example because it is a route that calls Begin: an import did
+// until 3.1.0, when it became a queued job.
+func TestBeginKeepsARestoreEvenWithNothingToSay(t *testing.T) {
 	st := openStore(t)
 	lb := attached(t, st)
 
 	l := jobs.NewLazy(lb, kinds)
 	ctx := jobs.WithRecorder(context.Background(), l)
-	l.Route("POST /import/kindle")
-	jobs.Begin(ctx, "import", "My Clippings.txt")
+	l.Route("POST /admin/restore/upload")
+	jobs.Begin(ctx, "restore", "tippanibackup.tpbk")
 	l.Finish(422)
 
 	// A route no table names, which logged: kept under its pattern.
@@ -108,11 +110,11 @@ func TestBeginKeepsAnImportEvenWithNothingToSay(t *testing.T) {
 	u.Finish(200)
 
 	// Begin with no request job in the context does nothing and does not panic.
-	jobs.Begin(context.Background(), "import", "ignored")
+	jobs.Begin(context.Background(), "restore", "ignored")
 	flush(t, lb)
 
 	got := strings1(t, st.DB, `SELECT kind || '|' || subject || '|' || state || '|' || error || '|' || coalesce(user_id, 'NULL') FROM jobs ORDER BY id`)
-	want := []string{"import|My Clippings.txt|failed|HTTP 422|NULL", "request|POST /people/{id}/wander|succeeded||NULL"}
+	want := []string{"restore|tippanibackup.tpbk|failed|HTTP 422|NULL", "request|POST /people/{id}/wander|succeeded||NULL"}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("rows:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
 	}

@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"bytes"
+	"context"
 	"net/http"
 
 	"tippani/internal/importer"
@@ -22,11 +23,15 @@ import (
 // names: a mapping written twice drifts, and the half that drifts is the half
 // nobody is looking at.
 
-// importStager parses `data` and stages it, writing the reply. Every
-// POST /import/<source> route is readUpload plus one of these, and so is the
-// sniffer — which is why they take BYTES rather than a request whose body can
-// only be read once.
-type importStager func(*Server, http.ResponseWriter, *http.Request, []byte, string)
+// importStager parses `data` and stages it for account uid, and says what the
+// import's request used to answer: its status and its body. Every
+// POST /import/<source> route queues one of these, and so does the sniffer —
+// which is why they take BYTES rather than a request whose body can only be read
+// once, and an account and a context rather than a request at all: they run in
+// the import's job, after the request that uploaded the file has been answered
+// (import_queue.go). The context carries the job, which is where a stager's lines
+// go (noteJob).
+type importStager func(s *Server, ctx context.Context, uid int64, data []byte, filename string) importAnswer
 
 // importSources is the one place a source slug becomes a parser. Three callers
 // arrive here: the seven per-source routes (which stay — they are the API, and
@@ -117,60 +122,50 @@ var importProbes = map[string]func([]byte) bool{
 	},
 }
 
-// handleImportAuto is the one endpoint the drop target posts to.
+// stageAuto is the drop target's import: POST /import/auto, run in its job.
 //
 // `as` is the reader's override, and it is a SECOND door rather than a front one:
 // the sniffer answers first, and this field exists because detection can be
 // wrong in a way the staging queue cannot repair — `retarget` moves staged rows
 // between works, not a file between parsers. A Goodreads page read as Hardcover
 // parses empty, and no bulk edit rescues that.
-func (s *Server) handleImportAuto(w http.ResponseWriter, r *http.Request) {
-	data, filename, ok := readUpload(w, r)
-	if !ok {
-		return
-	}
-	// Kept as a job whether it stages or not: a file refused is as worth finding
-	// again as one staged (importRoute says why an import is a job at all).
-	jobs.Begin(r.Context(), "import", filename)
+func (s *Server) stageAuto(ctx context.Context, uid int64, as string, data []byte, filename string) importAnswer {
 	// The reader has asserted a format. Their answer outranks the sniffer's, which
-	// is the whole point of offering it — but an unknown slug is a client bug, not
-	// a file problem, and saying so beats silently sniffing instead.
-	if as := r.FormValue("as"); as != "" {
+	// is the whole point of offering it. An unknown slug is refused by the route
+	// before anything queues (queueImport); this is the same refusal for params
+	// that did not come through it.
+	if as != "" {
 		stage, known := importSources[as]
 		if !known {
-			importRefused(w, r, "unknown import source: "+as)
-			return
+			return importRefused(ctx, "unknown import source: "+as)
 		}
-		noteJob(r, jobs.LevelInfo, "read as %s, the format the reader chose", as)
-		stage(s, w, r, data, filename)
-		return
+		noteJob(ctx, jobs.LevelInfo, "read as %s, the format the reader chose", as)
+		return stage(s, ctx, uid, data, filename)
 	}
 	if source := importer.Detect(data); source != "" {
-		noteJob(r, jobs.LevelInfo, "read as %s, the format the file says it is", source)
-		importSources[source](s, w, r, data, filename)
-		return
+		noteJob(ctx, jobs.LevelInfo, "read as %s, the format the file says it is", source)
+		return importSources[source](s, ctx, uid, data, filename)
 	}
 	// Nothing signed itself. Name the file if it is something else entirely —
 	// answering "unrecognised" to a backup archive, or to the app's own export
 	// (which is a zip), is a worse failure than the wall of cards was.
 	if miss := importer.NearMiss(data); miss != "" {
-		noteJob(r, jobs.LevelWarn, "not imported: the file is %s, not highlights or quotes", importNearMissNoun(miss))
-		writeErrDetail(w, http.StatusBadRequest, importNearMissMessage(miss),
-			map[string]any{"near_miss": miss})
-		return
+		noteJob(ctx, jobs.LevelWarn, "not imported: the file is %s, not highlights or quotes", importNearMissNoun(miss))
+		return importAnswer{Status: http.StatusBadRequest,
+			Body: map[string]any{"error": importNearMissMessage(miss), "near_miss": miss}}
 	}
 	for _, source := range importProbeOrder {
 		if importProbes[source](data) {
-			noteJob(r, jobs.LevelInfo, "read as %s: the file names no format, and that reader was the first to take it", source)
-			importSources[source](s, w, r, data, filename)
-			return
+			noteJob(ctx, jobs.LevelInfo, "read as %s: the file names no format, and that reader was the first to take it", source)
+			return importSources[source](s, ctx, uid, data, filename)
 		}
 	}
 	olog.Warnf(olog.CodeImportUnknown, "[import] no parser claimed %q (%d bytes)", filename, len(data))
-	noteJob(r, jobs.LevelWarn, "not imported: no reader could tell what the file is (%d bytes, %s)", len(data), olog.CodeImportUnknown)
-	writeErrDetail(w, http.StatusBadRequest,
-		"could not tell what this file is — pick a format with “Read this as…”",
-		map[string]any{"near_miss": ""})
+	noteJob(ctx, jobs.LevelWarn, "not imported: no reader could tell what the file is (%d bytes, %s)", len(data), olog.CodeImportUnknown)
+	return importAnswer{Status: http.StatusBadRequest, Body: map[string]any{
+		"error":     "could not tell what this file is — pick a format with “Read this as…”",
+		"near_miss": "",
+	}}
 }
 
 // importNearMissNoun names what a near miss is, for the import's log.

@@ -1073,6 +1073,29 @@ as every other kind's is (কভার আনা, not কভার আনুন)
 | --- | --- | --- |
 | `settings.jobs.kind.backup-safety` | Safety backup | ব্যাকআপ ডাউনলোড |
 
+#### When an import and its approval became jobs
+
+An import and the approval of what it staged are jobs on the server's queue from 3.1.0, so
+the Import and Pending import screens say where a file stands and Settings → Jobs names
+the approval and counts what each did. Marked `# ?? draft for the owner (3.1.0 imports)` at
+its key; `grep -n '3.1.0 imports' internal/i18n/bn.txt` lists them. Each reuses a sibling's
+words where one already said the same fact: the staged count is the import row's own
+(*উদ্ধৃতি বাকি*), the added count the approval flash's (*যোগ হয়েছে*), the approval's name the
+staging screen's verb as a noun phrase (*মেনে নেওয়া*), and the line beside its Stop the
+re-verify dialog's (*চলতে থাকবে — সেটিংস → কাজ-এ পাবেন*).
+
+| Key | English | Bengali |
+| --- | --- | --- |
+| `settings.jobs.kind.import-approve` | Approve imported quotes | ইমপোর্টের উদ্ধৃতি মেনে নেওয়া |
+| `settings.jobs.count.staged` | {n} quote staged / {n} quotes staged | {n}টা উদ্ধৃতি বাকি |
+| `settings.jobs.count.added` | {n} added | {n}টা যোগ হয়েছে |
+| `import.row.unsent` | not sent yet | এখনও পাঠানো হয়নি |
+| `import.row.halted` | {state} — Settings → Jobs can run it again | {state} — সেটিংস → কাজ-এ আবার চালানো যায় |
+| `import.row.lost` | {state} — the server no longer has this file; drop it again | {state} — ফাইলটা সার্ভারে আর নেই; আবার দিন |
+| `import.queued.note` | A file already sent carries on in Settings → Jobs if you leave this screen; one not sent yet does not. | যে ফাইল পাঠানো হয়ে গেছে, এই পর্দা ছেড়ে গেলেও সেটা সেটিংস → কাজ-এ চলতে থাকবে; যেটা এখনও পাঠানো হয়নি, সেটা নয়। |
+| `staging.approving.progress` | Approving — {done} of {total} | মেনে নেওয়া চলছে — {total}-এর মধ্যে {done} |
+| `staging.approving.away` | Leave this screen and it carries on — Settings → Jobs has it. | এই পর্দা ছেড়ে গেলেও এটা চলতে থাকবে — সেটিংস → কাজ-এ পাবেন। |
+
 ---
 
 ## v3 decisions
