@@ -23,6 +23,9 @@ rater:
 4. `tile-slots.md`.
 5. `episodes.md`.
 6. `anthology-enhancements.md`, which depends on `episodes` for the drag primitive.
+7. `design-consistency.md`, last, added on 27 September: an adversarial pass over the
+   design against the owner's principles, whose findings are recorded for the owner to
+   schedule rather than fixed in the pass.
 
 Left out by the owner: `atrium-liquid-glass.md`, `admin-and-profile.md`,
 `work-source-files.md`, and `locators-from-files.md`. `nightly-backup.md` and
@@ -40,8 +43,8 @@ shipped plans stayed here afterwards and reintroduced it one directory over —
 along with twenty-three entries in the log whose grey line still read *planned*
 for features that had been running for months.
 
-**Sixteen files sit here, and only some of them are plans** — the table at the foot of this
-file names the seven that get no roadmap card, leaving nine features on the roadmap.
+**Seventeen files sit here, and only some of them are plans** — the table at the foot of this
+file names the eight that get no roadmap card, leaving nine features on the roadmap.
 
 THAT COUNT HAS NOW BEEN WRONG FIVE TIMES. It said "Seven"; a change that added a file
 incremented it to "Eight" without counting the directory; a change that fixed THAT wrote
@@ -57,7 +60,8 @@ paragraphs down, applied for once in the direction it is usually needed least. A
 shrinking behind its own index is as wrong as one growing behind it.
 `bulk-editors-one-field-table.md` left the same way, twelve to eleven and seven to six, in
 the change that folded it into `Design-decisions.md`, and so did `jobs.md` at 3.1.0,
-seventeen to sixteen and ten to nine.
+seventeen to sixteen and ten to nine. `design-consistency.md` then arrived as a non-plan,
+sixteen to seventeen files and seven to eight rows below, leaving the features at nine.
 
 **AND THE FIFTH IS THE ONE THE LESSON BELOW DOES NOT COVER**, which is why it is worth its
 own sentence. `work-source-files.md` arrived and NOBODY EDITED THIS PARAGRAPH — the four
@@ -224,6 +228,7 @@ the same exclusions nightly will eventually decide one of them differently.
 | `codebase-audit.md` | The same shape, over the code. Its own first line: "**Not a feature.**" |
 | `nightly-backup.md` | A plan, but carded it would promise the opposite of an approved decision: `Design-decisions.md` settles the nightly backup as "the user's timer and not mine", and the plan's own "Not on the roadmap, deliberately" section says so. A card went up by mistake in 3.0.0's sweep and came straight back down |
 | `prefetch-and-loaders.md` | A discussion with a build order, not a committed feature. Its first two steps need no ruling and its last two wait on measurements nobody has taken, so a public card reading "prefetch and loaders" would promise the whole of it. It earns a card when the boundary sentence it proposes is in `Design-decisions.md` — then the sentence is the promise and the card can name it |
+| `design-consistency.md` | The same shape as `screen-audit.md`, over the design: an adversarial pass whose survivors are recorded for the owner to schedule. The owner's, 27 September: no roadmap card |
 | `follow-ups.md` | What is left of a release's task list, not a feature: each item struck as it ships, and the file deleted when the list is empty. A feature that grows out of one gets its own plan here, and its card comes with that plan |
 
 A file that belongs on this list is added to it in the same change that adds the
