@@ -76,6 +76,10 @@ it('a reader imports a file, and nothing lands in the library until they approve
   await app.see('joins your existing')
 
   await app.press('Approve all 2')
+  // THE APPROVAL IS A JOB ON THE SERVER'S QUEUE (3.1.0), and the screen that
+  // pressed it follows it to its end and reads the queue again — empty now, which
+  // is what a reader waits for before leaving.
+  await app.see('nothing staged')
 
   // AND NOW IT IS IN THE LIBRARY, after a real navigation rather than against
   // the render the press produced.
