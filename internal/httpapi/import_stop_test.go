@@ -103,16 +103,18 @@ func (h *stopAt) reachedAfter() []string {
 }
 
 // stoppedWithin presses Stop on job id while it is held, and fails unless the
-// press is answered 200 and the job reads stopped within 300 ms of it.
+// press is answered 200 and the job reads stopped within 300 ms of it (three
+// times that under the race detector, race_on_test.go).
 func stoppedWithin(t *testing.T, c *testClient, id int64) wireJob {
 	t.Helper()
+	bound := 300 * time.Millisecond * underRace
 	pressed := time.Now()
 	answered := make(chan int, 1)
 	go func() { answered <- c.do("POST", fmt.Sprintf("/jobs/%d/stop", id), nil).Code }()
 	for {
 		j := c.job(id)
 		if j.State == "stopped" {
-			if took := time.Since(pressed); took > 300*time.Millisecond {
+			if took := time.Since(pressed); took > bound {
 				t.Fatalf("job %d read stopped %s after the press", id, took)
 			}
 			if code := <-answered; code != http.StatusOK {
@@ -123,8 +125,8 @@ func stoppedWithin(t *testing.T, c *testClient, id int64) wireJob {
 		if j.State != "running" {
 			t.Fatalf("job %d ended %s after the Stop: %+v", id, j.State, j)
 		}
-		if time.Since(pressed) > 300*time.Millisecond {
-			t.Fatalf("job %d still reads %s 300 ms after the press", id, j.State)
+		if time.Since(pressed) > bound {
+			t.Fatalf("job %d still reads %s %s after the press", id, j.State, bound)
 		}
 		time.Sleep(2 * time.Millisecond)
 	}
