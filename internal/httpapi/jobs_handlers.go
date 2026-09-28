@@ -816,11 +816,18 @@ func (s *Server) handleJobLogMarkdown(w http.ResponseWriter, r *http.Request) {
 	}
 	// The block holds the lines up to the newest one now, and the fence is
 	// measured over exactly those: a running job's next line cannot land in the
-	// block unmeasured. gen is the database all of it is read from.
-	gen := s.Store.Generation()
+	// block unmeasured. gen is the database all of it is read from, taken with
+	// the newest id in one read through Store.Steady (eachExportLine says why).
+	var gen uint64
 	var upTo int64
 	var longest int
-	err = s.Store.DB.QueryRow(`SELECT COALESCE(MAX(id), 0) FROM job_logs WHERE job_id = ?`, id).Scan(&upTo)
+	if beforeExportFence != nil {
+		beforeExportFence()
+	}
+	err = s.Store.Steady(func(db *sql.DB, now uint64) error {
+		gen = now
+		return db.QueryRow(`SELECT COALESCE(MAX(id), 0) FROM job_logs WHERE job_id = ?`, id).Scan(&upTo)
+	})
 	if err == nil {
 		longest, err = s.longestIn(gen, `SELECT id, at, level, '', line FROM job_logs WHERE job_id = ? AND id <= ?
 			AND (instr(line, '`+"`"+`') > 0 OR instr(level, '`+"`"+`') > 0)`, id, upTo)
@@ -883,6 +890,12 @@ func (s *Server) longestIn(gen uint64, q string, args ...any) (int, error) {
 // nothing a person does holds open, and the one a line pass that read the
 // generation for itself would miss.
 var afterFencePass func()
+
+// beforeExportFence, when set, runs as an export is about to read its newest id
+// and its generation. A test seam and nothing else: the one way to have a swap
+// already under way at that read, which Store.Steady then waits out, where the
+// read on the store's own pool failed on the closed pool and answered 500.
+var beforeExportFence func()
 
 // exportBatch is how many lines an export reads before it writes them.
 const exportBatch = 2000

@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"database/sql"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -265,15 +266,22 @@ func (s *Server) handleSystemLogsMarkdown(w http.ResponseWriter, r *http.Request
 	// The block holds the lines up to the newest one now, or up to upto when the
 	// screen names where what it shows ends, and the fence is measured over
 	// exactly those: a line logged while the file is written cannot land in the
-	// block unmeasured. gen is the database all of it is read from.
-	gen := s.Store.Generation()
+	// block unmeasured. gen is the database all of it is read from, taken with
+	// the newest id in one read through Store.Steady (eachExportLine says why).
+	var gen uint64
 	var upTo, uptoAt int64
 	var longest int
-	err := s.Store.DB.QueryRow(`SELECT COALESCE(MAX(id), 0) FROM system_logs`).Scan(&upTo)
-	if err == nil && f.upto > 0 {
-		err = s.Store.DB.QueryRow(`SELECT COALESCE(MAX(at), 0) FROM system_logs WHERE id = (SELECT MAX(id) FROM system_logs WHERE id <= ?)`,
-			f.upto).Scan(&uptoAt)
+	if beforeExportFence != nil {
+		beforeExportFence()
 	}
+	err := s.Store.Steady(func(db *sql.DB, now uint64) error {
+		gen = now
+		if err := db.QueryRow(`SELECT COALESCE(MAX(id), 0) FROM system_logs`).Scan(&upTo); err != nil || f.upto <= 0 {
+			return err
+		}
+		return db.QueryRow(`SELECT COALESCE(MAX(at), 0) FROM system_logs WHERE id = (SELECT MAX(id) FROM system_logs WHERE id <= ?)`,
+			f.upto).Scan(&uptoAt)
+	})
 	if err == nil {
 		tick := "'`'"
 		longest, err = s.longestIn(gen, `SELECT id, at, level, code, line FROM system_logs WHERE `+where+` AND id <= ?
