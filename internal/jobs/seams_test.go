@@ -238,8 +238,8 @@ func TestAStoppedJobsEndIsNotHeldForItsLog(t *testing.T) {
 		}
 		time.Sleep(2 * time.Millisecond)
 	}
-	if took := time.Since(pressed); took > 300*time.Millisecond {
-		t.Fatalf("the stopped job read stopped %s after the press, want within 300ms", took)
+	if took, bound := time.Since(pressed), 300*time.Millisecond*UnderRace; took > bound {
+		t.Fatalf("the stopped job read stopped %s after the press, want within %s", took, bound)
 	}
 	release()
 	flushT(t, lb, 20*time.Second)
