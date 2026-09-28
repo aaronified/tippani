@@ -25,17 +25,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   one runs at a time across the whole server; the rest queue in order, and a waiting one
   says so. A re-verify's findings can now be opened later, with Review findings in Past
   jobs — if a field changed since the check, Apply leaves it alone and says why, instead
-  of overwriting it. Stop finishes the item in hand, then stops the rest of the job; one
-  stopped on its very last item is left marked finished, since it had nothing left to
-  do. A job Tippani was still running when it restarted is kept as interrupted, with its
-  log, and offered to run again.
+  of overwriting it. Stop, and Stop all, are instant: a running job is cancelled the
+  moment you press it, so a lookup or a download it was waiting on aborts right there,
+  and the item it had in hand is left exactly as it was — nothing half-written, no field
+  from one supplier without the rest, no cover without its record. What finished before
+  the Stop stays finished, the next waiting job starts at once, and the screen says
+  "Stopping…" from the press; stopping a job that is only waiting answers just as fast,
+  even while an import holds the database. A Stop that lands after a job's very last
+  item is written finds nothing left to stop, and reads Succeeded rather than Stopped. A
+  job Tippani was still running when it restarted is kept as interrupted, with its log,
+  and offered to run again.
 - **Every lookup is recorded as a job with its own log of every request that went out
   and what came back** — a bulk fetch, a re-verify, or a single search for a cover or a
-  person's details. An import or a backup is recorded as a job too, with a log of its
-  own, though neither looks anything up, apart from the Pushover message you set up. A
-  single lookup still answers as fast as it always has: it is written down once the
-  request ends, not before. Thirty days of jobs and logs are kept, then pruned
-  automatically.
+  person's details. An import, its approval, and a backup are each recorded as a job
+  too, each with a log of its own, though none looks anything up, apart from the
+  Pushover message you set up. An import's job now queues and runs like the ones above,
+  instead of being written down only once it has already finished. A single lookup
+  still answers as fast as it always has: it is written down once the request ends, not
+  before. Thirty days of jobs and logs are kept, then pruned automatically.
+- **Settings → Jobs has a new Common jobs card, a persistent place for the four jobs you
+  run most.** Fill gaps in every work, Fetch missing people, Fetch covers and details
+  (with a Missing only run) and Back up now (which asks for the password first) are
+  always listed, whether or not you have run one before. A reader sees the first two;
+  the covers pass and the backup are an admin's. Each row says how its last run ended
+  and when, opens that run's log in place, and offers Run or Run again; while its job
+  runs or waits, the row says so instead and offers Stop. Fill gaps in every work and
+  Fetch missing people work out what to walk only once the job starts, not when you
+  press Run, so one that waited behind something else walks the library as it stands by
+  then. Fill gaps in every work, run from here, is always one job however big your
+  library, unlike a large selection picked elsewhere, which still runs as several jobs
+  in a row.
 
 ### Changed
 
@@ -56,6 +75,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Fill gaps sends a selection over 2,000 works, and People's Fetch missing over 2,000
   people, as consecutive jobs**, queued one after another, instead of one open-ended run
   in the browser.
+- **Uploading an import, and approving what it staged, now queue like Fill gaps and the
+  rest, instead of running straight away.** Dropping a file on the Import screen, each
+  source's own importer, and Pending import's Approve each start a queued job now, one
+  at a time behind whatever else is running, and a waiting import says how many jobs are
+  ahead of it. A Stop that lands mid-file stages none of that file and keeps the upload,
+  so the import can be run again; a Stop mid-approval leaves every work already approved
+  in your library, and the work it was on, and every one after it, still staged, so
+  nothing in between is lost. Dropping several files at once sends each one to the
+  server as soon as a place in the queue opens — five of your jobs at a time — and
+  queues it the moment its upload lands, so closing the tab keeps every file already
+  sent; a file the tab had not yet sent when you closed it is still only on the page,
+  and its row says so.
 
 ### Fixed
 
