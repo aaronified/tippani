@@ -601,9 +601,14 @@ func TestASecretIsForgottenOnEveryWayAJobEnds(t *testing.T) {
 		defer r.smu.Unlock()
 		return len(r.secrets)
 	}
+	// As the queue has it: a waiting job a Stop has stopped reads stopped before
+	// its row is written (held.go).
 	stateOf := func(id int64) string {
 		var s string
 		st.DB.QueryRow(`SELECT state FROM jobs WHERE id = ?`, id).Scan(&s)
+		if _, held := r.Held()[id]; held && s == StateQueued {
+			return StateStopped
+		}
 		return s
 	}
 	waitFor := func(id int64, want string) {

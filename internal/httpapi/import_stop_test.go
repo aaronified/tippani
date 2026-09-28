@@ -273,6 +273,95 @@ func TestAStoppedImportBreaksNothingWhereverTheStopLands(t *testing.T) {
 	}
 }
 
+// A STOP ON A JOB WAITING BEHIND A RUNNING IMPORT IS ANSWERED AT ONCE. The import
+// stages its whole file in one transaction, and while it does it holds SQLite's
+// write lock; a waiting job's Stop is a write of that job's row, so it waited for
+// the import, up to busy_timeout's five seconds, the owner's "most responsive kill
+// switch" answering a press on a job that had not even started with a pause and,
+// past five seconds, an error. Here the import is held just before its staging
+// commits, inside that transaction, for as long as the test likes, and the job
+// waiting behind it is stopped. The press has to be answered 200 within 300 ms
+// (three times that under the race detector), and its answer, Current jobs and
+// the summary have to read the job stopped while the import still holds the
+// lock. Once the import lets go it finishes, and the stopped job reads stopped,
+// never started, with no line of its run in its log.
+//
+// Mutations: the queue's Stop on a waiting job back to writing the row before it
+// answers (internal/jobs Stop's old UPDATE ... WHERE state = 'queued'): red, the
+// press answered 500 after busy_timeout. The API's reads without the queue's
+// memory (settle and shownState dropped): red, the press's own answer reads the
+// job queued.
+func TestAStopOnAJobWaitingBehindARunningImportIsAnsweredAtOnce(t *testing.T) {
+	srv := newTestServer(t)
+	q := queueing(t, srv)
+	c := signupAdmin(t, srv.Handler())
+
+	// The import waits behind one job, which holds it back until the job behind
+	// the import is queued too: queueing is a write, and has to be done before
+	// the import takes the lock.
+	ahead := c.mustStart("test.hold", map[string]any{"tag": "ahead"})
+	c.waitJob(ahead.ID, "running")
+	reached, release := make(chan struct{}), make(chan struct{})
+	var once sync.Once
+	importStopSeam = func(_ context.Context, point string, _ int) {
+		if point == stopStageCommit {
+			once.Do(func() { close(reached) })
+			<-release
+		}
+	}
+	t.Cleanup(func() { importStopSeam = nil })
+	imp := queuedJob(t, c.uploadOnly(twoBooksFile.route, twoBooksFile.name, []byte(twoBooksFile.body)))
+	behind := c.mustStart("test.hold", map[string]any{"tag": "behind"})
+	q.let()
+	select {
+	case <-reached:
+	case <-time.After(20 * time.Second):
+		t.Fatal("the import never reached the step before its staging commits")
+	}
+	let := sync.OnceFunc(func() { close(release) })
+	t.Cleanup(let)
+
+	pressed := time.Now()
+	rec := c.do("POST", fmt.Sprintf("/jobs/%d/stop", behind.ID), nil)
+	took := time.Since(pressed)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("the Stop on the waiting job was answered %d %s after %s", rec.Code, rec.Body, took)
+	}
+	if bound := 300 * time.Millisecond * underRace; took > bound {
+		t.Fatalf("the Stop on the waiting job was answered %s after the press, with the import's lock held", took)
+	}
+	if got := decode[struct {
+		Job wireJob `json:"job"`
+	}](t, rec).Job; got.State != "stopped" {
+		t.Fatalf("the Stop's own answer reads the job %s", got.State)
+	}
+	// Every read of the queue says so while the import still holds the lock.
+	current := c.jobs("view=current")
+	if ids := jobIDs(current.Jobs); len(ids) != 1 || ids[0] != imp.ID || current.Waiting != 0 {
+		t.Fatalf("Current jobs while the import holds the lock: %v, %d waiting; want the import alone", ids, current.Waiting)
+	}
+	summary := decode[struct {
+		Waiting int `json:"waiting"`
+	}](t, c.mustDo("GET", "/jobs/summary", nil, http.StatusOK))
+	if summary.Waiting != 0 {
+		t.Fatalf("the summary counts %d waiting after the Stop", summary.Waiting)
+	}
+
+	let()
+	c.waitJob(imp.ID, "succeeded")
+	stopped := c.waitJob(behind.ID, "stopped")
+	if stopped.StartedAt != nil {
+		t.Fatalf("the stopped job was started: %+v", stopped)
+	}
+	lines := jobLines(c, behind.ID)
+	saying(t, lines, "stopped it before it started")
+	for _, l := range lines {
+		if l.Line == "holding" {
+			t.Fatalf("the stopped job ran: %+v", lines)
+		}
+	}
+}
+
 // Mutations, each red here: approveStaged's check before a work ignoring a Stop
 // (approve.work 0 writes the first book, approve.work 1 the second — and each goes
 // on to that work's approve.commit); approveWork's check before its commit

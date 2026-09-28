@@ -122,6 +122,14 @@ func (j *Job) Progress(done, total int) {
 		done, total, j.id); err != nil {
 		olog.Errorf(olog.CodeJobRecord, "[jobs] #%d progress: %v", j.id, err)
 	}
+	// And the rows of the waiting jobs a Stop held while this job's own
+	// transaction had the lock (held.go): a run writes its progress between
+	// items, its transaction closed, so the lock has just been had. A write that
+	// fails here is left to the worker's next claim and to shutdown, which write
+	// the same rows; it is not the running job's to report.
+	if j.r.hasHeld() {
+		_ = j.r.settleHeld(j.r.st.DB)
+	}
 }
 
 // final is the progress to record at the end: the last Progress, or the row's

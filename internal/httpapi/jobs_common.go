@@ -146,7 +146,8 @@ func (s *Server) handleCommonJobs(w http.ResponseWriter, r *http.Request) {
 // the row is asking when the archive was last made. A current one is always
 // queued (an in-request job's row is written when its request ends).
 func (s *Server) commonJobRow(c commonJob, v jobs.Owner, live bool) (*jobRow, error) {
-	where, args := `kind = ?`, []any{c.kind}
+	held := s.heldStops()
+	where, args := `kind = ?`, []any{jobs.HeldJSON(held), c.kind}
 	if !c.serverWide {
 		where += ` AND user_id = ?`
 		args = append(args, v.UserID)
@@ -156,19 +157,20 @@ func (s *Server) commonJobRow(c commonJob, v jobs.Owner, live bool) (*jobRow, er
 	}
 	order := `id DESC`
 	if live {
-		where += ` AND queued = 1 AND state IN ('queued', 'running')`
+		where += ` AND queued = 1 AND ` + shownState + ` IN ('queued', 'running')`
 		order = `state = 'running' DESC, id`
 	} else {
-		where += ` AND state NOT IN ('queued', 'running') AND created_at >= ?`
+		where += ` AND ` + shownState + ` NOT IN ('queued', 'running') AND created_at >= ?`
 		args = append(args, time.Now().Add(-jobsRetention).UnixMilli())
 	}
-	j, err := scanJob(s.Store.DB.QueryRow(`SELECT `+jobColumns+` FROM jobs WHERE `+where+` ORDER BY `+order+` LIMIT 1`, args...))
+	j, err := scanJob(s.Store.DB.QueryRow(heldCTE+`SELECT `+jobColumns+` FROM jobs WHERE `+where+` ORDER BY `+order+` LIMIT 1`, args...))
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
 	}
+	j.settle(held)
 	return &j, nil
 }
 

@@ -101,7 +101,20 @@ func (g *rig) enqueue(o jobs.Owner, kind string, params any) int64 {
 	return id
 }
 
+// state is a job's state as the queue has it, which is what every screen reads:
+// its row's, or stopped for a waiting job a Stop has stopped whose row has not
+// been written yet (Held), since the Stop answers before it waits for the lock.
 func (g *rig) state(id int64) string {
+	g.t.Helper()
+	s := g.row(id)
+	if _, held := g.r.Held()[id]; held && s == "queued" {
+		return "stopped"
+	}
+	return s
+}
+
+// row is what the job's row itself says its state is.
+func (g *rig) row(id int64) string {
 	g.t.Helper()
 	var s string
 	if err := g.st.DB.QueryRow(`SELECT state FROM jobs WHERE id = ?`, id).Scan(&s); err != nil {
@@ -600,6 +613,98 @@ func TestAStopCutsTheRunningJobsCallBeforeItsOwnWritesWait(t *testing.T) {
 				t.Fatalf("%s answered %v", way, err)
 			}
 			g.waitState(id, "stopped")
+		})
+	}
+}
+
+// A STOP ON A WAITING JOB IS ANSWERED AT ONCE WHILE THE RUNNING ONE HOLDS THE
+// WRITE LOCK. A waiting job's Stop is its row's write, from waiting to stopped,
+// and the job ahead of it can be holding SQLite's write lock for a while: an
+// import stages its whole file in one transaction. The running job is not the
+// one stopped, so nothing tells it to let go, and a Stop that wrote first waited
+// for that transaction, up to busy_timeout's five seconds, and then answered an
+// error. So here the job ahead holds the lock until the test lets it go, and a
+// Stop and a Stop all on the job waiting behind it each have to answer within
+// 300 ms with the lock still held, the queue reading the job as stopped (Held,
+// what every read of the queue reads beside the rows). Once the lock is let go,
+// the job ahead finishes, the stopped one's row says stopped, and it never ran.
+//
+// Mutation: Stop's waiting path back to writing the row before it answers (the
+// UPDATE ... WHERE state = 'queued' it had): "stop" red, the press answered after
+// busy_timeout with the lock's error. stopWhere's likewise: "stop all" red.
+func TestAStopOnAWaitingJobIsAtOnceWhileTheRunningOneHoldsTheWriteLock(t *testing.T) {
+	for _, way := range []string{"stop", "stop all"} {
+		t.Run(way, func(t *testing.T) {
+			g := newRig(t, jobs.Options{})
+			start, entered, let := make(chan struct{}), make(chan struct{}), make(chan struct{})
+			g.r.Register(jobs.Kind{Name: "staging", Run: func(context.Context, *jobs.Job) error {
+				<-start
+				tx, err := g.st.DB.Begin() // _txlock=immediate: the lock is taken here
+				if err != nil {
+					return err
+				}
+				defer tx.Rollback()
+				if _, err := tx.Exec(`INSERT INTO system_logs (at, level, line) VALUES (?, 'info', 'staging')`, time.Now().UnixMilli()); err != nil {
+					return err
+				}
+				close(entered)
+				<-let
+				return tx.Commit()
+			}})
+			var ran atomic.Bool
+			g.r.Register(jobs.Kind{Name: "behind", Run: func(context.Context, *jobs.Job) error {
+				ran.Store(true)
+				return nil
+			}})
+			// The job ahead is aro's, so mitra's Stop all has only her waiting one
+			// to reach; both are queued before the lock is taken, since queueing is
+			// a write too.
+			ahead := g.enqueue(g.aro(), "staging", nil)
+			behind := g.enqueue(g.mitra(), "behind", nil)
+			close(start)
+			<-entered
+
+			pressed := time.Now()
+			switch way {
+			case "stop":
+				if err := g.r.Stop(behind, g.mitra()); err != nil {
+					t.Fatalf("the Stop answered %v after %s", err, time.Since(pressed))
+				}
+			default:
+				stopping, waiting, err := g.r.StopAll(g.mitra())
+				if err != nil || stopping != 0 || waiting != 1 {
+					t.Fatalf("mitra's Stop all: %d stopping, %d stopped waiting, %v after %s; want 0 and 1",
+						stopping, waiting, err, time.Since(pressed))
+				}
+			}
+			if took := time.Since(pressed); took > 300*time.Millisecond {
+				t.Fatalf("%s on the waiting job answered %s after the press, with the lock held", way, took)
+			}
+			if _, ok := g.r.Held()[behind]; !ok {
+				t.Fatalf("%s answered, and the queue does not read the waiting job stopped", way)
+			}
+
+			close(let)
+			g.waitState(ahead, "succeeded")
+			// The row is written once the lock frees, and the queue lets go of
+			// the job then.
+			eventually(t, fmt.Sprintf("the stopped job's row says so (it says %s)", g.row(behind)), func() bool {
+				_, held := g.r.Held()[behind]
+				return !held && g.row(behind) == "stopped"
+			})
+			var started sql.NullInt64
+			if err := g.st.DB.QueryRow(`SELECT started_at FROM jobs WHERE id = ?`, behind).Scan(&started); err != nil {
+				t.Fatal(err)
+			}
+			if ran.Load() || started.Valid {
+				t.Fatalf("the stopped job ran (its Run called: %v, started at %v)", ran.Load(), started)
+			}
+			if got := g.lines(behind); len(got) != 1 || got[0] != "mitra stopped it before it started" {
+				t.Fatalf("the stopped job's log: %q", got)
+			}
+			// And the queue runs on: the same job, pressed again, is a new one
+			// and runs.
+			g.waitState(g.enqueue(g.mitra(), "behind", nil), "succeeded")
 		})
 	}
 }

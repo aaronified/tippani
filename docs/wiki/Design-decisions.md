@@ -2,7 +2,7 @@
 
 Every design decision I have made in this project, with the reasoning that produced it,
 the alternative I turned down, and — where it applies — the part I got wrong and what
-changed my mind. Eight hundred and ninety entries, grouped by what they are about
+changed my mind. Eight hundred and ninety-three entries, grouped by what they are about
 rather than by when they happened. An entry is a `###` heading in the eighteen numbered
 sections or a `##` heading after them; a heading inside an entry is part of it, and the
 three headings in §18 that hold tables rather than a decision are not entries.
@@ -12229,6 +12229,16 @@ My asks as 3.1.0 began, the same day:
 **Instead of.** Handing the job's context to its database calls as well, which would turn a Stop landing in a write into a failed write, and would break that rule. Aborting the call on the wire and then writing whatever had already arrived, which is the half-written work the second ask rules out. The Stop that finished the item in hand, which is what shipped first (the row above).
 
 <sub>3.1.0 — `internal/jobs/runner.go` · `internal/httpapi/job_stop.go` · `internal/metadata/covers.go` · `internal/httpapi/metadata_handlers.go` · `internal/httpapi/person_fetch.go` · `web/frontend/src/jobs.js`</sub>
+
+### A waiting job's Stop is kept in memory first, and its row is written after
+
+**Decided.** A Stop, a Stop all or an account's delete that reaches a waiting job marks it stopped in the queue's memory and answers. The row goes from waiting to stopped once SQLite's write lock can be had. The press itself tries for the lock for 50 ms. After that the worker writes the row before its next claim, the running job writes it after its next progress write, and shutdown writes it before it interrupts whatever still waits. From the press on, no claim takes the job, an Enqueue's duplicate and limit checks do not count it, nothing counts it as ahead of anybody, and `GET /jobs`, `/jobs/{id}`, `/jobs/summary` and `/jobs/common` read it as stopped at the moment of the press. Stop all and an account's delete read the running rows in their scope rather than write them, and set the running rows' `stop_requested` flag only if the lock can be had within the same 50 ms.
+
+**Why.** My ask for the kill switch, *"the job cancel button must also be the most responsive kill switch. No dillydallying after it has been pressed"*, covers a job that has not started yet as much as one that has. A waiting job's Stop was its row's write, and a running import stages its whole file in one transaction, and an approval writes each work in one. A Stop on the job waiting behind either of them waited for that transaction, and past busy_timeout's five seconds it answered an error. Telling the running job first (*An import and its approval are queued jobs*) does not help here, because the running job is not the one being stopped. Holding the waiting jobs before the running one is cancelled also closes a gap. The running job, cancelled at the press, could end and let the worker claim the next of the same viewer's waiting jobs before Stop all had stopped it.
+
+**Instead of.** Waiting out the lock, as the Stop first did. A goroutine per Stop that retries the write until the lock frees, which would be a third goroutine outliving the call that starts it (§1). The mark alone, with the row written only when the job would have been claimed: a restart before that would find the job waiting and mark it interrupted, and the duplicate check would go on refusing the same job pressed again.
+
+<sub>3.1.0 — `internal/jobs/held.go` · `internal/jobs/runner.go` · `internal/jobs/job.go` · `internal/httpapi/jobs_handlers.go` · `internal/httpapi/jobs_common.go`</sub>
 
 ### The worker and the log writer exist only while there is work
 

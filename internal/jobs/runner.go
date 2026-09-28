@@ -182,6 +182,13 @@ type Runner struct {
 	// jobs (StopOwner) and not yet ended; Enqueue refuses such an account.
 	leaving map[int64]int
 
+	// held is every waiting job a Stop has stopped whose row may still read
+	// waiting, by id (held.go says why, and who writes the row). Under its own
+	// lock, never taken before mu, so a Stop on a waiting job never waits on an
+	// Enqueue whose insert is waiting on somebody's write lock.
+	hmu  sync.Mutex
+	held map[int64]heldStop
+
 	// secrets are what a job needs and must never be stored: a backup's
 	// password. Kept by job id, never on the Job and never in the row, and
 	// deleted on every way a job can end. Under their own lock, so a job
@@ -217,7 +224,7 @@ func NewRunner(st *store.Store, lb *Logbook, opts Options) *Runner {
 		st: st, lb: lb, opts: opts,
 		kinds: map[string]Kind{}, base: base, cancel: cancel,
 		claimStop: map[int64]string{}, secrets: map[int64]any{}, leaving: map[int64]int{},
-		idle: closedChan(),
+		held: map[int64]heldStop{}, idle: closedChan(),
 	}
 }
 
@@ -336,9 +343,13 @@ func (r *Runner) insert(owner Owner, kind, subject, params string, total int, re
 	case err != nil:
 		return 0, err
 	}
+	// A job a Stop has stopped is not the same job waiting, nor one of the five,
+	// though its row may not say so yet (held.go).
+	held := r.heldJSON()
 	var dup int64
 	err = tx.QueryRow(`SELECT id FROM jobs WHERE user_id = ? AND kind = ? AND params = ?
-		AND state IN ('queued', 'running') ORDER BY id LIMIT 1`, owner.UserID, kind, params).Scan(&dup)
+		AND state IN ('queued', 'running') AND id NOT IN (SELECT value FROM json_each(?)) ORDER BY id LIMIT 1`,
+		owner.UserID, kind, params, held).Scan(&dup)
 	switch {
 	case err == nil:
 		return 0, &ErrDuplicate{ID: dup}
@@ -346,8 +357,8 @@ func (r *Runner) insert(owner Owner, kind, subject, params string, total int, re
 		return 0, err
 	}
 	var n int
-	if err := tx.QueryRow(`SELECT count(*) FROM jobs WHERE user_id = ? AND state IN ('queued', 'running')`,
-		owner.UserID).Scan(&n); err != nil {
+	if err := tx.QueryRow(`SELECT count(*) FROM jobs WHERE user_id = ? AND state IN ('queued', 'running')
+		AND id NOT IN (SELECT value FROM json_each(?))`, owner.UserID, held).Scan(&n); err != nil {
 		return 0, err
 	}
 	if n >= r.opts.PerOwner {
@@ -458,6 +469,14 @@ func (r *Runner) work(idle chan struct{}) {
 
 		var j *Job
 		err := busyRetry(busyAttempts, busyBackoff, busyCeiling, r.isClosed, func() error {
+			// The rows of the waiting jobs a Stop held first (held.go): the claim
+			// is where the worker waits for the lock anyway, and a claim in
+			// progress is what Exclusive waits out, so no swap lands between. A
+			// lock held elsewhere is retried with the claim; any other failure
+			// keeps the marks, which the claim leaves out, for the next writer.
+			if err := r.settleHeld(r.st.DB); err != nil && store.IsBusy(err) {
+				return err
+			}
 			var err error
 			j, err = r.claim()
 			return err
@@ -473,6 +492,11 @@ func (r *Runner) work(idle chan struct{}) {
 		stop := false
 		if j != nil {
 			stopLine, stop = r.claimStop[j.id]
+			// A Stop that held the job while the claim was under way (held.go),
+			// and has logged its line: it is stopped before its first step.
+			if r.unhold(j.gen, j.id) {
+				stop = true
+			}
 		}
 		clear(r.claimStop)
 		if err != nil {
@@ -494,7 +518,9 @@ func (r *Runner) work(idle chan struct{}) {
 		j.ctx, j.cancel = context.WithCancel(r.base)
 		if stop {
 			j.stop.Store(true)
-			j.Log(LevelInfo, "%s", stopLine)
+			if stopLine != "" {
+				j.Log(LevelInfo, "%s", stopLine)
+			}
 		}
 		if j.stop.Load() {
 			j.cancel() // stopped before its first step: it takes none
@@ -524,10 +550,13 @@ func (r *Runner) claim() (*Job, error) {
 	// before any swap, so it is the generation of the file the claim reads.
 	j := &Job{r: r, started: time.Now(), gen: r.st.Generation(), over: make(chan struct{})}
 	var stopReq int
+	// A job a Stop has held is left out (held.go); one held after this read is
+	// stopped by work before its first step.
 	err := r.st.DB.QueryRow(`UPDATE jobs SET state = 'running', started_at = ?
-		WHERE id = (SELECT id FROM jobs WHERE state = 'queued' ORDER BY id LIMIT 1)
+		WHERE id = (SELECT id FROM jobs WHERE state = 'queued' AND id NOT IN (SELECT value FROM json_each(?))
+		            ORDER BY id LIMIT 1)
 		RETURNING id, user_id, username, kind, subject, params, total, stop_requested`,
-		j.started.UnixMilli()).
+		j.started.UnixMilli(), r.heldJSON()).
 		Scan(&j.id, &j.uid, &j.username, &j.kind, &j.subject, &j.params, &j.total, &stopReq)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
@@ -701,18 +730,22 @@ func visible(viewer Owner, uid sql.NullInt64) bool {
 // hand is left untouched (Kind says how a run keeps that promise). A job that has
 // already ended is left as it ended. A job the viewer may not see is ErrNotFound.
 //
-// Compare-and-set, so it cannot lose a race with the worker's claim: the waiting
-// row is stopped only if it is still waiting, and a job the claim got to first is
-// stopped in memory as well as in its row, where the worker, claiming or running
-// it, will see it. A row that reads running with no job in the worker's hands is
-// one whose end was never recorded, and it is settled (settleOrphan);
-// stopHeldLocked says which is which.
+// A WAITING JOB IS STOPPED IN MEMORY FIRST, and its row is written after, when
+// SQLite's write lock can be had (held.go): the press is answered at once while
+// somebody else's transaction holds that lock, and from the answer on nothing
+// claims the job and every read of the queue reads it stopped. The mark cannot
+// lose a race with the worker's claim (hold says why): a job the claim got to
+// first is stopped as the running job, in memory as well as in its row, where the
+// worker, claiming or running it, will see it. A row that reads running with no
+// job in the worker's hands is one whose end was never recorded, and it is
+// settled (settleOrphan); stopHeldLocked says which is which.
 func (r *Runner) Stop(id int64, viewer Owner) error {
 	if viewer.Gen != r.st.Generation() {
 		return ErrStale
 	}
 	var uid sql.NullInt64
-	switch err := r.st.DB.QueryRow(`SELECT user_id FROM jobs WHERE id = ?`, id).Scan(&uid); {
+	var state string
+	switch err := r.st.DB.QueryRow(`SELECT user_id, state FROM jobs WHERE id = ?`, id).Scan(&uid, &state); {
 	case errors.Is(err, sql.ErrNoRows):
 		return ErrNotFound
 	case err != nil:
@@ -720,6 +753,25 @@ func (r *Runner) Stop(id int64, viewer Owner) error {
 	}
 	if !visible(viewer, uid) {
 		return ErrNotFound
+	}
+	switch state {
+	case StateQueued:
+		fresh, taken, err := r.hold(viewer.Gen, []int64{id})
+		if err != nil {
+			return err
+		}
+		if len(taken) == 0 {
+			if len(fresh) == 1 {
+				r.forget(id)
+				r.lb.jobLineIn(viewer.Gen, id, LevelInfo, fmt.Sprintf("%s stopped it before it started", viewer.Username))
+				r.settleHeldSoon()
+			}
+			return nil
+		}
+		// Claimed since its row was read: it is stopped as the running job is.
+	case StateRunning:
+	default:
+		return nil // it has ended, and is left as it ended, with nothing written
 	}
 	// The job in hand is stopped before anything is written (signalRunning), and
 	// its log says who pressed, once.
@@ -732,16 +784,6 @@ func (r *Runner) Stop(id int64, viewer Owner) error {
 	// httpapi), on the item it left.
 	pressed := fmt.Sprintf("%s pressed Stop", viewer.Username)
 	r.signalRunning(func(j *Job) bool { return j.id == id }, pressed)
-	res, err := r.st.DB.Exec(`UPDATE jobs SET state = 'stopped', finished_at = ? WHERE id = ? AND state = 'queued'`,
-		time.Now().UnixMilli(), id)
-	if err != nil {
-		return err
-	}
-	if n, _ := res.RowsAffected(); n == 1 {
-		r.forget(id)
-		r.lb.jobLineIn(viewer.Gen, id, LevelInfo, fmt.Sprintf("%s stopped it before it started", viewer.Username))
-		return nil
-	}
 	// A claim in progress, which signalRunning leaves alone, is waited out here.
 	r.mu.Lock()
 	held := r.stopHeldLocked(id, pressed)
@@ -751,7 +793,7 @@ func (r *Runner) Stop(id int64, viewer Owner) error {
 		return err
 	}
 	// The row's flag, for a claim that reads it; the job itself was stopped above.
-	_, err = r.st.DB.Exec(`UPDATE jobs SET stop_requested = 1 WHERE id = ? AND state = 'running'`, id)
+	_, err := r.st.DB.Exec(`UPDATE jobs SET stop_requested = 1 WHERE id = ? AND state = 'running'`, id)
 	return err
 }
 
@@ -940,22 +982,36 @@ func (r *Runner) WaitOwnerIdle(ctx context.Context, uid int64) error {
 }
 
 // stopWhere stops the jobs scope picks, and match picks the same jobs in memory,
-// for the job in hand to hear it first (signalRunning). gen is the generation
-// read before it, so its lines go only into the file its statements found the
-// jobs in.
+// for the job in hand to hear it before any write (signalRunning). gen is the
+// generation read before it, so its lines go only into the file its statements
+// found the jobs in.
 func (r *Runner) stopWhere(gen uint64, scope string, args []any, match func(*Job) bool, waitingLine, runningLine, orphanLine string) (stopping, stoppedWaiting int, err error) {
-	early := r.signalRunning(match, runningLine)
-	waiting, err := r.ids(`UPDATE jobs SET state = 'stopped', finished_at = ? WHERE state = 'queued'`+scope+` RETURNING id`,
-		append([]any{time.Now().UnixMilli()}, args...)...)
+	// THE WAITING ONES FIRST, IN MEMORY (held.go), which is reads and no write:
+	// the press is answered without waiting on somebody else's write lock, and
+	// from here no claim takes them, so the running job, stopped next, cannot end
+	// and hand the worker one of them before this has stopped it. One the worker
+	// took meanwhile is running, and the running rows below find it.
+	queued, err := r.ids(`SELECT id FROM jobs WHERE state = 'queued'`+scope+` ORDER BY id`, args...)
 	if err != nil {
 		return 0, 0, err
 	}
-	r.forget(waiting...)
-	for _, id := range waiting {
+	fresh, _, err := r.hold(gen, queued)
+	r.forget(fresh...)
+	for _, id := range fresh {
 		r.lb.jobLineIn(gen, id, LevelInfo, waitingLine)
 	}
-	stoppedWaiting = len(waiting)
-	running, err := r.ids(`UPDATE jobs SET stop_requested = 1 WHERE state = 'running'`+scope+` RETURNING id`, args...)
+	stoppedWaiting = len(fresh)
+	if err != nil {
+		return 0, stoppedWaiting, err
+	}
+	early := r.signalRunning(match, runningLine)
+	if len(fresh) > 0 {
+		r.settleHeldSoon()
+	}
+	// The running rows are read, not written, for the same reason: the job in
+	// hand, if it is in the viewer's scope, was stopped in memory just now, and
+	// one that is not theirs may be the one holding the lock.
+	running, err := r.ids(`SELECT id FROM jobs WHERE state = 'running'`+scope, args...)
 	if err != nil {
 		return 0, stoppedWaiting, err
 	}
@@ -964,12 +1020,14 @@ func (r *Runner) stopWhere(gen uint64, scope string, args []any, match func(*Job
 	if early != 0 && !slices.Contains(running, early) {
 		stopping++
 	}
+	var flagged []int64
 	for _, id := range running {
 		r.mu.Lock()
 		held := r.stopHeldLocked(id, runningLine)
 		r.mu.Unlock()
 		if held {
 			stopping++
+			flagged = append(flagged, id)
 			continue
 		}
 		settled, err := r.settleOrphan(gen, id, orphanLine)
@@ -979,6 +1037,15 @@ func (r *Runner) stopWhere(gen uint64, scope string, args []any, match func(*Job
 		if settled {
 			stoppedWaiting++
 		}
+	}
+	// The rows' flag, as Stop sets it. The jobs were stopped above, so a flag that
+	// cannot have the lock within heldWriteWait is left unwritten, not waited for.
+	if len(flagged) > 0 {
+		_ = r.st.WithLockWait(heldWriteWait, func(c *sql.Conn) error {
+			_, err := c.ExecContext(context.Background(), `UPDATE jobs SET stop_requested = 1
+				WHERE state = 'running' AND id IN (SELECT value FROM json_each(?))`, jsonIDs(flagged))
+			return err
+		})
 	}
 	return stopping, stoppedWaiting, nil
 }
@@ -1107,6 +1174,11 @@ func (r *Runner) Close(ctx context.Context) error {
 	gen := r.st.Generation()
 	var waiting []int64
 	errs = append(errs, r.st.WithLockWait(r.opts.CloseWriteWait, func(c *sql.Conn) error {
+		// A waiting job somebody stopped is stopped, not interrupted, though its
+		// row may not say so yet (held.go).
+		if err := r.settleHeld(c); err != nil {
+			return err
+		}
 		var err error
 		waiting, err = idsOf(c, `UPDATE jobs SET state = 'interrupted', finished_at = ? WHERE state = 'queued' RETURNING id`,
 			time.Now().UnixMilli())
@@ -1236,6 +1308,7 @@ func (r *Runner) forgetEnded() {
 // nothing about whose they are.
 func (r *Runner) Ahead(id int64) (int, error) {
 	var n int
-	err := r.st.DB.QueryRow(`SELECT count(*) FROM jobs WHERE state IN ('queued', 'running') AND id < ?`, id).Scan(&n)
+	err := r.st.DB.QueryRow(`SELECT count(*) FROM jobs WHERE state IN ('queued', 'running') AND id < ?
+		AND id NOT IN (SELECT value FROM json_each(?))`, id, r.heldJSON()).Scan(&n)
 	return n, err
 }

@@ -158,6 +158,36 @@ func (j jobRow) ownedBy(v jobs.Owner) bool { return j.uid.Valid && j.uid.Int64 =
 
 func finished(state string) bool { return state != jobs.StateQueued && state != jobs.StateRunning }
 
+// A WAITING JOB A STOP REACHED READS STOPPED FROM THE PRESS ON, though its row may
+// not say so yet: the queue stops it in memory first and writes the row when
+// SQLite's write lock can be had, which a running import's transaction can be
+// holding (internal/jobs/held.go). So every read of the queue here reads the
+// queue's own memory beside the rows: heldStops is what it holds, settle reads a
+// row as the queue has it, and shownState is the same in a statement, over the
+// held ids heldCTE names. Its one argument is jobs.HeldJSON, first.
+const (
+	heldCTE    = `WITH held(id) AS (SELECT value FROM json_each(?)) `
+	shownState = `(CASE WHEN state = 'queued' AND id IN (SELECT id FROM held) THEN 'stopped' ELSE state END)`
+)
+
+// heldStops is the waiting jobs the queue has stopped and not yet written, with
+// the moment each was stopped.
+func (s *Server) heldStops() map[int64]int64 {
+	if s.Jobs == nil {
+		return nil
+	}
+	return s.Jobs.Held()
+}
+
+// settle reads j as the queue has it: a waiting row a Stop has held is stopped,
+// at the moment of the Stop.
+func (j *jobRow) settle(held map[int64]int64) {
+	if at, ok := held[j.id]; ok && j.state == jobs.StateQueued {
+		j.state = jobs.StateStopped
+		j.finished = sql.NullInt64{Int64: at, Valid: true}
+	}
+}
+
 // visibleJob reads job id if v may see it. A job v may not see is not found.
 func (s *Server) visibleJob(id int64, v jobs.Owner) (jobRow, bool, error) {
 	scope, args := visibleTo(v)
@@ -166,6 +196,7 @@ func (s *Server) visibleJob(id int64, v jobs.Owner) (jobRow, bool, error) {
 	if errors.Is(err, sql.ErrNoRows) {
 		return jobRow{}, false, nil
 	}
+	row.settle(s.heldStops())
 	return row, err == nil, err
 }
 
@@ -234,7 +265,8 @@ func nullInt(n sql.NullInt64) *int64 {
 
 // activeJobIDs is every job waiting or running, anybody's, in order.
 func (s *Server) activeJobIDs() ([]int64, error) {
-	rows, err := s.Store.DB.Query(`SELECT id FROM jobs WHERE state IN ('queued', 'running') ORDER BY id`)
+	rows, err := s.Store.DB.Query(heldCTE+`SELECT id FROM jobs WHERE `+shownState+` IN ('queued', 'running') ORDER BY id`,
+		jobs.HeldJSON(s.heldStops()))
 	if err != nil {
 		return nil, err
 	}
@@ -272,9 +304,9 @@ func (s *Server) appliedChecks(rows []jobRow) (map[int64]bool, error) {
 	if len(ids) == 0 {
 		return out, nil
 	}
-	q := `SELECT DISTINCT from_job FROM jobs WHERE from_job IN (` + placeholders(len(ids)) + `)
-		AND state IN ('queued', 'running', 'succeeded')`
-	res, err := s.Store.DB.Query(q, ids...)
+	q := heldCTE + `SELECT DISTINCT from_job FROM jobs WHERE from_job IN (` + placeholders(len(ids)) + `)
+		AND ` + shownState + ` IN ('queued', 'running', 'succeeded')`
+	res, err := s.Store.DB.Query(q, append([]any{jobs.HeldJSON(s.heldStops())}, ids...)...)
 	if err != nil {
 		return nil, err
 	}
@@ -504,11 +536,13 @@ func (s *Server) handleListJobs(w http.ResponseWriter, r *http.Request) {
 		s.Logbook.PruneSoon()
 	}
 	v := viewer(r)
+	held := s.heldStops()
 	scope, args := visibleTo(v)
+	args = append([]any{jobs.HeldJSON(held)}, args...)
 	where := []string{scope}
 	order := "id ASC"
 	if view == "current" {
-		where = append(where, `queued = 1 AND state IN ('queued', 'running')`)
+		where = append(where, `queued = 1 AND `+shownState+` IN ('queued', 'running')`)
 		before = 0
 	} else {
 		// NO WAIT FOR THE LOG WRITER HERE, unlike a job's poll. What ran in a
@@ -517,12 +551,12 @@ func (s *Server) handleListJobs(w http.ResponseWriter, r *http.Request) {
 		// queued job's row is written as it happens. The list is read again
 		// when a job ends or somebody presses something. The wait would cost its
 		// whole 200 ms on every read while the log writer is held up.
-		where = append(where, `state NOT IN ('queued', 'running') AND created_at >= ?`)
+		where = append(where, shownState+` NOT IN ('queued', 'running') AND created_at >= ?`)
 		args = append(args, time.Now().Add(-jobsRetention).UnixMilli())
 		order = "id DESC"
 	}
 	if len(states) > 0 {
-		where = append(where, `state IN (`+placeholders(len(states))+`)`)
+		where = append(where, shownState+` IN (`+placeholders(len(states))+`)`)
 		for _, st := range states {
 			args = append(args, st)
 		}
@@ -544,7 +578,7 @@ func (s *Server) handleListJobs(w http.ResponseWriter, r *http.Request) {
 	if whole {
 		fetch = -1
 	}
-	rows, err := s.Store.DB.Query(`SELECT `+jobColumns+` FROM jobs WHERE `+strings.Join(where, " AND ")+
+	rows, err := s.Store.DB.Query(heldCTE+`SELECT `+jobColumns+` FROM jobs WHERE `+strings.Join(where, " AND ")+
 		` ORDER BY `+order+` LIMIT ?`, append(args, fetch)...)
 	if err != nil {
 		codedError(w, r, olog.CodeJobRead, "list jobs", err)
@@ -558,6 +592,7 @@ func (s *Server) handleListJobs(w http.ResponseWriter, r *http.Request) {
 			codedError(w, r, olog.CodeJobRead, "read a job", err)
 			return
 		}
+		j.settle(held)
 		list = append(list, j)
 	}
 	rows.Close()
@@ -585,8 +620,9 @@ func (s *Server) handleListJobs(w http.ResponseWriter, r *http.Request) {
 // queueCounts is how many queued jobs v may see are running and waiting.
 func (s *Server) queueCounts(v jobs.Owner) (running, waiting int, err error) {
 	scope, args := visibleTo(v)
-	err = s.Store.DB.QueryRow(`SELECT COALESCE(SUM(state = 'running'), 0), COALESCE(SUM(state = 'queued'), 0)
-		FROM jobs WHERE queued = 1 AND state IN ('queued', 'running') AND `+scope, args...).Scan(&running, &waiting)
+	err = s.Store.DB.QueryRow(heldCTE+`SELECT COALESCE(SUM(state = 'running'), 0), COALESCE(SUM(`+shownState+` = 'queued'), 0)
+		FROM jobs WHERE queued = 1 AND `+shownState+` IN ('queued', 'running') AND `+scope,
+		append([]any{jobs.HeldJSON(s.heldStops())}, args...)...).Scan(&running, &waiting)
 	return running, waiting, err
 }
 
