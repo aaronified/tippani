@@ -696,16 +696,17 @@ export function SystemLogsCard({ q = '', onQuery = null }) {
       )}
       {/* EXPORT ▸ TWO WAYS, and they are the owner's two: exactly what the
           filters show, or everything the server keeps. Anchors, for the reason the
-          job export is one. */}
+          job export is one. EACH GLYPH IS INSIDE ITS LABEL, at the head of the
+          words rather than in a box beside them: the label wraps at the largest
+          type on a phone, and a glyph beside a two-line label was centred between
+          the two lines and squeezed narrower by the words next to it. */}
       <div className="job-actions logs-export">
         <span className="microcopy">{t('common.action.export.label')}</span>
         <a className="tp-btn tp-btn-ghost tactile inline-flex items-center gap-2" href={systemLogsURL(filters)} download>
-          <IconExport />
-          {t('settings.logs.export.shown.label')}
+          <span className="logs-export-label"><IconExport />{t('settings.logs.export.shown.label')}</span>
         </a>
         <a className="tp-btn tp-btn-ghost tactile inline-flex items-center gap-2" href={allSystemLogsURL()} download>
-          <IconExport />
-          {t('settings.logs.export.all.label')}
+          <span className="logs-export-label"><IconExport />{t('settings.logs.export.all.label')}</span>
         </a>
       </div>
     </JobsCard>

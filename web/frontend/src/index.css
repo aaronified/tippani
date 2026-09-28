@@ -11936,6 +11936,14 @@ button.work-pill:hover { color: var(--ink); border-color: var(--ink-border); }
    typescale rule's answer to text that does not fit is a taller box, not a
    frozen size or a clip. */
 .logs-export > .tp-btn { white-space: normal; text-align: center; }
+/* AND ITS GLYPH IS THE FIRST WORD OF THE LABEL, drawn in the label's own lines. As a
+   flex item beside a label that had wrapped, the glyph was centred on both lines at
+   once, which is on neither (at 175% on a phone, over the owner's archive, its
+   ink's middle was 21px from the middle of the line nearest it), and it was the
+   item that gave up width to the words, so its drawing shrank to 21px of 24.
+   Inline, it keeps its size and sits on the first line; the 8px is the gap the
+   button draws between a glyph and its word everywhere else. */
+.logs-export-label > svg { display: inline-block; vertical-align: middle; margin-inline-end: 8px; }
 /* COMMON JOBS (commonJobs.jsx) IS THE SAME ROW, with the job's name and one line
    of what it does in its head, its presses at the end of that line, and under them
    one line more: how it went last time — the release log's door again, opening that

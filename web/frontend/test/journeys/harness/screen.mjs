@@ -553,6 +553,66 @@ export function screenVerbs(getPage) {
     return [...found]
   })
 
+  // offTheLine — THE GLYPHS BESIDE THESE WORDS THAT ARE NOT ON A LINE OF THEM, one
+  // short description each, and none where every drawing sits on a line of its
+  // words. A number of sorts, like `sideways` and `splitWords`, and for the same
+  // reason: a drawing has no text, so `innerText` reads a glyph on a line of its
+  // own above its words, or centred between the two lines of a wrapped label,
+  // exactly as it reads one on the line. CLAUDE.md's rule, "a glyph sits on the
+  // line of the text beside it", measured as `make glyph-align` measures it: the
+  // INK (getBBox through the viewBox, which Phosphor's off-centre crops make
+  // different from the box), not the element. ON A LINE IS GENEROUS ON PURPOSE —
+  // the ink's middle within a quarter of a line's height of that line's middle —
+  // because whether it is centred to the pixel is glyph-align's question, and this
+  // one is only whether the drawing is on the line at all.
+  //
+  // The words name the smallest element on the screen whose text holds them, and
+  // the glyphs asked about are the ones drawn inside it.
+  const offTheLine = (words) => page().evaluate((want) => {
+    const fold = (s) => s.replace(/\s+/g, ' ').trim().toLowerCase()
+    const w = fold(want)
+    const holding = [...document.querySelectorAll('body *')].filter((el) => {
+      const r = el.getBoundingClientRect()
+      return r.width > 0 && r.height > 0 && fold(el.innerText || '').includes(w)
+    })
+    const smallest = holding.filter((el) => !holding.some((o) => o !== el && el.contains(o)))
+    if (smallest.length === 0) throw new Error(`nothing on this screen says ${JSON.stringify(want)}`)
+    const off = []
+    for (const el of smallest) {
+      const lines = []
+      const texts = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)
+      for (let n = texts.nextNode(); n; n = texts.nextNode()) {
+        if (!n.data.trim()) continue
+        const range = document.createRange()
+        range.selectNodeContents(n)
+        for (const x of range.getClientRects()) if (x.width > 0 && x.height > 0) lines.push(x)
+      }
+      for (const svg of el.querySelectorAll('svg')) {
+        const box = svg.getBoundingClientRect()
+        if (!box.width || !box.height) continue
+        let top = box.top
+        let height = box.height
+        const vb = svg.viewBox?.baseVal
+        if (vb && vb.width && vb.height) {
+          // preserveAspectRatio's default, xMidYMid meet: the drawing is scaled to
+          // fit the box whole and centred in it.
+          const s = Math.min(box.width / vb.width, box.height / vb.height)
+          const ink = svg.getBBox()
+          top = box.top + (box.height - vb.height * s) / 2 + (ink.y - vb.y) * s
+          height = ink.height * s
+        }
+        const mid = top + height / 2
+        const near = lines.reduce((b, x) => (!b || Math.abs(mid - (x.top + x.bottom) / 2) < Math.abs(mid - (b.top + b.bottom) / 2) ? x : b), null)
+        const gap = near ? mid - (near.top + near.bottom) / 2 : null
+        if (near && Math.abs(gap) <= near.height / 4) continue
+        off.push(near
+          ? `a glyph ${Math.round(Math.abs(gap))}px ${gap < 0 ? 'above' : 'below'} the middle of the line nearest it, in "${(el.innerText || '').trim().slice(0, 60)}"`
+          : `a glyph with no words beside it, in "${(el.innerText || '').trim().slice(0, 60)}"`)
+      }
+    }
+    return off
+  }, words)
+
   // inReach — CAN A THUMB PRESS THIS WITHOUT SCROLLING? True when the control a
   // person would press by that name is inside the window and nothing is drawn over
   // its middle. `press` cannot answer it, on purpose: `press` scrolls its target
@@ -627,5 +687,5 @@ export function screenVerbs(getPage) {
     }
   }
 
-  return { onScreen, see, gone, press, pressAll, pressKey, hold, type, choose, upload, valueOf, chosen, sideways, splitWords, inReach, said }
+  return { onScreen, see, gone, press, pressAll, pressKey, hold, type, choose, upload, valueOf, chosen, sideways, splitWords, offTheLine, inReach, said }
 }
