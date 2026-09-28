@@ -479,10 +479,12 @@ func (r *Runner) work(idle chan struct{}) {
 			}
 			// The hold is asked again at the claim itself. The loop's own check
 			// comes before the held rows' write and the claim's retries, and a job
-			// enqueued in between was claimed past a hold that had just come on:
-			// TestTheHoldSeamHoldsOnlyAnOfflineServer failed that way under the
-			// race detector. The seam is set before a server starts in real use,
-			// so only a test can open the gap; closing it costs one env read.
+			// enqueued in between was claimed past a hold that had just come on.
+			// This narrows that gap and cannot close it, since an env read is not
+			// a lock. The seam is set before a server starts in real use, so only
+			// a test can open the gap at all, and
+			// TestTheHoldSeamHoldsOnlyAnOfflineServer closes the rest by flipping
+			// the switch inside Exclusive.
 			if holding() {
 				j = nil
 				return nil
