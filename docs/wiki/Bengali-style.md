@@ -1052,6 +1052,40 @@ as every other kind's is (কভার আনা, not কভার আনুন)
 | --- | --- | --- |
 | `settings.jobs.kind.backup-safety` | Safety backup | ব্যাকআপ ডাউনলোড |
 
+#### The common jobs (Settings → Jobs → Common jobs)
+
+The four jobs a reader runs again and again, each on a row of its own with Run, Run again
+and Stop in place (and, for the covers pass, Missing only). Each line is drafted to this
+sheet and marked `# ?? draft for the owner (3.1.0 common jobs)` at its key, with what to
+check; `grep -n '3.1.0 common jobs' internal/i18n/bn.txt` lists them. A row's name is a
+noun phrase, as every job's is, because the two library-wide rows also name their job in
+Current jobs and Past jobs. A press's name puts the row's name after a colon, as the Stop
+buttons do (*থামান: {title}*), so the hole stays bare (§5.4).
+
+| Key | English | Bengali |
+| --- | --- | --- |
+| `settings.jobs.common.title` | Common jobs | নিয়মিত কাজ |
+| `settings.jobs.common.fill-all.label` | Fill gaps in every work | সব উৎসের শূন্যস্থান পূরণ |
+| `settings.jobs.common.fill-all.prose` | Looks up what every book and film is missing, and fills only the empty fields. | প্রতিটা বই আর সিনেমার যা নেই, খুঁজে দেখে শুধু ফাঁকা ঘরগুলো ভরায়। |
+| `settings.jobs.common.people-missing.label` | Fetch missing people | মানুষের না-থাকা তথ্য আনা |
+| `settings.jobs.common.people-missing.prose` | A portrait and reference links for everyone still missing either. | যাঁদের মুখের ছবি বা তথ্যসূত্রের লিংক নেই, তাঁদের সবার জন্য আনে। |
+| `settings.jobs.common.covers.label` | Fetch covers and details | কভার আর তথ্য আনা |
+| `settings.jobs.common.covers.prose` | Covers, posters and the details your works are missing, across the library. | পুরো সংগ্রহের কভার, পোস্টার আর উৎসগুলোর যা তথ্য নেই। |
+| `settings.jobs.common.backup.label` | Back up now | এখনই ব্যাকআপ নেওয়া |
+| `settings.jobs.common.backup.prose` | Seals the library into the one archive the server keeps. | পুরো সংগ্রহ এনক্রিপ্ট করে সার্ভারের একমাত্র আর্কাইভে রাখে। |
+| `settings.jobs.common.run.label` | Run | চালান |
+| `settings.jobs.common.again.label` | Run again | আবার চালান |
+| `settings.jobs.common.missing-only.label` | Missing only | শুধু যা নেই |
+| `settings.jobs.common.missing-only.tip` | Only the covers and posters that are missing; one already stored is kept | শুধু যে কভার আর পোস্টার নেই; একটা থাকলে সেটাই থাকবে |
+| `settings.jobs.common.run.aria` | Run {title} | চালান: {title} |
+| `settings.jobs.common.again.aria` | Run again: {title} | আবার চালান: {title} |
+| `settings.jobs.common.missing-only.aria` | {title}: missing only | শুধু যা নেই: {title} |
+| `settings.jobs.common.stop.aria` | Stop {title} | থামান: {title} |
+| `settings.jobs.common.last.label` | Last run | শেষবার |
+| `settings.jobs.common.last.aria` | Last run of {title}: {state}, {when} | শেষবার: {title} — {state}, {when} |
+| `settings.jobs.common.never` | Not run in the last 30 days | গত 30 দিনে চালানো হয়নি |
+| `settings.jobs.common.empty` | Nothing can be run from here on this server. | এই সার্ভারে এখান থেকে কিছুই চালানো যায় না। |
+
 ---
 
 ## v3 decisions
