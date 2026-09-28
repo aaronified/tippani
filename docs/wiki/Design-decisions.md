@@ -9184,7 +9184,7 @@ to see a glyph change shape on a state change should find the reason rather than
 
 ### OPEN — the nightly `-race` sweep no longer fits in its hour
 
-*Closed at 3.0.1 by "internal/httpapi is raced nightly in six shards" below. The per-package
+*Closed at 3.0.1 by "internal/httpapi is raced nightly in shards, by test name" below. The per-package
 split after this entry did not close it, whatever that entry said.*
 
 - **Measured 2026-09-01**, on an otherwise idle machine: `go test -race
@@ -9279,16 +9279,17 @@ package."*
 
 <sub>Unreleased — `.github/workflows/ci.yml` · `internal/olog/codes_test.go`</sub>
 
-### internal/httpapi is raced nightly in six shards, by test name
+### internal/httpapi is raced nightly in shards, by test name
 
 *Closes the open question above.*
 
-- **Six jobs, one package, a sixth of its tests each.** `race-nightly-httpapi` is a matrix
-  of six shards over one package, `./internal/httpapi`, named once in the job's `PKG`. Each
+- **Ten jobs, one package, a tenth of its tests each** (six until 3.1.1). `race-nightly-httpapi` is a matrix
+  of ten shards over one package, `./internal/httpapi`, named once in the job's `PKG`. Each
   shard lists the package's tests from the race binary (`go test -race -list`), takes
-  every sixth in round-robin, and runs them with its own `-timeout 60m` and `-count=1`.
+  every tenth in round-robin, and runs them with its own `-timeout 60m` and `-count=1`.
   The share is never written down, so a test added tomorrow lands in a shard with nothing
   to update, and the shard count is the matrix's own size.
+- **Ten, from six, in 3.1.1.** 3.1.0's stop proofs, each about three minutes raced, brought all six shards to 53 to 61 minutes against their hour, and the sweep run by hand on 28 September (run 36457262379) lost shard 3 to the timeout, with no failure and no race, 8 s into a test. Ten brings a shard to about 33 minutes. The count is still only the matrix's size.
 - **The package is not a matrix axis,** because that is what keeps the matrix's size equal
   to the shard count. It was one at first. A second entry there would have doubled the
   size, so each job would take every twelfth test and half of both packages would go
