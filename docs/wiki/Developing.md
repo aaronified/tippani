@@ -236,7 +236,7 @@ The route groups themselves, so you can find the noun you want:
 | `onetime_<version>_<what>.go` | One such pass, named for the release it first ships in. Retiring it is a file deletion: nothing else names it. |
 | `hash.go` | **The dedupe rules** for all three quote kinds, and the text normalisation — punctuation folding, case, whitespace — that defines what "the same words" means. |
 | `repair.go` | `quick_check` on boot, per-index FTS rebuild, recovery-from-content, and the factory reset. |
-| `backup.go` · `swap.go` · `journal.go` | The `VACUUM INTO` snapshot; `Swap`, the one way the database files are replaced, which holds the swap lock across the move and reopens both pools on every exit; and the job history an archive leaves out (`StripJournal`) and a restore carries over (`CarryJournal`). |
+| `backup.go` · `swap.go` · `journal.go` | The `VACUUM INTO` snapshot; `Swap`, the one way the database files are replaced, which holds the swap lock across the move and reopens both pools on every exit; and the job history an archive leaves out (`StripJournal`) and a restore carries over (`CarryJournal`), marked so that nothing runs a carried job again (`CarriedJob`). |
 | `settings.go` | The key-value settings table, which is where in-app metadata keys live. |
 
 #### `internal/search/`

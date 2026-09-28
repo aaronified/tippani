@@ -203,6 +203,7 @@ type wireJob struct {
 	Username   string         `json:"username"`
 	Own        bool           `json:"own"`
 	Rerunnable bool           `json:"rerunnable"`
+	Carried    bool           `json:"carried"`
 	Applied    bool           `json:"applied"`
 	RerunOf    *int64         `json:"rerun_of"`
 	FromJob    *int64         `json:"from_job"`
@@ -213,7 +214,7 @@ type wireJob struct {
 
 // jobFields is the wire contract's job, every field.
 var jobFields = []string{"id", "kind", "queued", "subject", "state", "params", "counts", "error", "total", "done",
-	"ahead", "username", "own", "rerunnable", "applied", "rerun_of", "from_job", "created_at", "started_at", "finished_at"}
+	"ahead", "username", "own", "rerunnable", "carried", "applied", "rerun_of", "from_job", "created_at", "started_at", "finished_at"}
 
 func fieldsOf(m map[string]json.RawMessage) []string {
 	var out []string

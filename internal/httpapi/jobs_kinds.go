@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"tippani/internal/jobs"
+	"tippani/internal/store"
 )
 
 // THE KINDS OF JOB A PERSON CAN START, AND WHAT EACH MAY BE ASKED.
@@ -78,7 +79,13 @@ type queuedKind struct {
 	// runnableAgain, when set, is whether a finished job of this kind can be run
 	// again at all, from its stored params, beyond the rules above: an import only
 	// while the file it uploaded is still kept (importRunnableAgain). nil: the
-	// rules above decide.
+	// rules above decide. Whatever a kind says, a job a restore carried over is
+	// not run again (store.CarriedJob). A fill, a people fetch and a re-verify
+	// name works and records by id, an apply the rows it writes, an approval
+	// staged rows and a batch bound, all of them the replaced library's. A covers
+	// pass, a backup, an import and the library-wide variants name none, and are
+	// held to the same rule so that one rule answers for every kind, the next one
+	// included.
 	runnableAgain func(s *Server, params string) bool
 }
 
@@ -488,9 +495,16 @@ func validateReverifyApply(s *Server, raw json.RawMessage, viewer jobs.Owner) (j
 	params := map[string]any{"items": p.Items}
 	if p.FromJob != 0 {
 		var kind string
-		err := s.Store.DB.QueryRow(`SELECT kind FROM jobs WHERE id = ? AND user_id = ?`, p.FromJob, viewer.UserID).Scan(&kind)
+		var carried bool
+		err := s.Store.DB.QueryRow(`SELECT kind, `+store.CarriedJob+` FROM jobs WHERE id = ? AND user_id = ?`, p.FromJob, viewer.UserID).
+			Scan(&kind, &carried)
 		if err != nil || kind != "reverify" {
 			return jobInput{}, badParams("from_job is not one of your re-verify checks")
+		}
+		// Its review is refused (handleJobResult), so an apply naming it was not
+		// built from one, and would mark decided a check nobody could open.
+		if carried {
+			return jobInput{}, badParams("from_job ran before the library was restored; run the check again")
 		}
 		params["from_job"] = p.FromJob
 	}

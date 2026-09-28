@@ -1128,6 +1128,9 @@ func idsOf(db interface {
 // job that ran in its request, is ErrNotRerunnable. AdminOnly is checked against
 // the viewer now, not as they were when it first ran. A kind that needs a secret
 // (a backup's password) needs it again: nothing kept one.
+//
+// A JOB A RESTORE CARRIED OVER IS NOT RUN AGAIN, whatever its kind (store.CarriedJob
+// says why): its params name the replaced library's rows by id.
 func (r *Runner) Rerun(id int64, viewer Owner, secret any) (int64, error) {
 	if viewer.Gen != r.st.Generation() {
 		return 0, ErrStale
@@ -1135,8 +1138,9 @@ func (r *Runner) Rerun(id int64, viewer Owner, secret any) (int64, error) {
 	var uid sql.NullInt64
 	var kind, subject, params string
 	var total, queued int
-	switch err := r.st.DB.QueryRow(`SELECT user_id, kind, subject, params, total, queued FROM jobs WHERE id = ?`, id).
-		Scan(&uid, &kind, &subject, &params, &total, &queued); {
+	var carried bool
+	switch err := r.st.DB.QueryRow(`SELECT user_id, kind, subject, params, total, queued, `+store.CarriedJob+` FROM jobs WHERE id = ?`, id).
+		Scan(&uid, &kind, &subject, &params, &total, &queued, &carried); {
 	case errors.Is(err, sql.ErrNoRows):
 		return 0, ErrNotFound
 	case err != nil:
@@ -1145,7 +1149,7 @@ func (r *Runner) Rerun(id int64, viewer Owner, secret any) (int64, error) {
 	if !uid.Valid || uid.Int64 != viewer.UserID {
 		return 0, ErrNotFound
 	}
-	if k, ok := r.kind(kind); !ok || !k.Rerunnable || queued == 0 {
+	if k, ok := r.kind(kind); !ok || !k.Rerunnable || queued == 0 || carried {
 		return 0, ErrNotRerunnable
 	}
 	return r.enqueue(viewer, kind, subject, json.RawMessage(params), total, secret, id)

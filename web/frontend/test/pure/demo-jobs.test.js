@@ -19,7 +19,7 @@ const post = (path, body = null) => route('POST', path, new URLSearchParams(), b
 // Every field a job carries on the wire, and nothing renamed.
 const JOB_FIELDS = [
   'id', 'kind', 'queued', 'subject', 'state', 'params', 'counts', 'error', 'total', 'done',
-  'ahead', 'username', 'own', 'rerunnable', 'applied', 'rerun_of', 'from_job',
+  'ahead', 'username', 'own', 'rerunnable', 'carried', 'applied', 'rerun_of', 'from_job',
   'created_at', 'started_at', 'finished_at',
 ]
 

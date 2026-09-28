@@ -6,6 +6,7 @@ import (
 	"compress/gzip"
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -199,6 +200,112 @@ func TestAWaitingJobAStopStoppedReadsStoppedAfterARestore(t *testing.T) {
 		t.Fatalf("the stopped job was started: %+v", got)
 	}
 	saying(t, jobLines(again, w.ID), "alice stopped it before it started")
+}
+
+// A JOB A RESTORE CARRIED OVER IS HISTORY: IT IS READ, AND NOTHING ACTS ON IT AGAIN.
+// Its params name the replaced library's rows by id — the works a fill was
+// given, the records a people fetch, the fields an apply writes, the staged
+// quotes and batch bound an approval took — and in the restored library the same
+// ids can be other rows. So after the restore none of the jobs from before it is
+// offered Run again, or run again when asked, whatever its kind; a check's
+// findings are not reviewed against the restored rows, nor applied in its name;
+// an import stopped before the restore lets go of its upload, which nothing can
+// run again; and a job made after the restore is its own, offered Run again as
+// any is. Before the restore every one of them was offered Run again, which is
+// what makes the after half mean something.
+//
+// Beyond the header: a finished job of each of the other kinds is written into
+// the journal as its run leaves it (interrupted, or succeeded for the check,
+// with the findings its run stores), since a real run of each goes to the
+// suppliers; the import is a real upload, stopped while it waited behind the
+// test's own job (queueing).
+//
+// Mutation: the carry's mark (store.CarriedThroughKey) not written: red, every
+// job from before the restore is offered Run again.
+func TestAJobARestoreCarriedOverIsNotRunAgainOrReviewed(t *testing.T) {
+	srv := newTestServer(t)
+	q := queueing(t, srv)
+	h := srv.Handler()
+	admin := signupAdmin(t, h)
+	book := decode[struct {
+		ID int64 `json:"id"`
+	}](t, admin.mustDo("POST", "/books", map[string]any{"title": "Dune", "author": "Frank Herbert"}, http.StatusCreated)).ID
+	backupNow(admin)
+	safetyBackup(t, admin)
+	uid := accountID(t, admin, "alice")
+
+	now := time.Now().UnixMilli()
+	write := func(kind, state, params, result, counts string) int64 {
+		t.Helper()
+		var id int64
+		if err := srv.Store.DB.QueryRow(`INSERT INTO jobs (user_id, username, kind, state, params, result, counts, created_at, started_at, finished_at)
+			VALUES (?, 'alice', ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`, uid, kind, state, params, result, counts, now, now, now).Scan(&id); err != nil {
+			t.Fatal(err)
+		}
+		return id
+	}
+	item := fmt.Sprintf(`{"type":"book","id":%d,"set":{"description":"A desert planet."}}`, book)
+	before := map[string]int64{
+		"fill":           write("fill", "interrupted", fmt.Sprintf(`{"book_ids":[%d],"movie_ids":[]}`, book), "", "{}"),
+		"covers":         write("covers", "interrupted", `{"missing_only":false}`, "", "{}"),
+		"people":         write("people", "interrupted", `{"ids":[1]}`, "", "{}"),
+		"reverify-apply": write("reverify-apply", "interrupted", `{"items":[`+item+`]}`, "", "{}"),
+		"backup":         write("backup", "interrupted", `{}`, "", "{}"),
+		"import.approve": write("import.approve", "interrupted", `{"all":true,"through":1}`, "", "{}"),
+		"reverify": write("reverify", "succeeded", fmt.Sprintf(`{"book_ids":[%d],"movie_ids":[],"people":[],"fills_only":false}`, book),
+			fmt.Sprintf(`[{"type":"book","id":%d,"title":"Dune","status":"ok","diffs":[{"field":"description","stored":"","fresh":"A desert planet."}]}]`, book),
+			`{"items":1,"changes":1}`),
+	}
+	// The import: waiting behind the test's own job, stopped there, its upload kept.
+	ahead := admin.mustStart("test.hold", map[string]any{"tag": "ahead"})
+	admin.waitJob(ahead.ID, "running")
+	imp := queuedJob(t, admin.uploadOnly("/import/markdown", "sandworm.md", []byte(stagedBookMD)))
+	admin.mustDo("POST", fmt.Sprintf("/jobs/%d/stop", imp.ID), nil, http.StatusOK)
+	q.let()
+	admin.waitJob(ahead.ID, "succeeded")
+	before["import"] = imp.ID
+
+	for kind, id := range before {
+		if j := admin.job(id); !j.Rerunnable || j.Carried {
+			t.Fatalf("before the restore, the %s job is %+v; the test needs it offered Run again", kind, j)
+		}
+	}
+	admin.mustDo("GET", fmt.Sprintf("/jobs/%d/result", before["reverify"]), nil, http.StatusOK)
+	if left := spooled(t, srv); len(left) != 1 {
+		t.Fatalf("the spool before the restore: %v, want the stopped import's upload", left)
+	}
+
+	admin.mustDo("POST", "/admin/restore", map[string]any{"password": testPw}, http.StatusOK)
+	again := &testClient{t: t, h: h}
+	again.cookie = cookieOf(t, again.mustDo("POST", "/auth/login", map[string]string{"username": "alice", "password": testPw}, http.StatusOK))
+
+	for kind, id := range before {
+		j := again.job(id)
+		if !j.Own || !j.Carried || j.Rerunnable {
+			t.Errorf("after the restore, the %s job from before it is %+v; want still alice's, carried, and not offered Run again", kind, j)
+		}
+		// A backup's rerun asks for the password again; the answer is the same.
+		if rec := again.do("POST", fmt.Sprintf("/jobs/%d/rerun", id), map[string]any{"password": testPw}); rec.Code != http.StatusConflict {
+			t.Errorf("Run again on the %s job from before the restore: %d %s, want 409", kind, rec.Code, rec.Body)
+		}
+	}
+	if rec := again.do("GET", fmt.Sprintf("/jobs/%d/result", before["reverify"]), nil); rec.Code != http.StatusConflict ||
+		!bytes.Contains(rec.Body.Bytes(), []byte("before the library was restored")) {
+		t.Fatalf("the review of a check from before the restore: %d %s, want it refused", rec.Code, rec.Body)
+	}
+	if rec := again.startJob("reverify-apply", map[string]any{"items": []json.RawMessage{json.RawMessage(item)}, "from_job": before["reverify"]}); rec.Code != http.StatusBadRequest {
+		t.Fatalf("an apply in the name of a check from before the restore: %d %s, want 400", rec.Code, rec.Body)
+	}
+	if left := spooled(t, srv); len(left) != 0 {
+		t.Fatalf("the spool after the restore: %v, want the carried import's upload gone", left)
+	}
+
+	// A job made after the restore is offered Run again as any is.
+	after := again.jobEnded(again.mustStart("test.fail", map[string]any{"tag": "after"}).ID)
+	if after.Carried || !after.Rerunnable {
+		t.Fatalf("a job made after the restore: %+v, want its own and offered Run again", after)
+	}
+	again.mustDo("POST", fmt.Sprintf("/jobs/%d/rerun", after.ID), nil, http.StatusAccepted)
 }
 
 // assertNoJournal opens the database inside a plaintext archive and checks that

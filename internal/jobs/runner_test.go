@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -50,7 +51,8 @@ import (
 // interrupted and nothing resumes by itself; shutdown interrupts what it cannot
 // finish and refuses anything new, and does not wait out a lock held elsewhere to
 // say so; a restore waits for a running job and holds
-// the queue while it runs; only the owner can run a job again; a job started
+// the queue while it runs; only the owner can run a job again, and nobody a job
+// a restore carried over; a job started
 // twice, or a sixth, is refused with the reason; no job is left waiting with
 // nothing to run it, and a Stop never loses a race with the job starting;
 // progress is written every half second and always at the end; a job that
@@ -1161,6 +1163,34 @@ func TestARestoreWaitsForTheRunningJobAndHoldsTheQueueWhileItRuns(t *testing.T) 
 	}
 	if _, err := g.r.Enqueue(g.mitra(), "quick", "", map[string]any{"after": 1}, 0, nil); err != nil {
 		t.Fatalf("Enqueue after the restore: %v", err)
+	}
+}
+
+// A JOB A RESTORE CARRIED OVER IS NOT RUN AGAIN, whatever its kind: its params
+// name the replaced library's rows by id. The carry is the store's own
+// (store.CarryJournal), from a copy of this database standing in for the file a
+// restore replaced, as the restore runs it; a job made after it is run again as
+// any is.
+//
+// Mutation: Rerun without its check of store.CarriedJob: red, the carried job is
+// queued again.
+func TestAJobARestoreCarriedOverIsNotRunAgain(t *testing.T) {
+	g := newRig(t, jobs.Options{})
+	old := g.enqueue(g.mitra(), "quick", map[string]any{"q": "before"})
+	g.waitState(old, "succeeded")
+	flush(t, g.lb)
+	replaced := filepath.Join(t.TempDir(), "replaced.db")
+	exec(t, g.st.DB, `VACUUM INTO ?`, replaced)
+	if err := store.CarryJournal(g.st.DB, replaced); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := g.r.Rerun(old, g.mitra(), nil); !errors.Is(err, jobs.ErrNotRerunnable) {
+		t.Fatalf("Run again on a job a restore carried over: %v, want ErrNotRerunnable", err)
+	}
+	after := g.enqueue(g.mitra(), "quick", map[string]any{"q": "after"})
+	g.waitState(after, "succeeded")
+	if _, err := g.r.Rerun(after, g.mitra(), nil); err != nil {
+		t.Fatalf("Run again on a job made after the restore: %v", err)
 	}
 }
 

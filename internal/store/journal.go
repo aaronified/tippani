@@ -25,6 +25,32 @@ import (
 // journalTables are emptied out of every snapshot, children first.
 var journalTables = []string{"job_logs", "jobs", "system_logs"}
 
+// A JOB CARRIED OVER BY A RESTORE IS HISTORY, AND IS NOT ACTED ON AGAIN. Its params
+// name rows by id — works, people, staged quotes, a batch bound — and in the
+// restored library those ids can be other rows: a Run again of a fill, a stopped
+// approval's batch bound or a re-verify's findings would act on rows nobody
+// chose. So the carry marks where the carried jobs end (CarriedThroughKey), and a
+// job at or below that mark is read, exported and kept for its thirty days, and
+// never run again or reviewed (CarriedJob).
+//
+// A COUNTER, NOT A COLUMN, and in settings, which every restore brings with the
+// library: the carry keeps job ids and the counter AUTOINCREMENT hands out next,
+// so every job carried has an id at or below the counter the carry leaves, and
+// every job made after it one above. It needs no migration (0079 is shipped), and
+// a recovery, which copies settings with every other table, keeps it. An archive
+// brings the mark its own server left, which is at or below the id counter it
+// also brings, so a job made after a restore whose carry failed is still above it.
+
+// CarriedThroughKey is the settings row holding the id counter as the last
+// restore's carry left it: every job at or below it came over from the server
+// the restore replaced.
+const CarriedThroughKey = "jobs.carried_through"
+
+// CarriedJob is SQL, over a row of jobs, that is true when the job came over with
+// a restore's carry (CarriedThroughKey): 1 or 0, and 0 where no restore has
+// carried anything.
+const CarriedJob = `(jobs.id <= COALESCE((SELECT CAST(value AS INTEGER) FROM settings WHERE key = '` + CarriedThroughKey + `'), 0))`
+
 // StripJournal empties the journal out of a database snapshot before it is sealed
 // into an archive (every archive: the backup job, the API's backup, the safety
 // copy taken before a restore or a reset). The snapshot is a VACUUM INTO copy the
@@ -106,7 +132,9 @@ func StripJournal(snapPath string) (err error) {
 // A job that was queued or running is interrupted: the restore stopped the world
 // under it, and nothing resumes on its own. The ids AUTOINCREMENT will hand out
 // next are carried too, so a job pruned before the restore does not lend its id to
-// one made after it.
+// one made after it. And the counter the carry leaves is kept as the mark where
+// the carried jobs end (CarriedThroughKey), so none of them is run again or
+// reviewed against the restored library's rows.
 //
 // It runs on one pinned connection because ATTACH is per connection: on a pool the
 // copies could run on a connection that never attached.
@@ -185,6 +213,12 @@ func CarryJournal(db *sql.DB, from string) (err error) {
 			INSERT INTO main.sqlite_sequence (name, seq)
 			SELECT name, seq FROM old.sqlite_sequence
 			 WHERE name = 'jobs' AND NOT EXISTS (SELECT 1 FROM main.sqlite_sequence WHERE name = 'jobs')`, nil},
+		// Last, over the counter the two steps above settled: every job carried is
+		// at or below it, and every job made from here on above it.
+		{"mark where the carried jobs end", `
+			INSERT OR REPLACE INTO main.settings (key, value)
+			SELECT ?, CAST(COALESCE((SELECT seq FROM main.sqlite_sequence WHERE name = 'jobs'), 0) AS TEXT)`,
+			[]any{CarriedThroughKey}},
 	} {
 		if _, err := tx.ExecContext(ctx, step.sql, step.args...); err != nil {
 			return fmt.Errorf("%s: %w", step.what, err)

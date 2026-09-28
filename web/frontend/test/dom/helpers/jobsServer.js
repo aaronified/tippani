@@ -36,7 +36,7 @@ export function jobsServer({ own = true } = {}) {
 
   const job = (over) => ({
     id: 0, kind: 'fill', queued: true, subject: '', state: 'queued', params: {}, counts: {},
-    error: '', total: 0, done: 0, ahead: 0, username: '', own, rerunnable: false, applied: false,
+    error: '', total: 0, done: 0, ahead: 0, username: '', own, rerunnable: false, carried: false, applied: false,
     rerun_of: null, from_job: null, created_at: NOW(), started_at: null, finished_at: null,
     ...over,
   })

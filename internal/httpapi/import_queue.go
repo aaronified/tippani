@@ -16,6 +16,7 @@ import (
 
 	"tippani/internal/jobs"
 	"tippani/internal/olog"
+	"tippani/internal/store"
 )
 
 // AN IMPORT IS A QUEUED JOB (3.1.0).
@@ -393,9 +394,10 @@ func (s *Server) SweepSpool() {
 // sweepSpool removes the spooled uploads no import that can still run, or run
 // again, names: one waiting, running, stopped or interrupted, of an account that
 // still exists (0079's trigger clears the owner of a deleted account's jobs, and
-// nobody can run those again). It keeps everything when it cannot read the jobs:
-// a file kept a while too long costs disk, and one removed from under a job costs
-// the reader's upload.
+// nobody can run those again), and not carried over by a restore (store.CarriedJob:
+// nothing a restore carried is run again). It keeps everything when it cannot
+// read the jobs: a file kept a while too long costs disk, and one removed from
+// under a job costs the reader's upload.
 func (s *Server) sweepSpool() {
 	s.spoolMu.Lock()
 	defer s.spoolMu.Unlock()
@@ -406,7 +408,7 @@ func (s *Server) sweepSpool() {
 	keep := map[string]bool{}
 	rows, err := s.Store.DB.Query(`SELECT json_extract(params, '$.spool') FROM jobs
 		WHERE kind = 'import' AND state IN ('queued', 'running', 'stopped', 'interrupted')
-		  AND user_id IS NOT NULL AND json_valid(params)`)
+		  AND user_id IS NOT NULL AND json_valid(params) AND NOT ` + store.CarriedJob)
 	if err != nil {
 		olog.Warnf(olog.CodeImportStage, "[import] the upload spool was not swept: %v", err)
 		return

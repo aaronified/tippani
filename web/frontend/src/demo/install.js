@@ -871,7 +871,7 @@ const demoJob = (over) => ({
   id: 0, kind: 'fill', queued: true, subject: '', state: 'succeeded', params: {}, counts: {},
   error: '', total: 0, done: 0, ahead: 0,
   // `username` is "" unless the viewer is an admin — and the demo reader is one.
-  username: 'reader', own: true, rerunnable: false, applied: false,
+  username: 'reader', own: true, rerunnable: false, carried: false, applied: false,
   rerun_of: null, from_job: null,
   created_at: JOB_T, started_at: JOB_T, finished_at: JOB_T,
   ...over,
