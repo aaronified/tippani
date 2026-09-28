@@ -189,16 +189,33 @@ func (j *jobRow) settle(held map[int64]int64) {
 }
 
 // visibleJob reads job id if v may see it. A job v may not see is not found.
+//
+// THE QUEUE'S MEMORY IS READ BEFORE THE ROW, as the list reads it. A held row's
+// write lands and then its mark goes, so a mark read first is either still owed
+// by the row, which then reads waiting, or already paid, and the row then reads
+// stopped. Read after the row, a write landing between the two reads left the
+// row reading waiting with no mark to settle it, and a job its Stop had just
+// stopped answered as waiting, the Stop's own answer among them.
 func (s *Server) visibleJob(id int64, v jobs.Owner) (jobRow, bool, error) {
+	held := s.heldStops()
 	scope, args := visibleTo(v)
 	row, err := scanJob(s.Store.DB.QueryRow(`SELECT `+jobColumns+` FROM jobs WHERE id = ? AND `+scope,
 		append([]any{id}, args...)...))
 	if errors.Is(err, sql.ErrNoRows) {
 		return jobRow{}, false, nil
 	}
-	row.settle(s.heldStops())
+	if afterJobRowRead != nil {
+		afterJobRowRead()
+	}
+	row.settle(held)
 	return row, err == nil, err
 }
+
+// afterJobRowRead, when set, runs as visibleJob has read a job's row and before
+// it reads the row as the queue has it. A test seam and nothing else: the one way
+// to land the write of a held row between the two, a window of microseconds that
+// nothing a person does holds open.
+var afterJobRowRead func()
 
 // jobViews turns rows into what the API answers, for v. It reads, once for the
 // lot, which jobs are waiting or running anywhere (for ahead) and which of these

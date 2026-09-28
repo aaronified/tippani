@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"maps"
 	"slices"
 	"time"
@@ -30,7 +31,9 @@ import (
 //     heldWriteWait, and otherwise by whichever comes first: the worker, before
 //     each claim; the running job, after each progress write, which it makes
 //     between items with its own transaction closed; or shutdown, before it
-//     interrupts what still waits.
+//     interrupts what still waits. A write that finds the row taken by a claim
+//     already under way keeps the mark, since the worker stops the job only by
+//     finding it (settleHeld says why).
 //
 // NO GOROUTINE WAITS FOR THE LOCK ON ITS BEHALF: the three writers are the two
 // that already exist (§1 of the design log, "nothing wakes on a timer"). If the
@@ -166,7 +169,8 @@ type beginner interface {
 
 // settleHeld writes the held jobs' rows, stopped at the moment each was held, in
 // one transaction, and lets go of the marks it wrote: from then on the row says
-// what the mark said. A mark from a database the server is no longer on is let
+// what the mark said. A mark whose row a claim has taken meanwhile is kept for
+// the worker (below). A mark from a database the server is no longer on is let
 // go of unwritten, since its row is in a file nothing reads.
 func (r *Runner) settleHeld(db beginner) error {
 	gen := r.st.Generation()
@@ -188,8 +192,29 @@ func (r *Runner) settleHeld(db beginner) error {
 		return err
 	}
 	defer tx.Rollback()
+	claimed := map[int64]bool{}
 	for id, h := range todo {
-		if _, err := tx.Exec(`UPDATE jobs SET state = 'stopped', finished_at = ? WHERE id = ? AND state = 'queued'`, h.at, id); err != nil {
+		res, err := tx.Exec(`UPDATE jobs SET state = 'stopped', finished_at = ? WHERE id = ? AND state = 'queued'`, h.at, id)
+		if err != nil {
+			return err
+		}
+		if n, err := res.RowsAffected(); err != nil {
+			return err
+		} else if n == 1 {
+			continue
+		}
+		// NOT WAITING ANY MORE, AND ONE THAT READS RUNNING KEEPS ITS MARK. A claim
+		// reads the held set and then waits for the lock, so a Stop pressed in that
+		// wait finds the row still waiting and holds it, and the claim can have the
+		// lock first and take the job. The worker stops such a job before its first
+		// step only if its mark is still here when it looks (work's unhold), which
+		// takes it; letting go of it here let the job run. Any other row has ended,
+		// or is gone, and its mark has nothing left to do.
+		var state string
+		switch err := tx.QueryRow(`SELECT state FROM jobs WHERE id = ?`, id).Scan(&state); {
+		case err == nil && state == StateRunning:
+			claimed[id] = true
+		case err != nil && !errors.Is(err, sql.ErrNoRows):
 			return err
 		}
 	}
@@ -198,7 +223,7 @@ func (r *Runner) settleHeld(db beginner) error {
 	}
 	r.hmu.Lock()
 	for id, h := range todo {
-		if r.held[id] == h {
+		if r.held[id] == h && !claimed[id] {
 			delete(r.held, id)
 		}
 	}
