@@ -1,6 +1,7 @@
 // A viewer types a long line of dialogue into the capture form faster than the
 // page can keep up, and every letter of it is in the box, saved, and still there
-// after a reload.
+// after a reload. The same holds for a show's description, typed into the sheet
+// its Details open for it.
 //
 // WHAT THIS GUARDS. CI run 36442773656 (3.1.0's main, attempt 1): the film-line
 // journey typed "…the storm put half of them out." and the show's page listed
@@ -12,6 +13,14 @@
 // it gives React that turn, each keystroke's render ends with the second one
 // still waiting, React counts them as one chain of nested updates, and past fifty
 // it throws out of the next keystroke — which is lost. "hal" is the 52nd letter.
+//
+// AND THE SAME SHAPE ONE SCREEN OVER, which is why this file has two cases. The
+// sheet a show's Details open for its description told the panel around it how
+// many things were unsaved on every letter — nought as the old letter's effect
+// was cleaned up, then one again — so each letter there was the same second
+// update waiting for React's turn, and the same burst lost the same letters. The
+// form's fix did not reach it: it is a different effect, and no journey had
+// typed into that sheet.
 //
 // WHY `type` CANNOT SHOW IT. `type` presses one key per round trip to the
 // browser, and on a machine with time to spare the page gets its turn between
@@ -35,6 +44,14 @@
 // letters — the 52nd is lost, and the 52nd after that — the page throws the
 // maximum-update-depth error twice, and this fails at its first assertion. The
 // form as 3.1.0 and 3.0.4 shipped it fails the same way, two letters short.
+// With the draft put back in the dependencies of the sheet's unsaved-count
+// effect, the description case fails where it reads the box back, two letters
+// short ("lantrn", "burnin"), and the dialogue case stays green.
+//
+// THE SECOND CASE COUNTS ONLY ITS OWN PAGE ERRORS. The world keeps one list for
+// the whole file, so a throw in the first case would otherwise fail the second as
+// well, which is how CI run 36442773656 failed both cases of the film-line
+// journey for one lost letter.
 
 import { expect, it } from 'vitest'
 
@@ -78,4 +95,28 @@ it('a viewer who types a long line faster than the page can draw keeps every let
   await app.see(LINE)
 
   expect(app.pageErrors(), 'the page threw on the way').toEqual([])
+})
+
+it('a viewer who types a long description faster than the page can draw keeps every letter of it', async () => {
+  const before = app.pageErrors().length
+  await app.goto('/catalogue')
+  await app.press('A Serial In Several Parts')
+  await app.press('Details')
+  await app.press('Edit Description')
+
+  await app.type('Description', LINE[0])
+  expect(await typeFasterThanThePageDraws(LINE.slice(1))).toBeNull()
+
+  expect(await app.valueOf('Description'), 'the box lost letters as they were typed').toBe(LINE)
+  expect(app.pageErrors().slice(before), 'the page threw while the description was typed').toEqual([])
+
+  await app.press('Save')
+
+  // AND IT IS THE SERVER'S, after a fresh navigation.
+  await app.goto('/catalogue')
+  await app.press('A Serial In Several Parts')
+  await app.press('Details')
+  await app.see(LINE)
+
+  expect(app.pageErrors().slice(before), 'the page threw on the way').toEqual([])
 })

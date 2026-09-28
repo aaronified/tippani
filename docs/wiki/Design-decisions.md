@@ -15877,6 +15877,16 @@ now to hand the bar the render's own `save`, re-published with every change to t
 draft; `typing-a-line-faster-than-the-page-draws.journey.mjs` types a 150-letter
 line without giving React a turn, and fails two letters short on the old effect.
 
+**THE SAME SHAPE WAS ONE SCREEN OVER, in the sheet a work's Details open for its
+description.** The sheet tells the panel around it how many things are unsaved, and
+its effect re-ran on every letter: nought from the cleanup, then one again, which is
+the same second update left waiting for React's turn. The same burst lost the same two
+letters there with the capture form already fixed, and on 3.0.4's shipped build; the
+effect is the same at 3.0.0. It now works out whether the text differs from what is stored
+during the render and hands the panel only that, so the count changes on the first
+letter and when the text is typed back, the way the identity form's count and every
+inline row's registration already did. The burst journey's second case types into it.
+
 **Two password boxes on the Profile screen compute to the same accessible name.**
 "new password (8–20)" under CHANGE PASSWORD and "new password (8–20)" under Add
 user, confirmed as two backendNodeIds with one name. A screen-reader user hears the
