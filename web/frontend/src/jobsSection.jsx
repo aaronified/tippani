@@ -246,6 +246,10 @@ export function JobsCurrentCard({ user, compact = false }) {
     if (total > 0) toast(t('settings.jobs.current.stop-all.done', { count: total, n: total }))
   }
 
+  // NO TOAST. The row said "Stopping…" at the press and leaves the card when the
+  // job reads stopped, a moment later, for Past jobs, where its state is what it
+  // ended as. A toast at the server's answer could only guess: a Stop that lands
+  // once the last item is written leaves the job succeeded, not stopped.
   async function stopOne(job) {
     markStopping([job.id], true)
     const r = await stopJob(job.id)
@@ -253,7 +257,6 @@ export function JobsCurrentCard({ user, compact = false }) {
       markStopping([job.id], false)
       return toast(r.error)
     }
-    if (job.state === 'running') toast(t('settings.jobs.current.stop.done'))
   }
 
   // RED, WITH ITS WORDS, AND ABSENT RATHER THAN DISABLED when there is nothing to

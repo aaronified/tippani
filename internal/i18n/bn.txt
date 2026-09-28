@@ -5852,8 +5852,6 @@ settings.jobs.current.stop.next.aria = থামান: {title} (এরপরে
 settings.jobs.current.stop.ahead.aria.one = থামান: {title} (আগে একটা কাজ)
 settings.jobs.current.stop.ahead.aria.other = থামান: {title} (আগে {n}টা কাজ)
 # A Stop is at once, and the job's item in hand is left untouched.
-# ?? draft for the owner (3.1.0): থামানো হল · হাতেরটুকু যেমন ছিল for "Stopped · item in hand untouched", a toast's five words
-settings.jobs.current.stop.done = থামানো হল · হাতেরটুকু যেমন ছিল
 # ?? draft for the owner (3.1.0): থামছে… for "Stopping…"; it was হাতেরটুকু সেরে থামছে… while a Stop waited for the item in hand
 settings.jobs.current.stopping = থামছে…
 settings.jobs.current.stop-all.label = সব থামান

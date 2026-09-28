@@ -1050,12 +1050,13 @@ that promised "after the item in hand" says so now. Marked `# ?? draft for the o
 at its key; `grep -n 'owner (3.1.0):' internal/i18n/bn.txt` lists them. *সঙ্গে সঙ্গে* is "at
 once" as it is said aloud; *যেমন ছিল তেমনই থাকবে* ("stays as it was") is "left untouched"
 without a form-Bengali word for untouched; *হাতেরটুকু* keeps the jobs pass's word for the item
-in hand.
+in hand. A single Stop's toast went with it: the row says *থামছে…* at the press, and a toast at
+the server's answer could not know whether the job would end stopped or, its last item already
+written, succeeded.
 
 | Key | English | Bengali |
 | --- | --- | --- |
 | `settings.jobs.current.stop-all.confirm.running` | The running job stops at once, and the item it has in hand is left untouched. | যেটা চলছে, সেটা সঙ্গে সঙ্গে থামবে, আর হাতেরটুকু যেমন ছিল তেমনই থাকবে। |
-| `settings.jobs.current.stop.done` | Stopped · item in hand untouched | থামানো হল · হাতেরটুকু যেমন ছিল |
 | `settings.jobs.current.stopping` | Stopping… | থামছে… |
 | `reverify.stop.confirm.body` | It stops at once and leaves the item in hand untouched, and it is kept in Settings → Jobs with its log. | সঙ্গে সঙ্গে থামবে, হাতেরটুকু যেমন ছিল তেমনই থাকবে, আর তার লগ নিয়ে সেটিংস → কাজ-এ থেকে যাবে। |
 | `reverify.stop.stopping` | Stopping… | থামছে… |

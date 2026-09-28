@@ -5992,9 +5992,8 @@ settings.jobs.current.stop.running.aria = Stop {title} (running)
 settings.jobs.current.stop.next.aria = Stop {title} (next)
 settings.jobs.current.stop.ahead.aria.one = Stop {title} (one job ahead)
 settings.jobs.current.stop.ahead.aria.other = Stop {title} ({n} jobs ahead)
-# Toasts are five words or fewer (ui.jsx's toast); the row itself says the rest.
-# A Stop is at once, and the job's item in hand is left untouched.
-settings.jobs.current.stop.done = Stopped · item in hand untouched
+# Said on the row from the instant Stop is pressed until the job reads stopped,
+# which is a moment: a Stop is at once, and the job's item in hand is left untouched.
 settings.jobs.current.stopping = Stopping…
 settings.jobs.current.stop-all.label = Stop all
 settings.jobs.current.stop-all.confirm.title = Stop all jobs?

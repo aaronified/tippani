@@ -228,13 +228,18 @@ describe('Current jobs', () => {
     expect(screen.queryByText(/jobs? stopped/)).toBeNull()
   })
 
-  it('stops the running job on its own Stop, at once, and says the item in hand is untouched', async () => {
+  // AND NO TOAST. The row says "Stopping…", and leaves for Past jobs when the job
+  // reads stopped; a toast at the server's answer could only guess how the job
+  // ends, and a Stop that lands once its last item is written leaves it succeeded.
+  it('stops the running job on its own Stop, and the row says Stopping… with no toast guessing how it ends', async () => {
     await page()
     const current = await card('Current jobs')
     fireEvent.click(await within(current).findByRole('button', { name: 'Stop Fetch covers (running)' }))
     await waitFor(() => expect(posted('/jobs/10/stop')).toHaveLength(1))
-    await screen.findByText('Stopped · item in hand untouched')
     expect(within(current).getByText('Stopping…')).toBeTruthy()
+    // The answer has come: a toast it set off would be up by now.
+    await new Promise((r) => setTimeout(r, 100))
+    expect(screen.queryAllByRole('status').map((s) => s.textContent)).toEqual([])
   })
 
   // THE ROW SAYS IT HEARD THE INSTANT OF THE PRESS, not when the server answers:
