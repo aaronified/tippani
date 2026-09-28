@@ -38,3 +38,16 @@ func logOutwardFailure(code olog.Code, err error, format string, args ...any) {
 	}
 	olog.Errorf(code, format, args...)
 }
+
+// warnOutwardFailure is the same rule for the calls whose failure was always a
+// warning rather than an error — a picture a review's apply or a fill could not
+// fetch, one film supplier of several that did not answer — where the work goes
+// on without it: a call a Stop cut is a trace line, not a warning. Offline
+// refusals stay warnings here, as they were.
+func warnOutwardFailure(code olog.Code, err error, format string, args ...any) {
+	if errors.Is(err, context.Canceled) {
+		olog.Tracef(format, args...)
+		return
+	}
+	olog.Warnf(code, format, args...)
+}

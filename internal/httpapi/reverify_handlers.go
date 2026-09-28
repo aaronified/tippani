@@ -1394,7 +1394,7 @@ func (s *Server) applyReverifyBook(ctx context.Context, uid, id int64, set map[s
 	newCover, oldCover := "", ""
 	if hasCover && strings.TrimSpace(coverURL) != "" && ctx.Err() == nil {
 		if name, ferr := s.fetchImage(ctx, strings.TrimSpace(coverURL), s.coversDir()); ferr != nil {
-			olog.Warnf(olog.CodeMetaReverifyImage, "[meta] re-verify book %d cover fetch failed: %v", id, ferr)
+			warnOutwardFailure(olog.CodeMetaReverifyImage, ferr, "[meta] re-verify book %d cover fetch failed: %v", id, ferr)
 			note = "cover: fetch failed — other fields applied"
 		} else {
 			newCover = name
@@ -1613,7 +1613,7 @@ func (s *Server) applyReverifyMovie(ctx context.Context, uid, id int64, set map[
 	newPoster, oldPoster := "", ""
 	if hasPoster && strings.TrimSpace(posterURL) != "" && ctx.Err() == nil {
 		if name, ferr := s.fetchImage(ctx, strings.TrimSpace(posterURL), s.coversDir()); ferr != nil {
-			olog.Warnf(olog.CodeMetaReverifyImage, "[meta] re-verify movie %d poster fetch failed: %v", id, ferr)
+			warnOutwardFailure(olog.CodeMetaReverifyImage, ferr, "[meta] re-verify movie %d poster fetch failed: %v", id, ferr)
 			note = "poster: fetch failed — other fields applied"
 		} else {
 			newPoster = name
@@ -1801,7 +1801,7 @@ func (s *Server) applyReverifyPerson(ctx context.Context, uid int64, kind, name 
 	newImage := ""
 	if hasPortrait && strings.TrimSpace(portraitURL) != "" && ctx.Err() == nil {
 		if img, ferr := s.fetchImage(ctx, strings.TrimSpace(portraitURL), s.coversDir()); ferr != nil {
-			olog.Warnf(olog.CodeMetaReverifyImage, "[meta] re-verify person %q portrait fetch failed: %v", name, ferr)
+			warnOutwardFailure(olog.CodeMetaReverifyImage, ferr, "[meta] re-verify person %q portrait fetch failed: %v", name, ferr)
 			note = "portrait: fetch failed — other fields applied"
 		} else {
 			newImage = img
@@ -1931,7 +1931,8 @@ func (s *Server) fetchAllMovieSources(ctx context.Context, uid, id int64, mediaT
 		if err != nil {
 			// Logged and remembered, not returned: another supplier may still
 			// answer, and one being down must not cost the reader the other's.
-			olog.Warnf(olog.CodeMetaReverifyFetch, "[meta] re-verify %s#%s: %v", source, sourceID, err)
+			// One a Stop cut is not down, and is no warning (warnOutwardFailure).
+			warnOutwardFailure(olog.CodeMetaReverifyFetch, err, "[meta] re-verify %s#%s: %v", source, sourceID, err)
 			lastErr = err
 			return
 		}

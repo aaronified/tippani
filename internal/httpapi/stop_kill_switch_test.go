@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -21,6 +22,7 @@ import (
 
 	"tippani/internal/jobs"
 	"tippani/internal/metadata"
+	"tippani/internal/olog"
 )
 
 // A STOP IS INSTANT, AND IT BREAKS NOTHING — AT EVERY PLACE ONE CAN LAND.
@@ -43,7 +45,10 @@ import (
 //     picture a book, film, person or character names is there and served, and
 //     no picture is there that nothing names;
 //   - the job queued behind it runs and succeeds, and the stopped job, run again,
-//     succeeds and does all it was given.
+//     succeeds and does all it was given;
+//   - and a Stop is not a failure: from the press to the check, nothing reaches
+//     the system log as a warning or an error, as System logs shows it (GET
+//     /admin/logs), though every call the Stop cut returned an error.
 //
 // THE ROW'S STOP IS PRESSED AT EVERY POINT; Stop all, and an admin deleting the
 // reader whose job it is, at one point of each kind, a call on the wire where the
@@ -86,6 +91,8 @@ import (
 //     nothing is on the wire for a stub to hold;
 //   - the data directory (srv.DataDir), walked for what a Stop could leave, and
 //     its MediaCover folder, listed against the pictures the API names;
+//   - olog's sink goes into the queue's logbook, as serve() routes it, so the
+//     system log can be read as an admin reads it;
 //   - the wire field names, which are the contract the screens are built to.
 
 // pngPicture sniffs as a PNG and clears the size floor for a picture.
@@ -117,6 +124,8 @@ type killWorld struct {
 	// posters lets a film's poster through, from TMDB's image host to the stub.
 	// Off while the films are added, so each is left for a covers pass to fetch.
 	posters atomic.Bool
+	// lb is the queue's logbook, which the system log is written through.
+	lb *jobs.Logbook
 }
 
 func newKillWorld(t *testing.T) *killWorld {
@@ -125,8 +134,10 @@ func newKillWorld(t *testing.T) *killWorld {
 	// its way out reads it.
 	metadata.AllowAnyImageHostForTest(t)
 	srv := newTestServer(t)
-	queueing(t, srv)
-	w := &killWorld{t: t, srv: srv, reached: make(chan string, 1)}
+	q := queueing(t, srv)
+	olog.SetSink(func(e olog.Entry) { q.lb.System(e.Level, e.Code, e.Line) })
+	t.Cleanup(func() { olog.SetSink(nil) })
+	w := &killWorld{t: t, srv: srv, reached: make(chan string, 1), lb: q.lb}
 	w.holding.Store(true)
 	w.images = w.imageHost()
 	srv.fetchImage = func(ctx context.Context, rawURL, dir string) (string, error) {
@@ -871,6 +882,11 @@ func runKillCase(t *testing.T, c killCase, press string) {
 		next = behind()
 	}
 
+	// The newest line of the system log before the press: a warning the Stop
+	// caused is one written after it.
+	flushed(t, w.lb)
+	mark := w.admin.logs(url.Values{"level": {"error,warn,info,request,asset,trace"}}).Upto
+
 	viewer, line := owner, who+" pressed Stop"
 	var deleted chan int
 	pressed := time.Now()
@@ -920,6 +936,14 @@ func runKillCase(t *testing.T, c killCase, press string) {
 	// cannot, since it is logged before anybody knows.
 	if c.outward && !strings.Contains(log, " — left untouched: stopped before anything of it was written") {
 		t.Fatalf("the job's log does not say which item the Stop left as it was:\n%s", log)
+	}
+	// A STOP IS NOT A FAILURE. What it cut is in the job's log, as above; the
+	// system log, which an admin reads for what went wrong, has nothing from it.
+	flushed(t, w.lb)
+	for _, l := range w.admin.logs(url.Values{"level": {"error,warn"}, "limit": {"1000"}}).Lines {
+		if l.ID > mark {
+			t.Fatalf("the Stop left a line at %s in the system log: %s %s", l.Level, l.Code, l.Line)
+		}
 	}
 
 	// EVERY ITEM WHOLE OR UNTOUCHED, NOTHING LEFT BEHIND.
