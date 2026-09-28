@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"runtime/debug"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -677,6 +678,10 @@ func (r *Runner) Stop(id int64, viewer Owner) error {
 	if !visible(viewer, uid) {
 		return ErrNotFound
 	}
+	// The job in hand hears it before anything is written (signalRunning), and
+	// its log says who asked, once.
+	r.signalRunning(func(j *Job) bool { return j.id == id },
+		fmt.Sprintf("%s asked it to stop; it stops after the item in hand", viewer.Username))
 	res, err := r.st.DB.Exec(`UPDATE jobs SET state = 'stopped', finished_at = ? WHERE id = ? AND state = 'queued'`,
 		time.Now().UnixMilli(), id)
 	if err != nil {
@@ -702,6 +707,38 @@ func (r *Runner) Stop(id int64, viewer Owner) error {
 		r.lb.jobLineIn(viewer.Gen, id, LevelInfo, fmt.Sprintf("%s asked it to stop; it stops after the item in hand", viewer.Username))
 	}
 	return nil
+}
+
+// signalRunning asks the job in the worker's hands to stop, if match picks it,
+// before a Stop, a Stop all or an account's delete writes anything, logs line in
+// its log when the ask is news, and says which job that was (0 for none). The
+// line is logged here rather than after the writes because the job may have
+// heard it and ended by then; the paths after this find the flag already set,
+// so they do not log it again.
+//
+// THE JOB HEARS A STOP BEFORE THE STOP WRITES. Each of those writes waits for
+// SQLite's write lock, and a job can be the one holding it: an import stages its
+// whole file in one transaction, and an approval writes each work in one, and
+// either asks whether to stop from inside it (between works, before its commit)
+// so that a Stop rolls it back whole. Signalled only after its own writes, a Stop
+// waited for that transaction to finish by itself — committed, the Stop too late
+// for it — or gave up after busy_timeout's five seconds and answered an error.
+// Told first, the job rolls back and lets go of the lock, and the writes that
+// follow go through. A claim in progress is left to stopHeldLocked, which waits
+// it out; the claim is one statement, and no job is in hand until it ends.
+func (r *Runner) signalRunning(match func(*Job) bool, line string) (id int64) {
+	r.mu.Lock()
+	j := r.running
+	if r.claiming || j == nil || !match(j) {
+		r.mu.Unlock()
+		return 0
+	}
+	news := !j.stop.Swap(true)
+	r.mu.Unlock()
+	if news {
+		j.Log(LevelInfo, "%s", line)
+	}
+	return j.id
 }
 
 // stopHeldLocked asks the job in the worker's hands to stop, if it is id, and
@@ -771,7 +808,7 @@ func (r *Runner) StopAll(viewer Owner) (stopping, stoppedWaiting int, err error)
 	if !viewer.IsAdmin {
 		scope, args = " AND user_id = ?", []any{viewer.UserID}
 	}
-	return r.stopWhere(viewer.Gen, scope, args,
+	return r.stopWhere(viewer.Gen, scope, args, func(j *Job) bool { return visible(viewer, j.uid) },
 		fmt.Sprintf("%s stopped it before it started", viewer.Username),
 		fmt.Sprintf("%s asked every job to stop; this one stops after the item in hand", viewer.Username),
 		fmt.Sprintf("its end was never recorded; %s asked every job to stop, and it is marked interrupted", viewer.Username))
@@ -801,7 +838,7 @@ func (r *Runner) StopOwner(uid int64) (release func(), err error) {
 	})
 	// Read before the statements that find the jobs: store.Generation says why.
 	gen := r.st.Generation()
-	_, _, err = r.stopWhere(gen, " AND user_id = ?", []any{uid},
+	_, _, err = r.stopWhere(gen, " AND user_id = ?", []any{uid}, func(j *Job) bool { return j.uid.Valid && j.uid.Int64 == uid },
 		"stopped before it started: the account that started it is being deleted",
 		"the account that started this job is being deleted; it stops after the item in hand",
 		"its end was never recorded; the account that started it is being deleted, and it is marked interrupted")
@@ -840,9 +877,12 @@ func (r *Runner) WaitOwnerIdle(ctx context.Context, uid int64) error {
 	}
 }
 
-// stopWhere stops the jobs scope picks. gen is the generation read before it, so
-// its lines go only into the file its statements found the jobs in.
-func (r *Runner) stopWhere(gen uint64, scope string, args []any, waitingLine, runningLine, orphanLine string) (stopping, stoppedWaiting int, err error) {
+// stopWhere stops the jobs scope picks, and match picks the same jobs in memory,
+// for the job in hand to hear it first (signalRunning). gen is the generation
+// read before it, so its lines go only into the file its statements found the
+// jobs in.
+func (r *Runner) stopWhere(gen uint64, scope string, args []any, match func(*Job) bool, waitingLine, runningLine, orphanLine string) (stopping, stoppedWaiting int, err error) {
+	early := r.signalRunning(match, runningLine)
 	waiting, err := r.ids(`UPDATE jobs SET state = 'stopped', finished_at = ? WHERE state = 'queued'`+scope+` RETURNING id`,
 		append([]any{time.Now().UnixMilli()}, args...)...)
 	if err != nil {
@@ -856,6 +896,11 @@ func (r *Runner) stopWhere(gen uint64, scope string, args []any, waitingLine, ru
 	running, err := r.ids(`UPDATE jobs SET stop_requested = 1 WHERE state = 'running'`+scope+` RETURNING id`, args...)
 	if err != nil {
 		return 0, stoppedWaiting, err
+	}
+	// The job told first may have heard it and ended before that statement
+	// looked: it was running when the press came, and it is counted so.
+	if early != 0 && !slices.Contains(running, early) {
+		stopping++
 	}
 	for _, id := range running {
 		r.mu.Lock()

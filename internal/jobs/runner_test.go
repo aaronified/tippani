@@ -413,6 +413,75 @@ func TestStopAllStopsWhatTheViewerCanSee(t *testing.T) {
 	g.waitState(g.enqueue(g.mitra(), "quick", map[string]any{"t": 11}), "succeeded")
 }
 
+// A STOP REACHES A JOB THAT HOLDS THE WRITE LOCK AT ONCE. An import stages its
+// file in one transaction and asks, from inside it, whether to stop, so that a
+// Stop rolls the whole file back; so does an approval, per work. Every Stop writes
+// — the waiting row it stops, the running row's flag — and each write waits for
+// that lock. A Stop that told the job only after its writes waited for the
+// transaction to finish by itself, too late to stop it, or failed after five
+// seconds. So the job is told first: this one holds the lock until it is, and
+// each of the three ways to stop it — Stop, Stop all, an account's delete — has
+// to reach it, and see it end stopped, well inside a second.
+//
+// Mutation: signalRunning taken out of Stop, stopWhere or both: each press waits
+// out busy_timeout against the job's own lock and fails, and the job reads
+// running long past 300 ms.
+func TestAStopReachesAJobHoldingTheWriteLockAtOnce(t *testing.T) {
+	for _, way := range []string{"stop", "stop all", "the account going"} {
+		t.Run(way, func(t *testing.T) {
+			g := newRig(t, jobs.Options{})
+			entered := make(chan struct{})
+			g.r.Register(jobs.Kind{Name: "staging", Rerunnable: true, Run: func(_ context.Context, j *jobs.Job) error {
+				tx, err := g.st.DB.Begin() // _txlock=immediate: the lock is taken here
+				if err != nil {
+					return err
+				}
+				defer tx.Rollback()
+				if _, err := tx.Exec(`INSERT INTO system_logs (at, level, line) VALUES (?, 'info', 'staging')`, time.Now().UnixMilli()); err != nil {
+					return err
+				}
+				close(entered)
+				deadline := time.Now().Add(20 * time.Second)
+				for !j.Stopping() {
+					if time.Now().After(deadline) {
+						return errors.New("never told to stop")
+					}
+					time.Sleep(time.Millisecond)
+				}
+				return nil // rolled back whole
+			}})
+			id := g.enqueue(g.mitra(), "staging", nil)
+			<-entered
+
+			pressed := time.Now()
+			answered := make(chan error, 1)
+			go func() {
+				switch way {
+				case "stop":
+					answered <- g.r.Stop(id, g.mitra())
+				case "stop all":
+					_, _, err := g.r.StopAll(g.mitra())
+					answered <- err
+				default:
+					release, err := g.r.StopOwner(2)
+					release()
+					answered <- err
+				}
+			}()
+			eventually(t, fmt.Sprintf("job %d stopped (it is %s)", id, g.state(id)), func() bool { return g.state(id) == "stopped" })
+			if took := time.Since(pressed); took > 300*time.Millisecond {
+				t.Fatalf("%s: the job read stopped %s after the press", way, took)
+			}
+			if err := <-answered; err != nil {
+				t.Fatalf("%s answered %v", way, err)
+			}
+			if n := count(t, g.st.DB, `SELECT count(*) FROM system_logs WHERE line = 'staging'`); n != 0 {
+				t.Fatalf("%s: the stopped job's write was kept", way)
+			}
+		})
+	}
+}
+
 // A Stop and a Stop all from a request that signed in before the database was
 // swapped are refused, and stop nothing: the id a Stop names, and the account a
 // Stop all speaks for, belong to the file the request began on, and in the file
