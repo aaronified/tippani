@@ -4471,6 +4471,8 @@ import.row.staged.other = {n}টা উদ্ধৃতি বাকি
 import.row.unsent = এখনও পাঠানো হয়নি
 # ?? draft for the owner (3.1.0 imports): {state} is the state chip's own word; আবার চালানো, the Run again word of Settings → Jobs
 import.row.halted = {state} — সেটিংস → কাজ-এ আবার চালানো যায়
+# ?? draft for the owner (3.1.0 imports): সার্ভারে আর নেই for "the server no longer has"; আবার দিন for "drop it again", as a file handed over again (import.row.unsent's পাঠানো is the upload itself)
+import.row.lost = {state} — ফাইলটা সার্ভারে আর নেই; আবার দিন
 # ?? draft for the owner (3.1.0 imports): চলতে থাকবে as reverify.checking.away says it; পর্দা for "screen" (v3)
 import.queued.note = যে ফাইল পাঠানো হয়ে গেছে, এই পর্দা ছেড়ে গেলেও সেটা সেটিংস → কাজ-এ চলতে থাকবে; যেটা এখনও পাঠানো হয়নি, সেটা নয়।
 import.row.duplicate = ⚠ মনে হচ্ছে বইটা আগে থেকেই আছে: {titles} — অপেক্ষার তালিকায় উদ্ধৃতিগুলো সেখানে সরিয়ে দিন, বা আলাদা বই হিসেবে অনুমোদন দিন

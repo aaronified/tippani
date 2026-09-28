@@ -4551,6 +4551,10 @@ import.row.unsent = not sent yet
 # anything. {state} is that state's own word (Stopped, Interrupted). The upload is
 # kept, so Run again in Settings → Jobs finishes it.
 import.row.halted = {state} — Settings → Jobs can run it again
+# The same, where the job has no upload left to run again: cut off by a restart
+# just after it let go of the file and before its staging committed. The page
+# still holds the file, so dropping it again is the way on.
+import.row.lost = {state} — the server no longer has this file; drop it again
 # Under the rows while a batch of several files is still sending.
 import.queued.note = A file already sent carries on in Settings → Jobs if you leave this screen; one not sent yet does not.
 import.row.duplicate = ⚠ looks like a book you already have: {titles} — move the staged quotes onto it in the queue, or approve them as a separate book

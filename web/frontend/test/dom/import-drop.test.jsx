@@ -44,6 +44,10 @@ let gate = null
 let states = ['succeeded']
 let sents = []
 let jobReads = 0
+// Whether a job that ended with no answer kept its upload, as the server says it
+// on the job (`rerunnable`): a stopped import keeps it, one cut off just after
+// letting go of it does not.
+let kept = true
 const JOB = 70
 
 // THE SPY IS ON uploadWithProgress, NOT upload, and that is the point rather
@@ -62,7 +66,8 @@ vi.mock('../../src/api.js', () => ({
   json: async (method, path) => {
     if (path.startsWith(`/jobs/${JOB}?`)) {
       const state = states[Math.min(jobReads++, states.length - 1)]
-      return { ok: true, data: { job: { id: JOB, kind: 'import', state, ahead: state === 'queued' ? 2 : 0 }, lines: [] } }
+      const halted = state === 'stopped' || state === 'interrupted'
+      return { ok: true, data: { job: { id: JOB, kind: 'import', state, ahead: state === 'queued' ? 2 : 0, rerunnable: halted && kept }, lines: [] } }
     }
     if (path === `/jobs/${JOB}/result`) {
       const ran = states[states.length - 1] === 'succeeded' || states[states.length - 1] === 'failed'
@@ -106,6 +111,7 @@ beforeEach(() => {
   states = ['succeeded']
   sents = []
   jobReads = 0
+  kept = true
 })
 
 describe('the one import target', () => {
@@ -250,6 +256,22 @@ describe('each file waits its turn on the queue', () => {
     // Not the override: the upload is kept on the server, and the file is not a
     // parser away from working.
     expect(screen.queryByLabelText('Read this file as a format you pick')).toBeNull()
+  })
+
+  // AND ONLY WHERE THERE IS ONE. An import cut off by a restart just after it let
+  // go of its upload, before its staging committed, has nothing to run again, and
+  // its job says so; the row sends the reader back to the file this page still
+  // holds rather than to a Run again that is not there.
+  //
+  // Mutation: the row pointing at Run again whatever the job says (the halted
+  // branch reading no `rerunnable`): red.
+  it('a file whose job kept no upload says to drop it again, not to run it again', async () => {
+    states = ['interrupted']
+    kept = false
+    render(<ImportPage />)
+    drop(well(), textFile('clippings.txt'))
+    expect(await screen.findByText('Interrupted — the server no longer has this file; drop it again')).toBeTruthy()
+    expect(screen.queryByText(/Settings → Jobs can run it again/)).toBeNull()
   })
 
   it('a refusal that queued nothing is shown as the server said it', async () => {

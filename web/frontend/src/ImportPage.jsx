@@ -139,11 +139,16 @@ export default function ImportPage({ onReviewImport, onStaged }) {
     if (r.gone) return null
     if (r.ok) return { name: file.name, file, as, ok: true, ...r.data }
     // A JOB THAT ENDED WITH NO ANSWER was stopped, or cut off by a restart,
-    // before it staged anything — and it kept the upload, so it is Settings →
-    // Jobs' Run again that finishes it, not this row's override.
+    // before it staged anything. Where it kept the upload, it is Settings → Jobs'
+    // Run again that finishes it, not this row's override — and the job says
+    // whether it did (`rerunnable`), since one cut off just after letting go of
+    // its upload, before its staging committed, has nothing left to run: that
+    // row says to drop the file again instead of pointing at a Run again that
+    // is not there.
     const halted = r.job && (r.job.state === 'stopped' || r.job.state === 'interrupted') && !r.status
     if (halted) {
-      return { name: file.name, file, as, ok: false, error: t('import.row.halted', { state: jobStateLabel(r.job.state) }) }
+      const key = r.job.rerunnable ? 'import.row.halted' : 'import.row.lost'
+      return { name: file.name, file, as, ok: false, error: t(key, { state: jobStateLabel(r.job.state) }) }
     }
     // `near_miss` PRESENT means the sniffer reached a verdict: a name for what
     // the file is, or "" for a text file nothing claimed. Absent means the
