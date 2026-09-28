@@ -37,8 +37,11 @@ import (
 // database and never inside an archive (controlEntry).
 //
 // THE SPOOL'S LIFETIME, which is the other half of the design:
-//   - a job that stages the file, or is refused by it, removes it once it has
-//     its answer, so a succeeded or failed import leaves nothing;
+//   - a job that stages the file removes it just before its staging commits
+//     (releaseSpool), and one the file is refused by removes it once it has its
+//     answer, so a succeeded or failed import leaves nothing — and a crash between
+//     a commit and an unlink cannot leave a file whose rerun would stage the same
+//     quotes twice;
 //   - a job that is stopped — before it ran, or part-way, its staging rolled back
 //     whole — or interrupted (the server stopped, or restarted, before or while it
 //     ran) keeps its file, and can be run again while the file is kept
@@ -223,6 +226,7 @@ func runImport(s *Server, ctx context.Context, j *jobs.Job) error {
 		return fmt.Errorf("the uploaded file could not be read (%s)", olog.CodeImportStage)
 	}
 	uid := j.Owner().UserID
+	ctx = context.WithValue(ctx, spoolKey{}, path)
 	var ans importAnswer
 	switch stage, known := importSources[p.Source]; {
 	case p.Source == importAuto:
@@ -239,8 +243,12 @@ func runImport(s *Server, ctx context.Context, j *jobs.Job) error {
 		noteJob(ctx, jobs.LevelInfo, "%s", importKeptLine)
 		return nil
 	}
-	// Staged or refused: a rerun would do the same to the same bytes, so the file
-	// goes now, whatever the answer.
+	if importStopSeam != nil {
+		importStopSeam(ctx, importStagedPoint, 0)
+	}
+	// Staged (the file already went, just before the commit: releaseSpool) or
+	// refused: a rerun would do the same to the same bytes, so the file goes now,
+	// whatever the answer.
 	_ = os.Remove(path)
 	j.Progress(1, 1)
 	if err := j.SetResult(ans); err != nil {
@@ -262,6 +270,25 @@ func runImport(s *Server, ctx context.Context, j *jobs.Job) error {
 // importKeptLine is an import's last line when a Stop or the shutdown reached it
 // before its staging committed.
 const importKeptLine = "stopped before anything was staged; the upload is kept, so it can be run again"
+
+// spoolKey carries, in an import job's context, the spooled file it is staging,
+// for releaseSpool.
+type spoolKey struct{}
+
+// releaseSpool removes the upload an import is staging, just before its staging
+// transaction commits: from then on the quotes are in the queue and the file is
+// not needed, and a crash between the commit and a later unlink would leave an
+// interrupted import whose rerun stages the same file twice. A crash between
+// this and the commit leaves an interrupted import with nothing staged and no
+// file, which says what it is — upload it again — rather than doubling a batch.
+// Nothing to do outside an import job (a test calling a stager directly).
+func releaseSpool(ctx context.Context) {
+	if path, ok := ctx.Value(spoolKey{}).(string); ok {
+		if err := os.Remove(path); err != nil && !errors.Is(err, fs.ErrNotExist) {
+			olog.Warnf(olog.CodeImportStage, "[import] could not remove the spooled upload %s: %v", filepath.Base(path), err)
+		}
+	}
+}
 
 // THE PLACES A STOP LANDS IN AN IMPORT AND IN AN APPROVAL (the owner's "Stop
 // cancels instantly: but it still shall not break anything"). Neither kind looks
@@ -287,6 +314,11 @@ const (
 	stopApproveWork   = "approve.work"   // before the approval of work n
 	stopApproveCommit = "approve.commit" // before work n's approval commits
 )
+
+// importStagedPoint is where importStopSeam also runs once an import has its
+// answer, before its job records it: not a place a Stop is heard, but the one a
+// crash after a staging's commit lands in (releaseSpool says why it matters).
+const importStagedPoint = "import.staged"
 
 // importStopSeam, when set, runs at each of those places, with the job's context,
 // the place and the work it is about (0-based; 0 where there is none). A test
@@ -315,7 +347,7 @@ func importHalted(ctx context.Context, point string, n int) bool {
 
 // importRunnableAgain is whether a finished import can be run again: only while
 // the file it uploaded is still kept, which is only after it was stopped or
-// interrupted before it staged the file. A rerun without the file could only
+// interrupted before its staging committed. A rerun without the file could only
 // fail.
 func importRunnableAgain(s *Server, params string) bool {
 	var p importParams

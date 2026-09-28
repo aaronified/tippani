@@ -147,6 +147,7 @@ func (s *Server) stageBooks(ctx context.Context, uid int64, source, filename str
 	if importHalted(ctx, stopStageCommit, 0) {
 		return importAnswer{stopped: true}
 	}
+	releaseSpool(ctx)
 	if err := tx.Commit(); err != nil {
 		return importFault(ctx, olog.CodeImportStage, "stage books: commit", err)
 	}
@@ -216,6 +217,7 @@ func (s *Server) stageMovies(ctx context.Context, uid int64, source, filename st
 	if importHalted(ctx, stopStageCommit, 0) {
 		return importAnswer{stopped: true}
 	}
+	releaseSpool(ctx)
 	if err := tx.Commit(); err != nil {
 		return importFault(ctx, olog.CodeImportStage, "stage titles: commit", err)
 	}

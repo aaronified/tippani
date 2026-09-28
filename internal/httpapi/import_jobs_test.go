@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -37,7 +38,10 @@ import (
 //     closes it and a new one started on the same database as serve() starts one
 //     (restarted), Boot and SweepSpool included;
 //   - a stray file left in the spool by a run that died writing it, put there by
-//     hand, since nothing a person does leaves one.
+//     hand, since nothing a person does leaves one;
+//   - the moment after an import's staging has committed and before its job has
+//     recorded that (importStopSeam at importStagedPoint), which is where a crash
+//     would have to land to stage one file twice, and which no request reaches.
 //
 // Where a Stop lands inside an import or an approval, and what it leaves, is
 // import_stop_test.go's, with the seam it needs declared there.
@@ -427,6 +431,68 @@ func TestAnImportARestartCutOffRunsAgainFromTheUpload(t *testing.T) {
 	}
 	if left := spooled(t, srv); len(left) != 0 {
 		t.Fatalf("the spool after the rerun: %v", left)
+	}
+}
+
+// Mutation: stageBooks without its releaseSpool before the commit leaves the
+// upload behind a staging that committed, and the import the restart cut off is
+// offered Run again, which would stage the same file a second time.
+func TestAnImportCutOffAfterItsStagingCommittedIsNeverStagedTwice(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+
+	reached, crashed := make(chan struct{}), make(chan struct{})
+	var once sync.Once
+	importStopSeam = func(_ context.Context, point string, _ int) {
+		if point == importStagedPoint {
+			once.Do(func() { close(reached); <-crashed })
+		}
+	}
+	t.Cleanup(func() { importStopSeam = nil })
+
+	j := queuedJob(t, c.uploadOnly("/import/markdown", "sandworm.md", []byte(stagedBookMD)))
+	select {
+	case <-reached:
+	case <-time.After(20 * time.Second):
+		t.Fatal("the import never staged")
+	}
+	// The server goes down now, before the job has recorded its end: shutdown's
+	// wait runs out and the job is marked interrupted, as a crash leaves it once
+	// the next start's Boot has run.
+	old := srv.Jobs
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	_ = old.Close(ctx)
+	cancel()
+	r := jobs.NewRunner(srv.Store, srv.Logbook, jobs.Options{})
+	if err := r.Boot(); err != nil {
+		t.Fatal(err)
+	}
+	srv.Jobs = r
+	srv.RegisterJobKinds()
+	srv.SweepSpool()
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		r.Close(ctx)
+	})
+
+	cut := c.job(j.ID)
+	if cut.State != "interrupted" || cut.Rerunnable {
+		t.Fatalf("the import cut off after its staging committed: %+v, want interrupted and not offered Run again", cut)
+	}
+	if q := queue(t, c, ""); len(q.Batches) != 1 {
+		t.Fatalf("the import queue: %+v, want the one batch that committed", q.Batches)
+	}
+	if left := spooled(t, srv); len(left) != 0 {
+		t.Fatalf("the spool after the crash: %v", left)
+	}
+
+	// The old job's goroutine is let go, and waited for, before the store closes.
+	close(crashed)
+	wait, done := context.WithTimeout(context.Background(), 10*time.Second)
+	defer done()
+	if err := old.WaitOwnerIdle(wait, 1); err != nil {
+		t.Fatalf("the cut-off job never let go: %v", err)
 	}
 }
 
