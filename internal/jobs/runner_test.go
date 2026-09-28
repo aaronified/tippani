@@ -35,10 +35,12 @@ import (
 //
 // What each one guards, in a sentence a person would say: one job runs at a time
 // across the server and the rest wait their turn in the order started; Stop stops
-// after the item in hand and the job keeps its log, and one that lands on the
-// last item leaves the job finished, not stopped; a reader's Stop all stops
-// their own jobs and an admin's stops everyone's, and an account being deleted
-// starts nothing until its delete has ended; a Stop or a Stop all from before
+// at once, the item in hand abandoned and the row stopped within a moment of the
+// press, and the job keeps its log, and one that lands once the last item is
+// written leaves the job finished, not stopped; a reader's Stop all stops their
+// own jobs and an admin's stops everyone's, as fast, and an account being deleted
+// has its running job stopped as fast and starts nothing until its delete has
+// ended; a Stop or a Stop all from before
 // a restore swapped the database stops nothing; jobs a restart caught are
 // interrupted and nothing resumes by itself; shutdown interrupts what it cannot
 // finish and refuses anything new, and does not wait out a lock held elsewhere to
@@ -127,7 +129,9 @@ type item struct {
 
 // steps is a kind whose items wait for the test: each announces itself and does
 // not finish until released, and Stopping is checked before each one, as every
-// real kind's loop does.
+// real kind's loop does. An item whose context ends while it waits is abandoned,
+// as a real kind abandons the item a Stop lands in: it logs nothing, counts
+// nothing, and asks Stopping on its way out.
 type steps struct {
 	t       *testing.T
 	entered chan item
@@ -154,11 +158,17 @@ func (s *steps) kind(name string, adminOnly bool) jobs.Kind {
 			}
 			select {
 			case s.entered <- item{j.ID(), i}:
+			case <-ctx.Done():
+				j.Stopping()
+				return nil
 			case <-s.done:
 				return nil
 			}
 			select {
 			case <-s.release:
+			case <-ctx.Done():
+				j.Stopping()
+				return nil
 			case <-s.done:
 				return nil
 			}
@@ -167,6 +177,21 @@ func (s *steps) kind(name string, adminOnly bool) jobs.Kind {
 		}
 		return nil
 	}}
+}
+
+// stoppedWithin fails unless job id reads stopped within bound of from, the
+// moment the Stop was pressed: its row, polled until it does.
+func (g *rig) stoppedWithin(id int64, from time.Time, bound time.Duration) {
+	g.t.Helper()
+	for g.state(id) != "stopped" {
+		if time.Since(from) > 20*time.Second {
+			g.t.Fatalf("job %d never read stopped (it reads %s)", id, g.state(id))
+		}
+		time.Sleep(2 * time.Millisecond)
+	}
+	if took := time.Since(from); took > bound {
+		g.t.Fatalf("job %d read stopped %s after the press, want within %s", id, took, bound)
+	}
 }
 
 // next is the next item to start, anybody's.
@@ -238,27 +263,32 @@ func TestOneJobRunsAtATimeInTheOrderStarted(t *testing.T) {
 	}
 }
 
-func TestStopStopsAfterTheItemInHandAndTheJobKeepsItsLog(t *testing.T) {
+// STOP IS AT ONCE. Pressed while item 1 is in hand, it cancels the job there and
+// then: item 1 is abandoned, never finished, and the row reads stopped within a
+// moment of the press, with what was done before it counted and the press named
+// in the log ahead of the end.
+func TestStopStopsAtOnceAndTheJobKeepsItsLog(t *testing.T) {
 	g := newRig(t, jobs.Options{})
 	x := g.enqueue(g.mitra(), "steps", n(5))
 	if it := g.steps.next(); it != (item{x, 0}) {
 		t.Fatalf("started %v", it)
 	}
-	if err := g.r.Stop(x, g.mitra()); err != nil {
-		t.Fatal(err)
-	}
-	if g.state(x) != "running" {
-		t.Fatalf("a running job read %s the moment Stop was pressed: it should finish the item in hand", g.state(x))
+	g.steps.let()
+	if it := g.steps.next(); it != (item{x, 1}) {
+		t.Fatalf("started %v", it)
 	}
 	w := g.enqueue(g.mitra(), "steps", n(1))
-	if err := g.r.Stop(w, g.mitra()); err != nil { // still waiting: stopped at once
+	if err := g.r.Stop(w, g.mitra()); err != nil { // still waiting: stopped before it starts
 		t.Fatal(err)
 	}
 	if g.state(w) != "stopped" {
 		t.Fatalf("a waiting job read %s after Stop", g.state(w))
 	}
-	g.steps.let() // item 0 finishes; the job stops before item 1
-	g.waitState(x, "stopped")
+	pressed := time.Now()
+	if err := g.r.Stop(x, g.mitra()); err != nil {
+		t.Fatal(err)
+	}
+	g.stoppedWithin(x, pressed, 300*time.Millisecond)
 	g.steps.quiet(300 * time.Millisecond) // and the stopped waiting job never starts
 
 	var done, total, stopReq int
@@ -266,10 +296,11 @@ func TestStopStopsAfterTheItemInHandAndTheJobKeepsItsLog(t *testing.T) {
 		t.Fatal(err)
 	}
 	if done != 1 || total != 5 || stopReq != 1 {
-		t.Fatalf("stopped job: done %d/%d, stop_requested %d", done, total, stopReq)
+		t.Fatalf("stopped job: done %d/%d, stop_requested %d; want the one item finished before the press", done, total, stopReq)
 	}
-	// In the order it happened: Stop was pressed while item 0 was in hand.
-	want := []string{"mitra asked it to stop; it stops after the item in hand", "item 0 done", "stopped"}
+	// In the order it happened: item 0 finished, Stop was pressed with item 1 in
+	// hand, and item 1 never finished.
+	want := []string{"item 0 done", "mitra pressed Stop", "stopped"}
 	if got := g.lines(x); strings.Join(got, "|") != strings.Join(want, "|") {
 		t.Fatalf("its log: %q, want %q", got, want)
 	}
@@ -300,24 +331,35 @@ func TestStopStopsAfterTheItemInHandAndTheJobKeepsItsLog(t *testing.T) {
 	}
 }
 
-// A STOP THAT LANDS ON THE LAST ITEM HAS NOTHING LEFT TO STOP. Pressed while a
-// job's last item is in hand, it lets that item finish, as every Stop does — and
-// the job has then done everything it was given, so it succeeded; it did not
-// stop, and it has nothing left over to run again. A shutdown landing there is
-// the same: the server stopped after the job had finished, not while it ran.
-func TestAStopThatLandsOnTheLastItemLeavesTheJobFinished(t *testing.T) {
+// A STOP THAT LANDS ONCE THE LAST ITEM IS WRITTEN HAS NOTHING LEFT TO STOP. The
+// job has done everything it was given — it is only keeping its result — so it
+// succeeded; it did not stop, and it has nothing left over to run again. A
+// shutdown landing on the last item is the same: the server stopped after the job
+// had finished, not while it ran.
+func TestAStopThatLandsOnceTheLastItemIsDoneLeavesTheJobFinished(t *testing.T) {
 	t.Run("stop", func(t *testing.T) {
 		g := newRig(t, jobs.Options{})
-		id := g.enqueue(g.mitra(), "steps", n(2))
-		g.steps.next()
-		g.steps.let()
-		g.steps.next() // the last item is in hand
+		// Its one item, then the keeping of its result, which a Stop does not
+		// reach into: a database write carries no context.
+		kept, keep := make(chan struct{}), make(chan struct{})
+		g.r.Register(jobs.Kind{Name: "keeps", Run: func(ctx context.Context, j *jobs.Job) error {
+			if j.Stopping() {
+				return nil
+			}
+			j.Log(jobs.LevelInfo, "item 0 done")
+			j.Progress(1, 1)
+			close(kept)
+			<-keep
+			return j.SetResult(map[string]int{"done": 1})
+		}})
+		id := g.enqueue(g.mitra(), "keeps", nil)
+		<-kept
 		if err := g.r.Stop(id, g.mitra()); err != nil {
 			t.Fatal(err)
 		}
-		g.steps.let()
+		close(keep)
 		g.waitState(id, "succeeded")
-		want := []string{"item 0 done", "mitra asked it to stop; it stops after the item in hand", "item 1 done"}
+		want := []string{"item 0 done", "mitra pressed Stop"}
 		if got := g.lines(id); strings.Join(got, "|") != strings.Join(want, "|") {
 			t.Fatalf("its log: %q, want %q", got, want)
 		}
@@ -357,6 +399,7 @@ func TestStopAllStopsWhatTheViewerCanSee(t *testing.T) {
 	a1 := g.enqueue(g.aro(), "steps", map[string]any{"n": 2, "t": 3})
 	m3 := g.enqueue(g.mitra(), "steps", map[string]any{"n": 1, "t": 4})
 
+	pressed := time.Now()
 	stopping, waiting, err := g.r.StopAll(g.mitra())
 	if err != nil || stopping != 1 || waiting != 2 {
 		t.Fatalf("mitra's Stop all: %d stopping, %d stopped waiting, %v; want 1 and 2", stopping, waiting, err)
@@ -364,13 +407,16 @@ func TestStopAllStopsWhatTheViewerCanSee(t *testing.T) {
 	if g.state(m2) != "stopped" || g.state(m3) != "stopped" || g.state(a1) != "queued" {
 		t.Fatalf("after mitra's Stop all: m2 %s, m3 %s, aro's a1 %s", g.state(m2), g.state(m3), g.state(a1))
 	}
-	g.steps.let()
-	g.waitState(m1, "stopped")
+	g.stoppedWithin(m1, pressed, 300*time.Millisecond) // its item in hand was not waited for
 	if it := g.steps.next(); it.job != a1 {
 		t.Fatalf("after mitra's jobs stopped, job %d started, want aro's %d", it.job, a1)
 	}
+	if got := g.lines(m1); strings.Join(got, "|") != "mitra pressed Stop all|stopped" {
+		t.Fatalf("mitra's running job stopped by her Stop all says %q", got)
+	}
 
 	m4 := g.enqueue(g.mitra(), "steps", map[string]any{"n": 1, "t": 5})
+	pressed = time.Now()
 	stopping, waiting, err = g.r.StopAll(g.aro())
 	if err != nil || stopping != 1 || waiting != 1 {
 		t.Fatalf("the admin's Stop all: %d stopping, %d stopped waiting, %v; want 1 and 1", stopping, waiting, err)
@@ -378,32 +424,33 @@ func TestStopAllStopsWhatTheViewerCanSee(t *testing.T) {
 	if g.state(m4) != "stopped" {
 		t.Fatalf("the admin's Stop all left mitra's waiting job %s", g.state(m4))
 	}
-	g.steps.let()
-	g.waitState(a1, "stopped")
+	g.stoppedWithin(a1, pressed, 300*time.Millisecond)
 	if got := g.lines(m4); len(got) != 1 || got[0] != "aro stopped it before it started" {
 		t.Fatalf("mitra's job stopped by the admin says %q", got)
 	}
 
-	// The account going: its waiting jobs stop, its running one is asked to.
+	// The account going: its waiting jobs stop, and so does its running one, at once.
 	m5 := g.enqueue(g.mitra(), "steps", map[string]any{"n": 2, "t": 6})
 	g.steps.next()
 	m6 := g.enqueue(g.mitra(), "steps", map[string]any{"n": 1, "t": 7})
 	a2 := g.enqueue(g.aro(), "steps", map[string]any{"n": 1, "t": 8})
+	pressed = time.Now()
 	release, err := g.r.StopOwner(2)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if g.state(m6) != "stopped" || g.state(a2) != "queued" {
-		t.Fatalf("after StopOwner(mitra): m6 %s, aro's a2 %s", g.state(m6), g.state(a2))
+	if g.state(m6) != "stopped" {
+		t.Fatalf("after StopOwner(mitra): m6 %s", g.state(m6))
 	}
 	// Until the delete ends, the account going starts nothing; anybody else can.
 	if _, err := g.r.Enqueue(g.mitra(), "quick", "", map[string]any{"t": 9}, 0, nil); !errors.Is(err, jobs.ErrNoOwner) {
 		t.Fatalf("mitra starting a job while her account is being deleted: %v, want ErrNoOwner", err)
 	}
 	a3 := g.enqueue(g.aro(), "quick", map[string]any{"t": 10})
-	g.steps.let()
-	g.waitState(m5, "stopped")
-	g.steps.next()
+	g.stoppedWithin(m5, pressed, 300*time.Millisecond)
+	if it := g.steps.next(); it.job != a2 {
+		t.Fatalf("after mitra's jobs stopped, job %d started, want aro's %d", it.job, a2)
+	}
 	g.steps.let()
 	g.waitState(a2, "succeeded")
 	g.waitState(a3, "succeeded")
@@ -419,8 +466,8 @@ func TestStopAllStopsWhatTheViewerCanSee(t *testing.T) {
 // the server is on now they may be somebody else's.
 func TestAStopFromBeforeASwapIsRefusedAndStopsNothing(t *testing.T) {
 	g := newRig(t, jobs.Options{})
-	// Two items, so the Stop all at the end lands between them: one that lands on
-	// a job's last item leaves the job finished, not stopped.
+	// Two items, and the Stop all at the end lands with the first in hand, which
+	// it abandons.
 	x := g.enqueue(g.mitra(), "steps", map[string]any{"n": 2, "t": "running"})
 	g.steps.next()
 	w := g.enqueue(g.mitra(), "steps", map[string]any{"n": 1, "t": "waiting"})
@@ -450,7 +497,6 @@ func TestAStopFromBeforeASwapIsRefusedAndStopsNothing(t *testing.T) {
 	if stopping, _, err := g.r.StopAll(g.aro()); err != nil || stopping != 1 {
 		t.Fatalf("Stop all after signing in again: %d stopping, %v; want the running job", stopping, err)
 	}
-	g.steps.let()
 	g.waitState(x, "stopped")
 }
 
@@ -849,8 +895,9 @@ func TestNoJobIsLeftWaitingWithNothingToRunIt(t *testing.T) {
 }
 
 // A Stop pressed the instant a job is queued races the worker claiming it. Either
-// way it must hold: stopped before it starts, or stopped after at most the item it
-// had already begun. A Stop the claim swallowed would let it run on to the end.
+// way it must hold: stopped before it starts, or stopped with at most the item it
+// had already begun, and that one abandoned rather than finished. A Stop the claim
+// swallowed would let it run on to the end.
 func TestAStopNeverLosesARaceWithTheJobStarting(t *testing.T) {
 	g := newRig(t, jobs.Options{PerOwner: 100000})
 	outcomes := map[string]int{}
@@ -867,13 +914,15 @@ func TestAStopNeverLosesARaceWithTheJobStarting(t *testing.T) {
 				if it.job != id {
 					t.Fatalf("job %d started while %d was in hand", it.job, id)
 				}
-				items++
-				g.steps.let()
+				items++ // and not let go: the Stop has cancelled it, so it ends on its own
 			case <-time.After(5 * time.Millisecond):
 			}
 		}
-		if s := g.state(id); s != "stopped" || items > 1 {
-			t.Fatalf("round %d: the job ended %s after %d item(s); want stopped after at most 1", i, s, items)
+		var done int
+		g.st.DB.QueryRow(`SELECT done FROM jobs WHERE id = ?`, id).Scan(&done)
+		if s := g.state(id); s != "stopped" || items > 1 || done != 0 {
+			t.Fatalf("round %d: the job ended %s after %d item(s) begun and %d finished; want stopped with at most 1 begun and none finished",
+				i, s, items, done)
 		}
 		var claimed int
 		g.st.DB.QueryRow(`SELECT started_at IS NOT NULL FROM jobs WHERE id = ?`, id).Scan(&claimed)

@@ -28,10 +28,10 @@ import (
 //   - the queue is given to the server as serve() gives it (srv.Jobs, a
 //     jobs.Runner on a logbook, and RegisterJobKinds), and the test adds kinds of
 //     its own with addJobKind: a job the test holds running until it lets go, one
-//     that logs lines, one that fails, one that takes a moment to finish its item
-//     once asked to stop, one that will not stop until let go, and one that says
-//     when it has been asked to stop and finishes its item only when let go, so a
-//     press can land while a delete waits on it. A real kind's run
+//     that logs lines, one that fails, one that takes a moment to let go once it
+//     is stopped, one that will not stop until let go, and one that says when it
+//     has been stopped and lets go only when the test lets it, so a press can
+//     land while a delete waits on it. A real kind's run
 //     goes to the suppliers, and nothing a person does holds a job mid-item on
 //     demand;
 //   - the six built-in kinds' rules — who may start them, their validators, their
@@ -69,9 +69,11 @@ import (
 // held to its cap and its checks, and a backup's password is checked before
 // anything queues and kept out of the job; a finished job's log downloads as
 // Markdown whose block no line can leave; past jobs hold what ran in a request
-// and thirty days of it; deleting a reader stops their jobs, waits for the item
-// in hand, refuses while it will not end, starts nothing they ask for meanwhile,
-// and keeps the jobs for the admin; a server shutting down starts nothing.
+// and thirty days of it; deleting a reader stops their jobs, waits for the one
+// running to let go, refuses while it will not, starts nothing they ask for
+// meanwhile, and keeps the jobs for the admin; a server shutting down starts
+// nothing. (That a Stop is instant and leaves every item whole or untouched, in
+// every kind, is stop_kill_switch_test.go's.)
 
 // testQueue is the server's queue with the test's kinds on it.
 type testQueue struct {
@@ -118,7 +120,8 @@ func testParams(_ *Server, raw json.RawMessage, _ jobs.Owner) (jobInput, error) 
 }
 
 // hold runs until the test lets it go (let) or somebody stops it, checking for
-// Stop between waits as a real kind checks between items.
+// Stop between waits as a real kind checks between items. It holds nothing on
+// the wire, so a Stop reaches it at its next check, a few milliseconds on.
 func (q *testQueue) hold(_ *Server, _ context.Context, j *jobs.Job) error {
 	j.Log(jobs.LevelInfo, "holding")
 	for {
@@ -130,7 +133,7 @@ func (q *testQueue) hold(_ *Server, _ context.Context, j *jobs.Job) error {
 			return nil
 		case <-time.After(5 * time.Millisecond):
 			if j.Stopping() {
-				j.Log(jobs.LevelInfo, "stopped after the item in hand")
+				j.Log(jobs.LevelInfo, "stopped between waits")
 				return nil
 			}
 		}
@@ -783,7 +786,7 @@ func TestAnAdminStopsAReadersJobAndAReaderCannotStopAnothers(t *testing.T) {
 	for _, l := range log.Lines {
 		text = append(text, l.Line)
 	}
-	if !slices.Contains(text, "alice asked it to stop; it stops after the item in hand") {
+	if !slices.Contains(text, "alice pressed Stop") {
 		t.Fatalf("bob's log does not say who stopped it: %q", text)
 	}
 }
@@ -1233,14 +1236,14 @@ func TestAServerWithNoQueueStartsNothing(t *testing.T) {
 	}
 }
 
-// Deleting a reader stops their jobs before the account goes — the waiting one at
-// once, the running one after the item in hand, which the delete waits for — and
-// the admin still has both, stopped, with their logs.
+// Deleting a reader stops their jobs before the account goes — the waiting one
+// before it starts, the running one at once, and the delete waits for it to let
+// go — and the admin still has both, stopped, with their logs.
 func TestDeletingAReaderStopsTheirJobs(t *testing.T) {
 	srv := newTestServer(t)
 	queueing(t, srv)
-	// A job whose item in hand takes a moment to finish once it is asked to stop,
-	// as a lookup already on the wire does.
+	// A job that takes a moment to let go once it is stopped, as a run finishing a
+	// database write it had begun does.
 	srv.addJobKind(queuedKind{name: "test.slowstop", validate: testParams, run: func(_ *Server, _ context.Context, j *jobs.Job) error {
 		for !j.Stopping() {
 			time.Sleep(5 * time.Millisecond)
@@ -1260,8 +1263,8 @@ func TestDeletingAReaderStopsTheirJobs(t *testing.T) {
 	others := carol.mustStart("test.hold", map[string]any{"tag": "carol's"})
 
 	alice.mustDo("DELETE", fmt.Sprintf("/admin/users/%d", accountID(t, alice, "bob")), nil, http.StatusOK)
-	// Read once, straight after the delete answered: by then the item in hand
-	// has been finished, not only asked to stop.
+	// Read once, straight after the delete answered: by then the job has let go,
+	// not only been stopped.
 	for _, id := range []int64{running.ID, waiting.ID} {
 		if j := alice.job(id); j.State != "stopped" || j.Username != "bob" || j.Own {
 			t.Fatalf("a deleted reader's job as the admin sees it once the delete has answered: %+v", j)
@@ -1308,7 +1311,7 @@ func TestDeletingAReaderWhoseJobWillNotStopWaitsForIt(t *testing.T) {
 	job := bob.mustStart("test.stubborn", map[string]any{"tag": "stubborn"})
 	bob.waitJob(job.ID, "running")
 	rec := alice.do("DELETE", fmt.Sprintf("/admin/users/%d", bobID), nil)
-	if rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), "asked to stop") {
+	if rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), "has been stopped") {
 		t.Fatalf("deleting a reader whose job will not stop: %d %s, want 409", rec.Code, rec.Body)
 	}
 	if accountID(t, alice, "bob") != bobID {
@@ -1320,8 +1323,9 @@ func TestDeletingAReaderWhoseJobWillNotStopWaitsForIt(t *testing.T) {
 	// Still a reader, so still one who can start a job, which waits its turn.
 	after := bob.mustStart("test.lines", map[string]any{"tag": "after the refused delete"})
 	close(letGo)
-	// The item it would not let go of was all it had, so it ends having done
-	// everything: succeeded, not stopped (the runner's finish says why).
+	// It never asked whether it had been stopped, and the item it would not let
+	// go of was all it had, so it ends having done everything: succeeded, not
+	// stopped (the runner's finish says why).
 	bob.waitJob(job.ID, "succeeded")
 	bob.waitJob(after.ID, "succeeded")
 	alice.mustDo("DELETE", fmt.Sprintf("/admin/users/%d", bobID), nil, http.StatusOK)

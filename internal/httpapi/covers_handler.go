@@ -30,6 +30,13 @@ var coverFile = regexp.MustCompile(`^[0-9a-f]{16}\.(jpg|png|webp|gif|svg)$`)
 // directory on startup.
 func (s *Server) coversDir() string { return filepath.Join(s.DataDir, "MediaCover") }
 
+// CleanupDownloads removes the temp files of picture downloads a crash cut short
+// (metadata.SweepDownloads). Called from serve() at boot, beside the backup
+// staging sweep, before anything could be downloading.
+func CleanupDownloads(dataDir string) {
+	metadata.SweepDownloads(filepath.Join(dataDir, "MediaCover"))
+}
+
 func (s *Server) handleCover(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("file")
 	olog.Tracef("[cover] handleCover name=%v", name)

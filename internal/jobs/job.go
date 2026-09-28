@@ -1,6 +1,7 @@
 package jobs
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -30,9 +31,19 @@ type Job struct {
 	// makes runs under, waits for the job in hand and holds the worker.
 	gen uint64
 
+	// ctx is what Run is given, a child of the runner's own, and cancel ends it.
+	// Stop, Stop all and StopOwner call cancel the moment they are pressed, so an
+	// outward call in flight aborts there and then rather than when it would have
+	// answered; shutdown reaches it through the runner's context. Made as the job
+	// is claimed, before the worker says which job it holds, so every Stop that
+	// finds the job held finds a cancel to call.
+	ctx    context.Context
+	cancel context.CancelFunc
+
 	stop      atomic.Bool // a person asked it to stop
 	shutdown  atomic.Bool // the server is stopping
 	told      atomic.Bool // Stopping told the run to stop, so it stopped short (finish)
+	ended     atomic.Bool // its run has returned and finish is writing its end
 	abandoned atomic.Bool // Close stopped waiting for it and marked it interrupted
 	// over is closed when the worker lets go of the job, its end recorded
 	// (WaitOwnerIdle waits on it).
@@ -63,11 +74,13 @@ func (j *Job) Subject(s string) {
 	}
 }
 
-// Stopping reports whether the job should stop after the item in hand: a person
-// pressed Stop, or the server is shutting down. Run checks it between items, and
-// stops when it answers yes — which is how the job's end is told: a run that was
-// answered yes stopped short of its items, and one never answered yes did them
-// all, a Stop pressed during its last item notwithstanding (finish).
+// Stopping reports whether the job should stop: a person pressed Stop, or the
+// server is shutting down. Run checks it between items and stops when it answers
+// yes; a Stop has already cancelled Run's context by then, so it is also what a
+// run asks after an item it abandoned because that context ended. The answer is
+// how the job's end is told: a run that was answered yes stopped short of its
+// items, and one never answered yes did them all, a Stop pressed once its last
+// item was written notwithstanding (finish).
 func (j *Job) Stopping() bool {
 	if !j.stopAsked() {
 		return false

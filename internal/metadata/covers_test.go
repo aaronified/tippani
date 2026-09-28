@@ -3,6 +3,8 @@ package metadata
 import (
 	"bytes"
 	"context"
+	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -10,6 +12,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 )
 
 // pngData sniffs as image/png: magic header plus padding past minImageBytes.
@@ -82,14 +85,102 @@ func TestFetchImageRejects(t *testing.T) {
 			// A fresh server per row: each row serves its own body.
 			srv := imageServer(t, tc.body)
 
-			_, err := FetchImage(context.Background(), srv.URL, t.TempDir())
+			dir := t.TempDir()
+			_, err := FetchImage(context.Background(), srv.URL, dir)
 			if err == nil {
 				t.Fatalf("err = nil, want rejection")
 			}
 			if tc.wantErrContains != "" && !strings.Contains(err.Error(), tc.wantErrContains) {
 				t.Fatalf("err = %v, want it to mention %q", err, tc.wantErrContains)
 			}
+			// A refused body arrived whole into its temp file first; the refusal
+			// removes it.
+			if left := filesIn(t, dir); len(left) != 0 {
+				t.Fatalf("a refused download left %q behind", left)
+			}
 		})
+	}
+}
+
+// filesIn is every name in dir, dot files included.
+func filesIn(t *testing.T, dir string) []string {
+	t.Helper()
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out []string
+	for _, e := range entries {
+		out = append(out, e.Name())
+	}
+	return out
+}
+
+// A DOWNLOAD CUT OFF MID-BODY LEAVES NOTHING. The supplier sends half a picture
+// and holds the rest; the download is cancelled, as a Stop cancels it. The call
+// returns the cancellation at once, the supplier sees its request go, and the
+// directory holds neither half a picture nor the temp file it was arriving in.
+func TestADownloadCancelledMidBodyLeavesNothing(t *testing.T) {
+	allowAny(t)
+	sent, gone := make(chan struct{}), make(chan struct{})
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Length", fmt.Sprint(len(pngData)*2))
+		_, _ = w.Write(pngData)
+		w.(http.Flusher).Flush()
+		close(sent)
+		<-r.Context().Done()
+		close(gone)
+	}))
+	t.Cleanup(srv.Close)
+	dir := t.TempDir()
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() {
+		_, err := FetchImage(ctx, srv.URL+"/cover.png", dir)
+		done <- err
+	}()
+	<-sent
+	// The first half is on disk, under the temp name, before the cancel.
+	deadline := time.Now().Add(10 * time.Second)
+	for len(filesIn(t, dir)) == 0 {
+		if time.Now().After(deadline) {
+			t.Fatal("the download never began writing")
+		}
+		time.Sleep(time.Millisecond)
+	}
+	if left := filesIn(t, dir); len(left) != 1 || !strings.HasPrefix(left[0], DownloadPrefix) {
+		t.Fatalf("mid-download the directory holds %q, want one temp file", left)
+	}
+	cancel()
+	select {
+	case err := <-done:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("the cancelled download returned %v, want the cancellation", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("the cancelled download did not return")
+	}
+	select {
+	case <-gone:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the supplier never saw its request cancelled")
+	}
+	if left := filesIn(t, dir); len(left) != 0 {
+		t.Fatalf("a cancelled download left %q behind", left)
+	}
+}
+
+// What a crash left mid-download is cleared at start, and nothing else is.
+func TestSweepDownloadsClearsOnlyWhatACrashLeft(t *testing.T) {
+	dir := t.TempDir()
+	for _, n := range []string{DownloadPrefix + "123", "0123456789abcdef.png"} {
+		if err := os.WriteFile(filepath.Join(dir, n), pngData, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	SweepDownloads(dir)
+	if left := filesIn(t, dir); len(left) != 1 || left[0] != "0123456789abcdef.png" {
+		t.Fatalf("after the sweep: %q, want the picture alone", left)
 	}
 }
 

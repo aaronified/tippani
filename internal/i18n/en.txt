@@ -4420,11 +4420,13 @@ reverify.kept.running = Still running · Settings → Jobs
 reverify.kept.review = Findings kept · Settings → Jobs
 # Cancel while the check runs STOPS it, which is why it asks.
 reverify.stop.confirm.title = Stop the check?
-reverify.stop.confirm.body = It stops after the item in hand, and is kept in Settings → Jobs with its log.
+reverify.stop.confirm.body = It stops at once and leaves the item in hand untouched, and it is kept in Settings → Jobs with its log.
 # The same confirm over a check still in the queue: it has no item in hand, so
 # the server ends it before it starts.
 reverify.stop.confirm.body.waiting = It is stopped before it starts, and kept in Settings → Jobs with its log.
 reverify.stop.confirm.verb = Stop it
+# Said in the dialog from the moment Stop it is pressed until the check reads stopped, which is a moment.
+reverify.stop.stopping = Stopping…
 error.reverify.preview = preview failed
 error.reverify.apply = apply failed
 
@@ -5990,13 +5992,13 @@ settings.jobs.current.stop.running.aria = Stop {title} (running)
 settings.jobs.current.stop.next.aria = Stop {title} (next)
 settings.jobs.current.stop.ahead.aria.one = Stop {title} (one job ahead)
 settings.jobs.current.stop.ahead.aria.other = Stop {title} ({n} jobs ahead)
-# Toasts are five words or fewer (ui.jsx's toast); the row itself says the rest.
-settings.jobs.current.stop.done = Stopping after this item
-settings.jobs.current.stopping = Stopping after the item in hand…
+# Said on the row from the instant Stop is pressed until the job reads stopped,
+# which is a moment: a Stop is at once, and the job's item in hand is left untouched.
+settings.jobs.current.stopping = Stopping…
 settings.jobs.current.stop-all.label = Stop all
 settings.jobs.current.stop-all.confirm.title = Stop all jobs?
 # The confirm's body is these sentences, the ones that apply, joined in code.
-settings.jobs.current.stop-all.confirm.running = The running job stops after the item in hand.
+settings.jobs.current.stop-all.confirm.running = The running job stops at once, and the item it has in hand is left untouched.
 settings.jobs.current.stop-all.confirm.waiting.one = The one waiting is stopped before it starts.
 settings.jobs.current.stop-all.confirm.waiting.other = The {n} waiting are stopped before they start.
 # True for a reader and for an admin alike: only the reader who started a job can run it again.

@@ -70,6 +70,18 @@ func SetFandomAndScrapeBasesForTest(t *testing.T, fandomFmt, googleScrape string
 	t.Cleanup(func() { fandomHostFmt, googleScrapeBase = f, g })
 }
 
+// AllowAnyImageHostForTest lets FetchImage reach a plain-http stub on 127.0.0.1
+// for one test, lifting the scheme, host-allowlist and private-address guards.
+// Exported for httpapi's tests of a Stop landing mid-download, which have to run
+// the real download — its temp file and its rename are what is under test — and
+// can only point it at a stub of their own.
+func AllowAnyImageHostForTest(t *testing.T) {
+	t.Helper()
+	orig := fetchAllowAny
+	fetchAllowAny = true
+	t.Cleanup(func() { fetchAllowAny = orig })
+}
+
 // SetLetterboxdBaseForTest points the film-page reader at a stub for one test.
 //
 // IT MATTERS MORE THAN THE OTHERS. Letterboxd needs no credential, so its rung

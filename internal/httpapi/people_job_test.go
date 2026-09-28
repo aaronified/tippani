@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -22,7 +21,8 @@ import (
 // suppliers are the server's seams — Open Library's author resolution
 // (srv.resolveAuthor) and the portrait download (srv.fetchImage, through
 // downloads) — because a test may not reach the real ones, and one test holds
-// the resolution mid-answer so that Stop is pressed with a record in hand; and
+// the resolution until its request is cancelled, so that Stop is pressed with a
+// record in hand; and
 // the job's wire fields and its counts' names, which the People screen's flash
 // reads (jobs.js's jobOutcome: ok, failed, first_error).
 //
@@ -30,7 +30,8 @@ import (
 // each record, says in its log what it found or why it failed, and counts the
 // fetched and the failed with the reason the first one failed, in the words the
 // row's own Fetch would have said, under the names the screen reads; another
-// reader's record is not fetched; and Stop ends it after the record in hand.
+// reader's record is not fetched; and Stop ends it at once, leaving the record in
+// hand untouched.
 
 // recordID is a person's record id as the People console lists it.
 func recordID(t *testing.T, c *testClient, name string) int64 {
@@ -114,18 +115,20 @@ func TestAPeopleJobFetchesEachRecordAndSaysWhyTheFirstOneFailed(t *testing.T) {
 	}
 }
 
-func TestAPeopleJobStopsAfterTheRecordInHand(t *testing.T) {
+// A Stop pressed while the second record is being resolved ends the fetch there:
+// the first record keeps what was fetched for it, and the second is left as it
+// was, counted neither fetched nor failed.
+func TestAPeopleJobStoppedWithARecordInHandLeavesThatRecordUntouched(t *testing.T) {
 	srv := newTestServer(t)
 	queueing(t, srv)
 	leGuinResolves(srv)
 	resolve := srv.resolveAuthor
-	var holding atomic.Bool
-	holding.Store(true)
-	asked, release := make(chan struct{}, 1), make(chan struct{})
+	asked := make(chan struct{}, 1)
 	srv.resolveAuthor = func(ctx context.Context, name string, titles []string) (metadata.AuthorResolution, error) {
-		if holding.CompareAndSwap(true, false) {
+		if name == "Second" {
 			asked <- struct{}{}
-			<-release // the first record's resolution is slow
+			<-ctx.Done() // the second record's resolution never answers
+			return metadata.AuthorResolution{}, ctx.Err()
 		}
 		return resolve(ctx, "Ursula K. Le Guin", titles)
 	}
@@ -141,13 +144,12 @@ func TestAPeopleJobStopsAfterTheRecordInHand(t *testing.T) {
 	select {
 	case <-asked:
 	case <-time.After(20 * time.Second):
-		t.Fatal("the fetch never asked Open Library")
+		t.Fatal("the fetch never asked Open Library about the second record")
 	}
 	alice.mustDo("POST", fmt.Sprintf("/jobs/%d/stop", job.ID), nil, http.StatusOK)
-	close(release)
 	stopped := alice.waitJob(job.ID, "stopped")
 	if stopped.Done != 1 {
-		t.Fatalf("stopped after %d of %d records, want the one in hand", stopped.Done, stopped.Total)
+		t.Fatalf("stopped after %d of %d records, want the one fetched before the Stop", stopped.Done, stopped.Total)
 	}
 	countsAre(t, stopped, map[string]any{"ok": float64(1), "failed": float64(0), "first_error": ""})
 	bio := func(id int64) string {

@@ -21,6 +21,7 @@ import (
 
 	"tippani/internal/auth"
 	"tippani/internal/jobs"
+	"tippani/internal/metadata"
 	"tippani/internal/olog"
 	"tippani/internal/store"
 )
@@ -349,7 +350,9 @@ func (s *Server) handleBackupCreate(w http.ResponseWriter, r *http.Request) {
 	// like the queued one, under the same kind.
 	jobs.Begin(r.Context(), "backup", "")
 
-	meta, err := s.createBackup(userID(r), account, mode, secret)
+	// Not the request's context: a backup a reader started finishes and is kept if
+	// they close the tab, as it always has. Only a queued one can be stopped.
+	meta, err := s.createBackup(context.Background(), userID(r), account, mode, secret)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, backupErrorText(err))
 		return
@@ -377,6 +380,13 @@ func (s *Server) handleBackupCreate(w http.ResponseWriter, r *http.Request) {
 // ANOTHER BACKUP OR A RESTORE HOLDING THE LOCK FAILS THE JOB rather than waiting
 // for it: the route answers 409 to the same, and a job that waited on the lock
 // would hold the queue behind a restore's upload for as long as it took.
+//
+// A STOP LEAVES NO ARCHIVE AND KEEPS THE OLD ONE. The archive is written under
+// its partial name and promoted last; a Stop before the promote ends the writing
+// between two files (or mid-file), removes the partial file and its staging, and
+// the archive the server kept before is as it was (createBackup). The snapshot
+// itself, VACUUM INTO, is a database call and carries no context: a Stop landing
+// in it is answered as soon as it returns.
 func runBackup(s *Server, ctx context.Context, j *jobs.Job) error {
 	key, ok := j.Secret().(backupKey)
 	if !ok {
@@ -396,8 +406,13 @@ func runBackup(s *Server, ctx context.Context, j *jobs.Job) error {
 		// is named now.
 		account = owner.Username
 	}
-	meta, err := s.createBackup(owner.UserID, account, key.mode, key.secret)
+	meta, err := s.createBackup(ctx, owner.UserID, account, key.mode, key.secret)
 	if err != nil {
+		if ctx.Err() != nil {
+			j.Stopping()
+			j.Log(jobs.LevelInfo, "no archive was made: stopped before it was sealed, and the one kept before is as it was")
+			return ctx.Err()
+		}
 		return errors.New(backupErrorText(err))
 	}
 	name, _ := meta["name"].(string)
@@ -453,7 +468,12 @@ func backupErrorText(err error) string {
 // it holds the lock; a queued backup checks the owner's current hash when it
 // runs, since the account may have changed its password while it waited
 // (backupKey).
-func (s *Server) createBackup(uid int64, account string, mode byte, secret string) (map[string]any, error) {
+//
+// ctx is a queued backup's, which a Stop ends (runBackup): it is asked before the
+// snapshot, before every file the archive takes and during each, and last before
+// the promote. Ended at any of them, nothing is promoted and the partial file is
+// removed, and its error is ctx's, unlogged — a Stop is not a failure.
+func (s *Server) createBackup(ctx context.Context, uid int64, account string, mode byte, secret string) (map[string]any, error) {
 	if err := os.MkdirAll(s.backupsDir(), 0o700); err != nil {
 		olog.Errorf(olog.CodeBackupArchive, "[backup] backups dir: %v", err)
 		return nil, &backupError{"internal error", err}
@@ -461,7 +481,12 @@ func (s *Server) createBackup(uid int64, account string, mode byte, secret strin
 	name := backupPrefix + time.Now().UTC().Format(backupTimeLayout) + backupExt
 	final := filepath.Join(s.backupsDir(), name)
 	partial := final + ".partial"
-	if err := s.sealArchive(uid, account, mode, secret, partial); err != nil {
+	if err := s.sealArchive(ctx, uid, account, mode, secret, partial); err != nil {
+		return nil, err
+	}
+	// The last step a Stop can land before: after it, the archive is the kept one.
+	if err := s.backupStep(ctx, "promote"); err != nil {
+		_ = os.Remove(partial)
 		return nil, err
 	}
 	_ = os.Remove(final) // same-second re-create: Windows rename won't overwrite
@@ -499,10 +524,41 @@ func backupReady(meta map[string]any) string {
 	return name + " (" + humanBytes(size) + ") is on the server."
 }
 
+// backupStep is where a backup asks whether to go on: before its snapshot
+// ("snapshot"), before each file it archives ("file"), before each read of a
+// file's copy ("copy", ctxReader) and before its promote ("promote").
+// backupSeam runs first, when a test has set it.
+func (s *Server) backupStep(ctx context.Context, step string) error {
+	if s.backupSeam != nil {
+		s.backupSeam(ctx, step)
+	}
+	return ctx.Err()
+}
+
+// ctxReader is r, ended by ctx: a Stop landing in the middle of a large file —
+// the snapshot of a big library, on a slow disk — ends the copy there, not at
+// the file's end. Each read is a step of the backup's ("copy").
+type ctxReader struct {
+	s   *Server
+	ctx context.Context
+	r   io.Reader
+}
+
+func (c ctxReader) Read(p []byte) (int, error) {
+	if err := c.s.backupStep(c.ctx, "copy"); err != nil {
+		return 0, err
+	}
+	return c.r.Read(p)
+}
+
 // sealArchive snapshots the live database and writes it, sealed with the chosen
 // credential, to dest, for account uid. Its caller holds backupMu and has
-// verified the credential. Its errors are *backupError, logged here.
-func (s *Server) sealArchive(uid int64, account string, mode byte, secret, dest string) error {
+// verified the credential. Its errors are *backupError, logged here, or ctx's
+// (createBackup), with dest and the staging removed.
+func (s *Server) sealArchive(ctx context.Context, uid int64, account string, mode byte, secret, dest string) error {
+	if err := s.backupStep(ctx, "snapshot"); err != nil {
+		return err
+	}
 	// The instance recovery key, created on first use. Taken BEFORE the snapshot
 	// on purpose: it must exist and be settled on disk before anything is written,
 	// and it is deliberately NOT inside the snapshot (controlEntry excludes it), so
@@ -543,8 +599,11 @@ func (s *Server) sealArchive(uid int64, account string, mode byte, secret, dest 
 		return &backupError{"database snapshot failed", err}
 	}
 
-	if err := s.writeBackupArchive(dest, snap, mode, account, secret, instKey); err != nil {
+	if err := s.writeBackupArchive(ctx, dest, snap, mode, account, secret, instKey); err != nil {
 		_ = os.Remove(dest)
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 		olog.Errorf(olog.CodeBackupArchive, "[backup] archive write failed: %v", err)
 		return &backupError{"backup archive could not be written", err}
 	}
@@ -665,7 +724,7 @@ func (s *Server) handleSafetyBackup(w http.ResponseWriter, r *http.Request) {
 	dest := tmp.Name()
 	_ = tmp.Close()
 	defer os.Remove(dest)
-	if err := s.sealArchive(userID(r), account, mode, secret, dest); err != nil {
+	if err := s.sealArchive(context.Background(), userID(r), account, mode, secret, dest); err != nil {
 		writeErr(w, http.StatusInternalServerError, backupErrorText(err))
 		return
 	}
@@ -722,7 +781,7 @@ func keyModeName(mode byte) string {
 // into a tar.gz at dest, sealed inside the AES-GCM envelope (backup_crypto.go).
 // The layering is tar → gzip → envelope, so the archive compresses before it is
 // encrypted; the other order would compress ciphertext, which does not compress.
-func (s *Server) writeBackupArchive(dest, snap string, mode byte, account, secret string, instKey []byte) error {
+func (s *Server) writeBackupArchive(ctx context.Context, dest, snap string, mode byte, account, secret string, instKey []byte) error {
 	out, err := os.OpenFile(dest, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600)
 	if err != nil {
 		return err
@@ -736,6 +795,9 @@ func (s *Server) writeBackupArchive(dest, snap string, mode byte, account, secre
 	tw := tar.NewWriter(gz)
 
 	addFile := func(src, name string) error {
+		if err := s.backupStep(ctx, "file"); err != nil {
+			return err
+		}
 		info, err := os.Stat(src)
 		if err != nil {
 			return err
@@ -749,7 +811,7 @@ func (s *Server) writeBackupArchive(dest, snap string, mode byte, account, secre
 			return err
 		}
 		defer f.Close()
-		_, err = io.Copy(tw, f)
+		_, err = io.Copy(tw, ctxReader{s, ctx, f})
 		return err
 	}
 
@@ -780,6 +842,9 @@ func (s *Server) writeBackupArchive(dest, snap string, mode byte, account, secre
 				}
 				if !d.Type().IsRegular() {
 					return nil // symlinks etc. are never archived
+				}
+				if strings.HasPrefix(d.Name(), metadata.DownloadPrefix) {
+					return nil // a picture still arriving is not a picture yet
 				}
 				if err := addFile(p, name); err != nil {
 					// A cover deleted mid-walk is benign; anything else is real.

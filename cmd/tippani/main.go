@@ -236,6 +236,8 @@ func serve() {
 	// A crash mid-backup/restore can leave staging dirs behind; sweep them.
 	// The .pre-restore-<ts> safety copy is deliberately kept (troubleshoot.md).
 	httpapi.CleanupBackupStaging(dataDir)
+	// And a picture download a crash cut short leaves its temp file; so sweep that.
+	httpapi.CleanupDownloads(dataDir)
 
 	// <DataDir>/Locales, with the translation template in it. Answers the
 	// question the folder could not: where do my translations go. Never fatal —

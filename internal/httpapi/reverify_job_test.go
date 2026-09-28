@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -31,8 +30,9 @@ import (
 // every work and person it was given, says in its log what differs on each, keeps
 // its findings for the review, counts the items and those with something to
 // review under the names the screens read, and writes nothing; asked for empty
-// fields only, it keeps only the differences that would fill one; Stop ends it
-// after the item in hand, keeping what it found up to there; and a check that
+// fields only, it keeps only the differences that would fill one; Stop ends it at
+// once, keeping what it found before the item in hand and nothing of that one;
+// and a check that
 // finds more than one job can keep keeps what fits, says which items it left,
 // and still opens its review, each diff whole — its fresh value as the preview
 // gave it even where that is not quite the first supplier's.
@@ -134,18 +134,20 @@ func TestACheckJobKeepsWhatDiffersForTheReviewAndWritesNothing(t *testing.T) {
 	}
 }
 
-func TestACheckJobStopsAfterTheItemInHandAndKeepsWhatItFound(t *testing.T) {
+// A Stop pressed while the second book is being looked up ends the check there:
+// it keeps what it found on the first, and nothing on the second, whose lookup the
+// Stop cut off — half an answer is not a finding.
+func TestACheckJobStoppedWithAnItemInHandKeepsWhatItFoundBeforeIt(t *testing.T) {
 	srv := newTestServer(t)
 	queueing(t, srv)
 	duneAsTheSupplierHasIt(srv)
 	answer := srv.searchBooks
-	var holding atomic.Bool
-	holding.Store(true)
-	asked, release := make(chan struct{}, 1), make(chan struct{})
+	asked := make(chan struct{}, 1)
 	srv.searchBooks = func(ctx context.Context, isbn, title, author, key string) ([]metadata.BookCandidate, error) {
-		if holding.CompareAndSwap(true, false) {
+		if isbn == messiahISBN {
 			asked <- struct{}{}
-			<-release // the first book's lookup is slow
+			<-ctx.Done() // the second book's supplier never answers
+			return nil, ctx.Err()
 		}
 		return answer(ctx, isbn, title, author, key)
 	}
@@ -158,17 +160,16 @@ func TestACheckJobStopsAfterTheItemInHandAndKeepsWhatItFound(t *testing.T) {
 	select {
 	case <-asked:
 	case <-time.After(20 * time.Second):
-		t.Fatal("the check never asked the supplier")
+		t.Fatal("the check never asked about the second book")
 	}
 	alice.mustDo("POST", fmt.Sprintf("/jobs/%d/stop", job.ID), nil, http.StatusOK)
-	close(release)
 	stopped := alice.waitJob(job.ID, "stopped")
 	if stopped.Done != 1 {
-		t.Fatalf("stopped after %d of %d items, want the one in hand", stopped.Done, stopped.Total)
+		t.Fatalf("stopped after %d of %d items, want the one checked before the Stop", stopped.Done, stopped.Total)
 	}
 	countsAre(t, stopped, map[string]any{"items": float64(1), "changes": float64(1)})
 	if found := checkFindings(t, alice, job.ID); len(found) != 1 || found["Dune"] == "" {
-		t.Fatalf("a check stopped after its first book kept %v", found)
+		t.Fatalf("a check stopped on its second book kept %v", found)
 	}
 }
 

@@ -41,21 +41,28 @@ var errNoSuchPerson = errors.New("not found")
 // log line, and compares it with what the fetch leaves to say what changed.
 //
 // Its errors are a *refusal whose sentence the reader is shown (the lookup
-// failed) or anything else (a write failed); personByID's own is
+// failed), errStoppedItem (a Stop, or the reader going, ended ctx before the
+// write), or anything else (a write failed); personByID's own is
 // errNoSuchPerson. A reference-page lookup that fails costs the links and not
-// the fetch, as it did in the browser: the portrait has been written by then,
-// and it is still worth having.
+// the fetch, as it did in the browser: the portrait is still worth having.
+//
+// EVERY LOOKUP FIRST, THEN ONE WRITE. The portrait, its download and the
+// reference pages are all asked for before anything is written, and what they
+// found is written in one transaction (saveFetchedPerson). It was a write after
+// the portrait and another after the links, so a Stop that landed while the
+// links were asked for left a record with a new portrait and its old links: half
+// a fetch. Now a Stop anywhere before the write leaves the record exactly as it
+// was, and the portrait that had downloaded is removed (job_stop.go).
 func (s *Server) fetchPerson(ctx context.Context, uid int64, p personRow) (personRow, map[string]string, error) {
 	id := p.ID
 	kind := s.fetchKind(uid, id)
 	found, err := s.findPortrait(ctx, uid, kind, p.Name)
+	if ctx.Err() != nil {
+		s.removeCoverFile(found.image)
+		return personRow{}, nil, errStoppedItem
+	}
 	if err != nil {
 		return personRow{}, nil, &refusal{http.StatusBadGateway, errPortraitLookup}
-	}
-	if found.pinned() {
-		if err := s.persistPortrait(uid, id, kind, found); err != nil {
-			return personRow{}, nil, err
-		}
 	}
 	links := found.links
 	if len(links) == 0 {
@@ -65,16 +72,12 @@ func (s *Server) fetchPerson(ctx context.Context, uid int64, p personRow) (perso
 	if links == nil {
 		links = map[string]string{}
 	}
-	// Folded into the links as they are NOW, read again: the portrait write above
-	// does not touch them, but a save of the record's links between the read at
-	// the caller's and this line would otherwise be written over.
-	if cur, err := s.personByID(uid, id); err == nil {
-		p = cur
+	if ctx.Err() != nil {
+		s.removeCoverFile(found.image)
+		return personRow{}, nil, errStoppedItem
 	}
-	if merged := mergeLinks(p.Links, links); merged != "" && merged != p.Links {
-		if err := s.savePersonLinks(uid, id, merged); err != nil {
-			return personRow{}, nil, err
-		}
+	if err := s.saveFetchedPerson(uid, id, kind, found, links); err != nil {
+		return personRow{}, nil, err
 	}
 	p, err = s.personByID(uid, id)
 	if err != nil {
@@ -136,19 +139,55 @@ func (s *Server) fetchKind(uid, id int64) string {
 	return "author"
 }
 
-// savePersonLinks writes record id's links, trimmed, as PUT /people/id/{id}
-// writes them when it is sent links alone.
-func (s *Server) savePersonLinks(uid, id int64, links string) error {
-	_, err := s.Store.DB.Exec(`UPDATE people SET links = ? WHERE id = ? AND user_id = ?`,
-		strings.TrimSpace(links), id, uid)
-	return err
+// saveFetchedPerson writes what a record's fetch found onto record id of uid's,
+// in one transaction: the portrait, identity and facts when the resolve pinned
+// anything (persistPortraitOn), and the links folded into the record's links. It
+// removes the downloaded portrait when the write fails, and the portrait it
+// replaced once the write has committed.
+//
+// THE LINKS ARE FOLDED INTO THE LINKS AS THEY ARE NOW, read inside the
+// transaction: a save of the record's links between the caller's read and this
+// write would otherwise be written over.
+func (s *Server) saveFetchedPerson(uid, id int64, kind string, f portraitFind, links map[string]string) error {
+	tx, err := s.Store.DB.Begin()
+	if err != nil {
+		s.removeCoverFile(f.image)
+		return err
+	}
+	defer tx.Rollback()
+	oldImage := ""
+	if f.pinned() {
+		if oldImage, err = persistPortraitOn(tx, uid, id, kind, f); err != nil {
+			s.removeCoverFile(f.image)
+			return err
+		}
+	}
+	var cur string
+	if err := tx.QueryRow(`SELECT links FROM people WHERE id = ? AND user_id = ?`, id, uid).Scan(&cur); err == nil {
+		if merged := mergeLinks(cur, links); merged != "" && merged != cur {
+			if _, err := tx.Exec(`UPDATE people SET links = ? WHERE id = ? AND user_id = ?`,
+				strings.TrimSpace(merged), id, uid); err != nil {
+				s.removeCoverFile(f.image)
+				return err
+			}
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		s.removeCoverFile(f.image)
+		return err
+	}
+	if f.image != "" && oldImage != "" && oldImage != f.image {
+		s.removeCoverFile(oldImage) // best-effort; the new row is committed
+	}
+	return nil
 }
 
 // runPeople is the people job: a record's Fetch, for each record the job names,
 // one at a time, with a line in its log for each saying what the fetch found or
 // why it failed. Its counts are what the People screen's flash says: how many
 // were fetched, how many failed, and why the first one did, in the sentence the
-// row's own Fetch would have shown.
+// row's own Fetch would have shown. A Stop leaves the record in hand as it was
+// (fetchPerson), and it is counted neither way.
 func runPeople(s *Server, ctx context.Context, j *jobs.Job) error {
 	var p struct {
 		IDs []int64 `json:"ids"`
@@ -159,7 +198,7 @@ func runPeople(s *Server, ctx context.Context, j *jobs.Job) error {
 	uid := j.Owner().UserID
 	ok, failed, firstErr := 0, 0, ""
 	for i, id := range p.IDs {
-		if j.Stopping() {
+		if !s.goOn(j, i) {
 			break
 		}
 		before, err := s.personByID(uid, id)
@@ -168,6 +207,10 @@ func runPeople(s *Server, ctx context.Context, j *jobs.Job) error {
 			after, _, err = s.fetchPerson(ctx, uid, before)
 		}
 		name := itemName("person", id, before.Name)
+		if errors.Is(err, errStoppedItem) {
+			abandoned(j, name)
+			break
+		}
 		if err != nil {
 			failed++
 			said, cause := personFetchSaid(err)
@@ -238,6 +281,10 @@ func (s *Server) handlePersonFetch(w http.ResponseWriter, r *http.Request) {
 	switch ref, refused := asRefusal(err); {
 	case err == nil:
 		writeJSON(w, http.StatusOK, map[string]any{"person": p, "links": links})
+	case errors.Is(err, errStoppedItem):
+		// The reader went before the fetch could write: nothing was written, and
+		// nobody is waiting for an answer, so there is no error to report.
+		writeErr(w, http.StatusServiceUnavailable, "the fetch was cut short before anything was written")
 	case errors.Is(err, errNoSuchPerson):
 		writeErr(w, http.StatusNotFound, "not found")
 	case refused:

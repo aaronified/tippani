@@ -174,9 +174,9 @@ func (s *Server) handleSetUserAdmin(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
-// ownerJobWait is how long deleting an account waits for its running job to
-// finish the item in hand. A variable so the test of a job that will not stop
-// waits a moment instead of ten seconds.
+// ownerJobWait is how long deleting an account waits for its running job, once
+// stopped, to let go. A variable so the test of a job that will not stop waits a
+// moment instead of ten seconds.
 var ownerJobWait = 10 * time.Second
 
 // handleDeleteUser removes a user (their books/annotations cascade). The admin
@@ -216,17 +216,19 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusForbidden, "an admin must step down before being removed")
 		return
 	}
-	// Their jobs stop first: the waiting ones at once, the running one after the
-	// item in hand. A job left to run on would go on writing into rows scoped by
-	// an id that users.id hands to the next account made. The history stays, the
-	// admin's to see (0079's trigger clears the owner as the account goes). A
-	// queue that cannot say it stopped them refuses the delete rather than risk it.
+	// Their jobs stop first, at once: the waiting ones before they start, the
+	// running one cancelled, its item in hand left untouched (job_stop.go). A job
+	// left to run on would go on writing into rows scoped by an id that users.id
+	// hands to the next account made. The history stays, the admin's to see
+	// (0079's trigger clears the owner as the account goes). A queue that cannot
+	// say it stopped them refuses the delete rather than risk it.
 	//
-	// AND THE DELETE WAITS FOR THE ITEM IN HAND, for ownerJobWait at most. Asking
-	// is not enough: the item still runs as this id, and a signup that lands
-	// before it ends gets the id (the highest one is reused) and that item's
-	// writes with it. A job still running when the wait is up refuses the delete,
-	// which the admin can press again in a moment; it has been asked to stop.
+	// AND THE DELETE WAITS FOR THE JOB TO LET GO, for ownerJobWait at most.
+	// Stopping it is not enough: until its run has returned it still runs as this
+	// id — out of a database write it had begun, which finishes whole — and a
+	// signup that lands before then gets the id (the highest one is reused) and
+	// that write with it. A job still running when the wait is up refuses the
+	// delete, which the admin can press again in a moment; it has been stopped.
 	//
 	// AND FROM THE STOP UNTIL THIS HANDLER RETURNS, THE ACCOUNT STARTS NOTHING.
 	// It exists until the delete commits, so a session of theirs could otherwise
@@ -244,7 +246,7 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 		err = s.Jobs.WaitOwnerIdle(ctx, id)
 		cancel()
 		if err != nil {
-			writeErr(w, http.StatusConflict, "Their running job has been asked to stop and is finishing the item in hand. Delete the account again in a moment.")
+			writeErr(w, http.StatusConflict, "Their running job has been stopped and is still finishing a write it had begun. Delete the account again in a moment.")
 			return
 		}
 	}

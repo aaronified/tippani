@@ -473,7 +473,9 @@ func (s *Server) fandomWikiFor(ctx context.Context, uid, workID int64, stored, t
 		return ""
 	}
 	wiki := metadata.FandomResolveWikiFor(ctx, title, series)
-	if wiki == "" || workID == 0 {
+	// Nor is one learned as a Stop landed: the job that asked has abandoned the
+	// work, and a Stop leaves the work as it was (job_stop.go).
+	if wiki == "" || workID == 0 || ctx.Err() != nil {
 		return wiki
 	}
 	s.rememberFandomWiki(uid, workID, wiki)

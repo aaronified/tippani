@@ -883,9 +883,11 @@ func (s *Server) eachExportLine(gen uint64, emit func(string) error, q string, a
 	}
 }
 
-// handleStopJob: POST /jobs/{id}/stop → {job}. A waiting job is stopped at once,
-// a running one after the item in hand; one that has ended is left as it ended.
-// A reader may stop their own, an admin anybody's.
+// handleStopJob: POST /jobs/{id}/stop → {job}. A job is stopped at once: a
+// waiting one before it starts, a running one cancelled, its item in hand left
+// untouched (job_stop.go), so the job reads stopped a moment after this answers;
+// one that has ended is left as it ended. A reader may stop their own, an admin
+// anybody's.
 func (s *Server) handleStopJob(w http.ResponseWriter, r *http.Request) {
 	if s.Jobs == nil {
 		noQueue(w)

@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 
@@ -53,6 +54,9 @@ type fillResult struct {
 	Filled []string `json:"filled"`
 	Note   string   `json:"note,omitempty"`
 	Error  string   `json:"error,omitempty"`
+	// stopped is a work a Stop reached before its write: nothing of it was
+	// written (errStoppedItem).
+	stopped bool
 }
 
 // missingStored reports whether a diff's STORED side is empty — which is the
@@ -176,6 +180,12 @@ func fillDoneMessage(fields, works int) string {
 // IT TELLS THE PHONE WHEN A LONG ONE REACHES ITS END, as the chunked run's last
 // chunk did, and not when it is stopped: a run that did not finish did not
 // finish, and the chunked run's last chunk was never sent when it was cut short.
+//
+// A STOP LEAVES THE WORK IN HAND UNTOUCHED (job_stop.go). Its lookup is cut off
+// on the wire, and a lookup that ends with the job's context ended is not used
+// even if one supplier had answered: part of an answer is not what is missing. A
+// Stop landing after the lookup is caught by the writer's own check, before its
+// transaction (applyReverifyBook, applyReverifyMovie).
 func runFill(s *Server, ctx context.Context, j *jobs.Job) error {
 	var p struct {
 		BookIDs  []int64 `json:"book_ids"`
@@ -193,7 +203,7 @@ func runFill(s *Server, ctx context.Context, j *jobs.Job) error {
 	n := len(works)
 	fields, failed, unpinned, walked := 0, 0, 0, 0
 	for i, w := range works {
-		if j.Stopping() {
+		if !s.goOn(j, i) {
 			break
 		}
 		var it reverifyItem
@@ -202,7 +212,15 @@ func runFill(s *Server, ctx context.Context, j *jobs.Job) error {
 		} else {
 			it = s.reverifyMovie(ctx, uid, w.id, keys.tmdb, keys.tvdb, false)
 		}
+		if ctx.Err() != nil {
+			abandoned(j, itemName(w.kind, w.id, it.Title))
+			break
+		}
 		res := s.fillOne(ctx, uid, it)
+		if res.stopped {
+			abandoned(j, itemName(res.Type, res.ID, res.Title))
+			break
+		}
 		level, line := fillLine(res)
 		j.Log(level, "%s", line)
 		switch res.Status {
@@ -316,6 +334,9 @@ func (s *Server) fillOne(ctx context.Context, uid int64, it reverifyItem) fillRe
 	if err != nil {
 		res.Status, res.Error = "write_failed", err.Error()
 		res.Filled = []string{} // it did not land, so it must not be counted
+		if errors.Is(err, errStoppedItem) {
+			res.Status, res.stopped = "stopped", true
+		}
 	}
 	return res
 }

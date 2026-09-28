@@ -67,10 +67,23 @@ func scanPerson(sc interface{ Scan(...any) error }) (personRow, error) {
 // user id at every call site, so the argument order reads (uid, kind).
 const personKindJoin = ` JOIN person_kinds pk ON pk.person_id = p.id AND pk.kind = ?`
 
+// dbOrTx is the library pool or a transaction on it: the person helpers below
+// run on either, so a writer that must change a record in one transaction
+// (applyReverifyPerson, saveFetchedPerson) uses the same statements as the ones
+// that need none.
+type dbOrTx interface {
+	Exec(query string, args ...any) (sql.Result, error)
+	QueryRow(query string, args ...any) *sql.Row
+}
+
 // recordPersonKind files an existing person under a role. Idempotent: the
 // primary key makes a repeat a no-op, so callers never have to check first.
 func (s *Server) recordPersonKind(personID int64, kind string) error {
-	_, err := s.Store.DB.Exec(
+	return recordPersonKindOn(s.Store.DB, personID, kind)
+}
+
+func recordPersonKindOn(db dbOrTx, personID int64, kind string) error {
+	_, err := db.Exec(
 		`INSERT OR IGNORE INTO person_kinds (person_id, kind) VALUES (?, ?)`, personID, kind)
 	return err
 }
@@ -79,13 +92,17 @@ func (s *Server) recordPersonKind(personID int64, kind string) error {
 // is none, which callers read as "the upsert inserted nothing to file a role
 // against" — an impossible state that is still worth not crashing on.
 func (s *Server) personIDByName(uid int64, name string) (int64, error) {
+	return personIDByNameOn(s.Store.DB, uid, name)
+}
+
+func personIDByNameOn(db dbOrTx, uid int64, name string) (int64, error) {
 	var id int64
 	// LOWEST ID, STATED. Two people may share a name since 0056, so without an
 	// ORDER BY this returns whichever row SQLite's scan reached first — which is
 	// stable in practice and not guaranteed, and "the same request enriched a
 	// different person this time" is a bug nobody can reproduce. Same rule as
 	// store.ResolvePerson, deliberately.
-	err := s.Store.DB.QueryRow(
+	err := db.QueryRow(
 		`SELECT id FROM people WHERE user_id = ? AND name = ? ORDER BY id LIMIT 1`, uid, name).Scan(&id)
 	if errors.Is(err, sql.ErrNoRows) {
 		return 0, nil
@@ -107,11 +124,15 @@ func (s *Server) personIDByName(uid int64, name string) (int64, error) {
 // the person editor takes whatever was submitted. Folding those into one
 // function would mean a mode flag, which is three behaviours behind one name.
 func (s *Server) personRowByName(uid int64, name string) (int64, error) {
-	id, err := s.personIDByName(uid, name)
+	return personRowByNameOn(s.Store.DB, uid, name)
+}
+
+func personRowByNameOn(db dbOrTx, uid int64, name string) (int64, error) {
+	id, err := personIDByNameOn(db, uid, name)
 	if err != nil || id != 0 {
 		return id, err
 	}
-	res, err := s.Store.DB.Exec(`INSERT INTO people (user_id, name) VALUES (?, ?)`, uid, name)
+	res, err := db.Exec(`INSERT INTO people (user_id, name) VALUES (?, ?)`, uid, name)
 	if err != nil {
 		return 0, err
 	}

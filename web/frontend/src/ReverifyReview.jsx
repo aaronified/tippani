@@ -10,7 +10,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { coverImgURL } from './api.js'
 import { t } from './i18n.js'
-import { isLive, jobStateLabel, jobTitle, jobWaitingText, limitJob, readJobResult, startJob, stopJob, useJob } from './jobs.js'
+import { isLive, jobStateLabel, jobTitle, jobWaitingText, limitJob, readJobResult, startJob, STOP_WATCH_MS, stopJob, useJob } from './jobs.js'
 
 import {
   ariaLabelText,
@@ -310,8 +310,9 @@ function ReverifyItemCard({ item, open, onToggleOpen, approvals, onToggleField, 
 // SO CLOSING AND CANCELLING ARE TWO DIFFERENT PRESSES NOW, and each says which it
 // is. ✕, Back and the scrim CLOSE: the job goes on, and a toast says where it
 // will be (Settings › Jobs, where a finished check has a Review press). Cancel,
-// while the check runs, STOPS it — after the item in hand — and asks first,
-// because a press that used to mean "never mind" now ends somebody's work.
+// while the check runs, STOPS it — at once, keeping no finding for the item in
+// hand — and asks first, because a press that used to mean "never mind" now ends
+// somebody's work.
 //
 // `jobId` IS A CHECK THAT ALREADY RAN, OR IS STILL RUNNING, ON THE SERVER.
 // Settings › Jobs' Review sends the reader here with its job in the address
@@ -347,6 +348,9 @@ export function ReverifyFlow({ selection = null, fillsOnly: fillsOnlyProp = fals
   // start below.
   const [capped, setCapped] = useState(null)
   const [applyId, setApplyId] = useState(null)
+  // Cancel said yes to: the check is being stopped, and the dialog says so until
+  // it reads stopped (see cancel).
+  const [stopping, setStopping] = useState(false)
   const check = useJob(checkId)
   const applied = useJob(applyId)
   const checkJob = check.job && check.job.id === checkId ? check.job : null
@@ -366,6 +370,8 @@ export function ReverifyFlow({ selection = null, fillsOnly: fillsOnlyProp = fals
   // nothing to change says nothing: there is nothing kept to come back to, and
   // Past jobs offers no Review for it (jobHasFindings).
   function close() {
+    // A check being stopped is not "still running": it says nothing, as Cancel did.
+    if (stopping) return onClose?.()
     if (!routed && (phase === 'starting' || phase === 'checking' || phase === 'applying')) toast(t('reverify.kept.running'))
     else if (!routed && phase === 'review' && changed.length > 0) toast(t('reverify.kept.review'))
     onClose?.()
@@ -603,11 +609,17 @@ export function ReverifyFlow({ selection = null, fillsOnly: fillsOnlyProp = fals
   // CANCEL WHILE CHECKING IS STOP, and it asks — see the header. Anywhere else it
   // is the same as closing.
   //
-  // THE CONFIRM SAYS WHAT STOPPING WILL DO TO THIS CHECK. A running one stops
-  // after the item in hand; one still in the queue has no item in hand — the
-  // server ends it before it starts — and the flow is showing "Waiting — 2 jobs
-  // ahead" right above the Cancel that asks.
+  // THE CONFIRM SAYS WHAT STOPPING WILL DO TO THIS CHECK. A running one stops at
+  // once, the item in hand left untouched; one still in the queue has no item in
+  // hand — the server ends it before it starts — and the flow is showing
+  // "Waiting — 2 jobs ahead" right above the Cancel that asks.
+  //
+  // THEN IT SAYS "Stopping…" AND CLOSES WHEN THE CHECK READS STOPPED, which the
+  // server makes a moment after the press and the close watch (jobs.js) sees at
+  // once — or when that watch is over, a check still ending by then being in
+  // Settings › Jobs like any other.
   async function cancel() {
+    if (stopping) return
     if (phase !== 'checking' || !checkId) return close()
     const yes = await ask(t('reverify.stop.confirm.title'), {
       body: t(checkJob?.state === 'queued' ? 'reverify.stop.confirm.body.waiting' : 'reverify.stop.confirm.body'),
@@ -615,10 +627,24 @@ export function ReverifyFlow({ selection = null, fillsOnly: fillsOnlyProp = fals
       danger: true,
     })
     if (!yes) return
+    setStopping(true)
     const r = await stopJob(checkId)
-    if (!r.ok) return toast(r.error)
-    onClose?.()
+    if (!r.ok) {
+      setStopping(false)
+      return toast(r.error)
+    }
   }
+  const checkEnded = !!checkJob && !isLive(checkJob)
+  useEffect(() => {
+    if (!stopping) return undefined
+    if (checkEnded) {
+      onClose?.()
+      return undefined
+    }
+    const h = setTimeout(() => onClose?.(), STOP_WATCH_MS)
+    return () => clearTimeout(h)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stopping, checkEnded])
 
   const running = checkJob && checkJob.state === 'running' ? checkJob : null
   const body = (
@@ -639,7 +665,9 @@ export function ReverifyFlow({ selection = null, fillsOnly: fillsOnlyProp = fals
               ? jobWaitingText(checkJob)
               : t('reverify.checking.progress', { done: running?.done || 0, total: running?.total || checkJob?.total || 0 })}
           />
-          {!routed && <p className="microcopy">{t('reverify.checking.away')}</p>}
+          {stopping
+            ? <p className="microcopy" role="status">{t('reverify.stop.stopping')}</p>
+            : !routed && <p className="microcopy">{t('reverify.checking.away')}</p>}
         </>
       )}
       {phase !== 'starting' && phase !== 'checking' && phase !== 'loading' && phase !== 'failed' && (
@@ -708,7 +736,7 @@ export function ReverifyFlow({ selection = null, fillsOnly: fillsOnlyProp = fals
         </button>
       ) : (
         <>
-          <GhostButton onClick={cancel}>{t('common.action.cancel.label')}</GhostButton>
+          <GhostButton onClick={cancel} disabled={stopping}>{t('common.action.cancel.label')}</GhostButton>
           <button
             type="button"
             className="tp-btn tp-btn-primary tactile ml-auto"
