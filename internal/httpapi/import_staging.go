@@ -290,13 +290,19 @@ func insertImportBatch(tx *sql.Tx, uid int64, source, filename string, extra map
 			encoded = string(b)
 		}
 	}
-	res, err := tx.Exec(
-		`INSERT INTO import_batches (user_id, source, filename, extra) VALUES (?, ?, ?, ?)`,
-		uid, source, filename, encoded)
+	// From the floor, never a freed rowid: a batch's id is how an approval tells
+	// the batches there were at its press from the ones staged after it
+	// (batchFloorTable says why).
+	id, err := nextID(tx, batchFloorTable)
 	if err != nil {
 		return 0, err
 	}
-	return res.LastInsertId()
+	if _, err := tx.Exec(
+		`INSERT INTO import_batches (id, user_id, source, filename, extra) VALUES (?, ?, ?, ?, ?)`,
+		id, uid, source, filename, encoded); err != nil {
+		return 0, err
+	}
+	return id, nil
 }
 
 // stageBookWork finds or creates the staged work a parsed book's quotes attach
@@ -1087,8 +1093,22 @@ func (s *Server) handleApproveStaged(w http.ResponseWriter, r *http.Request) {
 	if !decodeBody(w, r, &sel) {
 		return
 	}
-	olog.Tracef("[import] approve staged user=%d %s", userID(r), sel.describe())
 	uid := userID(r)
+	// THE PRESS FIXES WHAT THE APPROVAL MAY TAKE, and the job only ever narrows
+	// it. The job may run long after — behind a fill, or as a Run again next week —
+	// and by then the queue can hold files nobody has looked at. So the approval
+	// carries the newest batch there was when it was pressed, or the older one the
+	// screen says it showed (never a newer one: a bound past what exists would let
+	// in whatever is staged next), and nothing staged after it is approved.
+	now, err := s.stagingThrough()
+	if err != nil {
+		codedError(w, r, olog.CodeImportApprove, "approve staged: the newest batch", err)
+		return
+	}
+	if sel.Through <= 0 || sel.Through > now {
+		sel.Through = now
+	}
+	olog.Tracef("[import] approve staged user=%d %s", uid, sel.describe())
 	picked, ok := s.resolveStagedSelection(w, r, uid, sel)
 	if !ok {
 		return
@@ -1100,6 +1120,24 @@ func (s *Server) handleApproveStaged(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.writeJob(w, r, http.StatusAccepted, id, v)
+}
+
+// stagingThrough is the newest batch id there is now, or ever was, on the whole
+// server: every batch staged after this reads a higher one, because batch ids are
+// allocated from the floor (batchFloorTable). The floor is raised here as well as
+// read, so a database whose floor row does not exist yet — no batch staged since
+// 3.1.0 — cannot hand the next batch an id at or below the one returned.
+func (s *Server) stagingThrough() (int64, error) {
+	tx, err := s.Store.DB.Begin()
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+	next, err := raiseFloor(tx, batchFloorTable)
+	if err != nil {
+		return 0, err
+	}
+	return next - 1, tx.Commit()
 }
 
 // approvalSubject names an approval as Past jobs lists it: the file its quotes
@@ -1151,6 +1189,11 @@ func runApproveStaged(s *Server, ctx context.Context, j *jobs.Job) error {
 	var sel stagedSelector
 	if err := j.Params(&sel); err != nil {
 		return errors.New("this approval's record could not be read")
+	}
+	// Every approval's press recorded its bound; one without would approve
+	// whatever is staged by the time it runs, which is the thing the bound is for.
+	if sel.Through <= 0 {
+		return errors.New("this approval does not say what it was pressed over")
 	}
 	uid := j.Owner().UserID
 	ans := s.approveStaged(ctx, j, uid, sel)
@@ -1888,11 +1931,21 @@ func gcStaging(tx *sql.Tx, uid int64) error {
 // stagedSelector names the staged quotes an operation applies to. Any one of the
 // four is enough; combining them narrows. `all` exists so "approve everything"
 // does not have to ship thousands of ids through a 64 KiB body.
+//
+// `through` narrows too, and it is what makes `all` mean what the reader saw: the
+// newest batch the screen showed, so nothing staged after it is in the selection
+// (batch ids come from the floor and only grow, batchFloorTable). From 3.1.0 a
+// file can be staged in the background — its import a job that ran while the
+// reader was reading Pending import — and "Approve all 2" must not put a third
+// file's quotes in the library, nor "Discard all" throw them away, unseen. An
+// approval always carries one: its press records the newest batch there is when
+// the request names none, since the job may run long after (handleApproveStaged).
 type stagedSelector struct {
 	IDs     []int64 `json:"ids"`
 	WorkIDs []int64 `json:"work_ids"`
 	BatchID int64   `json:"batch_id"`
 	All     bool    `json:"all"`
+	Through int64   `json:"through,omitempty"`
 }
 
 func (sel stagedSelector) describe() string {
@@ -1908,6 +1961,9 @@ func (sel stagedSelector) describe() string {
 	}
 	if sel.All {
 		b.WriteString("all ")
+	}
+	if sel.Through > 0 {
+		b.WriteString("through=" + strconv.FormatInt(sel.Through, 10) + " ")
 	}
 	return strings.TrimSpace(b.String())
 }
@@ -1993,6 +2049,10 @@ func (s *Server) stagedSelectionOf(uid int64, sel stagedSelector) (stagedSelecti
 	if sel.BatchID > 0 {
 		where += ` AND b.id = ?`
 		args = append(args, sel.BatchID)
+	}
+	if sel.Through > 0 {
+		where += ` AND b.id <= ?`
+		args = append(args, sel.Through)
 	}
 
 	scan := func(q string, qargs []any) ([]int64, error) {

@@ -596,3 +596,170 @@ func TestAnApprovalWaitsItsTurnAndIsKeptUnderItsFile(t *testing.T) {
 	}
 	saying(t, lines, "«Sandworm Studies»", "2 added")
 }
+
+// bookMD is stagedBookMD under another title and author, so each file is a work
+// of its own in the queue and in the library.
+func bookMD(title, author string) []byte {
+	return []byte(strings.Replace(strings.Replace(stagedBookMD, "Sandworm Studies", title, 1), "Liet Kynes", author, 1))
+}
+
+// stillStaged is the file names the import queue holds now, in the queue's order.
+func stillStaged(t *testing.T, c *testClient) []string {
+	t.Helper()
+	var names []string
+	for _, b := range queue(t, c, "").Batches {
+		names = append(names, b.Filename)
+	}
+	return names
+}
+
+// AN APPROVAL TAKES WHAT THERE WAS WHEN IT WAS PRESSED, AND NOTHING STAGED SINCE.
+//
+// An approval is a queued job, so it can run long after its press — behind a
+// fill, or as a Run again days later — and from 3.1.0 a file can be staged in the
+// background meanwhile, by an import that was waiting its own turn. "Approve all
+// 2" must put those two quotes in the library and not a third file's that nobody
+// has looked at, which is the whole point of the import queue (CLAUDE.md's
+// invariant: an import is approved out of it, never written straight in). The
+// four ways a later file could slip in, each a case here: an import queued ahead
+// of the approval stages while it waits; a file staged after Pending import was
+// read, while the reader was reading it (the screen sends the newest batch it
+// showed); a Run again of an approval stopped before it ran; and a batch approved
+// ahead of it that handed its id to the next file staged, which the approval's
+// bound would then have covered.
+//
+// Mutations, each red here: stagedSelectionOf ignoring `through` (every case: the
+// later file is approved); handleApproveStaged keeping a `through` newer than the
+// newest batch (the bound past it); insertImportBatch taking SQLite's rowid
+// instead of the floor (the last case: the next file reuses the approved batch's
+// id, inside the bound).
+func TestAnApprovalTakesWhatThereWasWhenItWasPressed(t *testing.T) {
+	approveAll := func(t *testing.T, c *testClient, body map[string]any) wireJob {
+		t.Helper()
+		return queuedJob(t, c.do("POST", "/import/staged/approve", body))
+	}
+	want := func(t *testing.T, c *testClient, books int, staged ...string) {
+		t.Helper()
+		if n := bookCount(t, c); n != books {
+			t.Fatalf("%d books in the library, want %d", n, books)
+		}
+		if got := stillStaged(t, c); strings.Join(got, ",") != strings.Join(staged, ",") {
+			t.Fatalf("the import queue holds %v, want %v", got, staged)
+		}
+	}
+
+	t.Run("an import queued ahead of it stages while it waits", func(t *testing.T) {
+		srv := newTestServer(t)
+		q := queueing(t, srv)
+		c := signupAdmin(t, srv.Handler())
+		stage(t, c, "/import/markdown", "seen.md", bookMD("Seen Book", "A Reader"))
+
+		held := c.mustStart("test.hold", map[string]any{"tag": "ahead"})
+		c.waitJob(held.ID, "running")
+		later := c.uploadOnly("/import/markdown", "later.md", bookMD("Later Book", "Nobody Yet"))
+		queuedJob(t, later)
+		ap := approveAll(t, c, map[string]any{"all": true})
+		q.let()
+		if got := decode[approveReply](t, c.answerOf(ap.ID)); got.Added != 2 || got.Pending != 2 {
+			t.Fatalf("the approval: %+v, want the seen file's 2 added and the later file's 2 still pending", got)
+		}
+		want(t, c, 1, "later.md")
+	})
+
+	t.Run("a file staged after the screen was read", func(t *testing.T) {
+		srv := newTestServer(t)
+		queueing(t, srv)
+		c := signupAdmin(t, srv.Handler())
+		seen := stage(t, c, "/import/markdown", "seen.md", bookMD("Seen Book", "A Reader"))
+		// The screen read the queue here: its newest batch is the seen file's.
+		stage(t, c, "/import/markdown", "later.md", bookMD("Later Book", "Nobody Yet"))
+		ap := approveAll(t, c, map[string]any{"all": true, "through": seen.BatchID})
+		if got := decode[approveReply](t, c.answerOf(ap.ID)); got.Added != 2 {
+			t.Fatalf("the approval: %+v", got)
+		}
+		want(t, c, 1, "later.md")
+
+	})
+
+	t.Run("a bound past the newest batch there is", func(t *testing.T) {
+		srv := newTestServer(t)
+		q := queueing(t, srv)
+		c := signupAdmin(t, srv.Handler())
+		stage(t, c, "/import/markdown", "seen.md", bookMD("Seen Book", "A Reader"))
+
+		held := c.mustStart("test.hold", map[string]any{"tag": "ahead"})
+		c.waitJob(held.ID, "running")
+		queuedJob(t, c.uploadOnly("/import/markdown", "later.md", bookMD("Later Book", "Nobody Yet")))
+		// A screen that says it showed more than there is names nothing more than
+		// there is: the next file staged is still not its to approve.
+		ap := approveAll(t, c, map[string]any{"all": true, "through": 1 << 40})
+		q.let()
+		if got := decode[approveReply](t, c.answerOf(ap.ID)); got.Added != 2 {
+			t.Fatalf("the approval: %+v", got)
+		}
+		want(t, c, 1, "later.md")
+	})
+
+	t.Run("a Run again of an approval stopped before it ran", func(t *testing.T) {
+		srv := newTestServer(t)
+		q := queueing(t, srv)
+		c := signupAdmin(t, srv.Handler())
+		stage(t, c, "/import/markdown", "seen.md", bookMD("Seen Book", "A Reader"))
+
+		held := c.mustStart("test.hold", map[string]any{"tag": "ahead"})
+		c.waitJob(held.ID, "running")
+		ap := approveAll(t, c, map[string]any{"all": true})
+		c.mustDo("POST", fmt.Sprintf("/jobs/%d/stop", ap.ID), nil, http.StatusOK)
+		q.let()
+		stage(t, c, "/import/markdown", "later.md", bookMD("Later Book", "Nobody Yet"))
+
+		again := c.followed(c.mustDo("POST", fmt.Sprintf("/jobs/%d/rerun", ap.ID), nil, http.StatusAccepted))
+		if got := decode[approveReply](t, again); got.Added != 2 || got.Pending != 2 {
+			t.Fatalf("the approval run again: %+v", got)
+		}
+		want(t, c, 1, "later.md")
+	})
+
+	t.Run("a batch approved ahead of it frees its id", func(t *testing.T) {
+		srv := newTestServer(t)
+		q := queueing(t, srv)
+		c := signupAdmin(t, srv.Handler())
+		stage(t, c, "/import/markdown", "first.md", bookMD("First Book", "A Reader"))
+		newest := stage(t, c, "/import/markdown", "newest.md", bookMD("Newest Book", "A Reader"))
+
+		held := c.mustStart("test.hold", map[string]any{"tag": "ahead"})
+		c.waitJob(held.ID, "running")
+		// The newest batch approved first, then a file uploaded, then everything
+		// the queue shows approved: they run in that order.
+		one := approveAll(t, c, map[string]any{"batch_id": newest.BatchID})
+		queuedJob(t, c.uploadOnly("/import/markdown", "later.md", bookMD("Later Book", "Nobody Yet")))
+		all := approveAll(t, c, map[string]any{"all": true})
+		q.let()
+		c.answerOf(one.ID)
+		if got := decode[approveReply](t, c.answerOf(all.ID)); got.Added != 2 {
+			t.Fatalf("approving everything the queue showed: %+v, want the first file's 2", got)
+		}
+		want(t, c, 2, "later.md")
+	})
+}
+
+// "Discard all" throws away what the screen showed and nothing staged after it:
+// a file staged in the background while the reader was reading Pending import
+// is still there, and the quotes in it with it. The screen sends the newest batch
+// it showed (through), as an approval does.
+//
+// Mutation: stagedSelectionOf ignoring `through` discards the later file too.
+func TestDiscardAllKeepsAFileStagedAfterTheScreenWasRead(t *testing.T) {
+	srv := newTestServer(t)
+	queueing(t, srv)
+	c := signupAdmin(t, srv.Handler())
+	seen := stage(t, c, "/import/markdown", "seen.md", bookMD("Seen Book", "A Reader"))
+	stage(t, c, "/import/markdown", "later.md", bookMD("Later Book", "Nobody Yet"))
+	c.mustDo("DELETE", "/import/staged", map[string]any{"all": true, "through": seen.BatchID}, http.StatusOK)
+	if got := stillStaged(t, c); strings.Join(got, ",") != "later.md" {
+		t.Fatalf("after Discard all the queue holds %v, want the later file", got)
+	}
+	if n := len(queue(t, c, "").Quotes); n != 2 {
+		t.Fatalf("the later file keeps %d quotes, want 2", n)
+	}
+}

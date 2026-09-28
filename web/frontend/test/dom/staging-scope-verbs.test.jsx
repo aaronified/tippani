@@ -157,6 +157,37 @@ describe('a file’s own verbs', () => {
   })
 })
 
+// "ALL" IS WHAT THE PAGE SHOWED. From 3.1.0 a file dropped earlier can finish
+// staging while the reader reads this page, so the header's approve-all and
+// discard-all name the newest file the page drew (`through`), and the server
+// leaves anything staged after it for the reader to see. A press that sent a
+// bare `all` would approve — or throw away — a file nobody on this page looked at.
+//
+// Mutation: approve and discard sending `{ all: true }` again: both red.
+describe('the header’s everything is everything shown', () => {
+  const headerVerb = (re) => [...document.querySelectorAll('button')].find((b) => re.test(b.textContent.trim()))
+
+  it('Approve all names the newest file the page drew', async () => {
+    await page()
+    fireEvent.click(headerVerb(/^Approve all/))
+    await waitFor(() => expect(lastPost('/import/staged/approve')).toBeTruthy())
+    expect(lastPost('/import/staged/approve').body).toEqual({ all: true, through: 2 })
+  })
+
+  it('and so does Discard all, once asked', async () => {
+    await page()
+    fireEvent.click(headerVerb(/^Discard all/))
+    const confirm = await waitFor(() => {
+      const found = [...document.querySelectorAll('button')].filter((b) => /^Discard/.test(b.textContent.trim()))
+      expect(found.length, 'pressing Discard all opened no confirm').toBeGreaterThan(1)
+      return found[found.length - 1]
+    })
+    fireEvent.click(confirm)
+    await waitFor(() => expect(lastDelete()).toBeTruthy())
+    expect(lastDelete().body).toEqual({ all: true, through: 2 })
+  })
+})
+
 describe('the two scopes are one control', () => {
   it('put the same verbs in the same words', async () => {
     await page()

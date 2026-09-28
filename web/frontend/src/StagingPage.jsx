@@ -160,6 +160,13 @@ export default function StagingPage({ onPending, onOpenBook, onOpenMovie, onAppr
   const works = queue?.works || []
   const quotes = queue?.quotes || []
 
+  // "ALL" IS WHAT THIS SCREEN SHOWS, NOT WHAT THE QUEUE HOLDS WHEN THE PRESS LANDS.
+  // From 3.1.0 an import is a job that can finish while the reader is reading
+  // here, so Approve all and Discard all send the newest file this screen drew
+  // (`through`: batch ids only grow), and a file staged after it is left for the
+  // reader to see — never approved into the library, nor thrown away, unread.
+  const everythingShown = () => ({ all: true, through: Math.max(0, ...batches.map((b) => Number(b.id) || 0)) })
+
   // NARROWING BY DESTINATION, WHICH IS THE OTHER QUESTION. The file filter answers
   // "what did THIS export bring"; this answers "what is going into THIS book", and a
   // reader with four Kindle exports of one library has the second question far more
@@ -263,7 +270,7 @@ export default function StagingPage({ onPending, onOpenBook, onOpenMovie, onAppr
     if (busy) return
     setBusy(true)
     setErr('')
-    const sent = await json('POST', '/import/staged/approve', ids ? { ids } : { all: true })
+    const sent = await json('POST', '/import/staged/approve', ids ? { ids } : everythingShown())
     await settleApproval(sent)
   }
 
@@ -336,7 +343,7 @@ export default function StagingPage({ onPending, onOpenBook, onOpenMovie, onAppr
     if (busy) return
     setBusy(true)
     setErr('')
-    const r = await json('DELETE', '/import/staged', ids ? { ids } : { all: true })
+    const r = await json('DELETE', '/import/staged', ids ? { ids } : everythingShown())
     setBusy(false)
     if (!r.ok) return setErr(errText(r, t('error.discard.generic')))
     setFlash(t('staging.flash.discarded', { n: r.data.discarded }))
