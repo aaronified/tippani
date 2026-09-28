@@ -13,7 +13,9 @@
 //
 // THE NETWORK IS A SMALL FAKE SERVER, answering GET /jobs/common, POST /jobs and
 // POST /jobs/{id}/stop in the shapes the jobs contract fixes, the way
-// settings-jobs.test.jsx fakes the rest of the section. Which rows a viewer gets
+// settings-jobs.test.jsx fakes the rest of the section, and GET /jobs, whose
+// current view is the jobs the rows say are running or waiting, since one server
+// answers both cards. Which rows a viewer gets
 // is the server's decision (the Go tier, common_jobs_test.go, holds it), so each
 // case hands the fake the rows that viewer would get. What the test reads back
 // from it is only what a request SAID — which kind and params a Run sent, whether
@@ -24,7 +26,7 @@
 // or a module of the app.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { openSettingsSection } from './helpers/settingsSection.jsx'
 
 let CALLS
@@ -59,9 +61,15 @@ vi.mock('../../src/api.js', async (orig) => ({
   ...(await orig()),
   json: vi.fn(async (method, path, body) => {
     CALLS.push([method, path, body])
-    const [p] = path.split('?')
+    const [p, query = ''] = path.split('?')
     if (method === 'GET' && p === '/jobs/common') return { ok: true, data: { jobs: COMMON } }
-    if (method === 'GET' && p === '/jobs') return { ok: true, data: { jobs: [], running: 0, waiting: 0, more: false } }
+    // Current jobs is the same jobs the rows say are running or waiting, since it
+    // is one server answering both; Past jobs is empty.
+    if (method === 'GET' && p === '/jobs') {
+      const live = new URLSearchParams(query).get('view') === 'current' ? COMMON.map((c) => c.current).filter(Boolean) : []
+      const n = (state) => live.filter((j) => j.state === state).length
+      return { ok: true, data: { jobs: live, running: n('running'), waiting: n('queued'), more: false } }
+    }
     // A Run: the job it made waits behind one other, and is its row's current job
     // from the next read on.
     if (method === 'POST' && p === '/jobs') {
@@ -197,14 +205,22 @@ describe('running one', () => {
 })
 
 describe('stopping one', () => {
-  const running = () => {
-    rowOf('fill-all').current = job({ id: 21, kind: 'fill', params: { all: true }, state: 'running', total: 12, done: 3, finished_at: null })
+  // Each case's job is a job of its own, with an id of its own, as the server's
+  // jobs are: a Stop pressed on one job is never a Stop pressed on another.
+  const running = (id) => {
+    rowOf('fill-all').current = job({ id, kind: 'fill', params: { all: true }, state: 'running', total: 12, done: 3, finished_at: null })
   }
-
-  it('says Stopping… at the press, before the server has answered', async () => {
-    running()
+  // A Stop the server has not answered yet, and the way to answer it.
+  const unanswered = () => {
     let answer
     STOP = (id) => new Promise((resolve) => { answer = () => resolve({ ok: true, data: { job: { id } } }) })
+    return () => answer()
+  }
+  const currentCard = () => screen.findByRole('region', { name: /^Current jobs/ })
+
+  it('says Stopping… at the press, before the server has answered', async () => {
+    running(21)
+    const answer = unanswered()
     const card = await page()
     within(card).getByText('Running · 3 of 12')
     fireEvent.click(within(card).getByRole('button', { name: 'Stop Fill gaps in every work' }))
@@ -215,11 +231,53 @@ describe('stopping one', () => {
     await act(async () => answer())
   })
 
+  // ONE JOB, TWO ROWS: the job a common row runs is on Current jobs too, with a
+  // Stop of its own, and a Stop pressed on either row is pressed on the job.
+  it('says Stopping… on Current jobs too when the Stop is pressed on the row', async () => {
+    running(22)
+    const answer = unanswered()
+    const card = await page()
+    const current = await currentCard()
+    await within(current).findByRole('button', { name: /^Stop Fill gaps in every work \(running\)/ })
+    fireEvent.click(within(card).getByRole('button', { name: 'Stop Fill gaps in every work' }))
+    expect(within(current).getByText('Stopping after the item in hand…')).toBeTruthy()
+    expect(within(current).queryByRole('button', { name: /^Stop Fill gaps in every work/ })).toBeNull()
+    await act(async () => answer())
+  })
+
+  it('says Stopping… on the row too when the Stop is pressed on Current jobs', async () => {
+    running(23)
+    const answer = unanswered()
+    const card = await page()
+    const current = await currentCard()
+    fireEvent.click(await within(current).findByRole('button', { name: /^Stop Fill gaps in every work \(running\)/ }))
+    expect(within(card).getByText('Stopping after the item in hand…')).toBeTruthy()
+    expect(within(card).queryByRole('button', { name: 'Stop Fill gaps in every work' })).toBeNull()
+    expect(posted('/jobs/23/stop')).toHaveLength(1)
+    await act(async () => answer())
+  })
+
+  // THE PRESS IS THIS SCREEN'S MEMORY, NOT THE SERVER'S: the server says when a
+  // job has stopped, never that it is stopping. So once the reader has left, the
+  // screen opened again says what the server says, a Stop included.
+  it('forgets the press once the screen is left, and the screen opened again offers Stop while the job runs', async () => {
+    running(26)
+    let card = await page()
+    fireEvent.click(within(card).getByRole('button', { name: 'Stop Fill gaps in every work' }))
+    await waitFor(() => expect(posted('/jobs/26/stop')).toHaveLength(1))
+    within(card).getByText('Stopping after the item in hand…')
+    cleanup()
+    card = await page()
+    within(card).getByText('Running · 3 of 12')
+    expect(within(card).getByRole('button', { name: 'Stop Fill gaps in every work' })).toBeTruthy()
+    expect(within(card).queryByText('Stopping after the item in hand…')).toBeNull()
+  })
+
   it('reads the row again closely after the Stop, and shows how the job ended as soon as it has', async () => {
-    running()
+    running(24)
     const card = await page()
     fireEvent.click(within(card).getByRole('button', { name: 'Stop Fill gaps in every work' }))
-    await waitFor(() => expect(posted('/jobs/21/stop')).toHaveLength(1))
+    await waitFor(() => expect(posted('/jobs/24/stop')).toHaveLength(1))
     // Still running on the server: the card asks again well inside the two
     // seconds it waits between reads while a job runs.
     const pressed = reads()
@@ -233,7 +291,7 @@ describe('stopping one', () => {
   })
 
   it('puts the Stop back when the server refuses it, and says why', async () => {
-    running()
+    running(25)
     STOP = () => ({ ok: false, status: 404, data: { error: 'job not found' } })
     const card = await page()
     fireEvent.click(within(card).getByRole('button', { name: 'Stop Fill gaps in every work' }))

@@ -35,9 +35,10 @@ import {
   jobSummary,
   jobTitle,
   jobWaitingText,
+  pressStop,
   startJob,
-  stopJob,
   useCommonJobs,
+  useStoppingJobs,
 } from './jobs.js'
 import { JobsCard, PastLog } from './jobsSection.jsx'
 import {
@@ -74,18 +75,14 @@ export function CommonJobsCard({ user, credentialPrompt = null }) {
   const { rows, loaded, error, reload, watchStop } = useCommonJobs()
   const [asking, setAsking] = useState(null) // a row waiting for its credential
   const [busy, setBusy] = useState('') // the row whose press is on its way
-  // THE JOBS A STOP WAS PRESSED ON, which say "Stopping…" from the instant of the
-  // press, before the server has answered: a row that went on offering Stop until
-  // the answer came would read as a press that did nothing. The row goes back to
+  // THE JOBS A STOP WAS PRESSED ON, marked from the instant of the press, before
+  // the server has answered: a row that went on offering Stop until the answer
+  // came would read as a press that did nothing. The mark is jobs.js's
+  // (pressStop), shared with Current jobs, which draws the same job with a Stop of
+  // its own: pressed on either row, it is pressed on both. The row goes back to
   // Run again when the close read after the Stop (useCommonJobs) finds the job
   // ended.
-  const [stopping, setStopping] = useState(() => new Set())
-  const markStopping = (id, on) => setStopping((s) => {
-    const next = new Set(s)
-    if (on) next.add(id)
-    else next.delete(id)
-    return next
-  })
+  const stopping = useStoppingJobs()
   const [open, setOpen] = useState('') // the row whose last run's log is open
   const shown = rows.filter((row) => ROWS[row.id])
 
@@ -104,12 +101,8 @@ export function CommonJobsCard({ user, credentialPrompt = null }) {
 
   async function stop(row) {
     const id = row.current.id
-    markStopping(id, true)
-    const r = await stopJob(id)
-    if (!r.ok) {
-      markStopping(id, false)
-      return toast(r.error)
-    }
+    const r = await pressStop(id)
+    if (!r.ok) return toast(r.error)
     watchStop(id)
   }
 

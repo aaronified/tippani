@@ -45,14 +45,16 @@ import {
   listJobs,
   LOG_LEVELS,
   LOG_RANGES,
+  markStoppingJobs,
+  pressStop,
   readSystemLogs,
   rerunJob,
   stopAllJobs,
-  stopJob,
   systemLogsURL,
   useCurrentJobs,
   useJob,
   useJobsAnnounced,
+  useStoppingJobs,
 } from './jobs.js'
 import { CardHead } from './prefRow.jsx'
 import {
@@ -202,8 +204,10 @@ export function JobsCurrentCard({ user, compact = false }) {
   // starts running while the card is up opens itself.
   const [folded, setFolded] = useState(() => new Set())
   // A Stop pressed on a running job: the server answers at once and the job ends
-  // after the item it is on, which can be seconds, so the row says it heard.
-  const [stopping, setStopping] = useState(() => new Set())
+  // after the item it is on, which can be seconds, so the row says it heard. The
+  // mark is jobs.js's (pressStop), not this card's: a common job is drawn on the
+  // Common jobs card too, and a Stop pressed on either row is pressed on both.
+  const stopping = useStoppingJobs()
   const any = running + waiting > 0
 
   async function stopAll() {
@@ -227,7 +231,7 @@ export function JobsCurrentCard({ user, compact = false }) {
     // The running row says it heard, as it does for its own Stop: the job ends
     // after the item it is on, and until then a Stop button still on the row
     // reads as a press that did nothing.
-    if (r.stopping > 0) setStopping((s) => new Set([...s, ...jobs.filter((j) => j.state === 'running').map((j) => j.id)]))
+    if (r.stopping > 0) markStoppingJobs(jobs.filter((j) => j.state === 'running').map((j) => j.id))
     // ONE COUNT, FIVE WORDS OR FEWER (the house's toast rule), and nothing at all
     // when the press reached nothing — the jobs ended between the confirm and the
     // press, and "0 jobs stopped" is news about nothing.
@@ -236,12 +240,9 @@ export function JobsCurrentCard({ user, compact = false }) {
   }
 
   async function stopOne(job) {
-    const r = await stopJob(job.id)
+    const r = await pressStop(job.id)
     if (!r.ok) return toast(r.error)
-    if (job.state === 'running') {
-      setStopping((s) => new Set(s).add(job.id))
-      toast(t('settings.jobs.current.stop.done'))
-    }
+    if (job.state === 'running') toast(t('settings.jobs.current.stop.done'))
   }
 
   // RED, WITH ITS WORDS, AND ABSENT RATHER THAN DISABLED when there is nothing to

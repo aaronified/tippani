@@ -20,7 +20,7 @@
 // invariant is that nothing runs unless somebody started it; the polls below are
 // the screen asking while the screen is up, they back off when nothing moves, and
 // they stand still while the tab is hidden.
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 
 import { apiURL, errText, json } from './api.js'
 import { t } from './i18n.js'
@@ -509,6 +509,64 @@ export async function stopAllJobs() {
   if (!r.ok) return refusal(r)
   announceJobs()
   return { ok: true, stopping: num(r.data?.stopping), stoppedWaiting: num(r.data?.stopped_waiting) }
+}
+
+// ---- a Stop pressed, wherever it was pressed ---------------------------------
+//
+// ONE JOB, TWO ROWS, ONE ANSWER. While one of the four common jobs runs or waits,
+// Settings › Jobs draws it twice, each time with a Stop: its row on Current jobs
+// and its row on Common jobs. A Stop pressed on either is a Stop pressed on the
+// job, so both rows say so from the press on. Kept per card, a job read
+// "Stopping…" on one card while the card above it still offered Stop, and that
+// second Stop looked like a press the first one had not made. So which jobs a
+// Stop was pressed on is kept here, once, and `pressStop` is the verb every
+// single Stop calls (CLAUDE.md: two things that look the same behave the same).
+//
+// A MARK IS THE TAB'S MEMORY OF A PRESS, AND IT GOES WITH THE LAST CARD THAT CAN
+// SHOW IT. The server says when a job has stopped, never that it is stopping, so
+// the mark is good while the screen that took the press is up; when the last card
+// drawing a Stop unmounts, the marks go, and a screen opened later reads the jobs
+// afresh. That also keeps a press from outliving the database it was made on (a
+// restore or a reset starts job ids again).
+let stoppingIDs = new Set()
+const stoppingWatchers = new Set()
+function markStopping(ids, on) {
+  const next = new Set(stoppingIDs)
+  for (const id of ids) {
+    if (on) next.add(id)
+    else next.delete(id)
+  }
+  stoppingIDs = next
+  for (const fn of [...stoppingWatchers]) fn()
+}
+function watchStopping(fn) {
+  stoppingWatchers.add(fn)
+  return () => {
+    stoppingWatchers.delete(fn)
+    if (stoppingWatchers.size === 0) stoppingIDs = new Set()
+  }
+}
+
+// useStoppingJobs — the ids of the jobs a Stop was pressed on in this tab, as a
+// Set that is replaced, never changed, when one is added.
+export function useStoppingJobs() {
+  return useSyncExternalStore(watchStopping, () => stoppingIDs)
+}
+
+// pressStop — Stop one job. It is marked at the press, before the server has
+// answered, and unmarked if the server refuses it, so the Stop comes back with
+// the refusal's reason beside it.
+export async function pressStop(id) {
+  markStopping([id], true)
+  const r = await stopJob(id)
+  if (!r.ok) markStopping([id], false)
+  return r
+}
+
+// markStoppingJobs — the running jobs a Stop all reached, which say so as a single
+// Stop's job does.
+export function markStoppingJobs(ids) {
+  markStopping(ids, true)
 }
 
 // rerunJob — the same job again, as a new one. A backup needs its credential
