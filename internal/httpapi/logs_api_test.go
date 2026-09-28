@@ -422,9 +422,9 @@ func TestDownloadsNobodyReadsLeaveTheAppAnsweringAndAreGivenUpOn(t *testing.T) {
 
 	// And a download nobody reads is let go once it has waited long enough,
 	// which the server's own log says.
-	old := exportIdle
-	exportIdle = 300 * time.Millisecond
-	t.Cleanup(func() { exportIdle = old })
+	old := exportIdle.Load()
+	exportIdle.Store(int64(300 * time.Millisecond))
+	t.Cleanup(func() { exportIdle.Store(old) })
 	stalledDownload(t, ts, admin, "/admin/logs.md?q=Wv-bulk")
 	for deadline := time.Now().Add(20 * time.Second); ; time.Sleep(20 * time.Millisecond) {
 		got := marked(admin.logs(url.Values{"level": {"warn"}, "q": {"export was not all sent"}}), "export was not all sent")

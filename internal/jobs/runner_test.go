@@ -192,6 +192,11 @@ func (s *steps) kind(name string, adminOnly bool) jobs.Kind {
 	}}
 }
 
+// stopWithin is how soon after the press a Stop must have landed: 300 ms, the
+// product's bound, and three times that under the race detector (UnderRace,
+// race_on_test.go says why).
+const stopWithin = 300 * time.Millisecond * jobs.UnderRace
+
 // stoppedWithin fails unless job id reads stopped within bound of from, the
 // moment the Stop was pressed: its row, polled until it does.
 func (g *rig) stoppedWithin(id int64, from time.Time, bound time.Duration) {
@@ -301,7 +306,7 @@ func TestStopStopsAtOnceAndTheJobKeepsItsLog(t *testing.T) {
 	if err := g.r.Stop(x, g.mitra()); err != nil {
 		t.Fatal(err)
 	}
-	g.stoppedWithin(x, pressed, 300*time.Millisecond)
+	g.stoppedWithin(x, pressed, stopWithin)
 	g.steps.quiet(300 * time.Millisecond) // and the stopped waiting job never starts
 
 	var done, total, stopReq int
@@ -423,7 +428,7 @@ func TestStopAllStopsWhatTheViewerCanSee(t *testing.T) {
 	if s := g.state(a1); g.state(m2) != "stopped" || g.state(m3) != "stopped" || (s != "queued" && s != "running") {
 		t.Fatalf("after mitra's Stop all: m2 %s, m3 %s, aro's a1 %s", g.state(m2), g.state(m3), s)
 	}
-	g.stoppedWithin(m1, pressed, 300*time.Millisecond) // its item in hand was not waited for
+	g.stoppedWithin(m1, pressed, stopWithin) // its item in hand was not waited for
 	if it := g.steps.next(); it.job != a1 {
 		t.Fatalf("after mitra's jobs stopped, job %d started, want aro's %d", it.job, a1)
 	}
@@ -440,7 +445,7 @@ func TestStopAllStopsWhatTheViewerCanSee(t *testing.T) {
 	if g.state(m4) != "stopped" {
 		t.Fatalf("the admin's Stop all left mitra's waiting job %s", g.state(m4))
 	}
-	g.stoppedWithin(a1, pressed, 300*time.Millisecond)
+	g.stoppedWithin(a1, pressed, stopWithin)
 	if got := g.lines(m4); len(got) != 1 || got[0] != "aro stopped it before it started" {
 		t.Fatalf("mitra's job stopped by the admin says %q", got)
 	}
@@ -463,7 +468,7 @@ func TestStopAllStopsWhatTheViewerCanSee(t *testing.T) {
 		t.Fatalf("mitra starting a job while her account is being deleted: %v, want ErrNoOwner", err)
 	}
 	a3 := g.enqueue(g.aro(), "quick", map[string]any{"t": 10})
-	g.stoppedWithin(m5, pressed, 300*time.Millisecond)
+	g.stoppedWithin(m5, pressed, stopWithin)
 	if it := g.steps.next(); it.job != a2 {
 		t.Fatalf("after mitra's jobs stopped, job %d started, want aro's %d", it.job, a2)
 	}
@@ -532,8 +537,8 @@ func TestAStopReachesAJobHoldingTheWriteLockAtOnce(t *testing.T) {
 				}
 			}()
 			eventually(t, fmt.Sprintf("job %d stopped (it is %s)", id, g.state(id)), func() bool { return g.state(id) == "stopped" })
-			if took := time.Since(pressed); took > 300*time.Millisecond {
-				t.Fatalf("%s: the job read stopped %s after the press", way, took)
+			if took := time.Since(pressed); took > stopWithin {
+				t.Fatalf("%s: the job read stopped %s after the press, want within %s", way, took, stopWithin)
 			}
 			if err := <-answered; err != nil {
 				t.Fatalf("%s answered %v", way, err)
@@ -599,8 +604,8 @@ func TestAStopCutsTheRunningJobsCallBeforeItsOwnWritesWait(t *testing.T) {
 			}()
 			select {
 			case at := <-cut:
-				if took := at.Sub(pressed); took > 300*time.Millisecond {
-					t.Fatalf("%s: the call on the wire was cut %s after the press", way, took)
+				if took := at.Sub(pressed); took > stopWithin {
+					t.Fatalf("%s: the call on the wire was cut %s after the press, want within %s", way, took, stopWithin)
 				}
 			case <-time.After(time.Second):
 				_ = tx.Rollback()
@@ -677,8 +682,8 @@ func TestAStopOnAWaitingJobIsAtOnceWhileTheRunningOneHoldsTheWriteLock(t *testin
 						stopping, waiting, err, time.Since(pressed))
 				}
 			}
-			if took := time.Since(pressed); took > 300*time.Millisecond {
-				t.Fatalf("%s on the waiting job answered %s after the press, with the lock held", way, took)
+			if took := time.Since(pressed); took > stopWithin {
+				t.Fatalf("%s on the waiting job answered %s after the press, with the lock held, want within %s", way, took, stopWithin)
 			}
 			if _, ok := g.r.Held()[behind]; !ok {
 				t.Fatalf("%s answered, and the queue does not read the waiting job stopped", way)
