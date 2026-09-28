@@ -15847,8 +15847,8 @@ and the character does not — is that `saveState.save()` is a closure registere
 an effect that has not re-run in the microseconds between the blur-commit and the
 click.
 
-THE DIAGNOSIS WAS RIGHT AND THE REPAIR IS ONE LINE OF IT. `AddSurface.jsx` keeps a
-`draftRef` that every render writes, and `save()` reads the draft out of that ref
+THE DIAGNOSIS WAS RIGHT AND THE REPAIR WAS ONE LINE OF IT. `AddSurface.jsx` kept a
+`draftRef` that every render wrote, and `save()` read the draft out of that ref
 rather than out of the closure it was registered with — the same shape `usePanelStack`
 already uses for a handler registered once and called later. `whatIsMissing(d)` came
 out of the same change: the validity message was computed from the closure's draft
@@ -15856,6 +15856,26 @@ too, so a form that had just gained its last required field could still refuse t
 save. Mutation-verified by reverting the ref and rebuilding the SPA: the journey's
 quick path goes red waiting for the character's name, while the careful path — which
 presses Enter — stays green, which is exactly the asymmetry the defect predicts.
+
+**THE REF IS OF THE VERB NOW, NOT OF THE DRAFT, because the effect around it cost a
+letter.** The effect that handed `save` up to the title bar re-ran on every change to
+the draft, with or without `draftRef`, so every letter typed was two renders: the
+keystroke's, and the surface's own from the new save state, queued for a turn of
+React's. React counts a render that ends with another still waiting as a nested
+update, and past fifty it throws error #185, "Maximum update depth exceeded", out of
+the next keystroke's own setState, losing that letter. On CI run 36442773656, 3.1.0's
+main, the film line was saved as "put hal of them out" and the second case failed on
+the thrown error: the lost letter is the 52nd, which is where that count runs out when
+the browser hands the page fifty-one keystrokes in a row without giving React its turn.
+`AddSurface.jsx` is unchanged since 3.0.4, and 3.0.4's shipped build loses the same
+letters under the same typing. The effect now re-runs only when what the bar shows
+changes — whether it can save, whether it is busy, why not, and the door — and the
+bar holds one stable function that runs the latest render's `save` through a ref
+written during render. That covers the blur-then-click order above without
+`draftRef`, and `save()` reads its own render's draft. The quick path's mutation is
+now to hand the bar the render's own `save`, re-published with every change to the
+draft; `typing-a-line-faster-than-the-page-draws.journey.mjs` types a 150-letter
+line without giving React a turn, and fails two letters short on the old effect.
 
 **Two password boxes on the Profile screen compute to the same accessible name.**
 "new password (8–20)" under CHANGE PASSWORD and "new password (8–20)" under Add

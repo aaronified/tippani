@@ -22,7 +22,7 @@
 // The Library and Catalogue "Add" buttons, the shell's top-bar "＋ Add" / ❝ pills
 // and the drawer rows all open this very surface, so there's one obvious way to
 // add anything.
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { json, errText } from './api.js'
 import { CastCombo, LanguageCombo, OfferChip, SuggestCombo, useTagNames, useWorkSuggestions } from './suggest.jsx'
@@ -1076,25 +1076,6 @@ export function QuoteForm({ door, initialTarget, initialBoard, initialFields, on
     ...(initialFields ? { tags: asTags(initialFields.tags) } : {}),
   }))
   const set = (patch) => setDraft((d) => ({ ...d, ...patch }))
-  // THE DRAFT AS IT IS NOW, FOR THE ONE READER THAT IS NOT A RENDER.
-  //
-  // `save` is published UPWARD to the host's title bar (see the effect below), so
-  // the press that calls it is not this component's press and does not see this
-  // component's latest closure — it sees whichever one the last effect published.
-  // An effect runs AFTER paint, and there is one sequence where that is too late:
-  // a token box (`TokenInput`, `ui.jsx`) commits its typed text on BLUR, and the
-  // blur that matters is the one caused by mousedown on Save. So the order is
-  // mousedown, blur, commit, re-render, click — with the effect still queued. The
-  // click then ran a `save` closed over the draft from BEFORE the token landed,
-  // and a character typed but not confirmed with Enter vanished on Save with no
-  // error anywhere. TokenInput's own blur handler carries a comment promising
-  // this could not happen; it fired, and the value still did not arrive.
-  //
-  // A REF IS THE REPO'S OWN ANSWER to this shape — `usePanelStack` keeps one for
-  // exactly the same reason, with a comment saying the handler "is registered once
-  // and must not close over a stale stack". Same argument, one component over.
-  const draftRef = useRef(draft)
-  draftRef.current = draft
 
   const needsWork = door === 'annotation' || door === 'dialogue'
   const mediaType = door === 'dialogue' ? draft.target?.media_type || 'movie' : undefined
@@ -1168,9 +1149,6 @@ export function QuoteForm({ door, initialTarget, initialBoard, initialFields, on
   // The same predicate greys out Save and refuses the submit, so the button can
   // never be pressable in a state the handler would reject — and `why` is what its
   // tooltip says instead of leaving a dead control unexplained.
-  // A FUNCTION OF A DRAFT, not of this render, so `save` can ask it about the
-  // draft that exists at the moment of the press rather than the one it was
-  // published with. See `draftRef` above for why those differ.
   function whatIsMissing(d) {
     const media = door === 'dialogue' ? d.target?.media_type || 'movie' : undefined
     return needsWork && !d.target
@@ -1187,13 +1165,10 @@ export function QuoteForm({ door, initialTarget, initialBoard, initialFields, on
   }
   const missing = whatIsMissing(draft)
 
+  // THIS RENDER'S DRAFT, which is the one on the screen when the bar's ✓ is
+  // pressed: the bar runs whichever `save` the latest render made (`saveRef`,
+  // below).
   async function save() {
-    // EVERYTHING BELOW READS THESE, NOT THE RENDER'S. Three names are shadowed on
-    // purpose: the draft this press is really about, the media type derived from
-    // it, and what is missing from it. Reading the outer ones is the bug.
-    const draft = draftRef.current
-    const mediaType = door === 'dialogue' ? draft.target?.media_type || 'movie' : undefined
-    const missing = whatIsMissing(draft)
     if (missing) return setErr(missing.toLowerCase())
     setBusy(true)
     setErr('')
@@ -1274,13 +1249,47 @@ export function QuoteForm({ door, initialTarget, initialBoard, initialFields, on
     onSaved?.(door)
   }
 
-  // Publish Save upward so the host can put it in its title bar. `draft` is in the
-  // deps because `save` closes over it — without it the bar would keep calling a
-  // stale save with the first keystroke's draft.
+  // Publish Save upward so the host can put it in its title bar — WHEN WHAT THE
+  // BAR SHOWS CHANGES, AND NOT ON EVERY KEYSTROKE.
+  //
+  // THIS EFFECT USED TO RE-PUBLISH ON EVERY CHANGE TO THE DRAFT, because the
+  // `save` it handed up closed over that draft. So each letter typed was two
+  // renders: the keystroke's own, and the host's `setSaveState` from here — a
+  // second update, queued at a lower priority, that React draws on a turn of its
+  // own. When the browser delivers keystrokes faster than it gives React that
+  // turn (a loaded machine, a slow phone, a held key), every keystroke's render
+  // ends with the host's update still waiting, and React counts each one as a
+  // nested update. Past fifty it throws "Maximum update depth exceeded" (minified:
+  // error #185) out of the NEXT keystroke's own setState, and that letter is gone.
+  // CI run 36442773656 saved "put hal of them out", its 52nd letter lost, and the
+  // thrown error failed the next case in the file. Not a loop: two renders a
+  // letter, counted as one long chain.
+  //
+  // So the bar is told what it draws — can it save, is it busy, why not — and
+  // those change a handful of times a form, not once a letter. `door` is in the
+  // deps because the reason and the verb are both the door's.
+  //
+  // THE VERB IS ONE STABLE FUNCTION THAT RUNS THE LATEST RENDER'S `save`, through
+  // a ref assigned during render, and the ref is not optional. The press that
+  // calls it is the bar's, not this component's, and there is one order where
+  // anything published by an effect is too late: a token box (`TokenInput`,
+  // `ui.jsx`) commits its typed text on BLUR, and the blur that matters is the one
+  // mousedown on Save causes — mousedown, blur, commit, re-render, click. A `save`
+  // handed up by an effect is a render or more behind at that click, and a
+  // character typed but not confirmed with Enter vanished on Save with no error
+  // anywhere (capturing-a-film-line.journey.mjs's quick path). Before this the
+  // guard was a ref of the draft that `save` read; one ref of the verb now covers
+  // the draft and everything else `save` closes over.
+  //
+  // Rejected: publishing from a layout effect. It would stop the counting, and
+  // still redraw the whole surface around the form once a letter, synchronously,
+  // for a title bar whose ✓ had not changed.
+  const saveRef = useRef(save)
+  saveRef.current = save
+  const publishedSave = useCallback(() => saveRef.current(), [])
   useEffect(() => {
-    onSaveState?.({ canSave: !missing && !busy, busy, why: missing, save })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [missing, busy, draft])
+    onSaveState?.({ canSave: !missing && !busy, busy, why: missing, save: publishedSave })
+  }, [onSaveState, publishedSave, missing, busy, door])
 
   function targetCreated(work) {
     // No list to prepend to: the work created here becomes this quote's target
