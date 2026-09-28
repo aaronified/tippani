@@ -8,6 +8,8 @@ import (
 	"maps"
 	"slices"
 	"time"
+
+	"tippani/internal/olog"
 )
 
 // A STOP ON A WAITING JOB IS KEPT IN MEMORY FIRST, AND ITS ROW IS WRITTEN AFTER.
@@ -39,6 +41,19 @@ import (
 // that already exist (§1 of the design log, "nothing wakes on a timer"). If the
 // Stop's own write cannot land and no worker is alive to be told, the row waits
 // for the next of them, and until then every read says what the Stop did.
+//
+// AND A SWAP OF THE DATABASE FILES WRITES THEM FIRST (writeHeldBeforeSwap), or
+// does not happen. A mark is kept for the generation it was made in, so after a
+// restore, a recovery or a reset it speaks for nothing — the right answer for a
+// file where the id may be another job, and the wrong one for the job itself: its
+// row, still waiting, went on into the restored file (the carry marks it
+// interrupted), the recovered copy or the file a failed restore put back (where
+// nothing held it, and it ran). During a restore no worker is alive to write the
+// row, since the queue is held, so the swap is often the only writer left. For the
+// same reason a Stop marks its jobs through Store.TrySteady: a mark made after the
+// swap had written the others, and before it had done with the file, would be
+// lost with it. A press made while a swap is under way is refused as one from
+// before it.
 //
 // REJECTED: a waiting job's Stop that waits out the lock, as it did, which is the
 // dillydallying. A goroutine per Stop that retries the write, which would be a
@@ -103,7 +118,11 @@ func (r *Runner) heldJSON() string { return HeldJSON(r.Held()) }
 // taken out of the claim (claim) or the claim was already under way (work, which
 // then stops the job before its first step); a claim that committed before it
 // shows in the read as a job no longer waiting, and its mark is taken back.
-func (r *Runner) hold(gen uint64, ids []int64) (fresh, taken []int64, err error) {
+//
+// Called inside Store.TrySteady or Steady, with its pool (db) and generation
+// (gen), so that no swap lands between the mark and the read, or before the swap
+// has written the mark into the file it moves.
+func (r *Runner) hold(db *sql.DB, gen uint64, ids []int64) (fresh, taken []int64, err error) {
 	at := time.Now().UnixMilli()
 	var marked []int64
 	r.hmu.Lock()
@@ -117,7 +136,7 @@ func (r *Runner) hold(gen uint64, ids []int64) (fresh, taken []int64, err error)
 	r.hmu.Unlock()
 	for _, id := range marked {
 		var state string
-		rerr := r.st.DB.QueryRow(`SELECT state FROM jobs WHERE id = ?`, id).Scan(&state)
+		rerr := db.QueryRow(`SELECT state FROM jobs WHERE id = ?`, id).Scan(&state)
 		if rerr == nil && state == StateQueued {
 			fresh = append(fresh, id)
 			continue
@@ -229,6 +248,39 @@ func (r *Runner) settleHeld(db beginner) error {
 	}
 	r.hmu.Unlock()
 	return nil
+}
+
+// writeHeldBeforeSwap is the store's BeforeSwap (NewRunner hands it over): the
+// rows of the waiting jobs a Stop has held are written stopped into db, the file
+// a restore is about to move aside, a recovery to copy or a reset to delete, and
+// the marks go, so the job reads stopped in whatever that file becomes and
+// nothing claims it there. It waits for SQLite's write lock as any write does,
+// busy_timeout's five seconds: the queue is held around every swap but a
+// first-run restore's, which has no jobs, so no job of the queue's has the lock,
+// and the logbook is parked.
+//
+// ONE IT CANNOT WRITE REFUSES THE SWAP, and says why. The swap would otherwise
+// carry the job on waiting (a recovery, a failed restore's rollback), where it
+// runs once the queue opens again although its Stop was answered, or into a
+// restored file as interrupted. A restore refused this way leaves the library as
+// it was and can be pressed again once the lock is free.
+func (r *Runner) writeHeldBeforeSwap(db *sql.DB) error {
+	if err := r.settleHeld(db); err != nil {
+		olog.Errorf(olog.CodeJobRecord, "[jobs] the database was not swapped: the waiting jobs a Stop stopped could not be written stopped in it first: %v", err)
+		return err
+	}
+	return nil
+}
+
+// steady runs fn through Store.TrySteady, and answers a press made while a swap
+// is under way as one made from before it (ErrStale): the ids and the account it
+// names belong to the file being moved, and the answer comes at once.
+func (r *Runner) steady(fn func(db *sql.DB, gen uint64) error) error {
+	ok, err := r.st.TrySteady(fn)
+	if !ok {
+		return ErrStale
+	}
+	return err
 }
 
 // settleHeldSoon is the Stop's own try at the rows it held: at most

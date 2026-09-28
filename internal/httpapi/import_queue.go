@@ -16,6 +16,7 @@ import (
 
 	"tippani/internal/jobs"
 	"tippani/internal/olog"
+	"tippani/internal/store"
 )
 
 // AN IMPORT IS A QUEUED JOB (3.1.0).
@@ -393,9 +394,22 @@ func (s *Server) SweepSpool() {
 // sweepSpool removes the spooled uploads no import that can still run, or run
 // again, names: one waiting, running, stopped or interrupted, of an account that
 // still exists (0079's trigger clears the owner of a deleted account's jobs, and
-// nobody can run those again). It keeps everything when it cannot read the jobs:
-// a file kept a while too long costs disk, and one removed from under a job costs
-// the reader's upload.
+// nobody can run those again), and not carried over by a restore (store.CarriedJob:
+// nothing a restore carried is run again). It keeps everything when it cannot
+// read the jobs: a file kept a while too long costs disk, and one removed from
+// under a job costs the reader's upload.
+//
+// THE JOBS ARE READ WITH NO SWAP UNDER WAY (Store.TrySteady), and not at all while
+// one is: a sweep then keeps everything, and the restore's or the reset's own
+// sweep, once its swap is done, removes what that file no longer names. Every
+// upload sweeps first, and one can arrive mid-restore, when the pool is open on
+// the restored file before the carry-over has written the server's jobs into it:
+// read there, no import named any upload and every one went, including those of
+// the imports a failed restore's rollback then brought back. Only the read is
+// held: the files removed after it are ones the file it read no longer names,
+// and no file a swap can land on names one of them again (a rollback or a
+// recovery keeps the same rows, a restore carries none it keeps, a reset has
+// none), while a new upload is spooled under spoolMu, which this holds.
 func (s *Server) sweepSpool() {
 	s.spoolMu.Lock()
 	defer s.spoolMu.Unlock()
@@ -404,24 +418,27 @@ func (s *Server) sweepSpool() {
 		return
 	}
 	keep := map[string]bool{}
-	rows, err := s.Store.DB.Query(`SELECT json_extract(params, '$.spool') FROM jobs
-		WHERE kind = 'import' AND state IN ('queued', 'running', 'stopped', 'interrupted')
-		  AND user_id IS NOT NULL AND json_valid(params)`)
-	if err != nil {
-		olog.Warnf(olog.CodeImportStage, "[import] the upload spool was not swept: %v", err)
+	steady, err := s.Store.TrySteady(func(db *sql.DB, _ uint64) error {
+		rows, err := db.Query(`SELECT json_extract(params, '$.spool') FROM jobs
+			WHERE kind = 'import' AND state IN ('queued', 'running', 'stopped', 'interrupted')
+			  AND user_id IS NOT NULL AND json_valid(params) AND NOT ` + store.CarriedJob)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var name sql.NullString
+			if err := rows.Scan(&name); err != nil {
+				return err
+			}
+			keep[name.String] = true
+		}
+		return rows.Err()
+	})
+	if !steady {
 		return
 	}
-	for rows.Next() {
-		var name sql.NullString
-		if err := rows.Scan(&name); err != nil {
-			rows.Close()
-			olog.Warnf(olog.CodeImportStage, "[import] the upload spool was not swept: %v", err)
-			return
-		}
-		keep[name.String] = true
-	}
-	rows.Close()
-	if err := rows.Err(); err != nil {
+	if err != nil {
 		olog.Warnf(olog.CodeImportStage, "[import] the upload spool was not swept: %v", err)
 		return
 	}

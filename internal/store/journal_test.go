@@ -13,7 +13,8 @@ import (
 // A BACKUP LEAVES THE JOURNAL BEHIND; A RESTORE KEEPS THE SERVER'S OWN.
 //
 // WHAT IT KNOWS, declared because a test here may not know the code: StripJournal,
-// CarryJournal and Swap by name, and the journal tables' names and columns. The
+// CarryJournal, CarriedJob and Swap by name, and the journal tables' names and
+// columns. The
 // restore round trip over HTTP is tested in httpapi; these pin what that test can
 // only sample — every rule the carry-over applies to an owner, and that a stripped
 // snapshot holds nothing a hex dump could read back — and no endpoint lists jobs yet.
@@ -229,8 +230,17 @@ func TestARestoreKeepsTheServersJournalAndOnlyTheOwnersThatStillMatch(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
-	if next, _ := res.LastInsertId(); next <= 110 {
+	next, _ := res.LastInsertId()
+	if next <= 110 {
 		t.Fatalf("the first job after the restore got id %d, reusing one the replaced server gave out", next)
+	}
+	// Every job carried reads as carried, and the job made after the carry does
+	// not, the archive's own jobs, gone, lending the mark nothing.
+	if n := countT(t, s.DB, `SELECT count(*) FROM jobs WHERE `+CarriedJob); n != 8 {
+		t.Fatalf("%d jobs read as carried after the restore, want the 8 it carried", n)
+	}
+	if n := countT(t, s.DB, `SELECT count(*) FROM jobs WHERE id = ? AND NOT `+CarriedJob, next); n != 1 {
+		t.Fatal("the job made after the restore reads as carried")
 	}
 }
 

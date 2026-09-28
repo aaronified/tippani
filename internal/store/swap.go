@@ -64,6 +64,45 @@ func (s *Store) swapLocked(files func() error) error {
 	return filesErr
 }
 
+// ErrNotSwapped is a swap's answer when BeforeSwap's fn could not write what the
+// file had to hold before it was replaced: nothing was copied, closed, moved or
+// counted, and the server is on the file it was on.
+var ErrNotSwapped = errors.New("the database was not swapped")
+
+// BeforeSwap has fn run at the start of every swap of the database files — a
+// restore, a recovery, a factory reset — before anything is read out of the file
+// or moved, with the library pool on it, the logbook's writer parked and every
+// Steady read waited out. The queue writes there the waiting jobs a Stop has
+// stopped in memory and not yet in their rows (internal/jobs, held.go): after the
+// swap nothing reads that memory against this file, and the file lives on as a
+// restore's carried journal, a recovery's copy, or the database a failed restore
+// puts back. fn must not take the swap lock or wait on the logbook. An error from
+// it refuses the swap (ErrNotSwapped).
+//
+// IT RUNS BEFORE A RECOVERY'S COPY, not at its swap: the copy is what the server
+// goes on with, and a row written into the old file after the copy was made is
+// written into a file about to be thrown away. A RESTORE'S ROLLBACK DOES NOT RUN
+// IT: the file a rollback moves aside is the one the failed restore brought in,
+// which nothing was pressed in, and a rollback refused would leave the server on
+// it.
+func (s *Store) BeforeSwap(fn func(db *sql.DB) error) {
+	s.logMu.Lock()
+	defer s.logMu.Unlock()
+	s.beforeSwap = fn
+}
+
+// beforeSwapLocked runs BeforeSwap's fn, for a swap that holds logMu and repairMu
+// and has touched nothing yet.
+func (s *Store) beforeSwapLocked() error {
+	if s.beforeSwap == nil {
+		return nil
+	}
+	if err := s.beforeSwap(s.DB); err != nil {
+		return fmt.Errorf("%w: %w", ErrNotSwapped, err)
+	}
+	return nil
+}
+
 // bringUp readies a database that has just been swapped in exactly as boot readies
 // one: migrate forward, integrity-check, FTS self-heal. The caller holds logMu and
 // repairMu, so the self-heal runs repairFTSLocked, whose escalation to a whole-file
@@ -100,8 +139,9 @@ func (s *Store) bringUp() error {
 //     after does not run on them.
 //
 // A nil error means the new files are live. Any other error means they are not:
-// either the rollback put the old ones back, or — a *RollbackError — it could not,
-// and the store holds whatever the failed rollback left.
+// the swap was refused before anything moved (ErrNotSwapped: BeforeSwap's fn
+// failed), or the rollback put the old ones back, or — a *RollbackError — it could
+// not, and the store holds whatever the failed rollback left.
 //
 // It replaces the CloseForSwap / ReopenAfterSwap pair, which left the gap between
 // them unguarded: the restore's file moves ran with no lock held, and its rollback
@@ -113,6 +153,10 @@ func (s *Store) Swap(move func() error, rollback func(cause error) error, after 
 	s.repairMu.Lock()
 	defer s.repairMu.Unlock()
 
+	// Nothing moved when this refuses, so there is nothing to put back.
+	if err := s.beforeSwapLocked(); err != nil {
+		return err
+	}
 	err := s.swapLocked(move)
 	if err == nil {
 		err = s.bringUp()

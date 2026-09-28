@@ -15,7 +15,8 @@ import (
 // THE LOG POOL, AND THE ONE SWAP EVERY FILE CHANGE GOES THROUGH.
 //
 // WHAT IT KNOWS, declared because a test here may not know the code: the store's
-// own API — Swap, Recover, Reset, LogWrite, Generation and the LogDB field — and the
+// own API — Swap, Recover, Reset, BeforeSwap, LogWrite, Generation and the LogDB
+// field — and the
 // system_logs table. That API is the package's whole contract with its two callers,
 // the restore (httpapi, whose round trip is tested there) and the logbook that
 // writes through LogWrite, which does not exist yet; nothing observable over HTTP
@@ -30,7 +31,8 @@ import (
 // sync while a saved quote still does; a log line written after a restore, a
 // recovery or a factory reset lands in the database the server is now on; a
 // restore whose search index is too broken to rebuild recovers instead of hanging
-// the server; a restore that fails puts the old library back and reopens it; and
+// the server; a restore that fails puts the old library back and reopens it; a
+// swap whose file cannot first be written what it has to hold is not made; and
 // no failed swap or recovery leaves the server on closed pools while saying it
 // worked, or leaves an empty database where the library was.
 
@@ -360,6 +362,123 @@ func TestARestoreThatFailsPutsTheOldLibraryBack(t *testing.T) {
 	)
 	if !errors.As(err, &rb) || !strings.Contains(rb.Rollback.Error(), "the disk went away") {
 		t.Fatalf("a failed rollback reported %v, want a RollbackError carrying why", err)
+	}
+}
+
+// A SWAP THAT CANNOT FIRST WRITE WHAT ITS FILE HAS TO HOLD IS NOT MADE. BeforeSwap's
+// fn is the queue's (internal/jobs): the waiting jobs a Stop has stopped, written
+// into the file before it is replaced. When it fails, a restore, a recovery and a
+// factory reset each answer ErrNotSwapped with nothing moved or rolled back, no
+// generation counted and the library open where it was — the queue's Stops are
+// kept by generation, so a count here would let them go unwritten. What it
+// writes is in the file a recovery goes on with, since it runs before the copy.
+// And a restore that fails after its move rolls back without asking it: the file
+// the rollback moves aside is the one the restore brought in, and a rollback
+// refused would leave the server on it.
+//
+// Mutations, each red here: Swap going on to its rollback when BeforeSwap's fn
+// refuses (the rollback runs and a generation is counted); recoverLocked asking
+// it at its swap rather than before its copy (the recovered file lacks what it
+// wrote); the rollback asking it (the restore reports a failed rollback).
+func TestASwapWhoseFileCannotFirstBeWrittenIsNotMade(t *testing.T) {
+	dir := t.TempDir()
+	s, err := Open(filepath.Join(dir, "tippani.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { s.Close() })
+	if err := s.Migrate(); err != nil {
+		t.Fatal(err)
+	}
+	mustExecT(t, s, `INSERT INTO users (id, username, password_hash) VALUES (1, 'alice', 'x')`)
+	mustExecT(t, s, `INSERT INTO books (user_id, title) VALUES (1, 'The Kept Book')`)
+
+	refused := errors.New("the lock was held elsewhere")
+	s.BeforeSwap(func(*sql.DB) error { return refused })
+	gen := s.Generation()
+	moved, rolledBack, afterRan := false, false, false
+	err = s.Swap(
+		func() error { moved = true; return nil },
+		func(error) error { rolledBack = true; return nil },
+		func(*sql.DB) error { afterRan = true; return nil },
+	)
+	if !errors.Is(err, ErrNotSwapped) || !errors.Is(err, refused) {
+		t.Fatalf("a restore whose file could not first be written answered %v, want ErrNotSwapped with why", err)
+	}
+	if moved || rolledBack || afterRan {
+		t.Fatalf("the refused restore went on: moved %v, rolled back %v, after %v", moved, rolledBack, afterRan)
+	}
+	if err := s.Recover(); !errors.Is(err, ErrNotSwapped) {
+		t.Fatalf("a recovery whose file could not first be written answered %v", err)
+	}
+	if err := s.Reset(); !errors.Is(err, ErrNotSwapped) {
+		t.Fatalf("a factory reset whose file could not first be written answered %v", err)
+	}
+	if s.Generation() != gen {
+		t.Fatal("a refused swap counted a generation")
+	}
+	if n := countT(t, s.DB, `SELECT count(*) FROM books WHERE title = 'The Kept Book'`); n != 1 {
+		t.Fatal("the library is not open where it was after the refused swaps")
+	}
+
+	// What it writes is in the file a recovery goes on with.
+	s.BeforeSwap(func(db *sql.DB) error {
+		_, err := db.Exec(`INSERT INTO system_logs (at, level, line) VALUES (1, 'info', 'written before the swap')`)
+		return err
+	})
+	if err := s.Recover(); err != nil {
+		t.Fatal(err)
+	}
+	if n := countT(t, s.DB, `SELECT count(*) FROM system_logs WHERE line = 'written before the swap'`); n != 1 {
+		t.Fatalf("the recovered file holds %d of what was written before the swap, want 1", n)
+	}
+
+	// A restore that fails after its move: asked once, before the move, and not
+	// again by the rollback.
+	asked := 0
+	s.BeforeSwap(func(*sql.DB) error {
+		if asked++; asked > 1 {
+			return refused
+		}
+		return nil
+	})
+	future := migratedFileWith(t, filepath.Join(t.TempDir(), "future.db"), "From The Future")
+	fdb, err := sql.Open("sqlite", "file:"+future)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fdb.Exec(`INSERT INTO schema_version (version) VALUES (99999)`); err != nil {
+		t.Fatal(err)
+	}
+	fdb.Close()
+	aside := filepath.Join(dir, "pre")
+	if err := os.Mkdir(aside, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	err = s.Swap(
+		func() error {
+			if err := moveDB(s.Path(), filepath.Join(aside, "tippani.db")); err != nil {
+				return err
+			}
+			return moveDB(future, s.Path())
+		},
+		func(error) error {
+			if err := moveDB(s.Path(), filepath.Join(dir, "failed.db")); err != nil {
+				return err
+			}
+			return moveDB(filepath.Join(aside, "tippani.db"), s.Path())
+		},
+		nil,
+	)
+	var rb *RollbackError
+	if err == nil || errors.As(err, &rb) || errors.Is(err, ErrNotSwapped) {
+		t.Fatalf("a restore that failed after its move answered %v, want its own failure with the old library back", err)
+	}
+	if asked != 1 {
+		t.Fatalf("BeforeSwap's fn was asked %d times by a restore and its rollback, want once", asked)
+	}
+	if n := countT(t, s.DB, `SELECT count(*) FROM books WHERE title = 'The Kept Book'`); n != 1 {
+		t.Fatal("the old library is not live after the rollback")
 	}
 }
 

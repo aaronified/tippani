@@ -15,6 +15,7 @@ import (
 
 	"tippani/internal/jobs"
 	"tippani/internal/olog"
+	"tippani/internal/store"
 )
 
 // THE JOBS API — what Settings › Jobs, the phone's Jobs tile and every screen
@@ -41,6 +42,10 @@ import (
 // or an update in progress is told, and — the runner answers them alike — a job
 // whose request began on a database a restore has since replaced.
 const jobsBusyMessage = "A restore, a reset, a search rebuild or an update is running. Start this again when it has finished."
+
+// carriedReviewMessage is what the review of a check a restore carried over is
+// told: its findings are about the library the restore replaced.
+const carriedReviewMessage = "This check ran before the library was restored, so the works it names may be other works now. Run the check again to review it."
 
 // viewer is who a jobs request is for, as the runner takes them: the account
 // requireAuth resolved, and the store generation it read before resolving it.
@@ -81,8 +86,13 @@ type jobView struct {
 	Username string          `json:"username"` // "" unless the viewer is an admin
 	Own      bool            `json:"own"`      // the viewer started it
 	// Rerunnable says the viewer may run it again: their own, of a kind that
-	// reruns, finished, and not a success that running again would only repeat.
-	Rerunnable bool   `json:"rerunnable"`
+	// reruns, finished, not a success that running again would only repeat, and
+	// not one a restore carried over (Carried).
+	Rerunnable bool `json:"rerunnable"`
+	// Carried says a restore brought the job over from the server it replaced
+	// (store.CarriedJob): its record stays, and nothing acts on it again — no
+	// Run again, no Review — since the ids it names were the replaced library's.
+	Carried    bool   `json:"carried"`
 	Applied    bool   `json:"applied"` // a re-verify whose review has been applied
 	RerunOf    *int64 `json:"rerun_of"`
 	FromJob    *int64 `json:"from_job"`
@@ -102,6 +112,7 @@ type jobRow struct {
 	rerunOf, fromJob                       sql.NullInt64
 	created                                int64
 	started, finished                      sql.NullInt64
+	carried                                bool // a restore brought it over (store.CarriedJob)
 }
 
 // jobColumns is every column jobRow reads. result is not one of them: a
@@ -109,7 +120,7 @@ type jobRow struct {
 // shows were made from it when the job stored it (0079 says why, and why result
 // is the row's last column).
 const jobColumns = `id, user_id, username, kind, queued, subject, state, ` + jobParamsShown + `, error, total, done,
-	rerun_of, from_job, created_at, started_at, finished_at, counts`
+	rerun_of, from_job, created_at, started_at, finished_at, counts, ` + store.CarriedJob
 
 // jobParamsShown is the params a job's JSON carries: the stored object without
 // its top-level arrays.
@@ -139,7 +150,7 @@ const jobParamsShown = `CASE WHEN NOT json_valid(params) THEN params
 func scanJob(sc interface{ Scan(...any) error }) (jobRow, error) {
 	var j jobRow
 	err := sc.Scan(&j.id, &j.uid, &j.username, &j.kind, &j.queued, &j.subject, &j.state, &j.params, &j.errMsg,
-		&j.total, &j.done, &j.rerunOf, &j.fromJob, &j.created, &j.started, &j.finished, &j.counts)
+		&j.total, &j.done, &j.rerunOf, &j.fromJob, &j.created, &j.started, &j.finished, &j.counts, &j.carried)
 	return j, err
 }
 
@@ -241,7 +252,7 @@ func (s *Server) jobViewOf(j jobRow, v jobs.Owner, active []int64, applied map[i
 	view := jobView{
 		ID: j.id, Kind: j.kind, Queued: j.queued, Subject: j.subject, State: j.state,
 		Params: rawObject(j.params), Counts: rawObject(j.counts), Error: j.errMsg,
-		Total: j.total, Done: j.done, Own: own, Applied: applied[j.id],
+		Total: j.total, Done: j.done, Own: own, Applied: applied[j.id], Carried: j.carried,
 		RerunOf: nullInt(j.rerunOf), FromJob: nullInt(j.fromJob),
 		CreatedAt: j.created, StartedAt: nullInt(j.started), FinishedAt: nullInt(j.finished),
 	}
@@ -255,8 +266,9 @@ func (s *Server) jobViewOf(j jobRow, v jobs.Owner, active []int64, applied map[i
 	}
 	// An admin's kind asks the viewer as they are now: a former admin's own backup
 	// is not offered a Rerun that would only answer 403 (absent, not disabled).
+	// A job a restore carried over is offered none: the runner refuses it too.
 	if k, ok := s.startableKind(j.kind); ok && own && j.queued && k.rerunnable && finished(j.state) &&
-		(!k.adminOnly || v.IsAdmin) {
+		!j.carried && (!k.adminOnly || v.IsAdmin) {
 		view.Rerunnable = (j.state != jobs.StateSucceeded || k.againAfterSuccess) &&
 			(k.runnableAgain == nil || k.runnableAgain(s, j.params))
 	}
@@ -769,7 +781,9 @@ func (s *Server) handleJobResult(w http.ResponseWriter, r *http.Request) {
 	}
 	v := viewer(r)
 	var kind, result string
-	err := s.Store.DB.QueryRow(`SELECT kind, result FROM jobs WHERE id = ? AND user_id = ?`, id, v.UserID).Scan(&kind, &result)
+	var carried bool
+	err := s.Store.DB.QueryRow(`SELECT kind, result, `+store.CarriedJob+` FROM jobs WHERE id = ? AND user_id = ?`, id, v.UserID).
+		Scan(&kind, &result, &carried)
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
 		writeErr(w, http.StatusNotFound, "no such job")
@@ -782,6 +796,13 @@ func (s *Server) handleJobResult(w http.ResponseWriter, r *http.Request) {
 	if result != "" && json.Valid([]byte(result)) {
 		answer = json.RawMessage(result)
 		if k, ok := s.startableKind(kind); ok && k.review != nil {
+			// A review reads the rows its result names as they are now, by id, and a
+			// carried job's ids were the replaced library's: the rows it would show
+			// and let the reader write to may be other works. Refused, not shown.
+			if carried {
+				writeErr(w, http.StatusConflict, carriedReviewMessage)
+				return
+			}
 			if answer, err = k.review(s, v.UserID, json.RawMessage(result)); err != nil {
 				codedError(w, r, olog.CodeJobRead, "review the job's result", err)
 				return

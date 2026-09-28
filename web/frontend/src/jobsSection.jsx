@@ -559,8 +559,11 @@ function PastJob({ job, user, open, busy, onToggle, onRerun, onReview }) {
                 a re-verify that finished, found something to change, and whose
                 findings nobody has applied yet. An applied one has been decided;
                 one that found everything up to date has nothing to decide;
-                somebody else's is theirs to decide (F3). */}
-            {onReview && job.kind === 'reverify' && job.state === 'succeeded' && job.own && !job.applied && jobHasFindings(job) && (
+                somebody else's is theirs to decide (F3); and one a restore
+                carried over found its findings in the library the restore
+                replaced, where the works it names may be other works now, so
+                the server refuses its review and nothing offers one. */}
+            {onReview && job.kind === 'reverify' && job.state === 'succeeded' && job.own && !job.applied && !job.carried && jobHasFindings(job) && (
               <Tooltip label={t('settings.jobs.past.review.tip')}>
                 <GhostButton icon={<IconOpen />} keepLabel onClick={onReview}>
                   {t('settings.jobs.past.review.label')}

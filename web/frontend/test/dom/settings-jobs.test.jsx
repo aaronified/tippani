@@ -38,7 +38,7 @@ const NOW = Date.now()
 const SERVER_NOW = Date.parse('2026-09-27T12:00:00Z')
 const job = (over) => ({
   id: 0, kind: 'fill', queued: true, subject: '', state: 'queued', params: {}, counts: {},
-  error: '', total: 0, done: 0, ahead: 0, username: '', own: true, rerunnable: false, applied: false,
+  error: '', total: 0, done: 0, ahead: 0, username: '', own: true, rerunnable: false, carried: false, applied: false,
   rerun_of: null, from_job: null, created_at: NOW - HOUR, started_at: null, finished_at: null,
   ...over,
 })
@@ -417,19 +417,22 @@ describe('who may press what', () => {
   // for thirty days. The name looked for is the button's whole name: with the old
   // 'Review' left here, nothing on the card could match it and every case would
   // pass whatever the gate did.
-  it('offers no Review findings on a re-verify that was applied, found nothing to change, is somebody else’s, or did not succeed', async () => {
+  // A CHECK A RESTORE CARRIED OVER found its findings in the library the restore
+  // replaced; the server refuses its review, so a press here would only be told so.
+  it('offers no Review findings on a re-verify that was applied, found nothing to change, is somebody else’s, did not succeed, or came over with a restore', async () => {
     PAST = [
       job({ id: 21, kind: 'reverify', state: 'succeeded', applied: true, subject: 'applied', finished_at: NOW - HOUR }),
       job({ id: 22, kind: 'reverify', state: 'succeeded', own: false, username: 'bina', subject: 'theirs', finished_at: NOW - 2 * HOUR }),
       job({ id: 23, kind: 'reverify', state: 'stopped', subject: 'stopped', finished_at: NOW - 3 * HOUR }),
       job({ id: 25, kind: 'reverify', state: 'succeeded', counts: { items: 12, changes: 0 }, subject: 'up to date', finished_at: NOW - 4 * HOUR }),
+      job({ id: 26, kind: 'reverify', state: 'succeeded', carried: true, counts: { items: 3, changes: 2 }, subject: 'before the restore', finished_at: NOW - 5 * HOUR }),
     ]
     await page(ADMIN, { onReviewJob: vi.fn() })
     const past = await card('Past jobs')
     const opened = await eachOpened(past, /^Re-verify/, (row) => {
       expect(within(row).queryByRole('button', { name: 'Review findings' })).toBeNull()
     })
-    expect(opened).toBe(4)
+    expect(opened).toBe(5)
   })
 
   it('offers no Run again where the server says the job cannot be run again', async () => {

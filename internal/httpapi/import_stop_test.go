@@ -56,11 +56,34 @@ type stopAt struct {
 	told  bool
 }
 
-// holdAt sets importStopSeam to hold the job at point, work n, for this test.
-func holdAt(t *testing.T, point string, n int) *stopAt {
+// setImportSeam sets importStopSeam to fn for this test, and takes it away only
+// once srv's queue has closed.
+//
+// THE ORDER IS THE POINT. Cleanups run last registered first, so a seam cleared
+// by one registered here, after newTestServer's and queueing's, was cleared while
+// the queue they close was still running. On a failing test that is while an
+// import the seam held, let go by the test's cleanups, is still reading it
+// (runImport's check at importStagedPoint, importHalted's at each step): a race
+// the detector reports, and a call through a nil func when the clear fell
+// between the check and the call. Closing the queue first waits for that import
+// to end (a held one is let go by the close itself, which tells it to stop).
+func setImportSeam(t *testing.T, srv *Server, fn func(ctx context.Context, point string, n int)) {
+	t.Helper()
+	importStopSeam = fn
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		srv.Jobs.Close(ctx)
+		importStopSeam = nil
+	})
+}
+
+// holdAt sets importStopSeam to hold the job at point, work n, for this test
+// (setImportSeam).
+func holdAt(t *testing.T, srv *Server, point string, n int) *stopAt {
 	t.Helper()
 	h := &stopAt{point: point, n: n, reached: make(chan struct{})}
-	importStopSeam = func(ctx context.Context, p string, i int) {
+	setImportSeam(t, srv, func(ctx context.Context, p string, i int) {
 		h.mu.Lock()
 		if h.told {
 			h.after = append(h.after, fmt.Sprintf("%s %d", p, i))
@@ -80,8 +103,7 @@ func holdAt(t *testing.T, point string, n int) *stopAt {
 			h.told = true
 			h.mu.Unlock()
 		})
-	}
-	t.Cleanup(func() { importStopSeam = nil })
+	})
 	return h
 }
 
@@ -226,7 +248,7 @@ func TestAStoppedImportBreaksNothingWhereverTheStopLands(t *testing.T) {
 			// queue has to carry on past the one about to be stopped.
 			ahead := c.mustStart("test.hold", map[string]any{"tag": "ahead"})
 			c.waitJob(ahead.ID, "running")
-			h := holdAt(t, at.point, at.n)
+			h := holdAt(t, srv, at.point, at.n)
 			j := queuedJob(t, c.uploadOnly(at.file.route, at.file.name, []byte(at.file.body)))
 			behind := c.mustStart("test.hold", map[string]any{"tag": "behind"})
 			q.let()
@@ -303,13 +325,12 @@ func TestAStopOnAJobWaitingBehindARunningImportIsAnsweredAtOnce(t *testing.T) {
 	c.waitJob(ahead.ID, "running")
 	reached, release := make(chan struct{}), make(chan struct{})
 	var once sync.Once
-	importStopSeam = func(_ context.Context, point string, _ int) {
+	setImportSeam(t, srv, func(_ context.Context, point string, _ int) {
 		if point == stopStageCommit {
 			once.Do(func() { close(reached) })
 			<-release
 		}
-	}
-	t.Cleanup(func() { importStopSeam = nil })
+	})
 	imp := queuedJob(t, c.uploadOnly(twoBooksFile.route, twoBooksFile.name, []byte(twoBooksFile.body)))
 	behind := c.mustStart("test.hold", map[string]any{"tag": "behind"})
 	q.let()
@@ -459,7 +480,7 @@ func TestAStoppedApprovalBreaksNothingWhereverTheStopLands(t *testing.T) {
 
 			ahead := c.mustStart("test.hold", map[string]any{"tag": "ahead"})
 			c.waitJob(ahead.ID, "running")
-			h := holdAt(t, at.point, at.n)
+			h := holdAt(t, srv, at.point, at.n)
 			j := queuedJob(t, c.do("POST", "/import/staged/approve", map[string]any{"all": true}))
 			behind := c.mustStart("test.hold", map[string]any{"tag": "behind"})
 			q.let()
