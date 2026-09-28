@@ -855,3 +855,81 @@ func TestAnExclusiveDuringALookWaitsForWhatTheLookFinds(t *testing.T) {
 		})
 	}
 }
+
+// A STOP THAT HOLDS A JOB WHILE A CLAIM WAITS FOR THE LOCK, THEN WRITES ITS ROW
+// AFTER THE CLAIM HAS TAKEN IT, STILL STOPS IT. A claim reads the held set, then
+// waits for SQLite's write lock; a Stop pressed in that wait marks the job and
+// finds its row still waiting, answers "stopped", and tries for the lock itself
+// (held.go). When the lock frees, the claim can have it first and take the job,
+// and the Stop's write then finds no waiting row. The worker stops the job before
+// its first step only if the mark is still there when it looks (unhold), so the
+// write must not let go of a mark whose job the claim now has.
+//
+// WHAT IT KNOWS, declared: afterClaim (above), the held map and settleHeld. The
+// interleaving is a claim's lock wait crossed with a Stop's, which timing reaches
+// about as often as the busy handler's sleeps allow; here the mark is put in and
+// the Stop's own write run at the one instant it has to land in, after the
+// claim's commit and before the worker looks.
+func TestAStopWhoseWriteLandsAfterTheClaimTookTheJobStillStopsIt(t *testing.T) {
+	st := openStoreInternal(t)
+	if _, err := st.DB.Exec(`INSERT INTO users (id, username, password_hash) VALUES (2, 'mitra', 'x')`); err != nil {
+		t.Fatal(err)
+	}
+	lb := NewLogbook()
+	lb.Attach(st)
+	t.Cleanup(func() { lb.Close(context.Background()) })
+	r := NewRunner(st, lb, Options{})
+	t.Cleanup(func() { r.Close(context.Background()) })
+	var items atomic.Int32
+	r.Register(Kind{Name: "two", Run: func(_ context.Context, j *Job) error {
+		for range 2 {
+			if j.Stopping() {
+				return nil
+			}
+			items.Add(1)
+		}
+		return nil
+	}})
+	var once sync.Once
+	r.afterClaim = func(found bool) {
+		if !found {
+			return
+		}
+		once.Do(func() {
+			var id int64
+			if err := st.DB.QueryRow(`SELECT id FROM jobs WHERE state = 'running'`).Scan(&id); err != nil {
+				t.Error(err)
+				return
+			}
+			// The Stop's hold, made while the claim waited: its mark in, its read of
+			// the row from before the claim's commit.
+			r.hmu.Lock()
+			r.held[id] = heldStop{gen: st.Generation(), at: time.Now().UnixMilli()}
+			r.hmu.Unlock()
+			// And that Stop's own write of the row, which had the lock next.
+			if err := r.settleHeld(st.DB); err != nil {
+				t.Error(err)
+			}
+		})
+	}
+	owner := Owner{UserID: 2, Username: "mitra", Gen: st.Generation()}
+	id, err := r.Enqueue(owner, "two", "", nil, 2, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	deadline := time.Now().Add(20 * time.Second)
+	var state string
+	for {
+		st.DB.QueryRow(`SELECT state FROM jobs WHERE id = ?`, id).Scan(&state)
+		if state != StateQueued && state != StateRunning {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("the job never finished")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if state != StateStopped || items.Load() != 0 {
+		t.Fatalf("stopped while its claim waited for the lock, the job ended %s after %d item(s); want stopped after none", state, items.Load())
+	}
+}
