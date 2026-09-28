@@ -753,8 +753,9 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, se
       ),
     } : {}),
     // THE OWNER'S TILE: one red Stop all with its confirm, and how many jobs are
-    // queued — the Current jobs card itself, asked for its compact face, so the
-    // confirm and the request are the ones inside the section.
+    // running and how many queued (F11, ruled 28 September) — the Current jobs
+    // card itself, asked for its compact face, so the counts, the confirm and the
+    // request are the ones inside the section.
     jobs: <JobsCurrentCard user={user} compact />,
   } : {}
 
