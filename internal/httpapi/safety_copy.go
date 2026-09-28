@@ -40,13 +40,14 @@ import (
 //
 // ONE DOWNLOAD, BY ITS OWNER, FOR A FEW MINUTES. The token is 128 random bits,
 // and it is not the credential on its own: the download also needs the session
-// of the admin whose job made it, and anybody else — another admin, a reader,
-// somebody with the token and no session — is answered 404, the same as a token
-// that does not exist. The first request that gets past that spends the token,
-// whether or not the file reaches the end, and the file goes when that request
-// ends: a copy cut short is taken again, as the streamed one was. The safety note
-// that lets a restore or a reset go (safetyNote) is set only when the whole file
-// has left, as it always was.
+// of the admin whose job made it. Another admin and a reader are answered 404,
+// the same as a token that does not exist; somebody with the token and no
+// session is stopped at sign-in (requireAuth's 401) before the token is looked
+// at. The first GET that gets past that spends the token (a HEAD is refused,
+// handleSafetyDownload), whether or not the file reaches the end, and the file
+// goes when that request ends: a copy cut short is taken again, as the streamed
+// one was. The safety note that lets a restore or a reset go (safetyNote) is set
+// only when the whole file has left, as it always was.
 //
 // THE FILE GOES WITH ITS TOKEN, AND NOTHING WAKES ON A TIMER TO TAKE IT. The
 // invariant "nothing wakes on a timer" rules out a timer that deletes an expired
