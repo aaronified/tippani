@@ -1,10 +1,40 @@
 package httpapi
 
 import (
+	"database/sql"
+	"errors"
 	"net/http"
 	"os"
 	"testing"
 )
+
+// A FACTORY RESET REFUSED BEFORE IT TOUCHES ANYTHING TAKES NOTHING WITH IT. A
+// reset that cannot first write a waiting job's Stop into the file is refused
+// (store.ErrNotSwapped, TIP-JOBS-002), with the accounts where they were, and
+// Troubleshooting tells the admin the library is as it was. The handler's
+// failure path still forgot every pairing code, pending sign-on link and safety
+// copy waiting for its download, file and all, as if the accounts had gone.
+//
+// WHAT IT KNOWS, declared: the store's BeforeSwap, set here to refuse, because
+// the queue's refusal needs a writer outside the server holding SQLite's lock
+// for busy_timeout's five seconds (internal/jobs tests that half). Everything
+// else is the pairing routes a phone uses.
+//
+// Mutation: the handler forgetting the grants on a refused reset, as it did:
+// red, the code minted before it is refused.
+func TestAFactoryResetRefusedBeforeItStartsKeepsThePairingCodes(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	admin := signupAdmin(t, h)
+	code := startPairing(t, admin).Code
+	safetyBackup(t, admin)
+	srv.Store.BeforeSwap(func(*sql.DB) error { return errors.New("a waiting job's Stop could not be written") })
+	admin.mustDo("POST", "/admin/reset", map[string]string{"confirm": "RESET"}, http.StatusInternalServerError)
+	admin.mustDo("GET", "/books", nil, http.StatusOK)
+	if rec := claim(t, h, code, "alice's Pixel"); rec.Code != http.StatusCreated {
+		t.Fatalf("a pairing code minted before a refused reset: got %d %s, want it still claimable", rec.Code, rec.Body)
+	}
+}
 
 // A PHONE CAN BE PAIRED AFTER A FACTORY RESET. A reset swaps the database handle,
 // and the handler repointed the session store at the new one and left the

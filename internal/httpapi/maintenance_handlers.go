@@ -2,12 +2,14 @@ package httpapi
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"os"
 	"path/filepath"
 
 	"tippani/internal/jobs"
 	"tippani/internal/olog"
+	"tippani/internal/store"
 )
 
 // handleReindexFTS force-rebuilds every full-text search index from its content
@@ -86,7 +88,12 @@ func (s *Server) resetDatabase(w http.ResponseWriter, r *http.Request) {
 	s.rebindDB()
 	// And every pairing code and pending sign-on link issued before it, on every
 	// exit too: a failed migrate has emptied the accounts as surely as a success.
-	s.forgetAccountGrants()
+	// Every exit but a refusal (store.ErrNotSwapped): a reset that could not first
+	// write a waiting job's Stop into the file touched nothing, and the accounts
+	// the grants were issued to are all still there.
+	if !errors.Is(err, store.ErrNotSwapped) {
+		s.forgetAccountGrants()
+	}
 	if err != nil {
 		internalError(w, r, "reset database", err)
 		return
