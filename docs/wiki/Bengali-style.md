@@ -1125,7 +1125,7 @@ was the other.
 An import and the approval of what it staged are jobs on the server's queue from 3.1.0, so
 the Import and Pending import screens say where a file stands and Settings → Jobs names
 the approval and counts what each did. Each reuses a sibling's words where one already said
-the same fact: the staged count is the import row's own (*উদ্ধৃতি বাকি*), the added count the
+the same fact: the staged count is the import row's own (*উদ্ধৃতি জমা হয়েছে*, since 28 September; it said *বাকি*, which is the waiting count's word and reads as "left", where the sheet's word for staged is *জমা*), the added count the
 approval flash's (*যোগ হয়েছে*), the approval's name the staging screen's verb as a noun phrase
 (*মেনে নেওয়া*), and the line beside its Stop the re-verify dialog's (*চলতে থাকবে — সেটিংস →
 কাজ-এ পাবেন*), naming the approval as that one names the check.
@@ -1133,7 +1133,7 @@ approval flash's (*যোগ হয়েছে*), the approval's name the stagi
 | Key | English | Bengali |
 | --- | --- | --- |
 | `settings.jobs.kind.import-approve` | Approve imported quotes | ইমপোর্টের উদ্ধৃতি মেনে নেওয়া |
-| `settings.jobs.count.staged` | {n} quote staged / {n} quotes staged | {n}টা উদ্ধৃতি বাকি |
+| `settings.jobs.count.staged` | {n} quote staged / {n} quotes staged | {n}টা উদ্ধৃতি জমা হয়েছে |
 | `settings.jobs.count.added` | {n} added | {n}টা যোগ হয়েছে |
 | `import.row.unsent` | not sent yet | এখনও পাঠানো হয়নি |
 | `import.row.halted` | {state} — Settings → Jobs can run it again | {state} — সেটিংস → কাজ-এ আবার চালানো যায় |

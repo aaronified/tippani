@@ -4463,8 +4463,8 @@ import.summary.quotes.one = {n}টা উদ্ধৃতি বাকি
 import.summary.quotes.other = {n}টা উদ্ধৃতি বাকি
 import.summary.arrow = {files} → {quotes} · গ্রন্থাগারে এখনও কিছু ঢোকেনি
 # One row per file.
-import.row.staged.one = {n}টা উদ্ধৃতি বাকি
-import.row.staged.other = {n}টা উদ্ধৃতি বাকি
+import.row.staged.one = {n}টা উদ্ধৃতি জমা হয়েছে
+import.row.staged.other = {n}টা উদ্ধৃতি জমা হয়েছে
 # bn: পাঠানো for "sent", a file handed to the server; আপলোড হয়নি was the other
 import.row.unsent = এখনও পাঠানো হয়নি
 import.row.halted = {state} — সেটিংস → কাজ-এ আবার চালানো যায়
@@ -4634,7 +4634,7 @@ account.reset.submit = সব মুছে নতুন করে শুরু �
 account.reset.busy = মোছা হচ্ছে…
 # Above step one of the factory reset, read when it opens: the same refusal as
 # the restore's, and the waiting jobs go with everything else.
-account.reset.queue.running = {title} চলছে। সেটা থামা বা শেষ না হওয়া পর্যন্ত সব ডেটা মোছা যাবে না — আগে সেটিংস → কাজ-এ গিয়ে থামান।
+account.reset.queue.running = {title} চলছে। সেটা থেমে না যাওয়া বা শেষ না হওয়া পর্যন্ত সব ডেটা মোছা যাবে না — আগে সেটিংস → কাজ-এ গিয়ে থামান।
 # bn: অপেক্ষার তালিকায় for "is waiting", since nothing inanimate waits (v3.7)
 account.reset.queue.waiting.one = অপেক্ষার তালিকায় একটা কাজ আছে — বাকি সবকিছুর সঙ্গে সেটাও মুছে যাবে।
 account.reset.queue.waiting.other = অপেক্ষার তালিকায় {n}টা কাজ আছে — বাকি সবকিছুর সঙ্গে সেগুলোও মুছে যাবে।
@@ -5592,7 +5592,7 @@ settings.restore.warn.dated.prose = এই সার্ভারের সবক
 # database under the job queue (3.1.0), so the server refuses it while a job
 # runs, and the jobs still waiting end with the old database. {title} is the
 # running job's name, which the app composes from its kind and what it was about.
-settings.restore.queue.running = {title} চলছে। সেটা থামা বা শেষ না হওয়া পর্যন্ত ফিরিয়ে আনা যাবে না — আগে সেটিংস → কাজ-এ গিয়ে থামান।
+settings.restore.queue.running = {title} চলছে। সেটা থেমে না যাওয়া বা শেষ না হওয়া পর্যন্ত ফিরিয়ে আনা যাবে না — আগে সেটিংস → কাজ-এ গিয়ে থামান।
 # bn: “মাঝপথে থেমেছে” quotes the interrupted state's chip (settings.jobs.state.interrupted)
 settings.restore.queue.waiting.one = অপেক্ষার তালিকায় একটা কাজ আছে — ফিরিয়ে আনলে সেটা আর চলবে না, “মাঝপথে থেমেছে” হয়ে থেকে যাবে।
 settings.restore.queue.waiting.other = অপেক্ষার তালিকায় {n}টা কাজ আছে — ফিরিয়ে আনলে সেগুলো আর চলবে না, প্রতিটা “মাঝপথে থেমেছে” হয়ে থেকে যাবে।
@@ -5601,7 +5601,7 @@ settings.restore.queue.waiting.other = অপেক্ষার তালিক�
 # bn: আপনার stays: the contrast with a passphrase is the point of the label (§1.3).
 settings.restore.password.label = আপনার পাসওয়ার্ড
 # bn: "sealed" is এনক্রিপ্ট করা here and in the two password labels below, as every backup line says it (v3.1)
-settings.safety.why.prose = প্রথমে এই সার্ভারে এখন যা আছে তার একটা কপি ডাউনলোড করুন। অন্য ব্যাকআপের মতোই এটা এনক্রিপ্ট করা থাকে, আর এখানে রাখা হয় না।
+settings.safety.why.prose = প্রথমে এই সার্ভারে এখন যা আছে তার একটা কপি ডাউনলোড করুন। অন্য ব্যাকআপের মতোই কপিটা এনক্রিপ্ট করা থাকে, আর এখানে রাখা হয় না।
 settings.safety.done.prose = কপি ডাউনলোড হয়েছে। নতুন ডেটা ঠিক আছে কিনা নিশ্চিত না হওয়া পর্যন্ত এটা রেখে দিন।
 settings.safety.action = আগে একটা ব্যাকআপ ডাউনলোড করুন
 settings.safety.busy = কপি তৈরি হচ্ছে…
@@ -5805,8 +5805,8 @@ settings.jobs.state.interrupted = মাঝপথে থেমেছে
 # --- what a finished job did, one phrase per count. The screen joins them with
 # " · " in code, so each phrase carries its own word order.
 # bn: বাকি, as import.row.staged counts what an import staged
-settings.jobs.count.staged.one = {n}টা উদ্ধৃতি বাকি
-settings.jobs.count.staged.other = {n}টা উদ্ধৃতি বাকি
+settings.jobs.count.staged.one = {n}টা উদ্ধৃতি জমা হয়েছে
+settings.jobs.count.staged.other = {n}টা উদ্ধৃতি জমা হয়েছে
 settings.jobs.count.added.one = {n}টা যোগ হয়েছে
 settings.jobs.count.added.other = {n}টা যোগ হয়েছে
 settings.jobs.count.fields.one = {n}টা ঘর ভরেছে
