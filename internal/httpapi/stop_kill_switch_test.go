@@ -101,8 +101,9 @@ import (
 // pngPicture sniffs as a PNG and clears the size floor for a picture.
 var pngPicture = append([]byte("\x89PNG\r\n\x1a\n"), bytes.Repeat([]byte{7}, 900)...)
 
-// stopWithin is how soon after the press a job must read stopped.
-const stopWithin = 300 * time.Millisecond
+// stopWithin is how soon after the press a job must read stopped: the product's
+// 300 ms, three times that under the race detector (race_on_test.go).
+const stopWithin = 300 * time.Millisecond * underRace
 
 // killWorld is one server, its two accounts, a stub image host, and the hold a
 // case puts its job in.
