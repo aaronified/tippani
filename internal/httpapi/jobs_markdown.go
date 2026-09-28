@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"tippani/internal/buildinfo"
@@ -99,7 +100,16 @@ type mdExport struct {
 // exportIdle is how long an export waits for the client to take its next 64 KB
 // before it gives up on it. A variable so the test of a download nobody reads can
 // wait a moment instead of a minute.
-var exportIdle = 60 * time.Second
+//
+// ATOMIC, because that test shortens it while the stalled downloads from its
+// first half are still writing, and puts it back while they still are: the
+// nightly race sweep caught the plain variable's write against idleDeadline's
+// read. Nothing else ever sets it.
+var exportIdle = func() *atomic.Int64 {
+	var d atomic.Int64
+	d.Store(int64(60 * time.Second))
+	return &d
+}()
 
 // idleDeadline writes to w with a fresh write deadline each time, exportIdle
 // from now: a download is allowed as long as it takes, but not a pause that long.
@@ -109,7 +119,7 @@ type idleDeadline struct {
 }
 
 func (d idleDeadline) Write(p []byte) (int, error) {
-	_ = d.rc.SetWriteDeadline(time.Now().Add(exportIdle))
+	_ = d.rc.SetWriteDeadline(time.Now().Add(time.Duration(exportIdle.Load())))
 	return d.w.Write(p)
 }
 
