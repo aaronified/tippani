@@ -20,7 +20,7 @@
 // before imports queued. Those addresses and fields are the wire contract jobs.js
 // owns, declared here because the screen cannot be driven without them.
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { HelpList } from '../../src/ui.jsx'
 import { SOURCES, sourceTitle } from '../../src/importSources.js'
 import { helpFor } from '../../src/help.jsx'
@@ -287,6 +287,30 @@ describe('each file waits its turn on the queue', () => {
     expect(uploads.map((u) => u.name)).toEqual(['a.md', 'b.md', 'b.md'])
     expect(screen.queryByText('five of your jobs are already waiting')).toBeNull()
   })
+
+  // SENDING IS NOT WAITING. A file already sent is a job on the server, and it
+  // can wait for hours behind somebody else's; the well stayed locked for all of
+  // it, saying "Uploading…" with nothing uploading. It is free once the bytes are
+  // up, and a file dropped then joins the row still waiting rather than wiping it.
+  //
+  // Mutation: the well kept busy until every row has its answer (the send loop
+  // waiting for its jobs before it lets go): red — the well still says
+  // Uploading…, and the second drop sends nothing.
+  it('the well is free while a sent file waits, and a second drop joins its row', async () => {
+    states = ['queued']
+    render(<ImportPage />)
+    drop(well(), textFile('a.md'))
+    expect(await screen.findByText(/Waiting — 2 jobs ahead/)).toBeTruthy()
+    expect(within(well()).getByText('Choose file — one or many')).toBeTruthy()
+    expect(within(well()).queryByText('Uploading…')).toBeNull()
+    drop(well(), textFile('b.md'))
+    await waitFor(() => expect(uploads).toHaveLength(2))
+    const waiting = (name) => (_, el) => el?.tagName === 'P' && new RegExp(`^${name}\\s+Waiting`).test(el.textContent)
+    expect(await screen.findByText(waiting('a\\.md'))).toBeTruthy()
+    expect(await screen.findByText(waiting('b\\.md'))).toBeTruthy()
+    states = ['succeeded']
+    expect(await screen.findByText(/2 files → 6 quotes staged/, undefined, { timeout: 8000 })).toBeTruthy()
+  }, 20000)
 
   // THE N1 NOTE: a closed tab keeps every file already sent — each is a job — and
   // loses the ones not sent yet, which are still only in this page. So while a

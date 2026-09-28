@@ -74,10 +74,21 @@ const READ_AS = [
 const NEAR_MISS = new Set(['backup', 'zip', 'epub', 'image', 'font', 'binary'])
 
 export default function ImportPage({ onReviewImport, onStaged }) {
-  const [rows, setRows] = useState(null) // per-file, in batch order
+  const [rows, setRows] = useState(null) // per-file, in the order they were dropped
   const [summary, setSummary] = useState('')
   const [staged, setStaged] = useState(0) // this run's total, for the hand-over
-  const [busy, setBusy] = useState(false)
+  // SENDING IS NOT WAITING. `sending` is true while a file's bytes are going up,
+  // and it is the only time the drop target is busy and says "Uploading…". A file
+  // already sent is a job on the server, and it can wait behind somebody's
+  // two-hour fetch: the well was locked for all of that, saying it was uploading
+  // when nothing was. Now the next file can be dropped as soon as the last one is
+  // sent; its row joins the list, and the summary waits until every row has its
+  // answer. `list` is the rows as drawn, `following` every sent file's job still
+  // being followed.
+  const [sending, setSending] = useState(false)
+  const sendingNow = useRef(false)
+  const list = useRef([])
+  const following = useRef(new Set())
 
   // HOW FAR THE FILE IN HAND HAS GOT, 0..1, or null when nothing is uploading.
   //
@@ -169,72 +180,86 @@ export default function ImportPage({ onReviewImport, onStaged }) {
     onStaged?.()
   }
 
+  const draw = () => setRows([...list.current])
+  const markSending = (v) => {
+    sendingNow.current = v
+    setSending(v)
+  }
+
+  // THE LIST IS ONE ANSWER once nothing is being sent and no row still waits for
+  // its job: the summary and the hand-over to the queue count every row on it.
+  function settledAll() {
+    if (sendingNow.current || following.current.size > 0 || !up.current) return
+    tally(list.current)
+  }
+
+  // Row i's job, followed to its answer, which then becomes the row.
+  function follow(i, sent, as) {
+    const one = settle(list.current[i].file, as, sent, (job) => {
+      list.current[i] = { ...list.current[i], job }
+      draw()
+    }).then((row) => {
+      following.current.delete(one)
+      if (!row) return // the screen went away; the job did not
+      list.current[i] = row
+      draw()
+      settledAll()
+    })
+    following.current.add(one)
+  }
+
   // EVERY FILE IS SENT AS SOON AS IT CAN BE, AND FOLLOWED AFTERWARDS. Each file
   // becomes a job the moment its upload lands, so the sooner it is sent the less
   // a closed tab loses: a batch dropped behind somebody's two-hour cover fetch is
   // on the server within seconds, every file of it, rather than one file now and
   // the next when the first has run. The queue takes five of a reader's jobs at a
-  // time, so a sixth file waits here until one of this batch's ends, and is sent
-  // then. The rows fill in as each job answers, in whatever order they run.
+  // time, so a sixth file waits here until one of the sent files' jobs ends, and
+  // is sent then. The rows fill in as each job answers, in whatever order they
+  // run. A drop while earlier rows still wait adds to them rather than wiping
+  // them: those files are on the server all the same.
   async function runBatch(files) {
-    if (busy || files.length === 0) return
-    setBusy(true)
+    if (sendingNow.current || files.length === 0) return
+    markSending(true)
+    if (following.current.size === 0) list.current = []
     setSummary('')
     setStaged(0)
-    const next = files.map((f) => ({ name: f.name, file: f, pending: true, unsent: true }))
-    setRows([...next])
-    const draw = () => setRows([...next])
-    const following = new Set()
-    let gone = false
-    for (let i = 0; i < files.length; i++) {
-      next[i] = { ...next[i], unsent: false }
+    const first = list.current.length
+    for (const f of files) list.current.push({ name: f.name, file: f, pending: true, unsent: true })
+    draw()
+    for (let k = 0; k < files.length; k++) {
+      const i = first + k
+      list.current[i] = { ...list.current[i], unsent: false }
       draw()
-      let sent = await send(files[i])
-      while (sent?.status === 429 && following.size > 0 && up.current) {
-        await Promise.race(following)
-        sent = await send(files[i])
+      let sent = await send(files[k])
+      while (sent?.status === 429 && following.current.size > 0 && up.current) {
+        await Promise.race(following.current)
+        sent = await send(files[k])
       }
       if (!up.current) return
-      const one = settle(files[i], undefined, sent, (job) => {
-        next[i] = { ...next[i], job }
-        draw()
-      }).then((row) => {
-        if (!row) gone = true
-        else next[i] = row
-        draw()
-        following.delete(one)
-      })
-      following.add(one)
+      follow(i, sent, undefined)
     }
-    await Promise.all([...following])
-    if (gone || !up.current) return
-    tally(next)
-    setBusy(false)
+    markSending(false)
+    settledAll()
   }
 
   // The reader's answer, on one row. It replaces that row rather than starting a
   // batch, so the files that landed stay reported.
   async function reread(i, as) {
-    if (busy) return
-    setBusy(true)
-    const next = [...rows]
-    next[i] = { ...next[i], pending: true, unsent: false, job: null }
-    setRows([...next])
-    const row = await settle(next[i].file, as, await send(next[i].file, as), (job) => {
-      next[i] = { ...next[i], job }
-      setRows([...next])
-    })
-    if (!row) return
-    next[i] = row
-    setRows([...next])
-    tally(next)
-    setBusy(false)
+    if (sendingNow.current) return
+    markSending(true)
+    list.current[i] = { ...list.current[i], pending: true, unsent: false, job: null }
+    draw()
+    const sent = await send(list.current[i].file, as)
+    if (!up.current) return
+    follow(i, sent, as)
+    markSending(false)
+    settledAll()
   }
 
   return (
     <section className="flex flex-col gap-4">
-      <DropTarget busy={busy} pct={pct} onFiles={runBatch} />
-      {rows && <BatchResults rows={rows} summary={summary} staged={staged} busy={busy} onReviewImport={onReviewImport} onReread={reread} />}
+      <DropTarget busy={sending} pct={pct} onFiles={runBatch} />
+      {rows && <BatchResults rows={rows} summary={summary} staged={staged} busy={sending} onReviewImport={onReviewImport} onReread={reread} />}
       <NothingLandsYetNote />
       <SaveDontPasteNote />
     </section>
