@@ -60,7 +60,9 @@ import (
 // backup never carries a file waiting to be imported; nobody can start an import
 // by naming a file through the jobs API; and an approval waits its turn behind
 // another job and writes nothing until it runs, and is kept in Past jobs under
-// its file with what it added.
+// its file with what it added; an approval takes what there was when I pressed
+// it and never a file staged after, and Discard all keeps such a file too; and a
+// factory reset or a restore takes the uploads it left nobody to run.
 
 type wireLine struct {
 	ID    int64  `json:"id"`
@@ -762,4 +764,57 @@ func TestDiscardAllKeepsAFileStagedAfterTheScreenWasRead(t *testing.T) {
 	if n := len(queue(t, c, "").Quotes); n != 2 {
 		t.Fatalf("the later file keeps %d quotes, want 2", n)
 	}
+}
+
+// A FACTORY RESET OR A RESTORE TAKES THE UPLOADS IT LEFT NOBODY TO RUN.
+//
+// A stopped import keeps its upload so its owner can run it again, and the spool
+// is a control entry, so neither a reset nor a restore moves it. But "Reset all
+// data" deletes every job and every account, and a restore keeps a job's owner
+// only where the restored accounts hold them — after either, a kept upload is
+// somebody's highlights that nobody can run or see, and it sat on the disk until
+// the next upload or restart happened to sweep it.
+//
+// Mutations: resetDatabase without its sweep (the reset case red, the upload
+// still there); restoreArchive without its sweep (the restore case red).
+func TestAResetOrARestoreTakesTheUploadsNobodyCanRunAgain(t *testing.T) {
+	stoppedUpload := func(t *testing.T, srv *Server, q *testQueue, holder, owner *testClient) {
+		t.Helper()
+		held := holder.mustStart("test.hold", map[string]any{"tag": "ahead"})
+		holder.waitJob(held.ID, "running")
+		j := queuedJob(t, owner.uploadOnly("/import/markdown", "sandworm.md", []byte(stagedBookMD)))
+		owner.mustDo("POST", fmt.Sprintf("/jobs/%d/stop", j.ID), nil, http.StatusOK)
+		q.let()
+		holder.waitJob(held.ID, "succeeded")
+		if left := spooled(t, srv); len(left) != 1 {
+			t.Fatalf("the stopped import's upload is not kept: %v", left)
+		}
+	}
+
+	t.Run("a factory reset", func(t *testing.T) {
+		srv := newTestServer(t)
+		q := queueing(t, srv)
+		admin := signupAdmin(t, srv.Handler())
+		stoppedUpload(t, srv, q, admin, admin)
+		safetyBackup(t, admin)
+		admin.mustDo("POST", "/admin/reset", map[string]string{"confirm": "RESET"}, http.StatusOK)
+		if left := spooled(t, srv); len(left) != 0 {
+			t.Fatalf("after a factory reset the spool still holds %v", left)
+		}
+	})
+
+	t.Run("a restore that takes the account away", func(t *testing.T) {
+		srv := newTestServer(t)
+		q := queueing(t, srv)
+		h := srv.Handler()
+		admin := signupAdmin(t, h)
+		backupNow(admin) // the archive holds the admin alone
+		bob := addUser(t, h, admin, "bob")
+		stoppedUpload(t, srv, q, admin, bob)
+		safetyBackup(t, admin)
+		admin.mustDo("POST", "/admin/restore", map[string]any{"password": testPw}, http.StatusOK)
+		if left := spooled(t, srv); len(left) != 0 {
+			t.Fatalf("after a restore without bob the spool still holds his upload: %v", left)
+		}
+	})
 }

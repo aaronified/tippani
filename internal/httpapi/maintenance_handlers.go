@@ -101,6 +101,10 @@ func (s *Server) resetDatabase(w http.ResponseWriter, r *http.Request) {
 	} else {
 		olog.Printf("[reset] cleared media directory %s", mediaDir)
 	}
+	// And the uploads waiting for their imports (3.1.0): somebody's highlights,
+	// kept for jobs this reset has just deleted with everything else. The empty
+	// file names none of them, so the sweep takes them all.
+	s.sweepSpool()
 
 	// Expire the caller's cookie; their session no longer exists and the app
 	// will show first-run onboarding (users table is empty).

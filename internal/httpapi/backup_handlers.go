@@ -1216,6 +1216,11 @@ func (s *Server) restoreArchive(w http.ResponseWriter, archive, label, requested
 			}
 		}
 	}
+	// The uploads waiting for their imports stay where they were (the spool is a
+	// control entry), and the carried history may have let go of their owners: a
+	// job keeps its owner only where the restored accounts hold them. An upload
+	// nobody can run again goes now, not at the next upload or restart.
+	s.sweepSpool()
 	olog.Alertf("[backup] RESTORE applied from %s — previous data kept in %s", label, preDir)
 	// The caller's session may not exist in the restored database.
 	http.SetCookie(w, s.sessionCookie("", -1))

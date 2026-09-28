@@ -52,7 +52,8 @@ import (
 //     swept by sweepSpool, which keeps only the files a waiting, running, stopped
 //     or interrupted import of an account that still exists names. The sweep runs
 //     where something might have left one: at start (SweepSpool), after an account
-//     is deleted, before an upload is spooled, and after the log's prune.
+//     is deleted, after a factory reset and a restore, before an upload is spooled,
+//     and after the log's prune.
 
 // importAuto is the source an import from the drop target is queued under: the
 // file says what it is when the job reads it (stageAuto).
