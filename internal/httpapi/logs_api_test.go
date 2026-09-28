@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	"sync"
 	"syscall"
 	"testing"
 	"testing/fstest"
@@ -40,12 +41,15 @@ import (
 // that stops reading is a socket that stops draining, and the recorder the other
 // tests use never blocks. The time an export waits for such a client is
 // shortened (exportIdle) for the part that waits it out, so that part takes a
-// second and not a minute. And two tests swap the database files under an export
-// (Store.Swap with nothing to move, then rebindDB, as a restore does): one under
-// an export that has stalled part-way, which is the one way to land a swap
-// between two of its batches on demand, and one from afterFencePass, the seam
-// that runs as the export's fence pass ends, which is the one way to land it
-// between the export's first reads and its first line.
+// second and not a minute. And three tests swap the database files under an export
+// (Store.Swap, then rebindDB, as a restore does): one under an export that has
+// stalled part-way, which is the one way to land a swap between two of its
+// batches on demand; one from afterFencePass, the seam that runs as the export's
+// fence pass ends, which is the one way to land it between the export's first
+// reads and its first line; and one from beforeExportFence, the seam that runs as
+// the export is about to read its newest id, holding the swap part-way with its
+// pools closed (its move waits on the test), which is the one way to have a swap
+// under way at that read.
 //
 // What each one guards, in a sentence a person would say: only an admin reads
 // the system log; it shows every level but file requests and traces unless asked,
@@ -513,5 +517,49 @@ func TestAnExportSwappedUnderBeforeItsFirstLineSendsNoneOfIt(t *testing.T) {
 	if n := len(lines); n < 3 || lines[n-1] != "```" || lines[n-3] != "```" ||
 		lines[n-2] != "… the export stops here: the database was replaced (a restore or a reset) while the export was written" {
 		t.Fatalf("the export's last lines: %q", lines[max(0, len(lines)-3):])
+	}
+}
+
+// An export asked for while a restore is part-way through its swap waits for the
+// swap, and is then the whole of the file the server is on, rather than an
+// internal error from the pool the swap had closed. The swap is held with its
+// pools closed until a moment after the export has begun its first read.
+func TestAnExportAskedForMidSwapWaitsForItAndSendsTheWholeLog(t *testing.T) {
+	srv := newTestServer(t)
+	logging(t, srv)
+	h := srv.Handler()
+	admin := signupAdmin(t, h)
+	for i := range 3 {
+		olog.Printf("[test] Wv-across-the-swap %d", i)
+	}
+	flushed(t, srv.Logbook)
+
+	swapped := make(chan error, 1)
+	var once sync.Once
+	beforeExportFence = func() {
+		once.Do(func() {
+			inside, release := make(chan struct{}), make(chan struct{})
+			go func() {
+				swapped <- srv.Store.Swap(func() error { close(inside); <-release; return nil }, nil, nil)
+			}()
+			<-inside // both pools are closed, and the swap holds its lock
+			time.AfterFunc(100*time.Millisecond, func() { close(release) })
+		})
+	}
+	t.Cleanup(func() { beforeExportFence = nil })
+
+	body := admin.mustDo("GET", "/admin/logs.md?q=Wv-across-the-swap", nil, http.StatusOK).Body.String()
+	if err := <-swapped; err != nil {
+		t.Fatal(err)
+	}
+	srv.rebindDB()
+	if n := strings.Count(body, "[test] Wv-across-the-swap"); n != 3 {
+		t.Fatalf("the export holds %d of the 3 lines:\n%s", n, body)
+	}
+	if strings.Contains(body, "the export stops here") {
+		t.Fatalf("an export read wholly after the swap says it was swapped under:\n%s", body)
+	}
+	if !strings.HasSuffix(body, "```\n") {
+		t.Fatalf("the export does not end with its fence:\n%s", body)
 	}
 }
