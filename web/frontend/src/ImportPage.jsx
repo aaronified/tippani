@@ -496,7 +496,7 @@ function ClippingsNotice({ row }) {
   if (parts.length === 0) return null
   return (
     <p className="microcopy" style={{ color: row.blocks_malformed ? 'var(--amber, var(--accent-ui))' : 'var(--soft)' }}>
-      {row.blocks_malformed ? <IconWarning size={12} /> : null}
+      {row.blocks_malformed ? <span className="import-warning"><IconWarning size={12} /></span> : null}
       {row.blocks_malformed ? ' ' : ''}
       {parts.join(' · ')}
     </p>

@@ -46,7 +46,17 @@
 // MUTATION, run: take the `.logs-export > .tp-btn` rule back out of index.css and
 // this case goes red, "expected 6 to be +0", with the other two green.
 //
-// It knows the words on the screen and nothing else.
+// AND THE WRAPPED LABEL KEEPS ITS GLYPH ON A LINE OF IT. Once the label wrapped,
+// the export glyph, a flex item beside it, was centred on both of its lines at
+// once, which is on neither, and squeezed narrower by the words. It is drawn
+// inside the label now, as the label's first word. THE MUTATION, run: the glyph
+// put back beside its label (jobsSection.jsx, the export anchors) and this case
+// goes red at the glyph, "19px below the middle of the line nearest it", with
+// the page still not sliding and the other two cases green.
+//
+// It knows the words on the screen and nothing else, and two numbers: how far the
+// page slides (`sideways`) and which glyphs beside a label are off its lines
+// (`offTheLine`).
 
 import { expect, it } from 'vitest'
 
@@ -82,4 +92,5 @@ it('the System logs card keeps its export buttons inside it at the largest type'
   await app.see('System logs')
   await app.see('Everything kept (30 days)')
   expect(await app.sideways(), 'the Jobs section slides sideways at 175% type').toBe(0)
+  expect(await app.offTheLine('Everything kept (30 days)'), 'the export glyph beside a label that wrapped').toEqual([])
 })
