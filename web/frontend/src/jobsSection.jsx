@@ -316,7 +316,7 @@ export function JobsCurrentCard({ user, compact = false }) {
               onStop={() => stopOne(job)}
             />
           ) : (
-            <WaitingJob key={job.id} job={job} user={user} onStop={() => stopOne(job)} />
+            <WaitingJob key={job.id} job={job} user={user} stopping={stopping.has(job.id)} onStop={() => stopOne(job)} />
           )))}
         </div>
       )}
@@ -360,7 +360,7 @@ function RunningJob({ job, user, open, stopping, onToggle, onStop }) {
 // lines rather than ten cards.
 const STOP_GLYPH = <IconStop size={20} />
 
-function WaitingJob({ job, user, onStop }) {
+function WaitingJob({ job, user, stopping, onStop }) {
   return (
     <div className="job-row is-waiting">
       <div className="job-row-head">
@@ -372,11 +372,15 @@ function WaitingJob({ job, user, onStop }) {
             is the one press the card exists for and keeps its label; a waiting
             row is one line of several, and the glyph it wears was taught by the
             Stop all in the head. The name still says it, to a hover and a hold. */}
+        {/* HELD ONCE PRESSED, here or on its Common jobs row: a waiting job has
+            no item in hand, so there is no "Stopping…" to say, and the read the
+            press sets off takes the row away. */}
         {canStop(job, user) && (
           <IconButton
             icon={STOP_GLYPH}
             danger
             ariaLabel={stopName(job)}
+            disabled={stopping}
             onClick={onStop}
           />
         )}

@@ -290,6 +290,24 @@ describe('stopping one', () => {
     expect(within(card).getByRole('button', { name: /^Last run of Fill gaps in every work: Stopped, / })).toBeTruthy()
   })
 
+  // A WAITING JOB HAS NO ITEM IN HAND: its Stop takes it out of the queue at once.
+  it('holds a waiting job’s Stop at the press, and never says it is finishing an item it never began', async () => {
+    rowOf('fill-all').current = job({ id: 27, kind: 'fill', params: { all: true }, state: 'queued', ahead: 1, started_at: null, finished_at: null })
+    const answer = unanswered()
+    const card = await page()
+    within(card).getByText('Waiting — one job ahead')
+    fireEvent.click(within(card).getByRole('button', { name: 'Stop Fill gaps in every work' }))
+    expect(posted('/jobs/27/stop')).toHaveLength(1)
+    expect(within(card).queryByText('Stopping after the item in hand…')).toBeNull()
+    within(card).getByText('Waiting — one job ahead')
+    // Held: a second press, before the server has answered the first, sends
+    // nothing — on this row, or on the same job's row on Current jobs.
+    fireEvent.click(within(card).getByRole('button', { name: 'Stop Fill gaps in every work' }))
+    fireEvent.click(within(await currentCard()).getByRole('button', { name: /^Stop Fill gaps in every work \(/ }))
+    expect(posted('/jobs/27/stop')).toHaveLength(1)
+    await act(async () => answer())
+  })
+
   it('puts the Stop back when the server refuses it, and says why', async () => {
     running(25)
     STOP = () => ({ ok: false, status: 404, data: { error: 'job not found' } })

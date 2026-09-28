@@ -145,6 +145,11 @@ function CommonJob({ row, user, busy, stopping, open, onToggle, onRun, onStop })
   // Stop is offered where the server honours it, as on Current jobs: your own
   // job, or — for an admin — anybody's.
   const canStop = !!now && (now.own || !!user?.is_admin)
+  // "STOPPING AFTER THE ITEM IN HAND" IS A RUNNING JOB'S. A waiting job has no
+  // item in hand — its Stop takes it out of the queue at once — so from the press
+  // until the read that shows it stopped, its row keeps where it stood and holds
+  // its Stop, rather than saying it is finishing something it never began.
+  const finishing = stopping && now?.state === 'running'
   const again = !!last
   return (
     <div className="job-row common-job">
@@ -155,10 +160,10 @@ function CommonJob({ row, user, busy, stopping, open, onToggle, onRun, onStop })
         </span>
         <div className="job-actions">
           {now ? (
-            canStop && (stopping ? (
+            canStop && (finishing ? (
               <span className="microcopy">{t('settings.jobs.current.stopping')}</span>
             ) : (
-              <GhostButton icon={<IconStop />} keepLabel className="tp-btn-danger" aria-label={t('settings.jobs.common.stop.aria', { title })} onClick={onStop}>
+              <GhostButton icon={<IconStop />} keepLabel className="tp-btn-danger" disabled={stopping} aria-label={t('settings.jobs.common.stop.aria', { title })} onClick={onStop}>
                 {t('settings.jobs.current.stop.label')}
               </GhostButton>
             ))
