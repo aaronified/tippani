@@ -137,7 +137,12 @@ export default function ImportPage({ onReviewImport, onStaged }) {
     // this reader's already waiting — comes back unchanged.
     const r = await jobAnswer(sent, { alive: () => up.current, onJob })
     if (r.gone) return null
-    if (r.ok) return { name: file.name, file, as, ok: true, ...r.data }
+    // THE ANSWER'S `pending` IS NOT THE ROW'S. The server answers with how many
+    // staged quotes wait in Pending import — never 0 right after a file staged
+    // some — and spread over the row it overwrote the row's own "still waiting for
+    // its answer", so a file that had staged two quotes went on saying "…" under a
+    // summary that said "2 quotes staged". The row is answered, so it says so last.
+    if (r.ok) return { name: file.name, file, as, ...r.data, ok: true, pending: false }
     // A JOB THAT ENDED WITH NO ANSWER was stopped, or cut off by a restart,
     // before it staged anything. Where it kept the upload, it is Settings → Jobs'
     // Run again that finishes it, not this row's override — and the job says
