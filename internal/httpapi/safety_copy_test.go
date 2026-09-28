@@ -45,8 +45,9 @@ import (
 // not a backup — the Server card does not list it and a restore does not restore
 // it; only I can download it, only once, and nothing of it stays on the server
 // after, nor its token in the log; one I never fetched goes when its time is up,
-// or when I take another, or when the server restarts; and a restore or a reset,
-// or my account's deletion, takes every copy still waiting with it.
+// or when I take another, or when the server restarts; a restore or a reset,
+// or my account's deletion, takes every copy still waiting with it; and a tool
+// that only asks the download's size (a HEAD) spends nothing and lets nothing go.
 
 // dataFiles is every file under the data directory whose name begins with
 // prefix, relative to it.
@@ -283,4 +284,27 @@ func TestASafetyCopyStillWaitingGoesWithTheNextOneARestartOrTheAccount(t *testin
 	if files := dataFiles(t, srv, ".safety-"); len(files) != 0 {
 		t.Fatalf("after the factory reset: %v", files)
 	}
+}
+
+// A HEAD AT THE DOWNLOAD SPENDS NOTHING. curl -I, or a download manager asking
+// the size before it fetches, reaches the copy's address with a HEAD, whose body
+// the server throws away: it must not use up the one download, nor note the copy
+// as taken so that a reset goes ahead on a copy nobody has.
+func TestAHeadAtASafetyCopysDownloadSpendsNothingAndLetsNothingGo(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	alice := signupAdmin(t, h)
+	ready := sealSafetyCopy(t, alice, map[string]string{"password": testPw})
+
+	if rec := alice.do("HEAD", ready.URL, nil); rec.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("a HEAD at the copy's download: %d, want 405", rec.Code)
+	}
+	// Nothing was let go: the reset still asks for the copy to be downloaded.
+	alice.mustDo("POST", "/admin/reset", map[string]string{"confirm": "RESET"}, http.StatusPreconditionRequired)
+	// And nothing was spent: the copy downloads, whole, once.
+	rec := alice.mustDo("GET", ready.URL, nil, http.StatusOK)
+	if int64(rec.Body.Len()) != ready.Size {
+		t.Fatalf("the copy downloaded %d bytes after the HEAD, its job said %d", rec.Body.Len(), ready.Size)
+	}
+	alice.mustDo("GET", ready.URL, nil, http.StatusNotFound)
 }

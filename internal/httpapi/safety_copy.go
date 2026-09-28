@@ -305,6 +305,16 @@ const errNoSafetyCopy = "no such copy — it has been downloaded already, or it 
 // past its time. The file is removed when the request ends, whichever way, and
 // the safety note is set only once the whole file has left.
 func (s *Server) handleSafetyDownload(w http.ResponseWriter, r *http.Request) {
+	// ONLY A GET SPENDS THE TOKEN. The router answers a HEAD at a GET's address,
+	// and the server throws a HEAD's body away: let in, a HEAD (curl -I, a
+	// download manager asking the size first) would spend the one download and set
+	// the safety note with not a byte of the copy delivered, and the restore or
+	// the reset would then go ahead on a copy nobody has.
+	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", http.MethodGet)
+		writeErr(w, http.StatusMethodNotAllowed, "the copy is handed over by a GET, once")
+		return
+	}
 	// A reader is told what anybody is told of a copy that is not theirs: that
 	// there is none. requireAdmin's 403 would say that there is something here an
 	// admin could have.
