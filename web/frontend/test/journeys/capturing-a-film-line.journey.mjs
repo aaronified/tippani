@@ -20,9 +20,13 @@
 // order.
 //
 // So the second case below is the quick path — type, press Save, never confirm —
-// and it is the one that would go red if that ref were removed. The first is the
-// careful path, and both have to work. The first pass writing this file also
-// carried a quieter mistake worth naming: its character name
+// and it is the one that goes red on its own when the bar is handed the render's
+// own `save` again, re-published with every change to the draft (the case's note
+// below). Take the ref out and leave the effect as it is, and both cases go red:
+// the bar then keeps the `save` it was handed when the form last changed whether
+// it could be saved, closed over a draft from before most of the line was typed.
+// The first is the careful path, and both have to work. The first pass writing
+// this file also carried a quieter mistake worth naming: its character name
 // ("The Harbourmaster") was a case-folded substring of its own quote text
 // ("...the harbourmaster to agree"), so `see(CHARACTER)` passed whether or not
 // the character was ever actually saved — the quote text alone satisfied it.
