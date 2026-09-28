@@ -477,6 +477,16 @@ func (r *Runner) work(idle chan struct{}) {
 			if err := r.settleHeld(r.st.DB); err != nil && store.IsBusy(err) {
 				return err
 			}
+			// The hold is asked again at the claim itself. The loop's own check
+			// comes before the held rows' write and the claim's retries, and a job
+			// enqueued in between was claimed past a hold that had just come on:
+			// TestTheHoldSeamHoldsOnlyAnOfflineServer failed that way under the
+			// race detector. The seam is set before a server starts in real use,
+			// so only a test can open the gap; closing it costs one env read.
+			if holding() {
+				j = nil
+				return nil
+			}
 			var err error
 			j, err = r.claim()
 			return err
