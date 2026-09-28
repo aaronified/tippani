@@ -4352,8 +4352,12 @@
      which is what a copy and a screen reader get. Inline-block puts it back in the
      sentence. `vertical-align: middle` centres it on the x-height, where an arrow
      between two words is drawn; a glyph left on the baseline in running text hangs
-     its whole body above the words (CLAUDE.md, "a glyph sits on the line"). */
-  .import-arrow > svg { display: inline-block; vertical-align: middle; }
+     its whole body above the words (CLAUDE.md, "a glyph sits on the line").
+     THE ROW'S WARNING GLYPH IS WRITTEN INTO A SENTENCE THE SAME WAY, and was on a
+     line of its own above "1 record couldn't be read" for the same reason, so it
+     takes the same rule: one answer for every glyph in an import row's words. */
+  .import-arrow > svg,
+  .import-warning > svg { display: inline-block; vertical-align: middle; }
 
   /* ---- look-up candidate rows (the Add surface's results list) ----
      Source is a 16px mark, not a "GOOGLE BOOKS" pill, and Add is a borderless

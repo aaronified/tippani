@@ -93,3 +93,22 @@ for (const route of ROUTES) {
     expect(app.pageErrors(), 'the page threw on the way').toEqual([])
   })
 }
+
+// A KINDLE FILE SOMEBODY EDITED BY HAND: the same Grimm clipping, and after it a
+// block of one line typed in, which is not shaped like a record. The row says it
+// could not read one, in amber, with a warning glyph at the head of the words —
+// and the glyph was drawn on a line of its own above them, because Tailwind's
+// preflight makes every <svg> a block, and `innerText` reads a glyph above its
+// words exactly as it reads one beside them. So the question is `offTheLine`'s.
+// THE MUTATION, run: the `.import-warning > svg` selector taken out of index.css,
+// and this goes red at the glyph, "14px above the middle of the line nearest it",
+// with the three format cases green.
+it('a Kindle file with a hand-edited block says it could not read one, with its warning on that line', async () => {
+  await app.goto('/')
+  await app.press('Add or import')
+  await app.press('Files')
+  await app.upload('Choose file', file('grimm-my-clippings-hand-edited.txt'))
+  await app.see('1 quote staged')
+  await app.see('1 record couldn’t be read')
+  expect(await app.offTheLine('1 record couldn’t be read'), 'the warning glyph beside what could not be read').toEqual([])
+})
