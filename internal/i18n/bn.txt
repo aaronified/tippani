@@ -5619,6 +5619,12 @@ settings.safety.busy = কপি তৈরি হচ্ছে…
 settings.safety.first.reason = আগে একটা ব্যাকআপ ডাউনলোড করুন
 settings.safety.password.label = কপি সিল করার জন্য আপনার পাসওয়ার্ড
 settings.safety.passphrase.label = কপি সিল করার জন্য পাসফ্রেজ
+# ?? draft for the owner (3.1.0 backups): কাজ for "job", as Settings → কাজ names the queue; সিল করা হয় as settings.safety.why.prose says it; খোলা রাখুন for "keep this open"
+settings.safety.wait.prose = কপিটা সার্ভারে একটা কাজ হিসেবে সিল করা হয়, তৈরি হলে এখানেই ডাউনলোড হবে। ততক্ষণ এটা খোলা রাখুন।
+# ?? draft for the owner (3.1.0 backups): Current jobs' "থামান: {title}" frame, with settings.safety.busy's কপি তৈরি as the title
+settings.safety.stop.aria = থামান: কপি তৈরি
+# ?? draft for the owner (3.1.0 backups): থামানো হয়েছে is the state chip's own word (settings.jobs.state.stopped); যখন চান for "when you are ready"
+settings.safety.stopped = থামানো হয়েছে: কোনো কপি তৈরি হয়নি, সার্ভারে তার কিছুই থেকে যায়নি। যখন চান আবার নিন।
 settings.restore.password.recoverable.prose = এই আর্কাইভ এই সার্ভারেরই তৈরি, তাই আপনার এখনকার পাসওয়ার্ডেই খুলবে।
 settings.restore.password.named.prose = অন্য সার্ভারে ‘{name}’-এর তৈরি, তাই তখন ওই অ্যাকাউন্টের যে পাসওয়ার্ড ছিল সেটাই লাগবে।
 settings.restore.password.era.prose = অন্য সার্ভারে তৈরি, তাই তৈরির সময় যে পাসওয়ার্ড ছিল সেটাই লাগবে।

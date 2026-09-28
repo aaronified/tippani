@@ -5753,6 +5753,16 @@ settings.safety.busy = Preparing the copy…
 settings.safety.first.reason = Download a backup first
 settings.safety.password.label = Your password, to seal the copy
 settings.safety.passphrase.label = Passphrase, to seal the copy
+# While the copy's job waits or runs (3.1.0: the safety copy is a job on the
+# server's queue). The step downloads the file itself once the job has sealed it,
+# so the dialog has to stay open until then.
+settings.safety.wait.prose = The copy is sealed on the server as a job, and downloads here when it is ready. Keep this open until then.
+# The Stop beside that line, named for what it stops; the button itself says Stop
+# (settings.jobs.current.stop.label).
+settings.safety.stop.aria = Stop the copy
+# A copy stopped before it was sealed: its job leaves nothing on the server, and
+# the step offers the button again.
+settings.safety.stopped = Stopped: no copy was made, and nothing of it is left on the server. Take it again when you are ready.
 settings.restore.password.recoverable.prose = This server made this archive, so your current password opens it.
 settings.restore.password.named.prose = Made by ‘{name}’ on another server, so it needs that account's password from that time.
 settings.restore.password.era.prose = Made on another server, so it needs the password in use when it was made.

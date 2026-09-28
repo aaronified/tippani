@@ -1130,6 +1130,23 @@ buttons do (*থামান: {title}*), so the hole stays bare (§5.4).
 | `settings.jobs.common.never` | Not run in the last 30 days | গত 30 দিনে চালানো হয়নি |
 | `settings.jobs.common.empty` | Nothing can be run from here on this server. | এই সার্ভারে এখান থেকে কিছুই চালানো যায় না। |
 
+#### When the safety copy became a job (3.1.0 backups)
+
+The copy a restore or a factory reset takes first waits its turn on the server's queue from
+3.1.0, so its step says where the copy stands and offers a Stop. Marked `# ?? draft for the
+owner (3.1.0 backups)` at its key; `grep -n '3.1.0 backups' internal/i18n/bn.txt` lists them.
+Each reuses a sibling's words: the step's own *সিল করা* and *কপি তৈরি* (`settings.safety.why.prose`,
+`settings.safety.busy`), Current jobs' Stop frame (*থামান: {title}*), and the state chip's
+*থামানো হয়েছে*. While the job waits, the step shows Current jobs' own waiting line
+(*অপেক্ষার তালিকায় — এরপরেই*), and its Stop button and *থামছে…* are Current jobs' keys, so
+nothing new is drafted for them.
+
+| Key | English | Bengali |
+| --- | --- | --- |
+| `settings.safety.wait.prose` | The copy is sealed on the server as a job, and downloads here when it is ready. Keep this open until then. | কপিটা সার্ভারে একটা কাজ হিসেবে সিল করা হয়, তৈরি হলে এখানেই ডাউনলোড হবে। ততক্ষণ এটা খোলা রাখুন। |
+| `settings.safety.stop.aria` | Stop the copy | থামান: কপি তৈরি |
+| `settings.safety.stopped` | Stopped: no copy was made, and nothing of it is left on the server. Take it again when you are ready. | থামানো হয়েছে: কোনো কপি তৈরি হয়নি, সার্ভারে তার কিছুই থেকে যায়নি। যখন চান আবার নিন। |
+
 ---
 
 ## v3 decisions

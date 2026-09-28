@@ -38,6 +38,13 @@ vi.mock('../../src/api.js', async (orig) => ({
   json: vi.fn(async (method, path, body) => {
     CALLS.push([method, path, body])
     if (method === 'GET' && path === '/admin/backup') return { ok: true, data: { backup: BACKUP } }
+    // THE SAFETY COPY IS A JOB TOO (3.1.0): queued by its own address, and —
+    // offline, small — sealed at once, its result naming the one download.
+    if (method === 'POST' && path === '/admin/backup/safety') {
+      const copy = JOBS.add({ kind: 'backup.safety', state: 'running' })
+      JOBS.finish(copy.id, { result: { name: 'c-safety-copy.tpbk', size: 1, url: '/admin/backup/safety/0f0f' } })
+      return { ok: true, status: 202, data: { job: { ...copy } } }
+    }
     if (method === 'POST' && path === '/jobs' && body?.kind === 'backup') {
       // The credential is checked in the request, before anything queues.
       if (!CREATE_OK) return { ok: false, status: 401, data: { error: 'wrong password' } }
