@@ -4544,6 +4544,15 @@ import.summary.arrow = {files} → {quotes} · nothing has entered your library 
 # One row per file.
 import.row.staged.one = {n} quote staged
 import.row.staged.other = {n} quotes staged
+# A file's row before its upload has gone: it is only in this page, and leaving
+# the page takes it. (From 3.1.0 a file that has gone is a job on the server.)
+import.row.unsent = not sent yet
+# A file whose job was stopped, or cut off by a restart, before it staged
+# anything. {state} is that state's own word (Stopped, Interrupted). The upload is
+# kept, so Run again in Settings → Jobs finishes it.
+import.row.halted = {state} — Settings → Jobs can run it again
+# Under the rows while a batch of several files is still sending.
+import.queued.note = A file already sent carries on in Settings → Jobs if you leave this screen; one not sent yet does not.
 import.row.duplicate = ⚠ looks like a book you already have: {titles} — move the staged quotes onto it in the queue, or approve them as a separate book
 # The hand-over to the queue.
 import.review.one = Review {n} staged quote

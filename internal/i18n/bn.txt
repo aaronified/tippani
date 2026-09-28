@@ -4467,6 +4467,12 @@ import.summary.arrow = {files} → {quotes} · গ্রন্থাগারে
 # One row per file.
 import.row.staged.one = {n}টা উদ্ধৃতি বাকি
 import.row.staged.other = {n}টা উদ্ধৃতি বাকি
+# ?? draft for the owner (3.1.0 imports): পাঠানো for "sent", as a file handed to the server; the row before its upload has gone
+import.row.unsent = এখনও পাঠানো হয়নি
+# ?? draft for the owner (3.1.0 imports): {state} is the state chip's own word; আবার চালানো, the Run again word of Settings → Jobs
+import.row.halted = {state} — সেটিংস → কাজ-এ আবার চালানো যায়
+# ?? draft for the owner (3.1.0 imports): চলতে থাকবে as reverify.checking.away says it; পর্দা for "screen" (v3)
+import.queued.note = যে ফাইল পাঠানো হয়ে গেছে, এই পর্দা ছেড়ে গেলেও সেটা সেটিংস → কাজ-এ চলতে থাকবে; যেটা এখনও পাঠানো হয়নি, সেটা নয়।
 import.row.duplicate = ⚠ মনে হচ্ছে বইটা আগে থেকেই আছে: {titles} — অপেক্ষার তালিকায় উদ্ধৃতিগুলো সেখানে সরিয়ে দিন, বা আলাদা বই হিসেবে অনুমোদন দিন
 # The hand-over to the queue.
 import.review.one = বাকি পড়ে থাকা {n}টা উদ্ধৃতি দেখুন

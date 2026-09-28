@@ -1068,6 +1068,9 @@ re-verify dialog's (*চলতে থাকবে — সেটিংস → ক
 | `settings.jobs.kind.import-approve` | Approve imported quotes | ইমপোর্টের উদ্ধৃতি মেনে নেওয়া |
 | `settings.jobs.count.staged` | {n} quote staged / {n} quotes staged | {n}টা উদ্ধৃতি বাকি |
 | `settings.jobs.count.added` | {n} added | {n}টা যোগ হয়েছে |
+| `import.row.unsent` | not sent yet | এখনও পাঠানো হয়নি |
+| `import.row.halted` | {state} — Settings → Jobs can run it again | {state} — সেটিংস → কাজ-এ আবার চালানো যায় |
+| `import.queued.note` | A file already sent carries on in Settings → Jobs if you leave this screen; one not sent yet does not. | যে ফাইল পাঠানো হয়ে গেছে, এই পর্দা ছেড়ে গেলেও সেটা সেটিংস → কাজ-এ চলতে থাকবে; যেটা এখনও পাঠানো হয়নি, সেটা নয়। |
 
 ---
 
