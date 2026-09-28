@@ -9,10 +9,11 @@ three headings in §18 that hold tables rather than a decision are not entries.
 
 **Everything in this document was approved by me, with one exception, and it is named
 here.** §18 keeps a table, *Decisions awaiting my ruling*, of calls made while 3.1.0 was
-being built and put to me afterwards. Until a row there records my ruling, its decision
-waits for one, and so do the entries it points at and whatever an entry elsewhere says on
-the strength of it — even under **Decided**, which says what the code does and not that I
-said yes to it. The approval covers every other entry below without exception, and it is
+being built and put to me afterwards. Until a row there records a ruling (mine, or the
+session's where I left the call to it), its decision waits for one, and so do the entries
+it points at and whatever an entry elsewhere says on the strength of it — even under
+**Decided**, which says what the code does and not that I said yes to it. The approval
+covers every other entry below without exception, and it is
 why the **Approved** line exists on an entry at all. I am one person building this, so
 there is no committee to hide a decision behind and no reviewer to blame it on; a thing is
 in this repository because I looked at it and said yes. Where an entry carries its own
