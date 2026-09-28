@@ -220,12 +220,17 @@ func NewRunner(st *store.Store, lb *Logbook, opts Options) *Runner {
 		opts.CloseWriteWait = 500 * time.Millisecond
 	}
 	base, cancel := context.WithCancel(context.Background())
-	return &Runner{
+	r := &Runner{
 		st: st, lb: lb, opts: opts,
 		kinds: map[string]Kind{}, base: base, cancel: cancel,
 		claimStop: map[int64]string{}, secrets: map[int64]any{}, leaving: map[int64]int{},
 		held: map[int64]heldStop{}, idle: closedChan(),
 	}
+	// Every swap of the files writes the Stops this queue holds in memory into
+	// the file it moves first (held.go). The store keeps one: the runner made
+	// last, which is the one a server runs.
+	st.BeforeSwap(r.writeHeldBeforeSwap)
+	return r
 }
 
 // PerOwner is how many jobs one account may have waiting or running at once:
@@ -752,26 +757,35 @@ func visible(viewer Owner, uid sql.NullInt64) bool {
 // job in the worker's hands is one whose end was never recorded, and it is
 // settled (settleOrphan); stopHeldLocked says which is which.
 func (r *Runner) Stop(id int64, viewer Owner) error {
-	if viewer.Gen != r.st.Generation() {
-		return ErrStale
-	}
-	var uid sql.NullInt64
 	var state string
-	switch err := r.st.DB.QueryRow(`SELECT user_id, state FROM jobs WHERE id = ?`, id).Scan(&uid, &state); {
-	case errors.Is(err, sql.ErrNoRows):
-		return ErrNotFound
-	case err != nil:
+	var fresh, taken []int64
+	// The row is read, and a waiting job marked, with no swap under way (held.go).
+	err := r.steady(func(db *sql.DB, gen uint64) error {
+		if viewer.Gen != gen {
+			return ErrStale
+		}
+		var uid sql.NullInt64
+		switch err := db.QueryRow(`SELECT user_id, state FROM jobs WHERE id = ?`, id).Scan(&uid, &state); {
+		case errors.Is(err, sql.ErrNoRows):
+			return ErrNotFound
+		case err != nil:
+			return err
+		}
+		if !visible(viewer, uid) {
+			return ErrNotFound
+		}
+		if state != StateQueued {
+			return nil
+		}
+		var err error
+		fresh, taken, err = r.hold(db, gen, []int64{id})
 		return err
-	}
-	if !visible(viewer, uid) {
-		return ErrNotFound
+	})
+	if err != nil {
+		return err
 	}
 	switch state {
 	case StateQueued:
-		fresh, taken, err := r.hold(viewer.Gen, []int64{id})
-		if err != nil {
-			return err
-		}
 		if len(taken) == 0 {
 			if len(fresh) == 1 {
 				r.forget(id)
@@ -805,7 +819,7 @@ func (r *Runner) Stop(id int64, viewer Owner) error {
 		return err
 	}
 	// The row's flag, for a claim that reads it; the job itself was stopped above.
-	_, err := r.st.DB.Exec(`UPDATE jobs SET stop_requested = 1 WHERE id = ? AND state = 'running'`, id)
+	_, err = r.st.DB.Exec(`UPDATE jobs SET stop_requested = 1 WHERE id = ? AND state = 'running'`, id)
 	return err
 }
 
@@ -917,14 +931,11 @@ func (r *Runner) settleOrphan(gen uint64, id int64, line string) (bool, error) {
 // never recorded is settled at once and counted with the waiting ones: like them,
 // it has ended by the time this returns.
 func (r *Runner) StopAll(viewer Owner) (stopping, stoppedWaiting int, err error) {
-	if viewer.Gen != r.st.Generation() {
-		return 0, 0, ErrStale
-	}
 	scope, args := "", []any{}
 	if !viewer.IsAdmin {
 		scope, args = " AND user_id = ?", []any{viewer.UserID}
 	}
-	return r.stopWhere(viewer.Gen, scope, args, func(j *Job) bool { return visible(viewer, j.uid) },
+	return r.stopWhere(&viewer, scope, args, func(j *Job) bool { return visible(viewer, j.uid) },
 		fmt.Sprintf("%s stopped it before it started", viewer.Username),
 		fmt.Sprintf("%s pressed Stop all", viewer.Username),
 		fmt.Sprintf("its end was never recorded; %s stopped every job, and it is marked interrupted", viewer.Username))
@@ -952,9 +963,7 @@ func (r *Runner) StopOwner(uid int64) (release func(), err error) {
 			delete(r.leaving, uid)
 		}
 	})
-	// Read before the statements that find the jobs: store.Generation says why.
-	gen := r.st.Generation()
-	_, _, err = r.stopWhere(gen, " AND user_id = ?", []any{uid}, func(j *Job) bool { return j.uid.Valid && j.uid.Int64 == uid },
+	_, _, err = r.stopWhere(nil, " AND user_id = ?", []any{uid}, func(j *Job) bool { return j.uid.Valid && j.uid.Int64 == uid },
 		"stopped before it started: the account that started it is being deleted",
 		"Stop, because the account that started this job is being deleted",
 		"its end was never recorded; the account that started it is being deleted, and it is marked interrupted")
@@ -994,20 +1003,44 @@ func (r *Runner) WaitOwnerIdle(ctx context.Context, uid int64) error {
 }
 
 // stopWhere stops the jobs scope picks, and match picks the same jobs in memory,
-// for the job in hand to hear it before any write (signalRunning). gen is the
-// generation read before it, so its lines go only into the file its statements
-// found the jobs in.
-func (r *Runner) stopWhere(gen uint64, scope string, args []any, match func(*Job) bool, waitingLine, runningLine, orphanLine string) (stopping, stoppedWaiting int, err error) {
+// for the job in hand to hear it before any write (signalRunning). Its lines go
+// only into the file its statements found the jobs in (gen, below).
+//
+// asked is the viewer of a Stop all: the file must be the one their request
+// began on, and a press made while a swap is under way is refused rather than
+// kept waiting (Runner.steady). nil is an account's delete, which waits a swap
+// out and stops the jobs of the file it then finds.
+func (r *Runner) stopWhere(asked *Owner, scope string, args []any, match func(*Job) bool, waitingLine, runningLine, orphanLine string) (stopping, stoppedWaiting int, err error) {
 	// THE WAITING ONES FIRST, IN MEMORY (held.go), which is reads and no write:
 	// the press is answered without waiting on somebody else's write lock, and
 	// from here no claim takes them, so the running job, stopped next, cannot end
 	// and hand the worker one of them before this has stopped it. One the worker
-	// took meanwhile is running, and the running rows below find it.
-	queued, err := r.ids(`SELECT id FROM jobs WHERE state = 'queued'`+scope+` ORDER BY id`, args...)
+	// took meanwhile is running, and the running rows below find it. Read and
+	// marked with no swap under way, as Stop's are.
+	var gen uint64
+	var fresh []int64
+	var holdErr error
+	find := func(db *sql.DB, now uint64) error {
+		if asked != nil && asked.Gen != now {
+			return ErrStale
+		}
+		gen = now
+		queued, err := idsOf(db, `SELECT id FROM jobs WHERE state = 'queued'`+scope+` ORDER BY id`, args...)
+		if err != nil {
+			return err
+		}
+		fresh, _, holdErr = r.hold(db, gen, queued)
+		return nil
+	}
+	if asked != nil {
+		err = r.steady(find)
+	} else {
+		err = r.st.Steady(find)
+	}
 	if err != nil {
 		return 0, 0, err
 	}
-	fresh, _, err := r.hold(gen, queued)
+	err = holdErr
 	r.forget(fresh...)
 	for _, id := range fresh {
 		r.lb.jobLineIn(gen, id, LevelInfo, waitingLine)

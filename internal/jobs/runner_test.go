@@ -26,8 +26,10 @@ import (
 // no worker, writes as a crashed server, `tippani user del` or a claim that
 // failed on a locked database would leave them. Where the database itself has
 // to misbehave, it does so from outside: SQLite's write lock held from the
-// library pool, as a long import holds it, and a trigger that refuses a job's
-// finishing write, as a full disk would. And it reads what the server printed
+// library pool, as a long import holds it, or from a second connection on the
+// file, as a sqlite3 shell holds it, and a trigger that refuses a job's
+// finishing write, as a full disk would. A swap is the store's own (Swap, Reset),
+// with nothing to move, and the one error a refused swap answers, ErrNotSwapped. And it reads what the server printed
 // (olog's capture), where that line is the promise. The kinds are the test's own:
 // "steps", whose every item waits until the test lets it finish, is how a test
 // holds a job mid-item without a clock. One file here uses the journey tier's
@@ -41,7 +43,10 @@ import (
 // own jobs and an admin's stops everyone's, as fast, and an account being deleted
 // has its running job stopped as fast and starts nothing until its delete has
 // ended; a Stop or a Stop all from before
-// a restore swapped the database stops nothing; jobs a restart caught are
+// a restore swapped the database stops nothing; a waiting job a Stop stopped
+// stays stopped, and never runs, across a swap of the files that came before its
+// row said so, a swap that cannot first write that row is not made, and a Stop
+// pressed while the files are being swapped is refused at once; jobs a restart caught are
 // interrupted and nothing resumes by itself; shutdown interrupts what it cannot
 // finish and refuses anything new, and does not wait out a lock held elsewhere to
 // say so; a restore waits for a running job and holds
@@ -711,6 +716,182 @@ func TestAStopOnAWaitingJobIsAtOnceWhileTheRunningOneHoldsTheWriteLock(t *testin
 			// and runs.
 			g.waitState(g.enqueue(g.mitra(), "behind", nil), "succeeded")
 		})
+	}
+}
+
+// A WAITING JOB A STOP STOPPED STAYS STOPPED ACROSS A SWAP OF THE DATABASE FILES,
+// though its row still said waiting when the swap came. The Stop lands while a
+// restore holds the queue, with another writer on SQLite's lock so the Stop can
+// only hold the job in memory, and no worker is alive to write the row after.
+// Then the files are swapped, two ways that each go on with this file's rows: a
+// swap that keeps the file where it is, as a restore that fails puts the old file
+// back, and a recovery, which copies every row into a new file (a restore carries
+// the same row on into the file it brings in; httpapi's restore test is that
+// half). Then the queue opens: the job must read stopped, its row too, and never
+// run.
+//
+// TIPPANI_JOBS_HOLD (HoldEnv), declared: the job is queued while the seam holds
+// the queue, so it is still waiting when the restore begins; the seam is let go
+// inside the restore, where nothing claims.
+//
+// Mutations: the swap's write of the held rows (writeHeldBeforeSwap) made to do
+// nothing: red both ways, the stopped job runs once the queue opens. That write
+// made at the recovery's swap rather than before its copy: red for the recovery.
+func TestAStopHeldInMemoryIsWrittenIntoTheFileBeforeASwapMovesIt(t *testing.T) {
+	for _, way := range []struct {
+		name string
+		swap func(st *store.Store) error
+	}{
+		{"a swap that keeps the file", func(st *store.Store) error { return st.Swap(func() error { return nil }, nil, nil) }},
+		{"a recovery", func(st *store.Store) error { return st.Recover() }},
+	} {
+		t.Run(way.name, func(t *testing.T) {
+			t.Setenv(outbound.EnvVar, "1")
+			t.Setenv(jobs.HoldEnv, "1")
+			g := newRig(t, jobs.Options{})
+			var ran atomic.Bool
+			g.r.Register(jobs.Kind{Name: "behind", Run: func(context.Context, *jobs.Job) error {
+				ran.Store(true)
+				return nil
+			}})
+			w := g.enqueue(g.mitra(), "behind", nil)
+			before := g.st.Generation()
+			err := g.r.Exclusive(func() error {
+				t.Setenv(jobs.HoldEnv, "")
+				letGo := holdWriteLock(t, g.st.DB)
+				stopErr := g.r.Stop(w, g.mitra())
+				letGo()
+				if stopErr != nil {
+					return stopErr
+				}
+				if row := g.row(w); row != "queued" {
+					t.Errorf("the stopped job's row reads %s before the swap; the test needs it still owed", row)
+				}
+				// Its line written first: a line still in the buffer when a swap
+				// comes is not this test's subject.
+				flush(t, g.lb)
+				return way.swap(g.st)
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if g.st.Generation() == before {
+				t.Fatal("the swap counted no generation")
+			}
+			// The queue is open again; a job pressed now runs after anything still
+			// waiting ahead of it, so once it has run the stopped one had its chance.
+			g.waitState(g.enqueue(g.mitra(), "quick", nil), "succeeded")
+			if ran.Load() {
+				t.Fatal("the job a Stop stopped before the swap ran after it")
+			}
+			if row := g.row(w); row != "stopped" {
+				t.Fatalf("after the swap the stopped job's row reads %s", row)
+			}
+			if got := g.lines(w); len(got) != 1 || got[0] != "mitra stopped it before it started" {
+				t.Fatalf("the stopped job's log: %q", got)
+			}
+		})
+	}
+}
+
+// AND A SWAP THAT CANNOT WRITE THEM IS NOT MADE. Another connection — a sqlite3
+// shell, say — holds SQLite's write lock through a factory reset, which then
+// cannot write the stopped job's row in the file it is about to delete. The reset
+// is refused, and nothing of the library goes; the generation stays, so the Stop
+// still speaks for the file, and once the lock frees the row says stopped.
+//
+// What it knows beyond the rig: the hold seam, as above, and a second
+// connection on the database file, which is how a writer outside the server
+// holds the lock.
+//
+// Mutation: swapLocked going ahead when that write fails: red, the reset
+// answers nil and the accounts are gone.
+func TestASwapThatCannotWriteAStopHeldInMemoryIsNotMade(t *testing.T) {
+	t.Setenv(outbound.EnvVar, "1")
+	t.Setenv(jobs.HoldEnv, "1")
+	g := newRig(t, jobs.Options{})
+	w := g.enqueue(g.mitra(), "quick", nil)
+	before := g.st.Generation()
+
+	shell, err := sql.Open("sqlite", "file:"+g.st.Path()+"?_txlock=immediate&_pragma=busy_timeout(5000)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer shell.Close()
+	tx, err := shell.Begin()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(`INSERT INTO system_logs (at, level, line) VALUES (?, 'info', 'a shell')`, time.Now().UnixMilli()); err != nil {
+		t.Fatal(err)
+	}
+	err = g.r.Exclusive(func() error {
+		t.Setenv(jobs.HoldEnv, "")
+		if err := g.r.Stop(w, g.mitra()); err != nil {
+			return err
+		}
+		return g.st.Reset()
+	})
+	if rerr := tx.Rollback(); rerr != nil {
+		t.Fatal(rerr)
+	}
+	if !errors.Is(err, store.ErrNotSwapped) {
+		t.Fatalf("a factory reset with the stopped job's row unwritable answered %v, want it refused", err)
+	}
+	if n := count(t, g.st.DB, `SELECT count(*) FROM users`); n != 2 {
+		t.Fatalf("the refused reset left %d accounts, want both", n)
+	}
+	if g.st.Generation() != before {
+		t.Fatal("the refused reset counted a generation")
+	}
+	if s := g.state(w); s != "stopped" {
+		t.Fatalf("after the refused reset the stopped job reads %s", s)
+	}
+	// The queue opened again when the reset ended, and its worker writes the row
+	// before its next claim.
+	eventually(t, fmt.Sprintf("the stopped job's row says so (it says %s)", g.row(w)), func() bool { return g.row(w) == "stopped" })
+}
+
+// AND A STOP PRESSED WHILE THE FILES ARE BEING SWAPPED IS REFUSED AT ONCE, as one
+// from before the swap: the swap has already written the Stops it found into the
+// file it is moving, so a mark made now would be lost with that file, and the
+// press cannot wait for a whole restore to be told the database changed under
+// it. It stops nothing, and the same press after the swap goes ahead.
+//
+// The hold seam keeps the job waiting, as above.
+//
+// Mutation: Stop and Stop all reading and marking outside Store.TrySteady
+// (Runner.steady calling its fn on the store's pool, as they did): red, the
+// presses fail on the closed pool with an error that is not ErrStale.
+func TestAStopPressedWhileTheFilesAreBeingSwappedIsRefusedAtOnce(t *testing.T) {
+	t.Setenv(outbound.EnvVar, "1")
+	t.Setenv(jobs.HoldEnv, "1")
+	g := newRig(t, jobs.Options{})
+	w := g.enqueue(g.mitra(), "quick", nil)
+	mitra, aro := g.mitra(), g.aro()
+	var stopErr, allErr error
+	var took time.Duration
+	err := g.st.Swap(func() error {
+		pressed := time.Now()
+		stopErr = g.r.Stop(w, mitra)
+		_, _, allErr = g.r.StopAll(aro)
+		took = time.Since(pressed)
+		return nil
+	}, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !errors.Is(stopErr, jobs.ErrStale) || !errors.Is(allErr, jobs.ErrStale) {
+		t.Fatalf("Stop and Stop all pressed mid-swap: %v and %v, want both refused as from before the swap", stopErr, allErr)
+	}
+	if took > stopWithin {
+		t.Fatalf("the presses mid-swap were answered after %s, want within %s", took, stopWithin)
+	}
+	if s := g.state(w); s != "queued" {
+		t.Fatalf("a Stop refused mid-swap left the job %s", s)
+	}
+	if err := g.r.Stop(w, g.mitra()); err != nil || g.state(w) != "stopped" {
+		t.Fatalf("the same Stop after the swap: %v, the job reads %s", err, g.state(w))
 	}
 }
 

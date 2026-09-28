@@ -4,7 +4,9 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
+	"context"
 	"database/sql"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -13,6 +15,9 @@ import (
 	"slices"
 	"testing"
 	"time"
+
+	"tippani/internal/jobs"
+	"tippani/internal/outbound"
 )
 
 // AN ADMIN BACKS UP AND RESTORES, AND THE SERVER'S JOB HISTORY STAYS THE SERVER'S:
@@ -36,6 +41,13 @@ import (
 // backups, the download, the safety copy and the restore are driven through the
 // API as an admin drives them. The owner rules the carry-over applies are tested
 // one by one in internal/store; this is the path they run on.
+//
+// And for the waiting job a Stop reached before its row could say so: the
+// journey tier's seam TIPPANI_JOBS_HOLD (with TIPPANI_OFFLINE, which it needs),
+// so the job is still waiting when the restore comes, since offline it would have
+// run in milliseconds; and a write of the test's own on srv.Store.DB holding
+// SQLite's lock while Stop is pressed, as a running import's transaction holds it,
+// which is what leaves the Stop in the queue's memory with its row still owed.
 
 // A string nothing else in a library contains, so finding it in an archive's
 // bytes means a journal row rode along.
@@ -122,6 +134,71 @@ func TestABackupLeavesTheJobHistoryBehindAndARestoreKeepsTheServersOwn(t *testin
 	if !carried {
 		t.Fatal("the system log's line did not come through the restore under its id")
 	}
+}
+
+// A WAITING JOB A STOP STOPPED READS STOPPED AFTER A RESTORE, NOT INTERRUPTED, when
+// the Stop answered before its row could say so. The reader was told stopped —
+// the press's own answer, and every read of the queue after it — and a restore
+// that carried the row on as it was, still waiting, turned it into a job the
+// restore interrupted.
+//
+// Mutation: the swap's write of the held rows (internal/jobs writeHeldBeforeSwap)
+// made to do nothing: red, the job reads interrupted.
+func TestAWaitingJobAStopStoppedReadsStoppedAfterARestore(t *testing.T) {
+	srv := newTestServer(t)
+	queueing(t, srv)
+	h := srv.Handler()
+	admin := signupAdmin(t, h)
+	backupNow(admin)
+	safetyBackup(t, admin)
+
+	t.Setenv(outbound.EnvVar, "1")
+	t.Setenv(jobs.HoldEnv, "1")
+	w := admin.mustStart("test.hold", map[string]any{"tag": "waiting"})
+	tx, err := srv.Store.DB.Begin() // _txlock=immediate: the lock is taken here
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(`INSERT INTO system_logs (at, level, line) VALUES (?, 'info', 'somebody else')`, time.Now().UnixMilli()); err != nil {
+		t.Fatal(err)
+	}
+	pressed := time.Now().UnixMilli()
+	stopped := decode[struct {
+		Job wireJob `json:"job"`
+	}](t, admin.mustDo("POST", fmt.Sprintf("/jobs/%d/stop", w.ID), nil, http.StatusOK)).Job
+	if err := tx.Rollback(); err != nil {
+		t.Fatal(err)
+	}
+	if stopped.State != "stopped" {
+		t.Fatalf("the Stop's own answer reads the job %s", stopped.State)
+	}
+	var row string
+	if err := srv.Store.DB.QueryRow(`SELECT state FROM jobs WHERE id = ?`, w.ID).Scan(&row); err != nil || row != "queued" {
+		t.Fatalf("the stopped job's row reads %q (%v) before the restore; the test needs it still owed", row, err)
+	}
+	// Its line written before the restore: a line still in the buffer when the
+	// files are swapped is not this test's subject.
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := srv.Logbook.Flush(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	admin.mustDo("POST", "/admin/restore", map[string]any{"password": testPw}, http.StatusOK)
+	again := &testClient{t: t, h: h}
+	again.cookie = cookieOf(t, again.mustDo("POST", "/auth/login", map[string]string{"username": "alice", "password": testPw}, http.StatusOK))
+
+	got := again.job(w.ID)
+	if got.State != "stopped" {
+		t.Fatalf("after the restore the job its Stop stopped reads %s", got.State)
+	}
+	if got.FinishedAt == nil || *got.FinishedAt < pressed || *got.FinishedAt > pressed+5000 {
+		t.Fatalf("it reads stopped at %v, want the moment of the press (%d)", got.FinishedAt, pressed)
+	}
+	if got.StartedAt != nil {
+		t.Fatalf("the stopped job was started: %+v", got)
+	}
+	saying(t, jobLines(again, w.ID), "alice stopped it before it started")
 }
 
 // assertNoJournal opens the database inside a plaintext archive and checks that

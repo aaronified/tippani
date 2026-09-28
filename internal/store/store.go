@@ -48,6 +48,9 @@ type Store struct {
 	// finds another has no right to trust it any more: the file under it may be a
 	// restored one, where that id is somebody else.
 	gen atomic.Uint64
+	// beforeSwap is BeforeSwap's: what has to be written into a file before a
+	// swap moves it. nil for none. Read and set under logMu for writing.
+	beforeSwap func(db *sql.DB) error
 }
 
 // Open opens (or creates) the database at path: the library pool and the log
@@ -232,6 +235,20 @@ func (s *Store) Steady(fn func(db *sql.DB, gen uint64) error) error {
 	s.logMu.RLock()
 	defer s.logMu.RUnlock()
 	return fn(s.DB, s.gen.Load())
+}
+
+// TrySteady is Steady for a caller that must answer at once: while a swap is
+// under way, or waiting to begin, it runs nothing and says so (false), where
+// Steady would wait the swap out. A Stop reads and marks the waiting jobs it
+// stops through here (internal/jobs), since the swap writes those marks into the
+// file before it moves it, and a press held for a whole restore only to be told
+// the database changed under it is the wait the kill switch must not make.
+func (s *Store) TrySteady(fn func(db *sql.DB, gen uint64) error) (bool, error) {
+	if !s.logMu.TryRLock() {
+		return false, nil
+	}
+	defer s.logMu.RUnlock()
+	return true, fn(s.DB, s.gen.Load())
 }
 
 // Generation counts the swaps of the database files so far: restores, recoveries

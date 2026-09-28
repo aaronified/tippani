@@ -276,6 +276,10 @@ func (s *Store) Recover() error {
 // the reopen is what keeps the logbook out of the old file after its rows have
 // been copied, where anything it wrote would be lost with that file.
 func (s *Store) recoverLocked() error {
+	// Before the copy, since the copy is what the server goes on with (BeforeSwap).
+	if err := s.beforeSwapLocked(); err != nil {
+		return err
+	}
 	old := s.path
 	tmp := old + ".recover"
 	olog.Alertf("[recover] rebuilding database from intact content into %s", tmp)
@@ -449,6 +453,9 @@ func (s *Store) Reset() error {
 	defer s.repairMu.Unlock()
 	path := s.path
 	olog.Alertf("[reset] FACTORY RESET requested — wiping %s and re-initialising an empty database", path)
+	if err := s.beforeSwapLocked(); err != nil {
+		return err
+	}
 	// -wal / -shm first, then the main file. removeWithRetry tolerates Windows
 	// briefly holding the handle after Close. A delete that fails leaves the main
 	// file where it was, and swapLocked reopens it; the checkpoint swapLocked runs
