@@ -777,9 +777,10 @@ worth nothing here and only execution counts. What the repo actually runs:
   land in it — a hook that parks the log writer, a switch that holds every line until
   shutdown's last flush — and was then red on every run with the defect put back. Two
   such switches are in the shipped binary, `TIPPANI_JOBS_HOLD` (the queue claims
-  nothing, so a journey can see a job wait) and `TIPPANI_LOG_HOLD`. Both are honoured
-  only while `TIPPANI_OFFLINE` is on, which a test proves, and every file that uses one
-  names it in its header. `internal/jobs` runs raced every night with the other
+  nothing, so a journey can see a job wait, or, set to `running`, holds the job it
+  claims at its start, so a journey can see one run) and `TIPPANI_LOG_HOLD`. Both are
+  honoured only while `TIPPANI_OFFLINE` is on, which a test proves, and every file that
+  uses one names it in its header. `internal/jobs` runs raced every night with the other
   packages; `TestEveryTestedPackageIsInTheNightlySweep` is what made it join.
 - **Two numbers that must agree read each other rather than a copy.** The threshold
   that decides whether a cover is worth replacing is the server's
