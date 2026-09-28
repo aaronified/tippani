@@ -14,7 +14,9 @@
 // (POST /admin/backup/safety, answered 202 with a job of kind backup.safety, or
 // the 401 a wrong password gets) and the one download its job's result names —
 // are faked here in the server's shapes, the press through the app's json() and
-// the download through fetch, since the step saves a file from it. What is
+// the download through fetch, since the step saves a file from it; one case
+// holds the watch's first read of the job unanswered (jobsServer's hangRead), so
+// the step has only the press's own answer to go on. What is
 // asserted is what the step shows and what the browser was handed to save: the
 // name of the file an anchor was clicked for (the one way a page saves a file,
 // which jsdom does not follow).
@@ -98,6 +100,16 @@ describe('the safety copy, as a job', () => {
     expect(SAVED).toEqual([COPY])
     fireEvent.change(screen.getByPlaceholderText('RESET'), { target: { value: 'RESET' } })
     expect(resetButton().disabled, 'the reset stayed shut after the copy was down').toBe(false)
+  })
+
+  it('says a copy queued behind another job is waiting from the press, not being prepared', async () => {
+    // The watch's first read of the job never comes back, so what the step says
+    // is what the press itself was answered.
+    JOBS.hangRead(1)
+    await openReset()
+    await askForTheCopy()
+    expect(await screen.findByText('Waiting — 2 jobs ahead')).toBeTruthy()
+    expect(screen.queryByText('Preparing the copy…'), 'a waiting copy was said to be under way').toBeNull()
   })
 
   it('says it is being sealed once its job runs', async () => {

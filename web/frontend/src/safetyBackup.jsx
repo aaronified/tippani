@@ -39,9 +39,15 @@ export function SafetyBackupStep({ done, onDone, next }) {
   // watches one — every second while it moves, every 200 ms after a Stop — and
   // the credential it was asked with, which goes up with the news.
   const [jobId, setJobId] = useState(null)
+  // THE JOB AS THE PRESS WAS ANSWERED WITH IT, until the watch has read it: a copy
+  // queued behind somebody's fill is waiting from that answer on, and the step
+  // says so then, not "Preparing the copy…" for the round trip before the first
+  // read. A 409's answer names the job without it, and the step then says only
+  // where the copy will download until the read comes back.
+  const [posted, setPosted] = useState(null)
   const asked = useRef(null)
   const watched = useJob(jobId)
-  const job = watched.job && watched.job.id === jobId ? watched.job : null
+  const job = watched.job && watched.job.id === jobId ? watched.job : posted && posted.id === jobId ? posted : null
   const stopping = useStoppingJobs()
   const alive = useRef(true)
   useEffect(() => {
@@ -52,6 +58,7 @@ export function SafetyBackupStep({ done, onDone, next }) {
 
   const settle = (message) => {
     setJobId(null)
+    setPosted(null)
     setBusy(false)
     setErr(message)
   }
@@ -71,6 +78,7 @@ export function SafetyBackupStep({ done, onDone, next }) {
     const id = r.status === 202 ? r.data?.job?.id : r.status === 409 ? r.data?.job_id : null
     if (!id) return settle(errText(r, t('error.backup.failed')))
     announceJobs()
+    setPosted(r.status === 202 ? r.data.job : null)
     setJobId(id)
   }
 
@@ -113,6 +121,7 @@ export function SafetyBackupStep({ done, onDone, next }) {
       setTimeout(() => URL.revokeObjectURL(href), 60_000)
       if (!alive.current) return
       setJobId(null)
+      setPosted(null)
       setBusy(false)
       setSecret('')
       // The credential goes up with the news, so a restore that asks for the same
@@ -136,7 +145,7 @@ export function SafetyBackupStep({ done, onDone, next }) {
   // WHILE ITS JOB WAITS OR RUNS the box is shut, and the step says where the copy
   // stands and offers the Stop that ends it.
   const live = !!jobId && (!job || isLive(job))
-  const standing = job?.state === 'queued' ? jobWaitingText(job) : t('settings.safety.busy')
+  const standing = job?.state === 'queued' ? jobWaitingText(job) : job ? t('settings.safety.busy') : ''
   return (
     <div className="space-y-2">
       <p className="microcopy">{t('settings.safety.why.prose')}</p>
