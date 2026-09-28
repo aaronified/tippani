@@ -41,9 +41,12 @@
 //
 // Mutations: with the draft put back in the dependencies of the effect that
 // publishes the form's Save to the title bar, the box holds 148 of the 150
-// letters — the 52nd is lost, and the 52nd after that — the page throws the
-// maximum-update-depth error twice, and this fails at its first assertion. The
-// form as 3.1.0 and 3.0.4 shipped it fails the same way, two letters short.
+// letters — the 53rd and the 106th of the line are lost ("lantrn", "burnin"):
+// the 52nd letter of the burst that follows the first, and the 53rd after that,
+// since the count starts one letter later once it has thrown — the page throws
+// the maximum-update-depth error twice, and the dialogue case fails where it
+// reads the box back. The form as 3.1.0 and 3.0.4 shipped it fails the same way,
+// two letters short.
 // With the draft put back in the dependencies of the sheet's unsaved-count
 // effect, the description case fails where it reads the box back, two letters
 // short ("lantrn", "burnin"), and the dialogue case stays green.
