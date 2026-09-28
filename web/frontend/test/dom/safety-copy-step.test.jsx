@@ -133,6 +133,16 @@ describe('the safety copy, as a job', () => {
     expect(resetButton().disabled).toBe(true)
   })
 
+  it('says a stopped copy as the state it is in, not as a failure', async () => {
+    await openReset()
+    await askForTheCopy()
+    fireEvent.click(await screen.findByRole('button', { name: 'Stop the copy' }))
+    const said = 'Stopped: no copy was made, and nothing of it is left on the server. Take it again when you are ready.'
+    await screen.findByText(said)
+    // Announced as where the copy stands, as the waiting line before it was.
+    expect(screen.getAllByRole('status').map((el) => el.textContent), 'the Stop was not said as a state').toContain(said)
+  })
+
   it('says why a copy that failed was not made, and gives the button back', async () => {
     await openReset()
     await askForTheCopy()
