@@ -35,13 +35,23 @@ export function SafetyBackupStep({ done, onDone, next }) {
   const [secret, setSecret] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
+  // A STOP IS NOT A FAILURE. The copy somebody stopped is said as the state it is
+  // in, as Current jobs says a stopped job, and not in the error's red that a
+  // failed copy or a refused download is.
+  const [stoppedNote, setStoppedNote] = useState('')
   // The copy's job once the server has queued it, watched as Current jobs
   // watches one — every second while it moves, every 200 ms after a Stop — and
   // the credential it was asked with, which goes up with the news.
   const [jobId, setJobId] = useState(null)
+  // THE JOB AS THE PRESS WAS ANSWERED WITH IT, until the watch has read it: a copy
+  // queued behind somebody's fill is waiting from that answer on, and the step
+  // says so then, not "Preparing the copy…" for the round trip before the first
+  // read. A 409's answer names the job without it, and the step then says only
+  // where the copy will download until the read comes back.
+  const [posted, setPosted] = useState(null)
   const asked = useRef(null)
   const watched = useJob(jobId)
-  const job = watched.job && watched.job.id === jobId ? watched.job : null
+  const job = watched.job && watched.job.id === jobId ? watched.job : posted && posted.id === jobId ? posted : null
   const stopping = useStoppingJobs()
   const alive = useRef(true)
   useEffect(() => {
@@ -50,10 +60,12 @@ export function SafetyBackupStep({ done, onDone, next }) {
   }, [])
   const missing = usePhrase ? passphraseProblem(secret) : secret ? '' : t('error.validate.password-required')
 
-  const settle = (message) => {
+  const settle = (message, { stopped = false } = {}) => {
     setJobId(null)
+    setPosted(null)
     setBusy(false)
-    setErr(message)
+    setErr(stopped ? '' : message)
+    setStoppedNote(stopped ? message : '')
   }
 
   async function take(e) {
@@ -61,6 +73,7 @@ export function SafetyBackupStep({ done, onDone, next }) {
     if (missing || busy) return
     setBusy(true)
     setErr('')
+    setStoppedNote('')
     asked.current = usePhrase ? { passphrase: secret } : { password: secret }
     // A DROPPED CONNECTION IS A FAILURE, NOT A HANG: json() answers one as
     // {ok: false, status: 0}, and the step says so and gives the button back.
@@ -71,6 +84,7 @@ export function SafetyBackupStep({ done, onDone, next }) {
     const id = r.status === 202 ? r.data?.job?.id : r.status === 409 ? r.data?.job_id : null
     if (!id) return settle(errText(r, t('error.backup.failed')))
     announceJobs()
+    setPosted(r.status === 202 ? r.data.job : null)
     setJobId(id)
   }
 
@@ -80,7 +94,8 @@ export function SafetyBackupStep({ done, onDone, next }) {
     if (!job || isLive(job) || handled.current === job.id) return
     handled.current = job.id
     if (job.state === 'succeeded') download(job.id)
-    else settle(job.state === 'stopped' ? t('settings.safety.stopped') : job.error || jobStateLabel(job.state))
+    else if (job.state === 'stopped') settle(t('settings.safety.stopped'), { stopped: true })
+    else settle(job.error || jobStateLabel(job.state))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [job?.id, job?.state])
   // A job that is not there any more (a restore replaced the queue under it) is
@@ -113,6 +128,7 @@ export function SafetyBackupStep({ done, onDone, next }) {
       setTimeout(() => URL.revokeObjectURL(href), 60_000)
       if (!alive.current) return
       setJobId(null)
+      setPosted(null)
       setBusy(false)
       setSecret('')
       // The credential goes up with the news, so a restore that asks for the same
@@ -136,7 +152,7 @@ export function SafetyBackupStep({ done, onDone, next }) {
   // WHILE ITS JOB WAITS OR RUNS the box is shut, and the step says where the copy
   // stands and offers the Stop that ends it.
   const live = !!jobId && (!job || isLive(job))
-  const standing = job?.state === 'queued' ? jobWaitingText(job) : t('settings.safety.busy')
+  const standing = job?.state === 'queued' ? jobWaitingText(job) : job ? t('settings.safety.busy') : ''
   return (
     <div className="space-y-2">
       <p className="microcopy">{t('settings.safety.why.prose')}</p>
@@ -184,6 +200,7 @@ export function SafetyBackupStep({ done, onDone, next }) {
           </div>
         </>
       )}
+      {stoppedNote && <p className="microcopy" role="status">{stoppedNote}</p>}
       <ErrorText>{err}</ErrorText>
     </div>
   )

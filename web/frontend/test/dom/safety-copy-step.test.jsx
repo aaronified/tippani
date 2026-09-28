@@ -14,7 +14,9 @@
 // (POST /admin/backup/safety, answered 202 with a job of kind backup.safety, or
 // the 401 a wrong password gets) and the one download its job's result names —
 // are faked here in the server's shapes, the press through the app's json() and
-// the download through fetch, since the step saves a file from it. What is
+// the download through fetch, since the step saves a file from it; one case
+// holds the watch's first read of the job unanswered (jobsServer's hangRead), so
+// the step has only the press's own answer to go on. What is
 // asserted is what the step shows and what the browser was handed to save: the
 // name of the file an anchor was clicked for (the one way a page saves a file,
 // which jsdom does not follow).
@@ -100,6 +102,16 @@ describe('the safety copy, as a job', () => {
     expect(resetButton().disabled, 'the reset stayed shut after the copy was down').toBe(false)
   })
 
+  it('says a copy queued behind another job is waiting from the press, not being prepared', async () => {
+    // The watch's first read of the job never comes back, so what the step says
+    // is what the press itself was answered.
+    JOBS.hangRead(1)
+    await openReset()
+    await askForTheCopy()
+    expect(await screen.findByText('Waiting — 2 jobs ahead')).toBeTruthy()
+    expect(screen.queryByText('Preparing the copy…'), 'a waiting copy was said to be under way').toBeNull()
+  })
+
   it('says it is being sealed once its job runs', async () => {
     await openReset()
     await askForTheCopy()
@@ -119,6 +131,16 @@ describe('the safety copy, as a job', () => {
     expect(FETCHED).toEqual([])
     expect(SAVED).toEqual([])
     expect(resetButton().disabled).toBe(true)
+  })
+
+  it('says a stopped copy as the state it is in, not as a failure', async () => {
+    await openReset()
+    await askForTheCopy()
+    fireEvent.click(await screen.findByRole('button', { name: 'Stop the copy' }))
+    const said = 'Stopped: no copy was made, and nothing of it is left on the server. Take it again when you are ready.'
+    await screen.findByText(said)
+    // Announced as where the copy stands, as the waiting line before it was.
+    expect(screen.getAllByRole('status').map((el) => el.textContent), 'the Stop was not said as a state').toContain(said)
   })
 
   it('says why a copy that failed was not made, and gives the button back', async () => {
