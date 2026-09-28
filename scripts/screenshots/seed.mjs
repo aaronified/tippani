@@ -598,6 +598,28 @@ async function upload(path, filename, content, type) {
   return text ? JSON.parse(text) : null
 }
 
+// AN IMPORT IS A JOB ON THE SERVER'S QUEUE (3.1.0): the upload is answered 202
+// with the job, and what the route used to answer is that job's result,
+// {status, body}, once it has run. So a seeded import is followed to its end, as
+// the Import screen follows it, and the staging's own answer comes back — or the
+// failure it was, so a queue that did not seed says why instead of looking seeded.
+async function followImport(answer) {
+  const id = answer?.job?.id
+  if (!id) return answer
+  const deadline = Date.now() + 120_000
+  for (;;) {
+    const { job } = await api('GET', `/jobs/${id}`)
+    if (job.state !== 'queued' && job.state !== 'running') break
+    if (Date.now() > deadline) throw new Error(`import job #${id} is still ${job.state} after two minutes`)
+    await new Promise((r) => setTimeout(r, 100))
+  }
+  const { result } = await api('GET', `/jobs/${id}/result`)
+  if (!result || result.status >= 400) {
+    throw new Error(`import job #${id} ended without staging: ${result?.body?.error || 'no answer'}`)
+  }
+  return result.body
+}
+
 async function ensureAccount(opts, log) {
   const status = await api('GET', '/auth/status')
   // needs_onboarding means no admin exists yet, so this is a scratch server and the
@@ -765,8 +787,8 @@ async function main() {
   try {
     const md = await fetch(`${baseUrl}/api/books/${firstBookId}/export`, { headers: { Cookie: cookieHeader() } })
     if (!md.ok) throw new Error(`export -> ${md.status}`)
-    const staged = await upload('/import/markdown', 'seeded-book.md', await md.text(), 'text/markdown')
-    bump('staged', staged?.staged ?? staged?.count ?? 1)
+    const staged = await followImport(await upload('/import/markdown', 'seeded-book.md', await md.text(), 'text/markdown'))
+    bump('staged', staged?.staged ?? 1)
     log(`staging     ${counts.staged}`)
   } catch (err) {
     // Reported, never swallowed: a Staging screenshot of an empty queue is a legitimate
