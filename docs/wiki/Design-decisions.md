@@ -12363,6 +12363,7 @@ Each was built as written and put to me with 3.1.0; the line changes when I rule
 | F10 | `IconJobs` is two Tabler glyphs combined: `list`, with its first bullet replaced by `player-play`. | One runs and the rest wait in order, which is the queue's whole rule. A stack of layers says "several at once", the one thing the queue refuses. |
 | F11 | Open: should the phone tile show how many are running as well as how many wait? | I asked for a count of queued jobs, and the tile shows that and no more. |
 | F12 | A fill over 2,000 works is sent as several jobs in a row, so the Pushover message at the end of a long fill comes once per job. | The cap is how long one press may hold everybody's queue. A re-verify cannot be split, because its findings are reviewed as one, so it is capped at 500 and the dialog says so before anything is checked. |
+| F13 | On the Common jobs card (Settings › Jobs), the covers row's last run and job now are the viewer's own covers passes, either of its two runs and wherever it was started; the backup row's are the server's, whoever sealed the archive. | A covers pass walks the library of whoever started it, so another admin's pass says nothing about this admin's covers and posters. The server keeps one archive, so the backup row's question, when it was last made, is the server's. The build plan had both rows showing the server's most recent run; the backup half is as planned. |
 
 ### Where the plan turned out to be wrong
 
