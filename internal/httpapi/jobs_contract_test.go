@@ -153,7 +153,7 @@ func TestAJobsJSONCarriesNoListItWasGivenAndARerunStillRunsOverThem(t *testing.T
 // contractKinds is the addendum's list of the kinds the screens have words for;
 // a job of any other kind shows as "Job".
 var contractKinds = []string{
-	"fill", "covers", "people", "reverify", "reverify-apply", "backup", "backup.safety", "import", "restore",
+	"fill", "covers", "people", "reverify", "reverify-apply", "backup", "backup.safety", "import", "import.approve", "restore",
 	"reset", "update.check", "update.apply", "metadata.test", "notify.test", "notify.daily", "signin.oidc",
 	"work.save", "person.save", "character.save", "request", "lookup.book", "lookup.movie", "lookup.images",
 	"lookup.portrait", "lookup.links", "lookup.person", "lookup.reverify", "lookup.cast-image",

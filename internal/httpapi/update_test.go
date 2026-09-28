@@ -296,7 +296,23 @@ func TestUpdateApply(t *testing.T) {
 		t.Fatalf("apply acted without confirmation: %+v", fake)
 	}
 
+	// Confirmed but no socket → 409 with the guided command, no Docker calls.
+	// Asked FIRST, because an apply that launches its recreater keeps the queue
+	// shut until the container is replaced (Runner.Retire), and every server
+	// here has the queue serve() gives the real one: a second apply after a
+	// successful one is answered 503, as it should be.
+	fake.avail = false
+	r := c.mustDo("POST", "/admin/update/apply", map[string]any{"confirm": "UPDATE"}, http.StatusConflict)
+	body := decode[map[string]any](t, r)
+	if body["guided_command"] == nil || body["socket"] != false {
+		t.Fatalf("no-socket apply: %+v", body)
+	}
+	if len(fake.pulled) != 0 || len(fake.watched) != 0 {
+		t.Fatalf("apply acted without socket: %+v", fake)
+	}
+
 	// Confirmed + socket present → pulls the image and launches the recreater.
+	fake.avail = true
 	res := decode[map[string]any](t, c.mustDo("POST", "/admin/update/apply", map[string]any{"confirm": "UPDATE"}, 200))
 	if res["ok"] != true {
 		t.Fatalf("apply: %+v", res)
@@ -306,18 +322,6 @@ func TestUpdateApply(t *testing.T) {
 	}
 	if len(fake.watched) != 1 || fake.watched[0] != "tippani" {
 		t.Fatalf("did not target self for recreate: %+v", fake.watched)
-	}
-
-	// Confirmed but no socket → 409 with the guided command, no Docker calls.
-	fake.avail = false
-	fake.pulled, fake.watched = nil, nil
-	r := c.mustDo("POST", "/admin/update/apply", map[string]any{"confirm": "UPDATE"}, http.StatusConflict)
-	body := decode[map[string]any](t, r)
-	if body["guided_command"] == nil || body["socket"] != false {
-		t.Fatalf("no-socket apply: %+v", body)
-	}
-	if len(fake.pulled) != 0 || len(fake.watched) != 0 {
-		t.Fatalf("apply acted without socket: %+v", fake)
 	}
 }
 

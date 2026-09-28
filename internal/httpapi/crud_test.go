@@ -97,15 +97,34 @@ func newTestServer(t *testing.T) *Server {
 	lb := jobs.NewLogbook()
 	lb.Attach(st)
 	srv.Logbook = lb
-	srv.Jobs = jobs.NewRunner(st, lb, jobs.Options{})
+	runner := jobs.NewRunner(st, lb, jobs.Options{})
+	srv.Jobs = runner
 	srv.RegisterJobKinds()
 	t.Cleanup(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		srv.Jobs.Close(ctx)
+		runner.Close(ctx)
 		lb.Close(ctx)
 	})
 	return srv
+}
+
+// unqueued takes away the queue and the logbook newTestServer gave srv, for a
+// test whose subject is a server's state that a queue would not let happen — a
+// row reading running with no job behind it, as a crash leaves one — and whose
+// ids a request's own job rows would otherwise take. Such a server cannot import
+// (it answers 503), which the test does not.
+func unqueued(t *testing.T, srv *Server) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := srv.Jobs.Close(ctx); err != nil {
+		t.Fatalf("closing the queue: %v", err)
+	}
+	if err := srv.Logbook.Close(ctx); err != nil {
+		t.Fatalf("closing the logbook: %v", err)
+	}
+	srv.Jobs, srv.Logbook = nil, nil
 }
 
 // notFoundServer answers everything with a 404 — the shape a guessed-wrong slug
@@ -248,8 +267,18 @@ func (c *testClient) followed(rec *httptest.ResponseRecorder) *httptest.Response
 	if started.Job.Kind != "import" && started.Job.Kind != "import.approve" {
 		return rec
 	}
-	id := started.Job.ID
-	deadline := time.Now().Add(30 * time.Second)
+	return c.answerOf(started.Job.ID)
+}
+
+// answerOf is the answer of import or approval job id once it has ended, as
+// followed reads it: its result's {status, body}, as a recorder.
+func (c *testClient) answerOf(id int64) *httptest.ResponseRecorder {
+	c.t.Helper()
+	// Generous, because the suite shares a machine: an approval of the 33,000
+	// quotes TestStagedQueueBeyondSQLiteParameterLimit stages took longer than
+	// thirty seconds under a loaded run, and the request it replaced had no
+	// deadline at all. A job that never ends still fails here, with its state.
+	deadline := time.Now().Add(5 * time.Minute)
 	var job struct {
 		Job struct {
 			State string `json:"state"`

@@ -1228,6 +1228,7 @@ func TestAServerShuttingDownStartsNothing(t *testing.T) {
 
 func TestAServerWithNoQueueStartsNothing(t *testing.T) {
 	srv := newTestServer(t)
+	unqueued(t, srv)
 	h := srv.Handler()
 	alice := signupAdmin(t, h)
 	alice.mustDo("POST", "/jobs", map[string]any{"kind": "fill", "params": map[string]any{"book_ids": []int{1}}}, http.StatusServiceUnavailable)
