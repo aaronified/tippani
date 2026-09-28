@@ -36,7 +36,8 @@ import (
 // supplier's answer already in hand — presses Stop there, and then asks the app,
 // through its API and its data directory:
 //
-//   - the job reads stopped within 300 ms of the press, its log names who
+//   - the job reads stopped within 300 ms of the press (three times that under
+//     the race detector, stopWithin), its log names who
 //     pressed, a call that was on the wire saw its request cancelled, and the
 //     log says which item the Stop left as it was;
 //   - every item is done whole or untouched: the one finished before the Stop
@@ -101,8 +102,11 @@ import (
 // pngPicture sniffs as a PNG and clears the size floor for a picture.
 var pngPicture = append([]byte("\x89PNG\r\n\x1a\n"), bytes.Repeat([]byte{7}, 900)...)
 
-// stopWithin is how soon after the press a job must read stopped.
-const stopWithin = 300 * time.Millisecond
+// stopWithin is how soon after the press a job must read stopped: 300 ms, the
+// product's bound, and three times that under the race detector, as the import
+// stop proofs have it (race_on_test.go says why). Unscaled, it went red at
+// 340 ms under -race on a machine at load 22, with no data race reported.
+const stopWithin = 300 * time.Millisecond * underRace
 
 // killWorld is one server, its two accounts, a stub image host, and the hold a
 // case puts its job in.
