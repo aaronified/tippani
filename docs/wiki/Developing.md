@@ -209,7 +209,7 @@ The route groups themselves, so you can find the noun you want:
 | `shelf.go` · `read_history_handlers.go` | Shelf status, the legal transitions, and the read log. |
 | `stats_handlers.go` | Everything the Stats page draws. |
 | `export_handlers.go` · `export_quotes.go` | Markdown export per work and for the whole library, and the standalone-quote `type:`. |
-| `import_handlers.go` · `import_quotes.go` · `import_movies.go` · `import_staged_bulk.go` · `import_dupes.go` | Upload, stage, bulk-edit and de-duplicate. |
+| `import_handlers.go` · `import_queue.go` · `import_quotes.go` · `import_movies.go` · `import_staged_bulk.go` · `import_dupes.go` | Upload, stage, bulk-edit and de-duplicate. An upload is a queued job (`import_queue.go`: the spool it waits in, and the job that stages it), and so is an approval. |
 | `metadata_handlers.go` · `metadata_library.go` · `metadata_bulk.go` · `lookup_handlers.go` · `reverify_handlers.go` | Source keys, the coverage console, bulk correction, one-off lookups, and the preview-then-apply re-verify flow. |
 | `cast.go` · `cast_handlers.go` | A work's cast: the row every screen reads, and the six fields 0063 added to it — two about the CREDIT (its note and the language of that performance) and four about the character in THIS work (part, first appearance, age, and the spellings this work uses). All six take the optional-pointer contract, because five screens save this row and none has a box for every field. |
 | `whos_in_it.go` | Everything behind one carousel tile: the work's own page, every character linked to it, and everybody it credits in any role — plus, per character, how many quotes of theirs this work holds and in how many distinct places. One request, because a chooser opens on a press. |
