@@ -326,7 +326,7 @@ calls either names in its header the addresses and fields its setup knows.
 
 **THE VOCABULARY IS THE POINT** (`test/journeys/harness/screen.mjs`): `see`, `gone`,
 `press`, `pressAll`, `pressKey`, `hold`, `type`, `choose`, `chosen`, `upload`, `valueOf`,
-`onScreen`, `sideways`, `splitWords`, `inReach`, `said`, plus `goto` and `downloaded` on the world. (`said` was
+`onScreen`, `sideways`, `splitWords`, `offTheLine`, `inReach`, `said`, plus `goto` and `downloaded` on the world. (`said` was
 in the harness and missing here; `inReach` — can a thumb press this without scrolling —
 arrived when `press` began centring its target, which made a press unable to tell whether a
 control had followed the reader down.) (This list had stopped
@@ -337,7 +337,10 @@ word — how far the whole page slides left and right, 0 where it does not — b
 laid out three times wider than the phone it is on still looks like a phone in a picture,
 and there is nothing on the screen to read. `splitWords` is the other measurement: the words
 a line break cut in two, because `innerText` reports a word whole, so `see('Annotations')`
-passed over a Stats tile printing "ANNOTATION" over a lone "S" (3.0.4). Names come from Chrome's own accessible-name computation, so
+passed over a Stats tile printing "ANNOTATION" over a lone "S" (3.0.4). `offTheLine` is the third: the glyphs beside given
+words whose ink sits on none of their lines, measured through the viewBox as `make
+glyph-align` measures it, because a label that wraps leaves its glyph centred between two
+lines and a picture of the row still reads as fine (3.1.1). Names come from Chrome's own accessible-name computation, so
 no journey ever names a class. `press` REFUSES an ambiguous name rather than guessing,
 and case is folded because `innerText` reports text as rendered — a label the stylesheet
 uppercases reaches a journey shouting.
