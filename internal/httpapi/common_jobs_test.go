@@ -34,6 +34,9 @@ import (
 //     gate on them holds one question mid-answer, as a slow supplier would, or
 //     presses Stop from inside it and then answers, so that Stop lands with an
 //     item's lookup on the wire or after it and before the item's write;
+//   - a covers pass's suppliers are covers_pass_test.go's (coversLibrary: TMDB
+//     pointed at a stub, and srv.fetchImage), with one poster held mid-download,
+//     so that one pass of the row runs while the row's other waits behind it;
 //   - the data directory is listed after a Stop, for a file nothing names: a
 //     portrait left behind by an abandoned fetch is on no screen, so nothing a
 //     person can see could say it is there;
@@ -41,8 +44,9 @@ import (
 //
 // What each one guards, in a sentence a person would say: an admin's card lists
 // four common jobs and a reader's the two they may run, each with the last time it
-// ended and the one running or waiting now, the reader's own — but the backup the
-// server's, whoever made it; a fill of every work fills the library as it is when
+// ended and the one running or waiting now — the running one, when another of
+// the row's waits behind it — the reader's own, but the backup the server's,
+// whoever made it; a fill of every work fills the library as it is when
 // the fill runs, a work added while it waited included, and nobody else's; a fetch
 // of missing people fetches exactly the records the People console says are
 // missing links or a photo, as they are when it runs; and either one, stopped
@@ -200,6 +204,47 @@ func TestTheCommonJobsAreTheRowsAReaderMayRunEachWithItsLastRunAndTheOneNow(t *t
 	}
 	if lastID(commonRowOf(t, carol, "backup")) != backup.ID {
 		t.Fatalf("carol's backup row: %+v", commonRowOf(t, carol, "backup"))
+	}
+}
+
+// THE ONE RUNNING NOW, NOT THE ONE WAITING BEHIND IT. The covers row is the only
+// one that can have two jobs live at once, because it offers two runs (the whole
+// pass and Missing only) and the queue takes each as its own job. The row's job
+// now is the one its Stop should end: the pass in hand.
+func TestACommonRowsJobNowIsTheOneRunningNotTheOneWaitingBehindIt(t *testing.T) {
+	srv := newTestServer(t)
+	queueing(t, srv)
+	h := srv.Handler()
+	admin := signupAdmin(t, h)
+	coversLibrary(t, srv, admin, nil, []int{603})
+	download := srv.fetchImage
+	asked, release := make(chan struct{}, 1), make(chan struct{})
+	srv.fetchImage = func(ctx context.Context, rawURL, dir string) (string, error) {
+		select {
+		case asked <- struct{}{}:
+			<-release // the first poster is slow to arrive
+		default:
+		}
+		return download(ctx, rawURL, dir)
+	}
+
+	whole := admin.mustStart("covers", map[string]any{"missing_only": false})
+	select {
+	case <-asked:
+	case <-time.After(20 * time.Second):
+		t.Fatal("the covers pass never asked for a poster")
+	}
+	quick := admin.mustStart("covers", map[string]any{"missing_only": true})
+	row := commonRowOf(t, admin, "covers")
+	if currentID(row) != whole.ID || row.Current.State != "running" {
+		t.Fatalf("the covers row while its whole pass runs (#%d) and its Missing only waits (#%d): %+v", whole.ID, quick.ID, row.Current)
+	}
+
+	close(release)
+	admin.waitJob(whole.ID, "succeeded")
+	admin.waitJob(quick.ID, "succeeded")
+	if row = commonRowOf(t, admin, "covers"); row.Current != nil || lastID(row) != quick.ID {
+		t.Fatalf("the covers row once both passes ended: %+v", row)
 	}
 }
 
