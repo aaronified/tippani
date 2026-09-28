@@ -145,12 +145,13 @@ var builtinJobKinds = []queuedKind{
 	// {source, as, filename, spool}: stage an upload, from the spool, as its route
 	// used to (import_queue.go). Result {status, body}: what the route answered
 	// before it queued; counts {staged}. Run again only while the upload is kept,
-	// which is only after an interruption.
+	// which is only after a Stop or an interruption landed before its staging
+	// committed.
 	{name: "import", rerunnable: true, counts: countImport, run: runImport, runnableAgain: importRunnableAgain},
 	// {ids | work_ids | batch_id | all}: write staged quotes into the library, a
-	// work at a time (import_staging.go). Result {status, body}, as an import's;
-	// counts {added, skipped}. Run again when it did not finish: a rerun approves
-	// whatever of the selection is still staged.
+	// work at a time, each work one transaction (import_staging.go). Result
+	// {status, body}, as an import's; counts {added, skipped}. Run again when it
+	// did not finish: a rerun approves whatever of the selection is still staged.
 	{name: "import.approve", rerunnable: true, counts: countApprove, run: runApproveStaged},
 }
 

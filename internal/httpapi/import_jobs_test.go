@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -38,9 +37,10 @@ import (
 //     closes it and a new one started on the same database as serve() starts one
 //     (restarted), Boot and SweepSpool included;
 //   - a stray file left in the spool by a run that died writing it, put there by
-//     hand, since nothing a person does leaves one;
-//   - the moment between two works of one approval (afterApprovedWork), which is
-//     where a Stop has to land to be told from one pressed before or after it.
+//     hand, since nothing a person does leaves one.
+//
+// Where a Stop lands inside an import or an approval, and what it leaves, is
+// import_stop_test.go's, with the seam it needs declared there.
 //
 // What each one guards, in a sentence a person would say: a file I dropped is a
 // job in Past jobs under its name, saying what it was read as and what it staged,
@@ -49,15 +49,14 @@ import (
 // its route cannot read is kept as a failed import that says why; what a Kindle
 // file counted beside its quotes is in the log; a file I drop while another job
 // runs waits its turn, says how many are ahead, and stages nothing until it runs;
-// an import stopped before it ran keeps nothing of my file; an import a restart
-// cut off can be run again from what I uploaded, and once it has run it cannot be
-// run a second time, while whatever else was left in the spool is gone; the
-// server's backup never carries a file waiting to be imported; nobody can start
-// an import by naming a file through the jobs API; an approval waits its turn
-// behind another job and writes nothing until it runs, and is kept in Past jobs
-// under its file with what it added; and an approval stopped part-way has put
-// every work before the stop in the library, left every work after it staged, and
-// finishes the rest when run again.
+// an import stopped before it ran keeps my file, so I can run it again, however
+// many other files I upload meanwhile, and once it has run it cannot be run a
+// second time; an import a restart cut off can be run again from what I
+// uploaded, while whatever else was left in the spool is gone; the server's
+// backup never carries a file waiting to be imported; nobody can start an import
+// by naming a file through the jobs API; and an approval waits its turn behind
+// another job and writes nothing until it runs, and is kept in Past jobs under
+// its file with what it added.
 
 type wireLine struct {
 	ID    int64  `json:"id"`
@@ -341,8 +340,11 @@ func TestAFileDroppedWhileAnotherJobRunsWaitsItsTurn(t *testing.T) {
 	}
 }
 
-// Mutation: handleStopJob without its sweep leaves the upload in the spool.
-func TestAnImportStoppedBeforeItRanKeepsNothingOfTheFile(t *testing.T) {
+// Mutations: sweepSpool keeping only waiting, running and interrupted imports'
+// files takes the stopped one's upload at the next file's upload, and it is no
+// longer offered Run again; runImport removing the file after a Stop at its
+// claim (the old "a stopped import keeps nothing") fails the same line.
+func TestAnImportStoppedBeforeItRanKeepsItsUploadToRunAgain(t *testing.T) {
 	srv := newTestServer(t)
 	q := queueing(t, srv)
 	c := signupAdmin(t, srv.Handler())
@@ -354,15 +356,36 @@ func TestAnImportStoppedBeforeItRanKeepsNothingOfTheFile(t *testing.T) {
 		t.Fatalf("a waiting import's upload is not in the spool: %v", spooled(t, srv))
 	}
 	c.mustDo("POST", fmt.Sprintf("/jobs/%d/stop", j.ID), nil, http.StatusOK)
-	if got := c.job(j.ID); got.State != "stopped" || got.Rerunnable {
-		t.Fatalf("the stopped import: %+v", got)
-	}
-	if left := spooled(t, srv); len(left) != 0 {
-		t.Fatalf("a stopped import left its upload behind: %v", left)
+	if got := c.job(j.ID); got.State != "stopped" || !got.Rerunnable {
+		t.Fatalf("the stopped import: %+v, want stopped and offered Run again", got)
 	}
 	q.let()
-	if got := queue(t, c, ""); len(got.Batches) != 0 {
-		t.Fatalf("a stopped import staged something: %+v", got.Batches)
+
+	// Another file, uploaded and run meanwhile, sweeps the spool as every upload
+	// does; the stopped import's file is one the sweep keeps.
+	other := strings.Replace(strings.Replace(stagedBookMD, "Sandworm Studies", "Arrakis Notes", 1), "Liet Kynes", "Stilgar", 1)
+	if got := stage(t, c, "/import/markdown", "arrakis.md", []byte(other)); got.Staged != 2 {
+		t.Fatalf("the other file: %+v", got)
+	}
+	if got := c.job(j.ID); got.State != "stopped" || !got.Rerunnable {
+		t.Fatalf("the stopped import after another upload: %+v, want still offered Run again", got)
+	}
+	if got := queue(t, c, ""); len(got.Batches) != 1 {
+		t.Fatalf("the stopped import staged something: %+v", got.Batches)
+	}
+
+	again := c.followed(c.mustDo("POST", fmt.Sprintf("/jobs/%d/rerun", j.ID), nil, http.StatusAccepted))
+	if again.Code != http.StatusOK || decode[stageReply](t, again).Staged != 2 {
+		t.Fatalf("the stopped import run again: %d %s", again.Code, again.Body)
+	}
+	if got := queue(t, c, ""); len(got.Batches) != 2 {
+		t.Fatalf("the import queue after the rerun: %+v", got.Batches)
+	}
+	if got := c.job(j.ID); got.Rerunnable {
+		t.Fatalf("the stopped import is still offered Run again once its upload has been staged: %+v", got)
+	}
+	if left := spooled(t, srv); len(left) != 0 {
+		t.Fatalf("the spool after the rerun: %v", left)
 	}
 }
 
@@ -506,60 +529,4 @@ func TestAnApprovalWaitsItsTurnAndIsKeptUnderItsFile(t *testing.T) {
 		t.Fatalf("the approval's counts: %v", done.Counts)
 	}
 	saying(t, lines, "«Sandworm Studies»", "2 added")
-}
-
-// Mutation: approveStaged without its Stopping check between works writes the
-// second book too, and the stopped job reads as if it had never been asked.
-func TestAnApprovalStoppedPartWayLeavesEveryWorkWholeOnEitherSide(t *testing.T) {
-	srv := newTestServer(t)
-	queueing(t, srv)
-	c := signupAdmin(t, srv.Handler())
-
-	stage(t, c, "/import/markdown", "sandworm.md", []byte(stagedBookMD))
-	second := strings.Replace(strings.Replace(stagedBookMD, "Sandworm Studies", "Arrakis Notes", 1),
-		"Liet Kynes", "Stilgar", 1)
-	stage(t, c, "/import/markdown", "arrakis.md", []byte(second))
-
-	reached, goOn := make(chan struct{}), make(chan struct{})
-	var once sync.Once
-	afterApprovedWork = func() { once.Do(func() { close(reached); <-goOn }) }
-	t.Cleanup(func() { afterApprovedWork = nil })
-
-	rec := c.do("POST", "/import/staged/approve", map[string]any{"all": true})
-	j := queuedJob(t, rec)
-	if j.Total != 2 {
-		t.Fatalf("an approval of two works counts %d", j.Total)
-	}
-	select {
-	case <-reached:
-	case <-time.After(20 * time.Second):
-		t.Fatal("the approval never finished its first work")
-	}
-	c.mustDo("POST", fmt.Sprintf("/jobs/%d/stop", j.ID), nil, http.StatusOK)
-	close(goOn)
-	ap := decode[approveReply](t, c.followed(rec))
-	stopped := c.job(j.ID)
-	if stopped.State != "stopped" || !stopped.Rerunnable || stopped.Done != 1 {
-		t.Fatalf("the approval stopped between its works: %+v", stopped)
-	}
-	if ap.Added != 2 || len(ap.BookIDs) != 1 || ap.Pending != 2 {
-		t.Fatalf("what the stopped approval says it wrote: %+v", ap)
-	}
-	if n := bookCount(t, c); n != 1 {
-		t.Fatalf("%d books in the library after the stop, want the first alone", n)
-	}
-	left := queue(t, c, "")
-	if len(left.Works) != 1 || len(left.Quotes) != 2 || left.Works[0].Title == "" {
-		t.Fatalf("the import queue after the stop: %+v", left)
-	}
-	saying(t, jobLines(c, j.ID), "stay in the import queue")
-
-	// Run again, it approves what the stop left.
-	rest := decode[approveReply](t, c.followed(c.mustDo("POST", fmt.Sprintf("/jobs/%d/rerun", j.ID), nil, http.StatusAccepted)))
-	if rest.Added != 2 || rest.Pending != 0 {
-		t.Fatalf("the approval run again: %+v", rest)
-	}
-	if n := bookCount(t, c); n != 2 {
-		t.Fatalf("%d books after the rerun, want both", n)
-	}
 }

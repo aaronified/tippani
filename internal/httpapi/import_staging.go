@@ -90,7 +90,12 @@ func (s *Server) stageBooks(ctx context.Context, uid int64, source, filename str
 	allDupes := []dupHint{}
 	dupeSeen := map[int64]bool{}
 	staged := 0
-	for _, res := range results {
+	for i, res := range results {
+		// A Stop between two works: the transaction rolls back, and nothing of the
+		// file is staged (importHalted says where a Stop lands).
+		if importHalted(ctx, stopStageWork, i) {
+			return importAnswer{stopped: true}
+		}
 		workID, err := stageBookWork(tx, batchID, res.Book)
 		if err != nil {
 			return importFault(ctx, olog.CodeImportStage, "stage books: work", err)
@@ -139,6 +144,9 @@ func (s *Server) stageBooks(ctx context.Context, uid int64, source, filename str
 		byWork[workID] = len(works)
 		works = append(works, prev)
 	}
+	if importHalted(ctx, stopStageCommit, 0) {
+		return importAnswer{stopped: true}
+	}
 	if err := tx.Commit(); err != nil {
 		return importFault(ctx, olog.CodeImportStage, "stage books: commit", err)
 	}
@@ -165,7 +173,10 @@ func (s *Server) stageMovies(ctx context.Context, uid int64, source, filename st
 	works := []stagedWorkPreview{}
 	byWork := map[int64]int{} // one preview per staged work — see stageBooks
 	staged := 0
-	for _, res := range results {
+	for i, res := range results {
+		if importHalted(ctx, stopStageWork, i) { // as stageBooks
+			return importAnswer{stopped: true}
+		}
 		workID, err := stageMovieWork(tx, batchID, res.Movie)
 		if err != nil {
 			return importFault(ctx, olog.CodeImportStage, "stage titles: work", err)
@@ -201,6 +212,9 @@ func (s *Server) stageMovies(ctx context.Context, uid int64, source, filename st
 		}
 		byWork[workID] = len(works)
 		works = append(works, prev)
+	}
+	if importHalted(ctx, stopStageCommit, 0) {
+		return importAnswer{stopped: true}
 	}
 	if err := tx.Commit(); err != nil {
 		return importFault(ctx, olog.CodeImportStage, "stage titles: commit", err)
@@ -1146,6 +1160,9 @@ func runApproveStaged(s *Server, ctx context.Context, j *jobs.Job) error {
 	}
 	if ans.Status >= http.StatusBadRequest {
 		msg, _ := ans.Body["error"].(string)
+		if msg == "" {
+			msg = http.StatusText(ans.Status)
+		}
 		return errors.New(msg)
 	}
 	return nil
@@ -1166,12 +1183,14 @@ type approvalTally struct {
 // in total.
 //
 // ONE TRANSACTION PER WORK, where the request's approval was one for the whole
-// selection. A job can be stopped, and "stops after the item in hand" has to leave
-// something whole on either side of the stop: every work before it is in the
-// library and out of the queue, and every work after it is still staged, exactly
-// as it was. The price is that a failure part-way is no longer all or nothing — the
-// works before it stay approved, the one that failed and the rest stay staged, and
-// the answer says so with the counters of what landed. The alternative, keeping one
+// selection. A job can be stopped, and the owner's rule is that a Stop "shall not
+// break anything", so a stop has to leave something whole on either side of it:
+// every work before it is in the library and out of the queue, and the work in
+// hand and every one after it are still staged, exactly as they were (importHalted
+// says where a Stop is heard: before each work, and just before its commit). The
+// price is that a failure part-way is no longer all or nothing — the works before
+// it stay approved, the one that failed and the rest stay staged, and the answer
+// says so with the counters of what landed. The alternative, keeping one
 // transaction and checking Stop inside it, would hold SQLite's write lock for the
 // whole approval of a library-sized export and roll all of it back on a Stop.
 func (s *Server) approveStaged(ctx context.Context, j *jobs.Job, uid int64, sel stagedSelector) importAnswer {
@@ -1191,29 +1210,29 @@ func (s *Server) approveStaged(ctx context.Context, j *jobs.Job, uid int64, sel 
 	n := len(plan)
 	j.Progress(0, n)
 	for i, pw := range plan {
-		if j.Stopping() {
+		if importHalted(ctx, stopApproveWork, i) {
 			noteJob(ctx, jobs.LevelInfo, "stopped before %s; %s stay in the import queue",
 				countOf(n-i, "work", "works"), pronounFor(n-i))
 			break
 		}
-		if ans, failed := s.approveWork(ctx, uid, pw, &tally); failed {
+		ans, ended := s.approveWork(ctx, uid, i, pw, &tally)
+		if ended && ans.stopped {
+			// Its transaction rolled back: the work in hand is as staged as the
+			// ones after it.
+			noteJob(ctx, jobs.LevelInfo, "stopped before its write; %s stay in the import queue",
+				countOf(n-i, "work", "works"))
+			break
+		}
+		if ended {
 			if n-i > 1 {
 				noteJob(ctx, jobs.LevelWarn, "%s after it stay in the import queue", countOf(n-i-1, "work", "works"))
 			}
 			return ans
 		}
 		j.Progress(i+1, n)
-		if afterApprovedWork != nil {
-			afterApprovedWork()
-		}
 	}
 	return s.approvalAnswer(ctx, uid, http.StatusOK, "", &tally)
 }
-
-// afterApprovedWork, when set, runs after each work an approval has committed. A
-// test seam and nothing else: the one way to land a Stop between two works of one
-// approval, a window of microseconds that nothing a person does holds open.
-var afterApprovedWork func()
 
 // pronounFor is "it" for one and "they" for more, for a line about works left.
 func pronounFor(n int) string {
@@ -1254,11 +1273,13 @@ func (s *Server) approvalPlan(picked stagedSelection) ([]plannedWork, error) {
 	return plan, nil
 }
 
-// approveWork writes one planned work into the library and takes it out of the
+// approveWork writes planned work n into the library and takes it out of the
 // queue, in one transaction, adding what it wrote to t only once that has
-// committed. failed says the approval ends here, with ans its answer: a file's
-// fault (a 400) or the server's (a 500), with the counters of what landed before.
-func (s *Server) approveWork(ctx context.Context, uid int64, pw plannedWork, t *approvalTally) (ans importAnswer, failed bool) {
+// committed. ended says the approval ends here: stopped (ans.stopped), the work
+// rolled back whole because a Stop reached it before its commit; or failed, with
+// ans its answer — a file's fault (a 400) or the server's (a 500), with the
+// counters of what landed before.
+func (s *Server) approveWork(ctx context.Context, uid int64, n int, pw plannedWork, t *approvalTally) (ans importAnswer, ended bool) {
 	tx, err := s.Store.DB.Begin()
 	if err != nil {
 		return approveFault(ctx, "approve staged: begin tx", err, t), true
@@ -1351,6 +1372,9 @@ func (s *Server) approveWork(ctx context.Context, uid int64, pw plannedWork, t *
 	}
 	if err := gcStaging(tx, uid); err != nil {
 		return approveFault(ctx, "approve staged: gc", err, t), true
+	}
+	if importHalted(ctx, stopApproveCommit, n) {
+		return importAnswer{stopped: true}, true
 	}
 	if err := tx.Commit(); err != nil {
 		return approveFault(ctx, "approve staged: commit", err, t), true

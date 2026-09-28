@@ -905,9 +905,6 @@ func (s *Server) handleStopJob(w http.ResponseWriter, r *http.Request) {
 		s.writeJobRefusal(w, r, err)
 		return
 	}
-	// An import stopped before it ran leaves its upload in the spool, and nothing
-	// will ever read it now.
-	s.sweepSpool()
 	s.writeJob(w, r, http.StatusOK, id, v)
 }
 
@@ -923,8 +920,6 @@ func (s *Server) handleStopAllJobs(w http.ResponseWriter, r *http.Request) {
 		s.writeJobRefusal(w, r, err)
 		return
 	}
-	s.sweepSpool() // as handleStopJob
-
 	writeJSON(w, http.StatusOK, map[string]any{"stopping": stopping, "stopped_waiting": stoppedWaiting})
 }
 

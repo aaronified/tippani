@@ -53,6 +53,10 @@ func (s *Server) stageQuotesFile(ctx context.Context, uid int64, source, filenam
 	if err != nil {
 		return importFault(ctx, olog.CodeImportStage, "stage quotes: batch", err)
 	}
+	// One group, so one work: the Stop checks are stageBooks' with n = 0.
+	if importHalted(ctx, stopStageWork, 0) {
+		return importAnswer{stopped: true}
+	}
 	workID, err := stageQuotesWork(tx, batchID)
 	if err != nil {
 		return importFault(ctx, olog.CodeImportStage, "stage quotes: work", err)
@@ -64,6 +68,9 @@ func (s *Server) stageQuotesFile(ctx context.Context, uid int64, source, filenam
 			return importRefused(ctx, ce.msg)
 		}
 		return importFault(ctx, olog.CodeImportStage, "stage quotes: rows", err)
+	}
+	if importHalted(ctx, stopStageCommit, 0) {
+		return importAnswer{stopped: true}
 	}
 	if err := tx.Commit(); err != nil {
 		return importFault(ctx, olog.CodeImportStage, "stage quotes: commit", err)

@@ -37,17 +37,19 @@ import (
 // database and never inside an archive (controlEntry).
 //
 // THE SPOOL'S LIFETIME, which is the other half of the design:
-//   - a job that runs removes its file once it has read it, whatever the file
-//     turned out to be, so a succeeded or failed import leaves nothing;
-//   - a job that is interrupted (the server stopped, or restarted, before or while
-//     it ran) keeps its file, and can be run again while the file is kept
-//     (queuedKind.runnableAgain);
-//   - every other file — a job stopped before it ran, a job pruned after thirty
-//     days, an account deleted, a database restored or reset under its jobs — is
-//     swept by sweepSpool, which keeps only the files a waiting, running or
-//     interrupted import names. The sweep runs where something might have left one:
-//     at start (SweepSpool), after a Stop, after an account is deleted, before an
-//     upload is spooled, and after the log's prune.
+//   - a job that stages the file, or is refused by it, removes it once it has
+//     its answer, so a succeeded or failed import leaves nothing;
+//   - a job that is stopped — before it ran, or part-way, its staging rolled back
+//     whole — or interrupted (the server stopped, or restarted, before or while it
+//     ran) keeps its file, and can be run again while the file is kept
+//     (queuedKind.runnableAgain). The owner's rule for a Stop is that it "shall
+//     not break anything", and a stopped job is one its owner may run again;
+//   - every other file — a job pruned after thirty days, an account deleted, a
+//     database restored or reset under its jobs, a write a crash cut short — is
+//     swept by sweepSpool, which keeps only the files a waiting, running, stopped
+//     or interrupted import of an account that still exists names. The sweep runs
+//     where something might have left one: at start (SweepSpool), after an account
+//     is deleted, before an upload is spooled, and after the log's prune.
 
 // importAuto is the source an import from the drop target is queued under: the
 // file says what it is when the job reads it (stageAuto).
@@ -69,6 +71,9 @@ type importAnswer struct {
 	Body   map[string]any `json:"body"`
 	// ready is what the phone is told once the answer is kept, "" for nothing.
 	ready string
+	// stopped says a Stop (or the shutdown) reached the job before its writing
+	// committed, and nothing of the step it was on was written (importHalted).
+	stopped bool
 }
 
 // importParams is an import job's params, as queueImport stores them.
@@ -204,6 +209,11 @@ func runImport(s *Server, ctx context.Context, j *jobs.Job) error {
 	if !ok {
 		return errors.New("this import names no uploaded file")
 	}
+	// A Stop that reached the job as it was claimed: nothing read, nothing staged.
+	if importHalted(ctx, stopImportStart, 0) {
+		noteJob(ctx, jobs.LevelInfo, "%s", importKeptLine)
+		return nil
+	}
 	data, err := os.ReadFile(path)
 	switch {
 	case errors.Is(err, fs.ErrNotExist):
@@ -223,9 +233,14 @@ func runImport(s *Server, ctx context.Context, j *jobs.Job) error {
 	default:
 		ans = importRefused(ctx, "unknown import source: "+p.Source)
 	}
-	// Read, and staged or refused: a rerun would do the same to the same bytes, so
-	// the file goes now, whatever the answer. Only a job that never got this far —
-	// interrupted — keeps its file for a rerun.
+	if ans.stopped {
+		// Rolled back whole, and the upload kept: the job reads stopped, and its
+		// owner can run it again from the same bytes.
+		noteJob(ctx, jobs.LevelInfo, "%s", importKeptLine)
+		return nil
+	}
+	// Staged or refused: a rerun would do the same to the same bytes, so the file
+	// goes now, whatever the answer.
 	_ = os.Remove(path)
 	j.Progress(1, 1)
 	if err := j.SetResult(ans); err != nil {
@@ -244,9 +259,64 @@ func runImport(s *Server, ctx context.Context, j *jobs.Job) error {
 	return nil
 }
 
+// importKeptLine is an import's last line when a Stop or the shutdown reached it
+// before its staging committed.
+const importKeptLine = "stopped before anything was staged; the upload is kept, so it can be run again"
+
+// THE PLACES A STOP LANDS IN AN IMPORT AND IN AN APPROVAL (the owner's "Stop
+// cancels instantly: but it still shall not break anything"). Neither kind looks
+// outward, so there is no call on the wire for a Stop to cut; what it can land
+// between is the kind's own steps, and each is asked at the step's edge:
+//
+//   - an import, as its job is claimed (nothing read yet), between the works it
+//     stages, and just before its staging commits — the whole file is one
+//     transaction, rolled back, so a stopped import has staged nothing and keeps
+//     its upload;
+//   - an approval, before each work (the first included), and just before that
+//     work's own transaction commits — one transaction per work, so a stopped
+//     approval has put every work before the stop in the library and left the one
+//     in hand, and every one after it, staged exactly as they were.
+//
+// Database calls carry no context (health.go's rule), so a transaction that has
+// begun finishes or rolls back whole; these checks are the only places a Stop is
+// heard.
+const (
+	stopImportStart   = "import.start"   // as the import's job is claimed
+	stopStageWork     = "stage.work"     // before the staging of work n
+	stopStageCommit   = "stage.commit"   // before the staging commits
+	stopApproveWork   = "approve.work"   // before the approval of work n
+	stopApproveCommit = "approve.commit" // before work n's approval commits
+)
+
+// importStopSeam, when set, runs at each of those places, with the job's context,
+// the place and the work it is about (0-based; 0 where there is none). A test
+// seam and nothing else: the one way to land a Stop at a named step of a job that
+// takes milliseconds, a window nothing a person does holds open.
+var importStopSeam func(ctx context.Context, point string, n int)
+
+// importHalted is the check at each of those places: whether a Stop, Stop all,
+// an account's delete or the shutdown has reached the job ctx carries. A yes is
+// told to the job (jobs.Job.Stopping), which is how the runner records it
+// stopped rather than finished. A context that has ended — the shutdown's, or a
+// Stop that cancels a job's own — is a yes as well. Outside a job, no.
+func importHalted(ctx context.Context, point string, n int) bool {
+	if importStopSeam != nil {
+		importStopSeam(ctx, point, n)
+	}
+	j, _ := jobs.From(ctx).(*jobs.Job)
+	if ctx.Err() != nil {
+		if j != nil {
+			j.Stopping()
+		}
+		return true
+	}
+	return j != nil && j.Stopping()
+}
+
 // importRunnableAgain is whether a finished import can be run again: only while
-// the file it uploaded is still kept, which is only while it was interrupted
-// before it read it. A rerun without the file could only fail.
+// the file it uploaded is still kept, which is only after it was stopped or
+// interrupted before it staged the file. A rerun without the file could only
+// fail.
 func importRunnableAgain(s *Server, params string) bool {
 	var p importParams
 	if json.Unmarshal([]byte(params), &p) != nil {
@@ -274,12 +344,12 @@ func countImport(result json.RawMessage) map[string]any {
 	return map[string]any{"staged": *a.Body.Staged}
 }
 
-// SweepSpool removes every spooled upload no waiting, running or interrupted
-// import names. serve() calls it once at start, after the queue's Boot has marked
-// what the last run left interrupted, so an import the restart cut off keeps its
-// file for a rerun and one stopped before it ran does not. It also hands the
-// log's prune the same sweep, so an import pruned after thirty days takes its file
-// with it.
+// SweepSpool removes every spooled upload no import that can still run, or run
+// again, names (sweepSpool). serve() calls it once at start, after the queue's
+// Boot has marked what the last run left interrupted, so an import the restart
+// cut off keeps its file for a rerun and a file a crash left half-written does
+// not. It also hands the log's prune the same sweep, so an import pruned after
+// thirty days takes its file with it.
 func (s *Server) SweepSpool() {
 	if s.Logbook != nil {
 		s.Logbook.AfterPrune(s.sweepSpool)
@@ -287,9 +357,12 @@ func (s *Server) SweepSpool() {
 	s.sweepSpool()
 }
 
-// sweepSpool removes the spooled uploads no waiting, running or interrupted import
-// names. It keeps everything when it cannot read the jobs: a file kept a while too
-// long costs disk, and one removed from under a job costs the reader's upload.
+// sweepSpool removes the spooled uploads no import that can still run, or run
+// again, names: one waiting, running, stopped or interrupted, of an account that
+// still exists (0079's trigger clears the owner of a deleted account's jobs, and
+// nobody can run those again). It keeps everything when it cannot read the jobs:
+// a file kept a while too long costs disk, and one removed from under a job costs
+// the reader's upload.
 func (s *Server) sweepSpool() {
 	s.spoolMu.Lock()
 	defer s.spoolMu.Unlock()
@@ -299,7 +372,8 @@ func (s *Server) sweepSpool() {
 	}
 	keep := map[string]bool{}
 	rows, err := s.Store.DB.Query(`SELECT json_extract(params, '$.spool') FROM jobs
-		WHERE kind = 'import' AND state IN ('queued', 'running', 'interrupted') AND json_valid(params)`)
+		WHERE kind = 'import' AND state IN ('queued', 'running', 'stopped', 'interrupted')
+		  AND user_id IS NOT NULL AND json_valid(params)`)
 	if err != nil {
 		olog.Warnf(olog.CodeImportStage, "[import] the upload spool was not swept: %v", err)
 		return

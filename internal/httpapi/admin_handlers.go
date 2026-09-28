@@ -247,9 +247,6 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, http.StatusConflict, "Their running job has been asked to stop and is finishing the item in hand. Delete the account again in a moment.")
 			return
 		}
-		// Their imports that were waiting are stopped now, and their uploads with
-		// them: nobody can run those again.
-		s.sweepSpool()
 	}
 	// Collect the user's cover/poster/sticker filenames before the DB rows cascade
 	// away: the cascade frees rows, not on-disk images. They are PARKED rather than
@@ -319,6 +316,9 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.parkFiles(covers)
+	// Their imports' uploads go too, now that the account is: 0079's trigger has
+	// cleared the owner of every job they had, and nobody can run those again.
+	s.sweepSpool()
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "trash_id": trashID})
 }
 
