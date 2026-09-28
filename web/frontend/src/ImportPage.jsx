@@ -362,7 +362,7 @@ function BatchResults({ rows, summary, staged, busy, onReviewImport, onReread })
       {rows.map((r, i) => (
         <div key={i}>
           <p className="microcopy">
-            {r.name}{' '}<IconArrow size={12} />{' '}
+            {r.name}{' '}<span className="import-arrow"><IconArrow size={12} /></span>{' '}
             {r.pending ? (
               r.unsent ? t('import.row.unsent') : r.job ? pendingJobText(r.job) : '…'
             ) : r.ok ? (
@@ -449,7 +449,7 @@ function StagedWorkNotice({ work }) {
   return (
     <div className="microcopy" style={{ color: 'var(--soft)' }}>
       <span>
-        {work.title} ({work.staged}){' '}<IconArrow size={12} />{' '}
+        {work.title} ({work.staged}){' '}<span className="import-arrow"><IconArrow size={12} /></span>{' '}
         {work.target_id
           ? work.target_year
             ? t('import.work.joins-year', {
