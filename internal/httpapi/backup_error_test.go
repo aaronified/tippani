@@ -26,15 +26,14 @@ func TestAFailedBackupSaysWhichStepFailed(t *testing.T) {
 	}
 
 	const said = "the instance recovery key could not be read or created"
+	// Each is a job (its route queues it): it fails with the step's sentence as
+	// its error, which Settings › Jobs and the prompt that asked for it show.
 	for _, path := range []string{"/admin/backup", "/admin/backup/safety"} {
-		rec := admin.do("POST", path, map[string]string{"password": testPw})
-		if rec.Code != http.StatusInternalServerError {
-			t.Fatalf("POST %s with the recovery key cut short: %d %s, want 500", path, rec.Code, rec.Body)
-		}
-		if got := decode[struct {
-			Error string `json:"error"`
-		}](t, rec).Error; got != said {
-			t.Fatalf("POST %s with the recovery key cut short says %q, want %q", path, got, said)
+		job := decode[struct {
+			Job wireJob `json:"job"`
+		}](t, admin.mustDo("POST", path, map[string]string{"password": testPw}, http.StatusAccepted)).Job
+		if end := admin.jobEnded(job.ID); end.State != "failed" || end.Error != said {
+			t.Fatalf("POST %s with the recovery key cut short ended %s saying %q, want failed saying %q", path, end.State, end.Error, said)
 		}
 	}
 	// And nothing was kept.

@@ -61,13 +61,13 @@ var jobKinds = map[string]string{
 	"POST /covers/refetch":          "covers",
 	"POST /metadata/reverify/apply": "reverify-apply",
 
-	// The API's synchronous backup. THE IMPORT ROUTES ARE NOT HERE ANY MORE: from
-	// 3.1.0 each queues a job of kind import (import_queue.go) and records nothing
-	// in its request, and so does the approval (import.approve). A row for them
-	// would name an unexpected outward call from one of those requests "import",
-	// beside the queued job of the same name; without one it is kept as a
-	// "request" under its pattern, which is what an unexpected call should be.
-	"POST /admin/backup": "backup",
+	// THE IMPORT ROUTES AND THE API'S BACKUP ARE NOT HERE ANY MORE: from 3.1.0
+	// each import route queues a job of kind import (import_queue.go) and records
+	// nothing in its request, and so do the approval (import.approve) and
+	// POST /admin/backup (the backup job the Server card starts). A row for them
+	// would name an unexpected outward call from one of those requests after the
+	// queued job of the same kind; without one it is kept as a "request" under its
+	// pattern, which is what an unexpected call should be.
 
 	// The admin's questions to somebody else's server.
 	"GET /admin/update/check":       "update.check",

@@ -23,8 +23,10 @@ import (
 //   - not the query's VALUES: they are what a reader searched for, a title, a
 //     name, and on the OIDC callback the one-time code and state;
 //   - not a share link's token, /share/image/{token}, which is the credential
-//     itself — whoever holds it can fetch the picture without signing in; nor in
-//     the lines that name a request still running (keptPath).
+//     itself — whoever holds it can fetch the picture without signing in; nor a
+//     safety copy's, /admin/backup/safety/{token}, which with its admin's session
+//     hands over a whole library; nor in the lines that name a request still
+//     running (keptPath).
 //
 // And it is not kept at all for the Jobs tab's own reads. The tab polls while it
 // is open; a log that wrote a line for every read of the log would fill itself
@@ -76,11 +78,16 @@ func under(path, prefix string) bool {
 	return path == prefix || strings.HasPrefix(path, prefix+"/")
 }
 
-// shareImagePrefix is the one path whose last segment is a credential.
-const shareImagePrefix = "/api/share/image/"
+// shareImagePrefix and safetyCopyPath are the paths whose last segment is a
+// credential, or half of one.
+const (
+	shareImagePrefix = "/api/share/image/"
+	safetyCopyPath   = "/api" + safetyCopyRoute
+)
 
 // keptPath is a request's path as any line that outlives the request shows it:
-// the path as it was sent, or, for a share link, shareImagePrefix and "…".
+// the path as it was sent, or, for a share link or a safety copy's download, its
+// prefix and "…".
 //
 // THE TEST IS ON THE PATH AS THE ROUTER READS IT, NOT AS IT WAS SENT. The router
 // unescapes each segment and cleans the path before it matches, so
@@ -95,8 +102,11 @@ const shareImagePrefix = "/api/share/image/"
 // The in-flight tracker and the database door use it too: their lines name the
 // requests still running, go to the same system log, and are kept as long.
 func keptPath(u *url.URL) string {
-	if c := path.Clean("/" + u.Path); strings.HasPrefix(c, shareImagePrefix) && len(c) > len(shareImagePrefix) {
-		return shareImagePrefix + "…"
+	c := path.Clean("/" + u.Path)
+	for _, prefix := range []string{shareImagePrefix, safetyCopyPath} {
+		if strings.HasPrefix(c, prefix) && len(c) > len(prefix) {
+			return prefix + "…"
+		}
 	}
 	return u.EscapedPath()
 }

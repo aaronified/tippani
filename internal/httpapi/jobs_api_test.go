@@ -279,6 +279,23 @@ func (c *testClient) waitJob(id int64, state string) wireJob {
 	}
 }
 
+// jobEnded polls a job, as its screen does, until it has ended, whichever way it
+// ended.
+func (c *testClient) jobEnded(id int64) wireJob {
+	c.t.Helper()
+	deadline := time.Now().Add(60 * time.Second)
+	for {
+		j := c.job(id)
+		if j.State != "queued" && j.State != "running" {
+			return j
+		}
+		if time.Now().After(deadline) {
+			c.t.Fatalf("job %d is still %s", id, j.State)
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+}
+
 type jobList struct {
 	Jobs    []wireJob `json:"jobs"`
 	Running int       `json:"running"`

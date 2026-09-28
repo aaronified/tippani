@@ -515,7 +515,7 @@ func TestBackupStatusReportsRecoverable(t *testing.T) {
 	}
 
 	// A passphrase archive is not recoverable, by design.
-	admin.mustDo("POST", "/admin/backup", map[string]any{"passphrase": "correct-horse!"}, 200)
+	backupWith(admin, map[string]any{"passphrase": "correct-horse!"})
 	st2 := decode[backupMetaResp](t, admin.mustDo("GET", "/admin/backup", nil, 200))
 	if st2.Backup == nil || st2.Backup.Key != "passphrase" || st2.Backup.Recoverable {
 		t.Fatalf("passphrase archive metadata = %+v", st2.Backup)

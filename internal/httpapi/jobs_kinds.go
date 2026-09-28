@@ -140,10 +140,18 @@ var builtinJobKinds = []queuedKind{
 	// the archive, as GET /admin/backup describes it; nothing to count.
 	{name: "backup", adminOnly: true, rerunnable: true, againAfterSuccess: true,
 		validate: validateBackup, secret: backupSecret, run: runBackup},
-	// THE TWO BELOW ARE QUEUED BY THEIR OWN ROUTES AND NEVER THROUGH POST /jobs,
-	// which is what having no validate means (handleStartJob): their params name
-	// rows and files their route checked, and from a stranger they would name
-	// somebody else's.
+	// THE THREE BELOW ARE QUEUED BY THEIR OWN ROUTES AND NEVER THROUGH POST /jobs,
+	// which is what having no validate means (handleStartJob): the imports' params
+	// name rows and files their route checked, and from a stranger they would name
+	// somebody else's; the safety copy is a step of the restore and reset prompts,
+	// whose route hands its copy over once (safety_copy.go).
+	//
+	// {} and the credential as its secret, as a backup's: seal a copy of the
+	// server as it is, beside the backups and never among them, for one download.
+	// Result {name, size, url, expires_at}; nothing to count. Not run again: a
+	// copy is taken for the prompt that asked, and a stopped one is taken again
+	// from there.
+	{name: "backup.safety", adminOnly: true, run: runSafetyBackup},
 	//
 	// {source, as, filename, spool}: stage an upload, from the spool, as its route
 	// used to (import_queue.go). Result {status, body}: what the route answered

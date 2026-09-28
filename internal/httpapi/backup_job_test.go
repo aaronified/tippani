@@ -3,6 +3,7 @@ package httpapi
 import (
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 )
@@ -26,7 +27,10 @@ import (
 //   - the job's wire fields, and that a backup has no counts: the contract says
 //     so, and the SPA's jobs.js reads none for it.
 //
-// What each one guards, in a sentence a person would say: a backup job makes the
+// What each one guards, in a sentence a person would say: the API's backup
+// (POST /admin/backup) is that same job, waiting its turn, refusing a wrong
+// password at once, one job whichever address it was asked for at, and nothing
+// run in its request; a backup job makes the
 // kept archive, sealed so my password opens it and labelled with the name I have
 // when it runs, says so in its log and on my phone, and counts nothing; a backup whose password changed while it waited
 // fails with the reason and makes no archive, and runs again with the new one;
@@ -152,4 +156,55 @@ func TestABackupJobThatFindsABackupUnderWayFailsRatherThanWaiting(t *testing.T) 
 		Job wireJob `json:"job"`
 	}](t, alice.mustDo("POST", fmt.Sprintf("/jobs/%d/rerun", failed.ID), map[string]string{"password": testPw}, http.StatusAccepted)).Job
 	alice.waitJob(again.ID, "succeeded")
+}
+
+func TestTheAPIsBackupIsTheJobTheServerCardStarts(t *testing.T) {
+	srv := newTestServer(t)
+	q := queueing(t, srv)
+	h := srv.Handler()
+	alice := signupAdmin(t, h)
+
+	ahead := alice.mustStart("test.hold", map[string]any{"tag": "ahead"})
+	alice.waitJob(ahead.ID, "running")
+
+	// A password that is not hers is told at once, however long the queue.
+	alice.mustDo("POST", "/admin/backup", map[string]any{"password": "not-it-at-all"}, http.StatusUnauthorized)
+
+	started := decode[struct {
+		Job wireJob `json:"job"`
+	}](t, alice.mustDo("POST", "/admin/backup", map[string]any{"password": testPw}, http.StatusAccepted)).Job
+	if started.Kind != "backup" || !started.Queued || started.State != "queued" || started.Ahead != 1 {
+		t.Fatalf("POST /admin/backup answered %+v, want a backup waiting behind the one job running", started)
+	}
+	// The card's press while it waits is the same job, and so is the API's again.
+	for what, press := range map[string]func() *httptest.ResponseRecorder{
+		"the card's": func() *httptest.ResponseRecorder { return alice.startJob("backup", map[string]any{"password": testPw}) },
+		"the API's own": func() *httptest.ResponseRecorder {
+			return alice.do("POST", "/admin/backup", map[string]any{"password": testPw})
+		},
+	} {
+		rec := press()
+		if rec.Code != http.StatusConflict || decode[struct {
+			JobID int64 `json:"job_id"`
+		}](t, rec).JobID != started.ID {
+			t.Fatalf("%s backup while the API's waits: %d %s, want 409 naming #%d", what, rec.Code, rec.Body, started.ID)
+		}
+	}
+	if got := alice.mustDo("GET", "/admin/backup", nil, http.StatusOK).Body.String(); !strings.Contains(got, `"backup":null`) {
+		t.Fatalf("an archive was made while the backup waited: %s", got)
+	}
+
+	q.let()
+	alice.waitJob(started.ID, "succeeded")
+	result := decode[struct {
+		Result keptArchive `json:"result"`
+	}](t, alice.mustDo("GET", fmt.Sprintf("/jobs/%d/result", started.ID), nil, http.StatusOK)).Result
+	kept := decode[backupMetaResp](t, alice.mustDo("GET", "/admin/backup", nil, http.StatusOK)).Backup
+	if kept == nil || result.Name == "" || result != *kept || kept.Account != "alice" {
+		t.Fatalf("the job's result %+v, the card's archive %+v; want the same archive, sealed with alice's password", result, kept)
+	}
+	// And that job is the only backup kept: the request itself ran nothing.
+	if list := alice.jobs("view=past&kind=backup").Jobs; len(list) != 1 || list[0].ID != started.ID {
+		t.Fatalf("past backups: %v, want #%d alone", jobIDs(list), started.ID)
+	}
 }

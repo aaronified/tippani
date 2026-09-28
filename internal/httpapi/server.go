@@ -119,8 +119,11 @@ type Server struct {
 	running      flightTable
 	healthFailed atomic.Int64
 	// safety records the admin who just downloaded a fresh backup on the way to a
-	// restore or a reset; both refuse without it (handleSafetyBackup).
-	safety safetyNote
+	// restore or a reset; both refuse without it (handleSafetyDownload sets it).
+	// safetyCopies are the copies sealed and waiting for that download, by token
+	// (safety_copy.go).
+	safety       safetyNote
+	safetyCopies safetyCopies
 
 	// updateMu serializes POST /admin/update/apply (update_handlers.go). Two
 	// concurrent applies launch two one-shot recreaters at the same container.
@@ -280,6 +283,10 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /admin/backup", s.requireAdmin(s.handleBackupCreate))
 	mux.Handle("GET /admin/backup/download", s.requireAdmin(s.handleBackupDownload))
 	mux.Handle("POST /admin/backup/safety", s.requireAdmin(s.handleSafetyBackup))
+	// The copy's one download, admin and owner only; requireAuth rather than
+	// requireAdmin so that a reader is answered 404 as everybody but its owner is
+	// (safety_copy.go).
+	mux.Handle("GET /admin/backup/safety/{token}", s.requireAuth(s.handleSafetyDownload))
 	mux.Handle("POST /admin/restore", s.requireAdmin(s.handleRestore))
 	mux.Handle("POST /admin/restore/upload", s.requireAdmin(s.handleRestoreUpload))
 	// Updates (admin): check GitHub for a newer release, and (Docker socket

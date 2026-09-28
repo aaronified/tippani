@@ -14,7 +14,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -215,7 +214,10 @@ func (s *Server) controlEntry(name string) bool {
 	// The import spool (spoolDirName) is one too: an upload waiting for its job is
 	// not the library, and a restore that moved it aside would take the file from
 	// under the job that names it.
-	for _, p := range []string{".backup-", ".restore-", preRestorePrefix, recoveryKeyFile + ".new-", spoolDirName} {
+	// So is a safety copy waiting for its download (safetyCopyPrefix): archived, it
+	// would ride inside the next backup; moved aside by a restore, it would be kept
+	// in the restore's safety generation instead of going with its token.
+	for _, p := range []string{".backup-", ".restore-", preRestorePrefix, recoveryKeyFile + ".new-", spoolDirName, safetyCopyPrefix} {
 		if strings.HasPrefix(name, p) {
 			return true
 		}
@@ -309,6 +311,9 @@ func (s *Server) backupMetaAt(dir, name string, info os.FileInfo) map[string]any
 // account?}} or {backup: null}. Feeds the Settings card: the date it shows, and
 // which credential its restore prompt asks for.
 func (s *Server) handleBackupStatus(w http.ResponseWriter, r *http.Request) {
+	// The Server card's read is one of the moments an undownloaded safety copy
+	// past its time is let go of (safety_copy.go).
+	s.safetyCopies.sweep()
 	name, info := s.newestBackup()
 	if name == "" {
 		writeJSON(w, http.StatusOK, map[string]any{"backup": nil})
@@ -317,71 +322,55 @@ func (s *Server) handleBackupStatus(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"backup": s.backupMetaAt(s.backupsDir(), name, info)})
 }
 
-// handleBackupCreate: POST /admin/backup — build a new dated, sealed archive in
-// <DataDir>/backups, then drop every older one (the newest backup is always
-// the only one kept). Returns the new archive's metadata.
+// handleBackupCreate: POST /admin/backup {password} or {passphrase} → 202 {job}.
+// THE SAME JOB THE SERVER CARD STARTS, reached by its old address: the body is a
+// backup job's params, and the job is queued as POST /jobs {kind: "backup",
+// params} queues it (startKind). So a missing credential or a passphrase too
+// short is a 400, a password that is not the caller's a 401 — both at once,
+// before anything queues — and the same backup pressed on the card and asked for
+// here while one waits is one job, the second press answered 409 with its id.
+// The archive's metadata, the shape GET /admin/backup returns, is the job's
+// result (GET /jobs/{id}/result), once it has run.
 //
-// Body: {"password": "…"} to key it on the caller's own account (the default), or
-// {"passphrase": "…"} to key it on a passphrase instead. The password is CHECKED
-// against the stored hash before anything is written — not for authorization (the
-// session already covers that) but because a typo would otherwise produce a
-// perfectly valid archive that nothing can ever open, and you would not find out
-// until the day you needed it.
+// Every backup queues, on the owner's answer of 28 September (Design-decisions
+// §18, F1). This route used to seal the archive in its request, beside whatever
+// the queue was running and past any Stop; an API caller now follows the job,
+// as the card does.
 func (s *Server) handleBackupCreate(w http.ResponseWriter, r *http.Request) {
-	mode, account, secret, ok := sealCredentials(w, r)
+	if s.Jobs == nil {
+		noQueue(w)
+		return
+	}
+	k, ok := s.startableKind("backup")
 	if !ok {
+		noQueue(w)
 		return
 	}
-
-	if !s.backupMu.TryLock() {
-		writeErr(w, http.StatusConflict, "a backup or restore is already running")
-		return
-	}
-	defer s.backupMu.Unlock()
-
-	// The password is verified INSIDE the lock, and after it, because a concurrent
-	// password change between the check and the seal would otherwise leave an
-	// archive sealed under a password that no longer exists. Verified at all — the
-	// session already authorises this — because a typo would produce a perfectly
-	// valid archive that nothing can ever open, and you would find out on the day
-	// you needed it.
-	if mode == backupModePassword && !s.passwordIsCallers(r, secret) {
-		writeErr(w, http.StatusUnauthorized, "that is not your password — the archive would be sealed with a key you could not reproduce")
-		return
-	}
-	// The API's synchronous backup runs in its request, and is kept as a job
-	// like the queued one, under the same kind.
-	jobs.Begin(r.Context(), "backup", "")
-
-	// Not the request's context: a backup a reader started finishes and is kept if
-	// they close the tab, as it always has. Only a queued one can be stopped.
-	meta, err := s.createBackup(context.Background(), userID(r), account, mode, secret)
+	r.Body = http.MaxBytesReader(w, r.Body, maxAuthBody)
+	params, err := readOptionalBody(r)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, backupErrorText(err))
+		writeErr(w, http.StatusBadRequest, "invalid JSON body")
 		return
 	}
-	// Same shape GET /admin/backup returns — including how it is keyed — so the
-	// card can render the new archive without a second round trip.
-	writeJSON(w, http.StatusOK, map[string]any{"backup": meta})
-	s.notifyAfter(w, r, userID(r), "backup", "Backup ready", backupReady(meta))
+	s.startKind(w, r, k, params)
 }
 
-// runBackup is the backup job: the kept archive, made as POST /admin/backup
-// makes it (createBackup), sealed with the credential the job was queued with,
-// which the queue kept in memory for it alone (backupKey). Its result is the
-// archive as GET /admin/backup describes it, and the phone is told as the route
-// tells it.
+// runBackup is the backup job: the kept archive (createBackup), sealed with the
+// credential the job was queued with, which the queue kept in memory for it
+// alone (backupKey). Its result is the archive as GET /admin/backup describes
+// it, and the phone is told the archive is ready.
 //
-// THE PASSWORD IS ASKED AGAIN HERE, INSIDE THE LOCK, as the route asks it: the
-// job may have waited behind somebody's two-hour fill, and a password changed
-// meanwhile would seal an archive under a password that no longer exists. That
+// THE PASSWORD IS ASKED AGAIN HERE, INSIDE THE LOCK, as it was asked at the
+// press (backupSecret): the job may have waited behind somebody's two-hour fill,
+// and a password changed meanwhile would seal an archive under a password that
+// no longer exists. That
 // is a failure the owner reruns (with the password they have now), not a 401:
 // there is no request to answer. Whether the owner is still an admin was asked
 // by the queue as it claimed the job, a moment before this ran (jobs.Runner's
 // execute), and is not asked twice.
 //
 // ANOTHER BACKUP OR A RESTORE HOLDING THE LOCK FAILS THE JOB rather than waiting
-// for it: the route answers 409 to the same, and a job that waited on the lock
+// for it: a restore answers 409 to the same, and a job that waited on the lock
 // would hold the queue behind a restore's upload for as long as it took.
 //
 // A STOP LEAVES NO ARCHIVE AND KEEPS THE OLD ONE. The archive is written under
@@ -463,14 +452,10 @@ func backupErrorText(err error) string {
 // older one dropped (the newest backup is always the only one kept). It answers
 // the archive as GET /admin/backup describes it.
 //
-// NO REQUEST IN IT. POST /admin/backup calls it in its request and the backup job
-// calls it from the queue, so uid and account are the owner's, taken from
-// whichever started it. The caller holds backupMu, and has checked a password
-// against the account: both are the caller's because the two take the lock and
-// check the password differently. The request checks the caller's password once
-// it holds the lock; a queued backup checks the owner's current hash when it
-// runs, since the account may have changed its password while it waited
-// (backupKey).
+// NO REQUEST IN IT. The backup job calls it from the queue (runBackup), so uid
+// and account are the job's owner's. The caller holds backupMu, and has checked
+// a password against the account's current hash, since the account may have
+// changed its password while the job waited (backupKey).
 //
 // ctx is a queued backup's, which a Stop ends (runBackup): it is asked before the
 // snapshot, before every file the archive takes and during each, and last before
@@ -529,7 +514,8 @@ func backupReady(meta map[string]any) string {
 
 // backupStep is where a backup asks whether to go on: before its snapshot
 // ("snapshot"), before each file it archives ("file"), before each read of a
-// file's copy ("copy", ctxReader) and before its promote ("promote").
+// file's copy ("copy", ctxReader) and before its promote ("promote"), which for
+// a safety copy is its publishing (runSafetyBackup).
 // backupSeam runs first, when a test has set it.
 func (s *Server) backupStep(ctx context.Context, step string) error {
 	if s.backupSeam != nil {
@@ -613,28 +599,12 @@ func (s *Server) sealArchive(ctx context.Context, uid int64, account string, mod
 	return nil
 }
 
-// sealCredentials reads how an archive is to be sealed: the caller's password, or
-// a passphrase of their choosing. It writes its own 400; false means it did.
-func sealCredentials(w http.ResponseWriter, r *http.Request) (mode byte, account, secret string, ok bool) {
-	r.Body = http.MaxBytesReader(w, r.Body, maxAuthBody)
-	var req struct {
-		Password   string `json:"password"`
-		Passphrase string `json:"passphrase"`
-	}
-	_ = json.NewDecoder(r.Body).Decode(&req)
-	mode, account, secret, msg := sealWith(req.Password, req.Passphrase, username(r))
-	if msg != "" {
-		writeErr(w, http.StatusBadRequest, msg)
-		return 0, "", "", false
-	}
-	return mode, account, secret, true
-}
-
 // sealWith is how an archive is to be sealed, from what the caller sent: the
 // passphrase when there is one, else account's password. msg is the 400 when
-// neither will do. The API's backup and the backup job read it the same way, so a
-// credential one accepts the other does too; whether a password is really the
-// account's is the caller's to check.
+// neither will do. Every backup reads it through backupSecret — the kept one
+// however it was asked for, and the safety copy — so a credential one accepts the
+// other does too; whether a password is really the account's is the caller's to
+// check.
 func sealWith(password, passphrase, account string) (mode byte, acct, secret, msg string) {
 	switch {
 	case passphrase != "":
@@ -650,7 +620,8 @@ func sealWith(password, passphrase, account string) (mode byte, acct, secret, ms
 
 // SAFETY BACKUP — THE COPY TAKEN ON THE WAY TO A RESTORE OR A RESET. The owner:
 // an admin "must take a backup and download it before this can be done (as part
-// of the process of the reset)". It is streamed to the admin and NEVER KEPT: the
+// of the process of the reset)". It is a queued job that seals the copy beside
+// the backups and never among them, and hands it over once (safety_copy.go): the
 // server keeps one archive, and a restore from the kept one would otherwise
 // restore the copy just taken of what it is about to replace. The server notes
 // that the download finished, for that admin, and restore and reset refuse
@@ -702,57 +673,6 @@ func (s *Server) safetyGuard(uid int64) func() error {
 		}
 		return nil
 	}
-}
-
-func (s *Server) handleSafetyBackup(w http.ResponseWriter, r *http.Request) {
-	mode, account, secret, ok := sealCredentials(w, r)
-	if !ok {
-		return
-	}
-	if !s.backupMu.TryLock() {
-		writeErr(w, http.StatusConflict, "a backup or restore is already running")
-		return
-	}
-	defer s.backupMu.Unlock()
-	if mode == backupModePassword && !s.passwordIsCallers(r, secret) {
-		writeErr(w, http.StatusUnauthorized, "that is not your password — the archive would be sealed with a key you could not reproduce")
-		return
-	}
-	jobs.Begin(r.Context(), "backup.safety", "")
-	tmp, err := os.CreateTemp(s.DataDir, ".safety-*"+backupExt)
-	if err != nil {
-		internalError(w, r, "safety backup temp", err)
-		return
-	}
-	dest := tmp.Name()
-	_ = tmp.Close()
-	defer os.Remove(dest)
-	if err := s.sealArchive(context.Background(), userID(r), account, mode, secret, dest); err != nil {
-		writeErr(w, http.StatusInternalServerError, backupErrorText(err))
-		return
-	}
-	f, err := os.Open(dest)
-	if err != nil {
-		internalError(w, r, "open safety backup", err)
-		return
-	}
-	defer f.Close()
-	info, _ := f.Stat()
-	_ = http.NewResponseController(w).SetWriteDeadline(time.Time{})
-	name := backupPrefix + time.Now().UTC().Format(backupTimeLayout) + "-safety-copy" + backupExt
-	w.Header().Set("Content-Type", "application/octet-stream")
-	w.Header().Set("Content-Disposition", `attachment; filename="`+name+`"`)
-	if info != nil {
-		w.Header().Set("Content-Length", strconv.FormatInt(info.Size(), 10))
-	}
-	// NOTED ONLY WHEN THE WHOLE FILE LEFT. A copy that stopped halfway is not a
-	// backup, and the note is what lets the destructive step run.
-	if _, err := io.Copy(w, f); err != nil {
-		olog.Warnf(olog.CodeBackupArchive, "[backup] safety backup download cut short: %v", err)
-		return
-	}
-	s.safety.set(userID(r))
-	olog.Printf("[backup] safety backup downloaded by user %d (%s)", userID(r), username(r))
 }
 
 // humanBytes is a size for a sentence: one decimal, binary units.
@@ -1626,13 +1546,15 @@ func renameWithRetry(from, to string) error {
 }
 
 // CleanupBackupStaging removes orphaned backup/restore staging dirs left by a
-// crash mid-operation. Called from serve() at boot; .pre-restore-* safety
-// copies are deliberately kept.
+// crash mid-operation, and every safety copy the last run left undownloaded
+// (cleanupSafetyCopies). Called from serve() at boot; .pre-restore-* safety
+// generations are deliberately kept.
 func CleanupBackupStaging(dataDir string) {
 	entries, err := os.ReadDir(dataDir)
 	if err != nil {
 		return
 	}
+	cleanupSafetyCopies(dataDir, entries)
 	for _, e := range entries {
 		n := e.Name()
 		if strings.HasPrefix(n, ".backup-") || strings.HasPrefix(n, ".restore-") {

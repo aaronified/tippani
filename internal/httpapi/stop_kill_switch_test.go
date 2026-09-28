@@ -332,6 +332,11 @@ type killCase struct {
 	// check of the library: that the job's first done items are finished whole
 	// and the rest untouched. jobID is the job whose result a check may read.
 	arm func(w *killWorld) (params any, check func(c *testClient, jobID int64, done int))
+	// start, when set, is how the job is started, for a kind its own route
+	// queues (the safety copy, which is also never run again: after the Stop it is
+	// started afresh the same way, and the check reads that job). nil: POST /jobs
+	// with the params, and the stopped job's Run again.
+	start func(c *testClient, params any) wireJob
 }
 
 // bookAnswers makes the book search know Dune and Dune Messiah by ISBN, each
@@ -717,6 +722,50 @@ func backupCase(point, step string, nth int, slow time.Duration) killCase {
 		}}
 }
 
+// safetyCase is an admin's safety copy, asked for as the restore and reset
+// prompts ask for it, held at the nth of one of its steps as backupCase holds a
+// backup. A stopped one leaves no file and nothing to download, and the kept
+// archive as it was; taken again, it is downloaded once, opens with the password,
+// and leaves nothing behind either (treeClean). It is never run again, so the
+// "again" is a fresh one (killCase.start).
+func safetyCase(point, step string, nth int, slow time.Duration) killCase {
+	c := backupCase(point, step, nth, slow)
+	c.kind = "backup.safety"
+	arm := c.arm
+	c.arm = func(w *killWorld) (any, func(*testClient, int64, int)) {
+		params, _ := arm(w) // the book with a cover, a kept archive, the seam
+		kept := keptBackup(w.t, w.admin)
+		return params, func(cl *testClient, jobID int64, done int) {
+			if now := keptBackup(w.t, cl); now != kept {
+				w.t.Fatalf("a safety copy changed the archive kept: %q, was %q", now, kept)
+			}
+			res := decode[struct {
+				Result *safetyReady `json:"result"`
+			}](w.t, cl.mustDo("GET", fmt.Sprintf("/jobs/%d/result", jobID), nil, http.StatusOK)).Result
+			if done == 0 {
+				if res != nil {
+					w.t.Fatalf("a stopped safety copy left a download: %+v", res)
+				}
+				return
+			}
+			if res == nil || res.URL == "" {
+				w.t.Fatalf("the safety copy taken again names no download: %+v", res)
+			}
+			file := cl.mustDo("GET", res.URL, nil, http.StatusOK).Body.Bytes()
+			if _, err := openSealed(w.t, file, "supersecret"); err != nil {
+				w.t.Fatalf("the safety copy taken again does not open with the password: %v", err)
+			}
+			cl.mustDo("GET", res.URL, nil, http.StatusNotFound)
+		}
+	}
+	c.start = func(cl *testClient, params any) wireJob {
+		return decode[struct {
+			Job wireJob `json:"job"`
+		}](cl.t, cl.mustDo("POST", "/admin/backup/safety", params, http.StatusAccepted)).Job
+	}
+	return c
+}
+
 // keptBackup is the kept archive's name, as the Server card reads it.
 func keptBackup(t *testing.T, c *testClient) string {
 	t.Helper()
@@ -903,6 +952,15 @@ func TestAStopInABackupIsInstantAndKeepsTheArchiveThereWas(t *testing.T) {
 	})
 }
 
+func TestAStopInASafetyCopyIsInstantAndLeavesNoFileAndNoDownload(t *testing.T) {
+	runKillCases(t, []killCase{
+		safetyCase("before its snapshot", "snapshot", 1, 0),
+		every(safetyCase("between two of its files", "file", 2, 0)),
+		safetyCase("inside its snapshot's copy, on a slow disk", "copy", 1, 100*time.Millisecond),
+		safetyCase("just before it is published", "promote", 1, 0),
+	})
+}
+
 func runKillCase(t *testing.T, c killCase, press string) {
 	w := newKillWorld(t)
 	owner, other, who := w.reader, w.admin, "bob"
@@ -910,7 +968,11 @@ func runKillCase(t *testing.T, c killCase, press string) {
 		owner, other, who = w.admin, w.reader, "alice"
 	}
 	params, check := c.arm(w)
-	job := owner.mustStart(c.kind, params)
+	start := c.start
+	if start == nil {
+		start = func(c2 *testClient, p any) wireJob { return c2.mustStart(c.kind, p) }
+	}
+	job := start(owner, params)
 	select {
 	case <-w.reached:
 	case <-time.After(20 * time.Second):
@@ -1015,13 +1077,19 @@ func runKillCase(t *testing.T, c killCase, press string) {
 	if press == "delete the reader" {
 		return // their job is the admin's to read now, and nobody's to run again
 	}
-	var body any
-	if c.kind == "backup" {
-		body = map[string]any{"password": "supersecret"}
+	var again wireJob
+	if c.start != nil {
+		again = c.start(owner, params)
+		readable = again.ID
+	} else {
+		var body any
+		if c.kind == "backup" {
+			body = map[string]any{"password": "supersecret"}
+		}
+		again = decode[struct {
+			Job wireJob `json:"job"`
+		}](t, owner.mustDo("POST", fmt.Sprintf("/jobs/%d/rerun", job.ID), body, http.StatusAccepted)).Job
 	}
-	again := decode[struct {
-		Job wireJob `json:"job"`
-	}](t, owner.mustDo("POST", fmt.Sprintf("/jobs/%d/rerun", job.ID), body, http.StatusAccepted)).Job
 	owner.waitJob(again.ID, jobs.StateSucceeded)
 	if c.kind == "reverify" {
 		readable = again.ID

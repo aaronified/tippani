@@ -6,6 +6,7 @@ import (
 	"compress/gzip"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -49,10 +50,28 @@ func (c *testClient) restoreUpload(path string, fields map[string]string, archiv
 // pwUpload is the ordinary account-keyed upload: just the password.
 func pwUpload() map[string]string { return map[string]string{"password": testPw} }
 
-// backupNow creates a sealed archive keyed on the caller's own account password.
-func backupNow(c *testClient) *httptest.ResponseRecorder {
+// backupNow creates a sealed archive keyed on the caller's own account password,
+// as an API caller does: POST /admin/backup queues the backup job (202 {job}),
+// which is followed to its end as Settings › Jobs follows it, and the archive it
+// made is read from the job's result, in the shape GET /admin/backup answers.
+func backupNow(c *testClient) keptArchive {
 	c.t.Helper()
-	return c.mustDo("POST", "/admin/backup", map[string]any{"password": testPw}, 200)
+	return backupWith(c, map[string]any{"password": testPw})
+}
+
+// backupWith is backupNow sealed with creds ({password} or {passphrase}). A job
+// that ends any way but succeeded fails the test with its state and error.
+func backupWith(c *testClient, creds any) keptArchive {
+	c.t.Helper()
+	job := decode[struct {
+		Job wireJob `json:"job"`
+	}](c.t, c.mustDo("POST", "/admin/backup", creds, http.StatusAccepted)).Job
+	if end := c.jobEnded(job.ID); end.State != "succeeded" {
+		c.t.Fatalf("the backup job #%d ended %s: %q", job.ID, end.State, end.Error)
+	}
+	return decode[struct {
+		Result keptArchive `json:"result"`
+	}](c.t, c.mustDo("GET", fmt.Sprintf("/jobs/%d/result", job.ID), nil, http.StatusOK)).Result
 }
 
 // plaintextOf strips the encryption envelope from an archive, so a test can look
@@ -119,15 +138,19 @@ func plainArchive(t *testing.T, dest string, entries [][2]string) {
 	}
 }
 
+// keptArchive is an archive as GET /admin/backup describes it, and as a backup
+// job's result does.
+type keptArchive struct {
+	Name        string `json:"name"`
+	Created     string `json:"created"`
+	Size        int64  `json:"size"`
+	Key         string `json:"key"`
+	Account     string `json:"account"`
+	Recoverable bool   `json:"recoverable"`
+}
+
 type backupMetaResp struct {
-	Backup *struct {
-		Name        string `json:"name"`
-		Created     string `json:"created"`
-		Size        int64  `json:"size"`
-		Key         string `json:"key"`
-		Account     string `json:"account"`
-		Recoverable bool   `json:"recoverable"`
-	} `json:"backup"`
+	Backup *keptArchive `json:"backup"`
 }
 
 // listBackups returns the archive names currently in <DataDir>/backups.
@@ -188,17 +211,20 @@ func TestBackupCreateDownloadRetention(t *testing.T) {
 	}
 
 	// Create.
-	var created backupMetaResp
-	_ = json.Unmarshal(backupNow(admin).Body.Bytes(), &created)
-	if created.Backup == nil || !strings.HasPrefix(created.Backup.Name, backupPrefix) || created.Backup.Size == 0 {
-		t.Fatalf("create meta: %+v", created.Backup)
+	created := backupNow(admin)
+	if !strings.HasPrefix(created.Name, backupPrefix) || created.Size == 0 {
+		t.Fatalf("create meta: %+v", created)
 	}
-	if !strings.HasSuffix(created.Backup.Name, backupExt) {
-		t.Fatalf("a sealed archive must not be named .tar.gz: %s", created.Backup.Name)
+	if !strings.HasSuffix(created.Name, backupExt) {
+		t.Fatalf("a sealed archive must not be named .tar.gz: %s", created.Name)
 	}
 	// The status endpoint reports which credential a restore will want, and whose.
-	if created.Backup.Key != "password" || created.Backup.Account != "alice" {
-		t.Fatalf("key metadata = %q / %q, want password/alice", created.Backup.Key, created.Backup.Account)
+	if created.Key != "password" || created.Account != "alice" {
+		t.Fatalf("key metadata = %q / %q, want password/alice", created.Key, created.Account)
+	}
+	// And it is the archive the Server card reads back.
+	if card := decode[backupMetaResp](t, admin.mustDo("GET", "/admin/backup", nil, 200)); card.Backup == nil || *card.Backup != created {
+		t.Fatalf("the card reads %+v, the job made %+v", card.Backup, created)
 	}
 	if names := listBackups(t, srv); len(names) != 1 {
 		t.Fatalf("backups dir after create: %v", names)
@@ -209,7 +235,7 @@ func TestBackupCreateDownloadRetention(t *testing.T) {
 	if rec.Code != 200 {
 		t.Fatalf("download: %d %s", rec.Code, rec.Body)
 	}
-	if cd := rec.Header().Get("Content-Disposition"); !strings.Contains(cd, created.Backup.Name) {
+	if cd := rec.Header().Get("Content-Disposition"); !strings.Contains(cd, created.Name) {
 		t.Fatalf("content-disposition = %q", cd)
 	}
 	// It is sealed on the wire: the bytes are NOT gzip, and the plaintext only
@@ -256,11 +282,10 @@ func TestBackupCreateDownloadRetention(t *testing.T) {
 
 	// Retention: a second create keeps only the newest archive.
 	time.Sleep(1100 * time.Millisecond) // the name has second precision
-	var second backupMetaResp
-	_ = json.Unmarshal(backupNow(admin).Body.Bytes(), &second)
+	second := backupNow(admin)
 	names := listBackups(t, srv)
-	if len(names) != 1 || names[0] != second.Backup.Name || names[0] == created.Backup.Name {
-		t.Fatalf("retention: %v (first %s, second %s)", names, created.Backup.Name, second.Backup.Name)
+	if len(names) != 1 || names[0] != second.Name || names[0] == created.Name {
+		t.Fatalf("retention: %v (first %s, second %s)", names, created.Name, second.Name)
 	}
 
 	// Auth: anon 401, non-admin 403 — checked BEFORE the key, so a non-admin with
@@ -712,13 +737,50 @@ func TestOnboardRestoreUpload(t *testing.T) {
 // A passphrase seals it, so the step does not depend on the caller's password.
 func safetyBackup(t *testing.T, c *testClient) {
 	t.Helper()
-	c.mustDo("POST", "/admin/backup/safety", map[string]string{"passphrase": "safety-copy-1"}, http.StatusOK)
+	takeSafetyCopy(t, c, map[string]string{"passphrase": "safety-copy-1"})
+}
+
+// safetyReady is a safety copy's job's result: the copy's name and size, where
+// its one download is, and until when.
+type safetyReady struct {
+	Name      string `json:"name"`
+	Size      int64  `json:"size"`
+	URL       string `json:"url"`
+	ExpiresAt int64  `json:"expires_at"`
+}
+
+// takeSafetyCopy takes the copy as the restore and reset prompts take it: POST
+// /admin/backup/safety queues its job, the job is followed to its end, and the
+// download its result names is fetched, once. It returns the file.
+func takeSafetyCopy(t *testing.T, c *testClient, creds any) []byte {
+	t.Helper()
+	return c.mustDo("GET", sealSafetyCopy(t, c, creds).URL, nil, http.StatusOK).Body.Bytes()
+}
+
+// sealSafetyCopy is takeSafetyCopy up to the download: the job's result, the
+// copy sealed and waiting. A job that ends any way but succeeded fails the test.
+func sealSafetyCopy(t *testing.T, c *testClient, creds any) safetyReady {
+	t.Helper()
+	job := decode[struct {
+		Job wireJob `json:"job"`
+	}](t, c.mustDo("POST", "/admin/backup/safety", creds, http.StatusAccepted)).Job
+	if end := c.jobEnded(job.ID); end.State != "succeeded" {
+		t.Fatalf("the safety copy's job #%d ended %s: %q", job.ID, end.State, end.Error)
+	}
+	res := decode[struct {
+		Result *safetyReady `json:"result"`
+	}](t, c.mustDo("GET", fmt.Sprintf("/jobs/%d/result", job.ID), nil, http.StatusOK)).Result
+	if res == nil || res.URL == "" {
+		t.Fatalf("the safety copy's job #%d names no download: %+v", job.ID, res)
+	}
+	return *res
 }
 
 // Restore and factory reset replace everything, so each begins with a fresh
 // backup the admin has downloaded. The server refuses both until that download
-// has finished, and the copy is streamed to the admin rather than kept, so it
-// never replaces the archive a restore is about to read.
+// has finished — a copy sealed and waiting is not enough — and the copy is
+// handed to the admin rather than kept among the backups, so it never replaces
+// the archive a restore is about to read.
 func TestRestoreAndResetWaitForAFreshDownloadedBackup(t *testing.T) {
 	srv := newTestServer(t)
 	h := srv.Handler()
@@ -743,7 +805,10 @@ func TestRestoreAndResetWaitForAFreshDownloadedBackup(t *testing.T) {
 		t.Fatal("a refused reset still wiped the library")
 	}
 
-	rec := admin.mustDo("POST", "/admin/backup/safety", map[string]string{"password": testPw}, 200)
+	// A copy sealed and not yet downloaded notes nothing.
+	ready := sealSafetyCopy(t, admin, map[string]string{"password": testPw})
+	admin.mustDo("POST", "/admin/restore", map[string]any{"password": testPw}, http.StatusPreconditionRequired)
+	rec := admin.mustDo("GET", ready.URL, nil, http.StatusOK)
 	if rec.Body.Len() == 0 || !strings.Contains(rec.Header().Get("Content-Disposition"), "attachment") {
 		t.Fatalf("the safety backup did not arrive as a download: %q", rec.Header().Get("Content-Disposition"))
 	}

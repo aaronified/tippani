@@ -42,8 +42,9 @@ export const isLive = (job) => !!job && (job.state === 'queued' || job.state ===
 // that release.
 export const JOB_KINDS = [
   // The queued ones: the five loops a reader starts from a screen, the backup,
-  // and — from 3.1.0 — an import and its approval, which their own routes queue.
-  'fill', 'covers', 'people', 'reverify', 'reverify-apply', 'backup', 'import', 'import.approve',
+  // and — from 3.1.0 — an import and its approval and the safety copy a restore
+  // or a reset takes first, which their own routes queue.
+  'fill', 'covers', 'people', 'reverify', 'reverify-apply', 'backup', 'import', 'import.approve', 'backup.safety',
   // Recorded in their request (F2): lookups a reader starts one at a time,
   // saves that fetch a picture from an address, and the acts that swap the
   // database under the queue. THE SERVER'S ROUTE TABLE IS THE LIST TO KEEP THIS
@@ -55,7 +56,7 @@ export const JOB_KINDS = [
   'lookup.cast-tvdb', 'lookup.cast-art',
   'update.check', 'update.apply', 'metadata.test', 'notify.test', 'signin.oidc',
   'work.save', 'person.save', 'character.save',
-  'restore', 'reset', 'backup.safety', 'notify.daily', 'request',
+  'restore', 'reset', 'notify.daily', 'request',
 ]
 const kindSlug = (kind) => (JOB_KINDS.includes(kind) ? kind.replace(/\./g, '-') : 'other')
 
@@ -700,9 +701,9 @@ export const LOG_PANE_MAX = 2000
 // job is coming that is worth a request every three seconds for as long as its
 // row is open, and the error is on the screen.
 export function useJob(id, { final = false } = {}) {
-  const [state, setState] = useState({ job: null, lines: [], trimmed: false, error: '', loaded: false })
+  const [state, setState] = useState({ job: null, lines: [], trimmed: false, error: '', loaded: false, gone: false })
   useEffect(() => {
-    setState({ job: null, lines: [], trimmed: false, error: '', loaded: false })
+    setState({ job: null, lines: [], trimmed: false, error: '', loaded: false, gone: false })
     if (!id) return undefined
     let alive = true
     let timer = null
@@ -734,7 +735,9 @@ export function useJob(id, { final = false } = {}) {
       busy = false
       if (!alive) return
       if (!r.ok) {
-        setState((s) => ({ ...s, error: r.error, loaded: true }))
+        // `gone` is the 404: the job is not there (a restore replaced the queue
+        // under it), so a screen waiting on it can stop waiting.
+        setState((s) => ({ ...s, error: r.error, loaded: true, gone: r.status === 404 }))
         // A job that is not there any more is not coming back; anything else is
         // worth asking about again, slowly — up to the bound above.
         failures += 1

@@ -321,6 +321,9 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 	// Their imports' uploads go too, now that the account is: 0079's trigger has
 	// cleared the owner of every job they had, and nobody can run those again.
 	s.sweepSpool()
+	// And a safety copy of theirs still waiting for its download: its token names
+	// the account by id, and the next account made can be given that id.
+	s.safetyCopies.forget(func(c safetyCopy) bool { return c.uid == id })
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "trash_id": trashID})
 }
 
