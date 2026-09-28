@@ -12352,11 +12352,11 @@ My asks as 3.1.0 began, the same day:
 
 ### The screen polls while it is open, and the server never does
 
-**Decided.** A job's own view polls `GET /jobs/{id}?log_after=` every second while the job lives, every three seconds after ten polls that brought nothing, and not at all while the tab is hidden; Current jobs polls every 2 s while anything is current and every 10 s otherwise. Each of those reads gives up after ten seconds, so one answer that never comes cannot freeze a card. Current jobs is the whole queue in one answer, never paged, which it can be because an account has at most five jobs waiting or running. A Stop hurries both: from the server's answer to the press, the current jobs, and the stopped job's own view where a screen has it open, are asked for every 200 ms until the job reads stopped, for three seconds at most, and then at their own pace again. They are the reads the log does not keep.
+**Decided.** A job's own view polls `GET /jobs/{id}?log_after=` every second while the job lives, every three seconds after ten polls that brought nothing, and not at all while the tab is hidden; Current jobs polls every 2 s while anything is current and every 10 s otherwise. Each of those reads gives up after ten seconds, so one answer that never comes cannot freeze a card. Current jobs is the whole queue in one answer, never paged, which it can be because an account has at most five jobs waiting or running. A Stop hurries them: from the server's answer to the press, the current jobs, the Common jobs card's rows, and the stopped job's own view where a screen has it open, are asked for every 200 ms until the job reads stopped, for three seconds at most, and then at their own pace again. Wherever the Stop was pressed, every one of those that draws the job hurries, and each of the job's rows says Stopping… from the press, so one job reads the same on both cards that draw it. They are the reads the log does not keep.
 
 **Why.** It is the reader's screen asking while the reader is looking, which is §1's rule read the way it was meant: nothing on the server wakes, and a closed tab asks nothing.
 
-<sub>3.1.0 — `web/frontend/src/jobs.js` · `web/frontend/src/jobsSection.jsx`</sub>
+<sub>3.1.0 — `web/frontend/src/jobs.js` · `web/frontend/src/jobsSection.jsx` · `web/frontend/src/commonJobs.jsx`</sub>
 
 ### Two test seams are in the binary, and neither works online
 
@@ -12397,6 +12397,7 @@ Each was built as written and put to me with 3.1.0; the line changes when I rule
 | F11 | Open: should the phone tile show how many are running as well as how many wait? | I asked for a count of queued jobs, and the tile shows that and no more. |
 | F12 | A fill over 2,000 works is sent as several jobs in a row, so the Pushover message at the end of a long fill comes once per job. | The cap is how long one press may hold everybody's queue. A re-verify cannot be split, because its findings are reviewed as one, so it is capped at 500 and the dialog says so before anything is checked. |
 | F13 | "The app's own lookup", in my invariant, is a screen asking for what it is about to draw — a work page's portraits and character art — and never the app deciding by itself that now is a good time. So §1's *Tippani looks outward only when a person or the app's own lookup asks* is narrower than it looks: the app may look for what is on a screen somebody opened, and for nothing else. | My sentence names the app's own lookup and does not say how far it reaches. This is how the builder read it, from what the code does: a work page asks for the faces it is about to draw. |
+| F14 | On the Common jobs card (Settings › Jobs), the covers row's last run and job now are the viewer's own covers passes, either of its two runs and wherever it was started; the backup row's are the server's, whoever sealed the archive. | A covers pass walks the library of whoever started it, so another admin's pass says nothing about this admin's covers and posters. The server keeps one archive, so the backup row's question, when it was last made, is the server's. The build plan had both rows showing the server's most recent run; the backup half is as planned. |
 
 ### Where the plan turned out to be wrong
 

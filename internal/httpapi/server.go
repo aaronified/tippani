@@ -299,6 +299,8 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /jobs", s.requireAuth(s.handleStartJob))
 	mux.Handle("GET /jobs", s.requireAuth(s.handleListJobs))
 	mux.Handle("GET /jobs/summary", s.requireAuth(s.handleJobsSummary))
+	// The Common jobs card's rows (jobs_common.go); a literal segment too.
+	mux.Handle("GET /jobs/common", s.requireAuth(s.handleCommonJobs))
 	mux.Handle("POST /jobs/stop-all", s.requireAuth(s.handleStopAllJobs))
 	mux.Handle("GET /jobs/{id}", s.requireAuth(s.handleGetJob))
 	mux.Handle("GET /jobs/{id}/result", s.requireAuth(s.handleJobResult))

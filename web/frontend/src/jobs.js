@@ -20,10 +20,11 @@
 // invariant is that nothing runs unless somebody started it; the polls below are
 // the screen asking while the screen is up, they back off when nothing moves, and
 // they stand still while the tab is hidden.
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 
 import { apiURL, errText, json } from './api.js'
 import { t } from './i18n.js'
+import { registerSessionCache } from './sessionCaches.js'
 
 // ---- the vocabulary ----------------------------------------------------------
 
@@ -102,8 +103,19 @@ export const DEFAULT_LOG_RANGE = 'day'
 
 // ---- what a job is called ----------------------------------------------------
 
+// TWO KINDS HAVE A LIBRARY-WIDE HALF WITH A NAME OF ITS OWN: a fill of every work
+// and a fetch of every record missing something, which only the Common jobs card
+// starts (params `all` and `missing`, GET /jobs/common). Each is its kind's job
+// and is titled as the card's row is, so the row a reader pressed and the job it
+// put in the queue read the same wherever the job is shown.
+const LIBRARY_WIDE = [
+  ['fill', 'all', 'settings.jobs.common.fill-all.label'],
+  ['people', 'missing', 'settings.jobs.common.people-missing.label'],
+]
+
 export function jobTitle(job) {
-  return t(`settings.jobs.kind.${kindSlug(job?.kind)}`)
+  const wide = LIBRARY_WIDE.find(([kind, flag]) => job?.kind === kind && job?.params?.[flag] === true)
+  return t(wide ? wide[2] : `settings.jobs.kind.${kindSlug(job?.kind)}`)
 }
 
 // The title with what the job was about — "Book lookup · Dune" — for a name that
@@ -491,6 +503,28 @@ export async function readJobsSummary() {
   return { ok: true, running: d.running || null, waiting: num(d.waiting) }
 }
 
+// readCommonJobs — the Common jobs card's rows, in the server's order: the jobs
+// this reader may run from there, each with the params its Run sends, the last
+// time it ended (`last`) and the one running or waiting now (`current`), both
+// jobs in the usual shape or null. `id` is the row's own name — fill-all,
+// people-missing, covers, backup — and the card keys its words on it. Bounded
+// like the two polls above, because it is the third.
+export async function readCommonJobs() {
+  const r = await json('GET', '/jobs/common', undefined, { timeoutMs: POLL_TIMEOUT_MS })
+  if (!r.ok) return refusal(r)
+  const rows = list(r.data?.jobs)
+    .filter((row) => row && typeof row.id === 'string' && row.id)
+    .map((row) => ({
+      id: row.id,
+      kind: String(row.kind || ''),
+      params: row.params && typeof row.params === 'object' ? row.params : {},
+      adminOnly: !!row.admin_only,
+      last: row.last || null,
+      current: row.current || null,
+    }))
+  return { ok: true, rows }
+}
+
 export async function readJobResult(id) {
   const r = await json('GET', `/jobs/${id}/result`)
   if (!r.ok) return refusal(r)
@@ -516,6 +550,73 @@ export async function stopAllJobs(ids = []) {
   announceStop(ids)
   announceJobs()
   return { ok: true, stopping: num(r.data?.stopping), stoppedWaiting: num(r.data?.stopped_waiting) }
+}
+
+// ---- a Stop pressed, wherever it was pressed ---------------------------------
+//
+// ONE JOB, TWO ROWS, ONE ANSWER. While one of the four common jobs runs or waits,
+// Settings › Jobs draws it twice, each time with a Stop: its row on Current jobs
+// and its row on Common jobs. A Stop pressed on either is a Stop pressed on the
+// job, so both rows say so from the press on. Kept per card, a job read
+// "Stopping…" on one card while the card above it still offered Stop, and that
+// second Stop looked like a press the first one had not made. So which jobs a
+// Stop was pressed on is kept here, once, and `pressStop` is the verb every
+// single Stop calls (CLAUDE.md: two things that look the same behave the same).
+//
+// A MARK IS THE TAB'S MEMORY OF A PRESS, AND IT GOES WITH THE LAST CARD THAT CAN
+// SHOW IT. The server says when a job has stopped, never that it is stopping, so
+// the mark is good while the screen that took the press is up; when the last card
+// drawing a Stop unmounts, the marks go, and a screen opened later reads the jobs
+// afresh. That also keeps a press from outliving the database it was made on (a
+// restore or a reset starts job ids again).
+let stoppingIDs = new Set()
+const stoppingWatchers = new Set()
+function markStopping(ids, on) {
+  const next = new Set(stoppingIDs)
+  for (const id of ids) {
+    if (on) next.add(id)
+    else next.delete(id)
+  }
+  stoppingIDs = next
+  for (const fn of [...stoppingWatchers]) fn()
+}
+function watchStopping(fn) {
+  stoppingWatchers.add(fn)
+  return () => {
+    stoppingWatchers.delete(fn)
+    if (stoppingWatchers.size === 0) stoppingIDs = new Set()
+  }
+}
+// AND SIGNING OUT FORGETS THEM, as it forgets every module-scope memory of one
+// reader's (sessionCaches.js). Log out swaps the shell in place, so the cards
+// unmount and the marks go with them anyway; enrolled, they go even if a card
+// that draws a Stop is ever left mounted across the change of reader.
+registerSessionCache(() => markStopping([...stoppingIDs], false))
+
+// useStoppingJobs — the ids of the jobs a Stop was pressed on in this tab, as a
+// Set that is replaced, never changed, when one is added.
+export function useStoppingJobs() {
+  return useSyncExternalStore(watchStopping, () => stoppingIDs)
+}
+
+// pressStop — Stop one job. It is marked at the press, before the server has
+// answered, and unmarked if the server refuses it, so the Stop comes back with
+// the refusal's reason beside it. The close watch starts at the answer (stopJob).
+export async function pressStop(id) {
+  markStopping([id], true)
+  const r = await stopJob(id)
+  if (!r.ok) markStopping([id], false)
+  return r
+}
+
+// pressStopAll — Stop all, as pressStop is a single Stop: `ids`, the jobs the
+// screen showed with a Stop at the press, are marked at once and watched closely
+// from the answer (stopAllJobs), and unmarked if the server refuses.
+export async function pressStopAll(ids) {
+  markStopping(ids, true)
+  const r = await stopAllJobs(ids)
+  if (!r.ok) markStopping(ids, false)
+  return r
 }
 
 // rerunJob — the same job again, as a new one. A backup needs its credential
@@ -755,6 +856,74 @@ export function useCurrentJobs({ enabled = true } = {}) {
     }
   }, [enabled])
   useJobsAnnounced((reason) => { if (reason === 'acted') kick.current() })
+  return { ...state, reload: () => kick.current() }
+}
+
+// useCommonJobs — the Common jobs card's rows, for as long as the card is up, at
+// useCurrentJobs' cadence: every two seconds while one of its jobs runs or waits,
+// every ten while none does, nothing while the tab is hidden. It reads again at
+// once on every announcement, a job that SETTLED included — that is the moment a
+// row's last run changes, and the current poll is the one that saw it.
+//
+// AND CLOSELY AFTER A STOP, wherever it was pressed ("a Stop" above): the card is
+// one of the watchers every Stop tells, so a Stop pressed on a row here, on the
+// same job's row on Current jobs, or by Stop all has the card read every
+// STOP_POLL_MS until that job is no row's current one — it has ended, and the row
+// shows how — for STOP_WATCH_MS at most, and then the ordinary cadence again. One
+// watch for every card that draws the job, so the two rows of one job stop
+// together rather than each at its own card's pace.
+export function useCommonJobs() {
+  const [state, setState] = useState({ rows: [], loaded: false, error: '' })
+  const kick = useRef(() => {})
+  useEffect(() => {
+    let alive = true
+    let timer = null
+    let busy = false
+    let again = false
+    // The jobs a Stop was just pressed on, watched closely: {ids, until}, or null.
+    let hurry = null
+    async function read() {
+      clearTimeout(timer)
+      timer = null
+      if (!alive) return
+      if (busy) { again = true; return }
+      if (hidden()) return
+      busy = true
+      const r = await readCommonJobs()
+      busy = false
+      if (!alive) return
+      let live = false
+      if (r.ok) {
+        live = r.rows.some((row) => isLive(row.current))
+        setState({ rows: r.rows, loaded: true, error: '' })
+      } else {
+        setState((s) => ({ ...s, loaded: true, error: r.error }))
+      }
+      if (again) { again = false; return read() }
+      if (hurry && (Date.now() >= hurry.until || (r.ok && !r.rows.some((row) => hurry.ids.has(row.current?.id))))) hurry = null
+      timer = setTimeout(read, hurry ? STOP_POLL_MS : live ? 2000 : 10000)
+    }
+    kick.current = read
+    const onVisible = () => { if (!hidden()) read() }
+    document.addEventListener('visibilitychange', onVisible)
+    // As useCurrentJobs' watch: the press reads the rows itself (announceJobs), so
+    // the watch only brings the next read forward, to now at the latest.
+    const unwatch = watchStops((ids) => {
+      if (!ids.size) return
+      hurry = { ids: new Set([...(hurry?.ids || []), ...ids]), until: Date.now() + STOP_WATCH_MS }
+      clearTimeout(timer)
+      timer = setTimeout(read, 0)
+    })
+    read()
+    return () => {
+      alive = false
+      clearTimeout(timer)
+      kick.current = () => {}
+      unwatch()
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [])
+  useJobsAnnounced(() => kick.current())
   return { ...state, reload: () => kick.current() }
 }
 

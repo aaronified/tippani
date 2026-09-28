@@ -1774,6 +1774,12 @@ type personRecord struct {
 	// console's type dropdown filters on it and a translator whose one film is
 	// their seventh work is still in films.
 	Media []string `json:"media,omitempty"`
+	// WHAT A FETCH COULD STILL BRING IT, as personLacks rules: no link to any
+	// provider's page, and no stored portrait. The console's two pills of those
+	// names and its Fetch missing read these, so what the console says is missing
+	// is what "Fetch missing people" fetches.
+	NoLinks bool `json:"no_links"`
+	NoPhoto bool `json:"no_photo"`
 }
 
 // maxRowWorkPills is how many work names a list row carries. Six is what fits a
@@ -1829,6 +1835,7 @@ func (s *Server) handlePeopleRecords(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		v.WorksIn = []characterWorkRef{}
+		v.NoLinks, v.NoPhoto = personLacks(v.Links, v.ImagePath)
 		out = append(out, v)
 	}
 	if err := rows.Err(); err != nil {

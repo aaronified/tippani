@@ -39,8 +39,12 @@ vi.mock('../../src/api.js', async (orig) => ({
     if (method === 'GET' && path === '/characters') {
       return { ok: true, data: { characters: [{ id: 1, name: 'Woland', works: 2, sort_name: '' }, { id: 2, name: 'Ged', works: 0, sort_name: '' }] } }
     }
+    // Three records with nothing fetched yet, so the server says each lacks a
+    // link and a photo — no_links and no_photo are its word for that, not this
+    // page's to work out.
     if (method === 'GET' && path === '/people/records') {
-      return { ok: true, data: { people: [{ id: 1, name: 'Le Guin' }, { id: 2, name: 'Bulgakov' }, { id: 3, name: 'Ray' }] } }
+      const bare = { no_links: true, no_photo: true }
+      return { ok: true, data: { people: [{ id: 1, name: 'Le Guin', ...bare }, { id: 2, name: 'Bulgakov', ...bare }, { id: 3, name: 'Ray', ...bare }] } }
     }
     if (method === 'GET' && (path === '/metadata/status' || path === '/admin/metadata-keys')) {
       return { ok: true, data: { tmdb: { source: 'builtin' }, books_lookup: { ok: true } } }

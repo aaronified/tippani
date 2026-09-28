@@ -13,10 +13,12 @@
 // jobs.js, which is the one module the wire contract lives in; this file draws
 // what that module hands it.
 //
-// THREE CARDS, AND WHAT EACH IS FOR, in the order a reader reaches for them:
+// FOUR CARDS, AND WHAT EACH IS FOR, in the order a reader reaches for them:
 //   - CURRENT JOBS: is anything running, what is waiting, and a way to stop it.
 //     The running job's log is OPEN when the card is, because "what is it doing
 //     right now" is the question somebody opens this card to ask.
+//   - COMMON JOBS (commonJobs.jsx, drawn with this file's card and log): the
+//     jobs a reader runs again and again, each in a place of its own.
 //   - PAST JOBS: what finished, how it ended, its log to read or export, and a
 //     press to run it again.
 //   - SYSTEM LOGS (an admin's only): the app's own log, narrowed by level, time
@@ -43,14 +45,15 @@ import {
   listJobs,
   LOG_LEVELS,
   LOG_RANGES,
+  pressStop,
+  pressStopAll,
   readSystemLogs,
   rerunJob,
-  stopAllJobs,
-  stopJob,
   systemLogsURL,
   useCurrentJobs,
   useJob,
   useJobsAnnounced,
+  useStoppingJobs,
 } from './jobs.js'
 import { CardHead } from './prefRow.jsx'
 import {
@@ -82,7 +85,7 @@ import {
 // paper and head, but its head takes a fact and no controls, and two of these
 // cards carry their verbs in the head — Stop all belongs beside the counts it
 // acts on, not three rows down.
-function JobsCard({ title, aside = null, controls = null, children }) {
+export function JobsCard({ title, aside = null, controls = null, children }) {
   return (
     <section className="hand-card pref-group jobs-card" aria-label={ariaLabelText(title)}>
       <CardHead title={title} aside={aside}>{controls}</CardHead>
@@ -203,16 +206,10 @@ export function JobsCurrentCard({ user, compact = false }) {
   // press, before the server has answered: the server stops a job at once, and a
   // row that went on offering its Stop until the answer came would read as a press
   // that did nothing. Each row leaves the card when the close watch after the
-  // Stop (jobs.js) reads it stopped.
-  const [stopping, setStopping] = useState(() => new Set())
-  const markStopping = (ids, on) => setStopping((s) => {
-    const next = new Set(s)
-    for (const id of ids) {
-      if (on) next.add(id)
-      else next.delete(id)
-    }
-    return next
-  })
+  // Stop (jobs.js) reads it stopped. The mark is jobs.js's (pressStop), not this
+  // card's: a common job is drawn on the Common jobs card too, and a Stop pressed
+  // on either row is pressed on both.
+  const stopping = useStoppingJobs()
   const any = running + waiting > 0
 
   async function stopAll() {
@@ -233,12 +230,8 @@ export function JobsCurrentCard({ user, compact = false }) {
     if (!yes) return
     // Every row the press reaches says so at once, as its own Stop would.
     const pressed = jobs.filter((j) => canStop(j, user)).map((j) => j.id)
-    markStopping(pressed, true)
-    const r = await stopAllJobs(pressed)
-    if (!r.ok) {
-      markStopping(pressed, false)
-      return toast(r.error)
-    }
+    const r = await pressStopAll(pressed)
+    if (!r.ok) return toast(r.error)
     // ONE COUNT, FIVE WORDS OR FEWER (the house's toast rule), and nothing at all
     // when the press reached nothing — the jobs ended between the confirm and the
     // press, and "0 jobs stopped" is news about nothing.
@@ -251,12 +244,8 @@ export function JobsCurrentCard({ user, compact = false }) {
   // ended as. A toast at the server's answer could only guess: a Stop that lands
   // once the last item is written leaves the job succeeded, not stopped.
   async function stopOne(job) {
-    markStopping([job.id], true)
-    const r = await stopJob(job.id)
-    if (!r.ok) {
-      markStopping([job.id], false)
-      return toast(r.error)
-    }
+    const r = await pressStop(job.id)
+    if (!r.ok) toast(r.error)
   }
 
   // RED, WITH ITS WORDS, AND ABSENT RATHER THAN DISABLED when there is nothing to
@@ -386,7 +375,8 @@ function WaitingJob({ job, user, stopping, onStop }) {
             is the one press the card exists for and keeps its label; a waiting
             row is one line of several, and the glyph it wears was taught by the
             Stop all in the head. The name still says it, to a hover and a hold.
-            Pressed, it says "Stopping…" in words, as the running row does. */}
+            Pressed, here or on its Common jobs row, it says "Stopping…" in words,
+            as the running row does. */}
         {canStop(job, user) && stopping && <span className="microcopy">{t('settings.jobs.current.stopping')}</span>}
         {canStop(job, user) && !stopping && (
           <IconButton
@@ -580,7 +570,7 @@ function PastJob({ job, user, open, busy, onToggle, onRerun, onReview }) {
   )
 }
 
-function PastLog({ job, title }) {
+export function PastLog({ job, title }) {
   // A past row's job has finished: read its log until it is all here, then stop.
   const live = useJob(job.id, { final: true })
   return <JobLog lines={live.lines} trimmed={live.trimmed} loaded={live.loaded} label={t('settings.jobs.log.aria', { title })} />

@@ -11917,3 +11917,12 @@ button.work-pill:hover { color: var(--ink); border-color: var(--ink-border); }
 .logs-filters { display: grid; gap: 8px; margin-bottom: 10px; min-width: 0; }
 .logs-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
 .logs-export { margin-top: 10px; }
+/* COMMON JOBS (commonJobs.jsx) IS THE SAME ROW, with the job's name and one line
+   of what it does in its head, its presses at the end of that line, and under them
+   one line more: how it went last time — the release log's door again, opening that
+   run's log — or where its job stands now. The door sits flush under the head, so
+   the row reads as one thing rather than two rows sharing a rule. */
+.common-job-what { flex-basis: 100%; }
+.common-job .job-line { padding-bottom: 4px; }
+.common-job-last { padding-top: 0; }
+.common-job-now { margin: 0; padding: 0 2px 10px; }

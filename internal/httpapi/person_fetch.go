@@ -191,9 +191,18 @@ func (s *Server) saveFetchedPerson(uid, id int64, kind string, f portraitFind, l
 func runPeople(s *Server, ctx context.Context, j *jobs.Job) error {
 	var p struct {
 		IDs []int64 `json:"ids"`
+		// Missing is "Fetch missing people": every record of the owner's that
+		// lacks links or a portrait, read as the job starts (validateEvery).
+		Missing bool `json:"missing"`
 	}
 	if err := j.Params(&p); err != nil {
 		return err
+	}
+	if p.Missing {
+		var err error
+		if p.IDs, err = s.everyMissingPerson(j); err != nil {
+			return err
+		}
 	}
 	uid := j.Owner().UserID
 	ok, failed, firstErr := 0, 0, ""

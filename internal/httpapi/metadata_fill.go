@@ -190,6 +190,9 @@ func runFill(s *Server, ctx context.Context, j *jobs.Job) error {
 	var p struct {
 		BookIDs  []int64 `json:"book_ids"`
 		MovieIDs []int64 `json:"movie_ids"`
+		// All is "Fill gaps in every work": every work of the owner's, read as
+		// the job starts rather than when it was pressed (validateEvery).
+		All bool `json:"all"`
 	}
 	if err := j.Params(&p); err != nil {
 		return err
@@ -198,6 +201,11 @@ func runFill(s *Server, ctx context.Context, j *jobs.Job) error {
 	keys, err := s.providerKeys()
 	if err != nil {
 		j.Log(jobs.LevelWarn, "a saved supplier key could not be read, so the lookups ask without it: %v", err)
+	}
+	if p.All {
+		if p.BookIDs, p.MovieIDs, err = s.everyWork(j, uid); err != nil {
+			return err
+		}
 	}
 	works := queuedWorks(p.BookIDs, p.MovieIDs)
 	n := len(works)

@@ -908,15 +908,40 @@ const DEMO_LOGS = [
 // of "started": the Jobs screen then shows a real row with a real log line.
 const demoMade = []
 const demoJobByID = (id) => DEMO_JOBS.find((j) => j.id === id) || demoMade.find((j) => j.id === id) || null
+// A started job keeps the params that say WHICH job it is — the flags, such as a
+// fill's `all` — and nothing else: never a list (the server's job JSON carries
+// none) and never a credential, since a backup's password is the reader's and the
+// server keeps none.
+const demoFlags = (params) => Object.fromEntries(
+  Object.entries(params && typeof params === 'object' ? params : {}).filter(([, v]) => typeof v === 'boolean'),
+)
 function demoStartJob(body) {
   const job = demoJob({
-    id: 100 + demoMade.length, kind: String(body?.kind || 'request'), state: 'failed',
+    id: 100 + demoMade.length, kind: String(body?.kind || 'request'), state: 'failed', params: demoFlags(body?.params),
     error: RO.error, created_at: Date.now(), started_at: Date.now(), finished_at: Date.now(),
   })
   demoMade.unshift(job)
   DEMO_JOB_LINES[job.id] = [{ id: job.id * 10, at: job.created_at, level: 'warn', line: RO.error }]
   return job
 }
+
+// Settings › Jobs' Common jobs card (GET /jobs/common), as the server answers the
+// demo reader, who is an admin: the four rows in the server's order, each with the
+// params its Run sends, and the last of its jobs to end — the fixture's, or one a
+// Run in this tab made, newest first. Nothing is ever current: nothing runs here.
+// A row's jobs are its kind's, narrowed as the server narrows them: a fill of a
+// selection is not "Fill gaps in every work".
+const DEMO_COMMON = [
+  { id: 'fill-all', kind: 'fill', params: { all: true }, admin_only: false, mine: (j) => j.params?.all === true },
+  { id: 'people-missing', kind: 'people', params: { missing: true }, admin_only: false, mine: (j) => j.params?.missing === true },
+  { id: 'covers', kind: 'covers', params: { missing_only: false }, admin_only: true, mine: () => true },
+  { id: 'backup', kind: 'backup', params: {}, admin_only: true, mine: () => true },
+]
+const demoCommonJobs = () => DEMO_COMMON.map(({ mine, ...row }) => ({
+  ...row,
+  last: [...demoMade, ...DEMO_JOBS].find((j) => j.kind === row.kind && mine(j)) || null,
+  current: null,
+}))
 
 // Exported for tests. It is a pure (method, path, params, body) function with
 // no fetch and no DOM, so the shim's shapes can be asserted directly — and the
@@ -1090,6 +1115,7 @@ export function route(method, path, params, body) {
       return [200, { jobs, running: 0, waiting: 0, more: false }]
     }
     case path === '/jobs/summary': return [200, { running: null, waiting: 0 }]
+    case path === '/jobs/common': return [200, { jobs: demoCommonJobs() }]
     case /^\/jobs\/\d+$/.test(path): {
       const job = demoJobByID(id('/jobs/'))
       if (!job) return [404, { error: 'job not found' }]

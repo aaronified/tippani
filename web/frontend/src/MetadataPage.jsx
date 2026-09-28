@@ -778,9 +778,10 @@ function libraryIssues({ stats, people, chars }) {
   }
   if (people) {
     // The same test the people console runs on its own rows: no provider link, or
-    // no stored portrait. Counted here so the number is visible before the section
-    // is entered, which is the whole reason this list exists.
-    const thin = people.filter((p) => Object.keys(parseLinks(p.links).known).length === 0 || !p.image_path)
+    // no stored portrait — the server's, read off each row (see PERSON_ISSUES).
+    // Counted here so the number is visible before the section is entered, which
+    // is the whole reason this list exists.
+    const thin = people.filter((p) => p.no_links || p.no_photo)
     add('p-thin', t('metadata.issue.people-thin.label'), thin.length, { section: 'people' })
     const names = [...new Set(people.map((p) => p.name))]
     add('p-dup', t('metadata.issue.people-dup.label'), nearDupGroups(names).length, { section: 'people' })
@@ -815,9 +816,16 @@ function libraryIssues({ stats, people, chars }) {
 // A PERSON'S FOUR. `no_works` and `no_quotes` are the two halves of "nothing in
 // the library points at this record", which is exactly what Prune sweeps — so a
 // reader can see the prune's candidates before pressing it.
+//
+// THE FIRST TWO ARE THE SERVER'S, read off the row (GET /people/records: no_links,
+// no_photo) rather than worked out here. They are also what "Fetch missing
+// people" fetches — a job that picks its records on the server when it runs
+// (Settings › Jobs › Common jobs) — and a rule the console and the job each
+// stated for themselves would be two rules the first day one of them changed:
+// the console would promise one set and the job fetch another.
 const PERSON_ISSUES = [
-  ['no_links', 'metadata.issue.no-links.label', (p) => Object.keys(parseLinks(p.links).known).length === 0],
-  ['no_photo', 'metadata.issue.no-photo.label', (p) => !p.image_path],
+  ['no_links', 'metadata.issue.no-links.label', (p) => !!p.no_links],
+  ['no_photo', 'metadata.issue.no-photo.label', (p) => !!p.no_photo],
   ['no_works', 'metadata.issue.no-works.label', (p) => !(p.works > 0)],
   ['no_quotes', 'metadata.issue.no-quotes.label', (p) => !(p.quotes > 0)],
 ]
