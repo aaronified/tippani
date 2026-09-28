@@ -28,6 +28,22 @@
 // deliberately NOT among the five this fixture's copy of that book already holds,
 // so "the quote arrived" is a fact about the import rather than about what was
 // already there.
+//
+// AND A WORK'S ROW IS ONE LINE: the work, an arrow, where it will land. The arrow
+// is a drawing with no text in it, so what the screen says across it is the two
+// halves with the space either side, on one line, which is what a reader reads
+// and what a copy of the row holds. Until the arrow was put back in the sentence
+// the screen said the work, then a line break, then the rest (the rows drew it as
+// a block, on a line of its own). THE MUTATION, run: take the `.import-arrow >
+// svg` rule out of index.css and this goes red at the work's row.
+//
+// AND THE FILE'S OWN ROW SAYS WHAT IT STAGED. The summary over the rows said "2
+// quotes staged" while the file's row went on saying "…", because the server's
+// answer carries its own `pending` (how many staged quotes wait in Pending
+// import) and it overwrote the row's "still waiting for its answer"; the line
+// above asserting "2 quotes staged" was finding the summary. THE MUTATION, run:
+// the answer spread over the row last again, as it was, and this goes red at the
+// file's row, which says "…".
 
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -60,6 +76,14 @@ it('a reader imports a file, and nothing lands in the library until they approve
   // The app's own count, and its own promise about where the rows are.
   await app.see('2 quotes staged')
   await app.see('nothing has entered your library yet')
+
+  // THE FILE'S OWN ROW SAYS IT TOO, not only the summary over it, and the same
+  // way: the file, its arrow, what became of it.
+  await app.see('seneca-two-more.md  2 quotes staged')
+
+  // ONE LINE A ROW: the work, its arrow and where it will land, with a space
+  // either side of the arrow, which the screen reads as two.
+  await app.see('On the Shortness of Life (2)  joins your existing')
 
   // THE INVARIANT, CHECKED WHERE A READER WOULD NOTICE IT BROKEN. The file has
   // been read and understood — the queue knows it is two quotes for a book this

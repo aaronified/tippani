@@ -190,10 +190,12 @@ function stopName(job) {
 //
 // `compact` IS THE PHONE'S SETTINGS INDEX, and it is this card rather than a
 // second one because the repo's rule is that two things that look the same
-// behave the same: the count and the Stop all a reader meets on the index are the
-// ones inside the section, with the same confirm and the same request behind them.
-// The owner asked for exactly two things there — one red Stop all with a
-// confirmation, and a count of what is queued — so that is all it draws.
+// behave the same: the counts and the Stop all a reader meets on the index are
+// the ones inside the section, with the same confirm and the same request behind
+// them. The owner asked for exactly two things there — one red Stop all with a
+// confirmation, and a count of what is queued — and ruled on 28 September (F11)
+// that the tile counts what is running as well as what waits, so it draws the
+// card head's two counts and its Stop all, and nothing else.
 export function JobsCurrentCard({ user, compact = false }) {
   const { jobs, running, waiting, loaded, error } = useCurrentJobs()
   const { ask, confirmDialog } = useConfirm()
@@ -256,7 +258,17 @@ export function JobsCurrentCard({ user, compact = false }) {
       {t('settings.jobs.current.stop-all.label')}
     </GhostButton>
   )
-  const waitingTally = <Tally n={waiting} icon={<IconJobs />} word={t('settings.jobs.current.waiting.word')} showWord />
+  // THE WORD AND THE GLYPH, because a card head is the roomy site where a reader
+  // learns what the drawing means — every tighter count of jobs spends what this
+  // one teaches. ONE ELEMENT FOR BOTH SITES, the card head and the phone's tile
+  // (F11), so the two cannot come to count differently. Neither is ever red: they
+  // count the reader's own jobs, which are not a problem.
+  const tallies = (
+    <span className="jobs-tallies">
+      <Tally n={running} icon={<IconJobs />} word={t('settings.jobs.current.running.word')} showWord />
+      <Tally n={waiting} icon={<IconJobs />} word={t('settings.jobs.current.waiting.word')} showWord />
+    </span>
+  )
   const chevron = <IconChevron open={open} size={20} />
 
   if (compact) {
@@ -264,7 +276,7 @@ export function JobsCurrentCard({ user, compact = false }) {
       <>
         {confirmDialog}
         <div className="section-index-verbs jobs-tile">
-          {waitingTally}
+          {tallies}
           {stopAllButton}
         </div>
       </>
@@ -274,15 +286,7 @@ export function JobsCurrentCard({ user, compact = false }) {
   return (
     <JobsCard
       title={t('settings.jobs.current.title')}
-      // THE WORD AND THE GLYPH, because a card head is the roomy site where a
-      // reader learns what the drawing means — every tighter count of jobs spends
-      // what this one teaches.
-      aside={(
-        <span className="jobs-tallies">
-          <Tally n={running} icon={<IconJobs />} word={t('settings.jobs.current.running.word')} showWord />
-          {waitingTally}
-        </span>
-      )}
+      aside={tallies}
       controls={(
         <>
           {stopAllButton}

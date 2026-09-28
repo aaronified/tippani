@@ -49,9 +49,21 @@ func (e *ErrDuplicate) Error() string {
 // would otherwise finish in milliseconds and there would be no waiting job to
 // see. It is honoured ONLY while outbound.Off() — a server that can reach the
 // internet ignores it, so the switch cannot quietly stall a real deployment.
+//
+// TIPPANI_JOBS_HOLD=running is the same switch's other position, for a journey
+// that has to see a job RUNNING: the worker claims as it always does, and the
+// job it claims is held at its start, before its first step, until a Stop or
+// shutdown ends it, while the jobs behind it wait. Offline a job runs in
+// milliseconds, so without it nothing on a screen ever counts one running.
+// Honoured on the same terms, offline only.
 const HoldEnv = "TIPPANI_JOBS_HOLD"
 
+// HoldRunning is HoldEnv's value that holds each claimed job at its start.
+const HoldRunning = "running"
+
 func holding() bool { return os.Getenv(HoldEnv) == "1" && outbound.Off() }
+
+func holdingAtStart() bool { return os.Getenv(HoldEnv) == HoldRunning && outbound.Off() }
 
 // MaxResult is the most a job's result may hold (SetResult refuses more). The
 // result is read back whole by the job's own screen (a re-verify's preview) and
@@ -621,6 +633,13 @@ func (r *Runner) execute(j *Job) (err error) {
 	}
 	if k.AdminOnly && !admin {
 		return errNoLongerAdmn
+	}
+	// HoldEnv=running: held before its first step, so it has done nothing when
+	// the Stop that ends it lands, and ends stopped (or interrupted, at shutdown)
+	// as any run cut short on its context does.
+	if holdingAtStart() {
+		<-j.ctx.Done()
+		return j.ctx.Err()
 	}
 	defer func() {
 		if p := recover(); p != nil {

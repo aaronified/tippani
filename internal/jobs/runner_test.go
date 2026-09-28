@@ -1443,6 +1443,51 @@ func TestTheHoldSeamHoldsOnlyAnOfflineServer(t *testing.T) {
 	}
 }
 
+// TIPPANI_JOBS_HOLD=running (HoldEnv, HoldRunning), declared: the seam's other
+// position, which a journey uses to see a job running. Offline, the job the
+// worker claims is held running before its first step until a Stop ends it,
+// stopped, and the one behind it waits and is then held in its turn; online the
+// same switch holds nothing.
+func TestTheRunningHoldSeamHoldsTheClaimedJobAtItsStartOnlyOffline(t *testing.T) {
+	g := newRig(t, jobs.Options{})
+	var ran atomic.Int32
+	g.r.Register(jobs.Kind{Name: "counted", Rerunnable: true, Run: func(context.Context, *jobs.Job) error {
+		ran.Add(1)
+		return nil
+	}})
+	t.Setenv(jobs.HoldEnv, jobs.HoldRunning)
+	t.Setenv(outbound.EnvVar, "1")
+	first := g.enqueue(g.mitra(), "counted", map[string]any{"n": 1})
+	second := g.enqueue(g.mitra(), "counted", map[string]any{"n": 2})
+	g.waitState(first, "running")
+	time.Sleep(300 * time.Millisecond)
+	if s1, s2, n := g.state(first), g.state(second), ran.Load(); s1 != "running" || s2 != "queued" || n != 0 {
+		t.Fatalf("held: the first reads %s, the second %s, and %d steps ran; want running, queued, 0", s1, s2, n)
+	}
+
+	if err := g.r.Stop(first, g.mitra()); err != nil {
+		t.Fatal(err)
+	}
+	g.waitState(first, "stopped")
+	g.waitState(second, "running")
+	if n := ran.Load(); n != 0 {
+		t.Fatalf("the second job, held in its turn, ran %d steps", n)
+	}
+	stopping, waiting, err := g.r.StopAll(g.mitra())
+	if err != nil || stopping != 1 || waiting != 0 {
+		t.Fatalf("Stop all on the held running job: %d stopping, %d waiting, %v", stopping, waiting, err)
+	}
+	g.waitState(second, "stopped")
+
+	// Online, the switch in the same position holds nothing: the job runs.
+	t.Setenv(outbound.EnvVar, "")
+	online := g.enqueue(g.mitra(), "counted", map[string]any{"n": 3})
+	g.waitState(online, "succeeded")
+	if n := ran.Load(); n != 1 {
+		t.Fatalf("online, %d steps ran; want the one job's", n)
+	}
+}
+
 func TestAJobSeesWhatItWasGivenAndReportsBack(t *testing.T) {
 	g := newRig(t, jobs.Options{})
 	type seen struct {

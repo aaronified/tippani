@@ -586,10 +586,12 @@ describe('the phone’s Jobs tile', () => {
   // THE INDEX, NOT A SECTION: nothing is pressed, so what is on the screen is the
   // list of sections with each one's shortcuts under it — and the Jobs row's are
   // the only ones that count jobs or stop them.
-  it('counts what is queued and offers one red Stop all, which asks first', async () => {
+  // THE RUNNING JOB IS COUNTED TOO: the owner's ruling of 28 September (F11).
+  it('counts what runs and what is queued and offers one red Stop all, which asks first', async () => {
     asPhone()
     index()
     await screen.findByRole('navigation', { name: /which settings to change/i })
+    await screen.findByText(phrase('1 running'))
     await screen.findByText(phrase('2 waiting'))
     const stopAll = screen.getByRole('button', { name: 'Stop all' })
     expect(inkOf(stopAll)).toBe(RED)
@@ -602,6 +604,7 @@ describe('the phone’s Jobs tile', () => {
     CURRENT = []
     asPhone()
     index()
+    await screen.findByText(phrase('0 running'))
     await screen.findByText(phrase('0 waiting'))
     expect(screen.queryByRole('button', { name: 'Stop all' })).toBeNull()
   })

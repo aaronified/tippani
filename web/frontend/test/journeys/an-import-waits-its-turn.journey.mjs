@@ -32,6 +32,9 @@
 //     Stop, with sweepSpool keeping only waiting, running and interrupted
 //     imports' uploads, so a Stop on a waiting import takes its file: red at
 //     "Run again", which a stopped import is not offered once its file is gone.
+//   - the `.import-arrow > svg` rule taken out of index.css, so the row's arrow
+//     is a block again, on a line of its own: red at the file's name followed by
+//     "Waiting — next", which the screen then says across a line break.
 //
 // It otherwise knows the words on the screen, and the committed fixture file
 // importing-a-file.journey.mjs describes.
@@ -56,8 +59,9 @@ it('a file I import waits its turn in Settings → Jobs, and stopped, it runs ag
   await app.press('Files')
   await app.upload('Choose file', FILE)
 
-  // THE ROW SAYS WHERE IT STANDS, and it has staged nothing yet.
-  await app.see('Waiting — next')
+  // THE ROW SAYS WHERE IT STANDS, and it has staged nothing yet. On one line: the
+  // file, its arrow and where it stands, a space either side of the arrow.
+  await app.see(`${NAME}  Waiting — next`)
   await app.gone('2 quotes staged')
 
   // AND THE READER LEAVES. A fresh page, asking the server.

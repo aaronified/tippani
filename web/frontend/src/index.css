@@ -4344,6 +4344,17 @@
   .import-note > summary::before { content: "▸"; color: var(--faint); }
   .import-note[open] > summary::before { content: "▾"; }
 
+  /* A FILE'S ROW IS ONE LINE: its name, an arrow, what became of it — and the same
+     for each work under it. The arrow sat on a line of its own between the two,
+     because Tailwind's preflight draws every <svg> as `display: block`, and a
+     block in a run of text is a line break either side of it: the screen read
+     "seneca-two-more.md", then "→", then "Waiting — next", and so did `innerText`,
+     which is what a copy and a screen reader get. Inline-block puts it back in the
+     sentence. `vertical-align: middle` centres it on the x-height, where an arrow
+     between two words is drawn; a glyph left on the baseline in running text hangs
+     its whole body above the words (CLAUDE.md, "a glyph sits on the line"). */
+  .import-arrow > svg { display: inline-block; vertical-align: middle; }
+
   /* ---- look-up candidate rows (the Add surface's results list) ----
      Source is a 16px mark, not a "GOOGLE BOOKS" pill, and Add is a borderless
      "+": together the pill and the bordered word button ate ~145px of a ~256px
@@ -11917,6 +11928,14 @@ button.work-pill:hover { color: var(--ink); border-color: var(--ink-border); }
 .logs-filters { display: grid; gap: 8px; margin-bottom: 10px; min-width: 0; }
 .logs-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
 .logs-export { margin-top: 10px; }
+/* THE LABEL WRAPS INSIDE ITS BUTTON, rather than the button running past the card.
+   `.tp-btn` never wraps, and "Everything kept (30 days)" at 175% type is wider than
+   a phone's card: on a 390 screen, over the owner's archive, it ended 43px past the
+   card's inset and 7px past the screen, and the whole page slid sideways under it. A flex item keeps its
+   min-content width, so the label breaks between words and never inside one; the
+   typescale rule's answer to text that does not fit is a taller box, not a
+   frozen size or a clip. */
+.logs-export > .tp-btn { white-space: normal; text-align: center; }
 /* COMMON JOBS (commonJobs.jsx) IS THE SAME ROW, with the job's name and one line
    of what it does in its head, its presses at the end of that line, and under them
    one line more: how it went last time — the release log's door again, opening that
