@@ -578,9 +578,9 @@ alone at its 60-minute timeout while every other package passed. So the five loc
 the pool full, run raced on **every push to `main` and every pull request**, which is the
 coverage those files were written for. The job takes about two minutes on a runner with its
 eight tests (2m01s at 3.0.1). The full sweep runs **nightly at 03:00 UTC**, or by hand: one job per package
-(`race-nightly`), and `internal/httpapi` split six ways by test name
+(`race-nightly`), and `internal/httpapi` split ten ways by test name
 (`race-nightly-httpapi`). **Sharding by package does not buy that package any time**:
-`-timeout` has always applied to each package's test binary on its own. The six-way split
+`-timeout` has always applied to each package's test binary on its own. The ten-way split
 is what does, because each shard is its own binary run with its own hour. If you add a test
 that races, name it in the `race` job's filter or it will not be raced until the following
 morning.
@@ -770,7 +770,7 @@ schedule, and by hand (`workflow_dispatch`: `gh workflow run ci.yml`). Its jobs:
 | `go` | `go vet`, the full Go suite — which includes the check that `web/dist` is not stale — and a smoke test that boots the server and health-checks it. |
 | `race` | The five locking tests, and three #40 tests that hold the connection pool full, under `-race`, on every push to `main`, every pull request and every run by hand. Asserts each named test actually ran. |
 | `race-nightly` | Every package but `internal/httpapi` under `-race`, on the schedule and on a run by hand, one job per package so a race or a timeout in one does not hide another. |
-| `race-nightly-httpapi` | `internal/httpapi` under `-race`, on the schedule and on a run by hand, split six ways by test name because the package does not fit an hour raced. Each shard lists the tests from the race binary and fails unless every test it was dealt ran. |
+| `race-nightly-httpapi` | `internal/httpapi` under `-race`, on the schedule and on a run by hand, split ten ways by test name because the package does not fit an hour raced. Each shard lists the tests from the race binary and fails unless every test it was dealt ran. |
 | `journeys` | `npm run journeys` in the runner's Google Chrome, with its sandbox on. A failing journey uploads what the reader saw and what the server said. |
 | `frontend` | `npm test`, `npm run lint:rules`, `npm run build`, `git diff --exit-code -- web/dist web/dist-inputs.json`, `npm run glossary:check` and `iso6393-data.mjs --check`. It checks out the whole history, which the citation guard in `lint:rules` reads. |
 | `roadmap` | `roadmap-data.mjs --check`, `doc-map-check.mjs`, `site-links.mjs` on its three fixture sites under `scripts/testdata/site-links/`, and `wiki-check.mjs`. (The glossary check moved into the `frontend` job, which is where a fresh `web/dist` and `node_modules` exist.) |

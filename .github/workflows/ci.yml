@@ -77,7 +77,7 @@ jobs:
   # something a developer machine can answer. The runner answered: the nightly on
   # 2.2.9 (run 36112406641) stopped at "test timed out after 1h0m0s" in
   # internal/httpapi while every other package passed. So that package is split
-  # six ways by test name, in race-nightly-httpapi below.
+  # ten ways by test name, in race-nightly-httpapi below.
   #
   # Raising the number would have bought one release and made every push wait
   # half an hour, and a job that slow is a job people stop reading. So the split
@@ -161,13 +161,16 @@ jobs:
       # minutes and cost nothing by being allowed the same ceiling.
       - run: go test -race -count=1 -timeout 60m ${{ matrix.pkg }}
 
-  # INTERNAL/HTTPAPI, SPLIT SIX WAYS BY TEST NAME. It is the one package that does
+  # INTERNAL/HTTPAPI, SPLIT TEN WAYS BY TEST NAME. It is the one package that does
   # not fit an hour raced: it holds most of the repo's test functions, and almost
   # every one signs a user up (a real bcrypt hash) and builds a fresh database
   # through every migration, under a detector that instruments the whole pure-Go
   # SQLite engine. Its tests are listed from the race binary itself and dealt
-  # round-robin into six shards, so a test added tomorrow lands in a shard with no
-  # list to update. Each shard has its own hour.
+  # round-robin into ten shards, so a test added tomorrow lands in a shard with no
+  # list to update. Each shard has its own hour. It was six until 3.1.1: 3.1.0's
+  # stop proofs brought each of the six to 53-61 minutes, and on run 36457262379
+  # shard 3 ran out of its hour with no failure and no race, 8 s into a test.
+  # Ten is about 33 minutes a shard.
   #
   # THE LIST COMES FROM `go test -list`, NOT FROM A FILE, and every shard checks
   # that every test it was dealt ran: a -run pattern that matches nothing exits 0
@@ -177,8 +180,8 @@ jobs:
   #
   # THE PACKAGE IS NOT A MATRIX AXIS, so that the matrix's size is the number of
   # shards and nothing else. With a second package under a `pkg:` axis, job-total
-  # would double while each package still ran six jobs, each job would take every
-  # twelfth test, and half of both packages would go unraced with every per-name
+  # would double while each package still ran ten jobs, each job would take every
+  # twentieth test, and half of both packages would go unraced with every per-name
   # check green. A second package that needs splitting gets a job of its own.
   race-nightly-httpapi:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
@@ -188,7 +191,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-go@v5
