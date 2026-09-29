@@ -13,9 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The "Read the whole log" button under the release log used to run 61px past the
   screen's edge, and its arrow now sits on the first line of its words when they wrap
   onto a second.
-- **The Bengali tour's first screen now calls the daily quiz দৈনিক অনুশীলনী.** It
-  still said রোজকার মনে রাখার কুইজ, the old name the rest of the Bengali interface had
-  already dropped.
+- **The Bengali interface now calls the quiz অনুশীলনী everywhere, including the tour,
+  Home's help, Settings' "অনুশীলনী আর তার প্রশ্ন" group and the keyboard and selection
+  help.** Those places still said কুইজ (the tour's first screen, রোজকার মনে রাখার
+  কুইজ), while the quiz's own screens and controls already said অনুশীলনী.
 
 ## [3.1.2] - 2026-09-29
 
