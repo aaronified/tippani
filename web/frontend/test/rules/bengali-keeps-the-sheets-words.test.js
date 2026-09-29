@@ -25,8 +25,9 @@ const RETIRED = [
   { was: /আমদানি/u, now: 'ইমপোর্ট' },
   { was: /রপ্তানি/u, now: 'এক্সপোর্ট' },
   { was: /অনুমোদন/u, now: 'মেনে নিন' },
-  // The daily quiz by any old name: রোজকার before কুইজ in the same sentence, with
-  // or without words between them.
+  // The daily quiz as রোজকার … কুইজ: রোজকার before কুইজ in the same sentence, with
+  // or without words between them. A bare কুইজ is not listed, because the sheet
+  // has not settled it (§4.2 keeps it as a loan; the v3.7 row says অনুশীলনী).
   { was: /রোজকার[^।]*কুইজ/u, now: 'দৈনিক অনুশীলনী' },
 ]
 
