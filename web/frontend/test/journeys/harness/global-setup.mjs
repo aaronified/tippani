@@ -30,7 +30,7 @@
 // was kept out of it.
 
 import { spawn } from 'node:child_process'
-import { mkdtemp, readdir, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -56,6 +56,21 @@ function run(cmd, args, opts = {}) {
       ? resolve(out)
       : reject(new Error(`${cmd} ${args.join(' ')} exited ${code}:\n${out}`))))
   })
+}
+
+// refuseDevelopmentReact fails the run when the bundle it was handed is React's
+// development build. The sentence below is one only the development build carries
+// (measured: once in a NODE_ENV=test build, never in a production one), so a regression
+// of the env line above stops the journeys at setup instead of letting them pass on a
+// React nobody ships.
+const DEVELOPMENT_ONLY = 'Each child in a list should have a unique'
+async function refuseDevelopmentReact(dir) {
+  for (const f of await filesUnder(dir)) {
+    if (!f.endsWith('.js')) continue
+    if ((await readFile(f, 'utf8')).includes(DEVELOPMENT_ONLY)) {
+      throw new Error(`journeys: ${relative(dir, f)} is React's development build; the harness must build what ships (NODE_ENV=production)`)
+    }
+  }
 }
 
 async function filesUnder(dir) {
@@ -97,7 +112,13 @@ async function spaOverlay(binDir) {
     // Stale, or no manifest: build the SPA the sources describe.
   }
   const built = join(binDir, 'dist')
-  await run(process.execPath, [join(FRONTEND, 'node_modules', 'vite', 'bin', 'vite.js'), 'build', '--outDir', built, '--emptyOutDir'], { cwd: FRONTEND })
+  // NODE_ENV=production, SAID OUTRIGHT (#48). vitest runs this setup with NODE_ENV=test,
+  // the build inherits it, and vite then bundles React's development build: a branch's
+  // journeys ran a different React from the one that ships, with its warnings and its
+  // timing. `vite build` alone does not override an inherited NODE_ENV.
+  await run(process.execPath, [join(FRONTEND, 'node_modules', 'vite', 'bin', 'vite.js'), 'build', '--outDir', built, '--emptyOutDir'],
+    { cwd: FRONTEND, env: { ...process.env, NODE_ENV: 'production' } })
+  await refuseDevelopmentReact(built)
   const replace = {}
   for (const f of await filesUnder(DIST)) replace[f] = ''
   for (const f of await filesUnder(built)) replace[join(DIST, relative(built, f))] = f
