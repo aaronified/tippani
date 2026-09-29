@@ -390,7 +390,7 @@ function CredentialForm({ header, action, cta, microcopy, film = false, onSucces
         ? passwordProblem(password)
         : ''
   return (
-    <form onSubmit={submit} className="hand-card w-full max-w-sm px-8 py-9">
+    <form onSubmit={submit} className="hand-card w-full max-w-sm p-8">
       <div className="mb-7 text-center">{header}</div>
       <Field
         label={t('common.field.username.label')}
@@ -529,7 +529,7 @@ export function Onboarding({ onDone, backup }) {
           creating an admin account in a language they may not read. The choice is
           device-local until the account exists; Settings then carries it onto the
           account (design §4). */}
-      <div className="hand-card w-full max-w-sm px-8 py-6">
+      <div className="hand-card w-full max-w-sm p-8">
         <LanguagePicker titleKey="onboarding.language.title" width={230} />
       </div>
       <CredentialForm
@@ -548,7 +548,7 @@ export function Onboarding({ onDone, backup }) {
         onSuccess={onDone}
       />
       {/* One restore, two sources — the kept archive or a file off another box. */}
-      <div className="hand-card w-full max-w-sm px-8 py-6">
+      <div className="hand-card w-full max-w-sm p-8">
         <p className="mono-label mb-2 text-center">{t('shell.restore.title')}</p>
         <p className="mb-3 text-sm" style={{ color: 'var(--soft)' }}>
           {t('shell.restore.what.prose')}
