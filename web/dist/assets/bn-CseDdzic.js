@@ -1373,7 +1373,7 @@ settings.languages.remove.confirm.title = {name} সরাবেন?
 settings.languages.remove.confirm.body = এর চিহ্ন, নাম আর কোড মুছে যাবে। কোনও উক্তি বদলাবে না।
 
 # --- the quiz panel.
-settings.quiz.group.deck.title = কুইজ আর তার প্রশ্ন
+settings.quiz.group.deck.title = অনুশীলনী আর তার প্রশ্ন
 settings.quiz.group.schedule.title = সময়সূচি
 settings.quiz.group.practice.title = অনুশীলন
 settings.quiz.skipped.aside = উদ্ধৃতি ধরে ধরে
@@ -2026,7 +2026,7 @@ quiz.taxonomy.line = {klass} · {form}
 
 # Appended to the hint of a question toggle that REFUSES to switch off,
 # because it is the last one the deck could ask of a book as well as a film.
-quiz.question.last-universal.info = প্রতিটা কুইজে অন্তত একটা এমন প্রশ্ন থাকা চাই যা বই আর সিনেমা দুয়েই চলে। এটাই শেষটা।
+quiz.question.last-universal.info = প্রতিটা অনুশীলনীতে অন্তত একটা এমন প্রশ্ন থাকা চাই যা বই আর সিনেমা দুয়েই চলে। এটাই শেষটা।
 
 # The ten tuning sliders in Settings → Quiz. .label sits above the slider,
 # .hint is its info dot. Every one of these multiplies a half-life.
@@ -2378,7 +2378,7 @@ tour.step.share.more = শেয়ার করা যায় Markdown, Whats
 tour.step.quiz.name = দৈনিক অনুশীলনী আর ঝালাই
 tour.step.quiz.blurb = নিজের উদ্ধৃতি নিয়ে ফাঁক রেখে পুনরাবৃত্তি — ভুলতে শুরু করলেই কার্ড আবার সামনে আসে
 tour.step.quiz.title = দৈনিক অভ্যাস
-tour.step.quiz.prose = হোমে রোজ আপনার নিজের উদ্ধৃতি নিয়ে ছোট একটা কুইজ — প্রতিটা ঠিক তখনই ফেরে যখন ভুলতে শুরু করবেন। দিনে দু-তিন মিনিট।
+tour.step.quiz.prose = হোমে রোজ আপনার নিজের উদ্ধৃতি নিয়ে ছোট একটা অনুশীলনী — প্রতিটা ঠিক তখনই ফেরে যখন ভুলতে শুরু করবেন। দিনে দু-তিন মিনিট।
 tour.step.quiz.more = প্রতিটা উদ্ধৃতির পাশে একটা বিন্দু — মনে আছে, ভুলছেন, না সম্ভবত ভুলে গেছেন — আর আপনার উত্তরেই সেটা বদলায়। ঝালাই যত খুশি, যখন খুশি থামানো যায়, নিজের আলাদা স্কোর থাকে, আর সাধারণত সময়সূচিতে হাত দেয় না। কটা কার্ড ইত্যাদি সেটিংসে ঠিক করুন।
 
 # Step "search".
@@ -3214,7 +3214,7 @@ home.daily.empty.summary = আরও উদ্ধৃতি জমান বা �
 # "WHERE YOU STAND" — a count per memory status, with the explainer under it.
 home.states.title = স্মৃতির হাল
 home.states.help.label = এগুলো কীভাবে চলে
-home.states.capacity.note = আপনার সংগ্রহ সময়সূচির চেয়ে বড় হয়ে গেছে: মোটামুটি {n}টা উদ্ধৃতি নিয়মিত ফেরানো যায়, আর আপনার আছে {total}টা। কুইজ তবু আগে সেটাই জিজ্ঞেস করে যেটা ভোলার সবচেয়ে কাছে; সেটিংসে দিনে বেশি কার্ড দিলে আরও দূর পৌঁছবে।
+home.states.capacity.note = আপনার সংগ্রহ সময়সূচির চেয়ে বড় হয়ে গেছে: মোটামুটি {n}টা উদ্ধৃতি নিয়মিত ফেরানো যায়, আর আপনার আছে {total}টা। অনুশীলনী তবু আগে সেটাই জিজ্ঞেস করে যেটা ভোলার সবচেয়ে কাছে; সেটিংসে দিনে বেশি কার্ড দিলে আরও দূর পৌঁছবে।
 # THE EXPLAINER HAS TWO VERSIONS and the app shows whichever rule is actually in
 # force: describing the ladder to somebody who switched it off would make the one
 # piece of copy that explains the schedule the one piece that lies about it.
@@ -6181,12 +6181,12 @@ common.favourite.filter.tip = শুধু প্রিয়
 
 
 home.help.daily-quiz.term = দৈনিক অনুশীলনী
-home.help.daily-quiz.what = আপনার নিজের উদ্ধৃতি নিয়ে ছোট একটা কুইজ — প্রতিটা কার্ড ঠিক তখনই ফেরে যখন ভুলতে শুরু করবেন।
+home.help.daily-quiz.what = আপনার নিজের উদ্ধৃতি নিয়ে ছোট একটা অনুশীলনী — প্রতিটা কার্ড ঠিক তখনই ফেরে যখন ভুলতে শুরু করবেন।
 home.help.daily-quiz.more = উত্তর দিলে ওই উদ্ধৃতির স্মৃতির অর্ধায়ু বদলে যায়।
 
 # The named mode beside the Daily Quiz — unlimited and off the schedule.
 home.help.practice.term = ঝালাই
-home.help.practice.what = যত খুশি কুইজ-ঝালাই, যেটা ইচ্ছে বাদ দিয়ে এগোনো যায়। নিজের আলাদা স্কোর থাকে, আর সেটিংসে না বদলালে সময়সূচিতে হাত দেয় না।
+home.help.practice.what = যত খুশি ঝালাই, যেটা ইচ্ছে বাদ দিয়ে এগোনো যায়। নিজের আলাদা স্কোর থাকে, আর সেটিংসে না বদলালে সময়সূচিতে হাত দেয় না।
 
 # The verb on a button: a round about one book, person or tag.
 home.help.practise.term = ঝালিয়ে নিন
@@ -6199,7 +6199,7 @@ home.help.grade.what = ফ্লিপ কার্ডে উত্তর দে
 
 # The edit link on an already-answered quiz card.
 home.help.fix-or-tag.term = ঠিক করুন বা ট্যাগ দিন
-home.help.fix-or-tag.what = উত্তর দেওয়ার পর: কুইজ না ছেড়েই বানান ঠিক করুন, ট্যাগ বদলান বা ♥ দিন।
+home.help.fix-or-tag.what = উত্তর দেওয়ার পর: অনুশীলনী না ছেড়েই বানান ঠিক করুন, ট্যাগ বদলান বা ♥ দিন।
 
 # The letter or flag a proverb card leads with instead of a face.
 home.help.language-mark.term = ভাষার চিহ্ন
@@ -6488,7 +6488,7 @@ quotes.help.all-quotes.what = বোর্ডগুলোর ওপরে আট
 quotes.help.all-quotes.more = এর নাম বদলানো, লুকানো বা মুছে ফেলা যায় না।
 
 quotes.help.hide-board.term = বোর্ড লুকানো
-quotes.help.hide-board.what = উক্তিগুলোয় হাত না দিয়েই বোর্ডটা তালিকা থেকে লুকোয় — সেগুলো “সব উক্তি”, খোঁজ আর কুইজে থেকে যায়।
+quotes.help.hide-board.what = উক্তিগুলোয় হাত না দিয়েই বোর্ডটা তালিকা থেকে লুকোয় — সেগুলো “সব উক্তি”, খোঁজ আর অনুশীলনীতে থেকে যায়।
 quotes.help.hide-board.more = আপনি না লুকোলে বোর্ড লুকোয় না; ফাঁকা বোর্ডও দেখা যায়।
 
 quotes.help.delete-board.term = বোর্ড মুছে ফেলা
@@ -6499,7 +6499,7 @@ quotes.help.occasion.term = উপলক্ষ
 quotes.help.occasion.what = কথাগুলো কোথায় বলা হয়েছিল। একই কথা দুটো আলাদা উপলক্ষে বলা হলে সেগুলো দুটো আলাদা উক্তি।
 
 quotes.help.speaker.term = বক্তা
-quotes.help.speaker.what = কে বলেছেন। বইয়ের লেখকের জায়গায় থাকে, কুইজে এই নিয়েই প্রশ্ন আসে, আর ছবি ও পরিচিতিও রাখা যায়।
+quotes.help.speaker.what = কে বলেছেন। বইয়ের লেখকের জায়গায় থাকে, অনুশীলনীতে এই নিয়েই প্রশ্ন আসে, আর ছবি ও পরিচিতিও রাখা যায়।
 quotes.help.speaker.more = নাম-বিভাজক চিহ্ন দিয়ে আলাদা করা দুটো নাম মানে দুজন বক্তা।
 
 # The partial-date field on a standalone quote.
@@ -6508,7 +6508,7 @@ quotes.help.when.what = আংশিক তারিখ — শুধু সা�
 
 # Saving a quote with nobody to credit.
 quotes.help.no-attribution.term = নাম ছাড়া উক্তি
-quotes.help.no-attribution.what = রাখতে কোনো অসুবিধা নেই; শুধু কুইজে আসে না, কারণ মনে করার মতো কিছু থাকে না।
+quotes.help.no-attribution.what = রাখতে কোনো অসুবিধা নেই; শুধু অনুশীলনীতে আসে না, কারণ মনে করার মতো কিছু থাকে না।
 
 # The name under a line, which opens the person.
 quotes.help.speaker-credit.term = বক্তার নাম
@@ -6785,7 +6785,7 @@ settings.help.button-labels.more = বোতামের সঙ্গে ফি�
 # Which sections of the app are switched on.
 settings.help.features.term = বিভাগ
 settings.help.features.what = অ্যাপের কোন বিভাগগুলো চোখের সামনে চান — গ্রন্থাগার, ক্যাটালগ, উক্তি।
-settings.help.features.more = কোনোটা বন্ধ করলে তার ট্যাব, হোমের টাইল, খোঁজার ফিল্টার আর ＋-এর বিকল্প সরে যায়। কিছু মোছে না: বই, সিনেমা, উদ্ধৃতি সব থাকে, কুইজেও আসে, আর লিংক দিয়ে খোলাও যায়।
+settings.help.features.more = কোনোটা বন্ধ করলে তার ট্যাব, হোমের টাইল, খোঁজার ফিল্টার আর ＋-এর বিকল্প সরে যায়। কিছু মোছে না: বই, সিনেমা, উদ্ধৃতি সব থাকে, অনুশীলনীতেও আসে, আর লিংক দিয়ে খোলাও যায়।
 
 # The guided tour card.
 
@@ -6818,8 +6818,8 @@ settings.help.review.what = দিনে কটা কার্ড, কোন �
 settings.help.review.more = তিন ধরনের উদ্ধৃতি আলাদা আলাদা করে বাছা যায়। বক্তা বা প্রসঙ্গহীন উদ্ধৃতি, আর গত এক সপ্তাহে রাখা উদ্ধৃতি সবসময় বাদ থাকে।
 
 # The folded second half of the Review card.
-settings.help.in-depth.term = কুইজ আর তার প্রশ্ন
-settings.help.in-depth.what = প্রতিটা কুইজে কোন কোন প্রশ্ন আসবে, সঙ্গে অ্যাডাপ্টিভ ফাঁক, উত্তর নিশ্চিত করার ধাপ, আর কোনো উদ্ধৃতি চোখে পড়লে কতটা গোনা হবে।
+settings.help.in-depth.term = অনুশীলনী আর তার প্রশ্ন
+settings.help.in-depth.what = প্রতিটা অনুশীলনীতে কোন কোন প্রশ্ন আসবে, সঙ্গে অ্যাডাপ্টিভ ফাঁক, উত্তর নিশ্চিত করার ধাপ, আর কোনো উদ্ধৃতি চোখে পড়লে কতটা গোনা হবে।
 settings.help.in-depth.more = “আগের মতো করুন” চাপলে সবগুলোই ফিরে যায়। কোনো ডেক একেবারে প্রশ্নহীন হতে পারে না।
 
 # Which characters split one author line into two people.
@@ -6984,7 +6984,7 @@ common.help.selecting.what = একসঙ্গে অনেকগুলো ক�
 common.help.selecting.how.1 = কার্ডের কোণে টিক দিন, Ctrl চেপে ক্লিক করুন, বা তার নিজের মেনু থেকে “বাছুন”।
 common.help.selecting.how.2 = Shift চেপে ক্লিক করলে মাঝের সবগুলো বাছা হয়। “সব বাছুন” শুধু স্ক্রিনে যা আছে সেগুলোই নেয়।
 common.help.selecting.how.3 = একটা বার আসে, তাতে তিনটে কাজ; বাকিগুলো ⋯-এর ভেতরে। কোনোটা চেপে ধরলে নাম দেখায়।
-common.help.selecting.more = উদ্ধৃতির জন্য: রং, ♥ আর কুইজ বারেই; ট্যাগ, স্টিকার, অন্য বোর্ডে সরানো আর মোছা ⋯-এর ভেতরে। বই-সিনেমার জন্য: ফাঁক ভরা, তাকে সরানো, কুইজ, আর মোছা ⋯-এর ভেতরে। ঠিক একটা বাছলে “এডিট” আসে। মুছতে গেলে নিশ্চিত করতে বলে, আর সব একটাই জিনিস হিসেবে বিনে যায়, একবারেই ফেরানো যায়।
+common.help.selecting.more = উদ্ধৃতির জন্য: রং, ♥ আর অনুশীলনী বারেই; ট্যাগ, স্টিকার, অন্য বোর্ডে সরানো আর মোছা ⋯-এর ভেতরে। বই-সিনেমার জন্য: ফাঁক ভরা, তাকে সরানো, অনুশীলনী, আর মোছা ⋯-এর ভেতরে। ঠিক একটা বাছলে “এডিট” আসে। মুছতে গেলে নিশ্চিত করতে বলে, আর সব একটাই জিনিস হিসেবে বিনে যায়, একবারেই ফেরানো যায়।
 
 # Favouriting one quote from its own menu.
 common.help.favourite.term = একটাকে প্রিয় করা
@@ -6993,12 +6993,12 @@ common.help.favourite.more = কার্ডের ♥ একই কাজ ক�
 
 # The right-click menu on a book, film or show cover.
 common.help.cover-menu.term = কভারের নিজের মেনু
-common.help.cover-menu.what = কোনো বই, সিনেমা বা শো-তে ডান-ক্লিক করুন (ফোনে চেপে ধরুন): বাছুন, শূন্যস্থান পূরণ, কুইজ, এডিট আর মুছুন পাবেন।
+common.help.cover-menu.what = কোনো বই, সিনেমা বা শো-তে ডান-ক্লিক করুন (ফোনে চেপে ধরুন): বাছুন, শূন্যস্থান পূরণ, অনুশীলনী, এডিট আর মুছুন পাবেন।
 common.help.cover-menu.more = বাছাইয়ের বারের কাজগুলোই, একটা জিনিসের জন্য। মোছার আগে জিজ্ঞেস করে, কটা উদ্ধৃতি সঙ্গে যাবে বলে দেয়, আর ফেরানোর সুযোগ থাকে।
 
 # The selection-bar toggle that takes things out of the Daily Quiz.
 common.help.skip-in-quiz.term = অনুশীলনী থেকে বাদ দিন
-common.help.skip-in-quiz.what = যা রেখেছেন কিন্তু কুইজে চান না, তার জন্য — উদ্ধৃতি হিসেবে রাখা কোনো তালিকা, পাতার নম্বরে ভরা কোনো নির্দেশিকা।
+common.help.skip-in-quiz.what = যা রেখেছেন কিন্তু অনুশীলনীতে চান না, তার জন্য — উদ্ধৃতি হিসেবে রাখা কোনো তালিকা, পাতার নম্বরে ভরা কোনো নির্দেশিকা।
 common.help.skip-in-quiz.more = সেগুলো বেছে “অনুশীলনী থেকে বাদ দিন” চাপুন; কিছুই মোছে না। কোনো বইয়ে করলে পরে যোগ করা হাইলাইটও বাদ থাকে। আগে থেকে বাদ থাকলে বোতামে লেখা থাকে “অনুশীলনীতে দিন”।
 
 # The selection-bar action that fetches only the EMPTY fields.
@@ -7038,7 +7038,7 @@ common.help.long-press.more = তাকের কার্ডে চেপে �
 # The shortcuts, and the sheet ? opens.
 common.help.keyboard.term = কীবোর্ড
 common.help.keyboard.what = পুরো তালিকার জন্য ? চাপুন। / চাপলে খোঁজ, N চাপলে উদ্ধৃতি রাখা, আর G-এর পর H, L, C, Q বা S চাপলে যথাক্রমে হোম, গ্রন্থাগার, ক্যাটালগ, উদ্ধৃতি বা পরিসংখ্যান।
-common.help.keyboard.more = কুইজে 1 আর 2 দিয়ে নম্বর, আর Space দিয়ে ফ্লিপ কার্ড ওল্টানো। প্রতিটা শর্টকাট তার বোতামেও লেখা থাকে।
+common.help.keyboard.more = অনুশীলনীতে 1 আর 2 দিয়ে নম্বর, আর Space দিয়ে ফ্লিপ কার্ড ওল্টানো। প্রতিটা শর্টকাট তার বোতামেও লেখা থাকে।
 
 # The always-visible desktop tab strip that stands in for the drawer.
 common.help.tab-strip.term = ট্যাব-সারি
