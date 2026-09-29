@@ -144,6 +144,7 @@ func TestBackfillSurvivesAHashCollision(t *testing.T) {
 
 func itoaTest(n int) string { return string(rune('0' + n)) }
 func ptrTest(n int) *int    { return &n }
+
 // collapseForTest reproduces the OLD normalisation — fields collapsed AFTER the
 // suffix was joined on — so the fixture can be written the way the buggy code
 // would have written it. Spelling it out here rather than calling the fixed

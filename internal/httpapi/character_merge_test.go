@@ -577,14 +577,14 @@ func TestAWorksOwnCharacterPictureBeatsTheRecordsDefault(t *testing.T) {
 // Three things have to hold together for that to come out right, and each was a
 // separate place it could fail:
 //
-//   1. PUT /characters/{id}/image promotes an APPEARANCE's picture to the record
-//      — the reader's judgement about which of eight stills is them.
-//   2. A merge carries image_path onto the survivor when the survivor has none
-//      (characterMergeFillable), so it does not matter which of the two records
-//      the reader happened to keep.
-//   3. A quote's chip falls back to the record's picture when the work it is on
-//      has no per-work one — which is the half that was missing, and the reason
-//      only the first book drew a face.
+//  1. PUT /characters/{id}/image promotes an APPEARANCE's picture to the record
+//     — the reader's judgement about which of eight stills is them.
+//  2. A merge carries image_path onto the survivor when the survivor has none
+//     (characterMergeFillable), so it does not matter which of the two records
+//     the reader happened to keep.
+//  3. A quote's chip falls back to the record's picture when the work it is on
+//     has no per-work one — which is the half that was missing, and the reason
+//     only the first book drew a face.
 //
 // So this drives the whole sequence rather than any one of them, and it does it
 // in BOTH merge directions: keeping the record that has the picture, and keeping

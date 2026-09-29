@@ -66,10 +66,10 @@ type searchFacets struct {
 	tags   []string
 	genres []string
 	// Unioning: any value will do.
-	colours   []string
-	shelves   []string
-	series    []string
-	years     []int
+	colours    []string
+	shelves    []string
+	series     []string
+	years      []int
 	authors    []string
 	directors  []string
 	actors     []string

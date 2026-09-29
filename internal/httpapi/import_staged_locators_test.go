@@ -83,7 +83,7 @@ func TestAStagedRowTakesEveryLocatorItCarries(t *testing.T) {
 }
 
 // AN EMPTY STRING CLEARS, and on these eleven that is the case that breaks first.
-// Every one is `TEXT NOT NULL DEFAULT ''`, so writing them through nullable() —
+// Every one is `TEXT NOT NULL DEFAULT ”`, so writing them through nullable() —
 // which is correct for chapter and location one block up — stores a NULL into a
 // NOT NULL column and fails the whole transaction. The bug would be invisible
 // until somebody emptied a box.

@@ -101,18 +101,18 @@ func (s *Server) handleMetadataLibrary(w http.ResponseWriter, r *http.Request) {
 		// See the book row's CoverPath: the same fact, and the same reason.
 		PosterPath string `json:"poster_path"`
 
-		LowResPoster  bool `json:"low_res_poster"`
-		HasCast       bool `json:"has_cast"`
-		HasSource     bool `json:"has_source"` // tmdb_id or tvdb_id
-		HasDirector   bool `json:"has_director"`
-		HasYear       bool `json:"has_year"`
-		HasGenre      bool `json:"has_genre"`
+		LowResPoster bool `json:"low_res_poster"`
+		HasCast      bool `json:"has_cast"`
+		HasSource    bool `json:"has_source"` // tmdb_id or tvdb_id
+		HasDirector  bool `json:"has_director"`
+		HasYear      bool `json:"has_year"`
+		HasGenre     bool `json:"has_genre"`
 		// THE SYNOPSIS, WHICH THE BOOK ROW HAS CARRIED ALL ALONG. The works console
 		// filters on what a work is missing, and "no synopsis" is one of the pack's
 		// seven — it could not be offered over the whole library while half of it
 		// could not answer the question.
 		HasDescription bool `json:"has_description"`
-		DialogueCount int  `json:"dialogue_count"`
+		DialogueCount  int  `json:"dialogue_count"`
 	}
 	movies := []movieItem{}
 	mrows, err := s.Store.DB.Query(`

@@ -25,7 +25,7 @@ func TestACreditWithNoRecordGetsOneAndKeepsIt(t *testing.T) {
 	// A SPEAKER TYPED ONTO A QUOTE, which is how the reader in the report entered
 	// theirs: no cast fetched, nothing looked up.
 	newUtterance(t, c, map[string]any{
-		"quote": "I have no special talents. I am only passionately curious.",
+		"quote":   "I have no special talents. I am only passionately curious.",
 		"speaker": "Albert Einstein", "occasion": "writing to Carl Seelig"})
 
 	// BEFORE: the speaker list does not know the name, which is exactly why the

@@ -210,7 +210,7 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 		// Set when an admin chose this account's password; the app shows nothing
 		// but "choose your own" until it is cleared (requireAuth enforces it).
 		"must_change_password": mustChangePassword(s.Store.DB, userID(r)),
-		"version":     buildinfo.Version, // running build, for the Settings → Updates card
+		"version":              buildinfo.Version, // running build, for the Settings → Updates card
 		// WHEN THAT BUILD CAME OUT, from the history embedded in the binary — see
 		// releaseDate. "" for anything that is not a finished release, which the
 		// card says in words rather than hiding the row: a missing row is
@@ -280,7 +280,7 @@ var (
 		"manuscript": true, "film-assembly": true, "office": true, "school": true,
 		"atelier": true, "bindery": true, "quarry": true, "atrium": true,
 	}
-	prefThemes  = map[string]bool{"light": true, "dark": true, "system": true}
+	prefThemes = map[string]bool{"light": true, "dark": true, "system": true}
 	// §6 access. TWO VALUES AND NOT THREE: `auto` defers to the operating system's
 	// own `prefers-contrast` / `prefers-reduced-transparency`, and `more` says so
 	// regardless of what the machine thinks. There is deliberately no explicit
@@ -288,7 +288,7 @@ var (
 	// is `auto`, and a third value would be a second way to spell it that the two
 	// sides could then disagree about.
 	prefContrasts = map[string]bool{"auto": true, "more": true}
-	prefAccents = map[string]bool{"terracotta": true, "ochre": true, "olive": true, "slate": true}
+	prefAccents   = map[string]bool{"terracotta": true, "ochre": true, "olive": true, "slate": true}
 	// The single-medium scopes, and the legacy aliases. "both" predates
 	// standalone quotes and now means all three media — see scopeFlags.
 	//

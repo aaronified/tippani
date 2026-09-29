@@ -403,10 +403,12 @@ func igdbYear(ts int64) int {
 // open a second clause.
 // igdbCompany is one row of the /companies endpoint — a studio or a publisher.
 type igdbCompany struct {
-	ID       int64  `json:"id"`
-	Name     string `json:"name"`
-	URL      string `json:"url"`
-	Logo     *struct{ ImageID string `json:"image_id"` } `json:"logo"`
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
+	URL  string `json:"url"`
+	Logo *struct {
+		ImageID string `json:"image_id"`
+	} `json:"logo"`
 	Websites []struct {
 		Category int    `json:"category"`
 		URL      string `json:"url"`

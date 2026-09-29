@@ -21,6 +21,13 @@ jobs:
         with:
           go-version: "1.26"
       - run: go vet ./...
+      # gofmt as a gate. Nothing checked it, and 25 files had drifted (mostly struct-field
+      # alignment) before anyone noticed; each builder since left them alone as outside
+      # their change (#50). `gofmt -l` exits 0 whatever it lists, so the step fails on output.
+      - name: gofmt
+        run: |
+          out="$(gofmt -l .)"
+          if [ -n "$out" ]; then printf 'gofmt -l lists:\n%s\n' "$out"; exit 1; fi
       # 20m, not 10m. The httpapi suite alone runs 12 minutes on a dev machine and
       # the reason is deliberate: almost every test signs a user up, and a signup
       # is a real bcrypt hash. It had been sitting a few seconds under the old

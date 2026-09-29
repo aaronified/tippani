@@ -300,7 +300,7 @@ author: Rabindranath Tagore
 	}
 }
 
-// The stray-marks sweep scanned a `''` literal in this slot on two of the three
+// The stray-marks sweep scanned a `”` literal in this slot on two of the three
 // kinds until 0051 gave them a real column — the placeholder was named and
 // scanned from the start precisely so this would be the only change needed.
 func TestTheStrayMarksSweepScansTranslationsOnEveryKind(t *testing.T) {

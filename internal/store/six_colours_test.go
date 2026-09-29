@@ -120,7 +120,10 @@ func TestSixColoursRebuildKeepsEverything(t *testing.T) {
 	}
 
 	// Every id survived, so item_reviews still matches by it.
-	for _, c := range []struct{ kind string; id int64 }{{"book", 11}, {"screen", 21}, {"utterance", 31}} {
+	for _, c := range []struct {
+		kind string
+		id   int64
+	}{{"book", 11}, {"screen", 21}, {"utterance", 31}} {
 		var n int
 		if err := s.DB.QueryRow(`SELECT COUNT(*) FROM item_reviews WHERE kind = ? AND item_id = ?`,
 			c.kind, c.id).Scan(&n); err != nil {
@@ -295,7 +298,7 @@ func TestSixColoursRepairsADesyncedSearchIndex(t *testing.T) {
 		{"utterances_fts", "blood"},
 	} {
 		var n int
-		if err := s.DB.QueryRow(`SELECT COUNT(*) FROM ` + c.table + ` WHERE ` + c.table + ` MATCH ?`, c.term).
+		if err := s.DB.QueryRow(`SELECT COUNT(*) FROM `+c.table+` WHERE `+c.table+` MATCH ?`, c.term).
 			Scan(&n); err != nil {
 			t.Fatal(err)
 		}

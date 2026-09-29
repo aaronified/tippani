@@ -35,11 +35,11 @@ type Book struct {
 	Publisher string
 	Pages     int // the EXTENT of the work; Pos/PosTotal below are the read
 	// 0062, read from Tippani's own frontmatter only, like the fields above it.
-	Links string
-	ISBN      string // as found in the file; callers normalize to ISBN-13
-	ASIN         string
-	Series       string  // series name, when the file carries one
-	SeriesIndex  float64 // position within it (0 = unknown)
+	Links       string
+	ISBN        string // as found in the file; callers normalize to ISBN-13
+	ASIN        string
+	Series      string  // series name, when the file carries one
+	SeriesIndex float64 // position within it (0 = unknown)
 	// Shelf state, round-tripped by the Tippani export (§3f). Status is the
 	// server's own vocabulary ("reading" | "paused" | "abandoned" | "completed");
 	// the parser passes through whatever the file says and lets the server reject

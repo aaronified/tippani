@@ -136,7 +136,7 @@ func TestMigration0020BackfillsUpdatedAt(t *testing.T) {
 	for _, table := range []string{"books", "movies"} {
 		var created, updated string
 		err := s.DB.QueryRow(
-			`SELECT created_at, COALESCE(updated_at, '') FROM ` + table + ` WHERE id = 1`).
+			`SELECT created_at, COALESCE(updated_at, '') FROM `+table+` WHERE id = 1`).
 			Scan(&created, &updated)
 		if err != nil {
 			t.Fatalf("%s: %v", table, err)

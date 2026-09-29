@@ -506,13 +506,13 @@ func searchGoogle(ctx context.Context, q, key string) ([]BookCandidate, error) {
 			// out of it: "Reaper's Gale: Malazan Book of the Fallen 7" is both the
 			// series and the edition's subtitle line, and which of the two a reader
 			// wants on the record is theirs to decide from a field they can see.
-			Subtitle:  vi.Subtitle,
-			Publisher: vi.Publisher,
-			Pages:     vi.PageCount,
-			Genres:    vi.Categories,
-			CoverURL:  bestGoogleCover(vi.ImageLinks),
-			Series:        gName,
-			SeriesIndex:   gIdx,
+			Subtitle:    vi.Subtitle,
+			Publisher:   vi.Publisher,
+			Pages:       vi.PageCount,
+			Genres:      vi.Categories,
+			CoverURL:    bestGoogleCover(vi.ImageLinks),
+			Series:      gName,
+			SeriesIndex: gIdx,
 		})
 	}
 	return out, nil

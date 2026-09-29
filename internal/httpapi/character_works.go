@@ -320,11 +320,11 @@ type quotedLine struct {
 // So the link decides, where there is one — which is what the link is for, and the
 // first thing in the app to depend on it rather than merely maintain it:
 //
-//   POINTING AT THIS ROW is this row's line, whatever the text says.
-//   POINTING AT ANOTHER LIVE ROW is not, however the name folds.
-//   POINTING AT NOTHING falls back to the fold, because that is the un-caught-up
-//   history and the genuinely ambiguous line, and leaving those out would let a
-//   removal proceed past quotes it was supposed to refuse over.
+//	POINTING AT THIS ROW is this row's line, whatever the text says.
+//	POINTING AT ANOTHER LIVE ROW is not, however the name folds.
+//	POINTING AT NOTHING falls back to the fold, because that is the un-caught-up
+//	history and the genuinely ambiguous line, and leaving those out would let a
+//	removal proceed past quotes it was supposed to refuse over.
 //
 // A tombstoned target counts as pointing at nothing: the row it named is not on the
 // list any more, so the line is the fold's to claim.
@@ -478,15 +478,15 @@ func containsKey(names []string, key string) bool {
 // fetching a second copy. Two consequences worth stating because both are load-
 // bearing:
 //
-//   THE FILE IS NOT OWNED HERE. Deleting the cast row it came from would leave
-//   this pointing at a path that no longer resolves — which is why the read
-//   falls back rather than erroring, and why the character list treats a missing
-//   file the same as no file.
+//	THE FILE IS NOT OWNED HERE. Deleting the cast row it came from would leave
+//	this pointing at a path that no longer resolves — which is why the read
+//	falls back rather than erroring, and why the character list treats a missing
+//	file the same as no file.
 //
-//   IT IS THE READER'S JUDGEMENT AND NOT A DEFAULT. Nothing picks one
-//   automatically. Eight Harry Potters is 0056's deliberate over-splitting, and
-//   auto-promoting the first still would put a face on a record the reader has
-//   not yet decided is one character or eight.
+//	IT IS THE READER'S JUDGEMENT AND NOT A DEFAULT. Nothing picks one
+//	automatically. Eight Harry Potters is 0056's deliberate over-splitting, and
+//	auto-promoting the first still would put a face on a record the reader has
+//	not yet decided is one character or eight.
 //
 // An empty `path` clears it, which is the only other thing a reader can want.
 //

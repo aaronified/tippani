@@ -18,20 +18,20 @@ package httpapi
 //
 // WHAT EACH ENTRY CARRIES, and each column of it earns its place:
 //
-//   kinds    which of annotation / dialogue / utterance actually has the column.
-//            These are bulkTag's kind names — see quoteFieldKinds' own note about
-//            the release in which the bin called the third kind "quote" and every
-//            per-kind field on the Quotes screen answered 400.
-//   live     the column name on annotations / dialogues / utterances.
-//   staged   the column name on staged_quotes. IT IS NOT ALWAYS THE SAME NAME —
-//            `board_id` live is `board` staged — and that single exception is why
-//            this is a mapping rather than a set. An implicit "same name" rule
-//            would be right twenty-five times and silently wrong once.
-//   notNull  whether a clear writes '' rather than NULL. The live side's own
-//            comment calls this "THE MISTAKE THAT WOULD NOT BE CAUGHT BY READING
-//            THE CODE": nullable("") is nil, and clearing a NOT NULL column that
-//            way is a 500 raised inside the transaction, after the ownership
-//            check — the most expensive place to find out.
+//	kinds    which of annotation / dialogue / utterance actually has the column.
+//	         These are bulkTag's kind names — see quoteFieldKinds' own note about
+//	         the release in which the bin called the third kind "quote" and every
+//	         per-kind field on the Quotes screen answered 400.
+//	live     the column name on annotations / dialogues / utterances.
+//	staged   the column name on staged_quotes. IT IS NOT ALWAYS THE SAME NAME —
+//	         `board_id` live is `board` staged — and that single exception is why
+//	         this is a mapping rather than a set. An implicit "same name" rule
+//	         would be right twenty-five times and silently wrong once.
+//	notNull  whether a clear writes '' rather than NULL. The live side's own
+//	         comment calls this "THE MISTAKE THAT WOULD NOT BE CAUGHT BY READING
+//	         THE CODE": nullable("") is nil, and clearing a NOT NULL column that
+//	         way is a 500 raised inside the transaction, after the ownership
+//	         check — the most expensive place to find out.
 //
 // AN EMPTY `live` OR `staged` MEANS THAT SIDE CANNOT SET IT, and those are the
 // gaps the later steps of the plan close. They are written out rather than
@@ -108,10 +108,10 @@ var bulkFields = map[string]bulkField{
 	// bulk was a 500 for as long as the fields existed — which nobody found,
 	// because a kind-name bug answered 400 first and the 400 never let the request
 	// reach the UPDATE.
-	"speaker":       {kinds: []string{"utterance"}, live: "speaker", staged: "speaker", notNull: true},
-	"occasion":      {kinds: []string{"utterance"}, live: "occasion", staged: "occasion", notNull: true},
-	"place":         {kinds: []string{"utterance"}, live: "place", staged: "place", notNull: true},
-	"medium":        {kinds: []string{"utterance"}, live: "medium", notNull: true},
+	"speaker":  {kinds: []string{"utterance"}, live: "speaker", staged: "speaker", notNull: true},
+	"occasion": {kinds: []string{"utterance"}, live: "occasion", staged: "occasion", notNull: true},
+	"place":    {kinds: []string{"utterance"}, live: "place", staged: "place", notNull: true},
+	"medium":   {kinds: []string{"utterance"}, live: "medium", notNull: true},
 	// NOT NULL since 0053, and this line was missing its flag for one commit.
 	// The extraction that built this table used a regex wanting one space after
 	// the colon; the literal it read spelled this entry "kind":   true. Clearing

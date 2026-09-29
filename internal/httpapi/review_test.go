@@ -1436,9 +1436,9 @@ func TestTheDotAndTheDeckAgreeOnDue(t *testing.T) {
 // arithmetic is pinned separately from anything that uses it.
 func TestDueMultiplier(t *testing.T) {
 	for _, c := range []struct{ target, want float64 }{
-		{0.5, 1},      // today's rule, exactly: elapsed >= stability
-		{1, 0},        // certainty is due immediately, which is why 1 is not offered
-		{0.25, 2},     // two half-lives
+		{0.5, 1},  // today's rule, exactly: elapsed >= stability
+		{1, 0},    // certainty is due immediately, which is why 1 is not offered
+		{0.25, 2}, // two half-lives
 		{0.9, 0.15200309344504997},
 		{0.95, 0.07400058144377693},
 	} {

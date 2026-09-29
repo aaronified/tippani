@@ -60,7 +60,7 @@ func (s *Server) ownedChildIDs(table, parentCol, parentTable string, uid int64, 
 // sending one field must not clear the others, and `false` and "not sent" are the
 // same JSON at a bool.
 type bulkTagReq struct {
-	IDs      []int64  `json:"ids"`
+	IDs     []int64  `json:"ids"`
 	AddTags []string `json:"add_tags"`
 	// REMOVING WAS STAGING-ONLY UNTIL NOW, which is the asymmetry
 	// docs/plans/bulk-editors-one-field-table.md found: the import queue could
@@ -79,7 +79,7 @@ type bulkTagReq struct {
 	// it exists for: two quotes cannot share a translation, but two hundred can
 	// share a wrong one that an import put there.
 	Translation *string `json:"translation"`
-	Favorite *bool    `json:"favorite"`
+	Favorite    *bool   `json:"favorite"`
 	// Colour became a six-slot, user-named category in 1.7.1, which made it the
 	// single most plausible reason to select forty quotes — and the bulk endpoints
 	// could not set it. Validated against the same allowlist validColor uses, so a
@@ -236,7 +236,6 @@ var quoteCastKind = map[string]string{
 // quoteFieldKinds and notNullQuoteCols now live in bulk_fields.go, DERIVED from
 // the one table both bulk editors read. They were literals here, beside a third
 // literal one function down; see that file for what having three cost.
-
 
 // bulkQuoteFieldPtrs is the one mapping from a column name to the request field
 // that carries it. ONE TABLE, because there were two — the applicability check

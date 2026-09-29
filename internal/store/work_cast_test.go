@@ -202,7 +202,7 @@ func TestDeletingAWorkTakesItsCastWithIt(t *testing.T) {
 	}
 
 	for _, tc := range []struct{ table, kind string }{{"books", "book"}, {"movies", "movie"}} {
-		if _, err := s.DB.Exec(`DELETE FROM `+tc.table+` WHERE id = 1`); err != nil {
+		if _, err := s.DB.Exec(`DELETE FROM ` + tc.table + ` WHERE id = 1`); err != nil {
 			t.Fatal(err)
 		}
 		var n int

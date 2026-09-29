@@ -251,8 +251,8 @@ func TestWikidataGameDetailsDoesNotPassThePublisherOffAsTheStudio(t *testing.T) 
 func TestWikidataGameDetailsPrefersTheDeveloperThatOnlyDevelops(t *testing.T) {
 	newWDGameStub(t, &wdGameStub{
 		claims: map[string]string{"Q1": gameClaims(2021,
-			`"P178":[{"mainsnak":{"datavalue":{"value":{"id":"Q_ea"}}}},` +
-				`{"mainsnak":{"datavalue":{"value":{"id":"Q_bioware"}}}}],` +
+			`"P178":[{"mainsnak":{"datavalue":{"value":{"id":"Q_ea"}}}},`+
+				`{"mainsnak":{"datavalue":{"value":{"id":"Q_bioware"}}}}],`+
 				`"P123":[{"mainsnak":{"datavalue":{"value":{"id":"Q_ea"}}}}]`)},
 		labels: map[string]string{
 			"Q1": "Mass Effect Legendary Edition", "Q_ea": "Electronic Arts", "Q_bioware": "BioWare",
@@ -279,7 +279,7 @@ func TestWikidataGameDetailsPrefersTheDeveloperThatOnlyDevelops(t *testing.T) {
 func TestWikidataGameDetailsKeepsASelfPublishingStudio(t *testing.T) {
 	newWDGameStub(t, &wdGameStub{
 		claims: map[string]string{"Q1": gameClaims(2019,
-			`"P178":[{"mainsnak":{"datavalue":{"value":{"id":"Q_lw"}}}}],` +
+			`"P178":[{"mainsnak":{"datavalue":{"value":{"id":"Q_lw"}}}}],`+
 				`"P123":[{"mainsnak":{"datavalue":{"value":{"id":"Q_lw"}}}}]`)},
 		labels: map[string]string{"Q1": "Hollow Reach", "Q_lw": "Lantern Works"},
 		images: map[string]string{"Q_lw": "Lantern.svg"},

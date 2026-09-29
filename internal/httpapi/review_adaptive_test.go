@@ -67,7 +67,7 @@ func TestNextStability(t *testing.T) {
 		// Late recall is its own evidence: remembering it 90 days on says the
 		// half-life is around 90, not around cur*2.5.
 		{"adaptive: late recall beats the multiplier", true, "got", 10, 90, true, 108}, // 90*1.2 = 108 beats 10*2.5 = 25
-		{"adaptive: late recall below the cap", true, "got", 10, 50, true, 60},        // 50*1.2 = 60 beats 10*2.5 = 25
+		{"adaptive: late recall below the cap", true, "got", 10, 50, true, 60},         // 50*1.2 = 60 beats 10*2.5 = 25
 		// The cap holds — no stored half-life may promise a review past a year.
 		// AND IT IS THE CLAMP DOING IT, ON PURPOSE: grow 2.5 from 100 overshoots
 		// 365 in one step (250 does not, 200 does), and tapering growth near the

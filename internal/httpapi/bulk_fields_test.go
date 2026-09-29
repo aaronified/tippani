@@ -175,8 +175,8 @@ func TestABulkFieldTheKindHasNoColumnForIsStillRefused(t *testing.T) {
 	values := map[string]any{
 		"occasion_circa": true,
 		"chapter_no":     "7",
-		"kind":           "speech",  // one of quoteKinds, so 0053's check passes
-		"occasion_date":  "1952",    // a shape normalizeHistoricalDate accepts
+		"kind":           "speech", // one of quoteKinds, so 0053's check passes
+		"occasion_date":  "1952",   // a shape normalizeHistoricalDate accepts
 		"language":       "bn",
 	}
 
@@ -1010,9 +1010,9 @@ func TestBulkRemoveTagsTakesATagOffASelection(t *testing.T) {
 // table and this repo's rule that two things which look alike behave alike. Two
 // questions where the sides could silently differ:
 //
-//   case      staging matches on strings.ToLower, so "Faith" drops "faith"
-//   ordering  staging filters the removals out and THEN appends the additions,
-//             so a tag in both lists survives
+//	case      staging matches on strings.ToLower, so "Faith" drops "faith"
+//	ordering  staging filters the removals out and THEN appends the additions,
+//	          so a tag in both lists survives
 //
 // Asserted here rather than left to each side's own tests, because a difference
 // between two correct-looking implementations is invisible to either one.

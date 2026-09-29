@@ -189,11 +189,11 @@ func TestFacetCountKindsMatchTheFacetPredicates(t *testing.T) {
 		// THIS MAP IS THE LIST THE TEST WALKS, so a field missing from it is a field
 		// nobody checks — the mirror passes by not looking. `language` is here for
 		// that reason as much as for its own.
-		"language":  {languages: []string{"x"}},
-		"wishlist":  {wishlist: boolPtr(true)},
-		"note":      {note: boolPtr(true)},
-		"book":      {bookIDs: []int64{1}},
-		"movie":     {movieIDs: []int64{1}},
+		"language": {languages: []string{"x"}},
+		"wishlist": {wishlist: boolPtr(true)},
+		"note":     {note: boolPtr(true)},
+		"book":     {bookIDs: []int64{1}},
+		"movie":    {movieIDs: []int64{1}},
 	}
 	for field, f := range probe {
 		applies := map[rowKind]bool{}
@@ -295,7 +295,7 @@ func TestSearchNarrowsToAnAddedOnRange(t *testing.T) {
 
 // THE LANGUAGE FACET'S OWN COUNTS, and the arm they prove is reading the right
 // column. `search_facet_counts.go`'s language arm is `COALESCE(<self>.language,
-// '')` — three tables, one column name, so it reads the alias the row set gave
+// ”)` — three tables, one column name, so it reads the alias the row set gave
 // it. Point that at any other column of any of the three and the whole Go suite
 // still passes, because until this case nothing asked /search/facets for a
 // language at all: the chips would have offered "here the highlight" as a

@@ -29,11 +29,11 @@ type castOut struct {
 }
 
 type appearanceOut struct {
-	CastID    int64  `json:"cast_id"`
-	Kind      string `json:"kind"`
-	WorkID    int64  `json:"work_id"`
-	WorkTitle string `json:"work_title"`
-	Actor     string `json:"actor"`
+	CastID      int64  `json:"cast_id"`
+	Kind        string `json:"kind"`
+	WorkID      int64  `json:"work_id"`
+	WorkTitle   string `json:"work_title"`
+	Actor       string `json:"actor"`
 	Image       string `json:"image"`
 	Cover       string `json:"cover"`
 	MediaType   string `json:"media_type"`

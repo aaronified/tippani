@@ -44,19 +44,19 @@ import (
 // stagedWorkPreview is one work in a staging reply: what was parsed, plus a
 // read-only preview of where its quotes would land if approved right now.
 type stagedWorkPreview struct {
-	ID           int64  `json:"id"`
-	Kind         string `json:"kind"` // book | movie | show
-	Title        string `json:"title"`
-	Author       string `json:"author"` // the work's primary credit: author for a book, director for a film
-	Staged       int    `json:"staged"`
-	TargetID     int64  `json:"target_id"`    // 0 = a new row would be created
-	TargetTitle  string `json:"target_title"` // the library row it would join
-	TargetYear   int    `json:"target_year"`
+	ID          int64  `json:"id"`
+	Kind        string `json:"kind"` // book | movie | show
+	Title       string `json:"title"`
+	Author      string `json:"author"` // the work's primary credit: author for a book, director for a film
+	Staged      int    `json:"staged"`
+	TargetID    int64  `json:"target_id"`    // 0 = a new row would be created
+	TargetTitle string `json:"target_title"` // the library row it would join
+	TargetYear  int    `json:"target_year"`
 	// The destination's artwork, so a reader can pick a work out of a queue by
 	// looking rather than by reading. `books.cover_path` or `movies.poster_path`,
 	// whichever kind this is, and "" when the row would create a NEW work — the
 	// same state TargetTitle is already in, so no caller needs a second branch.
-	TargetCover string `json:"target_cover"`
+	TargetCover  string `json:"target_cover"`
 	Ambiguous    bool   `json:"ambiguous"`    // more than one same-title candidate
 	Alternatives int    `json:"alternatives"` // how many were passed over
 }
@@ -631,28 +631,28 @@ type stagedBatchRow struct {
 }
 
 type stagedWorkRow struct {
-	ID           int64    `json:"id"`
-	BatchID      int64    `json:"batch_id"`
-	Kind         string   `json:"kind"`
-	Title        string   `json:"title"`
-	Author       string   `json:"author"`
-	ISBN         string   `json:"isbn"`
-	ASIN         string   `json:"asin"`
-	Series       string   `json:"series"`
-	SeriesIndex  float64  `json:"series_index"`
-	ReleaseYear  int      `json:"release_year"`
-	IMDbID       string   `json:"imdb_id"`
-	Director     string   `json:"director"`
-	Genres       []string `json:"genres"`
-	Quotes       int      `json:"quotes"`
-	Pinned       bool     `json:"pinned"` // the user chose the destination
-	TargetID     int64    `json:"target_id"`
-	TargetTitle  string   `json:"target_title"`
-	TargetYear   int      `json:"target_year"`
-	TargetCover  string   `json:"target_cover"` // see stagedWorkPreview
+	ID          int64    `json:"id"`
+	BatchID     int64    `json:"batch_id"`
+	Kind        string   `json:"kind"`
+	Title       string   `json:"title"`
+	Author      string   `json:"author"`
+	ISBN        string   `json:"isbn"`
+	ASIN        string   `json:"asin"`
+	Series      string   `json:"series"`
+	SeriesIndex float64  `json:"series_index"`
+	ReleaseYear int      `json:"release_year"`
+	IMDbID      string   `json:"imdb_id"`
+	Director    string   `json:"director"`
+	Genres      []string `json:"genres"`
+	Quotes      int      `json:"quotes"`
+	Pinned      bool     `json:"pinned"` // the user chose the destination
+	TargetID    int64    `json:"target_id"`
+	TargetTitle string   `json:"target_title"`
+	TargetYear  int      `json:"target_year"`
+	TargetCover string   `json:"target_cover"` // see stagedWorkPreview
 
-	Ambiguous    bool     `json:"ambiguous"`
-	Alternatives int      `json:"alternatives"`
+	Ambiguous    bool `json:"ambiguous"`
+	Alternatives int  `json:"alternatives"`
 }
 
 type stagedQuoteRow struct {

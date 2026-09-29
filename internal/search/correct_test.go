@@ -15,13 +15,13 @@ func TestEditDistance(t *testing.T) {
 		{"shawshank", "shawshank", 2, false, 0},
 		{"shawshenk", "shawshank", 2, false, 1}, // one substitution
 		{"kitten", "sitting", 3, false, 3},
-		{"kitten", "sitting", 2, false, 3},       // exceeds budget → sentinel budget+1
-		{"abc", "abcdefgh", 2, false, 3},         // length gap > budget → sentinel
-		{"shawsh", "shawshank", 2, true, 0},      // exact prefix
-		{"shawsq", "shawshank", 2, true, 1},      // prefix typo (q vs h in "shawsh")
-		{"shawshenk", "shawshank", 2, true, 1},   // prefix distance still 1
-		{"café", "cafe", 1, false, 1},            // unicode: é vs e is one edit
-		{"straße", "strasse", 2, false, 2},       // ß vs ss
+		{"kitten", "sitting", 2, false, 3},     // exceeds budget → sentinel budget+1
+		{"abc", "abcdefgh", 2, false, 3},       // length gap > budget → sentinel
+		{"shawsh", "shawshank", 2, true, 0},    // exact prefix
+		{"shawsq", "shawshank", 2, true, 1},    // prefix typo (q vs h in "shawsh")
+		{"shawshenk", "shawshank", 2, true, 1}, // prefix distance still 1
+		{"café", "cafe", 1, false, 1},          // unicode: é vs e is one edit
+		{"straße", "strasse", 2, false, 2},     // ß vs ss
 	}
 	for _, c := range cases {
 		got := editDistance([]rune(c.a), []rune(c.b), c.budget, c.prefix)
