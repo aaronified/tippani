@@ -476,10 +476,11 @@ export const NO_MOTION_CSS = `
   }
 `
 
-// Injected by appending a <style> from a page script rather than with addStyleTag: the
+// Injected from a page script as an adopted stylesheet rather than with addStyleTag: the
 // binary serves a Content-Security-Policy, and addStyleTag fails outright ("Could not
 // load style") against one without style-src 'unsafe-inline'. That throw would land
-// inside the capture loop and report every screen as failed.
+// inside the capture loop and report every screen as failed. The page script's own
+// <style> element was refused by the same policy, silently, until #43.
 //
 // The readyState branch matters. As a preload script this usually runs before the DOM
 // exists, so the listener is the live path — but on a document that has already parsed,
@@ -487,7 +488,17 @@ export const NO_MOTION_CSS = `
 // lands at all, silently, leaving animations on.
 export function noMotionScript(css) {
   return `(() => {
+    // AN ADOPTED SHEET, NOT A <style> ELEMENT (#43): the app's CSP refuses the text of a
+    // <style> the page writes, so this rule never applied and every capture and journey
+    // ran with its animations on. A constructed sheet is CSSOM, which style-src does not
+    // govern; the element stays only where adoptedStyleSheets is missing.
     const add = () => {
+      if ('adoptedStyleSheets' in document && typeof CSSStyleSheet === 'function') {
+        const sheet = new CSSStyleSheet()
+        sheet.replaceSync(${JSON.stringify(css)})
+        document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet]
+        return
+      }
       const style = document.createElement('style')
       style.textContent = ${JSON.stringify(css)}
       document.head.appendChild(style)

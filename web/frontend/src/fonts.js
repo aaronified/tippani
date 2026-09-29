@@ -654,8 +654,29 @@ function quoteStack(face) {
   return `${q(face)}, ${q(fontChoice('bengali'))}, ${q(fontChoice('devanagari'))}, serif`
 }
 
+// A CONSTRUCTED SHEET, NOT A <style> ELEMENT (#43). The app's Content-Security-Policy
+// has no style-src, so it falls back to default-src 'self', and the browser refuses the
+// text of a <style> element the page writes: every language face a reader chose was
+// dropped with a console error on each load, and the quote stayed in the default face.
+// A sheet built with `new CSSStyleSheet()` and adopted into the document is CSSOM, which
+// style-src does not govern (measured in Chromium under this policy: the element's rule
+// refused, the adopted sheet's applied). Rejected: 'unsafe-inline', which would admit
+// every inline style to fix one; and a nonce, which needs the server to mint one per
+// page for a sheet the client writes.
+//
+// The <style> element stays as the fallback where adoptedStyleSheets does not exist:
+// jsdom, which the dom tier runs, and browsers older than the ones this app targets.
+let adopted = null
 function writeSheet(css) {
   if (typeof document === 'undefined') return
+  if ('adoptedStyleSheets' in document && typeof CSSStyleSheet === 'function') {
+    if (!adopted) {
+      adopted = new CSSStyleSheet()
+      document.adoptedStyleSheets = [...document.adoptedStyleSheets, adopted]
+    }
+    adopted.replaceSync(css || '')
+    return
+  }
   let el = document.getElementById(SHEET_ID)
   if (!css) {
     el?.remove()
