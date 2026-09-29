@@ -3,7 +3,8 @@
 // A SOURCE SCANNER, NOT A TEST, which is why it lives here. docs/wiki/Bengali-style.md
 // settles one word per idea, and #47 moved the file onto its words: ইমপোর্ট and
 // এক্সপোর্ট for import and export (§4.2: "আমদানি / রপ্তানি are trade words. Comic
-// here"), মেনে নিন for approve, দৈনিক অনুশীলনী for the daily quiz. Two sweeps moved
+// here"), মেনে নিন for approve, অনুশীলনী for the quiz and দৈনিক অনুশীলনী for the daily
+// one. Two sweeps moved
 // 68 values onto those words (3930f8c2, 12cd0661) and still missed one (#52): the
 // tour's first screen said রোজকার মনে রাখার কুইজ, with two words between the pair
 // the sweep was looking for. Nothing on screen says a word is the retired one; a Bengali
@@ -25,10 +26,10 @@ const RETIRED = [
   { was: /আমদানি/u, now: 'ইমপোর্ট' },
   { was: /রপ্তানি/u, now: 'এক্সপোর্ট' },
   { was: /অনুমোদন/u, now: 'মেনে নিন' },
-  // The daily quiz as রোজকার … কুইজ: রোজকার before কুইজ in the same sentence, with
-  // or without words between them. A bare কুইজ is not listed, because the sheet
-  // has not settled it (§4.2 keeps it as a loan; the v3.7 row says অনুশীলনী).
-  { was: /রোজকার[^।]*কুইজ/u, now: 'দৈনিক অনুশীলনী' },
+  // The quiz in any form, the daily one included (রোজকার … কুইজ was #52). §4.2 kept
+  // কুইজ as a loan while v3.7 said অনুশীলনী, and the owner settled it on 29
+  // September: "অনুশীলনী it is".
+  { was: /কুইজ/u, now: 'অনুশীলনী' },
 ]
 
 function values() {

@@ -519,7 +519,7 @@ The test is asymmetric on purpose, and both directions matter:
 **Never leave a loan in Latin script.** কভার, not cover. The only Latin in `bn.txt` is the
 never-translate list in §8.
 
-### 4.2 Ten that stay as loans, in Bengali script
+### 4.2 Nine that stay as loans, in Bengali script
 
 | Loan | Why the Bengali would be wrong |
 | --- | --- |
@@ -528,11 +528,17 @@ never-translate list in §8.
 | ফাইল | নথি is an office file, not a `.md` |
 | ইমপোর্ট / এক্সপোর্ট | আমদানি / রপ্তানি are trade words. Comic here |
 | সেটিংস | বিন্যাস / সংস্থাপন are decode-me words |
-| কুইজ | পরীক্ষা is an exam, and this is not one |
 | ইউজার | ব্যবহারকারী exists only in translated software |
 | এডিট | সম্পাদনা is what you do to a newspaper |
 | সিনেমা | চলচ্চিত্র is the register of a government film-board notice |
 | ফিল্টার | Nobody strains a list. This is a borrowed control and it keeps its borrowed name |
+
+**কুইজ left this list on 29 September.** It stood here beside v3.7's *quiz → অনুশীলনী*
+(§3.5), and 17 strings still said the loan while the screens they described said
+অনুশীলনী. Asked which one stands, the owner: *"অনুশীলনী it is"*. Every value now says
+অনুশীলনী, and `test/rules/bengali-keeps-the-sheets-words.test.js` fails on a কুইজ
+that comes back. পরীক্ষা is still wrong for it, as the loan's row said: it is an exam,
+and this is not one.
 
 Also loans, on the same reasoning: বোর্ড, স্টিকার, সিল, নোট, সেভ, কপি, শেয়ার, আপলোড,
 ডাউনলোড, মেটাডেটা, ব্যাকআপ, পাসওয়ার্ড, অ্যাকাউন্ট, অ্যাডমিন, আনডু, বিন, ডেক, কার্ড, স্কোর,
@@ -1272,7 +1278,7 @@ Six writers had left two or three Bengali words for one English one. These are n
 | Recent (the sort) | নতুন আগে | *newest first*, which is what the sort does |
 | ungrouped | ভাগ নেই | |
 | Quest (a game’s locator) | কোয়েস্ট | The gamer’s own word; অভিযান is an expedition |
-| in rotation (a quote the quiz draws) | কুইজে ঘুরছে | |
+| in rotation (a quote the quiz draws) | অনুশীলনীতে ঘুরছে | Was কুইজে ঘুরছে; `stats.memory.rotation.label` already said অনুশীলনীতে |
 | unattributed | সংগৃহীত | The word Bengali anthologies print under a line with no author |
 | optional (a placeholder) | — ঐচ্ছিক | In prose: *না দিলেও চলে* |
 | decade | {year}-র দশক | *1990-র দশক*; the English "1990s" has no Bengali shape |
