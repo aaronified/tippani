@@ -60,7 +60,7 @@ function AvatarRow({ user, onUser }) {
   }
   return (
     <div className="flex items-center gap-4">
-      <span className="user-chip person-avatar-face" style={{ width: 56, height: 56, fontSize: 'var(--type-ui-22)' }} aria-hidden="true">
+      <span className="user-chip" style={{ width: 56, height: 56, fontSize: 'var(--type-ui-22)' }} aria-hidden="true">
         <UserAvatar user={user} onBroken={() => setGone(true)} />
       </span>
       <div className="flex flex-col gap-2">
@@ -261,7 +261,7 @@ function SwitchAccount({ me }) {
               small avatar and adjacent names, "switch" with no subject is a
               question about a thing you cannot see. */}
           <p className="switch-from">
-            <span className="user-chip person-avatar-face" style={{ width: 24, height: 24, fontSize: 'var(--type-ui-11)' }} aria-hidden="true">
+            <span className="user-chip" style={{ width: 24, height: 24, fontSize: 'var(--type-ui-11)' }} aria-hidden="true">
               <UserAvatar user={me || {}} />
             </span>
             <span>
@@ -417,10 +417,12 @@ function MaintenanceCard() {
                 <button
                   type="button"
                   className="tp-btn"
-                  // ITS WORDS WRAP (#46). At 390 wide and the largest type, "Delete
+                  // IT FITS THE ROW (#46). At 390 wide and the largest type, "Delete
                   // everything & restart" on one line was wider than the phone and slid
-                  // the whole page sideways; the row wraps, but a button's words do not
-                  // unless it says so.
+                  // the whole page sideways. The cap holds the button to its row; the
+                  // wrap lets it get narrower than its words once they outgrow its
+                  // padding. Either alone fixes today's 1px; both are there for the day
+                  // the overage is wider than the padding.
                   style={{ background: 'var(--error)', color: '#fff', opacity: safe && confirm === 'RESET' && busy !== 'reset' ? 1 : 0.55, whiteSpace: 'normal', maxWidth: '100%' }}
                   disabled={!safe || confirm !== 'RESET' || busy === 'reset'}
                   title={!safe ? t('settings.safety.first.reason') : undefined}
@@ -567,7 +569,7 @@ export function UserManagement({ me }) {
           const canDelete = !isMe && !u.is_admin
           return (
             <li key={u.id} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 py-2" style={{ borderBottom: '1px solid var(--line)' }}>
-              <span className="user-chip person-avatar-face" style={{ width: 30, height: 30, fontSize: 'var(--type-ui-13)' }} aria-hidden="true">
+              <span className="user-chip" style={{ width: 30, height: 30, fontSize: 'var(--type-ui-13)' }} aria-hidden="true">
                 <UserAvatar user={u} />
               </span>
               <span style={{ fontWeight: 600 }}>{u.username}</span>

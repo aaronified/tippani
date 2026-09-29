@@ -5,16 +5,23 @@
 // "Delete everything & restart" ran to about x=395, so the whole page slid 5px left
 // and right under a thumb. The row it sits in wraps; the button's own words did not.
 //
-// THE MUTATION. Take the reset button's `whiteSpace: 'normal'` back out of Account.jsx
-// and this goes red with the page's slide: 1px on the seeded fixture (the 3.1.1 screens
-// pass measured 5px against another library). Delete the press on "Reset all data…" and
-// it goes green against the broken build too, measured, since the button is not drawn
-// until the prompt is open, which is why the press and the measurement are paired.
+// THE MUTATIONS, measured on the seeded fixture. Take BOTH of the reset button's
+// `whiteSpace: 'normal'` and `maxWidth: '100%'` out of Account.jsx and this goes red
+// on the page's slide, 1px (the 3.1.1 screens pass measured 5px against another
+// library). Take out either one alone and it stays green: the overage here is smaller
+// than the button's side padding, so a capped button still holds its words, and a
+// wrapping one shrinks with its row. Delete the press on "Reset all data…" and it goes
+// red on `see`, because the button is not drawn until the prompt is open.
+//
+// ONE ESCAPE HATCH. The vocabulary has no word for a label clipped inside its own
+// button, so `app.page` finds the button by its words and compares its laid-out
+// width with its shown width.
 //
 // SETUP USES THE API: the type dials are set through the preferences route, as a
-// reader's own Settings would leave them, and put back to 100 afterwards because the
-// fixture is shared. It knows that route and the four dial fields
-// (`sizeDisplay`, `sizeUi`, `sizeMono`, `sizeHand`), and on screen only the words.
+// reader's own Settings would leave them, and put back to 100 afterwards so the
+// file's later tests start at the default. It knows that route and the four dial
+// fields (`sizeDisplay`, `sizeUi`, `sizeMono`, `sizeHand`), and on screen only the
+// words.
 
 import { afterAll, expect, it } from 'vitest'
 
@@ -34,4 +41,11 @@ it('at the largest type, the reset prompt on Profile does not slide the page sid
   await app.press('Reset all data…')
   await app.see('Delete everything & restart')
   expect(await app.sideways()).toBe(0)
+  // The button's own words fit inside it.
+  const overflow = await app.page.evaluate(() => {
+    const b = [...document.querySelectorAll('button')]
+      .find((el) => el.textContent.trim() === 'Delete everything & restart')
+    return b ? b.scrollWidth - b.clientWidth : null
+  })
+  expect(overflow).toBe(0)
 })

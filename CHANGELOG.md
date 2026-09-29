@@ -16,9 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The restore dialog, every edit form's dialog and the help sheet now inset their
   content evenly, 20px on all sides.** The top used to be inset 18px, a little tighter
   than the other three.
-- **Profile no longer slides sideways on a phone at the largest text size, and the
-  account avatars on Profile are now circles.** The reset prompt's "Delete everything &
-  restart" button used to run past the screen's edge.
+- **Profile no longer slides sideways on a phone at the largest text size.** The reset
+  prompt's "Delete everything & restart" button used to run past the screen's edge.
 - **The Bengali interface's Import and Pending import screens, and every mention of an
   app screen, now use the style sheet's words (ইমপোর্ট, মেনে নিন, অপেক্ষার তালিকা,
   স্ক্রিন).** Those screens used to carry other renderings, such as আমদানি, অনুমোদন and
