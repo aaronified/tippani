@@ -72,7 +72,7 @@ settings.reset.all.confirm.body.other = সেটিংসের সব জা�
 settings.reset.all.confirm.verb = সবই রিসেট করুন
 settings.section.theme.info.body = অ্যাপ হালকা না গাঢ় দেখাবে, কোন রং, কোন উপাদানের জমিন আর কোন অ্যাকসেন্ট রং — সব এখানে।
 settings.section.lang.info.body = অ্যাপ কোন ভাষায় কথা বলবে, কোনো লাইন না থাকলে কোন ভাষায় ফিরবে, আর কোন ফন্টে লেখা দেখাবে।
-settings.section.review.info.body = রোজকার কুইজ কোন উদ্ধৃতি থেকে প্রশ্ন নেবে, কটা কার্ড, কতটা কঠিন, আর কখন কোনটা আবার ফিরবে।
+settings.section.review.info.body = দৈনিক অনুশীলনী কোন উদ্ধৃতি থেকে প্রশ্ন নেবে, কটা কার্ড, কতটা কঠিন, আর কখন কোনটা আবার ফিরবে।
 settings.section.sections.info.body = অ্যাপের কোন অংশগুলো রাখবেন, আর নেভিগেশনে সেগুলো কোন ক্রমে থাকবে।
 settings.section.server.info.body = কোন সংস্করণ চলছে, ব্যাকআপ, আর প্রতিটা রিলিজে কী বদলেছে।
 settings.section.jobs.info.body = কী চলছে, কী অপেক্ষার তালিকায়, আর গত 30 দিনে কী শেষ হল — প্রতিটার সঙ্গে তার লগ। অ্যাডমিন সবার কাজ আর অ্যাপের নিজের লগও দেখতে পান।
@@ -1283,7 +1283,7 @@ settings.colours.reset.tip = আগের রঙে ফিরুন
 # and the tooltip says what that screen's quotes are.
 settings.review-scope.title = যেখান থেকে নেওয়া
 settings.review-scope.info.title = যেখান থেকে নেওয়া
-settings.review-scope.info.body = রোজকার কুইজ আর ঝালাই কোন ধরনের উদ্ধৃতি থেকে প্রশ্ন নেবে, আলাদা আলাদা করে বাছুন। যে উদ্ধৃতিতে বক্তা বা প্রসঙ্গ নেই, আর গত এক সপ্তাহে যা রাখা হয়েছে, সেগুলো বাদ থাকে।
+settings.review-scope.info.body = দৈনিক অনুশীলনী আর ঝালাই কোন ধরনের উদ্ধৃতি থেকে প্রশ্ন নেবে, আলাদা আলাদা করে বাছুন। যে উদ্ধৃতিতে বক্তা বা প্রসঙ্গ নেই, আর গত এক সপ্তাহে যা রাখা হয়েছে, সেগুলো বাদ থাকে।
 settings.review-scope.books.tip = বইয়ের উদ্ধৃতি
 settings.review-scope.movies.tip = সিনেমা, শো আর গেমের সংলাপ
 settings.review-scope.quotes.tip = ভাষণ, চিঠি, আর বাকি সব
@@ -1384,11 +1384,11 @@ settings.quiz.tuning.changed.aside = বদলানো
 # {name} is the deck — Daily quiz, or Practice.
 settings.quiz.deck.title = {name} যা জিজ্ঞেস করে
 settings.quiz.deck.question.aria = {question} — {name}
-settings.quiz.deck.daily.info.body = রোজকার কুইজের প্রতিটা উত্তর সার্ভার মিলিয়ে দেখে, তাই নিজে নম্বর দেওয়ার ফ্লিপ কার্ড এখানে নেই।
+settings.quiz.deck.daily.info.body = দৈনিক অনুশীলনীর প্রতিটা উত্তর সার্ভার মিলিয়ে দেখে, তাই নিজে নম্বর দেওয়ার ফ্লিপ কার্ড এখানে নেই।
 settings.quiz.deck.practice.info.body = ঝালাই শুরু হয় ফ্লিপ কার্ড দিয়ে, তারপর বাকিগুলো মিশিয়ে। “প্র্যাকটিস গোনা হয়” চালু থাকলে ফ্লিপ কার্ড বাদ যায়, কারণ নিজে দেওয়া নম্বর কেউ যাচাই করে না।
 settings.quiz.practice-counts.title = প্র্যাকটিস গোনা হয়
 settings.quiz.practice-counts.aria = ঝালাইতেও দিনপঞ্জি বদলায়
-settings.quiz.practice-counts.info.body = বন্ধ থাকলে ঝালাই শুধু পড়াশোনা। চালু করলে ঝালাইয়ের ঠিক উত্তরেও রোজকার কুইজের মতো পরের বার আসার ফাঁক বাড়ে।
+settings.quiz.practice-counts.info.body = বন্ধ থাকলে ঝালাই শুধু পড়াশোনা। চালু করলে ঝালাইয়ের ঠিক উত্তরেও দৈনিক অনুশীলনীর মতো পরের বার আসার ফাঁক বাড়ে।
 settings.quiz.submit.title = প্রতিটা উত্তর নিশ্চিত করুন
 settings.quiz.submit.aria = প্রতিটা উত্তর নিশ্চিত করুন
 settings.quiz.submit.info.body = বন্ধ থাকলে ছুঁলেই উত্তর হয়ে যায়। চালু থাকলে ছুঁলে শুধু বাছা হয়, “জমা দিন” চাপলে তবে উত্তর — মত বদলানোর সুযোগ থাকে। ফ্লিপ কার্ডে কোনো তফাত নেই।
@@ -1432,7 +1432,7 @@ settings.quiz.tier.hard.note = বেশিরভাগই কথাগুলো
 settings.quiz.tier.random.note = প্রতি কার্ডে আলাদা মাত্রা, যাতে কোনো এক ধরনের প্রশ্নে অভ্যস্ত না হয়ে পড়েন।
 settings.quiz.seen.title = চোখে পড়লে অর্ধায়ু বাড়ে
 settings.quiz.seen.label = চোখে পড়লে অর্ধায়ু বাড়ে
-settings.quiz.seen.info.body = কোনো উদ্ধৃতি শেয়ার করলে, প্রিয়তে রাখলে, বা রোজকার কুইজে বিকল্পের মধ্যে চোখে পড়লে পরের বার আসার ফাঁক একটু বাড়ে। ঝালাই এখানে ধরা হয় না। 1.0× দিলে এটা বন্ধ।
+settings.quiz.seen.info.body = কোনো উদ্ধৃতি শেয়ার করলে, প্রিয়তে রাখলে, বা দৈনিক অনুশীলনীতে বিকল্পের মধ্যে চোখে পড়লে পরের বার আসার ফাঁক একটু বাড়ে। ঝালাই এখানে ধরা হয় না। 1.0× দিলে এটা বন্ধ।
 settings.quiz.tuning.info.body = প্রতিটা উত্তরে একটা উদ্ধৃতির ফাঁক কতটা বাড়বে বা কমবে। সীমা বাঁধা আছে, যাতে ভুল মানে একই উদ্ধৃতি নিঃশব্দে বারবার ফিরে না আসে।
 settings.quiz.reset.label = আগের মতো করুন
 settings.quiz.reset.tip = এই প্যানেলের সব বদল ফিরিয়ে দিন
@@ -1515,10 +1515,10 @@ settings.appearance.saved.name.aria = আপনি যা পরে আছেন
 settings.appearance.saved.save.label = এই চেহারা সংরক্ষণ
 settings.appearance.saved.full = চারটিই সীমা। আরেকটি রাখতে একটি সরান।
 settings.appearance.saved.remove.aria = {name} সরান
-settings.appearance.saved.export.label = রপ্তানি
+settings.appearance.saved.export.label = এক্সপোর্ট
 settings.appearance.saved.export.default = আমার চেহারা
-settings.appearance.saved.import.label = আমদানি
-settings.appearance.saved.import.unnamed = আমদানি করা
+settings.appearance.saved.import.label = ইমপোর্ট
+settings.appearance.saved.import.unnamed = ইমপোর্ট করা
 settings.appearance.saved.import.parse = ফাইলটি থিম হিসেবে পড়া যাচ্ছে না।
 settings.appearance.saved.import.kind = এটি JSON, কিন্তু তিপ্পনীর থিম নয়।
 settings.appearance.saved.import.version = থিমটি নতুন তিপ্পনীর লেখা।
@@ -2350,7 +2350,7 @@ tour.step.add.em1.label = বই
 tour.step.add.em2.label = সিনেমা বা শো
 tour.step.add.em3.label = উদ্ধৃতি
 tour.step.add.em4.label = ইমপোর্ট
-tour.step.add.more = বই খোঁজা যায় নাম, লেখক বা ISBN দিয়ে, সিনেমা TMDB আর TheTVDB-তে — কভার আর বিবরণ নিজে থেকে ভরে যায়। আমদানি পড়তে পারে Markdown, Readest, কিন্ডল, Goodreads, Hardcover আর IMDb-র উদ্ধৃতির পাতা; সব আগে “যাচাই বাকি ইমপোর্ট”-এ জমা হয়, ওখানে অনুমোদন না দেওয়া পর্যন্ত। একই ফাইল দুবার আনলেও কিছু দ্বিগুণ হয় না।
+tour.step.add.more = বই খোঁজা যায় নাম, লেখক বা ISBN দিয়ে, সিনেমা TMDB আর TheTVDB-তে — কভার আর বিবরণ নিজে থেকে ভরে যায়। ইমপোর্ট পড়তে পারে Markdown, Readest, কিন্ডল, Goodreads, Hardcover আর IMDb-র উদ্ধৃতির পাতা; সব আগে “যাচাই বাকি ইমপোর্ট”-এ জমা হয়, ওখানে মেনে না নেওয়া পর্যন্ত। একই ফাইল দুবার আনলেও কিছু দ্বিগুণ হয় না।
 
 # Step "library".
 tour.step.library.name = গ্রন্থাগার — বই আর উদ্ধৃতি
@@ -2372,7 +2372,7 @@ tour.step.share.blurb = শেয়ার প্যানেল (WhatsApp/Markd
 tour.step.share.title = একটা বাক্য শেয়ার করুন, গোটাটা এক্সপোর্ট
 tour.step.share.prose = যে কোনও উদ্ধৃতি এক ট্যাপে শেয়ার হয় — লেখা হিসেবে, নয়তো আপনার নিজের সাজে আঁকা {em1} হিসেবে।
 tour.step.share.em1.label = ছবির কার্ড
-tour.step.share.more = শেয়ার করা যায় Markdown, WhatsApp, সাধারণ লেখা বা Reddit-এর ধাঁচে, কিংবা আপনার যন্ত্রেই তৈরি ছবি হিসেবে — আগেভাগে দেখে নিয়ে। একটা বই, ছেঁকে নেওয়া কয়েকটা, বা পুরো সংগ্রহ Markdown-এ রপ্তানি করা যায়, আবার ঠিকঠাক আমদানিও করা যায়।
+tour.step.share.more = শেয়ার করা যায় Markdown, WhatsApp, সাধারণ লেখা বা Reddit-এর ধাঁচে, কিংবা আপনার যন্ত্রেই তৈরি ছবি হিসেবে — আগেভাগে দেখে নিয়ে। একটা বই, ছেঁকে নেওয়া কয়েকটা, বা পুরো সংগ্রহ Markdown-এ এক্সপোর্ট করা যায়, আবার ঠিকঠাক ইমপোর্টও করা যায়।
 
 # Step "quiz".
 tour.step.quiz.name = দৈনিক অনুশীলনী আর ঝালাই
@@ -2449,7 +2449,7 @@ tour.step.boards.blurb = যে লাইনগুলো কোনো বই ব
 tour.step.boards.title = বাকি সব জায়গার লাইন
 tour.step.boards.prose = একটা ভাষণ, চিঠি, গান, প্রবাদ, বন্ধুর বলা কোনো কথা। এগুলো এখানে {em1} থাকে — লাইনটা রাখার সময়েই বোর্ড বেছে নেন।
 tour.step.boards.em1.label = বোর্ডে
-tour.step.boards.more = সাধারণ বোর্ডে যা খুশি রাখা যায়; প্রবাদের বোর্ডে মূল লেখার পাশে থাকে প্রতিবর্ণীকরণ আর অনুবাদ। একটা বোর্ড আলাদা করে ছাঁকা, সাজানো আর রপ্তানি করা যায়। বোর্ড মুছতে গেলে জিজ্ঞেস করে তার উদ্ধৃতিগুলোর কী হবে।
+tour.step.boards.more = সাধারণ বোর্ডে যা খুশি রাখা যায়; প্রবাদের বোর্ডে মূল লেখার পাশে থাকে প্রতিবর্ণীকরণ আর অনুবাদ। একটা বোর্ড আলাদা করে ছাঁকা, সাজানো আর এক্সপোর্ট করা যায়। বোর্ড মুছতে গেলে জিজ্ঞেস করে তার উদ্ধৃতিগুলোর কী হবে।
 
 # Step "anthologies" — the Anthologies screen.
 tour.step.anthologies.name = সংকলন
@@ -2457,7 +2457,7 @@ tour.step.anthologies.blurb = উদ্ধৃতিগুলো একটা প
 tour.step.anthologies.title = এগুলো দিয়ে কিছু একটা বানান
 tour.step.anthologies.prose = সংকলন কোনো তাক নয়, বরং {em1}: আপনার পছন্দের ক্রমে উদ্ধৃতি, মাঝে মাঝে আপনার নিজের কথা। কোনো বই, ট্যাগ, লেখক বা রঙের দিকে দেখিয়ে দিলে নিজেই ভরে ওঠে।
 tour.step.anthologies.em1.label = লেখা
-tour.step.anthologies.more = একটা উদ্ধৃতি যত খুশি সংকলনে থাকতে পারে, নিজের জায়গা থেকে সরে না। প্রতিটা অংশে কী দেখাবে বেছে নিন; নিজে ভরতে দিলে পরে খুললেই নতুন মিলগুলো অপেক্ষা করবে। Markdown বা EPUB হিসেবে রপ্তানি করুন।
+tour.step.anthologies.more = একটা উদ্ধৃতি যত খুশি সংকলনে থাকতে পারে, নিজের জায়গা থেকে সরে না। প্রতিটা অংশে কী দেখাবে বেছে নিন; নিজে ভরতে দিলে পরে খুললেই নতুন মিলগুলো তৈরি থাকবে। Markdown বা EPUB হিসেবে এক্সপোর্ট করুন।
 
 # Step "filters" — the Search screen.
 tour.step.filters.name = সার্চের ছাঁকনি
@@ -2477,8 +2477,8 @@ tour.step.bin.more = প্রতিটা সারি দেখায় জ�
 
 # Step "checks" — the Checks screen.
 tour.step.checks.name = যাচাইকরণ
-tour.step.checks.blurb = আপনার জন্য অপেক্ষা করা দুটো তালিকা — আমদানি, আর যেসব উদ্ধৃতিতে গোলমাল আছে
-tour.step.checks.title = কী কী আপনার জন্য অপেক্ষা করছে
+tour.step.checks.blurb = আপনার দেখার বাকি দুটো তালিকা — ইমপোর্ট, আর যেসব উদ্ধৃতিতে গোলমাল আছে
+tour.step.checks.title = কী কী আপনার দেখার বাকি
 tour.step.checks.prose = এক স্ক্রিনে দুটো তালিকা: ইমপোর্ট করা উদ্ধৃতি যেগুলো এখনও মেনে নেওয়া হয়নি, আর যেসব উদ্ধৃতিতে কিছু একটা {em1} লাগছে।
 tour.step.checks.em1.label = গোলমেলে
 tour.step.checks.more = প্রতিটা তালিকার নিজের স্ক্রিন আর লিংকও আছে। এখানে দেখা হয় লেখাটা ঠিক আছে কি না — মনে রাখার ব্যাপার নয়।
@@ -2492,12 +2492,12 @@ tour.step.cleanup.em1.label = পাতা
 tour.step.cleanup.more = যা পায় শুধু তালিকা করে; নিজে থেকে কিছু বদলায় না। নিয়ম ধরে ছাঁকুন, সারি খুলে ঠিক করুন, আর সংগ্রহ খুব বড় হলে বাকিটার জন্য আবার চালান।
 
 # Step "staging" — the imports waiting room.
-tour.step.staging.name = অপেক্ষায় থাকা আমদানি
-tour.step.staging.blurb = আমদানি আগে এখানে নামে, সায় পেলে তবে বেরোয়
+tour.step.staging.name = যাচাই বাকি ইমপোর্ট
+tour.step.staging.blurb = ইমপোর্ট আগে এখানে নামে, মেনে নিলে তবে বেরোয়
 tour.step.staging.title = না দেখে কিছু ঢোকে না
-tour.step.staging.prose = যতক্ষণ না আপনি {em1}, আমদানি করা জিনিস এখানেই থাকে — তাই ভুল আমদানি সংগ্রহে ঢোকে না।
-tour.step.staging.em1.label = সায় দেন
-tour.step.staging.more = পুরো দলটা একসঙ্গে ঠিক করুন — কোন বই, বক্তার নাম, রং — তারপর যা চান অনুমোদন দিন, বাকিটা বাদ দিন। এখানকার কিছুই এখনো আপনার সংগ্রহে ঢোকেনি।
+tour.step.staging.prose = যতক্ষণ না আপনি {em1}, ইমপোর্ট করা জিনিস এখানেই থাকে — তাই ভুল ইমপোর্ট সংগ্রহে ঢোকে না।
+tour.step.staging.em1.label = মেনে নেন
+tour.step.staging.more = পুরো দলটা একসঙ্গে ঠিক করুন — কোন বই, বক্তার নাম, রং — তারপর যা চান মেনে নিন, বাকিটা ফেলে দিন। এখানকার কিছুই এখনো আপনার সংগ্রহে ঢোকেনি।
 
 # Step "book" — a book's own page.
 tour.step.book.name = বইয়ের নিজের পাতা
@@ -2505,7 +2505,7 @@ tour.step.book.blurb = তার খুঁটিনাটি, তার দা�
 tour.step.book.title = একটা বই সম্পর্কে সব কিছু
 tour.step.book.prose = ওপরে বইয়ের তথ্য, নিচে সব হাইলাইট। এখানে ＋ চাপলে {em1} যোগ হয়, আরেকটা বই নয়।
 tour.step.book.em1.label = এই বই থেকে একটা উদ্ধৃতি
-tour.step.book.more = হিসেবগুলোয় চাপলে ছাঁকা যায়, ♥ দিয়ে বই বা আলাদা উদ্ধৃতি চিহ্নিত হয়, আর তাকের চিপ দেখায় বইটা পড়ছেন কি না। কপি, শেয়ার আর রপ্তানি — একটা হাইলাইটে বা কয়েকটা বেছে নিয়ে।
+tour.step.book.more = হিসেবগুলোয় চাপলে ছাঁকা যায়, ♥ দিয়ে বই বা আলাদা উদ্ধৃতি চিহ্নিত হয়, আর তাকের চিপ দেখায় বইটা পড়ছেন কি না। কপি, শেয়ার আর এক্সপোর্ট — একটা হাইলাইটে বা কয়েকটা বেছে নিয়ে।
 
 # Step "film" — a film's own page.
 tour.step.film.name = ছবির নিজের পাতা
@@ -2709,7 +2709,7 @@ anthologies.entry.source.label = {source}
 # proverbs wants nothing but the words. Each label names the THING, because the
 # control beside it is what says on or off.
 anthologies.form.fields.label = প্রতিটা উদ্ধৃতির সঙ্গে দেখান
-anthologies.form.fields.hint = যা চালু করবেন, প্রতিটা অংশের নিচে ছাপা হবে — পড়ার সময়েও, রপ্তানিতেও।
+anthologies.form.fields.hint = যা চালু করবেন, প্রতিটা অংশের নিচে ছাপা হবে — পড়ার সময়েও, এক্সপোর্টেও।
 anthologies.form.fields.count = {total}-এর মধ্যে {shown}টি দেখানো হচ্ছে
 
 anthologies.fill.title = এতে কী কী থাকবে
@@ -2778,7 +2778,7 @@ anthologies.rule.preview.action = কী কী আসবে?
 anthologies.rule.preview = {matched}টা মিলেছে। {added}টা যোগ হবে, {skipped}টা আগে থেকেই আছে।
 anthologies.rule.capped = একবারে দুশো; বাকিটার জন্য আবার চাপুন।
 anthologies.rule.filled = {added}টা যোগ হল, {skipped}টা আগে থেকেই ছিল
-anthologies.rule.waiting = অপেক্ষায় থাকা {n}টা যোগ করুন
+anthologies.rule.waiting = বাকি {n}টা যোগ করুন
 anthologies.rule.empty = রুলে মেলানোর মতো কিছু দিন।
 
 anthologies.toast.deleted = সংকলন মোছা হয়েছে
@@ -3222,8 +3222,8 @@ home.states.capacity.note = আপনার সংগ্রহ সময়স�
 # {forgotten} are the three status words in bold, and they must match
 # common.status.*.label, which is what the dots on every card say.
 # ?? the owner's to confirm: "নতুন রাখা উদ্ধৃতি প্রথম সপ্তাহ রোজকার কুইজে আসে না" replaces "…মনে-থাকা বলেই ধরা হয়", which 3.0.3 made untrue (a new quote now reads "not yet reviewed")
-home.states.help.adaptive.prose = প্রতিটা উদ্ধৃতির একটা অর্ধায়ু থাকে: মনে করতে পারলে সেটা আড়াই গুণ বাড়ে, সর্বোচ্চ এক বছর; ভুলে গেলে অর্ধেক হয় — এর ভিত্তি {curve}, যার ওপর দাঁড়িয়ে {spaced}। মনে পড়ার সম্ভাবনা বেশি থাকলে উদ্ধৃতিটা {remembered}, কমতে থাকলে {forgetting}, আর অর্ধেকের নিচে নামলে {forgotten} — তখনই রোজকার কুইজ সেটা ফিরিয়ে আনে। নতুন রাখা উদ্ধৃতি প্রথম সপ্তাহ রোজকার কুইজে আসে না। অর্ধায়ু দেখতে যেকোনো বিন্দুর ওপর মাউস রাখুন।
-home.states.help.ladder.prose = প্রতিটা উদ্ধৃতির একটা অর্ধায়ু থাকে: মনে করতে পারলে সেটা বাঁধা ধাপে ওঠে — এক সপ্তাহ, তারপর ৩০, ১০০, ৩৬৫ দিন; ভুলে গেলে আবার এক সপ্তাহে নামে — এর ভিত্তি {curve}, যার ওপর দাঁড়িয়ে {spaced}। মনে পড়ার সম্ভাবনা বেশি থাকলে উদ্ধৃতিটা {remembered}, কমতে থাকলে {forgetting}, আর অর্ধেকের নিচে নামলে {forgotten} — তখনই রোজকার কুইজ সেটা ফিরিয়ে আনে। নতুন রাখা উদ্ধৃতি প্রথম সপ্তাহ রোজকার কুইজে আসে না। অর্ধায়ু দেখতে যেকোনো বিন্দুর ওপর মাউস রাখুন।
+home.states.help.adaptive.prose = প্রতিটা উদ্ধৃতির একটা অর্ধায়ু থাকে: মনে করতে পারলে সেটা আড়াই গুণ বাড়ে, সর্বোচ্চ এক বছর; ভুলে গেলে অর্ধেক হয় — এর ভিত্তি {curve}, যার ওপর দাঁড়িয়ে {spaced}। মনে পড়ার সম্ভাবনা বেশি থাকলে উদ্ধৃতিটা {remembered}, কমতে থাকলে {forgetting}, আর অর্ধেকের নিচে নামলে {forgotten} — তখনই দৈনিক অনুশীলনী সেটা ফিরিয়ে আনে। নতুন রাখা উদ্ধৃতি প্রথম সপ্তাহ দৈনিক অনুশীলনীতে আসে না। অর্ধায়ু দেখতে যেকোনো বিন্দুর ওপর মাউস রাখুন।
+home.states.help.ladder.prose = প্রতিটা উদ্ধৃতির একটা অর্ধায়ু থাকে: মনে করতে পারলে সেটা বাঁধা ধাপে ওঠে — এক সপ্তাহ, তারপর ৩০, ১০০, ৩৬৫ দিন; ভুলে গেলে আবার এক সপ্তাহে নামে — এর ভিত্তি {curve}, যার ওপর দাঁড়িয়ে {spaced}। মনে পড়ার সম্ভাবনা বেশি থাকলে উদ্ধৃতিটা {remembered}, কমতে থাকলে {forgetting}, আর অর্ধেকের নিচে নামলে {forgotten} — তখনই দৈনিক অনুশীলনী সেটা ফিরিয়ে আনে। নতুন রাখা উদ্ধৃতি প্রথম সপ্তাহ দৈনিক অনুশীলনীতে আসে না। অর্ধায়ু দেখতে যেকোনো বিন্দুর ওপর মাউস রাখুন।
 # The two link texts inside those paragraphs.
 home.states.help.curve.label = ভুলে যাওয়ার রেখা
 home.states.help.spaced.label = ফাঁক রেখে পুনরাবৃত্তি
@@ -4381,12 +4381,12 @@ offers.unpinned.prose = এই রেকর্ড কোনও জোগান�
 # Clippings” is the filename on the device. URLs, file extensions and the
 # Ctrl+S / ⌘S key names are Latin for the same reason.
 import.source.markdown.title = Markdown
-import.source.markdown.desc = Tippani থেকে রপ্তানি করা বই বা ক্যাটালগ, কিংবা Readest-এর রপ্তানি — .json আর Markdown দুটোই পড়া যায়।
+import.source.markdown.desc = Tippani থেকে এক্সপোর্ট করা বই বা ক্যাটালগ, কিংবা Readest-এর এক্সপোর্ট — .json আর Markdown দুটোই পড়া যায়।
 import.source.markdown.step.1 = Tippani-র এক্সপোর্ট (বই বা ক্যাটালগ), Readest-এর এক্সপোর্ট, বা নিজের লেখা frontmatter আর উদ্ধৃতি ইমপোর্ট করুন।
 import.source.markdown.step.2 = একটা .md ফাইলে অনেক বই বা টাইটেল থাকতে পারে — প্রত্যেকটাই আসবে।
 
 import.source.readest.title = Readest
-import.source.readest.desc = Readest-এর হাইলাইট রপ্তানি — রং আর প্রতিটা হাইলাইটের তারিখও চলে আসে।
+import.source.readest.desc = Readest-এর হাইলাইট এক্সপোর্ট — রং আর প্রতিটা হাইলাইটের তারিখও চলে আসে।
 import.source.readest.step.1 = Readest-এ বইটার অ্যানোটেশন খুলে এক্সপোর্ট করুন।
 import.source.readest.step.2 = .json ফাইলটা আনুন — Readest-এর Markdown এক্সপোর্টও পড়া হয়।
 
@@ -4450,7 +4450,7 @@ import.read-as.unqueued = এই ফাইল থেকে কিছুই জ�
 # names are this file's own (settings.restore.title, settings.section.lang.label).
 import.near-miss.backup = এটা টিপ্পনীর ব্যাকআপ — সেটিংস → ফিরিয়ে আনা দিয়ে ফেরান।
 import.near-miss.zip = এক্সপোর্টের আর্কাইভ গোটাটা ইমপোর্ট হয় না — unzip করে ভিতরের ফাইলগুলো ছাড়ুন।
-import.near-miss.epub = Tippani হাইলাইট রাখে, বই নয় — তার বদলে আপনার রিডার থেকে হাইলাইটগুলো রপ্তানি করুন।
+import.near-miss.epub = Tippani হাইলাইট রাখে, বই নয় — তার বদলে আপনার রিডার থেকে হাইলাইটগুলো এক্সপোর্ট করুন।
 import.near-miss.image = প্রচ্ছদ বসে বই বা সিনেমার নিজের পাতা থেকে।
 import.near-miss.font = ফন্ট আপলোড হয় সেটিংস → ফন্ট থেকে।
 import.near-miss.binary = ফাইলটা টেক্সট নয়, তাই পড়ার মতো কিছু নেই।
@@ -4610,7 +4610,7 @@ account.notify.test.sent = পাঠানো হয়েছে — ফোন �
 account.notify.event.daily.title = দিনের রিভিউ তৈরি
 account.notify.event.daily.sub = দিনে একবার, ডেকে কার্ড থাকলে। সার্ভারের দৈনিক কাজ চালু থাকা চাই।
 account.notify.event.import.title = বড় ইমপোর্ট
-account.notify.event.import.sub = ৫০ বা তার বেশি উদ্ধৃতি রিভিউয়ের অপেক্ষায় থাকলে, আর সেগুলো যোগ হলে।
+account.notify.event.import.sub = ৫০ বা তার বেশি উদ্ধৃতির যাচাই বাকি থাকলে, আর সেগুলো যোগ হলে।
 account.notify.event.fetch.title = লম্বা মেটাডেটা ফেচ
 account.notify.event.fetch.sub = ২০ বা তার বেশি রচনার ফেচ শেষ হলে।
 account.notify.event.backup.title = ব্যাকআপ
@@ -4865,7 +4865,7 @@ staging.badge.quotes = উক্তি
 # filter says when the file it points at has no rows left.
 staging.state.loading = অপেক্ষার তালিকা পড়া হচ্ছে…
 staging.state.empty-counts = কিছু বাকি নেই
-staging.state.empty = কিছুই জমা নেই — ইমপোর্ট আগে এখানেই আসে, আর আপনি সায় না দেওয়া পর্যন্ত এখানেই থাকে
+staging.state.empty = কিছুই জমা নেই — ইমপোর্ট আগে এখানেই আসে, আর আপনি মেনে না নেওয়া পর্যন্ত এখানেই থাকে
 staging.state.empty-file = ওই ফাইলে জমা কোনও উদ্ধৃতি নেই
 
 # The header's counts. A batch can hold works and no quotes at all (a book
@@ -5086,8 +5086,8 @@ staging.form.timestamp.placeholder = 01:02:03
 # spellings of one.
 staging.card.label = যাচাই বাকি ইমপোর্ট
 # bn: আপনার stays here: it is your approval the queue is waiting on, and that is the whole sentence (§1.3).
-staging.card.body.one = ইমপোর্ট করা {n}টা উদ্ধৃতি আপনার সায় পাওয়া বাকি।
-staging.card.body.other = ইমপোর্ট করা {n}টা উদ্ধৃতি আপনার সায় পাওয়া বাকি।
+staging.card.body.one = ইমপোর্ট করা {n}টা উদ্ধৃতি আপনার মেনে নেওয়া বাকি।
+staging.card.body.other = ইমপোর্ট করা {n}টা উদ্ধৃতি আপনার মেনে নেওয়া বাকি।
 staging.card.review.label = {n}টা দেখে নিন
 
 # ---------------------------------------------------------------------------
@@ -5206,7 +5206,7 @@ metadata.section.works.info.body = সব বই, সিনেমা, শো আ
 metadata.section.people.info.body = লেখক, অভিনেতা, পরিচালক, স্টুডিও আর প্রকাশকের ছবি ও তথ্যসূত্রের লিংক। “আনুন” চাপলে যা নেই তা ভরে, যা আছে তা হালনাগাদ হয়।
 metadata.section.characters.info.body = প্রতিটা চরিত্র — বই আর তার রূপান্তরে একই চরিত্র একটা রেকর্ডে। একই নামের দুজন নিজে থেকে মেলানো হয় না, এখানে দেখে নিন।
 metadata.section.languages.info.body = আপনার উদ্ধৃতিগুলো কোন কোন ভাষায়, আর প্রতিটা কীভাবে চিহ্নিত। উদ্ধৃতির ভাষাই ঠিক করে লেখা কোন দিক থেকে পড়া হবে।
-metadata.section.categories.info.body = রং বলে উদ্ধৃতিটা কী ধরনের নোট, ট্যাগ বলে সেটা কী নিয়ে, আর স্টিকার হলো উদ্ধৃতিতে লাগানোর চিহ্ন। রঙের নাম বদলালে শুধু দেখানো নামটাই বদলায়; রপ্তানিতে আসল মান যেমন ছিল থাকে।
+metadata.section.categories.info.body = রং বলে উদ্ধৃতিটা কী ধরনের নোট, ট্যাগ বলে সেটা কী নিয়ে, আর স্টিকার হলো উদ্ধৃতিতে লাগানোর চিহ্ন। রঙের নাম বদলালে শুধু দেখানো নামটাই বদলায়; এক্সপোর্টে আসল মান যেমন ছিল থাকে।
 metadata.section.sources.info.body = আনা তথ্য কোথা থেকে আসে। যে উৎসের চাবি লাগে, চাবি না দেওয়া পর্যন্ত সেটা বাদ থাকে।
 metadata.section.works.label = বই ও ছবি
 metadata.section.people.label = মানুষ
@@ -5301,7 +5301,7 @@ metadata.duplicates.merge.flash.other = {n}টা বই এক হয়েছ�
 # they stay as themselves in every language (§8).
 metadata.speakers.title = বক্তা আর চরিত্রের নাম মেলানো
 # bn: RICK, Rick Blaine, Bogart — a role and a person, so they stay Latin (§8).
-metadata.speakers.info.body = আমদানি করা সংলাপে বক্তার নাম উৎস যেমন লিখেছে তেমনই থাকে — RICK, Rick Blaine, Bogart। প্রতিটা নাম একজন অভিনেতার সঙ্গে জুড়ে দিলে সব লাইনে অভিনেতার নাম বসে যায়। আগে সিনেমাটার অভিনেতাদের তালিকা আনুন।
+metadata.speakers.info.body = ইমপোর্ট করা সংলাপে বক্তার নাম উৎস যেমন লিখেছে তেমনই থাকে — RICK, Rick Blaine, Bogart। প্রতিটা নাম একজন অভিনেতার সঙ্গে জুড়ে দিলে সব লাইনে অভিনেতার নাম বসে যায়। আগে সিনেমাটার অভিনেতাদের তালিকা আনুন।
 metadata.speakers.pick.placeholder = — একটা টাইটেল বাছুন —
 # The year beside a title in the picker. A wrapper, so the digits stay Western
 # and the brackets stay brackets.
@@ -5980,7 +5980,7 @@ settings.logs.export.all.label = রাখা সবকিছু (30 দিন)
 # ===========================================================================
 
 # --- from staging ---
-error.load.import-queue = ইমপোর্টের যাচাইয়ের তালিকা পড়া গেল না
+error.load.import-queue = ইমপোর্টের অপেক্ষার তালিকা পড়া গেল না
 error.load.bin = রিসাইকল বিন পড়া গেল না
 error.load.stats = আপনার পরিসংখ্যান লোড করা গেল না
 error.load.favourites = আপনার পছন্দের লেখাগুলো পড়া গেল না
@@ -6191,7 +6191,7 @@ home.help.practice.what = যত খুশি কুইজ-ঝালাই, য�
 # The verb on a button: a round about one book, person or tag.
 home.help.practise.term = ঝালিয়ে নিন
 home.help.practise.what = একটা জিনিস নিয়েই এক রাউন্ড।
-home.help.practise.more = বই বা সিনেমার মেনুতে, কারও পাতায়, ট্যাগের পাশে আর পরিসংখ্যানের রঙের সারিতে পাবেন। এখনকার স্ক্রিনের ওপরেই খোলে, শেষে সেখানেই ফেরায়। রোজকার কুইজ কোনো বিষয় ধরে ছাঁকা যায় না, কারণ সেটা সময়সূচি মেনে চলে।
+home.help.practise.more = বই বা সিনেমার মেনুতে, কারও পাতায়, ট্যাগের পাশে আর পরিসংখ্যানের রঙের সারিতে পাবেন। এখনকার স্ক্রিনের ওপরেই খোলে, শেষে সেখানেই ফেরায়। দৈনিক অনুশীলনী কোনো বিষয় ধরে ছাঁকা যায় না, কারণ সেটা সময়সূচি মেনে চলে।
 
 # The three grading buttons on a quiz card.
 home.help.grade.term = দেখি / পেরেছি / ভুলে গেছি
@@ -6726,7 +6726,7 @@ cleanup.help.title = বাড়তি চিহ্ন
 # What the page is for.
 checks.help.what-is-here.term = এখানে কী আছে
 checks.help.what-is-here.what = আপনার দেখা বাকি দুটো তালিকা, এক স্ক্রিনে: ফাইল থেকে ইমপোর্ট করা উদ্ধৃতি, আর যেগুলোয় কিছু একটা খটকা লাগছে।
-checks.help.what-is-here.more = সাইডবার আর ☰ মেনুর সংখ্যা জানিয়ে দেয় কিছু অপেক্ষায় আছে কি না; সেগুলো সামলানো হয় এই স্ক্রিনে।
+checks.help.what-is-here.more = সাইডবার আর ☰ মেনুর সংখ্যা জানিয়ে দেয় কিছু বাকি আছে কি না; সেগুলো সামলানো হয় এই স্ক্রিনে।
 checks.help.imports.term = ইমপোর্ট যাচাই করা বাকি
 checks.help.imports.what = ইমপোর্ট করা কিছুই সোজা গ্রন্থাগারে যায় না। এখানে এসে নামে, আর আপনি মেনে না নেওয়া পর্যন্ত যত দিন খুশি বসে থাকে।
 checks.help.imports.more = গোটা ব্যাচ, একটা উৎস বা এক-একটা সারি মেনে নিন — তার আগে যা খুশি এডিট করুন।
@@ -6771,7 +6771,7 @@ cleanup.help.cap.more = কয়েকটা ঠিক করে বাকি�
 # The names of the six highlight colours.
 metadata.help.colour-categories.term = রঙের ঘর
 metadata.help.colour-categories.what = হাইলাইটের রংগুলোর নাম। যেকোনোটার নাম বদলানো যায়।
-metadata.help.colour-categories.more = নাম বদলালে শুধু দেখানো নামটাই বদলায়; ভেতরের রং একই থাকে, তাই রপ্তানি-আমদানিতে তফাত হয় না। কোনো রং লুকোলে বাছার তালিকা থেকে সরে যায়, কিন্তু যেসব উদ্ধৃতিতে সেটা আছে সেগুলোতে হাত পড়ে না।
+metadata.help.colour-categories.more = নাম বদলালে শুধু দেখানো নামটাই বদলায়; ভেতরের রং একই থাকে, তাই এক্সপোর্ট-ইমপোর্টে তফাত হয় না। কোনো রং লুকোলে বাছার তালিকা থেকে সরে যায়, কিন্তু যেসব উদ্ধৃতিতে সেটা আছে সেগুলোতে হাত পড়ে না।
 
 settings.help.appearance.term = চেহারা
 settings.help.appearance.what = হালকা না গাঢ়, রং, উপাদান-সেট, কাচ আর কভারের মাপ। প্রত্যেক ব্যবহারকারীর নিজের নিজের।
@@ -6963,7 +6963,7 @@ common.help.title = সবখানে
 # The ＋ in the top bar.
 common.help.topbar.add.term = যোগ করুন (＋)
 common.help.topbar.add.what = আপনি যেখানে আছেন সেই বুঝে যোগ করে: গ্রন্থাগারে বই, ক্যাটালগে সিনেমা বা শো, কোনো বই-সিনেমা খোলা থাকলে উদ্ধৃতি।
-common.help.topbar.add.more = খোঁজা, রাখা আর আমদানি একটাই প্যানেলের তিনটে ট্যাব, আর একটা ব্যাজ দেখায় কটা আমদানি অপেক্ষায়। পরেরটা রাখার সময় আগের রং আর ট্যাগ থেকে যায়, আধ ঘণ্টা পর্যন্ত একই বই-সিনেমাও; লেখাটা কখনো থেকে যায় না।
+common.help.topbar.add.more = খোঁজা, রাখা আর ইমপোর্ট একটাই প্যানেলের তিনটে ট্যাব, আর একটা ব্যাজ দেখায় কটা ইমপোর্ট যাচাই বাকি। পরেরটা রাখার সময় আগের রং আর ট্যাগ থেকে যায়, আধ ঘণ্টা পর্যন্ত একই বই-সিনেমাও; লেখাটা কখনো থেকে যায় না।
 
 # The magnifier in the top bar.
 common.help.topbar.search.term = খোঁজ
@@ -7015,8 +7015,8 @@ common.help.info-dots.more = ডেস্কটপে মাউস রাখল�
 
 # Tippani added to a phone’s home screen.
 common.help.installed-app.term = ফোনে বসানো অ্যাপ
-common.help.installed-app.what = Tippani হোম স্ক্রিনে যোগ করুন, তারপর আইকন চেপে ধরলে পাবেন উদ্ধৃতি রাখা, রোজকার কুইজ আর যাচাই বাকি ইমপোর্ট।
-common.help.installed-app.more = কোনো .md, My Clippings.txt বা Bookcision .json ফাইল খুললে সোজা আমদানিতে চলে আসে। আইকনের ব্যাজ দেখায় কটা কার্ড বাকি আর কটা আমদানি অপেক্ষায় — অ্যাপ খুললে হালনাগাদ হয়।
+common.help.installed-app.what = Tippani হোম স্ক্রিনে যোগ করুন, তারপর আইকন চেপে ধরলে পাবেন উদ্ধৃতি রাখা, দৈনিক অনুশীলনী আর যাচাই বাকি ইমপোর্ট।
+common.help.installed-app.more = কোনো .md, My Clippings.txt বা Bookcision .json ফাইল খুললে সোজা ইমপোর্টে চলে আসে। আইকনের ব্যাজ দেখায় কটা কার্ড বাকি আর কটা ইমপোর্ট যাচাই বাকি — অ্যাপ খুললে হালনাগাদ হয়।
 
 # The ☰ drawer button, phone only.
 common.help.topbar.menu.term = মেনু (☰)
