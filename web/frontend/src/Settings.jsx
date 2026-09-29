@@ -3402,6 +3402,7 @@ function ChangelogList({ current }) {
         <GhostButton
           icon={<IconChevron open={wholeLog} size={16} />}
           keepLabel
+          className="wraps-to-fit"
           onClick={() => setWholeLog((v) => !v)}
         >
           {wholeLog ? t('settings.changelog.fold.label') : t('settings.changelog.more.label', { n: more })}

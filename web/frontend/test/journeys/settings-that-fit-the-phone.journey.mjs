@@ -94,3 +94,19 @@ it('the System logs card keeps its export buttons inside it at the largest type'
   expect(await app.sideways(), 'the Jobs section slides sideways at 175% type').toBe(0)
   expect(await app.offTheLine('Everything kept (30 days)'), 'the export glyph beside a label that wrapped').toEqual([])
 })
+
+// THE RELEASE LOG ON SERVER, AT THE SAME TYPE (#51). Its door is a sentence on a
+// button, "Read the whole log (104 more)", and at 175% on a 390 screen it ended 61px
+// past the screen and the page slid under it. Its chevron is drawn beside the words,
+// so once they wrap it has to stay on the first line of them rather than between
+// the two. The reader turns the type up with the same dial, then opens Server.
+it('the release log keeps its door inside the phone at the largest type', async () => {
+  await app.goto('/settings')
+  await app.press('Language and font')
+  await app.choose('Text size', '175%')
+  await app.see('175%')
+  await app.goto('/settings/server')
+  await app.see('Read the whole log')
+  expect(await app.sideways(), 'the Server section slides sideways at 175% type').toBe(0)
+  expect(await app.offTheLine('Read the whole log'), 'the chevron beside a label that wrapped').toEqual([])
+})

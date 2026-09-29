@@ -416,14 +416,12 @@ function MaintenanceCard() {
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
-                  className="tp-btn"
-                  // IT FITS THE ROW (#46). At 390 wide and the largest type, "Delete
-                  // everything & restart" on one line was wider than the phone and slid
-                  // the whole page sideways. The cap holds the button to its row; the
-                  // wrap lets it get narrower than its words once they outgrow its
-                  // padding. Either alone fixes today's 1px; both are there for the day
-                  // the overage is wider than the padding.
-                  style={{ background: 'var(--error)', color: '#fff', opacity: safe && confirm === 'RESET' && busy !== 'reset' ? 1 : 0.55, whiteSpace: 'normal', maxWidth: '100%' }}
+                  // IT FITS THE ROW (#46): at 390 wide and the largest type, "Delete
+                  // everything & restart" on one line slid the whole page sideways.
+                  // `wraps-to-fit` is the one rule for a button whose words can
+                  // outgrow a phone; the release log's button (#51) wears it too.
+                  className="tp-btn wraps-to-fit"
+                  style={{ background: 'var(--error)', color: '#fff', opacity: safe && confirm === 'RESET' && busy !== 'reset' ? 1 : 0.55 }}
                   disabled={!safe || confirm !== 'RESET' || busy === 'reset'}
                   title={!safe ? t('settings.safety.first.reason') : undefined}
                   onClick={reset}

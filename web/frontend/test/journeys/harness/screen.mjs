@@ -567,7 +567,11 @@ export function screenVerbs(getPage) {
   // one is only whether the drawing is on the line at all.
   //
   // The words name the smallest element on the screen whose text holds them, and
-  // the glyphs asked about are the ones drawn inside it.
+  // the glyphs asked about are the ones drawn inside it — or, when that element is
+  // part of a button or a link, inside the whole control. The app's own buttons
+  // draw the glyph and the words as two sibling spans, so the smallest holder of
+  // the words holds no glyph, and a question scoped to it answered "none off the
+  // line" about every such button without measuring one (#51).
   const offTheLine = (words) => page().evaluate((want) => {
     const fold = (s) => s.replace(/\s+/g, ' ').trim().toLowerCase()
     const w = fold(want)
@@ -577,8 +581,9 @@ export function screenVerbs(getPage) {
     })
     const smallest = holding.filter((el) => !holding.some((o) => o !== el && el.contains(o)))
     if (smallest.length === 0) throw new Error(`nothing on this screen says ${JSON.stringify(want)}`)
+    const scopes = [...new Set(smallest.map((el) => el.closest('button, a, [role="button"]') || el))]
     const off = []
-    for (const el of smallest) {
+    for (const el of scopes) {
       const lines = []
       const texts = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)
       for (let n = texts.nextNode(); n; n = texts.nextNode()) {

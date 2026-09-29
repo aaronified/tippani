@@ -1614,6 +1614,19 @@
     transition: transform .07s ease, box-shadow .13s ease, filter .15s ease, background .18s ease;
   }
   .tp-btn:disabled { opacity: .55; cursor: default; }
+  /* A BUTTON WHOSE WORDS CAN OUTGROW A PHONE (#46, #51). `.tp-btn` keeps its label on
+     one line, which is right for a verb and wrong for a sentence at 175% type: on a
+     390 screen "Delete everything & restart" ran 1px past the edge and "Read the
+     whole log (104 more)" 61px, and the whole page slid under each. This one is held
+     to its row and its words wrap once they outgrow it. A label that fits still sits
+     on one line, because the button is as wide as its words up to the cap. */
+  .tp-btn.wraps-to-fit { white-space: normal; max-width: 100%; text-align: start; }
+  /* AND ITS GLYPH STAYS ON THE FIRST LINE. Beside a label that wrapped, a centred
+     flex item sits between the two lines, on neither. A box one line tall at the top
+     centres the drawing on the first line, and on a one-line label that is the
+     middle anyway. Not under an explicit "hide labels", where the button is a 44px
+     square of glyph alone and centred is right. */
+  html:not([data-labels-mode="off"]) .tp-btn.wraps-to-fit .btn-icon { align-self: flex-start; height: 1lh; }
   /* Raised, lit from the top-centre: bright top edge, shaded underside, and a
      cast shadow beneath. On :active the whole face sinks (translateY) and the
      lighting inverts to an inset — a genuine push, not a colour swap. */
