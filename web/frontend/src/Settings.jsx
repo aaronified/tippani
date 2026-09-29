@@ -3450,7 +3450,7 @@ function PromptFrame({ title, closeLabel, closeTip, busy = false, maxWidth = 460
       aria-label={ariaLabelText(title)}
       onMouseDown={backdropClose(onClose, !busy)}
     >
-      <div className="hand-card hc-r2 w-full" style={{ maxWidth, padding: '18px 20px 20px' }}>
+      <div className="hand-card hc-r2 w-full" style={{ maxWidth, padding: '20px' }}>
         <div className="mb-3 flex items-center gap-2">
           <h2 className="display-title flex-1" style={{ fontSize: 'var(--type-ui-19)' }}>{title}</h2>
           <Tooltip label={closeLabel} side="bottom">

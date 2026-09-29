@@ -6561,7 +6561,7 @@ export function FormModal({ open = true, onClose, title, maxWidth = 560, saveTip
         aria-modal="true"
         aria-label={ariaLabelText(title)}
         className="hand-card hc-r2 w-full"
-        style={{ maxWidth, padding: "18px 20px 20px" }}
+        style={{ maxWidth, padding: "20px" }}
       >
         <div className="mb-3 flex items-center gap-2">
           {backTo && (
@@ -7495,7 +7495,7 @@ export function HelpSheet({ open, title, wide = false, onClose, children }) {
         className="hand-card hc-r2 w-full"
         // The guide needs room for a rail AND a readable measure beside it; the
         // flat list keeps the 520 it was designed at.
-        style={{ maxWidth: wide ? 860 : 520, padding: "18px 20px 20px" }}
+        style={{ maxWidth: wide ? 860 : 520, padding: "20px" }}
       >
         <div className="mb-3 flex items-center gap-3">
           <h2 className="display-title flex-1" style={{ fontSize: 'var(--type-ui-19)' }}>
