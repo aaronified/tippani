@@ -3,11 +3,11 @@
 // A SOURCE SCANNER, NOT A TEST, which is why it lives here. docs/wiki/Bengali-style.md
 // settles one word per idea, and #47 moved the file onto its words: ইমপোর্ট and
 // এক্সপোর্ট for import and export (§4.2: "আমদানি / রপ্তানি are trade words. Comic
-// here"), মেনে নিন for approve, অনুশীলনী for the quiz and দৈনিক অনুশীলনী for the daily
-// one. Two sweeps moved
+// here"), মেনে নিন for approve, দৈনিক অনুশীলনী for the daily quiz. Two sweeps moved
 // 68 values onto those words (3930f8c2, 12cd0661) and still missed one (#52): the
 // tour's first screen said রোজকার মনে রাখার কুইজ, with two words between the pair
-// the sweep was looking for. Nothing on screen says a word is the retired one; a Bengali
+// the sweep was looking for. The owner's ruling of 29 September then made the bare
+// quiz অনুশীলনী too (a6c18e7e), where §4.2 had kept কুইজ as a loan. Nothing on screen says a word is the retired one; a Bengali
 // reader sees a sentence that reads, and only the sheet says it is the wrong word.
 //
 // What it reads: every `key = value` line of internal/i18n/bn.txt, values only, so a

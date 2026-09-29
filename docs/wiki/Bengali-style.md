@@ -535,9 +535,10 @@ never-translate list in §8.
 
 **কুইজ left this list on 29 September.** It stood here beside v3.7's *quiz → অনুশীলনী*
 (§3.5), and 17 strings still said the loan while the screens they described said
-অনুশীলনী. Asked which one stands, the owner: *"অনুশীলনী it is"*. Every value now says
-অনুশীলনী, and `test/rules/bengali-keeps-the-sheets-words.test.js` fails on a কুইজ
-that comes back. পরীক্ষা is still wrong for it, as the loan's row said: it is an exam,
+অনুশীলনী. Asked which one stands, the owner: *"অনুশীলনী it is"*. Every value that meant
+the quiz now says অনুশীলনী; the one that meant the practice mode (`home.help.practice.what`,
+"Unlimited quiz practice") says ঝালাই, the mode's name. `test/rules/bengali-keeps-the-sheets-words.test.js`
+fails on a কুইজ that comes back. পরীক্ষা is still wrong for it, as the loan's row said: it is an exam,
 and this is not one.
 
 Also loans, on the same reasoning: বোর্ড, স্টিকার, সিল, নোট, সেভ, কপি, শেয়ার, আপলোড,
