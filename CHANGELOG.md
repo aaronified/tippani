@@ -5,27 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [3.1.2] - 2026-09-29
 
 ### Fixed
 
-- **A face chosen for a language in Settings → Appearance now reaches quotes in that
+- **A face chosen for a language in Metadata → Languages now reaches quotes in that
   language.** The app's own security policy refused the stylesheet that carried the
-  choice, so the quote stayed in the default face and the console showed an error on
-  every load.
-- **The restore dialog, every edit form's dialog and the help sheet now inset their
-  content evenly, 20px on all sides.** The top used to be inset 18px, a little tighter
-  than the other three. The sign-in, first-run and first-run restore cards are now
-  inset 32px on all sides, where their tops and bottoms used to differ from their
-  sides.
+  choice, so the quote stayed in the default face, and for anyone who had chosen one
+  the console showed an error on every load.
+- **The Update now, Restore and Back up prompts in Settings, every edit form's dialog
+  and the help sheet now inset their content evenly, 20px on all sides.** The top used
+  to be inset 18px, a little tighter than the other three. The sign-in card and the
+  first-run language, account and restore cards are now inset 32px on all sides, where
+  their tops and bottoms used to differ from their sides.
 - **Profile no longer slides sideways on a phone at the largest text size.** The reset
   prompt's "Delete everything & restart" button used to run past the screen's edge.
 - **The Bengali interface now uses the style sheet's words for import and export,
-  approving, the import queue, an app screen and the daily quiz (ইমপোর্ট, এক্সপোর্ট,
-  মেনে নিন, অপেক্ষার তালিকা, স্ক্রিন, দৈনিক অনুশীলনী), and no longer says an import or
-  a quote is waiting.** Strings across the tour, help and Settings used to carry
-  renderings the style sheet had already settled differently, such as আমদানি, রপ্তানি,
-  অনুমোদন, পর্দা and রোজকার কুইজ.
+  approving, the import queue, an app screen and the daily quiz's name (ইমপোর্ট,
+  এক্সপোর্ট, মেনে নিন, অপেক্ষার তালিকা, স্ক্রিন, দৈনিক অনুশীলনী), and no longer says an
+  import or a quote is waiting.** Strings across the tour, help and Settings used to
+  carry renderings the style sheet had already settled differently, such as আমদানি,
+  রপ্তানি, অনুমোদন, পর্দা and রোজকার কুইজ.
 
 ## [3.1.1] - 2026-09-29
 
