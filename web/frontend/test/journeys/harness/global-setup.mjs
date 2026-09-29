@@ -62,7 +62,9 @@ function run(cmd, args, opts = {}) {
 // development build. The sentence below is one only the development build carries
 // (measured: once in a NODE_ENV=test build, never in a production one), so a regression
 // of the env line above stops the journeys at setup instead of letting them pass on a
-// React nobody ships.
+// React nobody ships. IT LEANS ON REACT'S WORDING: if a React upgrade rewords that
+// warning, the guard finds nothing in either build and goes quiet rather than red. A
+// React bump is the time to check it still fires on a NODE_ENV=test build.
 const DEVELOPMENT_ONLY = 'Each child in a list should have a unique'
 async function refuseDevelopmentReact(dir) {
   for (const f of await filesUnder(dir)) {

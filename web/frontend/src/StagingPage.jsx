@@ -1128,9 +1128,9 @@ function FormulaPanel({ n, busy, onApply }) {
           holes and this call site fills them. HH:MM:SS is a picture of a time
           format rather than words, and stays as it is in every language. */}
       <p className="microcopy">
-        {/* Each node is KEYED, as every other multi-node tNodes site is: the
-            resolved value is split into an ARRAY, so an unkeyed element in it is
-            a React list-key warning on every render of this panel. */}
+        {/* The keys are this site's own names and tNodes keeps them. It keys an
+            element that arrives without one (#44), so they are not what stands
+            between this panel and React's list-key warning any more. */}
         {tNodes('staging.formula.prose', {
           from: <b key="from">{t('staging.formula.example.page-from')}</b>,
           to: <b key="to">{t('staging.formula.example.page-to')}</b>,

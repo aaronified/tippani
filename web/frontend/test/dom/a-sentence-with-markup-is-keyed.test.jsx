@@ -2,7 +2,8 @@
 //
 // THE UNIT IS tNodes, and this file knows it by name: it is the function every screen
 // uses to put a <b> or a link into a translated sentence, and the warning is about the
-// array it returns, so no screen-level render says more than rendering it does. The two
+// array it returns. A screen-level render would add the screen around that array and,
+// as far as this file can tell, nothing the warning depends on. The two
 // sentences are the two screens the warning was reported from (#44): the factory-reset
 // prompt, and Add → Files.
 //
@@ -11,7 +12,9 @@
 // ONCE PER PARENT IT CAN NAME, and a host <p> is named the same wherever it is: two
 // <p>s in two components still shared one warning, and the second case sat behind the
 // first's and could not fail (measured: reverted, the file failed one case of three).
-// So the two sentences sit in a <p> and a <div>, and each fails alone.
+// So the two sentences sit in a <p> and a <div>. Measured with tNodes' keying taken out:
+// both sentence cases fail, and the third, a caller's own key kept, passes, since it
+// guards the other direction (a key tNodes must not overwrite).
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import { t, tNodes } from '../../src/i18n.js'
