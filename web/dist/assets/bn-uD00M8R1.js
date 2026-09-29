@@ -1211,7 +1211,7 @@ shell.search.scope.key = এর মধ্যে
 shell.search.scope.drop.tip = বরং সবকিছুতে খুঁজুন
 shell.search.hint.within = {where} খুঁজুন — লেখক, ট্যাগ, আবছা মনে পড়া একটা লাইন…
 shell.search.hint.all = সবকিছু — সব বই, চলচ্চিত্র, উদ্ধৃতি…
-shell.search.hint.screen = {where} খুঁজুন — লিখলেই পর্দার জিনিস ছেঁকে আসবে
+shell.search.hint.screen = {where} খুঁজুন — লিখলেই স্ক্রিনের জিনিস ছেঁকে আসবে
 shell.search.context.leave.tip = বদলে গোটা লাইব্রেরিতে খুঁজুন
 shell.search.context.leave.aria = এখন {where} খোঁজা হচ্ছে; গোটা লাইব্রেরিতে খুঁজতে চাপুন
 # What each screen calls its own search, named here rather than in the screen so
@@ -1472,7 +1472,7 @@ settings.appearance.match.label = সিস্টেম যেমন
 settings.appearance.match.aria = সিস্টেমের থিম মেনে চলুন
 settings.appearance.contrast.title = কনট্রাস্ট
 settings.appearance.colours.title = রং
-settings.appearance.colours.hint = একটা হালকা ব্যাকগ্রাউন্ড, একটা গাঢ়, আর দুটোর একই অ্যাকসেন্ট রং। এখন পর্দায় যেটা, সেটাই বদলাচ্ছেন।
+settings.appearance.colours.hint = একটা হালকা ব্যাকগ্রাউন্ড, একটা গাঢ়, আর দুটোর একই অ্যাকসেন্ট রং। এখন স্ক্রিনে যেটা, সেটাই বদলাচ্ছেন।
 settings.appearance.colours.light.label = দিন
 settings.appearance.colours.dark.label = রাত
 settings.appearance.colours.accent.label = বাঁধাই
@@ -1488,7 +1488,7 @@ settings.features.covers.title = বইয়ের প্রচ্ছদ
 settings.features.posters.title = ক্যাটালগের পোস্টার
 settings.features.sizes.aside = শুধু এই ডিভাইসে
 
-settings.appearance.ground.info.body = পেছনের রং তিন পরতে: পুরো পাতা, প্যানেল, আর যে কার্ডে উদ্ধৃতি থাকে। হালকা আর গাঢ় আলাদা করে ঠিক হয়; এখন যেটা পর্দায় আছে, এই সারি সেটাই বদলায়।
+settings.appearance.ground.info.body = পেছনের রং তিন পরতে: পুরো পাতা, প্যানেল, আর যে কার্ডে উদ্ধৃতি থাকে। হালকা আর গাঢ় আলাদা করে ঠিক হয়; এখন যেটা স্ক্রিনে আছে, এই সারি সেটাই বদলায়।
 settings.appearance.phys.title = উপকরণ আলো নিয়ে যা করে
 settings.appearance.phys.readout = {n}%
 settings.appearance.phys.open.tip = কোনো উপকরণ কীভাবে আলো ধরে তা বদলান
@@ -2339,7 +2339,7 @@ error.validate.name-blank = নাম দিতে হবে
 # Step "welcome".
 tour.step.welcome.title = টিপ্পনীতে স্বাগত
 tour.step.welcome.prose = যে লাইনগুলো মনে রাখার মতো — বইয়ের হাইলাইট, সিনেমার সংলাপ — Tippani সেগুলো সাজিয়ে রাখে: কভার, ট্যাগ, মুহূর্তে খোঁজা আর রোজকার মনে রাখার কুইজ সমেত। এই ট্যুরে সব কিছু এক এক করে দেখানো হবে।
-tour.step.welcome.more = “পরেরটা” চাপলে এগোবে, “ট্যুর বাদ দিন” চাপলে শেষ, আর “বাকিটা পরে” চাপলে যেখানে ছিলেন মনে রাখবে। উদাহরণগুলো অ্যাপেই আছে, আপনার কোনো ফাইল লাগবে না। ওপরের বারের “?” চাপলে এখনকার পর্দার প্রতিটা নিয়ন্ত্রণের মানে জানা যায়, আর সেখান থেকে ট্যুরটা আবার দেখাও যায়।
+tour.step.welcome.more = “পরেরটা” চাপলে এগোবে, “ট্যুর বাদ দিন” চাপলে শেষ, আর “বাকিটা পরে” চাপলে যেখানে ছিলেন মনে রাখবে। উদাহরণগুলো অ্যাপেই আছে, আপনার কোনো ফাইল লাগবে না। ওপরের বারের “?” চাপলে এখনকার স্ক্রিনের প্রতিটা নিয়ন্ত্রণের মানে জানা যায়, আর সেখান থেকে ট্যুরটা আবার দেখাও যায়।
 
 # Step "add".
 tour.step.add.name = যোগ আর ইমপোর্ট
@@ -2479,9 +2479,9 @@ tour.step.bin.more = প্রতিটা সারি দেখায় জ�
 tour.step.checks.name = যাচাইকরণ
 tour.step.checks.blurb = আপনার জন্য অপেক্ষা করা দুটো তালিকা — আমদানি, আর যেসব উদ্ধৃতিতে গোলমাল আছে
 tour.step.checks.title = কী কী আপনার জন্য অপেক্ষা করছে
-tour.step.checks.prose = এক পর্দায় দুটো তালিকা: আমদানি করা উদ্ধৃতি যেগুলো অনুমোদনের অপেক্ষায়, আর যেসব উদ্ধৃতিতে কিছু একটা {em1} লাগছে।
+tour.step.checks.prose = এক স্ক্রিনে দুটো তালিকা: ইমপোর্ট করা উদ্ধৃতি যেগুলো এখনও মেনে নেওয়া হয়নি, আর যেসব উদ্ধৃতিতে কিছু একটা {em1} লাগছে।
 tour.step.checks.em1.label = গোলমেলে
-tour.step.checks.more = প্রতিটা তালিকার নিজের পর্দা আর লিংকও আছে। এখানে দেখা হয় লেখাটা ঠিক আছে কি না — মনে রাখার ব্যাপার নয়।
+tour.step.checks.more = প্রতিটা তালিকার নিজের স্ক্রিন আর লিংকও আছে। এখানে দেখা হয় লেখাটা ঠিক আছে কি না — মনে রাখার ব্যাপার নয়।
 
 # Step "cleanup" — the Cleanup screen.
 tour.step.cleanup.name = পরিষ্কার
@@ -2517,7 +2517,7 @@ tour.step.film.more = নাম হিসেবে লেখা বক্তা�
 
 # Step "done".
 tour.step.done.title = ট্যুর এই পর্যন্তই
-tour.step.done.prose = এই হলো সব। যেকোনো পর্দার {em2} সেখানকার নিয়ন্ত্রণগুলো বুঝিয়ে দেয়, আর সেখানেই ট্যুরটা আবার দেখায় — ট্যুর এখন চলে {em1}। উপভোগ করুন।
+tour.step.done.prose = এই হলো সব। যেকোনো স্ক্রিনের {em2} সেখানকার নিয়ন্ত্রণগুলো বুঝিয়ে দেয়, আর সেখানেই ট্যুরটা আবার দেখায় — ট্যুর এখন চলে {em1}। উপভোগ করুন।
 tour.step.done.em1.label = এক-একটা স্ক্রিন ধরে
 tour.step.done.em2.label = ?
 
@@ -2896,8 +2896,8 @@ quotes.sort.said.label = কবে বলা
 quotes.delete.confirm = এই উক্তিটা মুছবেন?
 quotes.toast.moved = পাঠানো হয়েছে
 quotes.export.confirm.title = উক্তি এক্সপোর্ট
-quotes.export.confirm.body.one = পর্দায় থাকা {n}টা উক্তি একটা Markdown ফাইলে রপ্তানি হবে, যা Tippani-তে আবার আমদানি করা যায়।
-quotes.export.confirm.body.other = পর্দায় থাকা {n}টা উক্তি একটা Markdown ফাইলে রপ্তানি হবে, যা Tippani-তে আবার আমদানি করা যায়।
+quotes.export.confirm.body.one = স্ক্রিনে থাকা {n}টা উক্তি একটা Markdown ফাইলে এক্সপোর্ট হবে, যা Tippani-তে আবার ইমপোর্ট করা যায়।
+quotes.export.confirm.body.other = স্ক্রিনে থাকা {n}টা উক্তি একটা Markdown ফাইলে এক্সপোর্ট হবে, যা Tippani-তে আবার ইমপোর্ট করা যায়।
 # The lower-case small-caps labels above a control in a filter sheet or a form.
 # Their Title Case twins are common.field.*.label and are different strings.
 common.mono.actions.label = কাজ
@@ -4382,7 +4382,7 @@ offers.unpinned.prose = এই রেকর্ড কোনও জোগান�
 # Ctrl+S / ⌘S key names are Latin for the same reason.
 import.source.markdown.title = Markdown
 import.source.markdown.desc = Tippani থেকে রপ্তানি করা বই বা ক্যাটালগ, কিংবা Readest-এর রপ্তানি — .json আর Markdown দুটোই পড়া যায়।
-import.source.markdown.step.1 = Tippani-র রপ্তানি (বই বা ক্যাটালগ), Readest-এর রপ্তানি, বা নিজের লেখা frontmatter আর উদ্ধৃতি আমদানি করুন।
+import.source.markdown.step.1 = Tippani-র এক্সপোর্ট (বই বা ক্যাটালগ), Readest-এর এক্সপোর্ট, বা নিজের লেখা frontmatter আর উদ্ধৃতি ইমপোর্ট করুন।
 import.source.markdown.step.2 = একটা .md ফাইলে অনেক বই বা টাইটেল থাকতে পারে — প্রত্যেকটাই আসবে।
 
 import.source.readest.title = Readest
@@ -4394,7 +4394,7 @@ import.source.bookcision.title = Bookcision
 import.source.bookcision.desc = Bookcision বুকমার্কলেট দিয়ে Kindle-এর উদ্ধৃতি।
 import.source.bookcision.step.1 = read.amazon.com/notebook-এ গিয়ে বইয়ের Notes & Highlights খুলুন।
 import.source.bookcision.step.2 = Bookcision বুকমার্কলেট চালান, তারপর Download → JSON, আর সেই ফাইলটা আনুন।
-import.source.bookcision.step.3 = বুকমার্কলেট চান না? তার বদলে সেভ করা কিন্ডল নোটবুক পাতাটা আমদানি করুন — রংও থেকে যায়।
+import.source.bookcision.step.3 = বুকমার্কলেট চান না? তার বদলে সেভ করা কিন্ডল নোটবুক পাতাটা ইমপোর্ট করুন — রংও থেকে যায়।
 
 import.source.hardcover-html.title = Hardcover
 import.source.hardcover-html.desc = Hardcover-এ একটা বইয়ের পড়ার জার্নালের পাতা।
@@ -4472,7 +4472,7 @@ import.row.halted = {state} — সেটিংস → কাজ-এ আবা�
 import.row.lost = {state} — ফাইলটা সার্ভারে আর নেই; আবার দিন
 # bn: স্ক্রিন, not the draft's পর্দা (v3.1); চলতে থাকবে as reverify.checking.away says it
 import.queued.note = যে ফাইল পাঠানো হয়ে গেছে, এই স্ক্রিন ছেড়ে গেলেও সেটা সেটিংস → কাজ-এ চলতে থাকবে; যেটা এখনও পাঠানো হয়নি, সেটা নয়।
-import.row.duplicate = ⚠ মনে হচ্ছে বইটা আগে থেকেই আছে: {titles} — অপেক্ষার তালিকায় উদ্ধৃতিগুলো সেখানে সরিয়ে দিন, বা আলাদা বই হিসেবে অনুমোদন দিন
+import.row.duplicate = ⚠ মনে হচ্ছে বইটা আগে থেকেই আছে: {titles} — অপেক্ষার তালিকায় উদ্ধৃতিগুলো সেখানে সরিয়ে দিন, বা আলাদা বই হিসেবে মেনে নিন
 # The hand-over to the queue.
 import.review.one = বাকি পড়ে থাকা {n}টা উদ্ধৃতি দেখুন
 import.review.other = বাকি পড়ে থাকা {n}টা উদ্ধৃতি দেখুন
@@ -4498,7 +4498,7 @@ import.clippings.malformed.other = {n}টা রেকর্ড পড়া গ
 
 # The contract of the screen, stated in place so the absence of “12 added” reads
 # as intended rather than as a failure. {queue} is the queue's own name, in bold.
-import.nothing-lands.body = আমদানি করা সব কিছু আপনার অনুমোদনের আগে পর্যন্ত {queue}-এ থাকে — তার আগে সংগ্রহে, খোঁজে বা কুইজে কিছুই ঢোকে না। ওখানে একসঙ্গে অধ্যায় আর অবস্থান ঠিক করুন, উদ্ধৃতি ঠিক বই-সিনেমায় সরান, তারপর অনুমোদন দিন বা বাদ দিন।
+import.nothing-lands.body = ইমপোর্ট করা সব কিছু আপনি মেনে না নেওয়া পর্যন্ত {queue}-এ থাকে — তার আগে সংগ্রহে, খোঁজে বা অনুশীলনীতে কিছুই ঢোকে না। ওখানে একসঙ্গে অধ্যায় আর অবস্থান ঠিক করুন, উদ্ধৃতি ঠিক বই-সিনেমায় সরান, তারপর মেনে নিন বা ফেলে দিন।
 # Why imports are save-the-page-and-upload rather than paste-a-URL — a natural
 # question, answered once and collapsed. {emphasis} is “on their page”, italic.
 import.why-upload.summary = সেভ করা পাতা আপলোড করতে বলছি, URL দিলেই হত না?
@@ -4863,7 +4863,7 @@ staging.badge.quotes = উক্তি
 # The three states before the list. "nothing waiting" sits in the header's counts
 # slot; "nothing staged" is the empty state under it; the third is what a batch
 # filter says when the file it points at has no rows left.
-staging.state.loading = যাচাইয়ের তালিকা পড়া হচ্ছে…
+staging.state.loading = অপেক্ষার তালিকা পড়া হচ্ছে…
 staging.state.empty-counts = কিছু বাকি নেই
 staging.state.empty = কিছুই জমা নেই — ইমপোর্ট আগে এখানেই আসে, আর আপনি সায় না দেওয়া পর্যন্ত এখানেই থাকে
 staging.state.empty-file = ওই ফাইলে জমা কোনও উদ্ধৃতি নেই
@@ -4881,7 +4881,7 @@ staging.counts.works.other = {n}টা উৎস বাকি, কোনও উ�
 staging.filter.file.label = ফাইল
 
 # The strip of destination covers under the file filter, and its "everything" chip.
-staging.filter.work.aria = সারি কমিয়ে একটি গন্তব্যে আনুন
+staging.filter.work.aria = অপেক্ষার তালিকা কমিয়ে একটি গন্তব্যে আনুন
 staging.filter.all-works.label = সবগুলো ({n}টি) উৎস
 # bn: The control picks a file, so the file is what it is called; Bengali needs no word for a batch.
 staging.filter.batch.aria = ইমপোর্টের ফাইল
@@ -4913,7 +4913,7 @@ staging.bulk.approve.label = {n}টা মেনে নিন
 staging.discard.label = ফেলে দিন
 staging.discard.confirm.title.one = জমা {n}টা উদ্ধৃতি ফেলে দেবেন?
 staging.discard.confirm.title.other = জমা {n}টা উদ্ধৃতি ফেলে দেবেন?
-staging.discard.confirm.body = গ্রন্থাগারে না ঢুকেই যাচাইয়ের তালিকা থেকে চলে যাবে।
+staging.discard.confirm.body = গ্রন্থাগারে না ঢুকেই অপেক্ষার তালিকা থেকে চলে যাবে।
 
 # THE FLASH LINE beside the header — what the last bulk POST did. Every action
 # funnels through one request, so these are one family rather than a toast per
@@ -4997,7 +4997,7 @@ staging.fields.panel.title = বাছা {n}টা এডিট করুন
 staging.fields.set.placeholder = {field} বসান (ফাঁকা = মুছে যাবে)
 staging.fields.add-tags.aria = যে ট্যাগ যোগ হবে
 staging.fields.remove-tags.label = ট্যাগ সরান
-staging.fields.remove-tags.info = অনুমোদনের আগেই বাছা উদ্ধৃতিগুলো থেকে এই ট্যাগগুলো সরিয়ে দেয়।
+staging.fields.remove-tags.info = মেনে নেওয়ার আগেই বাছা উদ্ধৃতিগুলো থেকে এই ট্যাগগুলো সরিয়ে দেয়।
 staging.fields.remove-tags.placeholder = কোন ট্যাগ সরবে…
 staging.fields.remove-tags.aria = যে ট্যাগ সরবে
 staging.fields.apply.label = {n}টায় বসান
@@ -5007,7 +5007,7 @@ staging.fields.apply.label = {n}টায় বসান
 # both locator sets so the move is reversible.
 staging.move.panel.title = বাছা {n}টা পাঠান
 staging.move.library.label = গ্রন্থাগারের কোনও বই-সিনেমায়
-staging.move.library.info = ধরন পেরিয়েও চলে — বইয়ের হাইলাইট সিনেমায় সরানো যায়, আবার ফেরানোও যায়। অনুমোদনের সময় গন্তব্যের যা দরকার সেই অবস্থান-তথ্যই নেওয়া হয়।
+staging.move.library.info = ধরন পেরিয়েও চলে — বইয়ের হাইলাইট সিনেমায় সরানো যায়, আবার ফেরানোও যায়। মেনে নেওয়ার সময় গন্তব্যের যা দরকার সেই অবস্থান-তথ্যই নেওয়া হয়।
 # The button, before and after something is picked. Two keys, so neither language
 # has to build "Move to" plus a noun out of two fragments.
 staging.move.button.label = পাঠান: {title}
@@ -6191,7 +6191,7 @@ home.help.practice.what = যত খুশি কুইজ-ঝালাই, য�
 # The verb on a button: a round about one book, person or tag.
 home.help.practise.term = ঝালিয়ে নিন
 home.help.practise.what = একটা জিনিস নিয়েই এক রাউন্ড।
-home.help.practise.more = বই বা সিনেমার মেনুতে, কারও পাতায়, ট্যাগের পাশে আর পরিসংখ্যানের রঙের সারিতে পাবেন। এখনকার পর্দার ওপরেই খোলে, শেষে সেখানেই ফেরায়। রোজকার কুইজ কোনো বিষয় ধরে ছাঁকা যায় না, কারণ সেটা সময়সূচি মেনে চলে।
+home.help.practise.more = বই বা সিনেমার মেনুতে, কারও পাতায়, ট্যাগের পাশে আর পরিসংখ্যানের রঙের সারিতে পাবেন। এখনকার স্ক্রিনের ওপরেই খোলে, শেষে সেখানেই ফেরায়। রোজকার কুইজ কোনো বিষয় ধরে ছাঁকা যায় না, কারণ সেটা সময়সূচি মেনে চলে।
 
 # The three grading buttons on a quiz card.
 home.help.grade.term = দেখি / পেরেছি / ভুলে গেছি
@@ -6464,7 +6464,7 @@ quotes.help.what-lives-here.term = এখানে কী থাকে
 quotes.help.what-lives-here.what = যে কথা কোনো বই বা সিনেমার নয়: ভাষণ, চিঠি, সাক্ষাৎকার, গান, প্রবাদ, বন্ধুর বলা কোনো কথা।
 
 quotes.help.boards.term = বোর্ড
-quotes.help.boards.what = গ্রন্থাগার যেমন বইয়ের তালিকা দেখায়, এই পর্দা তেমনি বোর্ডের তালিকা দেখায় — পড়তে একটা খুলুন।
+quotes.help.boards.what = গ্রন্থাগার যেমন বইয়ের তালিকা দেখায়, এই স্ক্রিন তেমনি বোর্ডের তালিকা দেখায় — পড়তে একটা খুলুন।
 quotes.help.boards.more = যত খুশি বোর্ড বানান — নাম, রং, বিবরণ, ছবি সব নিজের মতো। শুরুর তিনটেও সাধারণ বোর্ড, নাম বদলানো বা মোছা যায়।
 
 # The three boards New board offers to fill the form in from.
@@ -6532,7 +6532,7 @@ quotes.help.group-by.what = বক্তা, ধরন, জায়গা ব�
 quotes.help.group-by.more = যে উক্তিতে ঘরটা ফাঁকা, সেগুলো একটা আলাদা দলে যায় — কী নেই সেই নামে।
 
 quotes.help.export.term = এক্সপোর্ট
-quotes.help.export.what = পর্দায় থাকা উক্তিগুলো Markdown-এ রপ্তানি হয়, আবার ঠিকঠাক আমদানিও করা যায়। আগে কটা যাবে তা জানিয়ে নিশ্চিত করে।
+quotes.help.export.what = স্ক্রিনে থাকা উক্তিগুলো Markdown-এ এক্সপোর্ট হয়, আবার ঠিকঠাক ইমপোর্টও করা যায়। আগে কটা যাবে তা জানিয়ে নিশ্চিত করে।
 
 # ---------------------------------------------------------------------------
 # anthologies.help.* — the "?" panel’s section for Anthologies.
@@ -6669,7 +6669,7 @@ staging.help.title = যাচাই বাকি ইমপোর্ট
 
 # Why an import waits here instead of landing in the library.
 staging.help.why.term = যাচাই ছাড়া কিছু ঢোকে না
-staging.help.why.what = গ্রন্থাগারে কিছু পৌঁছনোর আগে ইমপোর্ট এখানে আপনার অনুমোদনের অপেক্ষায় থাকে।
+staging.help.why.what = গ্রন্থাগারে কিছু পৌঁছনোর আগে ইমপোর্ট এখানে থাকে, যতক্ষণ না আপনি মেনে নেন।
 
 staging.help.bulk-fix.term = একসঙ্গে ঠিক করুন
 staging.help.bulk-fix.what = অনেক সারিতে একসঙ্গে অধ্যায় আর লোকেশন শুধরে নিন, বা উদ্ধৃতিগুলো ঠিক বই বা সিনেমার নিচে সরিয়ে দিন।
@@ -6935,8 +6935,8 @@ import.help.detect.more = ভুল চিনলে সারিতেই “এ
 
 # Where everything lands, and the diagram under it.
 import.help.pending.term = যাচাই বাকি ইমপোর্ট
-import.help.pending.what = আপলোড করলেই কিছু গ্রন্থাগারে ঢোকে না। প্রতিটা লাইন “যাচাইকরণ”-এ থাকে, আপনার অনুমোদনের অপেক্ষায়।
-import.help.pending.more = অপেক্ষায় থাকা লাইন বদলানো যায় — অধ্যায়, চরিত্র, সময় আর ভাষা। আমদানিকারী যা আন্দাজ করেছে তা ঠিক করার এটাই সবচেয়ে সহজ সময়।
+import.help.pending.what = আপলোড করলেই কিছু গ্রন্থাগারে ঢোকে না। আপনি মেনে না নেওয়া পর্যন্ত প্রতিটা লাইন “যাচাইকরণ”-এ থাকে।
+import.help.pending.more = “যাচাইকরণ”-এ থাকা লাইন বদলানো যায় — অধ্যায়, চরিত্র, সময় আর ভাষা। ইমপোর্টের সময় যা আন্দাজ করা হয়েছে, তা ঠিক করার এটাই সবচেয়ে সহজ সময়।
 
 # The accessible name of the little diagram in the Pending entry — a screen reader reads this instead of the three boxes.
 import.help.flow.aria = ফাইল আগে যাচাই বাকি ইমপোর্টে যায়, আপনি মেনে নিলে তবেই গ্রন্থাগারে পৌঁছয়
@@ -6971,7 +6971,7 @@ common.help.topbar.search.what = নাম, মানুষ, উদ্ধৃত�
 
 # The ? in the top bar — the button that opens this panel.
 common.help.topbar.help.term = সাহায্য (?)
-common.help.topbar.help.what = এই তালিকা: এখনকার পর্দার নিয়ন্ত্রণগুলো, সঙ্গে ওপরের বারেরগুলো।
+common.help.topbar.help.what = এই তালিকা: এখনকার স্ক্রিনের নিয়ন্ত্রণগুলো, সঙ্গে ওপরের বারেরগুলো।
 
 # The avatar chip at the end of the top bar.
 # bn: “Avatar” লোকে মুখে বলে না; চিপটা যা খোলে সেই নামেই — profile.help.photo.what-এর “উপরের বারে আপনার ছবিটা”-র সঙ্গে মিলিয়ে।
@@ -6982,7 +6982,7 @@ common.help.topbar.avatar.what = আপনার প্রোফাইল খো
 common.help.selecting.term = একসঙ্গে কয়েকটা বাছা
 common.help.selecting.what = একসঙ্গে অনেকগুলো কার্ডে কাজ করুন — উদ্ধৃতি, বই, সিনেমা, শো সবেতেই।
 common.help.selecting.how.1 = কার্ডের কোণে টিক দিন, Ctrl চেপে ক্লিক করুন, বা তার নিজের মেনু থেকে “বাছুন”।
-common.help.selecting.how.2 = Shift চেপে ক্লিক করলে মাঝের সবগুলো বাছা হয়। “সব বাছুন” শুধু পর্দায় যা আছে সেগুলোই নেয়।
+common.help.selecting.how.2 = Shift চেপে ক্লিক করলে মাঝের সবগুলো বাছা হয়। “সব বাছুন” শুধু স্ক্রিনে যা আছে সেগুলোই নেয়।
 common.help.selecting.how.3 = একটা বার আসে, তাতে তিনটে কাজ; বাকিগুলো ⋯-এর ভেতরে। কোনোটা চেপে ধরলে নাম দেখায়।
 common.help.selecting.more = উদ্ধৃতির জন্য: রং, ♥ আর কুইজ বারেই; ট্যাগ, স্টিকার, অন্য বোর্ডে সরানো আর মোছা ⋯-এর ভেতরে। বই-সিনেমার জন্য: ফাঁক ভরা, তাকে সরানো, কুইজ, আর মোছা ⋯-এর ভেতরে। ঠিক একটা বাছলে “এডিট” আসে। মুছতে গেলে নিশ্চিত করতে বলে, আর সব একটাই জিনিস হিসেবে বিনে যায়, একবারেই ফেরানো যায়।
 
@@ -7025,7 +7025,7 @@ common.help.topbar.menu.more = এখানকার “যোগ” আর “�
 
 # The floating phone nav.
 common.help.bottom-bar.term = নিচের বার
-common.help.bottom-bar.what = মূল পর্দাগুলো, বুড়ো আঙুলের নাগালে — সেটিংসে যেগুলো চালু রেখেছেন।
+common.help.bottom-bar.what = মূল স্ক্রিনগুলো, বুড়ো আঙুলের নাগালে — সেটিংসে যেগুলো চালু রেখেছেন।
 common.help.bottom-bar.more = খোঁজ থাকে ওপরের বারে। নিচে স্ক্রল করলে বারটা লুকোয়, ওপরে স্ক্রল করলে ফিরে আসে।
 
 # What holding a finger down does.
@@ -7042,8 +7042,8 @@ common.help.keyboard.more = কুইজে 1 আর 2 দিয়ে নম্
 
 # The always-visible desktop tab strip that stands in for the drawer.
 common.help.tab-strip.term = ট্যাব-সারি
-common.help.tab-strip.what = সব পর্দা, সবসময় ওপরের বারে: আগে যেগুলো ব্যবহার করেন, তারপর সরঞ্জামগুলো।
-common.help.tab-strip.more = কোন কোন পর্দা থাকবে তা সেটিংসে ঠিক হয়। জায়গা কম পড়লে শুধু আইকন দেখায়, মাউস রাখলে প্রতিটা নিজের নাম বলে।
+common.help.tab-strip.what = সব স্ক্রিন, সবসময় ওপরের বারে: আগে যেগুলো ব্যবহার করেন, তারপর সরঞ্জামগুলো।
+common.help.tab-strip.more = কোন কোন স্ক্রিন থাকবে তা সেটিংসে ঠিক হয়। জায়গা কম পড়লে শুধু আইকন দেখায়, মাউস রাখলে প্রতিটা নিজের নাম বলে।
 
 # The bubble a glyph-only control shows on hover.
 common.help.hover-labels.term = হোভার লেবেল
