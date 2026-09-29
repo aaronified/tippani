@@ -28,7 +28,7 @@
 // preference riding inside that object would be wiped by an unrelated accent
 // click. Two writers of one setting is how they drift.
 
-import { useEffect, useState } from 'react'
+import { cloneElement, isValidElement, useEffect, useState } from 'react'
 import { json } from './api.js'
 import builtinEN from '../../../internal/i18n/en.txt?raw'
 
@@ -444,6 +444,12 @@ function resolveText(key, count) {
 // Returns an array of strings and whatever was passed, which React renders as
 // children. A placeholder with no value is left as its own text, exactly as fill
 // leaves it.
+//
+// AN ELEMENT IN THAT ARRAY GETS A KEY HERE, not at the call site (#44). An array of
+// children needs one per element, and `{ word: <b>RESET</b> }` is how every caller
+// naturally writes it, so two screens logged React's key warning and more would
+// have followed. The placeholder's name and its place in the sentence make the key;
+// an element that already has one keeps it.
 export function tNodes(key, vars) {
   const text = resolveText(key, countIn(vars)) // NOT filled, so the braces survive
   const out = []
@@ -453,7 +459,8 @@ export function tNodes(key, vars) {
   while (m) {
     if (m.index > last) out.push(text.slice(last, m.index))
     const has = vars && Object.prototype.hasOwnProperty.call(vars, m[1])
-    out.push(has ? vars[m[1]] : m[0])
+    const v = has ? vars[m[1]] : m[0]
+    out.push(isValidElement(v) && v.key == null ? cloneElement(v, { key: `${m[1]}-${out.length}` }) : v)
     last = m.index + m[0].length
     m = re.exec(text)
   }
