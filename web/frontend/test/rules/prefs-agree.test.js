@@ -38,7 +38,11 @@ const go = readFileSync(join(REPO, 'internal', 'httpapi', 'auth_handlers.go'), '
 // Pull the keys out of a `name = map[string]bool{ "a": true, ... }` literal. The
 // name is matched, not the position, so the map can move within the file.
 function goMapKeys(name) {
-  const at = go.indexOf(`${name} = map[string]bool{`)
+  // BY SHAPE, NOT BY SPACING: gofmt aligns a var block's `=` into a column, so the
+  // declaration can read `prefAccents   = map…` (#50 put the file through gofmt, and an
+  // exact `name = map` match stopped finding it).
+  const m = new RegExp(`\\b${name}\\s*=\\s*map\\[string\\]bool\\{`).exec(go)
+  const at = m ? m.index : -1
   expect(at, `${name} is no longer a map[string]bool in auth_handlers.go — this guard reads the declaration by name`).toBeGreaterThan(-1)
   const body = go.slice(at, go.indexOf('}', at))
   return [...body.matchAll(/"([^"]+)":\s*true/g)].map((m) => m[1]).sort()
