@@ -447,7 +447,7 @@ in three persons is exactly the drift this sheet exists to prevent.
 | Profile | প্রোফাইল |  |
 | Account | অ্যাকাউন্ট | |
 | Search (the tab) | খোঁজ | |
-| Pending import | অপেক্ষায় ইমপোর্ট | |
+| Pending import | যাচাই বাকি ইমপোর্ট | Was অপেক্ষায় ইমপোর্ট; objects do not wait, and the later ruling in *অপেক্ষা is not for objects* below is what `staging.title` says |
 | The bin | ডাস্টবিন | v3 |
 | Activity (the calendar) | ক্যালেন্ডার | v3: the help panel had always called the same grid *Calendar*; heading, tab tip and help term now say one word. রোজনামচা was lovely and nobody looked for it |
 | Memory | স্মৃতি | |

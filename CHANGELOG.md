@@ -20,10 +20,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   sides.
 - **Profile no longer slides sideways on a phone at the largest text size.** The reset
   prompt's "Delete everything & restart" button used to run past the screen's edge.
-- **The Bengali interface's Import and Pending import screens, and every mention of an
-  app screen, now use the style sheet's words (ইমপোর্ট, মেনে নিন, অপেক্ষার তালিকা,
-  স্ক্রিন).** Those screens used to carry other renderings, such as আমদানি, অনুমোদন and
-  পর্দা, that the style sheet had already settled differently.
+- **The Bengali interface now uses the style sheet's words for import and export,
+  approving, the import queue, an app screen and the daily quiz (ইমপোর্ট, এক্সপোর্ট,
+  মেনে নিন, অপেক্ষার তালিকা, স্ক্রিন, দৈনিক অনুশীলনী), and no longer says an import or
+  a quote is waiting.** Strings across the tour, help and Settings used to carry
+  renderings the style sheet had already settled differently, such as আমদানি, রপ্তানি,
+  অনুমোদন, পর্দা and রোজকার কুইজ.
 
 ## [3.1.1] - 2026-09-29
 
