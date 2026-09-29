@@ -478,6 +478,7 @@ promise on a public page, so a sweep that is unsure says so rather than inventin
 
 ```bash
 go vet ./...                          # must pass
+gofmt -l .                            # must list nothing; CI fails when it does
 go test ./...                         # must pass; CI uses -timeout 20m
 go build ./cmd/tippani                # or `make build`
 make run                              # go run ./cmd/tippani serve -> :8080, onboard in browser

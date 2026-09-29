@@ -589,7 +589,7 @@ That job asserts each named test actually ran. A `-run` filter that matches noth
 exits 0, and `ok (0 tests)` reads exactly like `ok` — a false green that has already cost
 this repo an afternoon.
 
-The bar for a change: `go vet` clean, `go test ./...` green, and **a test that would have
+The bar for a change: `go vet` clean, `gofmt -l .` empty, `go test ./...` green, and **a test that would have
 failed before your fix**. That last one is the one that matters. There is a worked example
 in the repo — the concurrent-write `500` had a written-up cause and a written-up fix, and
 both were wrong. What settled it was making the test fail on purpose and reading the
@@ -730,7 +730,7 @@ silently.
    [What I will and will not merge](#what-i-will-and-will-not-merge).
 2. **Branch off `main`.** Keep it to one concern.
 3. **Write the commit message body.** The why, and the alternative you rejected.
-4. **`go vet ./...` and `go test ./...` must pass**, `npm test` if you touched the
+4. **`go vet ./...` and `go test ./...` must pass, and `gofmt -l .` list nothing**, `npm test` if you touched the
    frontend, and the pull request's head must carry the rebuilt `web/dist/` (CI
    checks it). The maintainer's own sessions commit features without it and add
    one rebuild commit before each push; see `CLAUDE.md`.
@@ -767,7 +767,7 @@ schedule, and by hand (`workflow_dispatch`: `gh workflow run ci.yml`). Its jobs:
 
 | Job | What it runs |
 | --- | --- |
-| `go` | `go vet`, the full Go suite — which includes the check that `web/dist` is not stale — and a smoke test that boots the server and health-checks it. |
+| `go` | `go vet`, `gofmt -l .` (it fails when the list is not empty), the full Go suite — which includes the check that `web/dist` is not stale — and a smoke test that boots the server and health-checks it. |
 | `race` | The five locking tests, and three #40 tests that hold the connection pool full, under `-race`, on every push to `main`, every pull request and every run by hand. Asserts each named test actually ran. |
 | `race-nightly` | Every package but `internal/httpapi` under `-race`, on the schedule and on a run by hand, one job per package so a race or a timeout in one does not hide another. |
 | `race-nightly-httpapi` | `internal/httpapi` under `-race`, on the schedule and on a run by hand, split ten ways by test name because the package does not fit an hour raced. Each shard lists the tests from the race binary and fails unless every test it was dealt ran. |

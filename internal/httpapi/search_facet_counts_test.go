@@ -294,8 +294,8 @@ func TestSearchNarrowsToAnAddedOnRange(t *testing.T) {
 }
 
 // THE LANGUAGE FACET'S OWN COUNTS, and the arm they prove is reading the right
-// column. `search_facet_counts.go`'s language arm is `COALESCE(<self>.language,
-// ”)` — three tables, one column name, so it reads the alias the row set gave
+// column. `search_facet_counts.go`'s language arm coalesces `<self>.language` to
+// the empty string — three tables, one column name, so it reads the alias the row set gave
 // it. Point that at any other column of any of the three and the whole Go suite
 // still passes, because until this case nothing asked /search/facets for a
 // language at all: the chips would have offered "here the highlight" as a

@@ -83,9 +83,9 @@ func TestAStagedRowTakesEveryLocatorItCarries(t *testing.T) {
 }
 
 // AN EMPTY STRING CLEARS, and on these eleven that is the case that breaks first.
-// Every one is `TEXT NOT NULL DEFAULT ”`, so writing them through nullable() —
-// which is correct for chapter and location one block up — stores a NULL into a
-// NOT NULL column and fails the whole transaction. The bug would be invisible
+// Every one is TEXT NOT NULL with the empty string as its DEFAULT, so writing them
+// through nullable() — which is correct for chapter and location one block up —
+// stores a NULL into a NOT NULL column and fails the whole transaction. The bug would be invisible
 // until somebody emptied a box.
 func TestClearingAStagedLocatorIsNotAConstraintViolation(t *testing.T) {
 	srv := newTestServer(t)

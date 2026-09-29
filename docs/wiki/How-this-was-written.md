@@ -415,7 +415,7 @@ worth nothing here and only execution counts. What the repo actually runs:
   a documentation pass compared the two and found that `"want of a wife"` was
   accepting `"want of a life"`. The plan was right and the code was not, and only
   reading them side by side said so.
-- **CI on every push**: `go vet ./...`, `go test ./...`, a smoke test that boots
+- **CI on every push**: `go vet ./...`, `gofmt -l .` (red when it lists a file), `go test ./...`, a smoke test that boots
   the server and health-checks it, a frontend build, a check that the roadmap's
   generated regions still match the data files they come from, a check that the
   UI glossary's inlined stylesheet matches the one the app actually ships, and a
