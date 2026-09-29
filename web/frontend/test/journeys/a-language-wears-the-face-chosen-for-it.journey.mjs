@@ -10,10 +10,12 @@
 // goes red: the quote's face is the default, not Literata. It has to be BUILT to bite,
 // since this tier runs the real binary and its policy.
 //
-// SETUP USES THE API: one quote in German through POST /quotes, and the face through
-// the preferences route (`fontsByLanguage`, a JSON string keyed by the folded language),
-// as the language picker would store it; both undone afterwards, since the fixture is
-// shared. THE FACE IS READ THROUGH `page`, the harness's escape hatch, because no verb
+// SETUP USES THE API, and knows these addresses and fields: POST /quotes with `quote`,
+// `language` and `speaker`, reading the new row's `id` (or `utterance.id`) from the
+// answer; PUT /auth/me/preferences with `fontsByLanguage`, a JSON string keyed by the
+// folded language, as the language picker would store it; and DELETE /quotes/:id. Both
+// are undone afterwards so the file ends as it began; the server and its database are
+// this file's own. THE FACE IS READ THROUGH `page`, the harness's escape hatch, because no verb
 // says what face a word is drawn in, and there is nothing else on the screen to read:
 // the words are the same words in either face.
 

@@ -46,6 +46,7 @@ import { afterAll, afterEach, beforeAll } from 'vitest'
 
 import {
   NO_MOTION_CSS,
+  assertNoMotion,
   emulateEngineMedia,
   ensureSession,
   findBrowser,
@@ -196,6 +197,7 @@ export function openApp({ viewport = DESKTOP, theme = 'light', empty = false, en
         password: required('TIPPANI_JOURNEY_PASS'),
         timeoutMs: 20000,
       })
+      await assertNoMotion(w.page)
     }
   }, 180000)
 

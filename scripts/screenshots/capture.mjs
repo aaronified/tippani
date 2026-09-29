@@ -511,6 +511,17 @@ export function noMotionScript(css) {
   })()`
 }
 
+// Fails when the no-motion sheet is not in force on the loaded page. It was not, for
+// every capture and every journey, until #43: the CSP refused it and nothing noticed,
+// because a run with animations on still passes, just slower and less steadily. The
+// caret is the probe because the sheet is the only thing that makes it transparent.
+export async function assertNoMotion(page) {
+  const caret = await page.evaluate(() => getComputedStyle(document.body).caretColor)
+  if (caret !== 'rgba(0, 0, 0, 0)' && caret !== 'transparent') {
+    throw new Error(`the no-motion sheet is not applied (body caret-color is ${caret}); the page is animating`)
+  }
+}
+
 // Pins Math.random so a capture is comparable to the one before it.
 //
 // Home's greeting is drawn with an unseeded `pick()` over a pool
@@ -697,6 +708,7 @@ async function main() {
       if (opts.seedRandom) await page.evaluateOnNewDocument(seedRandomScript(0x9E3779B9))
 
       await ensureSession(page, opts)
+      await assertNoMotion(page)
 
       for (const screen of requested) {
         try {

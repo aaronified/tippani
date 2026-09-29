@@ -14323,8 +14323,25 @@ Seven render sites across three components take a CLASS from `quoteTexts` and pa
 on. A family that arrived as a style would mean a new prop on all three and a merge at
 all seven — and one of those seven quietly not doing it is the drift the repo's "one
 function both call" directive exists to stop. So `applyFonts` writes one rule per
-configured language into a single `<style id="tp-language-type">`, and the contract at
-every call site stays one word.
+configured language into a single stylesheet, and the contract at every call site stays
+one word.
+
+THAT SHEET IS ADOPTED, NOT A `<style>` ELEMENT, and for a while it was an element and
+did nothing (#43). The app's Content-Security-Policy names no `style-src`, so it falls
+back to `default-src 'self'`, and the browser refuses the text of any `<style>` element
+a script writes: the rules never applied, every quote kept the default face, and the
+console logged the refusal on every load. Filling an empty `<style>` through
+`insertRule` is refused the same way (measured in Chromium). A constructed sheet —
+`new CSSStyleSheet()`, `replaceSync`, `document.adoptedStyleSheets` — is CSSOM rather
+than markup, and `style-src` does not govern it (measured: it applies under the app's
+own policy). `fonts.js` keeps the element as the fallback for a browser with no
+constructable sheets, where the policy refuses it just as before.
+
+Rejected: `style-src 'unsafe-inline'`, which reopens every injected `<style>` and
+`style=""` to an attacker for the sake of one sheet the app writes itself; and a nonce,
+which the server would have to mint per response and thread into a static SPA that has
+no template to put it in. The screenshot harness's no-motion sheet had the same defect
+and takes the same repair.
 
 The class is a hash of the folded name and not the name itself: a language is free text
 ("বাংলা", "Français", "Ancient Greek (Attic)") and none of those is a CSS identifier.
