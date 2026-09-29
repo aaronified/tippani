@@ -1619,14 +1619,28 @@
      390 screen "Delete everything & restart" ran 1px past the edge and "Read the
      whole log (104 more)" 61px, and the whole page slid under each. This one is held
      to its row and its words wrap once they outgrow it. A label that fits still sits
-     on one line, because the button is as wide as its words up to the cap. */
-  .tp-btn.wraps-to-fit { white-space: normal; max-width: 100%; text-align: start; }
-  /* AND ITS GLYPH STAYS ON THE FIRST LINE. Beside a label that wrapped, a centred
-     flex item sits between the two lines, on neither. A box one line tall at the top
-     centres the drawing on the first line, and on a one-line label that is the
-     middle anyway. Not under an explicit "hide labels", where the button is a 44px
-     square of glyph alone and centred is right. */
-  html:not([data-labels-mode="off"]) .tp-btn.wraps-to-fit .btn-icon { align-self: flex-start; height: 1lh; }
+     on one line, because the button is as wide as its words up to the cap. Wrapped
+     lines are centred, as the Jobs export buttons' are (.logs-export > .tp-btn).
+
+     AND ITS GLYPH STAYS ON THE FIRST LINE. As a flex item beside a label that
+     wrapped, a centred glyph sits between the two lines, on neither; pinned to the
+     top instead, it rode 3.6px above a one-line label at 75% type, where the line is
+     shorter than the button's 44px floor leaves room for. So the button is a grid of
+     one row: the glyph and the words both sit at the top of that row, the row is as
+     tall as the words, and the row is centred in the button. The glyph's box is one
+     line tall, so its drawing is on the first line of the words at every size, and
+     the middle of a one-line label is the middle of the button. */
+  .tp-btn.wraps-to-fit {
+    display: inline-grid;
+    grid-auto-flow: column;
+    justify-content: center;
+    align-content: center;
+    align-items: start;
+    white-space: normal;
+    max-width: 100%;
+    text-align: center;
+  }
+  .tp-btn.wraps-to-fit .btn-icon { height: 1lh; }
   /* Raised, lit from the top-centre: bright top edge, shaded underside, and a
      cast shadow beneath. On :active the whole face sinks (translateY) and the
      lighting inverts to an inset — a genuine push, not a colour swap. */

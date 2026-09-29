@@ -54,6 +54,15 @@
 // goes red at the glyph, "19px below the middle of the line nearest it", with
 // the page still not sliding and the other two cases green.
 //
+// THE FOURTH AND FIFTH CASES ARE THE RELEASE LOG ON SERVER (#51). Its door, "Read
+// the whole log", is a sentence on a button that ran 61px past a 390 screen at 175%.
+// THE MUTATIONS, run: the `wraps-to-fit` class off that button and the fourth goes red,
+// "expected 61 to be +0"; the glyph's one-line box (`.btn-icon { height: 1lh }`)
+// taken out and it goes red at the chevron, 11px above its line; the first repair's
+// rule put back (the glyph pinned to the top of a flex row) and the fifth goes red at
+// 75% type, 4px above a one-line label, which offTheLine's quarter-line slack let
+// through and its `slack: 2` does not.
+//
 // It knows the words on the screen and nothing else, and two numbers: how far the
 // page slides (`sideways`) and which glyphs beside a label are off its lines
 // (`offTheLine`).
@@ -80,9 +89,10 @@ it('the typeface row keeps its buttons inside the card on a phone', async () => 
   expect(await app.sideways()).toBe(0)
 })
 
-// LAST, because it leaves the reader's type at the top of the dial. A fresh page
-// after the choice, so the size is the one the server kept, not only the one the
-// dial applied to the page it was on.
+// AFTER THE FIRST TWO, because it leaves the reader's type at the top of the dial;
+// the cases after it set the dial themselves. A fresh page after the choice, so the
+// size is the one the server kept, not only the one the dial applied to the page it
+// was on.
 it('the System logs card keeps its export buttons inside it at the largest type', async () => {
   await app.goto('/settings')
   await app.press('Language and font')
@@ -109,4 +119,19 @@ it('the release log keeps its door inside the phone at the largest type', async 
   await app.see('Read the whole log')
   expect(await app.sideways(), 'the Server section slides sideways at 175% type').toBe(0)
   expect(await app.offTheLine('Read the whole log'), 'the chevron beside a label that wrapped').toEqual([])
+})
+
+// AND AT THE SMALLEST TYPE THE CHEVRON STAYS ON ITS ONE LINE. The first repair
+// pinned the glyph's box to the top of the button, which put it on the first line
+// of a wrapped label and 3.6px above a one-line label at 75%, where the line is
+// shorter than the room the button's 44px floor leaves. offTheLine's own slack, a
+// quarter of a line, is 4.3px there, so this asks for 2.
+it('the release log keeps its chevron on its line at the smallest type', async () => {
+  await app.goto('/settings')
+  await app.press('Language and font')
+  await app.choose('Text size', '75%')
+  await app.see('75%')
+  await app.goto('/settings/server')
+  await app.see('Read the whole log')
+  expect(await app.offTheLine('Read the whole log', { slack: 2 }), 'the chevron beside a one-line label').toEqual([])
 })

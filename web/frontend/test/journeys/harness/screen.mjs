@@ -566,13 +566,17 @@ export function screenVerbs(getPage) {
   // because whether it is centred to the pixel is glyph-align's question, and this
   // one is only whether the drawing is on the line at all.
   //
+  // `slack`, in pixels, tightens that where a journey's question IS the pixel: a
+  // quarter of a 17px line is 4.3px, and a chevron riding 3.6px above a one-line
+  // label at 75% type passed it (#51).
+  //
   // The words name the smallest element on the screen whose text holds them, and
   // the glyphs asked about are the ones drawn inside it — or, when that element is
   // part of a button or a link, inside the whole control. The app's own buttons
   // draw the glyph and the words as two sibling spans, so the smallest holder of
   // the words holds no glyph, and a question scoped to it answered "none off the
   // line" about every such button without measuring one (#51).
-  const offTheLine = (words) => page().evaluate((want) => {
+  const offTheLine = (words, { slack } = {}) => page().evaluate(([want, slack]) => {
     const fold = (s) => s.replace(/\s+/g, ' ').trim().toLowerCase()
     const w = fold(want)
     const holding = [...document.querySelectorAll('body *')].filter((el) => {
@@ -609,14 +613,14 @@ export function screenVerbs(getPage) {
         const mid = top + height / 2
         const near = lines.reduce((b, x) => (!b || Math.abs(mid - (x.top + x.bottom) / 2) < Math.abs(mid - (b.top + b.bottom) / 2) ? x : b), null)
         const gap = near ? mid - (near.top + near.bottom) / 2 : null
-        if (near && Math.abs(gap) <= near.height / 4) continue
+        if (near && Math.abs(gap) <= (slack ?? near.height / 4)) continue
         off.push(near
           ? `a glyph ${Math.round(Math.abs(gap))}px ${gap < 0 ? 'above' : 'below'} the middle of the line nearest it, in "${(el.innerText || '').trim().slice(0, 60)}"`
           : `a glyph with no words beside it, in "${(el.innerText || '').trim().slice(0, 60)}"`)
       }
     }
     return off
-  }, words)
+  }, [words, slack])
 
   // inReach — CAN A THUMB PRESS THIS WITHOUT SCROLLING? True when the control a
   // person would press by that name is inside the window and nothing is drawn over

@@ -5,13 +5,14 @@
 // "Delete everything & restart" ran to about x=395, so the whole page slid 5px left
 // and right under a thumb. The row it sits in wraps; the button's own words did not.
 //
-// THE MUTATIONS, measured on the seeded fixture. Take BOTH of the reset button's
-// `whiteSpace: 'normal'` and `maxWidth: '100%'` out of Account.jsx and this goes red
-// on the page's slide, 1px (the 3.1.1 screens pass measured 5px against another
-// library). Take out either one alone and it stays green: the overage here is smaller
-// than the button's side padding, so a capped button still holds its words, and a
-// wrapping one shrinks with its row. Delete the press on "Reset all data…" and it goes
-// red on `see`, because the button is not drawn until the prompt is open.
+// THE MUTATIONS, measured on the seeded fixture. The button wears `wraps-to-fit`, the
+// rule for a button whose words can outgrow a phone (index.css; #51 moved this
+// button's two inline styles into it). Take the class off the button in Account.jsx
+// and this goes red on the page's slide, 1px (the 3.1.1 screens pass measured 5px
+// against another library). When the fix was still those two inline styles, either
+// one alone kept it green: the overage here is smaller than the button's side
+// padding. Delete the press on "Reset all data…" and it goes red on `see`, because the
+// button is not drawn until the prompt is open.
 //
 // ONE ESCAPE HATCH. The vocabulary has no word for a label clipped inside its own
 // button, so `app.page` finds the button by its words and compares its laid-out
