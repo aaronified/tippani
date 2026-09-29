@@ -9,10 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **Settings › Server no longer slides sideways on a phone at the largest text size.**
+- **Settings → Server no longer slides sideways on a phone at the largest text size.**
   The "Read the whole log" button under the release log used to run 61px past the
-  screen's edge, and its arrow now stays level with the first line of its words when
-  they wrap onto a second.
+  screen's edge, and its arrow now sits on the first line of its words when they wrap
+  onto a second.
 - **The Bengali tour's first screen now calls the daily quiz দৈনিক অনুশীলনী.** It
   still said রোজকার মনে রাখার কুইজ, the old name the rest of the Bengali interface had
   already dropped.
