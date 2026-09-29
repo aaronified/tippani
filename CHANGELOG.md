@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **Settings › Server no longer slides sideways on a phone at the largest text size.**
+  The "Read the whole log" button under the release log used to run 61px past the
+  screen's edge, and its arrow now stays level with the first line of its words when
+  they wrap onto a second.
+- **The Bengali tour's first screen now calls the daily quiz দৈনিক অনুশীলনী.** It
+  still said রোজকার মনে রাখার কুইজ, the old name the rest of the Bengali interface had
+  already dropped.
+
 ## [3.1.2] - 2026-09-29
 
 ### Fixed
