@@ -106,14 +106,15 @@ export function JobsCard({ title, aside = null, door = null, controls = null, ch
 // be inside it and edgemasked, not the well!" So the well is a still box that holds
 // the paper, and the Scroller inside it holds only the lines.
 //
-// AND IT CARRIES ITS OWN COPY, a glyph floating in the top-right corner that stays
-// put while the lines scroll beside it, never under it: their box stops short of
-// the button (index.css), or the end of a wrapped line hid there for good (the owner's, 30 September: "a hovering copy
-// button, no label ... in all the log boxes"). `copy` is asked for the text at the
-// press, so it copies what is in the well then, as a reader reads it; a well with
-// nothing in it has nothing to copy, and is handed none. Its name is the well's
-// own (`copyLabel`): a job's log open beside System logs is two copy buttons on one
-// screen, and two of one name are a press nobody can aim.
+// AND IT CARRIES ITS OWN COPY, the owner's, 30 September: "a hovering copy button,
+// no label ... in all the log boxes". It is a glyph in the top-right corner that
+// stays put while the lines scroll beside it, never under it: their box stops
+// short of the button (index.css), or the end of a wrapped line would hide there
+// for good. `copy` is asked for the text at the press, so it copies what is in the
+// well then, as a reader reads it; a well with nothing in it has nothing to copy,
+// and is handed none. Its name is the well's own (`copyLabel`): a job's log open
+// beside System logs is two copy buttons on one screen, and two of one name are a
+// press nobody can aim.
 const COPY_GLYPH = <IconCopy size={18} />
 
 function LogWell({ className = '', label, copy = null, copyLabel = null, innerRef = null, onScroll = undefined, children }) {
@@ -626,10 +627,15 @@ function PastJob({ job, user, open, busy, onToggle, onRerun, onReview }) {
   )
 }
 
-export function PastLog({ job, title }) {
+// `last` is the Common jobs card's use: the same finished log, named as its row's
+// LAST RUN, because Past jobs can have the same job's row open on the same screen
+// and two logs of one name, with two copy buttons of one name, are a press nobody
+// can aim.
+export function PastLog({ job, title, last = false }) {
   // A past row's job has finished: read its log until it is all here, then stop.
   const live = useJob(job.id, { final: true })
-  return <JobLog lines={live.lines} trimmed={live.trimmed} loaded={live.loaded} label={t('settings.jobs.log.aria', { title })} copyLabel={t('settings.jobs.log.copy.aria', { title })} />
+  const words = last ? 'settings.jobs.common.log' : 'settings.jobs.log'
+  return <JobLog lines={live.lines} trimmed={live.trimmed} loaded={live.loaded} label={t(`${words}.aria`, { title })} copyLabel={t(`${words}.copy.aria`, { title })} />
 }
 
 // ---- System logs ---------------------------------------------------------------

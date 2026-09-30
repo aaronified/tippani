@@ -31,7 +31,11 @@
 // fill of every work then walks nothing) and it goes red at the log's first line,
 // because a fill that never read the library says nothing of it. Drop the job
 // log's own copy name (`copyLabel` in jobsSection.jsx) and it goes red at "Copy
-// the log of", the button answering to System logs' "Copy these lines".
+// the log of the last run of", the button answering to System logs' "Copy these
+// lines". Give the last run's log Past jobs' name (`last` dropped from the card's
+// PastLog) and it goes red there too: nothing is named for the last run, and with
+// Past jobs' row open two copy buttons would share "Copy the log of Fill gaps in
+// every work", which the last two assertions refuse.
 //
 // It knows the words on the screen and, past the clipboard above, nothing else: no
 // setup, no address but the screen's own.
@@ -64,10 +68,18 @@ it('a common job runs from its row in Settings › Jobs, and the row then shows 
   // this screen with a copy of its own, and two buttons of one name are a press
   // nobody can aim.
   await app.page.browserContext().overridePermissions(app.baseUrl, ['clipboard-read', 'clipboard-write', 'clipboard-sanitized-write'])
-  await app.press('Copy the log of')
+  await app.press('Copy the log of the last run of Fill gaps in every work')
   await app.see('copied')
   const copied = await app.page.evaluate(() => navigator.clipboard.readText())
   expect(copied, 'the clipboard does not hold the job\u2019s log').toMatch(/every work in the library as the fill starts/)
+
+  // AND THE SAME RUN OPEN IN PAST JOBS IS A SECOND LOG ON THIS SCREEN, so its copy
+  // answers to a name of its own. Each is asked for by its whole name, and `said`
+  // refuses a name two things carry.
+  await app.see('Past jobs')
+  await app.press('Fill gaps in every work')
+  expect(await app.said('Copy the log of Fill gaps in every work')).toBeTruthy()
+  expect(await app.said('Copy the log of the last run of Fill gaps in every work')).toBeTruthy()
 
   expect(app.pageErrors(), 'the page threw on the way').toEqual([])
 })

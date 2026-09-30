@@ -5844,7 +5844,7 @@ settings.jobs.took.h = {h}h {m}m
 # --- a job's log, in its row. {title} is the job's name from the list above.
 # bn: the hole stays bare (§5.4), so the frame puts the name after a colon.
 settings.jobs.log.aria = লগ: {title}
-settings.jobs.log.copy.aria = {title}-এর লগ কপি করুন
+settings.jobs.log.copy.aria = লগ কপি: {title}
 settings.jobs.log.empty = এখনও কিছু লেখা হয়নি।
 settings.jobs.log.trimmed = শুরুর দিকের লাইনগুলো এক্সপোর্টে আছে।
 
@@ -5922,6 +5922,8 @@ settings.jobs.common.stop.aria = থামান: {title}
 # drawn after this word; {state} and {when} are the same two in the button's name.
 settings.jobs.common.last.label = শেষবার
 settings.jobs.common.last.aria = শেষবার: {title} — {state}, {when}
+settings.jobs.common.log.aria = শেষবারের লগ: {title}
+settings.jobs.common.log.copy.aria = শেষবারের লগ কপি: {title}
 settings.jobs.common.never = গত 30 দিনে চালানো হয়নি
 # A server that runs no jobs (a test server's, the daily-deck command's) has no row to offer.
 settings.jobs.common.empty = এই সার্ভারে এখান থেকে কিছুই চালানো যায় না।

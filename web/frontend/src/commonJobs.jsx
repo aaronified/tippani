@@ -279,7 +279,7 @@ function LastRun({ last, title, open, onToggle }) {
           {last.error && (last.state === 'failed'
             ? <ErrorText>{last.error}</ErrorText>
             : <p className="microcopy" data-content>{last.error}</p>)}
-          <PastLog job={last} title={jobTitle(last)} />
+          <PastLog job={last} title={jobTitle(last)} last />
           <div className="job-actions">
             {/* An anchor, for the reason Past jobs' Export is one. */}
             <Tooltip label={t('settings.jobs.past.export.tip')}>

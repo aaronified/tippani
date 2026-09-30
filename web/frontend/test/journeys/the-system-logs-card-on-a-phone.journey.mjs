@@ -20,7 +20,10 @@
 //     the two export links sit (by their words), and whether a fade is drawn, read
 //     as the computed mask of the log (found by its role and name) and of the box
 //     it sits in. A mask is the fade; there is no other way to ask whether one is
-//     on the well.
+//     on the well. It also reads where the lines' box ends, as its right edge less
+//     its computed right padding, against the left edge of the button named "Copy
+//     these lines", because a line that runs under the button is hidden by it and
+//     the screen's words are all still there to read.
 //   - THE CLIPBOARD IS READ BACK through Chrome's permission for this origin
 //     (`overridePermissions`), because what a copy button promises is what lands
 //     on the clipboard, and a toast is only the app saying so.
