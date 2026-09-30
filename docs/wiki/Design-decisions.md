@@ -19928,7 +19928,9 @@ head. A rating then found two faults in that pass, and both are fixed. The dock'
 that needs work" sheet printed People's and Characters' "no quotes" as two identical rows, so
 its rows now sit under their section's name as the index's pills sit under their door. And a
 pill's filter outlived its console, so a section's own door opened on the last pill's filter;
-the door now always opens on everything.
+every door, Works' included, and every index verb that walks in through one ("Scan for
+duplicate works", "Fetch missing") now opens where a fresh visit does: Works on every type's
+flagged works, People and Characters on everyone.
 
 **One card, "All sources", where the pack draws two, "Who the app can ask" and a keys card.**
 The owner, 30 September: "who the app can ask, and keys and credentials can be merged into one

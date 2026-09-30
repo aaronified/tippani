@@ -29,6 +29,10 @@ import { BOOK_GAPS, MOVIE_GAPS, bookPasses, fetchable, lacksLinks, lacksPhoto, m
 // books / films-shows lists with multi-select bulk actions (fill actors, delete,
 // fetch missing covers) plus per-row review-each look-up, and a per-title speaker
 // remap tool. The point of the tab is doing metadata at scale, not one at a time.
+// Where the Works console opens when nothing asked for more: every type, on the
+// works that need something. Its first render and its door both read it.
+const WORKS_DOOR = { type: 'all', filter: 'flagged' }
+
 // ---- THE SECTIONS -----------------------------------------------------------
 //
 // This screen was one long scroll with six consoles stacked on it: a stats strip,
@@ -195,8 +199,8 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
 
   // Unified catalogue console: a type (all/book/movie/show) that drives which
   // filters the second dropdown offers, plus the chosen filter.
-  const [catType, setCatType] = useState('all')
-  const [catFilter, setCatFilter] = useState('flagged')
+  const [catType, setCatType] = useState(WORKS_DOOR.type)
+  const [catFilter, setCatFilter] = useState(WORKS_DOOR.filter)
 
   // PICKING A GAP IS ONE VERB, AND IT WAS WRITTEN THREE TIMES. The desktop tiles,
   // the phone's issue rows and now the phone's coverage numbers all mean the same
@@ -300,10 +304,13 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routed])
   const setSection = (id) => { remember(id); if (onSection) onSection(id) }
-  // A DOOR OPENS ON EVERYTHING; only a pill opens on its issue. The issue a pill
-  // hands in is the page's, so it outlived the console: pill, Back, then the door
-  // itself landed on the pill's filter, "3 people shown" under a door saying 69.
+  // A DOOR OPENS WHERE A FRESH VISIT DOES; only a pill opens on its issue. What a
+  // pill hands in is the page's, so it outlived the console: pill, Back, then the
+  // door itself landed on the pill's filter, "3 people shown" under a door saying
+  // 69. Works too, whose type and filter are the page's for the same reason: its
+  // door said 41 and landed on the "no series" pill's 14.
   const openDoor = (id) => {
+    if (id === 'works') { setCatType(WORKS_DOOR.type); setCatFilter(WORKS_DOOR.filter) }
     if (id === 'people') setPeopleIssue((s) => ({ issue: '', at: s.at + 1 }))
     if (id === 'characters') setCharIssue((s) => ({ issue: '', at: s.at + 1 }))
     setSection(id)
@@ -627,7 +634,9 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
             // different consoles — the section's name is what tells them apart,
             // as the index's doors do by standing under their own.
             <div style={{ display: 'grid', gap: 'var(--row)' }}>
-              {['works', 'people', 'characters'].map((sec) => {
+              {/* The sections in the order their rows arrive, rather than a list
+                  of three: a row from a section added later is drawn, not lost. */}
+              {[...new Set(issues.map((row) => row.go.section))].map((sec) => {
                 const rows = issues.filter((row) => row.go.section === sec)
                 if (rows.length === 0) return null
                 return (

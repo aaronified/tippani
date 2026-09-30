@@ -29,9 +29,10 @@
 // TWO MORE CASES, both from a rating. The sheet the dock opens ("Everything that
 // needs work") printed People's "no quotes" and Characters' "no quotes" as two
 // identical rows opening two consoles, so each row now sits under its section's
-// name, and the case reads which name each "no quotes" sits under. And a pill's
-// filter outlived its console: pill, Back, then the section's own door landed on the
-// pill's three people rather than on all of them.
+// name, and the case reads which name each "no quotes" sits under and presses each
+// to see that name is the console it opens. And a pill's filter outlived its
+// console: pill, Back, then the section's own door landed on the pill's three
+// people rather than on all of them, and the Works door on the pill's works.
 //
 // The last case presses Merge on the Characters console's duplicate card, which
 // this fix put there with the People console's card: the count above the cards is
@@ -49,6 +50,13 @@
 //     name above the rows";
 //   - the door's reset taken out (`onChange={setSection}` back on the rail): red,
 //     "the People door opened on the pill's filter";
+//   - the Works line taken out of `openDoor`: red, "\"Works\" opened on the \"no
+//     cast\" pill's filter: expected 1 to be 41"; and `enter` going straight to
+//     `setSection` again: red, "\"Scan for duplicate works\" opened on the \"no
+//     cast\" pill's filter";
+//   - the sheet's groups printing People's rows under CHARACTERS and the other way
+//     round: red, "the \"no quotes 30\" row under characters opened: expected
+//     'people' to be 'characters'".
 //   - the Characters card's `endpoint="/characters/merge"` taken off (so it posts to
 //     the People merge): red, the pair is still there.
 
@@ -112,7 +120,9 @@ it('every pill on the phone Metadata index opens on the number it carries', asyn
   expect(app.pageErrors(), 'the page threw on the way').toEqual([])
 })
 
-it('the sheet of everything that needs work names the section each row opens', async () => {
+// The sheet as a reader reads it: under each section's name, its rows, each its
+// words on one line and its number on the next.
+async function sheetRows() {
   await app.goto('/metadata')
   await app.see('Fetch missing')
   await app.press('Everything that needs work')
@@ -120,17 +130,33 @@ it('the sheet of everything that needs work names the section each row opens', a
   // The sheet is drawn after the page, so its words are the ones after its title.
   const lines = (await app.onScreen()).split('\n').map((l) => l.trim()).filter(Boolean)
   const sheet = lines.slice(lines.map((l) => l.toLowerCase()).lastIndexOf('everything that needs work') + 1)
-  const under = {}
+  const rows = []
   let heading = null
-  for (const line of sheet) {
-    if (SECTIONS.some((s) => s.toLowerCase() === line.toLowerCase())) heading = line.toLowerCase()
-    else if (line === 'no quotes') (under[line] ||= []).push(heading)
+  for (let i = 0; i < sheet.length; i++) {
+    if (SECTIONS.some((s) => s.toLowerCase() === sheet[i].toLowerCase())) heading = sheet[i].toLowerCase()
+    else if (/^\d+$/.test(sheet[i + 1] || '')) { rows.push({ heading, label: sheet[i], n: Number(sheet[i + 1]) }); i++ }
   }
-  expect(under['no quotes'], 'no "no quotes" rows in the sheet').toBeTruthy()
-  expect(under['no quotes'].every(Boolean), 'no section name above the rows').toBe(true)
+  return rows
+}
+
+it('the sheet of everything that needs work names the section each row opens', async () => {
+  const quiet = (await sheetRows()).filter((r) => r.label === 'no quotes')
+  expect(quiet.length, 'no "no quotes" rows in the sheet').toBeGreaterThan(0)
+  expect(quiet.every((r) => r.heading), 'no section name above the rows').toBe(true)
   // The golden library has characters and people with no quotes; each pair of
   // same-worded rows sits under two different names.
-  expect(under['no quotes'].sort(), 'the sections the "no quotes" rows sit under').toEqual(['characters', 'people'])
+  expect(quiet.map((r) => r.heading).sort(), 'the sections the "no quotes" rows sit under').toEqual(['characters', 'people'])
+  // AND EACH NAME IS THE CONSOLE ITS ROWS OPEN: the row under PEOPLE lands on
+  // people, the one under CHARACTERS on characters, each on its own number.
+  for (const { heading, n } of quiet) {
+    await sheetRows()
+    await app.press(`no quotes ${n}`)
+    await app.see('shown')
+    const landed = (await app.onScreen()).match(/(\d+)\s+(people|persons?|characters?)\s+shown/i)
+    expect(landed, `the "no quotes" row under ${heading} landed on no people or characters`).toBeTruthy()
+    expect(/^character/i.test(landed[2]) ? 'characters' : 'people', `the "no quotes ${n}" row under ${heading} opened`).toBe(heading)
+    expect(Number(landed[1]), `the "no quotes" row under ${heading} says ${n}`).toBe(n)
+  }
   expect(app.pageErrors(), 'the page threw on the way').toEqual([])
 })
 
@@ -157,6 +183,29 @@ it("a section's own door opens on everything, after a pill opened it on one issu
   await app.press('People')
   await app.see('shown')
   expect(await landedCount('People'), "the People door opened on the pill's filter").toBe(everyone)
+
+  // WORKS TOO, whose type and filter are the page's for the same reason, and
+  // through the index verb as well as the door: "Scan for duplicate works" walks
+  // in through the same door.
+  await app.goto('/metadata')
+  await app.see('Fetch missing')
+  await app.press('Works')
+  await app.see('shown')
+  const works = await landedCount('Works')
+  for (const via of ['Works', 'Scan for duplicate works']) {
+    await app.goto('/metadata')
+    await app.see('Fetch missing')
+    const w = (await indexPills()).find((p) => p.section === 'Works' && p.n !== works)
+    expect(w, 'the golden library has a Works pill narrower than the door').toBeTruthy()
+    await app.press(`${w.label} ${w.n}`)
+    await app.see('shown')
+    expect(await landedCount(w.label)).toBe(w.n)
+    await app.press('Back')
+    await app.see('Fetch missing')
+    await app.press(via)
+    await app.see('shown')
+    expect(await landedCount('Works'), `"${via}" opened on the "${w.label}" pill's filter`).toBe(works)
+  }
   expect(app.pageErrors(), 'the page threw on the way').toEqual([])
 })
 
