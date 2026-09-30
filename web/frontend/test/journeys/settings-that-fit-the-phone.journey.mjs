@@ -50,7 +50,18 @@
 // at 175% the pair is wider than a small phone's card and must wrap onto two lines
 // rather than slide. THE MUTATION, run: `.job-actions`' `flex-wrap: wrap` made
 // `nowrap` and this case goes red, "expected 28 to be +0", with the others green.
-// The glyph is still asked to sit on its label's line.
+// It no longer asks whether the export glyph sits on its label's line: a rating
+// moved the glyph out of its label and the case stayed green, because with no
+// label wrapping there is no second line for the glyph to fall between.
+//
+// THE FOURTH AND FIFTH CASES ARE THE RELEASE LOG ON SERVER (#51). Its door, "Read
+// the whole log", is a sentence on a button that ran 61px past a 390 screen at 175%.
+// THE MUTATIONS, run: the `wraps-to-fit` class off that button and the fourth goes red,
+// "expected 61 to be +0"; the glyph's one-line box (`.btn-icon { height: 1lh }`)
+// taken out and it goes red at the chevron, 11px above its line; the first repair's
+// rule put back (the glyph pinned to the top of a flex row) and the fifth goes red at
+// 75% type, 4px above a one-line label, which offTheLine's quarter-line slack let
+// through and its `slack: 2` does not.
 //
 // It knows the words on the screen and nothing else, and two numbers: how far the
 // page slides (`sideways`) and which glyphs beside a label are off its lines
@@ -91,14 +102,13 @@ it('the System logs card keeps its export buttons inside it at the largest type'
   await app.press('Language and font')
   await app.choose('Text size', '175%')
   await app.see('175%')
-  // THE SMALLEST PHONE, 320 wide: at 390 "What is shown" fits its button at 175%,
-  // and a case that never wraps a label cannot say what a wrapped one does.
+  // THE SMALLEST PHONE, 320 wide, where the pair is wider than the card at 175% and
+  // has to wrap onto two lines rather than slide.
   await app.page.setViewport({ width: 320, height: 720 })
   await app.goto('/settings/jobs')
   await app.see('System logs')
   await app.see('What is shown')
   expect(await app.sideways(), 'the Jobs section slides sideways at 175% type').toBe(0)
-  expect(await app.offTheLine('What is shown'), 'the export glyph beside a label that wrapped').toEqual([])
 })
 
 // THE RELEASE LOG ON SERVER, AT THE SAME TYPE (#51). Its door is a sentence on a

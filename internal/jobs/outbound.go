@@ -46,10 +46,11 @@ func (lb *Logbook) Outbound(req *http.Request, resp *http.Response, err error, t
 // The scheme goes (nearly every call is https, and the line is read in a narrow
 // pane), and so does any user:password@, which Redact drops but a URL rebuilt from
 // its host never had. The escapes a reader can read are decoded, after Redact has
-// seen the query as it was sent (readable). The query's secrets go through Redact here, because a line
-// with no scheme is not URL-shaped to the logbook's door. The size is the one the
-// server declared: the line is written when the answer arrives, before anybody
-// reads it, and a compressed or chunked answer declares none.
+// seen the query as it was sent (readable). The query's secrets go through Redact
+// here, because a line with no scheme is not URL-shaped to the logbook's door. The
+// size is the one the server declared: the line is written when the answer
+// arrives, before anybody reads it, and a compressed or chunked answer declares
+// none.
 //
 // A call that failed, was refused or answered 400 or worse is a warning: the job
 // or the request it was for did not get what it asked for.
@@ -82,11 +83,11 @@ func outboundLine(req *http.Request, resp *http.Response, err error, took time.D
 // reader can read, and keeps the rest as they were sent. A provider's query is
 // mostly escapes ("fields=key%2Ctitle%2Csubtitle", "q=isbn%3A9781409083108"), and
 // in a phone's log pane each one is three characters of noise in a line already
-// wrapped four times (the owner's phone, 30 September). What stays encoded is what would change how the line
-// reads as a URL: a space, and % & = # + ? / — plus anything that is not a
-// printable character, which the logbook's door would strip anyway. A run of
-// escapes is decoded together, so a Bengali title's three-byte letters come back
-// whole or not at all.
+// wrapped four times (the owner's phone, 30 September). What stays encoded is what
+// would change how the line reads as a URL: a space, and % & = # + ? / — plus
+// anything that is not a printable character, which the logbook's door would strip
+// anyway. A run of escapes is decoded together, so a Bengali title's three-byte
+// letters come back whole or not at all.
 func readable(s string) string {
 	if !strings.Contains(s, "%") {
 		return s
