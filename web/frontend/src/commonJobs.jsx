@@ -42,7 +42,7 @@ import {
   useStoppingJobs,
 } from './jobs.js'
 import { JobsCard, PastLog } from './jobsSection.jsx'
-import { bookPasses, fetchable, moviePasses } from './libraryGaps.js'
+import { coversCanClose, fetchable, fillCanClose } from './libraryGaps.js'
 import {
   ErrorText,
   GhostButton,
@@ -67,19 +67,18 @@ import {
 //
 // AND WHAT IT HAS LEFT TO DO, counted by Metadata's own tests (libraryGaps.js). The
 // owner: "This card should also know about what all are pending (from metadata)."
-// So each library job says how much of the library is still missing what it
-// fetches, in the number the Metadata screen shows for the same thing: a fill,
-// the works its Complete filter leaves out; a people fetch, the People console's
-// Fetch missing; a covers pass, the works with no cover or poster, which is what
-// its Missing only run walks. The backup has nothing a library is missing.
-const incomplete = (g) => g.books.filter((b) => !bookPasses(b, 'ok')).length + g.movies.filter((m) => !moviePasses(m, 'ok')).length
-const artless = (g) => g.books.filter((b) => bookPasses(b, 'no_cover')).length + g.movies.filter((m) => moviePasses(m, 'no_poster')).length
+// So each library job says how much of the library it could still fill in: a fill,
+// the pinned works with a field it writes still empty; a people fetch, the People
+// console's Fetch missing; a covers pass, the books with no cover and the films with
+// a source and no poster (libraryGaps.js says why each is narrower than what
+// Metadata flags). The backup has nothing a library is missing.
+const closable = (can) => (g) => g.books.filter(can.book).length + g.movies.filter(can.movie).length
 const works = { icon: <IconNavWorks />, word: (n) => t('unit.work', { count: n }) }
 const people = { icon: <IconNavUsers />, word: (n) => t('unit.person', { count: n }) }
 const ROWS = {
-  'fill-all': { glyph: <IconMetadata />, pending: { ...works, count: incomplete } },
+  'fill-all': { glyph: <IconMetadata />, pending: { ...works, count: closable(fillCanClose) } },
   'people-missing': { glyph: <IconMetadata />, pending: { ...people, count: (g) => g.people.filter(fetchable).length } },
-  covers: { glyph: <IconMetadata />, missingOnly: true, pending: { ...works, count: artless } },
+  covers: { glyph: <IconMetadata />, missingOnly: true, pending: { ...works, count: closable(coversCanClose) } },
   backup: { glyph: <IconArchive />, credential: true },
 }
 const rowTitle = (id) => t(`settings.jobs.common.${id}.label`)
@@ -233,7 +232,7 @@ function CommonJob({ row, user, gaps, busy, stopping, open, onToggle, onRun, onS
 
 // WHAT A JOB HAS LEFT, a count wearing the glyph of what it counts with its noun
 // beside it, the roomy shape (Tally), and the words for what is missing after it:
-// "38 works incomplete". None left is said, since that is the answer to "do I need
+// "38 works with a gap it can fill". None left is said, since that is the answer to "do I need
 // to run this?".
 function Pending({ id, n, of }) {
   return (

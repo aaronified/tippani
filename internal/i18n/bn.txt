@@ -5903,7 +5903,7 @@ settings.jobs.common.covers.prose = পুরো সংগ্রহ জুড়
 settings.jobs.common.backup.label = এখনই ব্যাকআপ নেওয়া
 # bn: "seals" is এনক্রিপ্ট করা (v3.1); একমাত্র আর্কাইভ, since the server keeps only the newest
 settings.jobs.common.backup.prose = পুরো সংগ্রহ এনক্রিপ্ট করে সার্ভারের একমাত্র আর্কাইভে রাখে।
-settings.jobs.common.fill-all.pending = অসম্পূর্ণ
+settings.jobs.common.fill-all.pending = — পূরণযোগ্য শূন্যস্থান আছে
 settings.jobs.common.people-missing.pending = — ছবি বা লিংক নেই
 settings.jobs.common.covers.pending = — কভার বা পোস্টার নেই
 settings.jobs.common.pending.none = কিছুই বাকি নেই

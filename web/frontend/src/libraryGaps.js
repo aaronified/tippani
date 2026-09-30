@@ -58,6 +58,32 @@ export function moviePasses(m, filter) {
   return p ? p(m) : false
 }
 
+// WHAT THE TWO WORK JOBS CAN CLOSE, which is less than what Metadata flags. A rating
+// found the Common jobs card counting every work Metadata does not call complete
+// under the fill, and every missing picture under the covers pass, so neither
+// number could say whether its job was worth running.
+//
+// THE FILL writes only fields that are empty, and only on a work pinned to a
+// supplier: an unpinned work is reported "unpinned" and left alone, a low-res cover
+// is not empty, and "no source" is the pinning itself, which is Look up's job. So a
+// work counts when it is pinned and one of the fields the fill writes is empty.
+// (A book pinned only by its Open Library id is the one gap in `has_ids`: the fill
+// needs an ISBN, an ASIN or a Google id. The row does not carry which.)
+//
+// THE COVERS PASS walks every book and every film with a source
+// (`coversWorkload`), and its Missing only run fetches a picture where there is
+// none. So: books with no cover, and films with a source and no poster.
+const FILL_BOOK_GAPS = ['no_cover', 'no_author', 'no_series', 'no_year', 'no_genre', 'no_synopsis']
+const FILL_MOVIE_GAPS = ['no_poster', 'no_cast', 'no_director', 'no_year', 'no_genre', 'no_synopsis']
+export const fillCanClose = {
+  book: (b) => !!b.has_ids && FILL_BOOK_GAPS.some((g) => bookPasses(b, g)),
+  movie: (m) => !!m.has_source && FILL_MOVIE_GAPS.some((g) => moviePasses(m, g)),
+}
+export const coversCanClose = {
+  book: (b) => bookPasses(b, 'no_cover'),
+  movie: (m) => !!m.has_source && moviePasses(m, 'no_poster'),
+}
+
 // A PERSON RECORD'S TWO GAPS A FETCH CAN FILL, the server's, read off the row
 // (personLacks in internal/httpapi/jobs_common.go is the one statement of the rule)
 // rather than worked out here. `fetchable` is the records with either: what the
