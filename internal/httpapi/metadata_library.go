@@ -103,7 +103,7 @@ func (s *Server) handleMetadataLibrary(w http.ResponseWriter, r *http.Request) {
 
 		LowResPoster bool `json:"low_res_poster"`
 		HasCast      bool `json:"has_cast"`
-		HasSource    bool `json:"has_source"` // tmdb_id or tvdb_id
+		HasSource    bool `json:"has_source"` // tmdb_id, tvdb_id or igdb_id
 		HasDirector  bool `json:"has_director"`
 		HasYear      bool `json:"has_year"`
 		HasGenre     bool `json:"has_genre"`
@@ -125,7 +125,9 @@ func (s *Server) handleMetadataLibrary(w http.ResponseWriter, r *http.Request) {
 		       -- not count: a row somebody deleted is not a cast.
 		       EXISTS(SELECT 1 FROM work_cast wc
 		              WHERE wc.kind = 'movie' AND wc.work_id = m.id AND wc.origin <> 'removed'),
-		       (m.tmdb_id IS NOT NULL OR m.tvdb_id IS NOT NULL),
+		       -- A GAME'S SUPPLIER IS IGDB, and a game pinned by its IGDB id read
+		       -- "no source" here while its fill and re-verify asked IGDB by that id.
+		       (m.tmdb_id IS NOT NULL OR m.tvdb_id IS NOT NULL OR m.igdb_id IS NOT NULL),
 		       (m.director IS NOT NULL AND m.director <> ''),
 		       (m.release_year IS NOT NULL AND m.release_year <> 0),
 		       EXISTS(SELECT 1 FROM movie_genres mg WHERE mg.movie_id = m.id),

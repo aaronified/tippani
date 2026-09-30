@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"bytes"
+	"fmt"
 	"image"
 	"image/png"
 	"net/http"
@@ -19,11 +20,12 @@ type metaLib struct {
 		AnnotationCount int   `json:"annotation_count"`
 	} `json:"books"`
 	Movies []struct {
-		ID            int64 `json:"id"`
-		HasPoster     bool  `json:"has_poster"`
-		HasCast       bool  `json:"has_cast"`
-		HasSource     bool  `json:"has_source"`
-		DialogueCount int   `json:"dialogue_count"`
+		ID            int64  `json:"id"`
+		Title         string `json:"title"`
+		HasPoster     bool   `json:"has_poster"`
+		HasCast       bool   `json:"has_cast"`
+		HasSource     bool   `json:"has_source"`
+		DialogueCount int    `json:"dialogue_count"`
 	} `json:"movies"`
 	DialogueStats struct {
 		Total        int `json:"total"`
@@ -55,6 +57,29 @@ func TestMetadataLibrary(t *testing.T) {
 	}
 	if lib.DialogueStats.Total != 2 || lib.DialogueStats.MissingActor != 1 {
 		t.Fatalf("dialogue stats should count only the fillable (char'd) line: %+v", lib.DialogueStats)
+	}
+}
+
+// A GAME PINNED BY ITS IGDB ID HAS A SOURCE. It read "no source" on Metadata, and
+// was counted among the works to Look up, while its fill and re-verify asked IGDB
+// by that very id; the console knew only TMDB's and TheTVDB's.
+func TestAGamePinnedByItsIGDBIdHasASource(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	g := decode[movieDetail](t, c.mustDo("POST", "/movies", map[string]any{"title": "The Witcher 3: Wild Hunt", "media_type": "game"}, http.StatusCreated))
+	c.mustDo("PUT", fmt.Sprintf("/movies/%d", g.ID), map[string]any{"title": "The Witcher 3: Wild Hunt", "media_type": "game", "igdb_id": 1942}, http.StatusOK)
+	c.mustDo("POST", "/movies", map[string]any{"title": "An Unpinned Game", "media_type": "game"}, http.StatusCreated)
+
+	lib := decode[metaLib](t, c.mustDo("GET", "/metadata/library", nil, 200))
+	has := map[string]bool{}
+	for _, m := range lib.Movies {
+		has[m.Title] = m.HasSource
+	}
+	if !has["The Witcher 3: Wild Hunt"] {
+		t.Error("a game pinned by its IGDB id reads as having no source")
+	}
+	if has["An Unpinned Game"] {
+		t.Error("a game with no id reads as having a source")
 	}
 }
 
