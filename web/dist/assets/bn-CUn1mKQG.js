@@ -5183,7 +5183,6 @@ metadata.issue.no-quotes.label = উদ্ধৃতি নেই
 metadata.issue.no-face.label = মুখের ছবি নেই
 metadata.row.works.label = কাজ
 metadata.row.quotes.label = উদ্ধৃতি
-metadata.issue.people-thin.label = ছবি বা লিংক নেই এমন ব্যক্তি
 metadata.issue.people-dup.label = একই ব্যক্তি হতে পারে এমন নাম
 metadata.issue.chars-dup.label = একই চরিত্র হতে পারে এমন নাম
 # And a row with nothing missing at all.
@@ -5256,6 +5255,8 @@ metadata.row.edit.close.aria = {name}-এর সম্পাদক বন্ধ 
 metadata.row.lookup.aria = {name} খুঁজে দেখুন
 metadata.row.lookup.close.aria = {name}-এর খোঁজা বন্ধ করুন
 metadata.row.open.aria = {name} খুলুন
+metadata.speakers.missing.one = {n}টা লাইনে এখনো অভিনেতা নেই: তার টাইটেলটা বেছে বক্তাকে একজন দিন।
+metadata.speakers.missing.other = {n}টা লাইনে এখনো অভিনেতা নেই: একটা একটা টাইটেল বেছে প্রতিটা বক্তাকে একজন দিন।
 # A film's own count. NOT unit.dialogue, which now reads "film line": this row has
 # always counted "dialogues", and migrating keys is not the place to rename a
 # thing.
@@ -5704,14 +5705,12 @@ settings.keys.need.bundled.label = সঙ্গেই আছে
 settings.keys.need.required.label = লাগবে
 settings.keys.need.optional.label = ইচ্ছেমতো
 settings.keys.legend.label = চিহ্ন যা বলে
-settings.keys.card.title = কি ও পরিচয়পত্র
 metadata.work.goto.label = রচনাটিতে যান
 metadata.work.goto.aria = {title}-এ যান
-settings.keys.card.info = খোঁজার উৎসগুলোর API কী। এগুলো সার্ভারে থাকে, সব অ্যাকাউন্টের জন্য একই — তাই শুধু অ্যাডমিন দেখতে বা বদলাতে পারেন।
+settings.keys.card.info = বই, ফিল্ম, গেম আর ছবির জন্য অ্যাপ যাদের জিজ্ঞেস করে, তাদের সবাই। কী-গুলো সার্ভারে রাখা থাকে আর সব অ্যাকাউন্ট ভাগ করে ব্যবহার করে, তাই শুধু একজন অ্যাডমিন সেগুলো দেখতে বা বদলাতে পারেন।
 settings.keys.saved.tip = সেভ আছে
 
-settings.sources.group.title = অ্যাপ কাদের জিজ্ঞেস করতে পারে
-settings.sources.records.aside = যত রেকর্ড এসেছে
+settings.sources.group.title = সব উৎস
 settings.sources.need-key.prose.one = {count}টির জন্য আগে একটা কী লাগবে, তবেই জিজ্ঞেস করা যাবে
 settings.sources.need-key.prose.other = {count}টির জন্য আগে কী লাগবে, তবেই জিজ্ঞেস করা যাবে
 settings.sources.records.tip.one = আপনার লাইব্রেরির {count}টি ঘর {source} থেকে এসেছে
@@ -5719,13 +5718,15 @@ settings.sources.records.tip.other = আপনার লাইব্রেরি
 settings.sources.records.none.tip = {source} থেকে এখনও কিছু আসেনি
 settings.sources.test.aria = {source}-কে একটা পরীক্ষামূলক প্রশ্ন করুন
 settings.sources.test.tip = {source}-এর কাছে নিশ্চিত থাকা একটা জিনিস চেয়ে দেখা হবে, আর যা আসবে তা জানানো হবে
-settings.sources.test-all.label = সব উৎস পরীক্ষা করুন
-settings.sources.test-all.tip = যে উৎসগুলো কী নেয়, প্রত্যেককে জিজ্ঞেস করা হবে
+settings.sources.test.off.tip = {source}-কে জিজ্ঞেস করতে এই সারির সেটআপে "গুগল ছবির ফল" চালু করুন
+settings.sources.setup.aria = {source} সেট আপ করুন
+settings.sources.test-all.label = সব পরীক্ষা করুন
+settings.sources.test-all.tip = এই সার্ভারে যে উৎসগুলোকে জিজ্ঞেস করা যায়, প্রত্যেককে জিজ্ঞেস করা হবে
 settings.sources.testing.label = জিজ্ঞেস করা হচ্ছে…
 settings.sources.answered.label = উত্তর এসেছে · {n}টি পাওয়া গেছে
 settings.sources.empty.label = উত্তর এসেছে · কিছু পাওয়া যায়নি
 settings.sources.failed.label = উত্তর আসেনি
-settings.sources.untried.label = এখনও কেউ জিজ্ঞেস করেনি
+settings.sources.untried.label = সার্ভার চালু হওয়ার পর কোনো উত্তর রাখা হয়নি
 # {name} is a whole field name — "Google Books key" — and goes in unaltered.
 # These two replaced "Add a google books key", lower-cased in code.
 settings.keys.add.aria = {name} দিন
@@ -5901,6 +5902,10 @@ settings.jobs.common.covers.prose = পুরো সংগ্রহ জুড়
 settings.jobs.common.backup.label = এখনই ব্যাকআপ নেওয়া
 # bn: "seals" is এনক্রিপ্ট করা (v3.1); একমাত্র আর্কাইভ, since the server keeps only the newest
 settings.jobs.common.backup.prose = পুরো সংগ্রহ এনক্রিপ্ট করে সার্ভারের একমাত্র আর্কাইভে রাখে।
+settings.jobs.common.fill-all.pending = অসম্পূর্ণ
+settings.jobs.common.people-missing.pending = — ছবি বা লিংক নেই
+settings.jobs.common.covers.pending = — কভার বা পোস্টার নেই
+settings.jobs.common.pending.none = কিছুই বাকি নেই
 settings.jobs.common.run.label = চালান
 settings.jobs.common.again.label = আবার চালান
 # The covers pass's quick run: only what is missing, never a better picture over one already stored.
@@ -5964,10 +5969,12 @@ settings.logs.range.month.label = গত 30 দিন
 settings.logs.search.placeholder = শব্দ
 settings.logs.search.aria = সিস্টেম লগে খুঁজুন
 settings.logs.lines.aria = সিস্টেম লগের লাইন
+settings.logs.copy.aria = লাইনগুলো কপি করুন
 settings.logs.empty = কোনও লাইন মেলেনি।
 settings.logs.more.label = আরও পুরোনো দেখান
 settings.logs.export.shown.label = যা দেখা যাচ্ছে
-settings.logs.export.all.label = রাখা সবকিছু (30 দিন)
+settings.logs.export.all.label = সব
+settings.logs.export.all.aria = রাখা সব লগ এক্সপোর্ট করুন (30 দিন)
 
 # ===========================================================================
 # SHARED VOCABULARY THE LAST THREE SCREENS ASKED FOR.
@@ -6132,6 +6139,7 @@ common.field.identity.label = পরিচয়
 # Identifiers, which appear as themselves in every language.
 common.field.tmdb-id.label = TMDB id
 common.field.tvdb-id.label = TheTVDB id
+common.field.igdb-id.label = IGDB id
 
 common.field.board.label = বোর্ড
 capture.board.default.label = আপনার ডিফল্ট বোর্ড
