@@ -5879,7 +5879,6 @@ settings.keys.saved.tip = Saved
 # areas are settings.metadata.area.* above; nothing here names a supplier, because
 # vocab.source.* already does.
 settings.sources.group.title = Who the app can ask
-settings.sources.records.aside = records supplied
 # PLURALISED, because "1 need a key" is what a {n} alone produces and the app has
 # the machinery (t's `count`). Both of these count things a reader can have one of.
 settings.sources.need-key.prose.one = {count} needs a key before it can be asked
@@ -5890,7 +5889,7 @@ settings.sources.records.none.tip = Nothing in your library came from {source} y
 settings.sources.test.aria = Ask {source} a test question
 settings.sources.test.tip = Ask {source} for something it certainly has, and report what came back
 settings.sources.test.off.tip = Switch on Google image results below to ask {source}
-settings.sources.test-all.label = Test every source
+settings.sources.test-all.label = Test all
 settings.sources.test-all.tip = Ask every source that can be asked on this server
 settings.sources.testing.label = Asking…
 settings.sources.answered.label = answered · {n} found

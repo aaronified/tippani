@@ -19,7 +19,7 @@
 // asked.
 //
 // THE SECOND CASE IS EVERY SUPPLIER ON THE LIST, the owner's "why can i not test
-// all the metadata sources?" Test every source asks each one that can be asked, and
+// all the metadata sources?" Test all asks each one that can be asked, and
 // in this world, offline with no film key, no IGDB pair and Google's image results
 // switched off, those four are exactly the rows left with no answer. THE MUTATION,
 // run: `testableSources` in metadata_sources.go put back to the four keyed
@@ -37,11 +37,12 @@ const app = openApp()
 it('an owner asks a supplier whether it answers, and the row says what came back', async () => {
   await app.goto('/metadata/sources')
 
-  // THE SUPPLIER, WHAT IT SUPPLIES, AND HOW MUCH OF THIS LIBRARY CAME FROM IT.
-  // A name on its own is the thing this list replaced.
+  // THE SUPPLIER AND WHAT IT SUPPLIES. A name on its own is the thing this list
+  // replaced. The column's caption, "records supplied", went on the owner's word
+  // ("has no need to be there").
   await app.see('Who the app can ask')
   await app.see('Google Books')
-  await app.see('records supplied')
+  await app.gone('records supplied')
   // A supplier that needs no key of its own is on the list too, which is the
   // half a list of credential fields could not show.
   await app.see('Open Library')
@@ -77,11 +78,11 @@ const NAMES = ['Google Books', 'Open Library', 'Amazon', 'TMDB', 'TheTVDB', 'IMD
 it('an owner tests every source at once, and every one that can be asked answers', async () => {
   await app.goto('/metadata/sources')
   await app.see('Who the app can ask')
-  await app.press('Test every source')
+  await app.press('Test all')
   await app.see('did not answer')
   await app.gone('Asking…')
   const says = await rowSays()
   const unasked = NAMES.filter((n) => says[n].startsWith('no answer recorded'))
-  expect(unasked, 'the rows Test every source left unasked').toEqual(['TMDB', 'TheTVDB', 'IGDB', 'Google Images'])
+  expect(unasked, 'the rows Test all left unasked').toEqual(['TMDB', 'TheTVDB', 'IGDB', 'Google Images'])
   expect(app.pageErrors(), 'the page threw on the way').toEqual([])
 })

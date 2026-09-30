@@ -369,19 +369,13 @@ function SourceRows({ admin, sources, scrapeOn = false, onTested }) {
   const needKey = sources.filter((x) => x.state === 'needed').length
   return (
     <div className="src-rows">
-      {/* THE COLUMN'S CAPTION, ALWAYS — it is what the number on the right of
-          every row IS, and a caption that disappears when there is news is a
-          column of unexplained integers exactly when the reader is reading
-          hardest. The pack carries it as the group's `aside`.
-          AND THE PACK'S ISSUES LINE BESIDE IT (metadata.dc.html:845), which is
-          the one number on this list worth leading with. It says nothing when
-          there is nothing to say, which is this console's rule. */}
-      <CardHead title={t('settings.sources.group.title')} aside={t('settings.sources.records.aside')}>
-        {needKey > 0 && (
-          <span className="microcopy" style={{ color: 'var(--error)' }}>
-            {t('settings.sources.need-key.prose', { count: needKey })}
-          </span>
-        )}
+      {/* THE HEAD HOLDS ITS TITLE AND ONE VERB, ON ONE ROW. The owner: "The button
+          on top of the 'who the app can ask' should be 'test all', and in the same
+          row as the card header. 'Records supplied' text callout has no need to be
+          there." The caption and the issues line beside it pushed the button onto a
+          row of its own on a phone; the caption went, and each row's count keeps its
+          own tooltip saying what it counts. */}
+      <CardHead title={t('settings.sources.group.title')}>
         {admin && (
           <GhostButton
             icon={<IconFetch />}
@@ -394,6 +388,14 @@ function SourceRows({ admin, sources, scrapeOn = false, onTested }) {
           </GhostButton>
         )}
       </CardHead>
+      {/* THE PACK'S ISSUES LINE (metadata.dc.html:845), under the head rather than
+          in it: the one number on this list worth leading with, and silent when
+          there is nothing to say, which is this console's rule. */}
+      {needKey > 0 && (
+        <p className="microcopy" style={{ color: 'var(--error)' }}>
+          {t('settings.sources.need-key.prose', { count: needKey })}
+        </p>
+      )}
       {sources.map((row) => {
         const name = sourceName(row.source)
         // WHAT IT SUPPLIES, COMPOSED FROM THE AREAS rather than written per
