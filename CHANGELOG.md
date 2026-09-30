@@ -9,28 +9,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Settings → Jobs: each library job in Common jobs says what the library still has left
-  for it.** Fill gaps in every work shows a count such as "41 works incomplete" (the works
-  Metadata's Complete filter leaves out), Fetch missing people shows "69 people missing a
-  portrait or links", and Fetch covers and details shows the works with no cover or
-  poster, which is what its Missing only run walks. A job with nothing left says "Nothing
-  missing", and Back up now says nothing. The counts are the ones Metadata shows for the
-  same gaps. The line is hidden while the job runs and is read again when a job starts or
-  ends.
+- **Settings → Jobs: each library job in Common jobs says how much of the library it
+  could still fill in.** Fill gaps in every work shows a count such as "12 works with a
+  gap it can fill": the works pinned to a source that still have an empty cover or poster,
+  author or cast, director, series, year, genre or synopsis. A work with no source is left
+  out, since the fill skips it, and so is a low-resolution cover, since the fill only
+  writes empty fields. Fetch missing people shows "69 people missing a portrait or
+  links", the number Metadata's People console gives Fetch missing. Fetch covers and
+  details counts the books with no cover and the films, shows and games that have a source
+  and no poster, which are the ones its Missing only run fetches a picture for. A job with
+  nothing left says "Nothing missing", and Back up now says nothing. The line is hidden
+  while the job runs and is read again when a job starts or ends.
 - **Every log in Settings → Jobs has a copy button.** A job's log, live or finished, and
   System logs each carry a copy glyph in the top-right corner of the log box, which stays
   put while the lines scroll beside it. The lines stop short of the glyph, so it never
   covers the end of a line. It copies the lines as read, clock first, one to a line, and
-  says "copied". A job's log names its button "Copy the log of {title}" and System logs
-  names its "Copy these lines", so a job's log open beside System logs does not give two
-  buttons one name. A log with no lines has no button.
+  says "copied". A job's log names its button for the job, "Copy the log of Fill gaps in
+  every work", and System logs names its "Copy these lines", so a job's log open beside
+  System logs does not give two buttons one name. The log under a job in Common jobs is
+  named for its last run, "Copy the log of the last run of Fill gaps in every work", so it
+  never shares a name with the same job's log open in Past jobs. A log with no lines has
+  no button.
 - **Every source in Metadata → Sources can be tested.** Only Google Books, TMDB, TheTVDB
   and IGDB had a working Test; Open Library, Amazon, IMDb, Letterboxd, Wikidata,
   Wikimedia, Fandom and Google Images drew a disabled button. Each now asks its source
   for something it certainly has, through the same call the app makes, and the row shows
   what came back. Google Images' Test stays disabled until its read-results switch is on,
   and its tip says so. Amazon's Test asks the product page only when a cookie is set;
-  without one it asks the cover address the app uses.
+  without one it asks the cover address the app uses. A Test that cannot reach its
+  supplier says so. When that cover address, Letterboxd, Wikimedia, Fandom or Google
+  Images finds nothing, the Test also checks that the site itself answers, and a site that
+  cannot be reached reads "did not answer" with the reason, where it would otherwise read
+  "answered · found nothing". Test all asks every source at once and waits at most 30
+  seconds, and a source still quiet by then reads "did not answer — no answer within 30s".
+  One book search answers for both Google Books and Open Library, so Test all asks it once.
 
 ### Changed
 
@@ -40,8 +52,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   TMDB" and so on, and the button opens that source's own fields under its row: Google
   Books' key, TMDB's key, TheTVDB's key and pin, IGDB's client id and secret, Amazon's
   cookie and marketplace, and Google Images' read-results switch. The fields and their
-  saves are the same as before. Several rows can be open at once. A reader who is not an
-  admin sees every row and no edit buttons.
+  saves are the same as before, except that a key or switch that fails to save says so
+  under that source's own fields and not at the foot of the card, a screen away on a
+  phone. Several rows can be open at once. A reader who is not an admin sees every row and
+  no edit buttons.
 - **Metadata → Sources: Test all sits on the card title's row, and the "records supplied"
   caption is gone.** The button used to read "Test every source" and wrapped onto a row
   of its own above the list on a phone. The line saying how many sources need a key moved
@@ -93,7 +107,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   gets one for each of its own; pressing a pill opens the console on that filter. The
   speaker remap says how many lines have no actor yet, the number the "no actor" pill
   carries, and the Characters console lists possible duplicates with the same merge card
-  People uses.
+  People uses. The phone's "Everything that needs work" sheet groups its rows under Works,
+  People and Characters, so People's "no quotes" and Characters' "no quotes" are no longer
+  two identical rows that open different consoles. Opening People or Characters from the
+  section tabs or its door on the index now opens it on everything. A pill, then Back,
+  then the People door used to land on the pill's filter, "3 people shown" under a door
+  that said 69.
 - **Fill gaps and a re-verify now look a game up in IGDB.** A game was reported as having
   "no pinned identity (TMDB/TheTVDB id)", even when it had been added from an IGDB pick,
   because both read only a work's TMDB and TheTVDB ids. They now ask IGDB for the record
@@ -107,6 +126,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the pinned game was told "the pinned source needs its key". A game filled or re-verified
   from IGDB now records IGDB as the source of each field it fills, so the work's Details
   show it beside the field, as they show TheTVDB or TMDB for a film.
+- **A game pinned by its IGDB id no longer reads "no source" in Metadata.** The Works
+  console decided "no source" from a work's TMDB and TheTVDB ids alone, so a game with
+  only an IGDB id was flagged, and counted under that gap, although a fill and a re-verify
+  already ask IGDB by that id. The IGDB id now counts as a source.
 - **A source row with no recorded answer in Metadata → Sources now says "no answer
   recorded since the server started".** It used to say "nothing has asked it yet", which
   was false once a fill had asked that source. A row's last answer is kept only from the
@@ -117,7 +140,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Server messages that send a reader to check a key now name the screen where the keys
   are.** A rejected TMDB or TheTVDB key, rejected IGDB credentials, Google Books' used-up
   shared quota, an Amazon-pinned book with no cookie and a film or show source with no
-  key said "in Settings → Metadata sources"; they now say "in Metadata › Sources".
+  key said "in Settings → Metadata sources"; they now say "in Metadata › Sources". So do
+  the messages for a missing TMDB key, a missing TheTVDB key and missing IGDB credentials,
+  which said "in Settings", and the refusals to look up a studio's or publisher's links
+  without IGDB credentials and an actor's or director's links without a TMDB key, which
+  said "in Settings first".
 
 ## [3.1.2] - 2026-09-29
 
