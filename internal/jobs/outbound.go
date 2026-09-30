@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"tippani/internal/outbound"
 )
@@ -43,7 +45,8 @@ func (lb *Logbook) Outbound(req *http.Request, resp *http.Response, err error, t
 //
 // The scheme goes (nearly every call is https, and the line is read in a narrow
 // pane), and so does any user:password@, which Redact drops but a URL rebuilt from
-// its host never had. The query's secrets go through Redact here, because a line
+// its host never had. The escapes a reader can read are decoded, after Redact has
+// seen the query as it was sent (readable). The query's secrets go through Redact here, because a line
 // with no scheme is not URL-shaped to the logbook's door. The size is the one the
 // server declared: the line is written when the answer arrives, before anybody
 // reads it, and a compressed or chunked answer declares none.
@@ -56,7 +59,7 @@ func outboundLine(req *http.Request, resp *http.Response, err error, took time.D
 	if u.RawQuery != "" {
 		target += "?" + u.RawQuery
 	}
-	head := req.Method + " " + outbound.Redact(target) + " → "
+	head := req.Method + " " + readable(outbound.Redact(target)) + " → "
 	switch {
 	case errors.Is(err, outbound.ErrOffline):
 		return head + "refused (offline)", LevelWarn
@@ -73,6 +76,60 @@ func outboundLine(req *http.Request, resp *http.Response, err error, took time.D
 		return b.String(), LevelWarn
 	}
 	return b.String(), LevelInfo
+}
+
+// readable decodes the percent-escapes in a logged URL that stand for a character a
+// reader can read, and keeps the rest as they were sent. A provider's query is
+// mostly escapes ("fields=key%2Ctitle%2Csubtitle", "q=isbn%3A9781409083108"), and
+// in a phone's log pane each one is three characters of noise in a line already
+// wrapped four times (the owner's phone, 30 September). What stays encoded is what would change how the line
+// reads as a URL: a space, and % & = # + ? / — plus anything that is not a
+// printable character, which the logbook's door would strip anyway. A run of
+// escapes is decoded together, so a Bengali title's three-byte letters come back
+// whole or not at all.
+func readable(s string) string {
+	if !strings.Contains(s, "%") {
+		return s
+	}
+	var b strings.Builder
+	for i := 0; i < len(s); {
+		j := i
+		var raw []byte
+		for j+2 < len(s) && s[j] == '%' && isHex(s[j+1]) && isHex(s[j+2]) {
+			raw = append(raw, unhex(s[j+1])<<4|unhex(s[j+2]))
+			j += 3
+		}
+		if j == i {
+			b.WriteByte(s[i])
+			i++
+			continue
+		}
+		for k := 0; k < len(raw); {
+			r, n := utf8.DecodeRune(raw[k:])
+			if r == utf8.RuneError || !unicode.IsPrint(r) || strings.ContainsRune(" %&=#+?/", r) {
+				b.WriteString(s[i+3*k : i+3*(k+n)])
+			} else {
+				b.WriteRune(r)
+			}
+			k += n
+		}
+		i = j
+	}
+	return b.String()
+}
+
+func isHex(c byte) bool {
+	return '0' <= c && c <= '9' || 'a' <= c && c <= 'f' || 'A' <= c && c <= 'F'
+}
+
+func unhex(c byte) byte {
+	switch {
+	case c <= '9':
+		return c - '0'
+	case c >= 'a':
+		return c - 'a' + 10
+	}
+	return c - 'A' + 10
 }
 
 // tookText is a call's duration as a reader compares them: whole milliseconds

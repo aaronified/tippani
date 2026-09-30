@@ -117,6 +117,59 @@ func TestAJobThatLookedSomethingUpShowsTheCallWithoutTheKey(t *testing.T) {
 	keyAnywhere(t, st.DB)
 }
 
+// A PROVIDER'S QUERY READS AS WORDS, NOT ESCAPES. The call's line decodes what a
+// reader can read — a comma, a colon, a Bengali title — and keeps encoded what
+// would change how the line reads as a URL (a space, &, =, +, /, %), and the key
+// is still gone, because Redact saw the query as it was sent.
+func TestACallsLineReadsItsQueryAsWords(t *testing.T) {
+	t.Setenv(outbound.EnvVar, "")
+	st := openStore(t)
+	exec(t, st.DB, `INSERT INTO users (id, username, password_hash) VALUES (1, 'aro', 'x')`)
+	lb := attached(t, st)
+	observing(t, lb)
+	srv := provider(t)
+
+	r := jobs.NewRunner(st, lb, jobs.Options{})
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		r.Close(ctx)
+	})
+	const query = "fields=key%2Ctitle&q=isbn%3A9781409083108&title=%E0%A6%AC%E0%A6%87" +
+		"&amp=a%26b&sp=a%20b&plus=a%2Bb&slash=a%2Fb&pct=100%25&api_key=" + probeKey
+	r.Register(jobs.Kind{Name: "probe", Run: func(ctx context.Context, _ *jobs.Job) error {
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, srv.URL+"/search.json?"+query, nil)
+		if err != nil {
+			return err
+		}
+		resp, err := (&http.Client{Transport: outbound.Transport(nil)}).Do(req)
+		if err != nil {
+			return err
+		}
+		return resp.Body.Close()
+	}})
+	id, err := r.Enqueue(jobs.Owner{UserID: 1, Username: "aro", Gen: st.Generation()}, "probe", "", nil, 1, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, "the probe job succeeds", func() bool {
+		return count(t, st.DB, `SELECT count(*) FROM jobs WHERE id = ? AND state = 'succeeded'`, id) == 1
+	})
+	flush(t, lb)
+
+	host := strings.TrimPrefix(srv.URL, "http://")
+	lines := strings1(t, st.DB, `SELECT line FROM job_logs WHERE job_id = ? ORDER BY id`, id)
+	if len(lines) != 1 {
+		t.Fatalf("one call, and the job's log holds %d lines: %q", len(lines), lines)
+	}
+	want := "GET " + host + "/search.json?fields=key,title&q=isbn:9781409083108&title=বই" +
+		"&amp=a%26b&sp=a%20b&plus=a%2Bb&slash=a%2Fb&pct=100%25&api_key=… → 200 · "
+	if !strings.HasPrefix(lines[0], want) {
+		t.Fatalf("the job's line is\n  %q\nwant it to start\n  %q", lines[0], want)
+	}
+	keyAnywhere(t, st.DB)
+}
+
 func TestALookupInARequestIsKeptAsAJobWithItsCall(t *testing.T) {
 	t.Setenv(outbound.EnvVar, "")
 	st := openStore(t)

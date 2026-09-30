@@ -27,10 +27,12 @@
 // book as "unpinned" and moves on), so there would be no lookup to refuse.
 // Typing an ISBN into the edit form is a journey of its own and not this one's.
 //
-// THE MUTATION. Take the outbound hook out (Logbook.Outbound in
+// THE MUTATIONS. Take the outbound hook out (Logbook.Outbound in
 // internal/jobs/outbound.go returning before it records anything) and this goes
 // red at the refused lookup line: the fill still runs and still fails, and its
-// log says only that the book's lookup failed, not what was asked or why.
+// log says only that the book's lookup failed, not what was asked or why. Take
+// `readable` out of the same file's outboundLine and it goes red at the same line,
+// which then says `isbn%3A…`: the query as it was sent, not as a reader reads it.
 //
 // It otherwise knows the words on the screen, and what is in the file it is
 // handed.
@@ -46,8 +48,9 @@ const app = openApp()
 const TITLE = 'On the Shortness of Life'
 const ISBN = '9780141018812'
 // WHAT THE LOG SAYS OF THE LOOKUP, as the pane draws it: the address the fill
-// asked, holding the reader's ISBN, and that the offline switch refused it.
-const REFUSED = `isbn%3A${ISBN} → refused (offline)`
+// asked, holding the reader's ISBN as words (`isbn:`, not the `isbn%3A` it was
+// sent as), and that the offline switch refused it.
+const REFUSED = `isbn:${ISBN} → refused (offline)`
 
 it('a fill that finished offline keeps the lookup it could not make, on screen and in its export', async () => {
   const { books } = await app.setup('GET', '/books')
