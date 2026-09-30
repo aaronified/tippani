@@ -259,18 +259,18 @@ AI-written code fails differently from hand-written code. It compiles, it reads
 well, it is plausibly commented, and it can still be wrong — so plausibility is
 worth nothing here and only execution counts. What the repo actually runs:
 
-- **2,050 Go test functions and 5,014 frontend tests, across 884 test files** — the
+- **2,051 Go test functions and 5,014 frontend tests, across 886 test files** — the
   Go half over real HTTP handlers against a real SQLite database, not mocks.
   Counted, not estimated, and every number here has a command that reproduces it:
 
   ```bash
   grep -rhoE '^func Test[A-Za-z0-9_]+' --include='*_test.go' . | wc -l   # Go functions
   cd web/frontend && npx vitest run                                      # 5,014 of them
-  cd web/frontend && npm run journeys                                    # + 134 in the browser
+  cd web/frontend && npm run journeys                                    # + 136 in the browser
   find . -name '*_test.go' -not -path './node_modules/*' | wc -l         # 341 Go files
   find ./web/frontend -path '*/node_modules' -prune -o -type f \
        \( -name '*.test.*' -o -name '*.spec.*' -o -name '*.journey.*' \) \
-       -print | wc -l                                                    # 543 frontend
+       -print | wc -l                                                    # 545 frontend
   ```
 
   **`npm test` NO LONGER RUNS ALL OF THEM, AND THAT IS THE POINT.** 5,014 is what
@@ -278,7 +278,7 @@ worth nothing here and only execution counts. What the repo actually runs:
   not among them — it has its own config, because it needs a globalSetup that builds
   the binary and seeds a library. `npm test` runs two projects — 4,080 tests over 350
   files; `npm run lint:rules` runs the third, 934 assertions over 100 files; and
-  `npm run journeys` runs 134 tests over 93 files against a real server in a real
+  `npm run journeys` runs 136 tests over 95 files against a real server in a real
   browser, which is the tier that would have caught the bug all this is named after.
   Those 100 READ THE SOURCE TEXT and assert how it is
   spelled: never truncate a name, spacing is a constant, no emoji glyphs, the

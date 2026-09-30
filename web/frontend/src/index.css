@@ -11700,6 +11700,14 @@ button.work-pill:hover { color: var(--ink); border-color: var(--ink-border); }
 /* THE FAR END OF A CARD HEAD: a fact, then any controls, together. */
 .card-head { align-items: center; }
 .card-head-end { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-inline-start: auto; }
+/* A TITLE THAT FOLDS ITS CARD (CardHead's `door`): the chevron first, as a job row's
+   own head is drawn, a 44px target, and the label lit on hover as a row's title is. */
+.card-head-door {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0;
+  background: none; border: 0; color: inherit; font: inherit; text-align: start; cursor: pointer;
+}
+.card-head-door > svg { flex: none; }
+.card-head-door:hover .mono-label { color: var(--accent-ui); }
 
 /* A ROW'S NAME, AND THE LEVEL ABOVE IT. `.mono-label` drew both a group head and
    the rows under it, so a settings section was one run of 11px grey capitals with
@@ -11877,6 +11885,12 @@ button.work-pill:hover { color: var(--ink); border-color: var(--ink-border); }
    provider's URL is one unbroken word, and a pane that let it run would push the
    whole page sideways at 390. */
 .job-list { display: flex; flex-direction: column; min-width: 0; }
+/* AIR BETWEEN THE HEAD AND THE FIRST ROW. The card head keeps 4px under itself, and
+   once its fold moved onto the title a phone stacked Stop all 4px above the running
+   row's Stop: two red buttons that read as one control. A row apart, the head's
+   Stop all and the row's Stop are two presses about two things. The margin meets
+   the head's 4px and the larger of the two is the gap, so it is the whole row. */
+.jobs-card .job-list { margin-top: var(--row, 12px); }
 .job-row { border-top: 1px solid var(--line); min-width: 0; }
 .job-row:first-child { border-top: 0; }
 .job-row-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; min-width: 0; }
@@ -11888,6 +11902,11 @@ button.work-pill:hover { color: var(--ink); border-color: var(--ink-border); }
   text-align: start; cursor: pointer;
 }
 .job-head > svg { align-self: center; flex: none; }
+/* A RUNNING ROW'S STOP STAYS ON ITS NAME'S LINE. With the head's 16em basis, the
+   name and a worded Stop did not fit a 390 screen together, so Stop wrapped to a
+   row of its own and the rest of that row stood empty. From nothing, the head takes
+   whatever Stop leaves, and its own words wrap inside it. */
+.job-row-head > .job-head { flex-basis: 0; }
 .job-head:hover .job-title { color: var(--accent-ui); }
 .job-line {
   display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px;
@@ -11903,6 +11922,10 @@ button.work-pill:hover { color: var(--ink); border-color: var(--ink-border); }
 .job-state.is-succeeded { color: var(--ok); }
 .job-state.is-failed { color: var(--error); }
 .job-body { display: grid; gap: var(--row, 12px); padding: 0 2px 14px 26px; min-width: 0; }
+/* THE LAST ROW LEAVES THE BOTTOM TO THE CARD. The 14px is the air between one row
+   and the rule above the next; under the last row there is no next, and it stood
+   on top of the card's own padding, 35px at the bottom against 21 at the sides. */
+.job-list > .job-row:last-child .job-body { padding-bottom: 0; }
 @media (max-width: 768px) {
   .job-body { padding-inline-start: 2px; }
 }

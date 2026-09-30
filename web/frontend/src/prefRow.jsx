@@ -29,7 +29,7 @@
 // way, and the repo's own components stay the only ones that draw anything.
 import React from 'react'
 
-import { ariaLabelText, InfoDot, MonoLabel } from './ui.jsx'
+import { ariaLabelText, IconChevron, InfoDot, MonoLabel } from './ui.jsx'
 import { useMasonry } from './masonry.js'
 
 // `said` IS A THIRD LINE IN THE LABEL'S OWN COLUMN, under the sub-line — a type
@@ -98,11 +98,25 @@ export function PrefRow({ label, sub = null, said = null, info = null, infoTitle
 //
 // `aside` is a fact at the far end (which material set is on, how many groups
 // were found); `children` are controls at the far end, after it.
-export function CardHead({ title, info = null, aside = null, children = null }) {
+//
+// `door` MAKES THE TITLE FOLD ITS CARD — { open, onToggle, label } — with its
+// chevron first, as every job row's own head is drawn. The fold was a round button
+// among the head's far-end controls, and on a phone it was the one that wrapped:
+// a lone chevron on a row of its own, under Stop all and away from the title it
+// folded (the owner's phone, 30 September). The title is where a reader looks for
+// what a fold is about, and it is already on the head's first line. `label` is the
+// press's name, "Fold current jobs", which holds the words it is drawn with.
+export function CardHead({ title, info = null, aside = null, door = null, children = null }) {
+  const label = <MonoLabel><span className="card-num" />{title}</MonoLabel>
   return (
     <div className="pref-group-head card-head">
       <span className="flex flex-wrap items-baseline gap-1.5">
-        <MonoLabel><span className="card-num" />{title}</MonoLabel>
+        {door ? (
+          <button type="button" className="card-head-door" aria-expanded={door.open} aria-label={door.label} onClick={door.onToggle}>
+            <IconChevron open={door.open} size={16} />
+            {label}
+          </button>
+        ) : label}
         {info && <InfoDot title={title} text={info} />}
       </span>
       {(aside || children) && (

@@ -85,10 +85,10 @@ import {
 // paper and head, but its head takes a fact and no controls, and two of these
 // cards carry their verbs in the head — Stop all belongs beside the counts it
 // acts on, not three rows down.
-export function JobsCard({ title, aside = null, controls = null, children }) {
+export function JobsCard({ title, aside = null, door = null, controls = null, children }) {
   return (
     <section className="hand-card pref-group jobs-card" aria-label={ariaLabelText(title)}>
-      <CardHead title={title} aside={aside}>{controls}</CardHead>
+      <CardHead title={title} aside={aside} door={door}>{controls}</CardHead>
       {children}
     </section>
   )
@@ -141,12 +141,25 @@ function JobLog({ lines, trimmed = false, loaded = true, label, follow = false }
             {/* THE LINE IS THE SERVER'S, and it is data out of the database — a
                 URL, a title, a status — rather than copy this screen could
                 translate. */}
-            <span data-content>{l.line}</span>
+            <span data-content>{breakable(l.line)}</span>
           </span>
         </div>
       ))}
     </Scroller>
   )
+}
+
+// A LINE BREAKS AT A URL'S JOINTS, NOT INSIDE ITS WORDS. A request line is one
+// long word to the browser, so a phone's pane broke it wherever the width ran out
+// — "volume|s?", "97814090831|08" (the owner's phone, 30 September). A <wbr> after
+// each / ? & , = gives the break somewhere to go; `overflow-wrap: anywhere` stays
+// as the last resort for a run with no joint in it, so nothing pushes the page
+// sideways. <wbr> adds nothing to the text, so a copy or a search reads the line
+// as the server wrote it.
+function breakable(line) {
+  const parts = String(line).split(/(?<=[/?&,=])/)
+  if (parts.length < 2) return line
+  return parts.flatMap((part, i) => (i === 0 ? [part] : [<wbr key={i} />, part]))
 }
 
 // A job's name and what it was about, on one line. The subject is what the reader
@@ -269,8 +282,6 @@ export function JobsCurrentCard({ user, compact = false }) {
       <Tally n={waiting} icon={<IconJobs />} word={t('settings.jobs.current.waiting.word')} showWord />
     </span>
   )
-  const chevron = <IconChevron open={open} size={20} />
-
   if (compact) {
     return (
       <>
@@ -287,20 +298,15 @@ export function JobsCurrentCard({ user, compact = false }) {
     <JobsCard
       title={t('settings.jobs.current.title')}
       aside={tallies}
-      controls={(
-        <>
-          {stopAllButton}
-          {/* THE DOOR. The card folds to its head — the two counts and Stop all
-              stay in view — for a reader who keeps Settings open beside their
-              work and wants the log out of the way, not gone. */}
-          <IconButton
-            icon={chevron}
-            ariaLabel={t(open ? 'settings.jobs.current.fold.label' : 'settings.jobs.current.unfold.label')}
-            aria-expanded={open}
-            onClick={() => setOpen((v) => !v)}
-          />
-        </>
-      )}
+      // THE DOOR IS THE TITLE. The card folds to its head — the two counts and Stop
+      // all stay in view — for a reader who keeps Settings open beside their work
+      // and wants the log out of the way, not gone.
+      door={{
+        open,
+        onToggle: () => setOpen((v) => !v),
+        label: t(open ? 'settings.jobs.current.fold.label' : 'settings.jobs.current.unfold.label'),
+      }}
+      controls={stopAllButton}
     >
       {confirmDialog}
       {open && (
