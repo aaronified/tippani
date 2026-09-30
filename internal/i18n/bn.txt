@@ -5668,12 +5668,12 @@ settings.keys.noun.domain = ডোমেন
 # a PIN, so it appears as itself.
 settings.keys.noun.pin = PIN
 
-settings.keys.google.hint = ঐচ্ছিক; দিনে মোটামুটি ১,০০০-এর বেশি খোঁজ হলে তবেই লাগে। console.cloud.google.com → Books API চালু করুন → একটা কী তৈরি করুন।
+settings.keys.google.hint = ঐচ্ছিক; দিনে মোটামুটি ১,০০০-এর বেশি খোঁজ হলে তবেই লাগে। console.cloud.google.com → Books API চালু করুন → একটা চাবি তৈরি করুন।
 settings.keys.google.placeholder = Google Books API চাবি — ঐচ্ছিক
-settings.keys.tmdb.hint = সিনেমা আর শো-এর জন্য, TheTVDB-র পরে চেষ্টা হয়। themoviedb.org → Settings → API → বিনামূল্যের v3 কী (v4 টোকেনেও চলে)। অ্যাপের ভেতরের ভাগ করা কী-র বদলে এটা খাটে।
+settings.keys.tmdb.hint = সিনেমা আর শো-এর জন্য, TheTVDB-র পরে চেষ্টা হয়। themoviedb.org → Settings → API → বিনামূল্যের v3 চাবি (v4 টোকেনেও চলে)। অ্যাপের ভেতরের ভাগ করা চাবির বদলে এটা খাটে।
 settings.keys.tmdb.placeholder = TMDB v3 চাবি বা v4 টোকেন — সঙ্গে আসাটাকে সরিয়ে দেয়
-settings.keys.tvdb.hint = সিনেমা আর শো-এর জন্য প্রথমেই এটা চেষ্টা হয়; চরিত্রের ছবি শুধু এখানেই মেলে। thetvdb.com → Dashboard → API keys। বিনামূল্যের কী হলে নিচের পিনও লাগবে।
-settings.keys.tvdb-pin.hint = শুধু বিনামূল্যের TheTVDB কী-র জন্য — পিন ছাড়া ওটা কাজ করে না। thetvdb.com → আপনার অ্যাকাউন্ট → Subscriber PIN।
+settings.keys.tvdb.hint = সিনেমা আর শো-এর জন্য প্রথমেই এটা চেষ্টা হয়; চরিত্রের ছবি শুধু এখানেই মেলে। thetvdb.com → Dashboard → API keys। বিনামূল্যের চাবি হলে নিচের পিনও লাগবে।
+settings.keys.tvdb-pin.hint = শুধু বিনামূল্যের TheTVDB চাবির জন্য — পিন ছাড়া ওটা কাজ করে না। thetvdb.com → আপনার অ্যাকাউন্ট → Subscriber PIN।
 settings.keys.tvdb-pin.placeholder = TheTVDB subscriber PIN — শুধু বিনা পয়সার চাবির জন্য
 settings.keys.tvdb.placeholder = TheTVDB v4 API চাবি — ঐচ্ছিক
 settings.keys.igdb-id.hint = শুধু গেমের জন্য; IGDB-তে ঢুকতে হয় Twitch দিয়ে। dev.twitch.tv/console → Register Your Application → client ID কপি করুন। নিচের সিক্রেটও লাগবে।
@@ -5696,7 +5696,7 @@ settings.keys.amazon-domain.placeholder = com
 # THE HEADING IS SHORT AND THE ARIA IS WHOLE — see en.txt.
 settings.keys.google-scrape.title = গুগল ছবির ফল
 settings.keys.google-scrape.aria = গুগল ছবির ফল সরাসরি পড়া হবে
-settings.keys.google-scrape.info.body = অন্য কোনো উৎসে ছবি না মিললে তবেই এটা কাজে লাগে। কী লাগে না, কিন্তু অনুরোধ যায় এই সার্ভার থেকে — Google আটকালে বা সীমা বসালে এখানকার সবার অসুবিধা হবে। শুরুতে বন্ধ থাকে।
+settings.keys.google-scrape.info.body = অন্য কোনো উৎসে ছবি না মিললে তবেই এটা কাজে লাগে। চাবি লাগে না, কিন্তু অনুরোধ যায় এই সার্ভার থেকে — Google আটকালে বা সীমা বসালে এখানকার সবার অসুবিধা হবে। শুরুতে বন্ধ থাকে।
 
 # --- the row's own controls. A secret is write-only, so "stored" is the whole of
 # what can be reported about one; a non-secret shows its value instead.
@@ -5711,8 +5711,8 @@ settings.keys.card.info = বই, ফিল্ম, গেম আর ছবির
 settings.keys.saved.tip = সেভ আছে
 
 settings.sources.group.title = সব উৎস
-settings.sources.need-key.prose.one = {count}টির জন্য আগে একটা কী লাগবে, তবেই জিজ্ঞেস করা যাবে
-settings.sources.need-key.prose.other = {count}টির জন্য আগে কী লাগবে, তবেই জিজ্ঞেস করা যাবে
+settings.sources.need-key.prose.one = {count}টির জন্য আগে একটা চাবি লাগবে, তবেই জিজ্ঞেস করা যাবে
+settings.sources.need-key.prose.other = {count}টির জন্য আগে চাবি লাগবে, তবেই জিজ্ঞেস করা যাবে
 settings.sources.records.tip.one = আপনার লাইব্রেরির {count}টি ঘর {source} থেকে এসেছে
 settings.sources.records.tip.other = আপনার লাইব্রেরির {count}টি ঘর {source} থেকে এসেছে
 settings.sources.records.none.tip = {source} থেকে এখনও কিছু আসেনি

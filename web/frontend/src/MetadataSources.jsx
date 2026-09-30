@@ -418,11 +418,13 @@ function SourceRows({ admin, sources, scrapeOn = false, info = null, editors = n
         // a row carries an answer only after an ask that records one (a lookup, a
         // picture search, a Test, and IGDB's game search inside a fill; the rest
         // of a fill's asks record nothing yet), so a quiet row would otherwise be
-        // indistinguishable from one whose answer failed to render. IT SAYS WHOSE FACT IT IS. The record is the server's memory of
-        // each source's last answer, since it started (metadata_faults.go keeps
-        // it in memory on purpose), and the old words, "nothing has asked it
-        // yet", read as a claim about the source. The owner, seeing them on every
-        // row until a Test: "What is it meant to convey?"
+        // indistinguishable from one whose answer failed to render.
+        //
+        // IT SAYS WHOSE FACT IT IS. The record is the server's memory of each
+        // source's last answer, since it started (metadata_faults.go keeps it in
+        // memory on purpose), and the old words, "nothing has asked it yet", read
+        // as a claim about the source. The owner, seeing them on every row until
+        // a Test: "What is it meant to convey?"
         const said = !last
           ? ['untried', t('settings.sources.untried.label')]
           : !last.ok
@@ -492,9 +494,11 @@ function SourceRows({ admin, sources, scrapeOn = false, info = null, editors = n
             {editor && open.has(row.source) && (
               <div className="src-row-keys">
                 {editor}
-                {/* A FAILED SAVE SAYS SO UNDER THE FIELD THAT FAILED. It printed at the
-                    card's foot, below the legend and the fault chips, a phone's
-                    screen away from the row a reader had just pressed Save in. */}
+                {/* A FAILED SAVE SAYS SO UNDER THE SETUP IT FAILED IN, after all of
+                    that row's fields (TheTVDB's key and pin, IGDB's id and secret).
+                    It printed at the card's foot, below the legend and the fault
+                    chips, a phone's screen away from the row a reader had just
+                    pressed Save in. */}
                 {saveError?.source === row.source && <ErrorText>{saveError.text}</ErrorText>}
               </div>
             )}

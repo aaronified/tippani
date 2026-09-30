@@ -19932,15 +19932,18 @@ every door, Works' included, and every index verb that walks in through one ("Sc
 duplicate works", "Fetch missing") now opens where a fresh visit does: Works on every type's
 flagged works, People and Characters on everyone.
 
-**One card, "All sources", where the pack draws two, "Who the app can ask" and a keys card.**
-The owner, 30 September: "who the app can ask, and keys and credentials can be merged into one
-card (full width in desktop). Just add the edit buttons in the 'who the app can ask' card. The
-combined card can be renamed to 'all sources'." The pack's list of suppliers and the credentials
-card under it (`metadata.dc.html:476-489`) made a reader scroll from the row saying TMDB needs a
-key to the field that takes it. So each row that takes a key, a pin, a cookie or a switch now
-carries a Set up door that opens exactly those fields under the row, and a supplier that takes
-nothing draws no door. The card spans both columns on a desk. Its title is the owner's, and
-"Test all" sits on its head's row. The "records supplied" caption above the counts went on the
-owner's word ("has no need to be there"). A key that fails to save says so under the row whose
-fields failed, not at the foot of the card; a rating found it printing a phone's screen away
-from the Save.
+**One card, "All sources", which brings Metadata › Sources back to the pack's one card.** The
+pack draws a single group, "Who the app can ask" (`metadata.dc.html:846`), and each supplier's
+row there carries its own "Add …'s key" beside "Test …" (`metadata.dc.html:819`). The app had
+moved the credentials onto a card of their own, "Keys and credentials", on the owner's earlier
+ruling ("split the API keys into their own subsection with cards"), which left the row saying
+TMDB needs a key a scroll away from the field that takes it. The owner, 30 September: "who the
+app can ask, and keys and credentials can be merged into one card (full width in desktop). Just
+add the edit buttons in the 'who the app can ask' card. The combined card can be renamed to
+'all sources'." So each row that takes a key, a pin, a cookie or a switch carries a Set up door
+that opens exactly those fields under the row, and a supplier that takes nothing draws no door.
+Three things still depart from the pack, each on the owner's word: the title is "All sources";
+the card spans both columns on a desk; and the pack's "records supplied" aside is gone ("has no
+need to be there"), with "Test all" on the card head's row. A key that fails to save says so
+under the row whose setup failed, not at the foot of the card; a rating found it printing a
+phone's screen away from the Save.
