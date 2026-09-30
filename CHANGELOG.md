@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Settings → Jobs: each library job in Common jobs says what the library still has left
+  for it.** Fill gaps in every work shows a count such as "41 works incomplete" (the works
+  Metadata's Complete filter leaves out), Fetch missing people shows "69 people missing a
+  portrait or links", and Fetch covers and details shows the works with no cover or
+  poster, which is what its Missing only run walks. A job with nothing left says "Nothing
+  missing", and Back up now says nothing. The counts are the ones Metadata shows for the
+  same gaps. The line is hidden while the job runs and is read again when a job starts or
+  ends.
+- **Every log in Settings → Jobs has a copy button.** A job's log, live or finished, and
+  System logs each carry a copy glyph in the top-right corner of the log box, which stays
+  put while the lines scroll under it. It copies the lines as read, clock first, one to a
+  line, and says "copied". A log with no lines has no button.
+- **Every source in Metadata → Sources can be tested.** Only Google Books, TMDB, TheTVDB
+  and IGDB had a working Test; Open Library, Amazon, IMDb, Letterboxd, Wikidata,
+  Wikimedia, Fandom and Google Images drew a disabled button. Each now asks its source
+  for something it certainly has, through the same call the app makes, and the row shows
+  what came back. Google Images' Test stays disabled until its read-results switch is on,
+  and its tip says so. Amazon's Test asks the product page only when a cookie is set;
+  without one it asks the cover address the app uses.
+
+### Changed
+
+- **Metadata → Sources is one "All sources" card, full width on a desk.** It replaces
+  "Who the app can ask" and the "Keys and credentials" card under it. A source that takes
+  a key, a pin, a cookie or a switch carries an edit button beside its Test, named "Set up
+  TMDB" and so on, and the button opens that source's own fields under its row: Google
+  Books' key, TMDB's key, TheTVDB's key and pin, IGDB's client id and secret, Amazon's
+  cookie and marketplace, and Google Images' read-results switch. The fields and their
+  saves are the same as before. Several rows can be open at once. A reader who is not an
+  admin sees every row and no edit buttons.
+- **Metadata → Sources: Test all sits on the card title's row, and the "records supplied"
+  caption is gone.** The button used to read "Test every source" and wrapped onto a row
+  of its own above the list on a phone. The line saying how many sources need a key moved
+  under the title row. Each row's count keeps its tooltip.
+- **Settings → Jobs → System logs: the levels sit in one row that scrolls under the edge
+  fade, and the two exports are one row, "What is shown" and "All".** The "Export" word
+  before them is gone. "All" replaces "Everything kept (30 days)", and its name to a
+  hover, a hold and a screen reader is "Export all the logs kept (30 days)".
+
 ### Fixed
 
 - **Settings → Server no longer slides sideways on a phone at the largest text size.**
@@ -17,6 +58,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Home's help, Settings' "অনুশীলনী আর তার প্রশ্ন" group and the keyboard and selection
   help.** Those places still said কুইজ (the tour's first screen, রোজকার মনে রাখার
   কুইজ), while the quiz's own screens and controls already said অনুশীলনী.
+- **A request line in a job's log now reads its query as words.** A fill's log showed
+  `q=isbn%3A9781409083108` and `fields=key%2Ctitle%2Csubtitle`; it now shows
+  `q=isbn:9781409083108` and `fields=key,title,subtitle`. Escapes for characters a
+  reader can read are decoded, including a Bengali title's letters. An escaped space,
+  `%`, `&`, `=`, `#`, `+`, `?` or `/` stays as sent, since decoding it would change how
+  the line reads as a URL, and a key in the query is still hidden. The line is written
+  this way on the server, so a job's export, Past jobs and System logs' request rows read
+  the same.
+- **A long request line in a job's log or in System logs now wraps after a `/`, `?`, `&`,
+  `,` or `=`.** On a phone a line used to break in the middle of a word such as "volumes"
+  or an ISBN. Copying a line or searching for it reads the line as written.
+- **The Current jobs card in Settings → Jobs folds from its title, and on a phone keeps
+  Stop beside its job and insets evenly.** The fold was a round button at the head's far
+  end that wrapped onto a row of its own under Stop all, away from the title it folded.
+  The title is now the fold, with its chevron first as a job row's head is drawn, and its
+  name is still "Fold current jobs" or "Show current jobs". A running job's Stop no
+  longer wraps under the job's name. The space under the last job's log is now the same
+  as at the card's sides (it was 35px against 21 to 23px).
+- **A log's scrolling no longer fades its box into the card.** The edge fade covered the
+  recessed box itself, so a log scrolled part-way had its top edge eaten. The box now
+  stays still and only the lines inside it fade, in a job's live log, a finished job's
+  and System logs.
+- **Every number on Metadata's index on a phone now matches the screen its pill opens.**
+  A gap that films, shows and games share was counted over all three and opened the Works
+  console on films alone, so a show or a game with the gap was a count with nothing
+  behind it (a library's "no cast 1" opened on 0). It is now counted per kind and opens
+  on that kind, or on every type when more than one kind has it, and the Works console's
+  all-types filter offers every gap. "People with no portrait or link", which no People
+  filter drew, is replaced by a pill for each issue filter People has, and Characters
+  gets one for each of its own; pressing a pill opens the console on that filter. The
+  speaker remap says how many lines have no actor yet, the number the "no actor" pill
+  carries, and the Characters console lists possible duplicates with the same merge card
+  People uses.
+- **Fill gaps and a re-verify now look a game up in IGDB.** A game was reported as having
+  "no pinned identity (TMDB/TheTVDB id)", even when it had been added from an IGDB pick,
+  because both read only a work's TMDB and TheTVDB ids. They now ask IGDB for the record
+  by the game's IGDB id. A game with no id is searched in IGDB by title and takes an id
+  only when exactly one game there has the same title (case, punctuation and spacing
+  ignored, subtitle kept) and the same year where both have one. The id appears in the
+  review as an "IGDB id" change, so a fill writes it and the next run asks by id. When
+  several games have that name, none does, or another of your works already carries the
+  id, the row says so and leaves the game to Look up. Without IGDB's client id and secret
+  the message names them.
+- **A source row with no recorded answer in Metadata → Sources now says "no answer
+  recorded since the server started".** It used to say "nothing has asked it yet", which
+  was false once a fill had asked that source. A row's last answer is kept only from the
+  Add screen's lookups, picture searches and Test, and a restart clears it; a fill, a
+  covers pass and a re-verify ask the same sources and record nothing.
 
 ## [3.1.2] - 2026-09-29
 
