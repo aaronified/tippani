@@ -346,11 +346,19 @@ const keyLabel = (source, noun) =>
 //
 // THE NUMBERS ARE THE LIBRARY'S OWN. `records` counts the fields `work_field_source`
 // says each supplier wrote, scoped to this reader — see metadata_sources.go.
-function SourceRows({ admin, sources, scrapeOn = false, onTested }) {
+function SourceRows({ admin, sources, scrapeOn = false, info = null, editors = null, onTested }) {
   // WHICH ROW IS BEING ASKED, by slug, and '' for none. A single busy flag would
   // grey out twelve rows because one of them is being tested.
   const [asking, setAsking] = useState('')
   const [err, setErr] = useState('')
+  // WHICH ROWS' SETUPS ARE OPEN, by slug. Opening one leaves the others as they
+  // were: a reader pasting IGDB's pair beside TheTVDB's key is doing one job.
+  const [open, setOpen] = useState(() => new Set())
+  const toggle = (slug) => setOpen((o) => {
+    const next = new Set(o)
+    if (!next.delete(slug)) next.add(slug)
+    return next
+  })
 
   async function test(slug) {
     setAsking(slug || 'all')
@@ -375,7 +383,7 @@ function SourceRows({ admin, sources, scrapeOn = false, onTested }) {
           there." The caption and the issues line beside it pushed the button onto a
           row of its own on a phone; the caption went, and each row's count keeps its
           own tooltip saying what it counts. */}
-      <CardHead title={t('settings.sources.group.title')}>
+      <CardHead title={t('settings.sources.group.title')} info={info}>
         {admin && (
           <GhostButton
             icon={<IconFetch />}
@@ -405,6 +413,7 @@ function SourceRows({ admin, sources, scrapeOn = false, onTested }) {
         const supplies = (row.areas || []).map((a) => t(`settings.metadata.area.${a}.label`)).join(' · ')
         const last = row.last
         const off = row.source === 'google-images' && !scrapeOn
+        const editor = admin ? editors?.[row.source] : null
         // NO ANSWER ON RECORD IS A FACT, NOT A WARNING, and it is worth drawing:
         // a row is recorded only when something asks its supplier, so a quiet row
         // would otherwise be indistinguishable from one whose answer failed to
@@ -438,6 +447,22 @@ function SourceRows({ admin, sources, scrapeOn = false, onTested }) {
               <span className={'src-row-count' + (row.state === 'needed' ? ' is-needed' : '')}>{row.records}</span>
             </Tooltip>
             {admin && (
+              <span className="src-row-verbs">
+              {/* THE ROW'S OWN KEYS, BEHIND ITS OWN DOOR. The owner: "who the app
+                  can ask, and keys and credentials can be merged into one card …
+                  Just add the edit buttons in the 'who the app can ask' card." A
+                  supplier's credentials were on a second card, a scroll away from
+                  the row whose mark they turn green. A supplier that takes nothing
+                  draws no door. */}
+              {editor && (
+                <FieldIconButton
+                  icon={<IconEdit />}
+                  ariaLabel={t('settings.sources.setup.aria', { source: name })}
+                  active={open.has(row.source)}
+                  aria-expanded={open.has(row.source)}
+                  onClick={() => toggle(row.source)}
+                />
+              )}
               <FieldIconButton
                 icon={<IconFetch />}
                 ariaLabel={t('settings.sources.test.aria', { source: name })}
@@ -453,6 +478,7 @@ function SourceRows({ admin, sources, scrapeOn = false, onTested }) {
                 disabled={!!asking || row.state === 'needed' || off}
                 onClick={() => test(row.source)}
               />
+              </span>
             )}
             {/* WHAT IT SAID, UNDER THE ROW IT IS ABOUT. A press with no visible
                 answer is a press a reader repeats. */}
@@ -462,6 +488,7 @@ function SourceRows({ admin, sources, scrapeOn = false, onTested }) {
                 {last?.error ? ` — ${last.error}` : ''}
               </p>
             )}
+            {editor && open.has(row.source) && <div className="src-row-keys">{editor}</div>}
           </div>
         )
       })}
@@ -564,6 +591,162 @@ export function MetadataSources({ user, onPreferences }) {
     return true
   }
 
+  // EACH SUPPLIER'S SETUP, OPENED FROM ITS OWN ROW. The keys were a card of their
+  // own, "Keys and credentials", under the list of suppliers: the row saying TMDB
+  // needed a key was a scroll away from the field that fixes it. The owner: "who the
+  // app can ask, and keys and credentials can be merged into one card (full width in
+  // desktop). Just add the edit buttons in the 'who the app can ask' card. The
+  // combined card can be renamed to 'all sources'." So a row that takes a key, a pin,
+  // a cookie or a switch carries a door to exactly those, and nothing else changed:
+  // the same fields, the same per-field save, the same admin gate (a reader who is not
+  // one sees the rows and no doors, as the second card was simply absent for them).
+  const editors = admin ? {
+    google: (
+      <KeyField
+        label={keyLabel('google', 'key')}
+        source="google"
+        hint={t('settings.keys.google.hint')}
+        need="optional"
+        set={keys?.google_books_key_set}
+        placeholder={t('settings.keys.google.placeholder')}
+        busy={saving}
+        onSave={(v) => saveKey('google_books_key', v)}
+      />
+    ),
+    tmdb: (
+      <KeyField
+        label={keyLabel('tmdb', 'key')}
+        source="tmdb"
+        hint={t('settings.keys.tmdb.hint')}
+        need={keys?.tmdb_builtin ? 'bundled' : 'required'}
+        set={keys?.tmdb_key_set}
+        placeholder={t('settings.keys.tmdb.placeholder')}
+        busy={saving}
+        onSave={(v) => saveKey('tmdb_key', v)}
+      />
+    ),
+    // THE KEY FIRST AND THE PIN UNDER IT, which is both the order they are needed
+    // in and the order the copy claims: a project key, the kind bundled with the
+    // app, authenticates on its own and never sends a pin (login() in tvdb.go
+    // omits it when empty); only the free user-supported key needs one.
+    tvdb: (
+      <>
+        <KeyField
+          label={keyLabel('tvdb', 'key')}
+          source="tvdb"
+          hint={t('settings.keys.tvdb.hint')}
+          need={keys?.tvdb_builtin ? 'bundled' : 'required'}
+          set={keys?.tvdb_key_set}
+          placeholder={t('settings.keys.tvdb.placeholder')}
+          busy={saving}
+          onSave={(v) => saveKey('tvdb_key', v)}
+        />
+        <KeyField
+          label={keyLabel('tvdb', 'pin')}
+          source="tvdb"
+          hint={t('settings.keys.tvdb-pin.hint')}
+          need="optional"
+          set={keys?.tvdb_pin_set}
+          placeholder={t('settings.keys.tvdb-pin.placeholder')}
+          busy={saving}
+          onSave={(v) => saveKey('tvdb_pin', v)}
+        />
+      </>
+    ),
+    // IGDB IS A PAIR, AND BOTH HALVES GET A ROW, with no built-in fallback: IGDB
+    // credentials are per-application and rate-limited, so a shared key would be a
+    // shared quota. Half a pair fails at Twitch's token exchange with "invalid
+    // client", which reads as games being broken when one field is blank, so that
+    // one state is named under the pair.
+    igdb: (
+      <>
+        <KeyField
+          label={keyLabel('igdb', 'client-id')}
+          source="igdb"
+          hint={t('settings.keys.igdb-id.hint')}
+          need="required"
+          set={keys?.igdb_client_id_set}
+          placeholder={t('settings.keys.igdb-id.placeholder')}
+          busy={saving}
+          onSave={(v) => saveKey('igdb_client_id', v)}
+        />
+        <KeyField
+          label={keyLabel('igdb', 'secret')}
+          source="igdb"
+          hint={t('settings.keys.igdb-secret.hint')}
+          need="required"
+          set={keys?.igdb_secret_set}
+          placeholder={t('settings.keys.igdb-secret.placeholder')}
+          busy={saving}
+          onSave={(v) => saveKey('igdb_secret', v)}
+        />
+        {keys && (!!keys.igdb_client_id_set !== !!keys.igdb_secret_set) && (
+          <p className="microcopy mt-1" style={{ color: 'var(--error)' }}>
+            {t('settings.metadata.igdb.half.prose', {
+              half: t(keys.igdb_client_id_set ? 'settings.keys.noun.secret' : 'settings.keys.noun.client-id'),
+            })}
+          </p>
+        )}
+      </>
+    ),
+    // THE COOKIE IS A .caveat, NOT A .hint: a security warning with a procedure in
+    // it (fragile, against Amazon's terms, grants account access) that runs past the
+    // dot's 240-character budget and cannot lose a clause to fit. The marketplace is
+    // the two letters that differ; see amazonSuffix.
+    amazon: (
+      <>
+        <KeyField
+          label={keyLabel('amazon', 'cookie')}
+          source="amazon"
+          hint={t('settings.keys.amazon-cookie.caveat')}
+          need="optional"
+          set={keys?.amazon_cookie_set}
+          placeholder={t('settings.keys.amazon-cookie.placeholder')}
+          busy={saving}
+          onSave={(v) => saveKey('amazon_cookie', v)}
+        />
+        <KeyField
+          label={keyLabel('amazon', 'domain')}
+          source="amazon"
+          hint={t('settings.keys.amazon-domain.hint')}
+          need="optional"
+          secret={false}
+          value={amazonSuffix(keys?.amazon_domain)}
+          set={!!keys?.amazon_domain}
+          placeholder={t('settings.keys.amazon-domain.placeholder')}
+          busy={saving}
+          onSave={(v) => saveKey('amazon_domain', amazonHost(v))}
+        />
+      </>
+    ),
+    // GOOGLE'S IMAGE RESULTS TAKE A SWITCH, NOT A KEY, and the switch is the
+    // consent: reading the results page needs no credential, so the yes has nowhere
+    // else to live. It is the picture ladder's last rung, so it is that rung's row
+    // it opens from. Short on the page, whole in the accessible name (WCAG 2.5.3).
+    'google-images': (
+      <div className="inline-field">
+        <div className="mb-2 flex items-center gap-1.5">
+          <MonoLabel>{t('settings.keys.google-scrape.title')}</MonoLabel>
+          <InfoDot text={t('settings.keys.google-scrape.info.body')} />
+        </div>
+        <Toggle
+          ariaLabel={t('settings.keys.google-scrape.aria')}
+          value={keys?.google_scrape ? 'on' : 'off'}
+          onChange={async (v) => {
+            setSaving(true)
+            setError('')
+            const r = await json('PUT', '/admin/metadata-keys', { google_scrape: v === 'on' })
+            setSaving(false)
+            if (!r.ok) { setError(errText(r, t('error.save.generic'))); return }
+            await Promise.all([loadStatus(), loadKeys()])
+            toast(t('common.toast.saved'))
+          }}
+          options={[['off', t('vocab.no.label')], ['on', t('vocab.yes.label')]]}
+        />
+      </div>
+    ),
+  } : null
+
   const packed = useMasonry()
   return (
     // TWO COLUMNS ON A DESK, ONE ON A PHONE, AND THE CARDS DECIDE WHERE THEY BREAK.
@@ -579,7 +762,7 @@ export function MetadataSources({ user, onPreferences }) {
     // See index.css for why the breakpoint is 900px — it is the width at which THIS
     // screen's rail already stops being a phone's.
     <div className="meta-columns" ref={packed}>
-    <Card pad="" className="pref-group" data-tour="metadata-keys">
+    <Card pad="" className="pref-group is-wide" data-tour="metadata-keys">
       {/* THE SECTION IS THE HEADING — see Settings.jsx's AppearanceCard. Metadata's
           Sources tab says "Sources" and carries the dot; this card said "Metadata
           sources" underneath it with a second one. */}
@@ -594,7 +777,14 @@ export function MetadataSources({ user, onPreferences }) {
           fields that fill them in. The legend used to lead because the marks it
           described were on the key rows; they are on the source rows now, and a
           legend above the thing it is about is a key to a map you have not seen. */}
-      <SourceRows admin={admin} sources={status?.sources} scrapeOn={!!keys?.google_scrape} onTested={loadStatus} />
+      <SourceRows
+        admin={admin}
+        sources={status?.sources}
+        scrapeOn={!!keys?.google_scrape}
+        info={t('settings.keys.card.info')}
+        editors={editors}
+        onTested={loadStatus}
+      />
 
       <div className="src-legend">
         <MonoLabel>{t('settings.keys.legend.label')}</MonoLabel>
@@ -679,237 +869,20 @@ export function MetadataSources({ user, onPreferences }) {
           {t('settings.metadata.last-error.prose', { error: lookup.error })}
         </p>
       )}
-
+      {/* THE SAVE ERROR BELONGS TO THE CARD THAT SAVES, and this is the only one
+          now: every write on this screen is a key field or the image-results
+          switch in a row's setup. */}
+      <ErrorText>{error}</ErrorText>
     </Card>
 
-    {/* ── THE CREDENTIALS, ON THEIR OWN CARD ───────────────────────────────────
-        The owner: "Sources: split the API keys into their own subsection with
-        cards." They were the bottom half of the card above, under the supplier
-        rows and the legend explaining those rows' marks — so one card carried two
-        questions: WHICH SUPPLIERS ANSWER, which everybody can read, and WHAT
-        SECRETS THIS SERVER HOLDS, which only an admin can see at all.
-
-        That second question is why the split is right rather than merely tidy.
-        Every field below is `admin`-gated, so a reader who is not one watched the
-        card above simply stop, with nothing saying why; one who is got six secret
-        fields with no heading between them and a legend about coloured dots.
-        A card is how this app says "different subject", and these are two.
-
-        IT KEEPS THE FLAT LIST INSIDE ITSELF. The note that used to sit here —
-        "every field says which service it is for, so grouping them added a
-        heading and two rows of air per group and no meaning" — was about grouping
-        the keys BY SUPPLIER, and it still holds: one heading now, not six.
-
-        THE GOOGLE OPT-IN COMES WITH THEM, and its own note below says why it
-        belongs at the foot of this card rather than inside Amazon's block. It was
-        already `admin`-gated separately; that guard is this card's now. ── */}
-    {admin && (
-      <Card pad="" className="pref-group" data-tour="metadata-keys">
-        <CardHead title={t('settings.keys.card.title')} info={t('settings.keys.card.info')} />
-        <div className="mt-3">
-          <KeyField
-            label={keyLabel('google', 'key')}
-            source="google"
-            hint={t('settings.keys.google.hint')}
-              need="optional"
-            set={keys?.google_books_key_set}
-            placeholder={t('settings.keys.google.placeholder')}
-            busy={saving}
-            onSave={(v) => saveKey('google_books_key', v)}
-          />
-          <KeyField
-            label={keyLabel('tmdb', 'key')}
-            source="tmdb"
-            hint={t('settings.keys.tmdb.hint')}
-              need={keys?.tmdb_builtin ? 'bundled' : 'required'}
-            set={keys?.tmdb_key_set}
-            placeholder={t('settings.keys.tmdb.placeholder')}
-            busy={saving}
-            onSave={(v) => saveKey('tmdb_key', v)}
-          />
-          {/* THE KEY FIRST AND THE PIN UNDER IT, which is both the order they
-              are needed in and the order the copy has always claimed.
-
-              THE PIN WAS ON TOP, so the first TheTVDB thing on the card was a
-              SUBSCRIBER PIN — and the reader's reasonable conclusion is that
-              TheTVDB wants a subscription. It does not: a project key, which is
-              the kind bundled with the app and the kind Jellyfin ships,
-              authenticates on its own and never sends a pin at all (see login()
-              in tvdb.go, which omits the field when it is empty). Only the free
-              user-supported key needs one.
-
-              The hint on the key row said "the PIN below" while the PIN sat
-              above it, so the copy was already describing this arrangement and
-              the fields were the thing that was wrong. */}
-          <KeyField
-            label={keyLabel('tvdb', 'key')}
-            source="tvdb"
-            hint={t('settings.keys.tvdb.hint')}
-              need={keys?.tvdb_builtin ? 'bundled' : 'required'}
-            set={keys?.tvdb_key_set}
-            placeholder={t('settings.keys.tvdb.placeholder')}
-            busy={saving}
-            onSave={(v) => saveKey('tvdb_key', v)}
-          />
-          <KeyField
-            label={keyLabel('tvdb', 'pin')}
-            source="tvdb"
-            hint={t('settings.keys.tvdb-pin.hint')}
-              need="optional"
-            set={keys?.tvdb_pin_set}
-            placeholder={t('settings.keys.tvdb-pin.placeholder')}
-            busy={saving}
-            onSave={(v) => saveKey('tvdb_pin', v)}
-          />
-          {/* IGDB IS A PAIR, AND BOTH HALVES GET A ROW. The endpoint has
-              accepted these since 1.15.1 and reports the two halves separately —
-              its comment says "so the Settings card can point at the half that is
-              missing" — but the rows themselves never landed, so the Add sheet
-              told you to configure a key on a screen with no field for it, and a
-              game lookup 503'd with nowhere to go. There is no built-in fallback
-              here as there is for TMDB: IGDB credentials are per-application and
-              rate-limited, so a shared key would be a shared quota.
-
-              Write-only like the other secrets. A client id is not secret on its
-              own, but it is stored beside its partner and never echoed, so there
-              is no value to pre-fill and the saved badge is the whole answer. */}
-          <KeyField
-            label={keyLabel('igdb', 'client-id')}
-            source="igdb"
-            hint={t('settings.keys.igdb-id.hint')}
-              need="required"
-            set={keys?.igdb_client_id_set}
-            placeholder={t('settings.keys.igdb-id.placeholder')}
-            busy={saving}
-            onSave={(v) => saveKey('igdb_client_id', v)}
-          />
-          <KeyField
-            label={keyLabel('igdb', 'secret')}
-            source="igdb"
-            hint={t('settings.keys.igdb-secret.hint')}
-              need="required"
-            set={keys?.igdb_secret_set}
-            placeholder={t('settings.keys.igdb-secret.placeholder')}
-            busy={saving}
-            onSave={(v) => saveKey('igdb_secret', v)}
-          />
-          {/* THE ONE IGDB STATE WORTH INTERRUPTING FOR, and the reason the server
-              reports the halves separately rather than as one igdb_key_set.
-              Neither set is the ordinary state of an instance with no games in
-              it, and a chip for that would be the "Untested" mistake again. Half
-              a pair is different: it fails at the Twitch token exchange with
-              "invalid client", which surfaces as a lookup failure, so the reader
-              is told games are broken when the truth is that one field is blank. */}
-          {keys && (!!keys.igdb_client_id_set !== !!keys.igdb_secret_set) && (
-            <p className="microcopy mt-1" style={{ color: 'var(--error)' }}>
-              {t('settings.metadata.igdb.half.prose', {
-                half: t(keys.igdb_client_id_set ? 'settings.keys.noun.secret' : 'settings.keys.noun.client-id'),
-              })}
-            </p>
-          )}
-        </div>
-
-        {/* Amazon (advanced): cover-by-ASIN needs nothing; the optional cookie
-            adds description/genres by scraping the product page. Its own
-            `admin` guard is gone because the whole card carries one now. */}
-        <div>
-          <div>
-            {/* .caveat, NOT .hint, and deliberately: this one runs to 440
-                characters and the 240-character dot budget measures .hint in both
-                languages. It is a security warning with a procedure in it —
-                fragile, against Amazon's terms, grants account access, and here
-                is where the header is — and none of those clauses can be dropped
-                to fit a cap. So it is named for what it is. */}
-            <KeyField
-              label={keyLabel('amazon', 'cookie')}
-              source="amazon"
-              hint={t('settings.keys.amazon-cookie.caveat')}
-              need="optional"
-              set={keys?.amazon_cookie_set}
-              placeholder={t('settings.keys.amazon-cookie.placeholder')}
-              busy={saving}
-              onSave={(v) => saveKey('amazon_cookie', v)}
-            />
-            {/* GOOGLE'S PROGRAMMABLE SEARCH PAIR STOOD HERE. Google closed that
-                API to new customers and retires it on 1 January 2027, so the two
-                fields asked readers to register for something they could not get
-                and would then lose. What is left of Google is the scrape toggle,
-                which needs no credential at all — which is why it is a setting
-                rather than a key, and why it is no longer in this block: it now
-                sits under every key on the card. See it below. */}
-            <KeyField
-              label={keyLabel('amazon', 'domain')}
-              source="amazon"
-              hint={t('settings.keys.amazon-domain.hint')}
-              need="optional"
-              secret={false}
-              // THE SUFFIX IN AND THE HOST OUT — see amazonSuffix above for why the
-              // screen and the wire speak different halves of the same name.
-              value={amazonSuffix(keys?.amazon_domain)}
-              set={!!keys?.amazon_domain}
-              placeholder={t('settings.keys.amazon-domain.placeholder')}
-              busy={saving}
-              onSave={(v) => saveKey('amazon_domain', amazonHost(v))}
-            />
-          </div>
-        </div>
-
-      {/* THE SCRAPE'S OPT-IN, LAST, AND THE ONLY CONTROL ON THIS CARD THAT IS NOT
-          A CREDENTIAL.
-
-          Every other switch here is implicit in a secret: you cannot use the Amazon
-          scrape without storing the cookie that says you meant to, so the key field
-          IS the consent. Scraping Google's image results needs nothing at all, which
-          leaves the consent with nowhere to live — hence a setting, and hence a
-          control, because a setting with no control is a feature nobody can reach.
-
-          WHY IT MOVED TO THE BOTTOM. The owner's: "the read google results directly:
-          shorten the header and put it at the bottom." It was buried between Amazon's
-          cookie and Amazon's marketplace, inside a block headed by a security warning
-          about a different supplier — which read as a third Amazon field. It is not
-          Amazon's and it is not a key: it is the last rung of the ladder every kind of
-          lookup falls to, so it belongs under all of them rather than inside one.
-
-          STILL BEHIND `admin`, and it has to be: the write is PUT /admin/metadata-keys
-          and the requests it authorises come from THIS SERVER, so it is an instance
-          decision rather than a reader's. Lifting it out of the Amazon block meant
-          lifting it out of that block's own guard, which is the half a move like this
-          loses silently — the control would have drawn for everybody and 403'd on
-          press. */}
-        <div className="mt-4">
-          <div className="mb-2 flex items-center gap-1.5">
-            {/* SHORT ON THE PAGE, WHOLE IN THE ACCESSIBLE NAME. "Google image
-                results" is what the row is about; "Read Google image results
-                directly" is what pressing it means, and a toggle answering yes/no
-                needs the verb in its name where a heading beside it does not. The
-                visible words are a prefix of the accessible ones, which is what
-                WCAG 2.5.3 asks and what lets somebody say the label out loud. */}
-            <MonoLabel>{t('settings.keys.google-scrape.title')}</MonoLabel>
-            <InfoDot text={t('settings.keys.google-scrape.info.body')} />
-          </div>
-          <Toggle
-            ariaLabel={t('settings.keys.google-scrape.aria')}
-            value={keys?.google_scrape ? 'on' : 'off'}
-            onChange={async (v) => {
-              setSaving(true)
-              setError('')
-              const r = await json('PUT', '/admin/metadata-keys', { google_scrape: v === 'on' })
-              setSaving(false)
-              if (!r.ok) { setError(errText(r, t('error.save.generic'))); return }
-              await Promise.all([loadStatus(), loadKeys()])
-              toast(t('common.toast.saved'))
-            }}
-            options={[['off', t('vocab.no.label')], ['on', t('vocab.yes.label')]]}
-          />
-        </div>
-
-        {/* THE SAVE ERROR BELONGS TO THE CARD THAT SAVES. Every write on this
-            screen is a key field or the toggle above, so the one line that says a
-            write failed goes with them rather than under the supplier list, which
-            writes nothing. */}
-        <ErrorText>{error}</ErrorText>
-      </Card>
-    )}
+    {/* THE CREDENTIALS HAD A CARD OF THEIR OWN HERE, on the owner's earlier ruling
+        ("split the API keys into their own subsection with cards"), because the
+        fields sat under the supplier list with no heading between them and a
+        reader who was not an admin watched the card stop with nothing saying why.
+        The owner has since merged them back, and the reason for the split is
+        answered another way: each supplier's fields open from that supplier's own
+        row (`editors` above), so the row is their heading, and a reader who is not
+        an admin sees the rows with no doors on them. */}
 
       {/* A CARD OF ITS OWN NOW, on the owner's ruling: "multi author credits:
           separate card."

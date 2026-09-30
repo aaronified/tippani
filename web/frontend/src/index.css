@@ -4486,6 +4486,16 @@
   }
   .src-row-last.is-failed { color: var(--error); }
   .src-row-last.is-ok { color: var(--ok); }
+  /* THE ROW'S VERBS, its setup door and its Test, in one cell as wide as both, so
+     a row that takes no key keeps its count in line with one that does: each row
+     is its own grid, and a missing door would otherwise slide the count right. */
+  .src-row-verbs {
+    display: flex; justify-content: flex-end; align-items: center; gap: 4px;
+    min-width: calc(2 * 44px + 4px);
+  }
+  /* THE SETUP, UNDER THE ROW IT BELONGS TO and across the whole of it, like the
+     answer line: the fields are the row's, and a key is wider than any column. */
+  .src-row-keys { grid-column: 1 / -1; padding: 2px 0 4px; }
   .src-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 6px var(--edge); margin-bottom: 9px; }
   .src-legend-item { display: inline-flex; align-items: center; gap: 6px; min-width: 0; color: var(--soft); }
   .src-legend-dot {
@@ -9598,6 +9608,9 @@ html[data-theme="dark"] .has-sticky-rail .meta-rail-row.is-stuck {
     display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
     column-gap: var(--row); align-items: start;
   }
+  /* A WIDE CARD SPANS BOTH COLUMNS: Sources' "All sources", a row per supplier
+     with its keys under it, which the owner asked for at full width. */
+  .meta-columns > .is-wide { grid-column: 1 / -1; }
 }
 /* MASONRY MODE, set by masonry.js once the grid has two columns: small rows, and
    each card spans as many as its own height needs. No row-gap — the gap is in the

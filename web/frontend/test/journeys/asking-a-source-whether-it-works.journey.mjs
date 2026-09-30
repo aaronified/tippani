@@ -40,7 +40,7 @@ it('an owner asks a supplier whether it answers, and the row says what came back
   // THE SUPPLIER AND WHAT IT SUPPLIES. A name on its own is the thing this list
   // replaced. The column's caption, "records supplied", went on the owner's word
   // ("has no need to be there").
-  await app.see('Who the app can ask')
+  await app.see('All sources')
   await app.see('Google Books')
   await app.gone('records supplied')
   // A supplier that needs no key of its own is on the list too, which is the
@@ -77,7 +77,7 @@ const NAMES = ['Google Books', 'Open Library', 'Amazon', 'TMDB', 'TheTVDB', 'IMD
 
 it('an owner tests every source at once, and every one that can be asked answers', async () => {
   await app.goto('/metadata/sources')
-  await app.see('Who the app can ask')
+  await app.see('All sources')
   await app.press('Test all')
   await app.see('did not answer')
   await app.gone('Asking…')

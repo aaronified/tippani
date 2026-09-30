@@ -5868,17 +5868,16 @@ settings.keys.need.bundled.label = built in
 settings.keys.need.required.label = needed
 settings.keys.need.optional.label = optional
 settings.keys.legend.label = the mark says
-settings.keys.card.title = Keys and credentials
 metadata.work.goto.label = Go to the work
 metadata.work.goto.aria = Go to {title}
-settings.keys.card.info = API keys for the lookup sources. They are stored on the server and shared by every account, so only an admin can see or change them.
+settings.keys.card.info = Every supplier the app asks about books, films, games and pictures. Keys are stored on the server and shared by every account, so only an admin can see or change them.
 settings.keys.saved.tip = Saved
 
 # ── WHO THE APP CAN ASK ──────────────────────────────────────────────────────
 # One row per supplier, which is the question the console's heading asks. The
 # areas are settings.metadata.area.* above; nothing here names a supplier, because
 # vocab.source.* already does.
-settings.sources.group.title = Who the app can ask
+settings.sources.group.title = All sources
 # PLURALISED, because "1 need a key" is what a {n} alone produces and the app has
 # the machinery (t's `count`). Both of these count things a reader can have one of.
 settings.sources.need-key.prose.one = {count} needs a key before it can be asked
@@ -5888,7 +5887,9 @@ settings.sources.records.tip.other = {count} fields in your library came from {s
 settings.sources.records.none.tip = Nothing in your library came from {source} yet
 settings.sources.test.aria = Ask {source} a test question
 settings.sources.test.tip = Ask {source} for something it certainly has, and report what came back
-settings.sources.test.off.tip = Switch on Google image results below to ask {source}
+settings.sources.test.off.tip = Switch on Google image results in this row's setup to ask {source}
+# The door on a supplier's row to its keys, pin, cookie or switch.
+settings.sources.setup.aria = Set up {source}
 settings.sources.test-all.label = Test all
 settings.sources.test-all.tip = Ask every source that can be asked on this server
 settings.sources.testing.label = Asking…

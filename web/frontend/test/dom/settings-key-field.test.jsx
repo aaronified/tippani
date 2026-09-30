@@ -47,10 +47,20 @@ beforeEach(() => {
   PUTS = []
 })
 
+// EVERY SUPPLIER ON THE LIST, as GET /metadata/status names them.
+const EVERY_SOURCE = ['google', 'openlibrary', 'amazon', 'tmdb', 'tvdb', 'imdb', 'letterboxd', 'igdb', 'wikidata', 'google-images', 'wikimedia', 'fandom']
+
+// THE KEY FIELDS OPEN FROM THEIR SUPPLIER'S ROW. They were a card of their own and
+// are a tray under each row of "All sources" now, so the mount hands the block the
+// rows (unless a case sent its own) and opens every row's setup, which is what a
+// reader does to reach them.
 const page = async () => {
+  if (!STATUS.sources) {
+    STATUS = { ...STATUS, sources: EVERY_SOURCE.map((source) => ({ source, state: 'optional', areas: ['books'], records: 0 })) }
+  }
   render(<MetadataSources user={ADMIN} onPreferences={() => {}} />)
-  // THE CARD'S OWN ROWS, NOT ITS TITLE — the title said "Metadata sources"
-  // under a tab that had just said "Sources", so it went.
+  await screen.findByText('All sources')
+  for (const b of await screen.findAllByRole('button', { name: /^Set up / })) fireEvent.click(b)
   await screen.findByText('TMDB key')
 }
 
@@ -139,7 +149,10 @@ describe('what the card no longer says', () => {
     await page()
     expect(screen.queryByText('Google Books + Open Library')).toBeNull()
     expect(screen.queryByText('Kindle / ASIN')).toBeNull()
-    expect(screen.queryByText(/^\+? ?TheTVDB$/)).toBeNull()
+    // A BARE "TheTVDB" IS NOW THE SUPPLIER'S OWN ROW, which is the list rather than
+    // a heading over its fields: the fields open under that row, and a second
+    // "TheTVDB" above them inside the tray is what would be the repeat.
+    expect(screen.queryAllByText(/^\+? ?TheTVDB$/)).toHaveLength(1)
   })
 
   it('drops a chip that says what the row below it says', async () => {
@@ -355,10 +368,11 @@ describe('the fault list', () => {
   })
 })
 
-// THE SCRAPE TOGGLE IS LAST, AND IT IS STILL THE ADMIN'S.
+// THE SCRAPE TOGGLE COMES AFTER EVERY KEY, AND IT IS STILL THE ADMIN'S.
 //
 // The owner's: "the read google results directly: shorten the header and put it at
-// the bottom." It used to sit between Amazon's cookie and Amazon's marketplace,
+// the bottom." It is in its own supplier's row now, Google Images, which the list
+// draws after every supplier that takes a key. It used to sit between Amazon's cookie and Amazon's marketplace,
 // inside a block headed by a security warning about Amazon — so it read as a third
 // Amazon field, which it is not: it is the last rung of the ladder every kind of
 // lookup falls to.
@@ -512,5 +526,38 @@ describe('the mark on each key row', () => {
     expect(stated.length, 'the TMDB key row no longer announces itself at all').toBeGreaterThan(0)
     expect(stated.join(' | '), 'the row names its supplier but no longer says what state the key is in')
       .toMatch(/built|saved|needed|optional/i)
+  })
+})
+
+// ONE CARD, "ALL SOURCES", AND EACH SUPPLIER'S KEYS OPEN FROM ITS OWN ROW.
+//
+// The owner: "who the app can ask, and keys and credentials can be merged into one
+// card (full width in desktop). Just add the edit buttons in the 'who the app can
+// ask' card. The combined card can be renamed to 'all sources'."
+describe('all sources', () => {
+  it('opens a supplier\u2019s keys from its own row, and only a supplier that takes one has the door', async () => {
+    STATUS = { ...STATUS, sources: EVERY_SOURCE.map((source) => ({ source, state: 'optional', areas: ['books'], records: 0 })) }
+    render(<MetadataSources user={ADMIN} onPreferences={() => {}} />)
+    await screen.findByText('All sources')
+    const doors = (await screen.findAllByRole('button', { name: /^Set up / })).map((b) => b.getAttribute('aria-label'))
+    expect(doors, 'the suppliers with a key, a pin, a cookie or a switch').toEqual(
+      ['Set up Google Books', 'Set up Amazon', 'Set up TMDB', 'Set up TheTVDB', 'Set up IGDB', 'Set up Google Images'])
+    expect(screen.queryByText('TMDB key'), 'a key field is showing before its row was opened').toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Set up TMDB' }))
+    expect(screen.getByText('TMDB key')).toBeTruthy()
+    expect(screen.queryByText('IGDB client id'), 'opening TMDB opened IGDB as well').toBeNull()
+    expect(screen.queryByText('Keys and credentials'), 'the second card is still there').toBeNull()
+  })
+
+  it('shows a reader who is not an admin the rows and no doors', async () => {
+    STATUS = { ...STATUS, sources: EVERY_SOURCE.map((source) => ({ source, state: 'optional', areas: ['books'], records: 0 })) }
+    render(<MetadataSources user={{ username: 'b', is_admin: false, preferences: {} }} onPreferences={() => {}} />)
+    await screen.findByText('All sources')
+    expect(screen.getByText('Open Library')).toBeTruthy()
+    expect(screen.queryAllByRole('button', { name: /^Set up / })).toHaveLength(0)
+  })
+
+  it('spans both columns on a desk', () => {
+    expect(valueOf('.meta-columns > .is-wide', 'grid-column'), 'a wide card takes one column of two').toMatch(/1 \/ -1/)
   })
 })

@@ -47,7 +47,9 @@ vi.mock('../../src/api.js', async (orig) => ({
       return { ok: true, data: { people: [{ id: 1, name: 'Le Guin', ...bare }, { id: 2, name: 'Bulgakov', ...bare }, { id: 3, name: 'Ray', ...bare }] } }
     }
     if (method === 'GET' && (path === '/metadata/status' || path === '/admin/metadata-keys')) {
-      return { ok: true, data: { tmdb: { source: 'builtin' }, books_lookup: { ok: true } } }
+      // THE SUPPLIER ROWS THE STATUS NAMES, one of them TMDB: a key opens from its
+      // supplier's row.
+      return { ok: true, data: { tmdb: { source: 'builtin' }, books_lookup: { ok: true }, sources: [{ source: 'tmdb', state: 'builtin', areas: ['films'], records: 0 }] } }
     }
     return { ok: true, data: { people: [], characters: [], groups: [] } }
   }),
@@ -245,6 +247,8 @@ describe('a section at a time', () => {
     // tab that had just said "Sources", so it went; a key row is what this card is.
     expect(screen.queryByText('TMDB key')).toBeNull()
     await press(tab(/^Sources/))
+    // A SUPPLIER'S KEYS OPEN FROM ITS OWN ROW on the one card, "All sources".
+    await press(await screen.findByRole('button', { name: 'Set up TMDB' }))
     expect(await screen.findByText('TMDB key')).toBeTruthy()
   })
 

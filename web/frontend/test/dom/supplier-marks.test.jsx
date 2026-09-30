@@ -21,7 +21,7 @@
 // make. That is `FieldList`'s own reasoning and it stands.
 //
 // WHAT A TEST WRITER NEEDS TO KNOW: the paragraphs above.
-import { cleanup, render } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('../../src/api.js', async (orig) => ({
@@ -30,7 +30,11 @@ vi.mock('../../src/api.js', async (orig) => ({
     if (path.startsWith('/admin/keys')) {
       return { ok: true, data: { tmdb_key_set: false, google_books_key_set: false } }
     }
-    if (path.startsWith('/metadata/status')) return { ok: true, data: {} }
+    // THE SUPPLIERS THE SERVER LISTS: since the keys card became each supplier's
+    // row on "All sources", the rows are where a reader meets them.
+    if (path.startsWith('/metadata/status')) {
+      return { ok: true, data: { sources: ['google', 'openlibrary', 'amazon', 'tmdb', 'tvdb', 'igdb'].map((source) => ({ source, state: 'optional', areas: ['books'], records: 0 })) } }
+    }
     return { ok: true, data: {} }
   }),
 }))
@@ -91,20 +95,21 @@ describe('every supplier the app can talk to', () => {
 
 describe('the screen where a reader meets a supplier', () => {
   // The keys are admin-only, so the reader who meets a supplier here is one.
-  const card = () => {
+  const card = async () => {
     render(<MetadataSources user={{ is_admin: true }} onPreferences={() => {}} />)
+    await screen.findByText('All sources')
     return document.body
   }
 
-  it('draws each one’s mark beside the key it unlocks', () => {
-    card()
+  it('draws each one’s mark on the row that names it', async () => {
+    await card()
     const marks = [...document.querySelectorAll('.src-mark')]
     expect(marks.length,
       'the screen that names every supplier draws none of their marks').toBeGreaterThan(3)
   })
 
-  it('and the mark says which supplier it is, for a reader who cannot see it', () => {
-    card()
+  it('and the mark says which supplier it is, for a reader who cannot see it', async () => {
+    await card()
     // NAMED OR HIDDEN, NEVER NEITHER — which is the rule this case was always
     // about and is now stated as one. A supplier's mark is painted as a mask on a
     // span INSIDE the labelled box, and that inner span is decorative: it carries
@@ -123,8 +128,8 @@ describe('the screen where a reader meets a supplier', () => {
     expect(named.length, 'not one mark on this screen announces its supplier').toBeGreaterThan(3)
   })
 
-  it('names TMDB and TheTVDB among them, which are the two a film needs', () => {
-    card()
+  it('names TMDB and TheTVDB among them, which are the two a film needs', async () => {
+    await card()
     const said = [...document.querySelectorAll('.src-mark[aria-label]')]
       .map((m) => m.getAttribute('aria-label')).join(' | ')
     expect(said, 'the film suppliers are not marked').toMatch(/TMDB/i)

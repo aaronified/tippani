@@ -49,7 +49,7 @@ beforeEach(() => {
 
 const page = async () => {
   render(<MetadataSources user={{ username: 'a', is_admin: true }} onPreferences={() => {}} />)
-  await waitFor(() => expect(screen.getByText(/who the app can ask/i)).toBeTruthy())
+  await waitFor(() => expect(screen.getByText(/all sources/i)).toBeTruthy())
 }
 
 describe('a supplier row', () => {

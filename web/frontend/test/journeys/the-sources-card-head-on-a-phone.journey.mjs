@@ -12,7 +12,8 @@
 // width, and nothing in the source is wrong to read.
 //
 // DECLARED EXCEPTION: `app.page` MEASURES where the title and the button sit,
-// finding the title by its words and the button by its name, because no word of
+// finding the title by its words ("All sources" since the two cards became one)
+// and the button by its name, because no word of
 // the vocabulary says whether two things are on one row.
 //
 // THE MUTATIONS, each run and put back (MetadataSources.jsx):
@@ -29,14 +30,14 @@ const app = openApp({ viewport: PHONE })
 
 it('on a phone the sources card keeps Test all on its title row', async () => {
   await app.goto('/metadata/sources')
-  await app.see('Who the app can ask')
+  await app.see('All sources')
   await app.gone('records supplied')
 
   const at = await app.page.evaluate(() => {
     // The innermost element carrying the title's words: the one with the fewest
     // characters around them.
     const title = [...document.querySelectorAll('body *')]
-      .filter((e) => e.textContent.toLowerCase().includes('who the app can ask'))
+      .filter((e) => e.textContent.toLowerCase().includes('all sources'))
       .sort((a, b) => a.textContent.length - b.textContent.length)[0]
     const button = [...document.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Test all')
     const box = (el) => el && el.getBoundingClientRect().toJSON()
