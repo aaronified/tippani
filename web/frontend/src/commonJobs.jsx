@@ -259,7 +259,9 @@ function Pending({ id, n, of, blocked = 0 }) {
           {' · '}
           <Tally n={blocked} icon={of.icon} word={of.word(blocked)} showWord />
           {' '}
-          {t(`settings.jobs.common.${id}.blocked`, { count: blocked })}
+          {/* Only the fill has works in its way, so its key is named whole: a
+              template over a plural family points at no key the locale scan can see. */}
+          {t('settings.jobs.common.fill-all.blocked', { count: blocked })}
         </>
       )}
     </span>
