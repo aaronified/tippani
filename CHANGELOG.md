@@ -11,25 +11,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Settings → Jobs: each library job in Common jobs says how much of the library it
   could still fill in.** Fill gaps in every work shows a count such as "12 works with a
-  gap it can fill": the works pinned to a source that still have an empty cover or poster,
-  author or cast, director, series, year, genre or synopsis. A work with no source is left
-  out, since the fill skips it, and so is a low-resolution cover, since the fill only
-  writes empty fields. Fetch missing people shows "69 people missing a portrait or
-  links", the number Metadata's People console gives Fetch missing. Fetch covers and
-  details counts the books with no cover and the films, shows and games that have a source
-  and no poster, which are the ones its Missing only run fetches a picture for. A job with
-  nothing left says "Nothing missing", and Back up now says nothing. The line is hidden
-  while the job runs and is read again when a job starts or ends.
+  gap it can fill": the works it can find at a supplier that still have an empty cover or
+  poster, author or cast, director, series, year, genre or synopsis. It can find a work
+  pinned by id, and a game with no id once IGDB's client id and secret are saved, since
+  the fill looks a game up there by its exact title. A low-resolution cover is left out,
+  since the fill only writes empty fields. The works with such a gap that it cannot find
+  follow the count, as in "· 41 works need a source first". Fetch missing people shows
+  "69 people missing a portrait or links", the number Metadata's People console gives
+  Fetch missing. Fetch covers and details counts the books with no cover and the works
+  with no poster whose supplier record, kept from when they were added, names a TMDB
+  poster, the one kind of poster the pass fetches. A game from IGDB and a show from
+  TheTVDB name none and are not counted. When the fill's count reaches none it says
+  "Nothing it can fill", and the covers count says "Nothing it can fetch"; Fetch missing
+  people says "Nothing missing", and Back up now says nothing. The line is hidden while
+  the job runs and is read again when a job starts or ends.
 - **Every log in Settings → Jobs has a copy button.** A job's log, live or finished, and
   System logs each carry a copy glyph in the top-right corner of the log box, which stays
   put while the lines scroll beside it. The lines stop short of the glyph, so it never
   covers the end of a line. It copies the lines as read, clock first, one to a line, and
-  says "copied". A job's log names its button for the job, "Copy the log of Fill gaps in
-  every work", and System logs names its "Copy these lines", so a job's log open beside
-  System logs does not give two buttons one name. The log under a job in Common jobs is
-  named for its last run, "Copy the log of the last run of Fill gaps in every work", so it
-  never shares a name with the same job's log open in Past jobs. A log with no lines has
-  no button.
+  says "copied". A job's log in Past jobs names its button for the job, "Copy the log of
+  Fill gaps in every work", and System logs names its "Copy these lines", so a job's log
+  open beside System logs does not give two buttons one name. The log under a job in
+  Common jobs is named for its last run, "Copy the log of the last run of Fill gaps in
+  every work", and a running job's log in Current jobs is "Live log of Fill gaps in every
+  work", with "Copy the live log of Fill gaps in every work" for its button, so neither
+  shares a name with the same job's log open in Past jobs. A log with no lines has no
+  button.
 - **Every source in Metadata → Sources can be tested.** Only Google Books, TMDB, TheTVDB
   and IGDB had a working Test; Open Library, Amazon, IMDb, Letterboxd, Wikidata,
   Wikimedia, Fandom and Google Images drew a disabled button. Each now asks its source
@@ -38,11 +45,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and its tip says so. Amazon's Test asks the product page only when a cookie is set;
   without one it asks the cover address the app uses. A Test that cannot reach its
   supplier says so. When that cover address, Letterboxd, Wikimedia, Fandom or Google
-  Images finds nothing, the Test also checks that the site itself answers, and a site that
-  cannot be reached reads "did not answer" with the reason, where it would otherwise read
-  "answered · found nothing". Test all asks every source at once and waits at most 30
-  seconds, and a source still quiet by then reads "did not answer — no answer within 30s".
-  One book search answers for both Google Books and Open Library, so Test all asks it once.
+  Images finds nothing, the Test also checks that the site itself answers. A site that
+  cannot be reached reads "did not answer" with the reason, and one that answers with a
+  server error reads "did not answer — letterboxd.com: status 503", where either would
+  otherwise read "answered · found nothing". Test all asks every source at once and waits
+  at most 30 seconds, and a source still quiet by then reads "did not answer — no answer
+  within 30s". One book search answers for both Google Books and Open Library, so Test
+  all asks it once.
 
 ### Changed
 
@@ -109,10 +118,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   carries, and the Characters console lists possible duplicates with the same merge card
   People uses. The phone's "Everything that needs work" sheet groups its rows under Works,
   People and Characters, so People's "no quotes" and Characters' "no quotes" are no longer
-  two identical rows that open different consoles. Opening People or Characters from the
-  section tabs or its door on the index now opens it on everything. A pill, then Back,
-  then the People door used to land on the pill's filter, "3 people shown" under a door
-  that said 69.
+  two identical rows that open different consoles. Every door on the index, Works
+  included, and the index verbs that walk through one, "Scan for duplicate works" and
+  "Fetch missing", now open where a fresh visit does, and so do the section tabs: Works on
+  every type's flagged works, People and Characters on everyone. A pill, then Back, then a
+  door used to land on the pill's filter: the People door showed "3 people shown" under a
+  door that said 69, and the Works door landed on 14 under a door that said 41.
 - **Fill gaps and a re-verify now look a game up in IGDB.** A game was reported as having
   "no pinned identity (TMDB/TheTVDB id)", even when it had been added from an IGDB pick,
   because both read only a work's TMDB and TheTVDB ids. They now ask IGDB for the record
@@ -137,6 +148,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   covers pass and a re-verify ask the same sources and record nothing, apart from the
   IGDB title search a fill or re-verify makes for a game with no id, which is recorded on
   the IGDB row.
+- **A book search that finds nothing no longer blames the wrong source in Metadata →
+  Sources.** When Google Books or Open Library failed and the search found nothing, one
+  error was recorded against both rows, Google Books' when it had failed. Open Library
+  therefore read "did not answer — google books: …" after it had answered with nothing.
+  Each row now shows its own source's error, and a source that answered with nothing
+  reads "answered · found nothing".
 - **Server messages that send a reader to check a key now name the screen where the keys
   are.** A rejected TMDB or TheTVDB key, rejected IGDB credentials, Google Books' used-up
   shared quota, an Amazon-pinned book with no cookie and a film or show source with no
