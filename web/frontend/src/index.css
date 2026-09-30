@@ -9692,6 +9692,7 @@ html[data-theme="dark"] .has-sticky-rail .meta-rail-row.is-stuck {
   font-size: var(--type-ui-15);
 }
 .meta-issue-row:hover { background: var(--raised); }
+.meta-issue-group { margin: 0; }
 .meta-issue-label { flex: 1 1 auto; min-width: 0; }
 .meta-issue-count {
   flex: none;

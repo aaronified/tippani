@@ -19910,3 +19910,20 @@ of the reader's works already carries is said in words and left to Look up. The 
 back as an `igdb_id` diff like any other field, so a fill writes it and the next run asks by id.
 A film with no id is still never guessed: a film title is shared far more often than a game's,
 and the reader has TMDB and TheTVDB's Look up for it.
+
+**Every number on the phone's Metadata index is the number behind it, and the pills that
+made that true.** The owner, 30 September: "The works > no source shows 3 on the index card,
+but inside it shows 0." A sweep over every pill found the same fault four ways, and each fix
+departs from how the index was drawn. The People pill that counted people with "no portrait
+or link" was a union no People filter draws, so it opened on everybody; it is now one pill per
+filter the console has (`no links`, `no photo`, `in no work`, `no quotes`), each opening on its
+own. A gap films, shows and games share was counted over all three and opened on films alone;
+it now opens on every type when more than one has it. "Characters who may be the same
+character" opened on a list that drew no pairs, so the Characters console now draws the People
+console's duplicate card (one component, posting to `/characters/merge`). "No actor" opened on
+Characters, where nothing said how many lines had none; the speaker remap now says it at its
+head. A rating then found two faults in that pass, and both are fixed. The dock's "Everything
+that needs work" sheet printed People's and Characters' "no quotes" as two identical rows, so
+its rows now sit under their section's name as the index's pills sit under their door. And a
+pill's filter outlived its console, so a section's own door opened on the last pill's filter;
+the door now always opens on everything.

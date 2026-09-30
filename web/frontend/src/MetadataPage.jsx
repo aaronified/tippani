@@ -300,8 +300,16 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routed])
   const setSection = (id) => { remember(id); if (onSection) onSection(id) }
+  // A DOOR OPENS ON EVERYTHING; only a pill opens on its issue. The issue a pill
+  // hands in is the page's, so it outlived the console: pill, Back, then the door
+  // itself landed on the pill's filter, "3 people shown" under a door saying 69.
+  const openDoor = (id) => {
+    if (id === 'people') setPeopleIssue((s) => ({ issue: '', at: s.at + 1 }))
+    if (id === 'characters') setCharIssue((s) => ({ issue: '', at: s.at + 1 }))
+    setSection(id)
+  }
   // Walk into a section with something to do on arrival — see `intent` above.
-  const enter = (id, why = null) => { setIntent(why); setSection(id) }
+  const enter = (id, why = null) => { setIntent(why); openDoor(id) }
 
   // THE CHARACTER LIST IS THE PAGE'S, NOT THE CONSOLE'S, because the rail has to
   // print its size before the section is entered — and a list fetched twice is a
@@ -495,7 +503,7 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
           // Nine suites' worth of the phone flow reported the index where a section
           // should have been, which is exactly what a reader would have got.
           open={onSection ? !!routed : undefined}
-          onChange={setSection}
+          onChange={openDoor}
           ariaLabel={t('metadata.section.aria')}
           // THE TABS STAY ON SCREEN over the three long lists, above their stuck
           // toolbar, so a reader 400 rows down can still change section.
@@ -613,21 +621,35 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
           {issues.length === 0 ? (
             <p className="microcopy">{t('metadata.issues.none')}</p>
           ) : (
+            // UNDER THE SECTION EACH ROW OPENS. People and Characters both have
+            // "no quotes" and "in no work", in the consoles' own short words, and
+            // a flat list printed each pair as two identical rows opening two
+            // different consoles — the section's name is what tells them apart,
+            // as the index's doors do by standing under their own.
             <div style={{ display: 'grid', gap: 'var(--row)' }}>
-              {issues.map((row) => (
-                <button
-                  key={row.id}
-                  type="button"
-                  className="meta-issue-row"
-                  onClick={() => {
-                    pickGap(row.go.type, row.go.filter, row.go.section)
-                    setIssuesOpen(false)
-                  }}
-                >
-                  <span className="meta-issue-label">{row.label}</span>
-                  <span className="meta-issue-count">{row.n}</span>
-                </button>
-              ))}
+              {['works', 'people', 'characters'].map((sec) => {
+                const rows = issues.filter((row) => row.go.section === sec)
+                if (rows.length === 0) return null
+                return (
+                  <div key={sec} role="group" aria-labelledby={`meta-issues-${sec}`} style={{ display: 'grid', gap: 'var(--row)' }}>
+                    <h3 id={`meta-issues-${sec}`} className="mono-label meta-issue-group">{t(`metadata.section.${sec}.label`)}</h3>
+                    {rows.map((row) => (
+                      <button
+                        key={row.id}
+                        type="button"
+                        className="meta-issue-row"
+                        onClick={() => {
+                          pickGap(row.go.type, row.go.filter, row.go.section)
+                          setIssuesOpen(false)
+                        }}
+                      >
+                        <span className="meta-issue-label">{row.label}</span>
+                        <span className="meta-issue-count">{row.n}</span>
+                      </button>
+                    ))}
+                  </div>
+                )
+              })}
             </div>
           )}
         </MobileSheet>
