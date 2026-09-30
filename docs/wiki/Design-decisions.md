@@ -19865,3 +19865,18 @@ an equal negative margin, so a section name that wraps taller than the chevron d
 row downward instead of reaching 6px past the inset. The inset journey had measured a bordered
 row's whole box as painted, which is why it passed over the slider card; a border now counts
 only the edge it draws, and the journey checks the right edge where nothing scrolls sideways.
+
+**Every supplier on the Sources list can be tested, which reverses "only the suppliers a reader
+can configure".** The owner, looking at eight rows with no Test beside them: "why can i not
+test all the metadata sources?" The reason recorded above was that the picture rungs are
+scrapes and a synthetic question on a press earns a rate limit. That holds for a timer and not
+for a button: a press is one person asking one question, which is what every lookup already
+is. So each row's Test asks its supplier with a famous subject through the same call the app
+makes (Dune by its Ace paperback's ISBN and ASIN, Metropolis by its IMDb id, Fritz Lang for
+Wikimedia's portrait rung, Harry Potter on Fandom's Harry Potter wiki), and records the answer
+where every lookup records it. Two consents still decide what is asked. Google's image results
+are asked only once the instance has said yes to reading them, so that row's Test is disabled
+until then and its tip names the switch. Amazon's product page is read only with the cookie
+that consents to it; without one the Test asks the keyless cover address, which is what the app
+uses. The screen's own copy of the testable list went with the change, and
+`test/rules/testable-sources.test.js` now holds the server's list to every row instead.

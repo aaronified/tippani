@@ -1,19 +1,20 @@
-// WHICH SUPPLIERS CAN BE TESTED, ASKED OF BOTH SIDES OF THE BOUNDARY.
+// EVERY SUPPLIER ON THE LIST CAN BE TESTED, ASKED OF THE SERVER'S TWO LISTS.
 //
-// The list lives twice by design: the server refuses a source it cannot test
-// (`testableSources` in metadata_sources.go), and the screen does not draw a
-// button a reader could only press to be told no (`TESTABLE` in
-// MetadataSources.jsx). Two lists that must agree and nothing asking whether they
-// do is the exact shape of the defect this directory exists for — `chapter_no`
-// answered 400 on every press for months with a green test on each side of it.
+// The screen draws a Test on every supplier row, and the server refuses a source
+// it cannot test by name (`testableSources` in metadata_sources.go). So the
+// server's list has to be every row (`sourceAreas`): a row the server would refuse
+// is a button that answers 400 on every press, and a slug it tests that has no row
+// is a Test with nothing to draw it on. Neither shows up as a failure anywhere
+// else, because each list is right about itself.
 //
-// A DISAGREEMENT IS INVISIBLE IN BOTH DIRECTIONS, which is why it needs a scanner
-// rather than a case. A slug the screen offers and the server refuses is a button
-// that 400s; a slug the server would answer and the screen hides is a feature
-// nobody can reach — and neither shows up as a failure anywhere else, because each
-// side is right about itself.
+// IT USED TO COMPARE THE SERVER'S LIST WITH ONE IN THE SCREEN, when only the four
+// keyed suppliers could be tested (`TESTABLE` in MetadataSources.jsx). The owner
+// asked why the rest could not be ("why can i not test all the metadata
+// sources?"), every row became testable, and the screen's copy of the list went:
+// the screen now disables a Test only for a row whose state says it cannot be
+// asked.
 //
-// IT READS BOTH SOURCES rather than holding a list of its own. A list typed here
+// IT READS THE SOURCE rather than holding a list of its own. A list typed here
 // would have been typed by whoever got the other two wrong, and would agree with
 // them.
 import { readFileSync } from 'node:fs'
@@ -31,30 +32,14 @@ function goSlice(src, name) {
   return [...m[1].matchAll(/"([^"]+)"/g)].map((x) => x[1]).sort()
 }
 
-// A JS array literal of bare strings, likewise.
-function jsArray(src, name) {
-  const m = new RegExp(String.raw`const\s+${name}\s*=\s*\[([^\]]*)\]`).exec(src)
-  if (!m) throw new Error(`no JS array named ${name} — it was renamed, and this scanner is now checking nothing`)
-  return [...m[1].matchAll(/'([^']+)'/g)].map((x) => x[1]).sort()
-}
-
 describe('the suppliers a Test can be pressed on', () => {
-  it('are the same list on the screen and in the server', () => {
-    const go = goSlice(read('..', '..', '..', 'internal', 'httpapi', 'metadata_sources.go'), 'testableSources')
-    const js = jsArray(read('MetadataSources.jsx'), 'TESTABLE')
-    expect(js, 'the screen offers a Test the server refuses, or hides one it would answer').toEqual(go)
-    // AND THE SCANNER IS LOOKING AT SOMETHING. A regex that matched nothing would
-    // compare two empty lists and pass for ever.
-    expect(go.length, 'the Go list came back empty').toBeGreaterThan(0)
-  })
-
-  // EVERY TESTABLE SUPPLIER IS ALSO A ROW, because a Test is an action ON a row.
-  // A slug in one list and not the other is a button with nothing to draw it on.
-  it('each have a row of their own in the list of suppliers', () => {
+  it('are every supplier row, no more and no fewer', () => {
     const src = read('..', '..', '..', 'internal', 'httpapi', 'metadata_sources.go')
     const go = goSlice(src, 'testableSources')
-    const rows = [...src.matchAll(/\{"([a-z-]+)", \[\]string\{/g)].map((x) => x[1])
+    const rows = [...src.matchAll(/\{"([a-z-]+)", \[\]string\{/g)].map((x) => x[1]).sort()
+    // AND THE SCANNER IS LOOKING AT SOMETHING. A regex that matched nothing would
+    // compare two empty lists and pass for ever.
     expect(rows.length, 'no supplier rows found, so this case is checking nothing').toBeGreaterThan(0)
-    expect(go.filter((slug) => !rows.includes(slug)), 'testable, but not a row').toEqual([])
+    expect(go, 'a row the server refuses to test, or a test with no row').toEqual(rows)
   })
 })

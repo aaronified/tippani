@@ -346,7 +346,7 @@ const keyLabel = (source, noun) =>
 //
 // THE NUMBERS ARE THE LIBRARY'S OWN. `records` counts the fields `work_field_source`
 // says each supplier wrote, scoped to this reader — see metadata_sources.go.
-function SourceRows({ admin, sources, onTested }) {
+function SourceRows({ admin, sources, scrapeOn = false, onTested }) {
   // WHICH ROW IS BEING ASKED, by slug, and '' for none. A single busy flag would
   // grey out twelve rows because one of them is being tested.
   const [asking, setAsking] = useState('')
@@ -402,6 +402,7 @@ function SourceRows({ admin, sources, onTested }) {
         // per-supplier prose here to translate twelve times.
         const supplies = (row.areas || []).map((a) => t(`settings.metadata.area.${a}.label`)).join(' · ')
         const last = row.last
+        const off = row.source === 'google-images' && !scrapeOn
         // NOTHING HAS ASKED IT YET IS A FACT, NOT A WARNING, and it is worth
         // drawing: Open Library and the picture rungs are recorded only when the
         // app actually uses them, so a quiet row would otherwise be
@@ -434,12 +435,16 @@ function SourceRows({ admin, sources, onTested }) {
               <FieldIconButton
                 icon={<IconFetch />}
                 ariaLabel={t('settings.sources.test.aria', { source: name })}
-                tooltip={t('settings.sources.test.tip', { source: name })}
+                tooltip={off
+                  ? t('settings.sources.test.off.tip', { source: name })
+                  : t('settings.sources.test.tip', { source: name })}
                 // AND NOT FOR A SOURCE THAT CANNOT BE ASKED AT ALL. A press
                 // that could only report "no key" is a press that tells the
                 // reader what the mark beside it already says — and it used to
-                // report nothing whatsoever, which a rating caught.
-                disabled={!!asking || !TESTABLE.includes(row.source) || row.state === 'needed'}
+                // report nothing whatsoever, which a rating caught. Google's
+                // image results are asked only once the instance has said yes to
+                // them, and the tip says where that switch is.
+                disabled={!!asking || row.state === 'needed' || off}
                 onClick={() => test(row.source)}
               />
             )}
@@ -458,14 +463,6 @@ function SourceRows({ admin, sources, onTested }) {
     </div>
   )
 }
-
-// WHICH ROWS THE TEST BUTTON IS LIVE ON, and it mirrors `testableSources` in
-// metadata_sources.go on purpose rather than being sent down: the server refuses
-// the others by name, and a button that a reader can press only to be told no is
-// worse than one that is visibly not for them. The scrapers report themselves
-// whenever they are actually used; asking them a synthetic question on a press is
-// how an install earns a rate limit.
-const TESTABLE = ['google', 'tmdb', 'tvdb', 'igdb']
 
 export function MetadataSources({ user, onPreferences }) {
   const admin = user.is_admin
@@ -591,7 +588,7 @@ export function MetadataSources({ user, onPreferences }) {
           fields that fill them in. The legend used to lead because the marks it
           described were on the key rows; they are on the source rows now, and a
           legend above the thing it is about is a key to a map you have not seen. */}
-      <SourceRows admin={admin} sources={status?.sources} onTested={loadStatus} />
+      <SourceRows admin={admin} sources={status?.sources} scrapeOn={!!keys?.google_scrape} onTested={loadStatus} />
 
       <div className="src-legend">
         <MonoLabel>{t('settings.keys.legend.label')}</MonoLabel>

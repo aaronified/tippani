@@ -18,6 +18,14 @@
 // `test`) and the last assertion fails — the row goes on saying it has not been
 // asked.
 //
+// THE SECOND CASE IS EVERY SUPPLIER ON THE LIST, the owner's "why can i not test
+// all the metadata sources?" Test every source asks each one that can be asked, and
+// in this world, offline with no film key, no IGDB pair and Google's image results
+// switched off, those four are exactly the rows left with no answer. THE MUTATION,
+// run: `testableSources` in metadata_sources.go put back to the four keyed
+// suppliers, and it is red with six more rows unasked (Amazon, IMDb, Letterboxd,
+// Wikidata, Wikimedia, Fandom; Open Library is answered by Google's search).
+//
 // It knows only the words on the screen and nothing else.
 
 import { expect, it } from 'vitest'
@@ -48,5 +56,32 @@ it('an owner asks a supplier whether it answers, and the row says what came back
   // is the whole point of the button.
   await app.see('did not answer')
 
+  expect(app.pageErrors(), 'the page threw on the way').toEqual([])
+})
+
+// WHAT EACH ROW SAYS AFTER ITS NAME, read in the order the screen draws it: the
+// first line under the name that reports an answer, or the lack of one.
+const SAID = /^(nothing has asked it yet|did not answer|answered)/
+async function rowSays() {
+  const lines = (await app.onScreen()).split('\n').map((l) => l.trim())
+  const out = {}
+  for (const name of NAMES) {
+    const at = lines.indexOf(name)
+    expect(at, `no row for ${name}`).toBeGreaterThanOrEqual(0)
+    out[name] = lines.slice(at + 1, at + 6).find((l) => SAID.test(l)) || ''
+  }
+  return out
+}
+const NAMES = ['Google Books', 'Open Library', 'Amazon', 'TMDB', 'TheTVDB', 'IMDb', 'Letterboxd', 'IGDB', 'Wikidata', 'Google Images', 'Wikimedia', 'Fandom']
+
+it('an owner tests every source at once, and every one that can be asked answers', async () => {
+  await app.goto('/metadata/sources')
+  await app.see('Who the app can ask')
+  await app.press('Test every source')
+  await app.see('did not answer')
+  await app.gone('Asking…')
+  const says = await rowSays()
+  const unasked = NAMES.filter((n) => says[n].startsWith('nothing has asked'))
+  expect(unasked, 'the rows Test every source left unasked').toEqual(['TMDB', 'TheTVDB', 'IGDB', 'Google Images'])
   expect(app.pageErrors(), 'the page threw on the way').toEqual([])
 })

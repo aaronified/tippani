@@ -213,11 +213,54 @@ func TestTestingEverySourceCoversTheOnesThatCanBeAsked(t *testing.T) {
 	}
 	srv.TMDBBuiltin = ""
 
-	// A SCRAPER IS NOT TESTABLE AND SAYS SO. Asking Fandom a synthetic question on
-	// a button press is how an install earns a rate limit; the refusal is named
-	// rather than silently returning a row that was never asked.
-	c.mustDo("POST", "/admin/metadata/test", map[string]string{"source": "fandom"}, http.StatusBadRequest)
+	// A NAME THAT IS NO SOURCE IS REFUSED BY NAME, rather than answered with a row
+	// that was never asked.
 	c.mustDo("POST", "/admin/metadata/test", map[string]string{"source": "nonsense"}, http.StatusBadRequest)
+}
+
+// EVERY SOURCE ON THE LIST CAN BE ASKED FROM IT. The owner, looking at eight rows
+// with no Test beside them: "why can i not test all the metadata sources?" So each
+// row's Test asks its supplier and the row comes back carrying the answer, and the
+// two that cannot be asked as things stand say so: IGDB with no pair, and Google's
+// image results before the instance has said yes to reading them.
+//
+// NOTHING HERE LEAVES THE MACHINE: newTestServer points every keyless host at a
+// stub, the three only a Test reaches among them.
+func TestEverySourceOnTheListCanBeTested(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+	srv.searchBooks = func(context.Context, string, string, string, string) ([]metadata.BookCandidate, error) {
+		return []metadata.BookCandidate{{Title: "Dune", Source: "google"}, {Title: "Dune", Source: "openlibrary"}}, nil
+	}
+	srv.TMDBBuiltin = "builtin-key"
+	srv.TVDBBuiltin = "builtin-key"
+
+	cannot := map[string]bool{"igdb": true, "google-images": true}
+	for _, src := range sourceAreas {
+		body := map[string]string{"source": src.slug}
+		if cannot[src.slug] {
+			c.mustDo("POST", "/admin/metadata/test", body, http.StatusConflict)
+			continue
+		}
+		got := decode[sourcesResp](t, c.mustDo("POST", "/admin/metadata/test", body, http.StatusOK))
+		if len(got.Sources) != 1 || got.Sources[0].Source != src.slug {
+			t.Errorf("testing %s answered with %+v", src.slug, got.Sources)
+			continue
+		}
+		if got.Sources[0].Last == nil {
+			t.Errorf("testing %s asked it and its row still has no answer on record", src.slug)
+		}
+	}
+
+	// AND GOOGLE'S IMAGE RESULTS, ONCE SWITCHED ON, ARE ASKED LIKE THE REST.
+	if err := srv.Store.SetSetting(settingGoogleScrape, "1"); err != nil {
+		t.Fatal(err)
+	}
+	got := decode[sourcesResp](t, c.mustDo("POST", "/admin/metadata/test", map[string]string{"source": "google-images"}, http.StatusOK))
+	if len(got.Sources) != 1 || got.Sources[0].Last == nil {
+		t.Errorf("Google image results, switched on, were tested and say: %+v", got.Sources)
+	}
 }
 
 // IT SPENDS THE INSTANCE'S QUOTA, so it is the owner's button. Every other thing
@@ -251,16 +294,30 @@ func TestTestingASourceWithNoKeyIsRefusedRatherThanIgnored(t *testing.T) {
 
 	c.mustDo("POST", "/admin/metadata/test", map[string]string{"source": "tmdb"}, http.StatusConflict)
 
-	// AND "TEST EVERYTHING" STILL WORKS OVER AN INSTANCE WITH ONE KEY. Skipping
-	// the keyless ones is not the same as failing: a new install has exactly one
-	// supplier that can answer, and a press that refused the lot would be the
-	// card crying wolf about its ordinary state.
+	// AND "TEST EVERYTHING" STILL WORKS OVER AN INSTANCE WITH NO FILM OR GAME KEY.
+	// Skipping the ones that cannot be asked is not the same as failing: a new
+	// install has no IGDB pair, and a press that refused the lot would be the card
+	// crying wolf about its ordinary state. What is asked is every source that
+	// needs nothing, and what is skipped is exactly the ones that do.
 	srv.searchBooks = func(context.Context, string, string, string, string) ([]metadata.BookCandidate, error) {
 		return nil, nil
 	}
+	srv.TVDBBuiltin = ""
+	srv.TVDB.Key = ""
 	got := decode[sourcesResp](t, c.mustDo("POST", "/admin/metadata/test", map[string]any{}, http.StatusOK))
-	if len(got.Sources) != 1 || got.Sources[0].Source != "google" {
-		t.Fatalf("want only the supplier that could be asked: %+v", got.Sources)
+	asked := map[string]bool{}
+	for _, row := range got.Sources {
+		asked[row.Source] = true
+	}
+	for _, slug := range []string{"tmdb", "tvdb", "igdb", "google-images"} {
+		if asked[slug] {
+			t.Errorf("%s cannot be asked here and was reported as asked", slug)
+		}
+	}
+	for _, slug := range []string{"google", "openlibrary", "amazon", "imdb", "letterboxd", "wikidata", "wikimedia", "fandom"} {
+		if !asked[slug] {
+			t.Errorf("%s needs nothing and was not asked", slug)
+		}
 	}
 }
 

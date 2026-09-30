@@ -27,6 +27,7 @@ import (
 	"net/http"
 	"time"
 
+	"tippani/internal/metadata"
 	"tippani/internal/olog"
 )
 
@@ -248,20 +249,38 @@ func (s *Server) sourceRows(uid int64) []sourceRow {
 // thing that can disagree with the first, and then a green Test over a broken
 // lookup is worse than no Test at all.
 //
-// ONLY THE SUPPLIERS A READER CAN CONFIGURE. The picture ladder's rungs are
-// scrapes of other people's sites; asking them a synthetic question on a button
-// press is how an install earns a rate limit, and they already report themselves
-// through the registry every time they are actually used. So a Test covers the
-// keyed suppliers, and the rest of the list keeps saying what it last said.
-var testableSources = []string{"google", "tmdb", "tvdb", "igdb"}
+// EVERY SUPPLIER ON THE LIST, and it used to be the four that take a key. The
+// owner, looking at the rest with no Test beside them: "why can i not test all the
+// metadata sources?" The reason given here was that the picture rungs are scrapes,
+// and a synthetic question on a press is how an install earns a rate limit. A press
+// is one person asking one question, which is what every lookup already is, so the
+// argument held for a timer and never for a button. A scrape is still asked only
+// the way the app asks it: Google's image results only once the instance has said
+// yes to reading them, Amazon's product page only with the cookie that consents to
+// it (without one, the keyless cover address is what the app uses, so that is what
+// is asked).
+var testableSources = []string{
+	"google", "openlibrary", "amazon", "tmdb", "tvdb", "imdb", "letterboxd",
+	"igdb", "wikidata", "google-images", "wikimedia", "fandom",
+}
 
 // THE SUBJECTS, AND WHY THESE. Each is old enough to be in every catalogue that
 // claims to hold its medium, and distinctive enough that a match is unambiguous.
 // A supplier answering nothing to these has something wrong with it.
+//
+// Dune's is the Ace paperback, whose ISBN-10 is also its Amazon ASIN; Metropolis's
+// IMDb id is the 1927 film's; Fritz Lang made it; Harry Potter's wiki is the one
+// Fandom is best known for.
 const (
-	probeBook = "Dune"
-	probeFilm = "Metropolis"
-	probeGame = "Tetris"
+	probeBook      = "Dune"
+	probeISBN      = "9780441013593"
+	probeASIN      = "0441013597"
+	probeFilm      = "Metropolis"
+	probeIMDb      = "tt0017136"
+	probeGame      = "Tetris"
+	probePerson    = "Fritz Lang"
+	probeCharacter = "Harry Potter"
+	probeWiki      = "harrypotter"
 )
 
 // testSource asks one supplier, records the outcome where every other lookup
@@ -276,13 +295,32 @@ const (
 // the race where a key is cleared between the render and the press.
 func (s *Server) testSource(ctx context.Context, uid int64, slug string) (sourceRow, bool) {
 	switch slug {
-	case "google":
+	case "google", "openlibrary":
 		gkey, _ := s.Store.GetSetting(settingGoogleBooksKey)
 		// THE SAME SEAM EVERY BOOK LOOKUP GOES THROUGH, not metadata.SearchBooks
 		// directly. A Test that reached past the seam would be a second way of
-		// asking, and the whole argument above is that there must not be one.
+		// asking, and the whole argument above is that there must not be one. One
+		// search asks both, and each is recorded with its own answer.
 		cands, err := s.searchBooks(ctx, "", probeBook, "", gkey)
 		s.recordBooksLookup(cands, err)
+	case "amazon":
+		if cookie, _ := s.Store.GetSetting(settingAmazonCookie); cookie != "" {
+			domain, _ := s.Store.GetSetting(settingAmazonDomain)
+			a, err := metadata.FetchAmazonBook(ctx, probeASIN, cookie, domain)
+			found := 0
+			if err == nil && a != nil {
+				found = 1
+			}
+			s.recordLookup(faultAreaBooks, "amazon", found, "", err)
+			break
+		}
+		found := 0
+		for _, u := range amazonCoverURLs(probeISBN, "") {
+			if metadata.ImageIsReal(ctx, u) {
+				found++
+			}
+		}
+		s.recordLookup(faultAreaPictures, "amazon", found, "", nil)
 	case "tmdb":
 		client, _ := s.resolveTMDB()
 		if client == nil {
@@ -297,6 +335,18 @@ func (s *Server) testSource(ctx context.Context, uid int64, slug string) (source
 		}
 		cands, err := client.Search(ctx, probeFilm, 0, "movie")
 		s.recordLookup(faultAreaFilms, "tvdb", len(cands), "", err)
+	case "imdb":
+		_, cast, err := metadata.IMDbCast(ctx, probeIMDb)
+		s.recordLookup(faultAreaFilms, "imdb", len(cast), "", err)
+	case "letterboxd":
+		// A PAGE IT CANNOT READ IS NOTHING RATHER THAN AN ERROR (LetterboxdDetails
+		// says why), so a failed Test reads as "found nothing".
+		det, err := metadata.LetterboxdDetails(ctx, probeFilm)
+		found := 0
+		if det != nil {
+			found = 1
+		}
+		s.recordLookup(faultAreaFilms, "letterboxd", found, "", err)
 	case "igdb":
 		client, _ := s.resolveIGDB()
 		if client == nil {
@@ -304,6 +354,32 @@ func (s *Server) testSource(ctx context.Context, uid int64, slug string) (source
 		}
 		cands, err := client.Search(ctx, probeGame, 0)
 		s.recordLookup(faultAreaGames, "igdb", len(cands), "", err)
+	case "wikidata":
+		cands, err := metadata.SearchGamesWikidata(ctx, probeGame, 0)
+		s.recordLookup(faultAreaGames, "wikidata", len(cands), "", err)
+	case "google-images", "wikimedia", "fandom":
+		// THE PICTURE LADDER'S OWN RUNG, built as a picture search builds it, so
+		// the opt-in that keeps Google's rung absent keeps its Test from running.
+		var tier *imageTier
+		switch slug {
+		case "google-images":
+			tier = s.googleScrapeTier(probeFilm + " 1927 film poster")
+		case "wikimedia":
+			tier = s.wikimediaPortraitTier(personPin{}, probePerson)
+		case "fandom":
+			tier = &imageTier{name: "fandom", run: func(ctx context.Context) []metadata.ImageHit {
+				return metadata.FandomCharacterImages(ctx, probeCharacter, probeWiki)
+			}}
+		}
+		if tier == nil {
+			return sourceRow{}, false
+		}
+		hits := tier.run(ctx)
+		note := ""
+		if tier.note != nil {
+			note = *tier.note
+		}
+		s.recordLookup(faultAreaPictures, slug, len(hits), note, nil)
 	}
 	for _, row := range s.sourceRows(uid) {
 		if row.Source == slug {
@@ -362,10 +438,11 @@ func (s *Server) handleMetadataTest(w http.ResponseWriter, r *http.Request) {
 	}
 	if asked == 0 {
 		// NAMED RATHER THAN ANSWERED WITH SILENCE. One source asked for by name,
-		// with no key behind it, gets a reason — the screen disables that press,
-		// so reaching here means the key went away between the render and the
-		// press and the reader deserves to be told which.
-		writeErr(w, http.StatusConflict, "that source has no key stored, so it cannot be asked")
+		// with no key behind it (or, for Google's image results, not switched on),
+		// gets a reason — the screen disables that press, so reaching here means
+		// the setting went away between the render and the press and the reader
+		// deserves to be told which.
+		writeErr(w, http.StatusConflict, "that source is not set up on this server, so it cannot be asked")
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"sources": rows})
