@@ -9143,9 +9143,14 @@ export function filterChipClass(active) {
 // the tooltip is opened by, so the chip stays live, says so with `aria-disabled`,
 // and swallows its own click; the caller draws the reason in words beside the row,
 // because a bubble is something you have to know to ask for.
-export function ChipSwitches({ options, onToggle, ariaLabel, className = "" }) {
+// `row` DRAWS THE CHIPS AS ONE LINE THAT SCROLLS, under the measured edge fade, for a
+// set a reader flicks through rather than reads as a block — the System logs levels
+// (the owner, 30 September: "in one row, edgemasked based on space available"). The
+// default still wraps, which is what a card of settings wants.
+export function ChipSwitches({ options, onToggle, ariaLabel, className = "", row = false }) {
+  const Box = row ? Scroller : "div";
   return (
-    <div className={"flex flex-wrap items-center gap-2 " + className} role="group" aria-label={ariaLabel}>
+    <Box {...(row ? { axis: "x" } : {})} className={(row ? "chip-row " : "flex flex-wrap items-center gap-2 ") + className} role="group" aria-label={ariaLabel}>
       {options.map((o) => (
         <Tooltip key={o.key} label={o.locked || o.hint || ""}>
           <button
@@ -9174,7 +9179,7 @@ export function ChipSwitches({ options, onToggle, ariaLabel, className = "" }) {
           </button>
         </Tooltip>
       ))}
-    </div>
+    </Box>
   );
 }
 

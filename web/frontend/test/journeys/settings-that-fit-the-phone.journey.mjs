@@ -38,40 +38,33 @@
 // so a stylesheet edit that has not been through `make frontend` is not in the
 // thing being measured.
 //
-// THE THIRD CASE IS THE SYSTEM LOGS CARD AT THE LARGEST TYPE (3.1.0's card). Its
-// export row holds "Everything kept (30 days)", and a button never wraps its
-// label, so at 175% on a 390 screen that one button ended past the card's inset
-// and past the screen, and the page slid under it. The reader turns the type up
-// the way a reader does, with the Text size dial, and then opens Jobs. THE
-// MUTATION, run: take the `.logs-export > .tp-btn` rule back out of index.css and
-// this case goes red, "expected 6 to be +0", with the other two green.
-//
-// AND THE WRAPPED LABEL KEEPS ITS GLYPH ON A LINE OF IT. Once the label wrapped,
-// the export glyph, a flex item beside it, was centred on both of its lines at
-// once, which is on neither, and squeezed narrower by the words. It is drawn
-// inside the label now, as the label's first word. THE MUTATION, run: the glyph
-// put back beside its label (jobsSection.jsx, the export anchors) and this case
-// goes red at the glyph, "19px below the middle of the line nearest it", with
-// the page still not sliding and the other two cases green.
-//
-// THE FOURTH AND FIFTH CASES ARE THE RELEASE LOG ON SERVER (#51). Its door, "Read
-// the whole log", is a sentence on a button that ran 61px past a 390 screen at 175%.
-// THE MUTATIONS, run: the `wraps-to-fit` class off that button and the fourth goes red,
-// "expected 61 to be +0"; the glyph's one-line box (`.btn-icon { height: 1lh }`)
-// taken out and it goes red at the chevron, 11px above its line; the first repair's
-// rule put back (the glyph pinned to the top of a flex row) and the fifth goes red at
-// 75% type, 4px above a one-line label, which offTheLine's quarter-line slack let
-// through and its `slack: 2` does not.
+// THE THIRD CASE IS THE SYSTEM LOGS CARD AT THE LARGEST TYPE (3.1.0's card), ON THE
+// SMALLEST PHONE, 320 wide. Its export row once held "Everything kept (30 days)",
+// which at 175% ran past the card and slid the page, and whose glyph sat between
+// the two lines once the label wrapped. On 30 September the owner cut the row to
+// "What is shown" and "All", and neither label wraps in its button at 175% any
+// more — 234px at most, measured at 320 and 390 in English and Bengali — so the
+// two mutations this case used to name (the `.logs-export > .tp-btn` wrap rule out;
+// the glyph put back beside its label) now stay green, measured, and those rules
+// stay only for a translation that is longer. What the case guards now is the ROW:
+// at 175% the pair is wider than a small phone's card and must wrap onto two lines
+// rather than slide. THE MUTATION, run: `.job-actions`' `flex-wrap: wrap` made
+// `nowrap` and this case goes red, "expected 28 to be +0", with the others green.
+// The glyph is still asked to sit on its label's line.
 //
 // It knows the words on the screen and nothing else, and two numbers: how far the
 // page slides (`sideways`) and which glyphs beside a label are off its lines
 // (`offTheLine`).
 
-import { expect, it } from 'vitest'
+import { beforeEach, expect, it } from 'vitest'
 
 import { PHONE, openApp } from './harness/world.mjs'
 
 const app = openApp({ viewport: PHONE })
+
+// EVERY CASE STARTS ON THE 390 PHONE: the third moves to 320 to find a label's
+// limit, and the ones after it were measured at 390.
+beforeEach(async () => { await app.page.setViewport(PHONE) })
 
 it('the settings index does not slide sideways on a phone', async () => {
   await app.goto('/settings')
@@ -98,11 +91,14 @@ it('the System logs card keeps its export buttons inside it at the largest type'
   await app.press('Language and font')
   await app.choose('Text size', '175%')
   await app.see('175%')
+  // THE SMALLEST PHONE, 320 wide: at 390 "What is shown" fits its button at 175%,
+  // and a case that never wraps a label cannot say what a wrapped one does.
+  await app.page.setViewport({ width: 320, height: 720 })
   await app.goto('/settings/jobs')
   await app.see('System logs')
-  await app.see('Everything kept (30 days)')
+  await app.see('What is shown')
   expect(await app.sideways(), 'the Jobs section slides sideways at 175% type').toBe(0)
-  expect(await app.offTheLine('Everything kept (30 days)'), 'the export glyph beside a label that wrapped').toEqual([])
+  expect(await app.offTheLine('What is shown'), 'the export glyph beside a label that wrapped').toEqual([])
 })
 
 // THE RELEASE LOG ON SERVER, AT THE SAME TYPE (#51). Its door is a sentence on a

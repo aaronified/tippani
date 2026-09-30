@@ -25,6 +25,7 @@
 //     and a keyword typed into the shell's own search bar.
 import { useCallback, useEffect, useRef, useState } from 'react'
 
+import { copyText } from './api.js'
 import { t } from './i18n.js'
 import {
   allSystemLogsURL,
@@ -64,6 +65,7 @@ import {
   GhostButton,
   IconButton,
   IconChevron,
+  IconCopy,
   IconExport,
   IconJobs,
   IconOpen,
@@ -103,6 +105,46 @@ export function JobsCard({ title, aside = null, door = null, controls = null, ch
 // LOG_PANE_MAX lines, so once it is full every new line pushes the oldest out and
 // the count stops moving — a long fill reaches that after several hundred works,
 // and a pane that followed its length stopped following right there.
+// LogWell — THE RECESSED WELL EVERY LOG IS READ IN, and the one place its shape is
+// drawn: a job's live log, a finished job's, and the system logs.
+//
+// THE WELL DOES NOT FADE; THE LINES INSIDE IT DO. The fade is a mask, and a mask
+// clips everything under it — so on the scrolling box itself it faded the well's
+// own background and border into the card, and a pane scrolled part-way looked
+// eaten at its edge. The owner, twice: "It is a recessed well. The log text should
+// be inside it and edgemasked, not the well!" So the well is a still box that holds
+// the paper, and the Scroller inside it holds only the lines.
+//
+// AND IT CARRIES ITS OWN COPY, a glyph floating in the top-right corner that stays
+// put while the lines scroll under it (the owner's, 30 September: "a hovering copy
+// button, no label ... in all the log boxes"). `copy` is asked for the text at the
+// press, so it copies what is in the well then, as a reader reads it; a well with
+// nothing in it has nothing to copy, and is handed none.
+const COPY_GLYPH = <IconCopy size={18} />
+
+function LogWell({ className = '', label, copy = null, innerRef = null, onScroll = undefined, children }) {
+  async function onCopy() {
+    const ok = await copyText(copy())
+    toast(ok ? t('common.toast.copied') : t('error.copy.generic'))
+  }
+  return (
+    <div className={`log-well ${className}`}>
+      {/* `role="log"` is what the thing is — lines appended in order — and a screen
+          reader treats one as a polite live region without anything bolted on. It
+          takes focus so a keyboard can scroll it: a pane only a wheel can move is a
+          pane half its readers cannot read. */}
+      <Scroller axis="v" drag={false} innerRef={innerRef} className="log-well-lines" role="log" aria-label={label} tabIndex={0} onScroll={onScroll}>
+        {children}
+      </Scroller>
+      {copy && <IconButton wrapClassName="log-well-copy" icon={COPY_GLYPH} ariaLabel={t('settings.logs.copy.aria')} onClick={onCopy} />}
+    </div>
+  )
+}
+
+// A line as it is read: the clock, a warning or an error named in words, then the
+// server's line. What the copy button puts on the clipboard, one line to a line.
+const logLineText = (l, level = null) => [formatClock(l.at), level, l.code, l.line].filter(Boolean).join(' ')
+
 function JobLog({ lines, trimmed = false, loaded = true, label, follow = false }) {
   const ref = useRef(null)
   const atEnd = useRef(true)
@@ -116,12 +158,10 @@ function JobLog({ lines, trimmed = false, loaded = true, label, follow = false }
     const el = ref.current
     if (el) atEnd.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 8
   }
+  const levelWord = (l) => (l.level === 'warn' || l.level === 'error' ? t(`settings.logs.level.${l.level}.label`) : null)
   return (
-    // `role="log"` is what the thing is — lines appended in order — and a screen
-    // reader treats one as a polite live region without anything bolted on. It
-    // takes focus so a keyboard can scroll it: a pane only a wheel can move is a
-    // pane half its readers cannot read.
-    <Scroller axis="v" drag={false} innerRef={ref} className="job-log" role="log" aria-label={label} tabIndex={0} onScroll={onScroll}>
+    <LogWell className="job-log" innerRef={ref} label={label} onScroll={onScroll}
+      copy={lines.length > 0 ? () => lines.map((l) => logLineText(l, levelWord(l))).join('\n') : null}>
       {trimmed && <p className="microcopy">{t('settings.jobs.log.trimmed')}</p>}
       {loaded && lines.length === 0 && <p className="microcopy">{t('settings.jobs.log.empty')}</p>}
       {lines.map((l) => (
@@ -145,7 +185,7 @@ function JobLog({ lines, trimmed = false, loaded = true, label, follow = false }
           </span>
         </div>
       ))}
-    </Scroller>
+    </LogWell>
   )
 }
 
@@ -651,6 +691,7 @@ export function SystemLogsCard({ q = '', onQuery = null }) {
             held — and the reason is said in words beside the row, because a
             tooltip is something a reader has to know to ask for. */}
         <ChipSwitches
+          row
           ariaLabel={t('settings.logs.level.aria')}
           options={LOG_LEVELS.map((l) => ({
             key: l,
@@ -683,7 +724,8 @@ export function SystemLogsCard({ q = '', onQuery = null }) {
       {error && <ErrorText>{error}</ErrorText>}
       {lines && lines.length === 0 && !error && <p className="microcopy">{t('settings.logs.empty')}</p>}
       {lines && lines.length > 0 && (
-        <Scroller axis="v" drag={false} className="job-log logs-pane" role="log" aria-label={t('settings.logs.lines.aria')} tabIndex={0}>
+        <LogWell className="job-log logs-pane" label={t('settings.logs.lines.aria')}
+          copy={() => lines.map((l) => logLineText(l, LOG_LEVELS.includes(l.level) ? t(`settings.logs.level.${l.level}.label`) : l.level)).join('\n')}>
           {lines.map((l) => (
             <div key={l.id} className={`job-log-line is-${l.level}`}>
               <span className="job-log-at">{formatClock(l.at)}</span>
@@ -692,11 +734,11 @@ export function SystemLogsCard({ q = '', onQuery = null }) {
                 {/* The code and the line are the server's words out of the table —
                     a request path, a TIP code, an error — not this screen's copy.
                     The space before them is text, as in a job's log. */}
-                <span data-content>{l.code ? `${l.code} ` : ''}{l.line}</span>
+                <span data-content>{l.code ? `${l.code} ` : ''}{breakable(l.line)}</span>
               </span>
             </div>
           ))}
-        </Scroller>
+        </LogWell>
       )}
       {more && (
         <GhostButton icon={<IconChevron size={16} />} keepLabel onClick={() => load(true)}>
@@ -710,13 +752,19 @@ export function SystemLogsCard({ q = '', onQuery = null }) {
           type on a phone, and a glyph beside a two-line label was centred between
           the two lines and squeezed narrower by the words next to it. */}
       <div className="job-actions logs-export">
-        <span className="microcopy">{t('common.action.export.label')}</span>
         <a className="tp-btn tp-btn-ghost tactile inline-flex items-center gap-2" href={systemLogsURL(filters)} download>
           <span className="logs-export-label"><IconExport />{t('settings.logs.export.shown.label')}</span>
         </a>
-        <a className="tp-btn tp-btn-ghost tactile inline-flex items-center gap-2" href={allSystemLogsURL()} download>
-          <span className="logs-export-label"><IconExport />{t('settings.logs.export.all.label')}</span>
-        </a>
+        {/* "ALL", AND ITS NAME SAYS ALL OF WHAT. The owner's, 30 September: no
+            "Export" word before the pair, and the second is "All", beside the
+            first. The glyph says export; the name a hover, a hold and a screen
+            reader get says it is everything the server keeps, which a bare word
+            cannot. */}
+        <Tooltip label={t('settings.logs.export.all.aria')}>
+          <a className="tp-btn tp-btn-ghost tactile inline-flex items-center gap-2" href={allSystemLogsURL()} download aria-label={t('settings.logs.export.all.aria')}>
+            <span className="logs-export-label"><IconExport />{t('settings.logs.export.all.label')}</span>
+          </a>
+        </Tooltip>
       </div>
     </JobsCard>
   )

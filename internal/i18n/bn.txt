@@ -5964,10 +5964,12 @@ settings.logs.range.month.label = গত 30 দিন
 settings.logs.search.placeholder = শব্দ
 settings.logs.search.aria = সিস্টেম লগে খুঁজুন
 settings.logs.lines.aria = সিস্টেম লগের লাইন
+settings.logs.copy.aria = লাইনগুলো কপি করুন
 settings.logs.empty = কোনও লাইন মেলেনি।
 settings.logs.more.label = আরও পুরোনো দেখান
 settings.logs.export.shown.label = যা দেখা যাচ্ছে
-settings.logs.export.all.label = রাখা সবকিছু (30 দিন)
+settings.logs.export.all.label = সব
+settings.logs.export.all.aria = রাখা সব লগ এক্সপোর্ট করুন (30 দিন)
 
 # ===========================================================================
 # SHARED VOCABULARY THE LAST THREE SCREENS ASKED FOR.

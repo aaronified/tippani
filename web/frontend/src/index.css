@@ -11940,11 +11940,12 @@ button.work-pill:hover { color: var(--ink); border-color: var(--ink-border); }
 .jobs-tallies { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; }
 .jobs-tile { align-items: center; }
 .jobs-filters { display: flex; gap: 8px; overflow-x: auto; overscroll-behavior-x: contain; padding: 2px 0 10px; }
-.job-log {
-  max-height: 18em;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding: .5em .75em;
+/* THE WELL IS STILL AND ITS LINES SCROLL (LogWell in jobsSection.jsx). The paper —
+   border, fill, radius, the mono face — is the well's; the height, the scroll and
+   the measured fade are the lines' box inside it, because the fade is a mask and a
+   mask clips: on the well it faded the well's own edge into the card. */
+.log-well {
+  position: relative;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: color-mix(in oklab, var(--raised), transparent 25%);
@@ -11955,7 +11956,23 @@ button.work-pill:hover { color: var(--ink); border-color: var(--ink-border); }
   line-height: 1.55;
   min-width: 0;
 }
-.logs-pane { max-height: 28em; }
+.log-well-lines {
+  max-height: 18em;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: .5em .75em;
+  min-width: 0;
+}
+.log-well.logs-pane .log-well-lines { max-height: 28em; }
+/* THE COPY FLOATS IN THE WELL'S TOP-RIGHT CORNER and stays there while the lines
+   scroll under it, on a face of the well's own fill so a line passing beneath it
+   does not show through the glyph. */
+.log-well-copy { position: absolute; top: 4px; inset-inline-end: 4px; z-index: 2; }
+/* NEVER SHORTER THAN THE COPY IT HOLDS: a well of one line was 30px, and the 44px
+   button floating in its corner hung out of its bottom onto the card. A well with
+   nothing to copy carries no button, and keeps its own height. */
+.log-well:has(> .log-well-copy) { min-height: calc(44px + 8px); }
+.log-well-copy .tp-btn { background: color-mix(in oklab, var(--raised), transparent 6%); }
 .job-log-line { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 0 .75em; }
 .job-log-at { color: var(--faint); }
 .job-log-text { overflow-wrap: anywhere; white-space: pre-wrap; min-width: 0; }
@@ -11980,6 +11997,10 @@ button.work-pill:hover { color: var(--ink); border-color: var(--ink-border); }
   color: var(--faint);
 }
 .logs-filters { display: grid; gap: 8px; margin-bottom: 10px; min-width: 0; }
+/* ChipSwitches' `row`: one line of chips that scrolls under the measured fade. A
+   chip keeps its width without a rule for it: a flex item never shrinks below its
+   content, and a chip's words do not wrap. */
+.chip-row { display: flex; align-items: center; gap: 8px; overflow-x: auto; overscroll-behavior-x: contain; min-width: 0; padding: 2px 0; }
 .logs-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
 .logs-export { margin-top: 10px; }
 /* THE LABEL WRAPS INSIDE ITS BUTTON, rather than the button running past the card.

@@ -6122,10 +6122,14 @@ settings.logs.range.month.label = Last 30 days
 settings.logs.search.placeholder = Keyword
 settings.logs.search.aria = Search the system logs
 settings.logs.lines.aria = System log lines
+# The glyph-only press floating in a log well's top-right corner: its name, to a hover, a hold and a screen reader.
+settings.logs.copy.aria = Copy these lines
 settings.logs.empty = No lines match.
 settings.logs.more.label = Load older
 settings.logs.export.shown.label = What is shown
-settings.logs.export.all.label = Everything kept (30 days)
+settings.logs.export.all.label = All
+# The name of that press, to a hover, a hold and a screen reader: all of what, and for how long.
+settings.logs.export.all.aria = Export all the logs kept (30 days)
 
 # ===========================================================================
 # SHARED VOCABULARY THE LAST THREE SCREENS ASKED FOR.

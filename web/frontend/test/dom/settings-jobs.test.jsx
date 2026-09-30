@@ -533,7 +533,7 @@ describe('System logs', () => {
     // The window the list was read over, as the server answered it.
     expect(Number(params.get('from'))).toBe(SERVER_NOW - 24 * HOUR)
     expect(params.get('upto')).toBe('41')
-    expect(within(logs).getByRole('link', { name: /Everything kept/ }).getAttribute('href')).toBe('/api/admin/logs.md?all=1')
+    expect(within(logs).getByRole('link', { name: /Export all the logs kept/ }).getAttribute('href')).toBe('/api/admin/logs.md?all=1')
   })
 
   // A BROWSER WHOSE CLOCK IS MONTHS BEHIND THE SERVER'S — the journey tier's is
