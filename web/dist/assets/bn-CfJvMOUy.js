@@ -3367,7 +3367,7 @@ common.work.resync.info.body = এই উৎস থেকে পুরো তথ
 common.work.resync.toast = সূত্র থেকে সব আবার আনা হল
 
 # THE INFO DOT ON EACH BOOK FIELD.
-book.field.author.info = এক লাইনে একাধিক লেখক লেখা যায়; মেটাডেটা › উৎস-এর বিভাজক চিহ্ন ঠিক করে কোথায় ভেঙে আলাদা মানুষ হবে।
+book.field.author.info = এক লাইনে একাধিক লেখক লেখা যায়; মেটাডেটা › সূত্র-এর বিভাজক চিহ্ন ঠিক করে কোথায় ভেঙে আলাদা মানুষ হবে।
 book.field.translator.info = কে অনুবাদ করেছেন। লেখকের মতোই তাঁর নিজের পাতা হয়, এই বইয়ের পাতায় নাম থাকে — কিন্তু গ্রন্থাগারে বা উদ্ধৃতিতে নয়।
 book.field.editor.info = কে সংকলন বা সম্পাদনা করেছেন — সংকলনে প্রায়ই এটাই আসল নাম। লেখকের লাইনের মতোই বিভাজক চিহ্ন খাটে।
 book.field.series.info = বইটা কোন সিরিজের। গ্রন্থাগারে এই ধরে সাজানো যায়, আর পাশের নম্বর ধরে ক্রম ঠিক হয়।
@@ -3515,7 +3515,7 @@ capture.lookup.empty = কিছু মিলল না
 capture.lookup.edition.none.label = সংস্করণের খবর নেই
 # ⚠ NAMES A SUPPLIER AND A SETTING. A game still searches WITHOUT a key — this
 # says what you are getting rather than that the lookup is off.
-capture.lookup.nokey.game = IGDB-র চাবি নেই — তাই Wikidata-য় খোঁজা হচ্ছে, সেখানে কভার প্রায় থাকে না। পুরো তথ্য পেতে মেটাডেটা › উৎস-এ Twitch-এর client id আর secret দিন; “নিজে হাতে যোগ করুন” সবসময় চলে।
+capture.lookup.nokey.game = IGDB-র চাবি নেই — তাই Wikidata-য় খোঁজা হচ্ছে, সেখানে কভার প্রায় থাকে না। পুরো তথ্য পেতে মেটাডেটা › সূত্র-এ Twitch-এর client id আর secret দিন; “নিজে হাতে যোগ করুন” সবসময় চলে।
 capture.lookup.nokey.film = সিনেমা খোঁজার চাবি বসানো নেই — নিচের “নিজে হাতে যোগ করুন” সবসময়ই চলে।
 # The two doors to hand entry: a real button once the lookup has let you down,
 # and a link that is always there.
@@ -5206,11 +5206,11 @@ metadata.section.people.info.body = লেখক, অভিনেতা, পর�
 metadata.section.characters.info.body = প্রতিটা চরিত্র — বই আর তার রূপান্তরে একই চরিত্র একটা রেকর্ডে। একই নামের দুজন নিজে থেকে মেলানো হয় না, এখানে দেখে নিন।
 metadata.section.languages.info.body = আপনার উদ্ধৃতিগুলো কোন কোন ভাষায়, আর প্রতিটা কীভাবে চিহ্নিত। উদ্ধৃতির ভাষাই ঠিক করে লেখা কোন দিক থেকে পড়া হবে।
 metadata.section.categories.info.body = রং বলে উদ্ধৃতিটা কী ধরনের নোট, ট্যাগ বলে সেটা কী নিয়ে, আর স্টিকার হলো উদ্ধৃতিতে লাগানোর চিহ্ন। রঙের নাম বদলালে শুধু দেখানো নামটাই বদলায়; এক্সপোর্টে আসল মান যেমন ছিল থাকে।
-metadata.section.sources.info.body = আনা তথ্য কোথা থেকে আসে। যে উৎসের চাবি লাগে, চাবি না দেওয়া পর্যন্ত সেটা বাদ থাকে।
+metadata.section.sources.info.body = আনা তথ্য কোথা থেকে আসে। যে সূত্রের চাবি লাগে, চাবি না দেওয়া পর্যন্ত সেটা বাদ থাকে।
 metadata.section.works.label = বই ও ছবি
 metadata.section.people.label = মানুষ
 metadata.section.characters.label = চরিত্র
-metadata.section.sources.label = উৎস
+metadata.section.sources.label = সূত্র
 metadata.section.languages.label = ভাষা
 metadata.section.categories.label = শ্রেণি
 metadata.categories.colours.title = রং
@@ -5668,12 +5668,12 @@ settings.keys.noun.domain = ডোমেন
 # a PIN, so it appears as itself.
 settings.keys.noun.pin = PIN
 
-settings.keys.google.hint = ঐচ্ছিক; দিনে মোটামুটি ১,০০০-এর বেশি খোঁজ হলে তবেই লাগে। console.cloud.google.com → Books API চালু করুন → একটা কী তৈরি করুন।
+settings.keys.google.hint = ঐচ্ছিক; দিনে মোটামুটি ১,০০০-এর বেশি খোঁজ হলে তবেই লাগে। console.cloud.google.com → Books API চালু করুন → একটা চাবি তৈরি করুন।
 settings.keys.google.placeholder = Google Books API চাবি — ঐচ্ছিক
-settings.keys.tmdb.hint = সিনেমা আর শো-এর জন্য, TheTVDB-র পরে চেষ্টা হয়। themoviedb.org → Settings → API → বিনামূল্যের v3 কী (v4 টোকেনেও চলে)। অ্যাপের ভেতরের ভাগ করা কী-র বদলে এটা খাটে।
+settings.keys.tmdb.hint = সিনেমা আর শো-এর জন্য, TheTVDB-র পরে চেষ্টা হয়। themoviedb.org → Settings → API → বিনামূল্যের v3 চাবি (v4 টোকেনেও চলে)। অ্যাপের ভেতরের ভাগ করা চাবির বদলে এটা খাটে।
 settings.keys.tmdb.placeholder = TMDB v3 চাবি বা v4 টোকেন — সঙ্গে আসাটাকে সরিয়ে দেয়
-settings.keys.tvdb.hint = সিনেমা আর শো-এর জন্য প্রথমেই এটা চেষ্টা হয়; চরিত্রের ছবি শুধু এখানেই মেলে। thetvdb.com → Dashboard → API keys। বিনামূল্যের কী হলে নিচের পিনও লাগবে।
-settings.keys.tvdb-pin.hint = শুধু বিনামূল্যের TheTVDB কী-র জন্য — পিন ছাড়া ওটা কাজ করে না। thetvdb.com → আপনার অ্যাকাউন্ট → Subscriber PIN।
+settings.keys.tvdb.hint = সিনেমা আর শো-এর জন্য প্রথমেই এটা চেষ্টা হয়; চরিত্রের ছবি শুধু এখানেই মেলে। thetvdb.com → Dashboard → API keys। বিনামূল্যের চাবি হলে নিচের পিনও লাগবে।
+settings.keys.tvdb-pin.hint = শুধু বিনামূল্যের TheTVDB চাবির জন্য — পিন ছাড়া ওটা কাজ করে না। thetvdb.com → আপনার অ্যাকাউন্ট → Subscriber PIN।
 settings.keys.tvdb-pin.placeholder = TheTVDB subscriber PIN — শুধু বিনা পয়সার চাবির জন্য
 settings.keys.tvdb.placeholder = TheTVDB v4 API চাবি — ঐচ্ছিক
 settings.keys.igdb-id.hint = শুধু গেমের জন্য; IGDB-তে ঢুকতে হয় Twitch দিয়ে। dev.twitch.tv/console → Register Your Application → client ID কপি করুন। নিচের সিক্রেটও লাগবে।
@@ -5696,7 +5696,7 @@ settings.keys.amazon-domain.placeholder = com
 # THE HEADING IS SHORT AND THE ARIA IS WHOLE — see en.txt.
 settings.keys.google-scrape.title = গুগল ছবির ফল
 settings.keys.google-scrape.aria = গুগল ছবির ফল সরাসরি পড়া হবে
-settings.keys.google-scrape.info.body = অন্য কোনো উৎসে ছবি না মিললে তবেই এটা কাজে লাগে। কী লাগে না, কিন্তু অনুরোধ যায় এই সার্ভার থেকে — Google আটকালে বা সীমা বসালে এখানকার সবার অসুবিধা হবে। শুরুতে বন্ধ থাকে।
+settings.keys.google-scrape.info.body = অন্য কোনো সূত্রে ছবি না মিললে তবেই এটা কাজে লাগে। চাবি লাগে না, কিন্তু অনুরোধ যায় এই সার্ভার থেকে — Google আটকালে বা সীমা বসালে এখানকার সবার অসুবিধা হবে। শুরুতে বন্ধ থাকে।
 
 # --- the row's own controls. A secret is write-only, so "stored" is the whole of
 # what can be reported about one; a non-secret shows its value instead.
@@ -5710,9 +5710,9 @@ metadata.work.goto.aria = {title}-এ যান
 settings.keys.card.info = বই, ফিল্ম, গেম আর ছবির জন্য অ্যাপ যাদের জিজ্ঞেস করে, তাদের সবাই। চাবিগুলো সার্ভারে রাখা থাকে আর সব অ্যাকাউন্ট ভাগ করে ব্যবহার করে, তাই শুধু একজন অ্যাডমিন সেগুলো দেখতে বা বদলাতে পারেন।
 settings.keys.saved.tip = সেভ আছে
 
-settings.sources.group.title = সব উৎস
-settings.sources.need-key.prose.one = {count}টির জন্য আগে একটা কী লাগবে, তবেই জিজ্ঞেস করা যাবে
-settings.sources.need-key.prose.other = {count}টির জন্য আগে কী লাগবে, তবেই জিজ্ঞেস করা যাবে
+settings.sources.group.title = সব সূত্র
+settings.sources.need-key.prose.one = {count}টির জন্য আগে একটা চাবি লাগবে, তবেই জিজ্ঞেস করা যাবে
+settings.sources.need-key.prose.other = {count}টির জন্য আগে চাবি লাগবে, তবেই জিজ্ঞেস করা যাবে
 settings.sources.records.tip.one = আপনার লাইব্রেরির {count}টি ঘর {source} থেকে এসেছে
 settings.sources.records.tip.other = আপনার লাইব্রেরির {count}টি ঘর {source} থেকে এসেছে
 settings.sources.records.none.tip = {source} থেকে এখনও কিছু আসেনি
@@ -5721,7 +5721,7 @@ settings.sources.test.tip = {source}-এর কাছে নিশ্চিত �
 settings.sources.test.off.tip = {source}-কে জিজ্ঞেস করতে এই সারির সেটআপে "গুগল ছবির ফল" চালু করুন
 settings.sources.setup.aria = {source} সেটআপ করুন
 settings.sources.test-all.label = সব পরীক্ষা করুন
-settings.sources.test-all.tip = এই সার্ভারে যে উৎসগুলোকে জিজ্ঞেস করা যায়, প্রত্যেককে জিজ্ঞেস করা হবে
+settings.sources.test-all.tip = এই সার্ভারে যে সূত্রগুলোকে জিজ্ঞেস করা যায়, প্রত্যেককে জিজ্ঞেস করা হবে
 settings.sources.testing.label = জিজ্ঞেস করা হচ্ছে…
 settings.sources.answered.label = উত্তর এসেছে · {n}টি পাওয়া গেছে
 settings.sources.empty.label = উত্তর এসেছে · কিছু পাওয়া যায়নি
@@ -5850,6 +5850,8 @@ settings.jobs.log.trimmed = শুরুর দিকের লাইনগু�
 
 # --- Current jobs: what is running and what waits behind it.
 settings.jobs.current.title = চলতি কাজ
+settings.jobs.current.log.aria = চলতি লগ: {title}
+settings.jobs.current.log.copy.aria = চলতি লগ কপি: {title}
 # The words beside the two counts in the card's head: "1 running", "3 waiting".
 # bn: বাকি, the word v3.7 gave to a thing still to be done — a job cannot wait.
 settings.jobs.current.running.word = চলছে
@@ -5904,8 +5906,12 @@ settings.jobs.common.backup.label = এখনই ব্যাকআপ নেও
 # bn: "seals" is এনক্রিপ্ট করা (v3.1); একমাত্র আর্কাইভ, since the server keeps only the newest
 settings.jobs.common.backup.prose = পুরো সংগ্রহ এনক্রিপ্ট করে সার্ভারের একমাত্র আর্কাইভে রাখে।
 settings.jobs.common.fill-all.pending = — পূরণযোগ্য শূন্যস্থান আছে
+settings.jobs.common.fill-all.pending.none = পূরণ করার মতো কিছু নেই
+settings.jobs.common.fill-all.blocked.one = — আগে একটা সূত্র লাগবে
+settings.jobs.common.fill-all.blocked.other = — আগে একটা সূত্র লাগবে
 settings.jobs.common.people-missing.pending = — ছবি বা লিংক নেই
 settings.jobs.common.covers.pending = — কভার বা পোস্টার নেই
+settings.jobs.common.covers.pending.none = আনার মতো কিছু নেই
 settings.jobs.common.pending.none = কিছুই বাকি নেই
 settings.jobs.common.run.label = চালান
 settings.jobs.common.again.label = আবার চালান
