@@ -6311,6 +6311,7 @@ common.field.identity.label = Identity
 # Identifiers, which appear as themselves in every language.
 common.field.tmdb-id.label = TMDB id
 common.field.tvdb-id.label = TheTVDB id
+common.field.igdb-id.label = IGDB id
 
 common.field.board.label = Board
 capture.board.default.label = Your default board

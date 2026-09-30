@@ -195,6 +195,7 @@ type providerKeys struct {
 	googleBooks, amazonCookie, amazonDomain string
 	tmdb                                    *metadata.TMDB
 	tvdb                                    *metadata.TVDB
+	igdb                                    *metadata.IGDB
 }
 
 // providerKeys reads them. It was the same ten lines in the fill, the covers pass
@@ -227,6 +228,7 @@ func (s *Server) providerKeys() (providerKeys, error) {
 	}
 	k.tmdb, _ = s.resolveTMDB()
 	k.tvdb, _ = s.resolveTVDB()
+	k.igdb, _ = s.resolveIGDB()
 	return k, errors.Join(errs...)
 }
 

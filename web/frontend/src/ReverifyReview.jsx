@@ -70,6 +70,7 @@ const FIELD_KEYS = {
   identity: 'common.field.identity.label',
   tmdb_id: 'common.field.tmdb-id.label',
   tvdb_id: 'common.field.tvdb-id.label',
+  igdb_id: 'common.field.igdb-id.label',
 }
 
 // fieldName — the reader's word for a diff row. The fallback is the old

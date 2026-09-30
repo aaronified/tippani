@@ -11,6 +11,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"tippani/internal/jobs"
 	"tippani/internal/metadata"
@@ -190,7 +191,7 @@ func (s *Server) handleMetadataReverify(w http.ResponseWriter, r *http.Request) 
 		items = append(items, s.reverifyBook(ctx, uid, id, keys.googleBooks, keys.amazonCookie, keys.amazonDomain, req.Offers))
 	}
 	for _, id := range req.MovieIDs {
-		items = append(items, s.reverifyMovie(ctx, uid, id, keys.tmdb, keys.tvdb, req.Offers))
+		items = append(items, s.reverifyMovie(ctx, uid, id, keys.tmdb, keys.tvdb, keys.igdb, req.Offers))
 	}
 	for _, p := range req.People {
 		items = append(items, s.reverifyPerson(ctx, uid, strings.TrimSpace(p.Kind), strings.TrimSpace(p.Name)))
@@ -257,7 +258,7 @@ func runReverify(s *Server, ctx context.Context, j *jobs.Job) error {
 		})
 	}
 	for _, id := range p.MovieIDs {
-		checks = append(checks, func() reverifyItem { return s.reverifyMovie(ctx, uid, id, keys.tmdb, keys.tvdb, false) })
+		checks = append(checks, func() reverifyItem { return s.reverifyMovie(ctx, uid, id, keys.tmdb, keys.tvdb, keys.igdb, false) })
 	}
 	for _, who := range p.People {
 		checks = append(checks, func() reverifyItem { return s.reverifyPerson(ctx, uid, who.Kind, who.Name) })
@@ -697,7 +698,7 @@ func attachBookAlts(diffs []fieldDiff, cands []metadata.BookCandidate) {
 type storedMovie struct {
 	title, director, desc, mediaType, series, poster, fandomWiki string
 	year                                                         int
-	tmdbID, tvdbID                                               int64
+	tmdbID, tvdbID, igdbID                                       int64
 	genres                                                       []string
 }
 
@@ -707,9 +708,9 @@ func (s *Server) readStoredMovie(uid, id int64) (storedMovie, error) {
 	err := s.Store.DB.QueryRow(`
 		SELECT title, COALESCE(director,''), COALESCE(release_year,0), COALESCE(description,''),
 		       COALESCE(media_type,'movie'), COALESCE(series,''), COALESCE(tmdb_id,0), COALESCE(tvdb_id,0),
-		       COALESCE(poster_path,''), COALESCE(fandom_wiki,'')
+		       COALESCE(igdb_id,0), COALESCE(poster_path,''), COALESCE(fandom_wiki,'')
 		FROM movies WHERE id = ? AND user_id = ?`, id, uid).
-		Scan(&m.title, &m.director, &m.year, &m.desc, &m.mediaType, &m.series, &m.tmdbID, &m.tvdbID, &m.poster, &m.fandomWiki)
+		Scan(&m.title, &m.director, &m.year, &m.desc, &m.mediaType, &m.series, &m.tmdbID, &m.tvdbID, &m.igdbID, &m.poster, &m.fandomWiki)
 	if err != nil {
 		return m, err
 	}
@@ -726,11 +727,11 @@ func storedMovieFields(m storedMovie) map[string]any {
 	return map[string]any{
 		"title": trim(m.title), "director": trim(m.director), "description": trim(m.desc),
 		"release_year": m.year, "genres": m.genres, "series": trim(m.series),
-		"poster": m.poster, "tmdb_id": m.tmdbID, "tvdb_id": m.tvdbID,
+		"poster": m.poster, "tmdb_id": m.tmdbID, "tvdb_id": m.tvdbID, "igdb_id": m.igdbID,
 	}
 }
 
-func (s *Server) reverifyMovie(ctx context.Context, uid, id int64, tmdb *metadata.TMDB, tvdb *metadata.TVDB, withOffers bool) reverifyItem {
+func (s *Server) reverifyMovie(ctx context.Context, uid, id int64, tmdb *metadata.TMDB, tvdb *metadata.TVDB, igdb *metadata.IGDB, withOffers bool) reverifyItem {
 	it := reverifyItem{Type: "movie", ID: id, Status: "ok", Diffs: []fieldDiff{}}
 	m, err := s.readStoredMovie(uid, id)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -743,9 +744,40 @@ func (s *Server) reverifyMovie(ctx context.Context, uid, id int64, tmdb *metadat
 		return it
 	}
 	title, director, desc, mediaType, series, poster, fandomWiki := m.title, m.director, m.desc, m.mediaType, m.series, m.poster, m.fandomWiki
-	year, tmdbID, tvdbID, genres := m.year, m.tmdbID, m.tvdbID, m.genres
+	year, tmdbID, tvdbID, igdbID, genres := m.year, m.tmdbID, m.tvdbID, m.igdbID, m.genres
 	it.Title = title
 	st := storedMovieFields(m)
+
+	// A GAME IS IGDB'S, AND ONE WITH NO ID IS LOOKED FOR THERE. The owner, over a
+	// fill that said «The Witcher 3: Wild Hunt» had "no pinned identity (TMDB/TheTVDB
+	// id)": "This is a game. Why should there be a pinned identity in TMDB and TVDB?
+	// This is supposed to be searched in IGDB and resolved there." This path read a
+	// film's two ids and never a game's, so every game ended unpinned, a game added
+	// from IGDB included.
+	//
+	// A FILM WITH NO ID IS STILL NEVER GUESSED BY NAME, and a game is resolved only
+	// when the guess is not one: IGDB's search is asked, and the id is taken when
+	// exactly one game there is called exactly this (and came out in its year, when
+	// the work has one). Several of that name, or none, is said in words and left to
+	// Look up. The id the search found is offered back as a diff like any other
+	// field, so a fill writes it and the next run asks IGDB by id.
+	if mediaType == "game" && igdbID == 0 && tmdbID == 0 && tvdbID == 0 {
+		if igdb == nil {
+			it.Status = "unpinned"
+			it.Error = "games are looked up in IGDB, which needs its client id and secret — add them in Metadata › Sources"
+			return it
+		}
+		found, why, rerr := s.resolveGameByTitle(ctx, uid, id, igdb, title, year)
+		if rerr != nil {
+			it.Status, it.Error = "fetch_failed", reverifyLookupError("game search", rerr)
+			return it
+		}
+		if found == 0 {
+			it.Status, it.Error = "unpinned", why
+			return it
+		}
+		igdbID = found
+	}
 
 	// EVERY SUPPLIER THIS WORK IS PINNED TO, not just the winning one.
 	//
@@ -763,14 +795,14 @@ func (s *Server) reverifyMovie(ctx context.Context, uid, id int64, tmdb *metadat
 	// answers, the reader gets TMDB's values rather than an error — which is the
 	// same best-effort rule the picture ladder and the catalogue lookups follow.
 	// It is only fetch_failed when NOBODY answered.
-	fetched, lerr := s.fetchAllMovieSources(ctx, uid, id, mediaType, title, fandomWiki, series, tmdbID, tvdbID, tmdb, tvdb)
+	fetched, lerr := s.fetchAllMovieSources(ctx, uid, id, mediaType, title, fandomWiki, series, tmdbID, tvdbID, igdbID, tmdb, tvdb, igdb)
 	switch {
 	case len(fetched) > 0:
 		// at least one supplier answered
 	case lerr != nil:
 		it.Status, it.Error = "fetch_failed", reverifyLookupError("movie details", lerr)
 		return it
-	case tmdbID != 0 || tvdbID != 0:
+	case tmdbID != 0 || tvdbID != 0 || igdbID != 0:
 		it.Status = "fetch_failed"
 		it.Error = "the pinned source needs its key — add it in Settings → Metadata sources"
 		return it
@@ -828,6 +860,11 @@ func (s *Server) reverifyMovie(ctx context.Context, uid, id int64, tmdb *metadat
 	if det.TVDBID != 0 && det.TVDBID != tvdbID {
 		d = append(d, fieldDiff{Field: "tvdb_id", Stored: st["tvdb_id"], Fresh: det.TVDBID})
 	}
+	// Against what is STORED, not the id a title search just found: a game resolved
+	// above carries its new id here, and that diff is how the pin is written.
+	if det.IGDBID != 0 && det.IGDBID != m.igdbID {
+		d = append(d, fieldDiff{Field: "igdb_id", Stored: st["igdb_id"], Fresh: det.IGDBID})
+	}
 	// WHAT EACH SUPPLIER SAID, attached once the diff list is settled rather than
 	// woven into each comparison above. Two reasons: the comparisons decide
 	// whether a field DIFFERS from what is stored, which is a separate question
@@ -867,7 +904,7 @@ var movieAltPickers = map[string]func(*metadata.MovieDetails) any{
 	"genres":       func(d *metadata.MovieDetails) any { return cappedGenres(d.Genres) },
 	"cast":         func(d *metadata.MovieDetails) any { return d.Cast },
 	"poster":       func(d *metadata.MovieDetails) any { return d.PosterURL },
-	// tmdb_id and tvdb_id are deliberately absent: each names its own supplier, so
+	// tmdb_id, tvdb_id and igdb_id are deliberately absent: each names its own supplier, so
 	// "TheTVDB says the tmdb_id is 603" is not an alternative anybody can weigh.
 }
 
@@ -1289,6 +1326,7 @@ var reverifyBookFields = map[string]bool{
 var reverifyMovieFields = map[string]bool{
 	"title": true, "director": true, "description": true, "release_year": true,
 	"genres": true, "series": true, "cast": true, "poster": true, "tmdb_id": true, "tvdb_id": true,
+	"igdb_id": true,
 }
 
 func (s *Server) applyReverifyBook(ctx context.Context, uid, id int64, set map[string]json.RawMessage, source string, sources map[string]string) (note string, err error) {
@@ -1548,7 +1586,7 @@ func (s *Server) applyReverifyMovie(ctx context.Context, uid, id int64, set map[
 		cols = append(cols, "release_year = ?")
 		args = append(args, nullableInt(y))
 	}
-	for _, idf := range []string{"tmdb_id", "tvdb_id"} {
+	for _, idf := range []string{"tmdb_id", "tvdb_id", "igdb_id"} {
 		if v, present, derr := decodeSet[int64](set, idf); derr != nil {
 			return "", derr
 		} else if present {
@@ -1924,7 +1962,7 @@ func knownBookSource(source string) string {
 // for, in preference order. Returns the answers that came back plus the last
 // error, so the caller can tell "nobody answered" from "nobody was asked".
 func (s *Server) fetchAllMovieSources(ctx context.Context, uid, id int64, mediaType, title, storedWiki, series string,
-	tmdbID, tvdbID int64, tmdb *metadata.TMDB, tvdb *metadata.TVDB) ([]fetchedSource, error) {
+	tmdbID, tvdbID, igdbID int64, tmdb *metadata.TMDB, tvdb *metadata.TVDB, igdb *metadata.IGDB) ([]fetchedSource, error) {
 	var out []fetchedSource
 	var lastErr error
 	add := func(source, sourceID string, det *metadata.MovieDetails, err error) {
@@ -1968,6 +2006,16 @@ func (s *Server) fetchAllMovieSources(ctx context.Context, uid, id int64, mediaT
 			det, err := tmdb.Details(ctx, tmdbID)
 			add("tmdb", id, det, err)
 		}
+	}
+	if ctx.Err() != nil {
+		return out, ctx.Err()
+	}
+	// A GAME'S RECORD, BY ITS IGDB ID. Last of the three in preferredSourceFor's
+	// order, which only matters for a work carrying a film id as well.
+	if igdbID != 0 && igdb != nil {
+		id := strconv.FormatInt(igdbID, 10)
+		det, err := igdb.Details(ctx, id)
+		add("igdb", id, det, err)
 	}
 	// THE KEYLESS RUNGS, BELOW THE PINNED ONES AND ONLY WHEN THERE IS ALREADY A
 	// PINNED ONE.
@@ -2056,4 +2104,66 @@ func knownMovieSource(source string) string {
 		return strings.TrimSpace(source)
 	}
 	return ""
+}
+
+// resolveGameByTitle asks IGDB for a game with no id of its own, and answers the
+// one id that is exactly it, or 0 and why not in words the reader can act on.
+//
+// EXACTLY IT: the same title, compared with case, punctuation and spacing folded
+// (gameTitleKey) and nothing cut, so "The Witcher 3: Wild Hunt" is not its Game of
+// the Year edition; and the same year when the work has one and IGDB does. The
+// search is recorded where every lookup is, so the Sources row says what IGDB last
+// said. An id another of this reader's works already carries is not taken: igdb_id
+// is unique per reader, and the write would fail.
+func (s *Server) resolveGameByTitle(ctx context.Context, uid, workID int64, igdb *metadata.IGDB, title string, year int) (int64, string, error) {
+	cands, err := igdb.Search(ctx, title, year)
+	s.recordLookup(faultAreaGames, "igdb", len(cands), "", err)
+	if err != nil {
+		return 0, "", err
+	}
+	want := gameTitleKey(title)
+	var hits []metadata.MovieCandidate
+	for _, c := range cands {
+		if gameTitleKey(c.Title) == want && (year == 0 || c.ReleaseYear == 0 || c.ReleaseYear == year) {
+			hits = append(hits, c)
+		}
+	}
+	switch {
+	case len(hits) == 0:
+		return 0, "IGDB has no game called exactly this — use Look up to pin it", nil
+	case len(hits) > 1:
+		return 0, "IGDB has several games called exactly this — use Look up to choose one", nil
+	}
+	n, perr := strconv.ParseInt(hits[0].SourceID, 10, 64)
+	if perr != nil || n <= 0 {
+		return 0, "IGDB answered with an id this app cannot read — use Look up to pin it", nil
+	}
+	var other string
+	switch qerr := s.Store.DB.QueryRow(`SELECT title FROM movies WHERE user_id = ? AND igdb_id = ? AND id <> ?`, uid, n, workID).Scan(&other); {
+	case qerr == nil:
+		return 0, "IGDB's game by this title is already «" + other + "» in your library — use Look up to choose another", nil
+	case !errors.Is(qerr, sql.ErrNoRows):
+		return 0, "", qerr
+	}
+	return n, "", nil
+}
+
+// gameTitleKey folds a title for an exact comparison: lower case, letters and
+// digits kept, every run of anything else one space. Unlike normalizeTitle it
+// keeps the subtitle, which is what tells a game from its re-releases.
+func gameTitleKey(s string) string {
+	var b strings.Builder
+	gap := false
+	for _, r := range strings.ToLower(s) {
+		if unicode.IsLetter(r) || unicode.IsNumber(r) {
+			if gap && b.Len() > 0 {
+				b.WriteByte(' ')
+			}
+			b.WriteRune(r)
+			gap = false
+			continue
+		}
+		gap = true
+	}
+	return b.String()
 }

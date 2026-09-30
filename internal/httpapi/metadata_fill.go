@@ -143,7 +143,7 @@ func (s *Server) handleMetadataFill(w http.ResponseWriter, r *http.Request) {
 		countFill(&filled, &failed, res)
 	}
 	for _, id := range req.MovieIDs {
-		res := s.fillOne(ctx, uid, s.reverifyMovie(ctx, uid, id, keys.tmdb, keys.tvdb, false))
+		res := s.fillOne(ctx, uid, s.reverifyMovie(ctx, uid, id, keys.tmdb, keys.tvdb, keys.igdb, false))
 		results = append(results, res)
 		countFill(&filled, &failed, res)
 	}
@@ -218,7 +218,7 @@ func runFill(s *Server, ctx context.Context, j *jobs.Job) error {
 		if w.kind == "book" {
 			it = s.reverifyBook(ctx, uid, w.id, keys.googleBooks, keys.amazonCookie, keys.amazonDomain, false)
 		} else {
-			it = s.reverifyMovie(ctx, uid, w.id, keys.tmdb, keys.tvdb, false)
+			it = s.reverifyMovie(ctx, uid, w.id, keys.tmdb, keys.tvdb, keys.igdb, false)
 		}
 		if ctx.Err() != nil {
 			abandoned(j, itemName(w.kind, w.id, it.Title))

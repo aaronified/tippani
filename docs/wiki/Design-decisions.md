@@ -19880,3 +19880,18 @@ until then and its tip names the switch. Amazon's product page is read only with
 that consents to it; without one the Test asks the keyless cover address, which is what the app
 uses. The screen's own copy of the testable list went with the change, and
 `test/rules/testable-sources.test.js` now holds the server's list to every row instead.
+
+**A game's fill and re-verify ask IGDB, and a game with no id is resolved by an exact IGDB
+title.** The owner, over a fill that said «The Witcher 3: Wild Hunt» had "no pinned identity
+(TMDB/TheTVDB id)": "This is a game. Why should there be a pinned identity in TMDB and TVDB?
+This is supposed to be searched in IGDB and resolved there." The re-verify path, which the fill
+also runs, read a film's two ids and never a game's `igdb_id`, so every game ended unpinned,
+one added from IGDB included. It now reads the id and asks IGDB for the record by it. A game
+with no id is the one departure from "never re-guess by name": IGDB's search is asked, and the
+id is taken only when exactly one game there has the same title, compared with case,
+punctuation and spacing folded and the subtitle kept (so the base game is not its Game of the
+Year edition), and the same year when both have one. Several of that name, none, or one another
+of the reader's works already carries is said in words and left to Look up. The id is offered
+back as an `igdb_id` diff like any other field, so a fill writes it and the next run asks by id.
+A film with no id is still never guessed: a film title is shared far more often than a game's,
+and the reader has TMDB and TheTVDB's Look up for it.
