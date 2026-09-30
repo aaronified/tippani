@@ -5707,7 +5707,7 @@ settings.keys.need.optional.label = ইচ্ছেমতো
 settings.keys.legend.label = চিহ্ন যা বলে
 metadata.work.goto.label = রচনাটিতে যান
 metadata.work.goto.aria = {title}-এ যান
-settings.keys.card.info = বই, ফিল্ম, গেম আর ছবির জন্য অ্যাপ যাদের জিজ্ঞেস করে, তাদের সবাই। কী-গুলো সার্ভারে রাখা থাকে আর সব অ্যাকাউন্ট ভাগ করে ব্যবহার করে, তাই শুধু একজন অ্যাডমিন সেগুলো দেখতে বা বদলাতে পারেন।
+settings.keys.card.info = বই, ফিল্ম, গেম আর ছবির জন্য অ্যাপ যাদের জিজ্ঞেস করে, তাদের সবাই। চাবিগুলো সার্ভারে রাখা থাকে আর সব অ্যাকাউন্ট ভাগ করে ব্যবহার করে, তাই শুধু একজন অ্যাডমিন সেগুলো দেখতে বা বদলাতে পারেন।
 settings.keys.saved.tip = সেভ আছে
 
 settings.sources.group.title = সব উৎস
@@ -5719,7 +5719,7 @@ settings.sources.records.none.tip = {source} থেকে এখনও কিছ
 settings.sources.test.aria = {source}-কে একটা পরীক্ষামূলক প্রশ্ন করুন
 settings.sources.test.tip = {source}-এর কাছে নিশ্চিত থাকা একটা জিনিস চেয়ে দেখা হবে, আর যা আসবে তা জানানো হবে
 settings.sources.test.off.tip = {source}-কে জিজ্ঞেস করতে এই সারির সেটআপে "গুগল ছবির ফল" চালু করুন
-settings.sources.setup.aria = {source} সেট আপ করুন
+settings.sources.setup.aria = {source} সেটআপ করুন
 settings.sources.test-all.label = সব পরীক্ষা করুন
 settings.sources.test-all.tip = এই সার্ভারে যে উৎসগুলোকে জিজ্ঞেস করা যায়, প্রত্যেককে জিজ্ঞেস করা হবে
 settings.sources.testing.label = জিজ্ঞেস করা হচ্ছে…
@@ -5844,7 +5844,7 @@ settings.jobs.took.h = {h}h {m}m
 # --- a job's log, in its row. {title} is the job's name from the list above.
 # bn: the hole stays bare (§5.4), so the frame puts the name after a colon.
 settings.jobs.log.aria = লগ: {title}
-settings.jobs.log.copy.aria = {title}-এর লগ কপি করুন
+settings.jobs.log.copy.aria = লগ কপি: {title}
 settings.jobs.log.empty = এখনও কিছু লেখা হয়নি।
 settings.jobs.log.trimmed = শুরুর দিকের লাইনগুলো এক্সপোর্টে আছে।
 
@@ -5903,7 +5903,7 @@ settings.jobs.common.covers.prose = পুরো সংগ্রহ জুড়
 settings.jobs.common.backup.label = এখনই ব্যাকআপ নেওয়া
 # bn: "seals" is এনক্রিপ্ট করা (v3.1); একমাত্র আর্কাইভ, since the server keeps only the newest
 settings.jobs.common.backup.prose = পুরো সংগ্রহ এনক্রিপ্ট করে সার্ভারের একমাত্র আর্কাইভে রাখে।
-settings.jobs.common.fill-all.pending = অসম্পূর্ণ
+settings.jobs.common.fill-all.pending = — পূরণযোগ্য শূন্যস্থান আছে
 settings.jobs.common.people-missing.pending = — ছবি বা লিংক নেই
 settings.jobs.common.covers.pending = — কভার বা পোস্টার নেই
 settings.jobs.common.pending.none = কিছুই বাকি নেই
@@ -5922,6 +5922,8 @@ settings.jobs.common.stop.aria = থামান: {title}
 # drawn after this word; {state} and {when} are the same two in the button's name.
 settings.jobs.common.last.label = শেষবার
 settings.jobs.common.last.aria = শেষবার: {title} — {state}, {when}
+settings.jobs.common.log.aria = শেষবারের লগ: {title}
+settings.jobs.common.log.copy.aria = শেষবারের লগ কপি: {title}
 settings.jobs.common.never = গত 30 দিনে চালানো হয়নি
 # A server that runs no jobs (a test server's, the daily-deck command's) has no row to offer.
 settings.jobs.common.empty = এই সার্ভারে এখান থেকে কিছুই চালানো যায় না।
