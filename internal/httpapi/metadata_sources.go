@@ -24,7 +24,11 @@ package httpapi
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"net/http"
+	"slices"
+	"sync"
 	"time"
 
 	"tippani/internal/metadata"
@@ -283,26 +287,61 @@ const (
 	probeWiki      = "harrypotter"
 )
 
-// testSource asks one supplier, records the outcome where every other lookup
-// records it, and says what happened.
-// The second return is false when the supplier could not be asked at all — no key
-// — which is NOT the same as a supplier that was asked and did not answer.
+// testedWith names the probe that answers for a supplier with no probe of its own.
+//
+// ONE BOOK SEARCH ASKS BOTH BOOK SUPPLIERS, and each is recorded with its own
+// answer (recordBooksLookup says how). Test all ran it twice, once per row, which
+// spent Google's quota twice and recorded each supplier twice for one press.
+var testedWith = map[string]string{"openlibrary": "google"}
+
+// testDeadline bounds a whole press. The server's write timeout is 60 seconds
+// (cmd/tippani), each outbound call may take 10, and a slow rung makes several —
+// asked one after another, twelve suppliers could run past the timeout and the
+// reply be cut off with none of their answers in it. So they are asked together,
+// and a supplier still quiet at the deadline is recorded as quiet. A variable
+// only so a test can shorten it.
+var testDeadline = 30 * time.Second
+
+// quietBy names a failure the deadline caused as that, rather than as whichever
+// transport error the cancelled call happened to surface.
+func quietBy(ctx context.Context, err error) error {
+	if err != nil && errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		return fmt.Errorf("no answer within %s", testDeadline)
+	}
+	return err
+}
+
+// testSource asks one supplier and records the outcome where every other lookup
+// records it. False means it could not be asked at all — no key — which is NOT
+// the same as a supplier that was asked and did not answer.
 //
 // A RATING FOUND THIS SILENT. It used to fall through, record nothing, and hand
 // back a row with no `last` on it: pressing Test on a keyless TMDB said absolutely
 // nothing, which is the one thing a button must never do. The screen disables the
 // press for a row in that state, and this is the other half of the same fact, for
 // the race where a key is cleared between the render and the press.
-func (s *Server) testSource(ctx context.Context, uid int64, slug string) (sourceRow, bool) {
+func (s *Server) testSource(ctx context.Context, slug string) bool {
+	record := func(area string, found int, note string, err error) {
+		s.recordLookup(area, slug, found, note, quietBy(ctx, err))
+	}
+	// reached is for the five rungs that report nothing on failure: when one
+	// found nothing, whether its host answered is what separates "found nothing"
+	// from "could not be asked" (metadata.Reachable says why).
+	reached := func(area string, found int, note, wiki string) {
+		var err error
+		if found == 0 {
+			err = metadata.Reachable(ctx, slug, wiki)
+		}
+		record(area, found, note, err)
+	}
 	switch slug {
-	case "google", "openlibrary":
+	case "google":
 		gkey, _ := s.Store.GetSetting(settingGoogleBooksKey)
 		// THE SAME SEAM EVERY BOOK LOOKUP GOES THROUGH, not metadata.SearchBooks
 		// directly. A Test that reached past the seam would be a second way of
-		// asking, and the whole argument above is that there must not be one. One
-		// search asks both, and each is recorded with its own answer.
+		// asking, and the whole argument above is that there must not be one.
 		cands, err := s.searchBooks(ctx, "", probeBook, "", gkey)
-		s.recordBooksLookup(cands, err)
+		s.recordBooksLookup(cands, quietBy(ctx, err))
 	case "amazon":
 		if cookie, _ := s.Store.GetSetting(settingAmazonCookie); cookie != "" {
 			domain, _ := s.Store.GetSetting(settingAmazonDomain)
@@ -311,7 +350,7 @@ func (s *Server) testSource(ctx context.Context, uid int64, slug string) (source
 			if err == nil && a != nil {
 				found = 1
 			}
-			s.recordLookup(faultAreaBooks, "amazon", found, "", err)
+			record(faultAreaBooks, found, "", err)
 			break
 		}
 		found := 0
@@ -320,43 +359,47 @@ func (s *Server) testSource(ctx context.Context, uid int64, slug string) (source
 				found++
 			}
 		}
-		s.recordLookup(faultAreaPictures, "amazon", found, "", nil)
+		reached(faultAreaPictures, found, "", "")
 	case "tmdb":
 		client, _ := s.resolveTMDB()
 		if client == nil {
-			return sourceRow{}, false
+			return false
 		}
 		cands, err := client.Search(ctx, probeFilm, 0)
-		s.recordLookup(faultAreaFilms, "tmdb", len(cands), "", err)
+		record(faultAreaFilms, len(cands), "", err)
 	case "tvdb":
 		client, _ := s.resolveTVDB()
 		if client == nil {
-			return sourceRow{}, false
+			return false
 		}
 		cands, err := client.Search(ctx, probeFilm, 0, "movie")
-		s.recordLookup(faultAreaFilms, "tvdb", len(cands), "", err)
+		record(faultAreaFilms, len(cands), "", err)
 	case "imdb":
 		_, cast, err := metadata.IMDbCast(ctx, probeIMDb)
-		s.recordLookup(faultAreaFilms, "imdb", len(cast), "", err)
+		record(faultAreaFilms, len(cast), "", err)
 	case "letterboxd":
 		// A PAGE IT CANNOT READ IS NOTHING RATHER THAN AN ERROR (LetterboxdDetails
-		// says why), so a failed Test reads as "found nothing".
+		// says why), so the host is asked when it found nothing.
 		det, err := metadata.LetterboxdDetails(ctx, probeFilm)
 		found := 0
 		if det != nil {
 			found = 1
 		}
-		s.recordLookup(faultAreaFilms, "letterboxd", found, "", err)
+		if err != nil {
+			record(faultAreaFilms, found, "", err)
+			break
+		}
+		reached(faultAreaFilms, found, "", "")
 	case "igdb":
 		client, _ := s.resolveIGDB()
 		if client == nil {
-			return sourceRow{}, false
+			return false
 		}
 		cands, err := client.Search(ctx, probeGame, 0)
-		s.recordLookup(faultAreaGames, "igdb", len(cands), "", err)
+		record(faultAreaGames, len(cands), "", err)
 	case "wikidata":
 		cands, err := metadata.SearchGamesWikidata(ctx, probeGame, 0)
-		s.recordLookup(faultAreaGames, "wikidata", len(cands), "", err)
+		record(faultAreaGames, len(cands), "", err)
 	case "google-images", "wikimedia", "fandom":
 		// THE PICTURE LADDER'S OWN RUNG, built as a picture search builds it, so
 		// the opt-in that keeps Google's rung absent keeps its Test from running.
@@ -372,21 +415,16 @@ func (s *Server) testSource(ctx context.Context, uid int64, slug string) (source
 			}}
 		}
 		if tier == nil {
-			return sourceRow{}, false
+			return false
 		}
 		hits := tier.run(ctx)
 		note := ""
 		if tier.note != nil {
 			note = *tier.note
 		}
-		s.recordLookup(faultAreaPictures, slug, len(hits), note, nil)
+		reached(faultAreaPictures, len(hits), note, probeWiki)
 	}
-	for _, row := range s.sourceRows(uid) {
-		if row.Source == slug {
-			return row, true
-		}
-	}
-	return sourceRow{Source: slug}, true
+	return true
 }
 
 // handleMetadataTest — POST /admin/metadata/test.
@@ -421,22 +459,46 @@ func (s *Server) handleMetadataTest(w http.ResponseWriter, r *http.Request) {
 		}
 		want = []string{req.Source}
 	}
-	uid := userID(r)
-	rows := make([]sourceRow, 0, len(want))
-	asked := 0
+	probeOf := func(slug string) string {
+		if p, ok := testedWith[slug]; ok {
+			return p
+		}
+		return slug
+	}
+	var probes []string
 	for _, slug := range want {
-		row, ok := s.testSource(r.Context(), uid, slug)
-		if !ok {
+		if p := probeOf(slug); !slices.Contains(probes, p) {
+			probes = append(probes, p)
+		}
+	}
+	// ALL AT ONCE, AND ALL BACK BEFORE THE REPLY: every goroutine here is joined
+	// before this handler returns, so none outlives the press that started it.
+	ctx, cancel := context.WithTimeout(r.Context(), testDeadline)
+	defer cancel()
+	asked := make([]bool, len(probes))
+	var wg sync.WaitGroup
+	for i, p := range probes {
+		wg.Go(func() { asked[i] = s.testSource(ctx, p) })
+	}
+	wg.Wait()
+
+	all := s.sourceRows(userID(r))
+	rows := make([]sourceRow, 0, len(want))
+	for _, slug := range want {
+		if !asked[slices.Index(probes, probeOf(slug))] {
 			// SKIPPED, NOT FAILED, when several were asked: "test everything"
 			// over an instance with one key is a useful press, and calling the
 			// keyless ones broken would be the card crying wolf about the
 			// ordinary state of a new install.
 			continue
 		}
-		asked++
-		rows = append(rows, row)
+		for _, row := range all {
+			if row.Source == slug {
+				rows = append(rows, row)
+			}
+		}
 	}
-	if asked == 0 {
+	if len(rows) == 0 {
 		// NAMED RATHER THAN ANSWERED WITH SILENCE. One source asked for by name,
 		// with no key behind it (or, for Google's image results, not switched on),
 		// gets a reason — the screen disables that press, so reaching here means

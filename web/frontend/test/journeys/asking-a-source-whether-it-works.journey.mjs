@@ -19,12 +19,20 @@
 // asked.
 //
 // THE SECOND CASE IS EVERY SUPPLIER ON THE LIST, the owner's "why can i not test
-// all the metadata sources?" Test all asks each one that can be asked, and
-// in this world, offline with no film key, no IGDB pair and Google's image results
-// switched off, those four are exactly the rows left with no answer. THE MUTATION,
-// run: `testableSources` in metadata_sources.go put back to the four keyed
-// suppliers, and it is red with six more rows unasked (Amazon, IMDb, Letterboxd,
-// Wikidata, Wikimedia, Fandom; Open Library is answered by Google's search).
+// all the metadata sources?" Test all asks each one that can be asked, and in this
+// world, offline with no film key, no IGDB pair and Google's image results switched
+// off, every row but those four says it did not answer. Offline is the point: four
+// rungs used to report a supplier they could not reach as "answered · found
+// nothing", and here nothing can be reached. THE MUTATIONS, run: `testableSources`
+// in metadata_sources.go put back to the four keyed suppliers, and it is red with
+// six more rows unasked; the host check in `testSource` removed, and it is red with
+// Amazon, Letterboxd, Wikimedia and Fandom saying "answered".
+//
+// IT WAITS FOR THE ROWS TO CHANGE, NOT FOR A WORD. "did not answer" is already on
+// the screen from the first case, and "Asking…" clears before the rows reload, so
+// either wait read the rows early now and then — once in five runs, and every run
+// with the reload slowed by 400ms. So it reads the rows until they settle on the
+// answer or the wait runs out.
 //
 // It knows only the words on the screen and nothing else.
 
@@ -79,10 +87,16 @@ it('an owner tests every source at once, and every one that can be asked answers
   await app.goto('/metadata/sources')
   await app.see('All sources')
   await app.press('Test all')
-  await app.see('did not answer')
-  await app.gone('Asking…')
+  const notDidNotAnswer = async () => {
+    const says = await rowSays()
+    return NAMES.filter((n) => !says[n].startsWith('did not answer'))
+  }
+  await expect
+    .poll(notDidNotAnswer, { timeout: 45_000, message: 'the rows that do not say "did not answer" after Test all, offline' })
+    .toEqual(['TMDB', 'TheTVDB', 'IGDB', 'Google Images'])
   const says = await rowSays()
-  const unasked = NAMES.filter((n) => says[n].startsWith('no answer recorded'))
-  expect(unasked, 'the rows Test all left unasked').toEqual(['TMDB', 'TheTVDB', 'IGDB', 'Google Images'])
+  for (const n of ['TMDB', 'TheTVDB', 'IGDB', 'Google Images']) {
+    expect(says[n], `${n} cannot be asked here`).toMatch(/^no answer recorded/)
+  }
   expect(app.pageErrors(), 'the page threw on the way').toEqual([])
 })

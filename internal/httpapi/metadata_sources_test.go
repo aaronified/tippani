@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"sort"
 	"testing"
+	"time"
 
 	"tippani/internal/metadata"
 )
@@ -208,7 +209,9 @@ func TestTestingEverySourceCoversTheOnesThatCanBeAsked(t *testing.T) {
 	srv := newTestServer(t)
 	h := srv.Handler()
 	c := signupAdmin(t, h)
+	searches := 0
 	srv.searchBooks = func(context.Context, string, string, string, string) ([]metadata.BookCandidate, error) {
+		searches++
 		return nil, nil
 	}
 
@@ -221,8 +224,13 @@ func TestTestingEverySourceCoversTheOnesThatCanBeAsked(t *testing.T) {
 	for _, row := range got.Sources {
 		back[row.Source] = true
 	}
-	if !back["google"] || !back["tmdb"] {
+	if !back["google"] || !back["openlibrary"] || !back["tmdb"] {
 		t.Fatalf("want the suppliers that had a key: %+v", got.Sources)
+	}
+	// ONE BOOK SEARCH FOR BOTH BOOK ROWS. It ran once per row, spending Google's
+	// quota twice for one press and recording each supplier twice.
+	if searches != 1 {
+		t.Errorf("Test all searched for a book %d times", searches)
 	}
 	if back["igdb"] {
 		t.Error("a supplier with no key was reported as asked")
@@ -240,21 +248,24 @@ func TestTestingEverySourceCoversTheOnesThatCanBeAsked(t *testing.T) {
 // two that cannot be asked as things stand say so: IGDB with no pair, and Google's
 // image results before the instance has said yes to reading them.
 //
+// A FRESH SERVER PER SOURCE, because the answers are kept per server. On one server
+// Google's Test also answered for Open Library — one search asks both — so Open
+// Library's own press could have asked nothing and its row still carried an
+// answer. A rating broke that press and this case stayed green.
+//
 // NOTHING HERE LEAVES THE MACHINE: newTestServer stubs the keyless hosts, and
 // stubHostsOnlyATestReaches the three only a Test press reaches.
 func TestEverySourceOnTheListCanBeTested(t *testing.T) {
 	stubHostsOnlyATestReaches(t)
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	srv.searchBooks = func(context.Context, string, string, string, string) ([]metadata.BookCandidate, error) {
-		return []metadata.BookCandidate{{Title: "Dune", Source: "google"}, {Title: "Dune", Source: "openlibrary"}}, nil
-	}
-	srv.TMDBBuiltin = "builtin-key"
-	srv.TVDBBuiltin = "builtin-key"
-
 	cannot := map[string]bool{"igdb": true, "google-images": true}
 	for _, src := range sourceAreas {
+		srv := newTestServer(t)
+		c := signupAdmin(t, srv.Handler())
+		srv.searchBooks = func(context.Context, string, string, string, string) ([]metadata.BookCandidate, error) {
+			return []metadata.BookCandidate{{Title: "Dune", GoogleID: "g1", OpenLibraryID: "OL1W"}}, nil
+		}
+		srv.TMDBBuiltin = "builtin-key"
+		srv.TVDBBuiltin = "builtin-key"
 		body := map[string]string{"source": src.slug}
 		if cannot[src.slug] {
 			c.mustDo("POST", "/admin/metadata/test", body, http.StatusConflict)
@@ -271,12 +282,92 @@ func TestEverySourceOnTheListCanBeTested(t *testing.T) {
 	}
 
 	// AND GOOGLE'S IMAGE RESULTS, ONCE SWITCHED ON, ARE ASKED LIKE THE REST.
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
 	if err := srv.Store.SetSetting(settingGoogleScrape, "1"); err != nil {
 		t.Fatal(err)
 	}
 	got := decode[sourcesResp](t, c.mustDo("POST", "/admin/metadata/test", map[string]string{"source": "google-images"}, http.StatusOK))
 	if len(got.Sources) != 1 || got.Sources[0].Last == nil {
 		t.Errorf("Google image results, switched on, were tested and say: %+v", got.Sources)
+	}
+}
+
+// A SUPPLIER THAT COULD NOT BE REACHED DID NOT ANSWER, and its row says so.
+//
+// Five rungs report "nothing" for a refused connection exactly as for a page with
+// no picture on it, which is right inside a lookup and wrong in a Test: on a server
+// that could reach nothing, Amazon, Letterboxd, Wikimedia and Fandom each said
+// "answered · found nothing" while IMDb beside them said it could not be asked. So
+// each is pointed at a closed port and must come back as a failure. The second half
+// is the control: the same five, reachable and holding nothing, still answered.
+func TestASupplierThatCannotBeReachedSaysSoRatherThanFoundNothing(t *testing.T) {
+	stubHostsOnlyATestReaches(t)
+	closed := httptest.NewServer(http.NotFoundHandler())
+	closed.Close()
+	rungs := []string{"amazon", "letterboxd", "wikimedia", "fandom", "google-images"}
+
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	if err := srv.Store.SetSetting(settingGoogleScrape, "1"); err != nil {
+		t.Fatal(err)
+	}
+	for _, slug := range rungs {
+		got := decode[sourcesResp](t, c.mustDo("POST", "/admin/metadata/test", map[string]string{"source": slug}, http.StatusOK))
+		if last := got.Sources[0].Last; last == nil || !last.OK || last.Error != "" {
+			t.Errorf("%s is reachable and empty, and its row says: %+v", slug, last)
+		}
+	}
+
+	metadata.SetAmazonCDNBaseForTest(t, closed.URL)
+	metadata.SetLetterboxdBaseForTest(t, closed.URL)
+	metadata.SetWikipediaBaseForTest(t, closed.URL)
+	metadata.SetFandomAndScrapeBasesForTest(t, closed.URL, closed.URL)
+	for _, slug := range rungs {
+		got := decode[sourcesResp](t, c.mustDo("POST", "/admin/metadata/test", map[string]string{"source": slug}, http.StatusOK))
+		if last := got.Sources[0].Last; last == nil || last.OK || last.Error == "" {
+			t.Errorf("%s could not be reached, and its row says: %+v", slug, last)
+		}
+	}
+}
+
+// TEST ALL ASKS EVERY SUPPLIER AT ONCE, AND ONE THAT HANGS DOES NOT HOLD THE REST.
+//
+// It asked them one after another inside one request, under a 60-second write
+// timeout, with each outbound call allowed ten — so a network that drops traffic
+// silently could cut the reply off before any answer reached the screen. Here
+// Letterboxd never answers. Asked in turn, every supplier after it would be asked
+// with a spent deadline and fail too; asked together, Wikimedia (after it on the
+// list) answers, and Letterboxd's row names the deadline rather than a raw
+// transport error.
+func TestTestAllIsBoundedAndOneQuietSupplierHoldsNothingElse(t *testing.T) {
+	stubHostsOnlyATestReaches(t)
+	hang := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		<-r.Context().Done()
+	}))
+	t.Cleanup(hang.Close)
+	orig := testDeadline
+	testDeadline = 2 * time.Second
+	t.Cleanup(func() { testDeadline = orig })
+
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	metadata.SetLetterboxdBaseForTest(t, hang.URL)
+	srv.searchBooks = func(context.Context, string, string, string, string) ([]metadata.BookCandidate, error) {
+		return nil, nil
+	}
+
+	began := time.Now()
+	got := decode[sourcesResp](t, c.mustDo("POST", "/admin/metadata/test", map[string]any{}, http.StatusOK))
+	if took := time.Since(began); took > 8*time.Second {
+		t.Errorf("Test all took %v with a %v deadline", took, testDeadline)
+	}
+	lb := sourceNamed(t, got.Sources, "letterboxd").Last
+	if lb == nil || lb.OK || lb.Error != "no answer within 2s" {
+		t.Errorf("the supplier that never answered reads: %+v", lb)
+	}
+	if wm := sourceNamed(t, got.Sources, "wikimedia").Last; wm == nil || !wm.OK {
+		t.Errorf("a supplier listed after the quiet one was held by it: %+v", wm)
 	}
 }
 
