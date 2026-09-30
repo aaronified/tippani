@@ -5844,6 +5844,7 @@ settings.jobs.took.h = {h}h {m}m
 # --- a job's log, in its row. {title} is the job's name from the list above.
 # bn: the hole stays bare (§5.4), so the frame puts the name after a colon.
 settings.jobs.log.aria = লগ: {title}
+settings.jobs.log.copy.aria = {title}-এর লগ কপি করুন
 settings.jobs.log.empty = এখনও কিছু লেখা হয়নি।
 settings.jobs.log.trimmed = শুরুর দিকের লাইনগুলো এক্সপোর্টে আছে।
 
