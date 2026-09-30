@@ -22,13 +22,19 @@
 // about. Offline, every lookup is refused at the gate and the fill ends in
 // seconds.
 //
+// DECLARED EXCEPTION: THE CLIPBOARD IS READ BACK through Chrome's permission for
+// this origin (`overridePermissions`), because what a copy button promises is what
+// lands on the clipboard, and a toast is only the app saying so.
+//
 // THE MUTATIONS. Delete the Run press and this goes red at the last-run door: the
 // row goes on saying it has not been run. Take out runFill's `p.All` branch (the
 // fill of every work then walks nothing) and it goes red at the log's first line,
-// because a fill that never read the library says nothing of it.
+// because a fill that never read the library says nothing of it. Drop the job
+// log's own copy name (`copyLabel` in jobsSection.jsx) and it goes red at "Copy
+// the log of", the button answering to System logs' "Copy these lines".
 //
-// It knows the words on the screen and nothing else: no setup, no address but
-// the screen's own.
+// It knows the words on the screen and, past the clipboard above, nothing else: no
+// setup, no address but the screen's own.
 
 import { expect, it } from 'vitest'
 
@@ -53,6 +59,15 @@ it('a common job runs from its row in Settings › Jobs, and the row then shows 
   // The last run opens its own log, here: the fill read the library as it started.
   await app.press('Last run of Fill gaps in every work')
   await app.see('every work in the library as the fill starts')
+
+  // AND THAT LOG COPIES FROM ITS OWN CORNER, under its own name: System logs is on
+  // this screen with a copy of its own, and two buttons of one name are a press
+  // nobody can aim.
+  await app.page.browserContext().overridePermissions(app.baseUrl, ['clipboard-read', 'clipboard-write', 'clipboard-sanitized-write'])
+  await app.press('Copy the log of')
+  await app.see('copied')
+  const copied = await app.page.evaluate(() => navigator.clipboard.readText())
+  expect(copied, 'the clipboard does not hold the job\u2019s log').toMatch(/every work in the library as the fill starts/)
 
   expect(app.pageErrors(), 'the page threw on the way').toEqual([])
 })

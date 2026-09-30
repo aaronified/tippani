@@ -1620,7 +1620,7 @@
      whole log (104 more)" 61px, and the whole page slid under each. This one is held
      to its row and its words wrap once they outgrow it. A label that fits still sits
      on one line, because the button is as wide as its words up to the cap. Wrapped
-     lines are centred, as the Jobs export buttons' are (.logs-export > .tp-btn).
+     lines are centred, as the Jobs export buttons' are (.logs-export .tp-btn).
 
      AND ITS GLYPH STAYS ON THE FIRST LINE. As a flex item beside a label that
      wrapped, a centred glyph sits between the two lines, on neither; pinned to the
@@ -11985,6 +11985,11 @@ button.work-pill:hover { color: var(--ink); border-color: var(--ink-border); }
    button floating in its corner hung out of its bottom onto the card. A well with
    nothing to copy carries no button, and keeps its own height. */
 .log-well:has(> .log-well-copy) { min-height: calc(44px + 8px); }
+/* AND THE LINES KEEP CLEAR OF IT. The button floats over the well and does not
+   scroll, so a line running under it had its end hidden for good: the lines wrap,
+   and nothing slides them out from under. The lines' box stops short of the button,
+   its 44px and the gap it sits in. */
+.log-well:has(> .log-well-copy) > .log-well-lines { padding-inline-end: calc(44px + 8px); }
 .log-well-copy .tp-btn { background: color-mix(in oklab, var(--raised), transparent 6%); }
 .job-log-line { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 0 .75em; }
 .job-log-at { color: var(--faint); }
@@ -12017,13 +12022,16 @@ button.work-pill:hover { color: var(--ink); border-color: var(--ink-border); }
 .logs-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
 .logs-export { margin-top: 10px; }
 /* THE LABEL WRAPS INSIDE ITS BUTTON, rather than the button running past the card.
-   `.tp-btn` never wraps, and "Everything kept (30 days)" at 175% type is wider than
-   a phone's card: on a 390 screen, over the owner's archive, it ended 43px past the
-   card's inset and 7px past the screen, and the whole page slid sideways under it. A flex item keeps its
-   min-content width, so the label breaks between words and never inside one; the
-   typescale rule's answer to text that does not fit is a taller box, not a
-   frozen size or a clip. */
-.logs-export > .tp-btn { white-space: normal; text-align: center; }
+   `.tp-btn` never wraps, and the label this was written for, "Everything kept (30
+   days)", at 175% type was wider than a phone's card: on a 390 screen, over the
+   owner's archive, it ended 43px past the card's inset and 7px past the screen, and
+   the whole page slid sideways under it. The labels are "What is shown" and "All"
+   now and fit at 175%, so the rule is for a translation that is longer. It reaches
+   both, the second inside its tooltip's wrapper. A flex item keeps its min-content
+   width, so the label breaks between words and never inside one; the typescale
+   rule's answer to text that does not fit is a taller box, not a frozen size or a
+   clip. */
+.logs-export .tp-btn { white-space: normal; text-align: center; }
 /* AND ITS GLYPH IS THE FIRST WORD OF THE LABEL, drawn in the label's own lines. As a
    flex item beside a label that had wrapped, the glyph was centred on both lines at
    once, which is on neither (at 175% on a phone, over the owner's archive, its

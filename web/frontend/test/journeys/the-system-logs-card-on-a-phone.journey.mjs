@@ -30,7 +30,10 @@
 //     two rows;
 //   - the well's fade put back on the well (LogWell's Scroller given the well's
 //     class and the outer box dropped): red, the well is masked;
-//   - the copy button taken out of LogWell: red at "Copy these lines".
+//   - the copy button taken out of LogWell: red at "Copy these lines";
+//   - the lines' room for the button taken out of index.css (`padding-inline-end`
+//     on a well that has a copy): red, "the lines run to 344, under the copy
+//     button at 304".
 
 import { expect, it } from 'vitest'
 
@@ -65,6 +68,10 @@ it('on a phone the system logs read in a still well, copy from its corner, and f
         .find((el) => !/^(transparent|rgba\(0, 0, 0, 0\))$/.test(getComputedStyle(el).backgroundColor))) !== 'none',
       linesOverflow: log.scrollHeight > log.clientHeight,
       linesMasked: mask(log) !== 'none',
+      // WHERE THE LINES STOP AND THE COPY BUTTON STARTS: the lines' box without its
+      // padding, against the button named for the copy.
+      linesEnd: log.getBoundingClientRect().right - parseFloat(getComputedStyle(log).paddingRight),
+      copyStart: [...card.querySelectorAll('button')].find((b) => b.getAttribute('aria-label') === 'Copy these lines')?.getBoundingClientRect().left,
     }
   })
 
@@ -76,6 +83,10 @@ it('on a phone the system logs read in a still well, copy from its corner, and f
   expect(at.linesOverflow, 'the log did not fill its well, so nothing about its fade was measured').toBe(true)
   expect(at.wellMasked, 'the well itself is masked, so its edge fades into the card').toBe(false)
   expect(at.linesMasked, 'the lines scroll under no fade').toBe(true)
+  // THE COPY DOES NOT SIT ON THE LINES. It floats and does not scroll, and the lines
+  // wrap, so a line running under it had its end hidden for good.
+  expect(at.copyStart, 'no copy button on the well').toBeTruthy()
+  expect(at.linesEnd, `the lines run to ${Math.round(at.linesEnd)}, under the copy button at ${Math.round(at.copyStart)}`).toBeLessThanOrEqual(at.copyStart + 0.5)
   expect(await app.sideways()).toBe(0)
 
   // THE COPY. What lands on the clipboard is the well's lines, clock first.

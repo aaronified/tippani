@@ -96,15 +96,6 @@ export function JobsCard({ title, aside = null, door = null, controls = null, ch
   )
 }
 
-// JobLog — a job's lines, oldest first, in a pane that scrolls under a measured
-// fade. A LIVE log follows its newest line while the reader is at the bottom and
-// stops following the moment they scroll up to read — being dragged back down
-// mid-sentence is the one thing a log pane must never do.
-//
-// KEYED ON THE NEWEST LINE, NOT ON HOW MANY THERE ARE. The pane keeps its last
-// LOG_PANE_MAX lines, so once it is full every new line pushes the oldest out and
-// the count stops moving — a long fill reaches that after several hundred works,
-// and a pane that followed its length stopped following right there.
 // LogWell — THE RECESSED WELL EVERY LOG IS READ IN, and the one place its shape is
 // drawn: a job's live log, a finished job's, and the system logs.
 //
@@ -116,13 +107,16 @@ export function JobsCard({ title, aside = null, door = null, controls = null, ch
 // the paper, and the Scroller inside it holds only the lines.
 //
 // AND IT CARRIES ITS OWN COPY, a glyph floating in the top-right corner that stays
-// put while the lines scroll under it (the owner's, 30 September: "a hovering copy
+// put while the lines scroll beside it, never under it: their box stops short of
+// the button (index.css), or the end of a wrapped line hid there for good (the owner's, 30 September: "a hovering copy
 // button, no label ... in all the log boxes"). `copy` is asked for the text at the
 // press, so it copies what is in the well then, as a reader reads it; a well with
-// nothing in it has nothing to copy, and is handed none.
+// nothing in it has nothing to copy, and is handed none. Its name is the well's
+// own (`copyLabel`): a job's log open beside System logs is two copy buttons on one
+// screen, and two of one name are a press nobody can aim.
 const COPY_GLYPH = <IconCopy size={18} />
 
-function LogWell({ className = '', label, copy = null, innerRef = null, onScroll = undefined, children }) {
+function LogWell({ className = '', label, copy = null, copyLabel = null, innerRef = null, onScroll = undefined, children }) {
   async function onCopy() {
     const ok = await copyText(copy())
     toast(ok ? t('common.toast.copied') : t('error.copy.generic'))
@@ -136,7 +130,7 @@ function LogWell({ className = '', label, copy = null, innerRef = null, onScroll
       <Scroller axis="v" drag={false} innerRef={innerRef} className="log-well-lines" role="log" aria-label={label} tabIndex={0} onScroll={onScroll}>
         {children}
       </Scroller>
-      {copy && <IconButton wrapClassName="log-well-copy" icon={COPY_GLYPH} ariaLabel={t('settings.logs.copy.aria')} onClick={onCopy} />}
+      {copy && <IconButton wrapClassName="log-well-copy" icon={COPY_GLYPH} ariaLabel={copyLabel || t('settings.logs.copy.aria')} onClick={onCopy} />}
     </div>
   )
 }
@@ -145,7 +139,16 @@ function LogWell({ className = '', label, copy = null, innerRef = null, onScroll
 // server's line. What the copy button puts on the clipboard, one line to a line.
 const logLineText = (l, level = null) => [formatClock(l.at), level, l.code, l.line].filter(Boolean).join(' ')
 
-function JobLog({ lines, trimmed = false, loaded = true, label, follow = false }) {
+// JobLog — a job's lines, oldest first, in a pane that scrolls under a measured
+// fade. A LIVE log follows its newest line while the reader is at the bottom and
+// stops following the moment they scroll up to read — being dragged back down
+// mid-sentence is the one thing a log pane must never do.
+//
+// KEYED ON THE NEWEST LINE, NOT ON HOW MANY THERE ARE. The pane keeps its last
+// LOG_PANE_MAX lines, so once it is full every new line pushes the oldest out and
+// the count stops moving — a long fill reaches that after several hundred works,
+// and a pane that followed its length stopped following right there.
+function JobLog({ lines, trimmed = false, loaded = true, label, copyLabel, follow = false }) {
   const ref = useRef(null)
   const atEnd = useRef(true)
   const newest = lines.length ? lines[lines.length - 1].id : 0
@@ -160,7 +163,7 @@ function JobLog({ lines, trimmed = false, loaded = true, label, follow = false }
   }
   const levelWord = (l) => (l.level === 'warn' || l.level === 'error' ? t(`settings.logs.level.${l.level}.label`) : null)
   return (
-    <LogWell className="job-log" innerRef={ref} label={label} onScroll={onScroll}
+    <LogWell className="job-log" innerRef={ref} label={label} copyLabel={copyLabel} onScroll={onScroll}
       copy={lines.length > 0 ? () => lines.map((l) => logLineText(l, levelWord(l))).join('\n') : null}>
       {trimmed && <p className="microcopy">{t('settings.jobs.log.trimmed')}</p>}
       {loaded && lines.length === 0 && <p className="microcopy">{t('settings.jobs.log.empty')}</p>}
@@ -401,7 +404,7 @@ function RunningJob({ job, user, open, stopping, onToggle, onStop }) {
       <div className="job-body">
         <ProgressBar value={j.done || 0} max={j.total || 0} label={jobSummary(j) || undefined} />
         {open && (
-          <JobLog lines={live.lines} trimmed={live.trimmed} loaded={live.loaded} label={t('settings.jobs.log.aria', { title })} follow />
+          <JobLog lines={live.lines} trimmed={live.trimmed} loaded={live.loaded} label={t('settings.jobs.log.aria', { title })} copyLabel={t('settings.jobs.log.copy.aria', { title })} follow />
         )}
       </div>
     </div>
@@ -626,7 +629,7 @@ function PastJob({ job, user, open, busy, onToggle, onRerun, onReview }) {
 export function PastLog({ job, title }) {
   // A past row's job has finished: read its log until it is all here, then stop.
   const live = useJob(job.id, { final: true })
-  return <JobLog lines={live.lines} trimmed={live.trimmed} loaded={live.loaded} label={t('settings.jobs.log.aria', { title })} />
+  return <JobLog lines={live.lines} trimmed={live.trimmed} loaded={live.loaded} label={t('settings.jobs.log.aria', { title })} copyLabel={t('settings.jobs.log.copy.aria', { title })} />
 }
 
 // ---- System logs ---------------------------------------------------------------

@@ -6012,6 +6012,8 @@ settings.jobs.took.h = {h}h {m}m
 
 # --- a job's log, in its row. {title} is the job's name from the list above.
 settings.jobs.log.aria = Log of {title}
+# The copy button in a job's log. Named for the job, because System logs has one too.
+settings.jobs.log.copy.aria = Copy the log of {title}
 settings.jobs.log.empty = Nothing logged yet.
 settings.jobs.log.trimmed = The earliest lines are in the export.
 
