@@ -112,6 +112,12 @@ func (s *Server) handleMetadataLibrary(w http.ResponseWriter, r *http.Request) {
 		// seven — it could not be offered over the whole library while half of it
 		// could not answer the question.
 		HasDescription bool `json:"has_description"`
+		// POSTER ON RECORD: the supplier's record kept at add time names a TMDB
+		// poster, which is the only poster "Fetch covers and details" can fetch
+		// (it reads poster_path out of source_metadata). A game from IGDB, a show
+		// from TheTVDB and a work pinned by id alone have none, and the Common
+		// jobs card counted them as posters the pass would find.
+		PosterOnRecord bool `json:"poster_on_record"`
 		DialogueCount  int  `json:"dialogue_count"`
 	}
 	movies := []movieItem{}
@@ -132,6 +138,12 @@ func (s *Server) handleMetadataLibrary(w http.ResponseWriter, r *http.Request) {
 		       (m.release_year IS NOT NULL AND m.release_year <> 0),
 		       EXISTS(SELECT 1 FROM movie_genres mg WHERE mg.movie_id = m.id),
 		       (m.description IS NOT NULL AND m.description <> ''),
+		       -- json_valid guards json_extract, which fails the whole statement
+		       -- on a malformed document; an IGDB record is an array, so the
+		       -- object test goes first as well.
+		       CASE WHEN json_valid(m.source_metadata) AND json_type(m.source_metadata) = 'object'
+		            THEN COALESCE(json_extract(m.source_metadata, '$.poster_path'), '') <> ''
+		            ELSE 0 END,
 		       (SELECT count(*) FROM dialogues d WHERE d.movie_id = m.id)
 		FROM movies m WHERE m.user_id = ?
 		ORDER BY m.created_at DESC, m.id DESC`, uid)
@@ -146,7 +158,7 @@ func (s *Server) handleMetadataLibrary(w http.ResponseWriter, r *http.Request) {
 		if err := mrows.Scan(&it.ID, &it.Title, &it.MediaType, &it.ReleaseYear,
 			&it.TMDBID, &it.TVDBID,
 			&poster, &it.HasCast, &it.HasSource, &it.HasDirector, &it.HasYear, &it.HasGenre,
-			&it.HasDescription, &it.DialogueCount); err != nil {
+			&it.HasDescription, &it.PosterOnRecord, &it.DialogueCount); err != nil {
 			olog.Warnf(olog.CodeMetaRowScan, "[meta] library movie row scan failed: %v", err)
 			continue
 		}

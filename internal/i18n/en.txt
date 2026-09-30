@@ -6069,12 +6069,18 @@ settings.jobs.common.covers.label = Fetch covers and details
 settings.jobs.common.covers.prose = Covers, posters and the details your works are missing, across the library.
 settings.jobs.common.backup.label = Back up now
 settings.jobs.common.backup.prose = Seals the library into the one archive the server keeps.
-# What each library job has left, after a count that wears its noun and glyph
-# ("38 works incomplete"), counted as the Metadata screen counts it. The backup
-# has none. `none` stands alone, when the library is missing nothing a job fetches.
+# What each library job could still fill in, after a count that wears its noun and
+# glyph ("12 works with a gap it can fill"), counted from the rows the Metadata
+# screen draws. The backup has none. A `none` stands alone when a job has nothing
+# left it can close: the fill and the covers pass say what they cannot do rather
+# than "Nothing missing", because a work with no source still misses things. The
+# fill's `blocked` follows its count: works with a gap it cannot find at a supplier.
 settings.jobs.common.fill-all.pending = with a gap it can fill
+settings.jobs.common.fill-all.pending.none = Nothing it can fill
+settings.jobs.common.fill-all.blocked = need a source first
 settings.jobs.common.people-missing.pending = missing a portrait or links
 settings.jobs.common.covers.pending = with no cover or poster
+settings.jobs.common.covers.pending.none = Nothing it can fetch
 settings.jobs.common.pending.none = Nothing missing
 settings.jobs.common.run.label = Run
 settings.jobs.common.again.label = Run again

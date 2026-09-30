@@ -941,10 +941,15 @@ export function useLibraryGaps(key) {
   const [gaps, setGaps] = useState(null)
   useEffect(() => {
     let alive = true
-    Promise.all([json('GET', '/metadata/library'), json('GET', '/people/records')]).then(([lib, people]) => {
+    Promise.all([json('GET', '/metadata/library'), json('GET', '/people/records'), json('GET', '/metadata/status')]).then(([lib, people, status]) => {
       if (!alive) return
       setGaps(lib.ok && people.ok
-        ? { books: lib.data?.books || [], movies: lib.data?.movies || [], people: people.data?.people || [] }
+        ? {
+            books: lib.data?.books || [], movies: lib.data?.movies || [], people: people.data?.people || [],
+            // WHETHER IGDB CAN BE ASKED, because a fill looks a game with no id up
+            // there by its exact title, and without the pair it cannot.
+            igdb: !!status.ok && (status.data?.sources || []).some((s) => s.source === 'igdb' && s.state !== 'needed'),
+          }
         : null)
     })
     return () => { alive = false }

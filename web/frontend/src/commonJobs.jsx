@@ -42,7 +42,7 @@ import {
   useStoppingJobs,
 } from './jobs.js'
 import { JobsCard, PastLog } from './jobsSection.jsx'
-import { coversCanClose, fetchable, fillCanClose } from './libraryGaps.js'
+import { coversCanClose, fetchable, fillCanClose, fillNeedsSource } from './libraryGaps.js'
 import {
   ErrorText,
   GhostButton,
@@ -72,11 +72,14 @@ import {
 // console's Fetch missing; a covers pass, the books with no cover and the films with
 // a source and no poster (libraryGaps.js says why each is narrower than what
 // Metadata flags). The backup has nothing a library is missing.
-const closable = (can) => (g) => g.books.filter(can.book).length + g.movies.filter(can.movie).length
+const closable = (can) => (g) => g.books.filter((b) => can.book(b, g)).length + g.movies.filter((m) => can.movie(m, g)).length
 const works = { icon: <IconNavWorks />, word: (n) => t('unit.work', { count: n }) }
 const people = { icon: <IconNavUsers />, word: (n) => t('unit.person', { count: n }) }
 const ROWS = {
-  'fill-all': { glyph: <IconMetadata />, pending: { ...works, count: closable(fillCanClose) } },
+  // A FILL THAT CAN CLOSE NOTHING SAYS WHAT IS IN THE WAY. On a library whose
+  // works have no source it read "Nothing missing" beside a Metadata badge of 41,
+  // two answers to one question; the works it cannot find are counted after it.
+  'fill-all': { glyph: <IconMetadata />, pending: { ...works, count: closable(fillCanClose), blocked: closable(fillNeedsSource) } },
   'people-missing': { glyph: <IconMetadata />, pending: { ...people, count: (g) => g.people.filter(fetchable).length } },
   covers: { glyph: <IconMetadata />, missingOnly: true, pending: { ...works, count: closable(coversCanClose) } },
   backup: { glyph: <IconArchive />, credential: true },
@@ -176,7 +179,7 @@ function CommonJob({ row, user, gaps, busy, stopping, open, onToggle, onRun, onS
           <span className="job-title">{title}</span>
           <span className="job-meta common-job-what">{t(`settings.jobs.common.${row.id}.prose`)}</span>
           {/* Not while it runs: the line under the row says how far it has got. */}
-          {!now && gaps && spec.pending && <Pending id={row.id} n={spec.pending.count(gaps)} of={spec.pending} />}
+          {!now && gaps && spec.pending && <Pending id={row.id} n={spec.pending.count(gaps)} blocked={spec.pending.blocked?.(gaps) || 0} of={spec.pending} />}
         </span>
         <div className="job-actions">
           {now ? (
@@ -232,16 +235,31 @@ function CommonJob({ row, user, gaps, busy, stopping, open, onToggle, onRun, onS
 
 // WHAT A JOB HAS LEFT, a count wearing the glyph of what it counts with its noun
 // beside it, the roomy shape (Tally), and the words for what is missing after it:
-// "38 works with a gap it can fill". None left is said, since that is the answer to "do I need
-// to run this?".
-function Pending({ id, n, of }) {
+// "38 works with a gap it can fill". None left is said, since that is the answer
+// to "do I need to run this?", and the fill adds the works it cannot find: "· 41
+// works need a source first".
+// A job whose count is narrower than Metadata's flags says what it cannot do when
+// the count reaches none, rather than "Nothing missing" over a library that is.
+const NOTHING_LEFT = {
+  'fill-all': 'settings.jobs.common.fill-all.pending.none',
+  covers: 'settings.jobs.common.covers.pending.none',
+}
+function Pending({ id, n, of, blocked = 0 }) {
   return (
     <span className="job-meta common-job-pending">
-      {n === 0 ? t('settings.jobs.common.pending.none') : (
+      {n === 0 ? t(NOTHING_LEFT[id] || 'settings.jobs.common.pending.none') : (
         <>
           <Tally n={n} icon={of.icon} word={of.word(n)} showWord />
           {' '}
           {t(`settings.jobs.common.${id}.pending`)}
+        </>
+      )}
+      {blocked > 0 && (
+        <>
+          {' · '}
+          <Tally n={blocked} icon={of.icon} word={of.word(blocked)} showWord />
+          {' '}
+          {t(`settings.jobs.common.${id}.blocked`)}
         </>
       )}
     </span>

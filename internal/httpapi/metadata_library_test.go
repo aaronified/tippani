@@ -20,12 +20,13 @@ type metaLib struct {
 		AnnotationCount int   `json:"annotation_count"`
 	} `json:"books"`
 	Movies []struct {
-		ID            int64  `json:"id"`
-		Title         string `json:"title"`
-		HasPoster     bool   `json:"has_poster"`
-		HasCast       bool   `json:"has_cast"`
-		HasSource     bool   `json:"has_source"`
-		DialogueCount int    `json:"dialogue_count"`
+		ID             int64  `json:"id"`
+		Title          string `json:"title"`
+		HasPoster      bool   `json:"has_poster"`
+		HasCast        bool   `json:"has_cast"`
+		HasSource      bool   `json:"has_source"`
+		PosterOnRecord bool   `json:"poster_on_record"`
+		DialogueCount  int    `json:"dialogue_count"`
 	} `json:"movies"`
 	DialogueStats struct {
 		Total        int `json:"total"`
@@ -80,6 +81,33 @@ func TestAGamePinnedByItsIGDBIdHasASource(t *testing.T) {
 	}
 	if has["An Unpinned Game"] {
 		t.Error("a game with no id reads as having a source")
+	}
+}
+
+// A POSTER ON RECORD IS ONE THE COVERS PASS CAN FETCH, and only a TMDB record
+// names one. A game pinned by its IGDB id has a source and no poster the pass can
+// ask for, and the Common jobs card counted it as one, so its covers count never
+// fell.
+func TestOnlyAPosterTheCoversPassCanFetchIsOnRecord(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	coversLibrary(t, srv, c, nil, []int{603})
+	g := decode[movieDetail](t, c.mustDo("POST", "/movies", map[string]any{"title": "A Pinned Game", "media_type": "game"}, http.StatusCreated))
+	c.mustDo("PUT", fmt.Sprintf("/movies/%d", g.ID), map[string]any{"title": "A Pinned Game", "media_type": "game", "igdb_id": 1942}, http.StatusOK)
+
+	lib := decode[metaLib](t, c.mustDo("GET", "/metadata/library", nil, 200))
+	on := map[string]bool{}
+	for _, m := range lib.Movies {
+		if m.HasPoster {
+			t.Fatalf("%q has a poster already, so this proves nothing", m.Title)
+		}
+		on[m.Title] = m.PosterOnRecord
+	}
+	if !on["Film 603"] {
+		t.Error("a film added from TMDB has no poster on record")
+	}
+	if on["A Pinned Game"] {
+		t.Error("a game pinned by its IGDB id has a poster on record the covers pass cannot fetch")
 	}
 }
 

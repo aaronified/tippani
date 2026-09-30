@@ -63,25 +63,43 @@ export function moviePasses(m, filter) {
 // under the fill, and every missing picture under the covers pass, so neither
 // number could say whether its job was worth running.
 //
-// THE FILL writes only fields that are empty, and only on a work pinned to a
-// supplier: an unpinned work is reported "unpinned" and left alone, a low-res cover
-// is not empty, and "no source" is the pinning itself, which is Look up's job. So a
-// work counts when it is pinned and one of the fields the fill writes is empty.
-// (A book pinned only by its Open Library id is the one gap in `has_ids`: the fill
-// needs an ISBN, an ASIN or a Google id. The row does not carry which.)
+// THE FILL writes only fields that are empty, and only on a work it can find at its
+// supplier: a work pinned by id, or a game with no id at all, which it looks up in
+// IGDB by its exact title when IGDB can be asked (`library.igdb`). Anything else
+// with no source is reported "unpinned" and left alone, which is Look up's job, and
+// a low-res cover is not empty. So a work counts when the fill can find it and one
+// of the fields it writes is empty; `fillNeedsSource` is the rest of the works with
+// such a gap, the ones that need a source first. (A book pinned only by its Open
+// Library id counts as pinned: `has_ids` stands for its ids, and the row carries its
+// ISBN and ASIN but not the Google id that would say more.)
 //
-// THE COVERS PASS walks every book and every film with a source
-// (`coversWorkload`), and its Missing only run fetches a picture where there is
-// none. So: books with no cover, and films with a source and no poster.
+// THE COVERS PASS walks every book and every film with a supplier's record, and its
+// Missing only run fetches a picture where there is none. For a film that picture
+// is the TMDB poster named in the record it was added from (`poster_on_record`), so
+// a game from IGDB or a show from TheTVDB, which name none, are not counted. A
+// low-res cover is replaced by the pass's full Run, not by Missing only, and this
+// count follows Missing only.
 const FILL_BOOK_GAPS = ['no_cover', 'no_author', 'no_series', 'no_year', 'no_genre', 'no_synopsis']
 const FILL_MOVIE_GAPS = ['no_poster', 'no_cast', 'no_director', 'no_year', 'no_genre', 'no_synopsis']
+const fillFinds = {
+  book: (b) => !!b.has_ids,
+  movie: (m, library) => !!m.has_source || ((m.media_type || 'movie') === 'game' && !!library?.igdb),
+}
+const fillGap = {
+  book: (b) => FILL_BOOK_GAPS.some((g) => bookPasses(b, g)),
+  movie: (m) => FILL_MOVIE_GAPS.some((g) => moviePasses(m, g)),
+}
 export const fillCanClose = {
-  book: (b) => !!b.has_ids && FILL_BOOK_GAPS.some((g) => bookPasses(b, g)),
-  movie: (m) => !!m.has_source && FILL_MOVIE_GAPS.some((g) => moviePasses(m, g)),
+  book: (b) => fillFinds.book(b) && fillGap.book(b),
+  movie: (m, library) => fillFinds.movie(m, library) && fillGap.movie(m),
+}
+export const fillNeedsSource = {
+  book: (b) => !fillFinds.book(b) && fillGap.book(b),
+  movie: (m, library) => !fillFinds.movie(m, library) && fillGap.movie(m),
 }
 export const coversCanClose = {
   book: (b) => bookPasses(b, 'no_cover'),
-  movie: (m) => !!m.has_source && moviePasses(m, 'no_poster'),
+  movie: (m) => !!m.poster_on_record && moviePasses(m, 'no_poster'),
 }
 
 // A PERSON RECORD'S TWO GAPS A FETCH CAN FILL, the server's, read off the row
