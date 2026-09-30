@@ -403,10 +403,14 @@ function SourceRows({ admin, sources, scrapeOn = false, onTested }) {
         const supplies = (row.areas || []).map((a) => t(`settings.metadata.area.${a}.label`)).join(' · ')
         const last = row.last
         const off = row.source === 'google-images' && !scrapeOn
-        // NOTHING HAS ASKED IT YET IS A FACT, NOT A WARNING, and it is worth
-        // drawing: Open Library and the picture rungs are recorded only when the
-        // app actually uses them, so a quiet row would otherwise be
-        // indistinguishable from one whose answer failed to render.
+        // NO ANSWER ON RECORD IS A FACT, NOT A WARNING, and it is worth drawing:
+        // a row is recorded only when something asks its supplier, so a quiet row
+        // would otherwise be indistinguishable from one whose answer failed to
+        // render. IT SAYS WHOSE FACT IT IS. The record is the server's memory of
+        // each source's last answer, since it started (metadata_faults.go keeps
+        // it in memory on purpose), and the old words, "nothing has asked it
+        // yet", read as a claim about the source. The owner, seeing them on every
+        // row until a Test: "What is it meant to convey?"
         const said = !last
           ? ['untried', t('settings.sources.untried.label')]
           : !last.ok

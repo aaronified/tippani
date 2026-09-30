@@ -5727,7 +5727,7 @@ settings.sources.testing.label = জিজ্ঞেস করা হচ্ছে
 settings.sources.answered.label = উত্তর এসেছে · {n}টি পাওয়া গেছে
 settings.sources.empty.label = উত্তর এসেছে · কিছু পাওয়া যায়নি
 settings.sources.failed.label = উত্তর আসেনি
-settings.sources.untried.label = এখনও কেউ জিজ্ঞেস করেনি
+settings.sources.untried.label = সার্ভার চালু হওয়ার পর কোনো উত্তর রাখা হয়নি
 # {name} is a whole field name — "Google Books key" — and goes in unaltered.
 # These two replaced "Add a google books key", lower-cased in code.
 settings.keys.add.aria = {name} দিন

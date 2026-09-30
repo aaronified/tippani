@@ -80,7 +80,7 @@ describe('a supplier row', () => {
     expect(live.disabled, 'the supplier that CAN be asked is not offered either').toBe(false)
   })
 
-  it('says when nothing has asked a supplier yet, rather than leaving the row silent', async () => {
+  it('says when no answer from a supplier is on record, rather than leaving the row silent', async () => {
     // A picture rung is recorded only when the app actually uses it, so a row
     // with no answer is the ordinary state of a server that has just started —
     // and a blank space there is indistinguishable from an answer that failed to
@@ -89,6 +89,6 @@ describe('a supplier row', () => {
     // recording that answer under Google's name.)
     STATUS.sources = [row('wikimedia', 'optional')]
     await page()
-    expect(screen.getByText(/nothing has asked it yet/i)).toBeTruthy()
+    expect(screen.getByText(/no answer recorded since the server started/i)).toBeTruthy()
   })
 })

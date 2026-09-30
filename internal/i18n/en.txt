@@ -5896,7 +5896,10 @@ settings.sources.testing.label = Asking…
 settings.sources.answered.label = answered · {n} found
 settings.sources.empty.label = answered · found nothing
 settings.sources.failed.label = did not answer
-settings.sources.untried.label = nothing has asked it yet
+# A row with no answer on record. The record is the server's memory of each source's last
+# answer, kept since it started, which a restart clears; it said "nothing has asked it yet",
+# which read as a fact about the source when it is a fact about the server's memory.
+settings.sources.untried.label = no answer recorded since the server started
 # {name} is a whole field name — "Google Books key" — and goes in unaltered.
 # These two replaced "Add a google books key", lower-cased in code.
 settings.keys.add.aria = Add the {name}

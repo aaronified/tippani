@@ -61,7 +61,7 @@ it('an owner asks a supplier whether it answers, and the row says what came back
 
 // WHAT EACH ROW SAYS AFTER ITS NAME, read in the order the screen draws it: the
 // first line under the name that reports an answer, or the lack of one.
-const SAID = /^(nothing has asked it yet|did not answer|answered)/
+const SAID = /^(no answer recorded|did not answer|answered)/
 async function rowSays() {
   const lines = (await app.onScreen()).split('\n').map((l) => l.trim())
   const out = {}
@@ -81,7 +81,7 @@ it('an owner tests every source at once, and every one that can be asked answers
   await app.see('did not answer')
   await app.gone('Asking…')
   const says = await rowSays()
-  const unasked = NAMES.filter((n) => says[n].startsWith('nothing has asked'))
+  const unasked = NAMES.filter((n) => says[n].startsWith('no answer recorded'))
   expect(unasked, 'the rows Test every source left unasked').toEqual(['TMDB', 'TheTVDB', 'IGDB', 'Google Images'])
   expect(app.pageErrors(), 'the page threw on the way').toEqual([])
 })
