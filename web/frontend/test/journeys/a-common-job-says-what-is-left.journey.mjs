@@ -74,7 +74,7 @@ async function left(title) {
   expect(at, `the card has no ${title} row`).toBeGreaterThanOrEqual(0)
   const line = lines.slice(at + 1, at + 5).find((l) => /^nothing /i.test(l) || /^\d+ (?:works?|person|people) /.test(l))
   expect(line, `the ${title} row says nothing about what is left`).toBeTruthy()
-  const blocked = line.match(/(\d+) works? need a source first/)
+  const blocked = line.match(/(\d+) works? needs? a source first/)
   return { n: /^nothing /i.test(line) ? 0 : Number(line.match(/^\d+/)[0]), blocked: blocked ? Number(blocked[1]) : 0, line }
 }
 

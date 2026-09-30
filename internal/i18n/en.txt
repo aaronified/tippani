@@ -6081,7 +6081,8 @@ settings.jobs.common.backup.prose = Seals the library into the one archive the s
 # fill's `blocked` follows its count: works with a gap it cannot find at a supplier.
 settings.jobs.common.fill-all.pending = with a gap it can fill
 settings.jobs.common.fill-all.pending.none = Nothing it can fill
-settings.jobs.common.fill-all.blocked = need a source first
+settings.jobs.common.fill-all.blocked.one = needs a source first
+settings.jobs.common.fill-all.blocked.other = need a source first
 settings.jobs.common.people-missing.pending = missing a portrait or links
 settings.jobs.common.covers.pending = with no cover or poster
 settings.jobs.common.covers.pending.none = Nothing it can fetch

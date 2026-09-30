@@ -259,7 +259,7 @@ function Pending({ id, n, of, blocked = 0 }) {
           {' · '}
           <Tally n={blocked} icon={of.icon} word={of.word(blocked)} showWord />
           {' '}
-          {t(`settings.jobs.common.${id}.blocked`)}
+          {t(`settings.jobs.common.${id}.blocked`, { count: blocked })}
         </>
       )}
     </span>
