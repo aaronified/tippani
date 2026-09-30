@@ -5183,7 +5183,6 @@ metadata.issue.no-quotes.label = উদ্ধৃতি নেই
 metadata.issue.no-face.label = মুখের ছবি নেই
 metadata.row.works.label = কাজ
 metadata.row.quotes.label = উদ্ধৃতি
-metadata.issue.people-thin.label = ছবি বা লিংক নেই এমন ব্যক্তি
 metadata.issue.people-dup.label = একই ব্যক্তি হতে পারে এমন নাম
 metadata.issue.chars-dup.label = একই চরিত্র হতে পারে এমন নাম
 # And a row with nothing missing at all.
@@ -5256,6 +5255,8 @@ metadata.row.edit.close.aria = {name}-এর সম্পাদক বন্ধ 
 metadata.row.lookup.aria = {name} খুঁজে দেখুন
 metadata.row.lookup.close.aria = {name}-এর খোঁজা বন্ধ করুন
 metadata.row.open.aria = {name} খুলুন
+metadata.speakers.missing.one = {n}টা লাইনে এখনো অভিনেতা নেই: তার টাইটেলটা বেছে বক্তাকে একজন দিন।
+metadata.speakers.missing.other = {n}টা লাইনে এখনো অভিনেতা নেই: একটা একটা টাইটেল বেছে প্রতিটা বক্তাকে একজন দিন।
 # A film's own count. NOT unit.dialogue, which now reads "film line": this row has
 # always counted "dialogues", and migrating keys is not the place to rename a
 # thing.

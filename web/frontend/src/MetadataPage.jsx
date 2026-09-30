@@ -203,42 +203,24 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
   // copy of "set the type, set the filter, go to the section". Three copies is how
   // one of them goes on being right while another quietly stops: the phone's
   // numbers were the copy that did not exist at all, and nothing said so.
+  //
+  // AND IT LANDS ON THE NUMBER IT WAS PRESSED FOR. A pill for People or Characters
+  // carries the console's own issue token, handed in as `arriveIssue` — `at` counts
+  // presses, so pressing the same pill again after changing the filter inside
+  // still lands on it.
+  const [peopleIssue, setPeopleIssue] = useState({ issue: '', at: 0 })
+  const [charIssue, setCharIssue] = useState({ issue: '', at: 0 })
   const pickGap = (type, filter, section = 'works') => {
-    if (type) setCatType(type)
-    if (filter) setCatFilter(filter)
+    if (section === 'works') {
+      if (type) setCatType(type)
+      if (filter) setCatFilter(filter)
+    }
+    if (section === 'people') setPeopleIssue((s) => ({ issue: filter || '', at: s.at + 1 }))
+    if (section === 'characters') setCharIssue((s) => ({ issue: filter || '', at: s.at + 1 }))
     setSection(section)
   }
   const mobile = useIsMobileScreen()
 
-  const stats = useMemo(() => {
-    const b = lib?.books || []
-    const m = lib?.movies || []
-    const d = lib?.dialogue_stats || { total: 0, missing_actor: 0 }
-    const count = (list, pred) => list.filter(pred).length
-    return {
-      books: {
-        total: b.length,
-        no_cover: count(b, (x) => !x.has_cover),
-        low_res: count(b, (x) => x.low_res_cover),
-        no_author: count(b, (x) => !x.has_author),
-        no_series: count(b, (x) => !x.has_series),
-        no_year: count(b, (x) => !x.has_year),
-        no_genre: count(b, (x) => !x.has_genre),
-        no_source: count(b, (x) => !x.has_ids),
-      },
-      movies: {
-        total: m.length,
-        no_poster: count(m, (x) => !x.has_poster),
-        low_res: count(m, (x) => x.low_res_poster),
-        no_cast: count(m, (x) => !x.has_cast),
-        no_director: count(m, (x) => !x.has_director),
-        no_year: count(m, (x) => !x.has_year),
-        no_genre: count(m, (x) => !x.has_genre),
-        no_source: count(m, (x) => !x.has_source),
-      },
-      dialogues: d,
-    }
-  }, [lib])
 
   // ADMIN-ONLY, AND ABSENT RATHER THAN GREYED for the same reason everywhere else
   // in this menu: a menu row cannot be disabled, so a reader who cannot run this
@@ -371,7 +353,7 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
   }
   // Built here rather than inside the sheet: the sheet is mounted only while open,
   // and the count belongs to the page whether or not anybody is looking at it.
-  const issues = libraryIssues({ stats, people, chars })
+  const issues = libraryIssues({ lib, people, chars })
 
   // WHAT EACH DOOR CARRIES ON THE PHONE'S INDEX — and it was a name, an arrow and
   // for two of them a button wearing only its glyph. The owner: "the metadata phone
@@ -385,18 +367,9 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
   // verbs keep their words (Scan, Fetch, Prune). Languages shows the languages in
   // their marks; Categories shows the colours by name. Sources has no summary that
   // does not need its own fetch, so it stays a door.
-  // ONE PILL PER NAME. Books and films both have a "no source" gap, and two pills
-  // reading "no source 22" side by side are two doors a reader cannot tell apart;
-  // merged, the count is both and the door is Works across every type.
-  const doorPills = (section) => {
-    const byLabel = new Map()
-    for (const i of issues.filter((x) => x.go.section === section)) {
-      const got = byLabel.get(i.label)
-      if (!got) byLabel.set(i.label, i)
-      else byLabel.set(i.label, { ...got, n: got.n + i.n, go: { ...got.go, type: 'all' } })
-    }
-    return [...byLabel.values()]
-  }
+  // ONE PILL PER NAME, which libraryIssues already guarantees: a gap books and
+  // films share is one row, counted over both, opening on every type.
+  const doorPills = (section) => issues.filter((x) => x.go.section === section)
   // The library's languages, from the session cache and then fresh — the index is
   // often the first screen that asks, so reading the cache alone drew nothing.
   const [vocabLanguages, setVocabLanguages] = useState(() => cachedVocabulary()?.languages || [])
@@ -610,6 +583,7 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
                  down would make every row below re-derive which one to call. */
               onOpenWork={(w) => (w.kind === 'movie' ? onOpenMovie : onOpenBook)?.(w.id)}
               arriveFetching={intent === 'fetch'}
+              arriveIssue={peopleIssue}
               onArrived={() => setIntent(null)}
             />
           ) : (
@@ -623,9 +597,9 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
                   owner's standing rule, and the reason this moved: "Use the space
                   available. Think like the user. Whatever will be used more needs
                   to be up front." */}
-              <SpeakerRemap movies={lib.movies.filter((m) => m.dialogue_count > 0)} onDone={load} user={user} />
+              <SpeakerRemap movies={lib.movies.filter((m) => m.dialogue_count > 0)} onDone={load} user={user} missing={(lib.dialogue_stats || {}).missing_actor || 0} />
               {/* Beside the people list and never inside it — see CharactersConsole. */}
-              <CharactersConsole rows={chars} onReload={loadChars} onOpenWork={(w) => (w.kind === 'movie' ? onOpenMovie : onOpenBook)?.(w.id)} />
+              <CharactersConsole rows={chars} onReload={loadChars} arriveIssue={charIssue} onOpenWork={(w) => (w.kind === 'movie' ? onOpenMovie : onOpenBook)?.(w.id)} />
             </>
           )}
           </div>
@@ -765,31 +739,59 @@ const MOVIE_GAPS = ['no_poster', 'low_res', 'no_cast', 'no_director', 'no_year',
 // ONLY WHAT IS ACTUALLY WRONG. A row reading "0" is a row that teaches a reader
 // to stop reading the list, and a sheet of fourteen zeroes says nothing at all —
 // so an empty sheet says so in one sentence instead.
-function libraryIssues({ stats, people, chars }) {
+// EVERY NUMBER ON THE INDEX IS THE NUMBER ITS DOOR OPENS ON. The owner, 30
+// September: "works › no source shows 3 on the index card, but inside it shows 0."
+// It did, and four ways: a catalogue gap was counted over films, shows and games
+// and opened on films alone; "people with no portrait or link" was a union no
+// console filter draws; "no actor" and "may be the same character" opened on
+// screens that showed neither number. So each row here is one the console itself
+// draws, counted by the console's own test, and its door says where to land.
+//
+// A WORK GAP IS COUNTED BY KIND, and the door opens on the one kind that has it, or
+// on every type when more than one does — the all-types view carries every gap,
+// each counting only the shelf it applies to (bookPasses / moviePasses).
+const WORK_GAPS = ['no_cover', 'no_poster', 'low_res', 'no_author', 'no_cast', 'no_director', 'no_series', 'no_year', 'no_genre', 'no_source']
+function libraryIssues({ lib, people, chars }) {
   const out = []
   const add = (id, label, n, go) => { if (n > 0) out.push({ id, label, n, go }) }
-  if (stats) {
-    for (const g of BOOK_GAPS) add(`b-${g}`, gapLabel(g), stats.books[g], { section: 'works', type: 'book', filter: g })
-    for (const g of MOVIE_GAPS) add(`m-${g}`, gapLabel(g), stats.movies[g], { section: 'works', type: 'movie', filter: g })
-    // A LINE WITH NO ACTOR IS FIXED IN THE CHARACTER SECTION, by the remap — the
-    // works console has no filter that can find it, because it is a property of a
-    // quote rather than of the film it came from.
-    add('d-actor', gapLabel('no_actor'), stats.dialogues.missing_actor, { section: 'characters' })
+  if (lib) {
+    const books = lib.books || []
+    const movies = lib.movies || []
+    for (const g of WORK_GAPS) {
+      const per = []
+      if (BOOK_GAPS.includes(g)) per.push(['book', books.filter((b) => bookPasses(b, g)).length])
+      if (MOVIE_GAPS.includes(g)) {
+        for (const mt of ['movie', 'show', 'game']) {
+          per.push([mt, movies.filter((m) => (m.media_type || 'movie') === mt && moviePasses(m, g)).length])
+        }
+      }
+      const hit = per.filter(([, n]) => n > 0)
+      add(`w-${g}`, gapLabel(g), hit.reduce((sum, [, n]) => sum + n, 0), { section: 'works', type: hit.length === 1 ? hit[0][0] : 'all', filter: g })
+    }
+    // A LINE WITH NO ACTOR IS FIXED IN THE CHARACTER SECTION, by the remap, which
+    // says the same number at its head (SpeakerRemap's `missing`).
+    add('d-actor', gapLabel('no_actor'), (lib.dialogue_stats || {}).missing_actor || 0, { section: 'characters' })
   }
   if (people) {
-    // The same test the people console runs on its own rows: no provider link, or
-    // no stored portrait — the server's, read off each row (see PERSON_ISSUES).
-    // Counted here so the number is visible before the section is entered, which
-    // is the whole reason this list exists.
-    const thin = people.filter((p) => p.no_links || p.no_photo)
-    add('p-thin', t('metadata.issue.people-thin.label'), thin.length, { section: 'people' })
-    const names = [...new Set(people.map((p) => p.name))]
-    add('p-dup', t('metadata.issue.people-dup.label'), nearDupGroups(names).length, { section: 'people' })
+    for (const [token, key, pred] of PERSON_ISSUES) add(`p-${token}`, t(key), people.filter(pred).length, { section: 'people', filter: token })
+    add('p-dup', t('metadata.issue.people-dup.label'), recordDupGroups(people).length, { section: 'people' })
   }
   if (chars) {
-    add('c-dup', t('metadata.issue.chars-dup.label'), nearDupGroups([...new Set(chars.map((c) => c.name))]).length, { section: 'characters' })
+    for (const [token, key, pred] of CHARACTER_ISSUES) add(`c-${token}`, t(key), chars.filter(pred).length, { section: 'characters', filter: token })
+    add('c-dup', t('metadata.issue.chars-dup.label'), recordDupGroups(chars).length, { section: 'characters' })
   }
   return out
+}
+
+// NEAR-DUPLICATE CLUSTERS OVER RECORDS, one function for the index's count and the
+// console's list, so the two cannot disagree. A record per spelling; two spellings
+// of one record are one record, not a pair to merge into itself.
+function recordDupGroups(rows) {
+  const byName = {}
+  for (const r of rows || []) byName[r.name] = byName[r.name] || r
+  return nearDupGroups(Object.keys(byName))
+    .map((g) => g.map((n) => byName[n]).filter(Boolean))
+    .filter((g) => g.length >= 2)
 }
 
 // ── THE ISSUES A CONSOLE CAN FILTER TO ───────────────────────────────────────
@@ -926,9 +928,9 @@ async function runPooled(items, limit, fn) {
 // ---- catalogue console (books + films + shows, merged) ----
 
 // The type selector drives which filters the second dropdown offers. "all types"
-// gets the filters common to books and films; a specific type gets that kind's
-// full set. Keep the shared keys (flagged/low_res/no_year/no_genre/no_source)
-// spelled the same across both so an "all types" filter applies to either kind.
+// gets every gap, each counting only the kind it applies to; a specific type gets
+// that kind's own set. Keep the shared keys (flagged/low_res/no_year/no_genre/
+// no_source) spelled the same across both so one filter applies to either kind.
 // The type selector holds the STORED VALUE and the KEY that names it; the words
 // are built by typeOptions() during render, for the reason GAP_KEYS gives above.
 // Three of the four rows are the app's own countable nouns, so this screen needs
@@ -949,7 +951,10 @@ const typeOptions = () => CATALOGUE_TYPES.map(([v, key]) => [v, t(key)])
 // ends on Complete (`metadata.dc.html:851`).
 const BOOK_FILTERS = ['flagged', ...BOOK_GAPS, 'no_people', 'no_synopsis', 'ok', 'all']
 const MOVIE_FILTERS = ['flagged', ...MOVIE_GAPS, 'no_people', 'no_synopsis', 'ok', 'all']
-const ALL_FILTERS = ['flagged', 'low_res', 'no_year', 'no_genre', 'no_source', 'no_people', 'no_synopsis', 'ok', 'all']
+// EVERY GAP ON THE ALL-TYPES VIEW, in the pack's order, each counting only the
+// shelf it applies to — so the index can open a gap that films and games share on
+// every type and land on the number it counted.
+const ALL_FILTERS = ['flagged', 'no_cover', 'no_poster', 'low_res', 'no_author', 'no_cast', 'no_director', 'no_series', 'no_year', 'no_genre', 'no_source', 'no_people', 'no_synopsis', 'ok', 'all']
 function filtersForType(type) {
   if (type === 'book') return BOOK_FILTERS
   if (type === 'movie' || type === 'show' || type === 'game') return MOVIE_FILTERS
@@ -975,8 +980,11 @@ function bookPasses(b, filter) {
     no_people: (b) => !b.has_author,
     no_synopsis: (b) => !b.has_description,
     ok: completeBy(BOOK_GAPS.concat('no_people', 'no_synopsis'), bookPasses),
+    all: () => true,
   }[filter]
-  return p ? p(b) : true
+  // A FILM'S GAP ASKED OF A BOOK MATCHES NOTHING: a book has no poster to be
+  // missing. The all-types view asks every gap of every row.
+  return p ? p(b) : false
 }
 function moviePasses(m, filter) {
   const p = {
@@ -991,8 +999,9 @@ function moviePasses(m, filter) {
     no_people: (m) => !m.has_cast,
     no_synopsis: (m) => !m.has_description,
     ok: completeBy(MOVIE_GAPS.concat('no_people', 'no_synopsis'), moviePasses),
+    all: () => true,
   }[filter]
-  return p ? p(m) : true
+  return p ? p(m) : false
 }
 
 // CatalogueConsole — one section (styled like the People console: no card,
@@ -1812,7 +1821,7 @@ export function remapLabels(dialogues, seps) {
 // this panel through MetadataPage — which means an admin user, a tab, and a
 // catalogue load — and a test that spends four steps arriving is a test of the
 // route rather than of the panel.
-export function SpeakerRemap({ movies, onDone, user }) {
+export function SpeakerRemap({ movies, onDone, user, missing = 0 }) {
   const [movieId, setMovieId] = useState('')
   const [cast, setCast] = useState([])
   const [labels, setLabels] = useState([])
@@ -1893,6 +1902,10 @@ export function SpeakerRemap({ movies, onDone, user }) {
   return (
     <HandCard className="pref-group space-y-3">
       <CardHead title={t('metadata.speakers.title')} info={t('metadata.speakers.info.body')} />
+      {/* THE NUMBER THE INDEX'S "no actor" PILL CARRIES, where that pill lands:
+          lines whose speaker is not yet any cast member, fixed a title at a time
+          below. */}
+      {missing > 0 && <p className="microcopy">{t('metadata.speakers.missing', { count: missing, n: missing })}</p>}
       <Select
         value={movieId}
         onChange={setMovieId}
@@ -2348,7 +2361,7 @@ function CharacterRow({ c, first, onOpen, onMerge, onDelete, onWork = null, onPe
 // the reader made and has not paired yet, or one whose last cast row went — and
 // both are things only this list can show, because a character with no works
 // appears on no work's page by definition.
-export function CharactersConsole({ rows = null, onReload = null, onOpenWork = null }) {
+export function CharactersConsole({ rows = null, onReload = null, onOpenWork = null, arriveIssue = null }) {
   const mobile = useIsMobileScreen()
   const [own, setOwn] = useState(null)
   const [q, setQ] = useState('')
@@ -2370,8 +2383,9 @@ export function CharactersConsole({ rows = null, onReload = null, onOpenWork = n
   // WHICH MEDIUM — see mediaTypeOptions.
   const [medium, setMedium] = useState('')
   // WHICH ISSUE, as a row of pills above the list. See PERSON_ISSUES for the
-  // argument; '' is every row.
-  const [issue, setIssue] = useState('')
+  // argument; '' is every row. An index pill hands one in.
+  const [issue, setIssue] = useState(arriveIssue?.issue || '')
+  useEffect(() => { if (arriveIssue?.at) setIssue(arriveIssue.issue || '') }, [arriveIssue?.at])
   const [err, setErr] = useState('')
   // MERGE AND DELETE FROM THE LIST, which is the pack's row and is also where the
   // work is. The backfill makes a character record PER WORK, so de-duplicating is
@@ -2407,6 +2421,7 @@ export function CharactersConsole({ rows = null, onReload = null, onOpenWork = n
     if (owned) load()
   }, [owned, load])
   const list = owned ? own : rows
+  const dupGroups = useMemo(() => recordDupGroups(list), [list])
 
   // DELETE GOES TO THE BIN, which is what makes a row-level delete offerable at
   // all: `binRecord` writes the record's snapshot before the row goes, so the
@@ -2516,6 +2531,17 @@ export function CharactersConsole({ rows = null, onReload = null, onOpenWork = n
       )}
       </ConsoleToolbar>
       <ErrorText>{err}</ErrorText>
+      {/* THE PAIRS THE INDEX'S "may be the same character" PILL COUNTS, drawn where
+          it lands, with the People console's own card: the same choice of which
+          record to keep, and a merge the server already has. */}
+      {dupGroups.length > 0 && (
+        <div className="space-y-2">
+          <MonoLabel>{t('metadata.people.dups.count', { n: dupGroups.length })}</MonoLabel>
+          {dupGroups.map((g, i) => (
+            <DupCard key={i} group={g} onMerged={load} endpoint="/characters/merge" imgURL={coverImgURL} />
+          ))}
+        </div>
+      )}
       {!list ? (
         <EmptyState>{t('common.state.loading')}</EmptyState>
       ) : shown.length === 0 ? (
@@ -2614,7 +2640,10 @@ function PanelReload({ stack, onEmpty }) {
 // THE RENAME ENDPOINT STAYS AND IS STILL RIGHT for what it is for — correcting a
 // misspelling everywhere, which is a statement about the spelling rather than
 // about identity. The person panel is where a reader asks for that.
-function DupCard({ group, onMerged }) {
+// `endpoint` and `imgURL` are the only differences between a person's pair and a
+// character's: the same choice, the same card, one component (the repo's "two
+// things that look the same behave the same").
+function DupCard({ group, onMerged, endpoint = '/people/merge', imgURL = personImgURL }) {
   // The likeliest keeper: the one with a portrait, then the one carrying more of
   // the library. A reader can override it — that is what the radios are for — and
   // the default matters because most of these are accepted as offered.
@@ -2637,7 +2666,7 @@ function DupCard({ group, onMerged }) {
     setErr('')
     for (const p of group) {
       if (p.id === keep) continue
-      const r = await json('POST', '/people/merge', { keep_id: keep, drop_id: p.id })
+      const r = await json('POST', endpoint, { keep_id: keep, drop_id: p.id })
       if (!r.ok) { setBusy(false); return setErr(errText(r, t('error.merge.failed'))) }
     }
     setBusy(false)
@@ -2651,7 +2680,7 @@ function DupCard({ group, onMerged }) {
         {group.map((p) => (
           <label key={p.id} className="flex items-center gap-2" style={{ cursor: 'pointer' }}>
             <input type="radio" name={`dup-${group.map((x) => x.id).join('-')}`} checked={keep === p.id} onChange={() => setKeep(p.id)} />
-            <Face src={p.image_path} url={personImgURL} fallback={null} name={p.name || ''} className="person-dup-face" />
+            <Face src={p.image_path} url={imgURL} fallback={null} name={p.name || ''} className="person-dup-face" />
             <span>{p.name}</span>
             {/* HOW MUCH HANGS OFF EACH, because that is what the choice is about:
                 folding the record with 12 books into the one with none loses
@@ -2789,14 +2818,15 @@ const PEOPLE_EMPTY = {
 // the split — was not reachable from this screen at all. It is the name's
 // destination now, and the modal keeps the portrait, reached from the row's own
 // face.
-export function PeopleConsole({ onFlash, onReverify, onSearch, onOpenWork = null, records = null, onReload = null, arriveFetching = false, onArrived = null }) {
+export function PeopleConsole({ onFlash, onReverify, onSearch, onOpenWork = null, records = null, onReload = null, arriveFetching = false, onArrived = null, arriveIssue = null }) {
   const mobile = useIsMobileScreen()
   const [role, setRole] = useState('all')
   // WHICH MEDIUM — see mediaTypeOptions. Read from `media`, which the server
   // counts over every work rather than the six the row draws.
   const [medium, setMedium] = useState('')
-  // WHICH ISSUE — see PERSON_ISSUES. '' is every row.
-  const [issue, setIssue] = useState('')
+  // WHICH ISSUE — see PERSON_ISSUES. '' is every row. An index pill hands one in.
+  const [issue, setIssue] = useState(arriveIssue?.issue || '')
+  useEffect(() => { if (arriveIssue?.at) setIssue(arriveIssue.issue || '') }, [arriveIssue?.at])
   const [own, setOwn] = useState(null)
   const [q, setQ] = useState('')
   useScreenSearch({ key: 'metadata-people', label: t('shell.search.where.people'), onQuery: setQ })
@@ -2889,14 +2919,7 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, onOpenWork = null
   // and the card offered to merge something into itself for ever; the guard that
   // dropped those groups is unnecessary now, because a record IS the identity the
   // comparison is about.
-  const dupGroups = useMemo(() => {
-    const byName = {}
-    for (const p of rows || []) byName[p.name] = byName[p.name] || p
-    const names = Object.keys(byName)
-    return nearDupGroups(names)
-      .map((g) => g.map((n) => byName[n]).filter(Boolean))
-      .filter((g) => g.length >= 2)
-  }, [rows])
+  const dupGroups = useMemo(() => recordDupGroups(rows), [rows])
 
   // ONE PERSON'S FETCH IS ONE REQUEST, and the server does all of it: resolve the
   // RIGHT person (an author from their books, an actor from a film's credits —

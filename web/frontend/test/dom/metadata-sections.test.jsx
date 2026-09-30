@@ -294,8 +294,11 @@ describe('on a phone', () => {
     // itself only over a library with orphans, and this fixture has none.
     expect(doors.map((s) => s.replace(/\d+$/, ''))).toEqual([
       'Works', 'no cover', 'no series', 'Scan for duplicate works',
-      'People', 'people with no portrait or link', 'Fetch missing',
-      'Characters',
+      // ONE PILL PER FILTER THE CONSOLE DRAWS, never a union no filter can show:
+      // "people with no portrait or link" opened on every person, a number the
+      // screen it opened did not print (the owner, 30 September).
+      'People', 'no links', 'no photo', 'in no work', 'no quotes', 'Fetch missing',
+      'Characters', 'in no work', 'no quotes',
       'Languages',
       // The colours ride on Categories' door as a preview, not as buttons: each would
       // open the same section, and a chip that looks like a filter should be one.
@@ -366,8 +369,10 @@ describe('on a phone', () => {
 
       // AND IT IS A SUPERSET OF THE DESKTOP TILES. The three people in the
       // fixture have neither a portrait nor a link, which the coverage strip has
-      // never counted — it only ever looked at the catalogue.
-      expect(rows.some((r) => /portrait or link/i.test(r))).toBe(true)
+      // never counted — it only ever looked at the catalogue. Each is its own row,
+      // the People console's own filter, so the number is the one it opens on.
+      expect(rows.some((r) => /no links/i.test(r))).toBe(true)
+      expect(rows.some((r) => /no photo/i.test(r))).toBe(true)
 
       await press([...document.querySelectorAll('.meta-issue-row')].find((el) => /series/i.test(el.textContent)))
       // It lands on the works console, filtered to the gap it named — and what

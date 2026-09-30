@@ -265,12 +265,11 @@ func (s *Server) peopleMissing(uid int64) ([]int64, error) {
 // count — a fetch cannot tell whether it is them), and a stored portrait.
 //
 // THE ONE STATEMENT OF THE RULE. The People console's no-links and no-photo pills,
-// its Fetch missing (the records with either), the Metadata screen's count of
-// people still missing something, and "Fetch missing people" all mean this, and
-// the console reads it off GET /people/records (no_links, no_photo) rather than
-// working it out again: a rule stated twice is two rules the day one of them
-// changes, and the first sign would be a job that fetched a different set from
-// the one the console said it would.
+// its Fetch missing (the records with either), and "Fetch missing people" all
+// mean this, and the console reads it off GET /people/records (no_links,
+// no_photo) rather than working it out again: a rule stated twice is two rules the
+// day one of them changes, and the first sign would be a job that fetched a
+// different set from the one the console said it would.
 func personLacks(links, imagePath string) (noLinks, noPhoto bool) {
 	return len(parseLinks(links).known) == 0, imagePath == ""
 }

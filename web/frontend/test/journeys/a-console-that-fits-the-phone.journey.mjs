@@ -46,7 +46,7 @@ for (const [section, pill] of [['Works', 'no synopsis'], ['People', 'in no work'
   it(`the ${section} console does not slide sideways on a phone`, async () => {
     await app.goto('/metadata')
     // THE DOOR BY ITS WHOLE NAME: the index's issue pills start with the same
-    // word now ("people with no portrait or link"), and `press` refuses to guess.
+    // word now ("characters who may be the same character"), and `press` refuses to guess.
     await app.press(`${section} —`)
     await app.see(pill)
     expect(await app.sideways()).toBe(0)
