@@ -85,15 +85,6 @@ func newTestServer(t *testing.T) *Server {
 	// ordinary case for a guessed slug, so that is the honest silent stub here
 	// rather than an empty-but-200 one.
 	metadata.SetLetterboxdBaseForTest(t, notFoundServer(t))
-	// AND THE THREE ONLY A TEST PRESS REACHES WITH NO KEY: every source on the
-	// Sources list can be tested, so "Test all" asks IMDb, Wikidata and Amazon's
-	// cover address on an instance that has configured nothing. A test that wants
-	// one of them sets its own base again; the later call wins.
-	metadata.SetWikidataBaseForTest(t, deadWikipedia(t))
-	metadata.SetAmazonCDNBaseForTest(t, notFoundServer(t))
-	imdbOrig := metadata.IMDbBaseURL
-	metadata.IMDbBaseURL = notFoundServer(t)
-	t.Cleanup(func() { metadata.IMDbBaseURL = imdbOrig })
 
 	// EVERY TEST SERVER HAS THE QUEUE serve() GIVES THE REAL ONE: a logbook, a
 	// runner on it, and the built-in kinds. From 3.1.0 an import is a queued job,

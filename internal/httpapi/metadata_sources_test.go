@@ -17,6 +17,20 @@ type sourcesResp struct {
 	Sources []sourceRow `json:"sources"`
 }
 
+// stubHostsOnlyATestReaches points the three hosts a Test press asks with no key
+// (IMDb, Wikidata, Amazon's cover address) at stubs, for a case that presses one.
+// newTestServer already stubs the other keyless hosts. NOT THERE TOO: several
+// tests set one of these three before calling newTestServer, and a stub set
+// inside it would overwrite theirs.
+func stubHostsOnlyATestReaches(t *testing.T) {
+	t.Helper()
+	metadata.SetWikidataBaseForTest(t, deadWikipedia(t))
+	metadata.SetAmazonCDNBaseForTest(t, notFoundServer(t))
+	orig := metadata.IMDbBaseURL
+	metadata.IMDbBaseURL = notFoundServer(t)
+	t.Cleanup(func() { metadata.IMDbBaseURL = orig })
+}
+
 func sourceNamed(t *testing.T, rows []sourceRow, slug string) sourceRow {
 	t.Helper()
 	for _, r := range rows {
@@ -130,6 +144,7 @@ func TestASourceRowCountsOnlyYourOwnRecords(t *testing.T) {
 // this drives the same seam a book lookup drives, and asserts the answer reaches
 // the same place a book lookup's answer reaches.
 func TestTestingASourceAsksItAndReportsWhatItSaid(t *testing.T) {
+	stubHostsOnlyATestReaches(t)
 	srv := newTestServer(t)
 	h := srv.Handler()
 	c := signupAdmin(t, h)
@@ -189,6 +204,7 @@ func TestTestingASourceAsksItAndReportsWhatItSaid(t *testing.T) {
 // source" above the list and "Test TMDB" on the row — so it is one handler, and
 // an empty body means all of them.
 func TestTestingEverySourceCoversTheOnesThatCanBeAsked(t *testing.T) {
+	stubHostsOnlyATestReaches(t)
 	srv := newTestServer(t)
 	h := srv.Handler()
 	c := signupAdmin(t, h)
@@ -224,9 +240,10 @@ func TestTestingEverySourceCoversTheOnesThatCanBeAsked(t *testing.T) {
 // two that cannot be asked as things stand say so: IGDB with no pair, and Google's
 // image results before the instance has said yes to reading them.
 //
-// NOTHING HERE LEAVES THE MACHINE: newTestServer points every keyless host at a
-// stub, the three only a Test reaches among them.
+// NOTHING HERE LEAVES THE MACHINE: newTestServer stubs the keyless hosts, and
+// stubHostsOnlyATestReaches the three only a Test press reaches.
 func TestEverySourceOnTheListCanBeTested(t *testing.T) {
+	stubHostsOnlyATestReaches(t)
 	srv := newTestServer(t)
 	h := srv.Handler()
 	c := signupAdmin(t, h)
@@ -286,6 +303,7 @@ func TestOnlyAnAdminCanSpendTheInstancesQuota(t *testing.T) {
 // disables that press; this is the other half, for the race where a key is
 // cleared between the render and the press.
 func TestTestingASourceWithNoKeyIsRefusedRatherThanIgnored(t *testing.T) {
+	stubHostsOnlyATestReaches(t)
 	srv := newTestServer(t)
 	h := srv.Handler()
 	c := signupAdmin(t, h)
