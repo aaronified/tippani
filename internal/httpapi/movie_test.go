@@ -138,7 +138,9 @@ func TestTMDBWithoutKey(t *testing.T) {
 		{"/movies", map[string]any{"tmdb_id": 949}},
 	} {
 		rec := c.mustDo("POST", req.path, req.body, http.StatusServiceUnavailable)
-		if !strings.Contains(rec.Body.String(), "Settings") {
+		// THE MESSAGE NAMES THE SCREEN WHERE THE KEYS ARE, which is Metadata ›
+		// Sources and has been since the keys moved off Settings.
+		if !strings.Contains(rec.Body.String(), "Metadata › Sources") {
 			t.Fatalf("%s: %s", req.path, rec.Body)
 		}
 	}

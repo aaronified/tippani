@@ -147,7 +147,8 @@ func TestBookLookupQuota(t *testing.T) {
 	if rec.Code != http.StatusBadGateway {
 		t.Fatalf("quota lookup: got %d, want 502", rec.Code)
 	}
-	if !strings.Contains(rec.Body.String(), "Google Books") || !strings.Contains(rec.Body.String(), "Settings") {
+	// It names the screen the key is added on, Metadata › Sources.
+	if !strings.Contains(rec.Body.String(), "Google Books") || !strings.Contains(rec.Body.String(), "Metadata › Sources") {
 		t.Fatalf("quota message not helpful: %s", rec.Body)
 	}
 }

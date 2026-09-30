@@ -83,8 +83,8 @@ func (s *Server) handleBookLookup(w http.ResponseWriter, r *http.Request) {
 			olog.Errorf(olog.CodeMetaLookupFailed, "[meta] book lookup isbn=%q title=%q: google quota/key rejected (own key set=%t): %v",
 				isbn, req.Title, gkey != "", searchErr)
 			msg := "Google Books' free shared quota is used up for today, and Open Library " +
-				"had no match. Add your own free Google Books API key in Settings → Metadata " +
-				"sources — it's instant and gives you a private quota."
+				"had no match. Add your own free Google Books API key in Metadata › Sources " +
+				"— it's instant and gives you a private quota."
 			if gkey != "" {
 				msg = "Your Google Books API key was rejected or is out of quota, and Open " +
 					"Library had no match. Check the key in Metadata › Sources."

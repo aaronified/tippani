@@ -16,8 +16,8 @@ import (
 )
 
 // tmdbKeyMissing: manual movie entry still works without a key (PLAN §6).
-const tmdbKeyMissing = "TMDB API key not configured (add one in Settings)"
-const tvdbKeyMissing = "TheTVDB API key not configured (set TIPPANI_TVDB_API_KEY or save a key in Settings)"
+const tmdbKeyMissing = "TMDB API key not configured (add one in Metadata › Sources)"
+const tvdbKeyMissing = "TheTVDB API key not configured (set TIPPANI_TVDB_API_KEY or save a key in Metadata › Sources)"
 
 // movieKeysMissing is for the case where NEITHER film/show supplier is
 // configured, and it names TheTVDB first because that is the default source
@@ -30,7 +30,7 @@ const movieKeysMissing = "No film/show source is configured — add a TheTVDB ke
 // saved one of them: a client id with no secret is indistinguishable from no key
 // at all, and "IGDB key not configured" would send you looking at the field you
 // already filled in.
-const igdbKeyMissing = "IGDB needs a Twitch client id AND secret (add both in Settings)"
+const igdbKeyMissing = "IGDB needs a Twitch client id AND secret (add both in Metadata › Sources)"
 
 type movieReq struct {
 	// TMDBID/TVDBID are the supplier ids, and they are POINTERS on purpose:

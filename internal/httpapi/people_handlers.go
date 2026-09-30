@@ -1148,7 +1148,7 @@ func (s *Server) lookupLinks(ctx context.Context, kind, name string) (map[string
 		igdb, _ := s.resolveIGDB()
 		if igdb == nil {
 			return nil, &refusal{http.StatusServiceUnavailable,
-				"company links come from IGDB — add the IGDB client id and secret in Settings first"}
+				"company links come from IGDB — add the IGDB client id and secret in Metadata › Sources first"}
 		}
 		var logo string
 		links, logo, _, err = igdb.CompanyLinks(ctx, name)
@@ -1165,7 +1165,7 @@ func (s *Server) lookupLinks(ctx context.Context, kind, name string) (map[string
 		tmdb, _ := s.resolveTMDB()
 		if tmdb == nil {
 			return nil, &refusal{http.StatusServiceUnavailable,
-				"these links come from TMDB — add a TMDB key in Settings first"}
+				"these links come from TMDB — add a TMDB key in Metadata › Sources first"}
 		}
 		links, err = s.actorLinks(ctx, tmdb, name)
 	}
