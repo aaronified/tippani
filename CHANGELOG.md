@@ -19,8 +19,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ends.
 - **Every log in Settings → Jobs has a copy button.** A job's log, live or finished, and
   System logs each carry a copy glyph in the top-right corner of the log box, which stays
-  put while the lines scroll under it. It copies the lines as read, clock first, one to a
-  line, and says "copied". A log with no lines has no button.
+  put while the lines scroll beside it. The lines stop short of the glyph, so it never
+  covers the end of a line. It copies the lines as read, clock first, one to a line, and
+  says "copied". A job's log names its button "Copy the log of {title}" and System logs
+  names its "Copy these lines", so a job's log open beside System logs does not give two
+  buttons one name. A log with no lines has no button.
 - **Every source in Metadata → Sources can be tested.** Only Google Books, TMDB, TheTVDB
   and IGDB had a working Test; Open Library, Amazon, IMDb, Letterboxd, Wikidata,
   Wikimedia, Fandom and Google Images drew a disabled button. Each now asks its source
@@ -100,12 +103,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   review as an "IGDB id" change, so a fill writes it and the next run asks by id. When
   several games have that name, none does, or another of your works already carries the
   id, the row says so and leaves the game to Look up. Without IGDB's client id and secret
-  the message names them.
+  the message names them, for a game with no id and for one already pinned to IGDB alike;
+  the pinned game was told "the pinned source needs its key". A game filled or re-verified
+  from IGDB now records IGDB as the source of each field it fills, so the work's Details
+  show it beside the field, as they show TheTVDB or TMDB for a film.
 - **A source row with no recorded answer in Metadata → Sources now says "no answer
   recorded since the server started".** It used to say "nothing has asked it yet", which
   was false once a fill had asked that source. A row's last answer is kept only from the
   Add screen's lookups, picture searches and Test, and a restart clears it; a fill, a
-  covers pass and a re-verify ask the same sources and record nothing.
+  covers pass and a re-verify ask the same sources and record nothing, apart from the
+  IGDB title search a fill or re-verify makes for a game with no id, which is recorded on
+  the IGDB row.
+- **Server messages that send a reader to check a key now name the screen where the keys
+  are.** A rejected TMDB or TheTVDB key, rejected IGDB credentials, Google Books' used-up
+  shared quota, an Amazon-pinned book with no cookie and a film or show source with no
+  key said "in Settings → Metadata sources"; they now say "in Metadata › Sources".
 
 ## [3.1.2] - 2026-09-29
 
