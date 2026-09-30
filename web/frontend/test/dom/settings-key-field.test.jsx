@@ -21,11 +21,12 @@ import { mediaOf, valueOf } from '../css-cascade.js'
 let KEYS
 let STATUS
 let PUTS
+let PUT_ANSWER
 
 vi.mock('../../src/api.js', async (orig) => ({
   ...(await orig()),
   json: vi.fn(async (method, path, body) => {
-    if (method === 'PUT') { PUTS.push([path, body]); return { ok: true, data: {} } }
+    if (method === 'PUT') { PUTS.push([path, body]); return PUT_ANSWER }
     if (path === '/metadata/status') return { ok: true, data: STATUS }
     if (path === '/admin/metadata-keys') return { ok: true, data: KEYS }
     return { ok: true, data: {} }
@@ -45,6 +46,7 @@ beforeEach(() => {
   KEYS = {}
   STATUS = { tmdb: { source: 'builtin' }, books_lookup: { ok: true } }
   PUTS = []
+  PUT_ANSWER = { ok: true, data: {} }
 })
 
 // EVERY SUPPLIER ON THE LIST, as GET /metadata/status names them.
@@ -121,6 +123,22 @@ describe('a key row', () => {
     fireEvent.change(screen.getByPlaceholderText(/TMDB v3 key/), { target: { value: 'k123' } })
     fireEvent.click(screen.getByRole('button', { name: /save tmdb key/i }))
     await waitFor(() => expect(PUTS.some(([p, b]) => p === '/admin/metadata-keys' && b.tmdb_key === 'k123')).toBe(true))
+  })
+
+  // A FAILED SAVE IS TOLD UNDER THE ROW IT FAILED IN. It printed at the foot of the
+  // card, below twelve rows, the legend and the fault chips: on a phone, a screen
+  // away from the Save just pressed. A rating found it; the words must now sit
+  // between the supplier whose field failed and the supplier after it.
+  it('says a failed save under the row whose field failed', async () => {
+    PUT_ANSWER = { ok: false, status: 500, data: { error: 'the settings could not be written' } }
+    await page()
+    fireEvent.click(editBtn('TMDB key'))
+    fireEvent.change(screen.getByPlaceholderText(/TMDB v3 key/), { target: { value: 'k123' } })
+    fireEvent.click(screen.getByRole('button', { name: /save tmdb key/i }))
+    const said = await screen.findByText(/the settings could not be written/)
+    const after = (a, b) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
+    expect(after(screen.getByText('TMDB', { exact: true }), said), 'the error is above the row it is about').toBe(true)
+    expect(after(said, screen.getByText('TheTVDB', { exact: true })), 'the error is below the next row').toBe(true)
   })
 
   it('shows a value that is not a secret, because hiding it answers nothing', async () => {

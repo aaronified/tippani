@@ -346,7 +346,7 @@ const keyLabel = (source, noun) =>
 //
 // THE NUMBERS ARE THE LIBRARY'S OWN. `records` counts the fields `work_field_source`
 // says each supplier wrote, scoped to this reader — see metadata_sources.go.
-function SourceRows({ admin, sources, scrapeOn = false, info = null, editors = null, onTested }) {
+function SourceRows({ admin, sources, scrapeOn = false, info = null, editors = null, saveError = null, onTested }) {
   // WHICH ROW IS BEING ASKED, by slug, and '' for none. A single busy flag would
   // grey out twelve rows because one of them is being tested.
   const [asking, setAsking] = useState('')
@@ -415,9 +415,10 @@ function SourceRows({ admin, sources, scrapeOn = false, info = null, editors = n
         const off = row.source === 'google-images' && !scrapeOn
         const editor = admin ? editors?.[row.source] : null
         // NO ANSWER ON RECORD IS A FACT, NOT A WARNING, and it is worth drawing:
-        // a row is recorded only when something asks its supplier, so a quiet row
-        // would otherwise be indistinguishable from one whose answer failed to
-        // render. IT SAYS WHOSE FACT IT IS. The record is the server's memory of
+        // a row carries an answer only after an ask that records one (a lookup, a
+        // picture search, a Test, and IGDB's game search inside a fill; the rest
+        // of a fill's asks record nothing yet), so a quiet row would otherwise be
+        // indistinguishable from one whose answer failed to render. IT SAYS WHOSE FACT IT IS. The record is the server's memory of
         // each source's last answer, since it started (metadata_faults.go keeps
         // it in memory on purpose), and the old words, "nothing has asked it
         // yet", read as a claim about the source. The owner, seeing them on every
@@ -488,7 +489,15 @@ function SourceRows({ admin, sources, scrapeOn = false, info = null, editors = n
                 {last?.error ? ` — ${last.error}` : ''}
               </p>
             )}
-            {editor && open.has(row.source) && <div className="src-row-keys">{editor}</div>}
+            {editor && open.has(row.source) && (
+              <div className="src-row-keys">
+                {editor}
+                {/* A FAILED SAVE SAYS SO UNDER THE FIELD THAT FAILED. It printed at the
+                    card's foot, below the legend and the fault chips, a phone's
+                    screen away from the row a reader had just pressed Save in. */}
+                {saveError?.source === row.source && <ErrorText>{saveError.text}</ErrorText>}
+              </div>
+            )}
           </div>
         )
       })}
@@ -497,11 +506,19 @@ function SourceRows({ admin, sources, scrapeOn = false, info = null, editors = n
   )
 }
 
+// Which row each key field belongs to, so a failed save is told under that row.
+const KEY_SOURCE = {
+  google_books_key: 'google', tmdb_key: 'tmdb', tvdb_key: 'tvdb', tvdb_pin: 'tvdb',
+  igdb_client_id: 'igdb', igdb_secret: 'igdb', amazon_cookie: 'amazon', amazon_domain: 'amazon',
+}
+
 export function MetadataSources({ user, onPreferences }) {
   const admin = user.is_admin
   const [status, setStatus] = useState(null)
   const [keys, setKeys] = useState(null) // {tmdb_key_set, google_books_key_set, amazon_cookie_set, amazon_domain}
-  const [error, setError] = useState('')
+  // { source, text }: which row's setup failed to save, so its words print under
+  // that row's fields rather than at the foot of a twelve-row card.
+  const [error, setError] = useState(null)
   const [saving, setSaving] = useState(false)
 
   async function loadStatus() {
@@ -579,11 +596,11 @@ export function MetadataSources({ user, onPreferences }) {
   // reports only whether each is set, never the value.
   async function saveKey(field, value) {
     setSaving(true)
-    setError('')
+    setError(null)
     const r = await json('PUT', '/admin/metadata-keys', { [field]: value.trim() })
     setSaving(false)
     if (!r.ok) {
-      setError(errText(r, t('error.save.generic')))
+      setError({ source: KEY_SOURCE[field], text: errText(r, t('error.save.generic')) })
       return false
     }
     await Promise.all([loadStatus(), loadKeys()])
@@ -734,10 +751,10 @@ export function MetadataSources({ user, onPreferences }) {
           value={keys?.google_scrape ? 'on' : 'off'}
           onChange={async (v) => {
             setSaving(true)
-            setError('')
+            setError(null)
             const r = await json('PUT', '/admin/metadata-keys', { google_scrape: v === 'on' })
             setSaving(false)
-            if (!r.ok) { setError(errText(r, t('error.save.generic'))); return }
+            if (!r.ok) { setError({ source: 'google-images', text: errText(r, t('error.save.generic')) }); return }
             await Promise.all([loadStatus(), loadKeys()])
             toast(t('common.toast.saved'))
           }}
@@ -783,6 +800,7 @@ export function MetadataSources({ user, onPreferences }) {
         scrapeOn={!!keys?.google_scrape}
         info={t('settings.keys.card.info')}
         editors={editors}
+        saveError={error}
         onTested={loadStatus}
       />
 
@@ -869,10 +887,6 @@ export function MetadataSources({ user, onPreferences }) {
           {t('settings.metadata.last-error.prose', { error: lookup.error })}
         </p>
       )}
-      {/* THE SAVE ERROR BELONGS TO THE CARD THAT SAVES, and this is the only one
-          now: every write on this screen is a key field or the image-results
-          switch in a row's setup. */}
-      <ErrorText>{error}</ErrorText>
     </Card>
 
     {/* THE CREDENTIALS HAD A CARD OF THEIR OWN HERE, on the owner's earlier ruling

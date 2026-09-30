@@ -5873,7 +5873,7 @@ metadata.work.goto.aria = Go to {title}
 settings.keys.card.info = Every supplier the app asks about books, films, games and pictures. Keys are stored on the server and shared by every account, so only an admin can see or change them.
 settings.keys.saved.tip = Saved
 
-# ── WHO THE APP CAN ASK ──────────────────────────────────────────────────────
+# ── ALL SOURCES ──────────────────────────────────────────────────────────────
 # One row per supplier, which is the question the console's heading asks. The
 # areas are settings.metadata.area.* above; nothing here names a supplier, because
 # vocab.source.* already does.

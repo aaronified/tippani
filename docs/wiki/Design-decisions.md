@@ -19927,3 +19927,16 @@ that needs work" sheet printed People's and Characters' "no quotes" as two ident
 its rows now sit under their section's name as the index's pills sit under their door. And a
 pill's filter outlived its console, so a section's own door opened on the last pill's filter;
 the door now always opens on everything.
+
+**One card, "All sources", where the pack draws two, "Who the app can ask" and a keys card.**
+The owner, 30 September: "who the app can ask, and keys and credentials can be merged into one
+card (full width in desktop). Just add the edit buttons in the 'who the app can ask' card. The
+combined card can be renamed to 'all sources'." The pack's list of suppliers and the credentials
+card under it (`metadata.dc.html:476-489`) made a reader scroll from the row saying TMDB needs a
+key to the field that takes it. So each row that takes a key, a pin, a cookie or a switch now
+carries a Set up door that opens exactly those fields under the row, and a supplier that takes
+nothing draws no door. The card spans both columns on a desk. Its title is the owner's, and
+"Test all" sits on its head's row. The "records supplied" caption above the counts went on the
+owner's word ("has no need to be there"). A key that fails to save says so under the row whose
+fields failed, not at the foot of the card; a rating found it printing a phone's screen away
+from the Save.
