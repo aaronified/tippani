@@ -29,6 +29,12 @@ import (
 //     (TMDB/TheTVDB id) — use Look up to pin this title first";
 //   - igdb_id left out of reverifyMovieFields: the resolved case is red,
 //     "unknown field for a movie: igdb_id".
+// And four from a rating of that commit, each run and put back: IGDB left out of
+// movieFetchPlan, red, the description "recorded as from """ on both cases; the
+// plan read on the store's own connection rather than the write's transaction,
+// red on the resolved game alone; the "already in your library" check off, red,
+// the second copy resolved; the title search's recordLookup removed, red, the
+// IGDB row "<nil>".
 
 // igdbFake answers the token exchange, a search, and a detail read by id. It keeps
 // the ids it was asked for by id, so a case can say IGDB was asked.
@@ -103,6 +109,28 @@ func TestAGameWithAnIGDBIdIsFilledFromIGDB(t *testing.T) {
 	if len(fake.askedIDs) == 0 || fake.askedIDs[0] != "1942" {
 		t.Errorf("IGDB was not asked for the game's own id: %v", fake.askedIDs)
 	}
+	// AND EACH FIELD IT FILLED SAYS IGDB WROTE IT, as a TheTVDB film's say "tvdb":
+	// the Details panel draws that source beside the field.
+	if src := fieldSourceOf(t, c, id, "description"); src != "igdb" {
+		t.Errorf("the description IGDB filled is recorded as from %q", src)
+	}
+}
+
+// fieldSourceOf is the supplier a work's field is recorded as written by, or "".
+func fieldSourceOf(t *testing.T, c *testClient, id int64, field string) string {
+	t.Helper()
+	got := decode[struct {
+		FieldSources []struct {
+			Field  string `json:"field"`
+			Source string `json:"source"`
+		} `json:"field_sources"`
+	}](t, c.mustDo("GET", "/movies/"+itoa(id), nil, http.StatusOK))
+	for _, fs := range got.FieldSources {
+		if fs.Field == field {
+			return fs.Source
+		}
+	}
+	return ""
 }
 
 // NO ID, AND IGDB HAS EXACTLY ONE GAME OF THAT NAME: the id is taken and written.
@@ -129,6 +157,38 @@ func TestAGameWithNoIdIsResolvedByAnExactIGDBTitle(t *testing.T) {
 	if got.IGDBID != 1942 {
 		t.Errorf("the fill did not write the IGDB id it resolved: igdb_id=%d", got.IGDBID)
 	}
+	// THE PIN AND THE FIELDS LAND IN ONE WRITE, and the fields are recorded as
+	// IGDB's all the same: the source is read inside that write.
+	if src := fieldSourceOf(t, c, id, "description"); src != "igdb" {
+		t.Errorf("the description a resolved game took from IGDB is recorded as from %q", src)
+	}
+	// AND THE SEARCH IS ON THE SOURCES ROW, where every lookup is recorded.
+	status := decode[sourcesResp](t, c.mustDo("GET", "/metadata/status", nil, http.StatusOK))
+	if last := sourceNamed(t, status.Sources, "igdb").Last; last == nil || !last.OK || last.Found != 2 {
+		t.Errorf("the IGDB row does not carry the search the fill made: %+v", last)
+	}
+}
+
+// AN ID ANOTHER OF THE READER'S GAMES CARRIES IS NOT TAKEN: igdb_id is unique per
+// reader, and the write would fail. The reader is told which work has it.
+func TestAGameIsNotResolvedToAnIdAnotherWorkCarries(t *testing.T) {
+	srv := newTestServer(t)
+	fake := &igdbFake{
+		search:  `[{"id":1942,"name":"The Witcher 3: Wild Hunt","first_release_date":1431993600}]`,
+		details: map[string]string{"1942": witcherDetail},
+	}
+	fake.serve(t, srv)
+	c := signupAdmin(t, srv.Handler())
+	first := addGame(t, c, map[string]any{"title": "The Witcher 3: Wild Hunt"})
+	if _, err := srv.Store.DB.Exec(`UPDATE movies SET igdb_id = 1942 WHERE id = ?`, first); err != nil {
+		t.Fatal(err)
+	}
+	id := addGame(t, c, map[string]any{"title": "The Witcher 3: Wild Hunt", "release_year": 2015})
+
+	res := decode[fillResp](t, c.mustDo("POST", "/metadata/fill", map[string]any{"movie_ids": []int64{id}}, http.StatusOK))
+	if len(res.Results) != 1 || res.Results[0].Status != "unpinned" || !strings.Contains(res.Results[0].Error, "already") {
+		t.Fatalf("a second copy was resolved to the first's IGDB id: %+v", res.Results)
+	}
 }
 
 // SEVERAL OF THAT NAME, OR NO IGDB AT ALL: nothing is guessed, and the words say
@@ -152,5 +212,15 @@ func TestAGameIGDBCannotResolveSaysSoInIGDBsName(t *testing.T) {
 	}
 	if e := res.Results[0].Error; !strings.Contains(e, "IGDB") || strings.Contains(e, "TMDB") {
 		t.Errorf("a game with no IGDB pair is told about the wrong supplier: %q", e)
+	}
+
+	// AND A GAME ALREADY PINNED TO IGDB, WITH NO PAIR, names the pair too, rather
+	// than a film supplier's key.
+	if _, err := srv.Store.DB.Exec(`UPDATE movies SET igdb_id = 7 WHERE id = ?`, id); err != nil {
+		t.Fatal(err)
+	}
+	res = decode[fillResp](t, c.mustDo("POST", "/metadata/fill", map[string]any{"movie_ids": []int64{id}}, http.StatusOK))
+	if len(res.Results) != 1 || !strings.Contains(res.Results[0].Error, "IGDB") {
+		t.Errorf("a pinned game with no IGDB pair is told: %+v", res.Results)
 	}
 }

@@ -1176,7 +1176,7 @@ func (s *Server) lookupLinks(ctx context.Context, kind, name string) (map[string
 		if errors.Is(err, metadata.ErrTMDBAuth) {
 			// A rejected key never fixes itself on retry — say so, don't tell the
 			// user to "try again in a moment".
-			return nil, &refusal{http.StatusBadGateway, "TMDB rejected the key — re-check it in Settings → Metadata sources."}
+			return nil, &refusal{http.StatusBadGateway, "TMDB rejected the key — re-check it in Metadata › Sources."}
 		}
 		return nil, &refusal{http.StatusBadGateway, "lookup failed — try again in a moment"}
 	}

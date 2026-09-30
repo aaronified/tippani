@@ -24,7 +24,7 @@ const tvdbKeyMissing = "TheTVDB API key not configured (set TIPPANI_TVDB_API_KEY
 // since 2.2.0. The two above answer "the supplier you asked for has no key"; this
 // one answers "you have asked for a lookup and there is nothing to look in", so
 // it has to say where to start rather than which of two named suppliers failed.
-const movieKeysMissing = "No film/show source is configured — add a TheTVDB key (the default) or a TMDB key in Settings → Metadata sources"
+const movieKeysMissing = "No film/show source is configured — add a TheTVDB key (the default) or a TMDB key in Metadata › Sources"
 
 // igdbKeyMissing names BOTH halves, because the commonest failure is having
 // saved one of them: a client id with no secret is indistinguishable from no key
@@ -605,7 +605,7 @@ func (s *Server) fetchSourceDetails(ctx context.Context, source, sourceID, media
 			logOutwardFailure(olog.CodeMetaIGDBLookup, err, "[movie] igdb details source_id=%s failed: %v", sourceID, err)
 			if errors.Is(err, metadata.ErrIGDBAuth) {
 				return nil, "IGDB rejected the credentials — re-check BOTH the client id and the secret " +
-					"in Settings → Metadata sources", http.StatusBadGateway
+					"in Metadata › Sources", http.StatusBadGateway
 			}
 			return nil, "IGDB lookup failed", http.StatusBadGateway
 		}
@@ -660,7 +660,7 @@ func (s *Server) fetchSourceDetails(ctx context.Context, source, sourceID, media
 			// Both callers (create + resync) only surface the message; log the cause here.
 			logOutwardFailure(olog.CodeMetaLookupFailed, err, "[movie] tvdb details source_id=%s show=%t failed: %v", sourceID, show, err)
 			if errors.Is(err, metadata.ErrTVDBAuth) {
-				return nil, "TheTVDB rejected the key — re-check it in Settings → Metadata sources", http.StatusBadGateway
+				return nil, "TheTVDB rejected the key — re-check it in Metadata › Sources", http.StatusBadGateway
 			}
 			return nil, "TheTVDB lookup failed", http.StatusBadGateway
 		}
@@ -682,7 +682,7 @@ func (s *Server) fetchSourceDetails(ctx context.Context, source, sourceID, media
 			// Both callers (create + resync) only surface the message; log the cause here.
 			logOutwardFailure(olog.CodeMetaLookupFailed, err, "[movie] tmdb details source_id=%s show=%t failed: %v", sourceID, show, err)
 			if errors.Is(err, metadata.ErrTMDBAuth) {
-				return nil, "TMDB rejected the key — re-check it in Settings → Metadata sources", http.StatusBadGateway
+				return nil, "TMDB rejected the key — re-check it in Metadata › Sources", http.StatusBadGateway
 			}
 			return nil, "TMDB lookup failed", http.StatusBadGateway
 		}

@@ -428,7 +428,7 @@ func sameGenreSet(a, b []string) bool {
 func reverifyLookupError(what string, err error) string {
 	logOutwardFailure(olog.CodeMetaReverifyFetch, err, "[meta] re-verify %s lookup failed: %v", what, err)
 	if errors.Is(err, metadata.ErrQuota) {
-		return "Google Books' shared quota is used up — add a free key in Settings → Metadata sources"
+		return "Google Books' shared quota is used up — add a free key in Metadata › Sources"
 	}
 	return "lookup failed — try again in a moment"
 }
@@ -543,7 +543,7 @@ func (s *Server) reverifyBook(ctx context.Context, uid, id int64, gkey, cookie, 
 		// Pinned by ASIN, but the Amazon source needs its cookie — say so
 		// instead of the misleading "no pinned identity".
 		it.Status = "fetch_failed"
-		it.Error = "this book is pinned by ASIN — Amazon lookups need the cookie in Settings → Metadata sources"
+		it.Error = "this book is pinned by ASIN — Amazon lookups need the cookie in Metadata › Sources"
 		return it
 	default:
 		it.Status = "unpinned"
@@ -802,9 +802,15 @@ func (s *Server) reverifyMovie(ctx context.Context, uid, id int64, tmdb *metadat
 	case lerr != nil:
 		it.Status, it.Error = "fetch_failed", reverifyLookupError("movie details", lerr)
 		return it
+	case mediaType == "game" && igdbID != 0 && igdb == nil:
+		// A GAME PINNED TO IGDB ON AN INSTALL WITH NO PAIR names the pair, as the
+		// unpinned game above does, and not a film supplier's key.
+		it.Status = "fetch_failed"
+		it.Error = "games are looked up in IGDB, which needs its client id and secret — add them in Metadata › Sources"
+		return it
 	case tmdbID != 0 || tvdbID != 0 || igdbID != 0:
 		it.Status = "fetch_failed"
-		it.Error = "the pinned source needs its key — add it in Settings → Metadata sources"
+		it.Error = "the pinned source needs its key — add it in Metadata › Sources"
 		return it
 	default:
 		it.Status = "unpinned"
@@ -1729,7 +1735,7 @@ func (s *Server) applyReverifyMovie(ctx context.Context, uid, id int64, set map[
 	// The source is RECOMPUTED and not taken from the request: see movieFetchPlan.
 	// A plan of "" means the row is unpinned or its supplier has no key, in which
 	// case there is nothing true to record and RecordFieldSources returns early.
-	if src, srcID := s.movieFetchPlanFor(uid, id); src != "" {
+	if src, srcID := s.movieFetchPlanFor(tx, uid, id); src != "" {
 		if perr := recordPerField(tx, uid, "movie", id, set, sources, knownMovieSource, src, srcID); perr != nil {
 			// NOT FATAL. The fields are written; this is the note beside them. A
 			// failed audit line must not undo a re-verify the reader approved.
@@ -1921,12 +1927,20 @@ func (s *Server) applyReverifyPerson(ctx context.Context, uid int64, kind, name 
 // also why the CLIENTS are arguments: "who would answer" is not a property of the
 // row alone, and a plan computed without them would name a supplier that cannot
 // be reached.
-func movieFetchPlan(tmdbID, tvdbID int64, tmdb *metadata.TMDB, tvdb *metadata.TVDB) (source, sourceID string) {
+//
+// A GAME'S IS IGDB, third, as preferredSourceFor orders them. It was missing, so a
+// game filled or re-verified from IGDB recorded no source for any field it took
+// (a rating found it: field_sources came back empty where a TheTVDB film's say
+// "tvdb"), which is the defect this path's IGDB read was written to end, one step
+// further on.
+func movieFetchPlan(tmdbID, tvdbID, igdbID int64, tmdb *metadata.TMDB, tvdb *metadata.TVDB, igdb *metadata.IGDB) (source, sourceID string) {
 	switch {
 	case tvdbID != 0 && tvdb != nil:
 		return "tvdb", strconv.FormatInt(tvdbID, 10)
 	case tmdbID != 0 && tmdb != nil:
 		return "tmdb", strconv.FormatInt(tmdbID, 10)
+	case igdbID != 0 && igdb != nil:
+		return "igdb", strconv.FormatInt(igdbID, 10)
 	}
 	return "", ""
 }
@@ -1934,16 +1948,21 @@ func movieFetchPlan(tmdbID, tvdbID int64, tmdb *metadata.TMDB, tvdb *metadata.TV
 // movieFetchPlanFor is movieFetchPlan for a work the caller has only an id for.
 // Scoped by user_id; a row that is not theirs plans nothing, which is the same
 // answer an unpinned row gives and leaks nothing about whether it exists.
-func (s *Server) movieFetchPlanFor(uid, id int64) (source, sourceID string) {
-	var tmdbID, tvdbID int64
-	if err := s.Store.DB.QueryRow(
-		`SELECT COALESCE(tmdb_id, 0), COALESCE(tvdb_id, 0) FROM movies WHERE id = ? AND user_id = ?`,
-		id, uid).Scan(&tmdbID, &tvdbID); err != nil {
+//
+// READ INSIDE THE APPLY'S TRANSACTION, because the apply may be the write that
+// pins the work: a game found by its IGDB title gets its igdb_id in the same
+// UPDATE, and a read on another connection would still see none.
+func (s *Server) movieFetchPlanFor(tx *sql.Tx, uid, id int64) (source, sourceID string) {
+	var tmdbID, tvdbID, igdbID int64
+	if err := tx.QueryRow(
+		`SELECT COALESCE(tmdb_id, 0), COALESCE(tvdb_id, 0), COALESCE(igdb_id, 0) FROM movies WHERE id = ? AND user_id = ?`,
+		id, uid).Scan(&tmdbID, &tvdbID, &igdbID); err != nil {
 		return "", ""
 	}
 	tmdb, _ := s.resolveTMDB()
 	tvdb, _ := s.resolveTVDB()
-	return movieFetchPlan(tmdbID, tvdbID, tmdb, tvdb)
+	igdb, _ := s.resolveIGDB()
+	return movieFetchPlan(tmdbID, tvdbID, igdbID, tmdb, tvdb, igdb)
 }
 
 // knownBookSource validates a client-supplied supplier name, returning "" for

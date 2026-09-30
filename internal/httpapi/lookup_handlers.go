@@ -87,7 +87,7 @@ func (s *Server) handleBookLookup(w http.ResponseWriter, r *http.Request) {
 				"sources — it's instant and gives you a private quota."
 			if gkey != "" {
 				msg = "Your Google Books API key was rejected or is out of quota, and Open " +
-					"Library had no match. Check the key in Settings → Metadata sources."
+					"Library had no match. Check the key in Metadata › Sources."
 			}
 			writeErr(w, http.StatusBadGateway, msg)
 			return
@@ -277,10 +277,10 @@ func (s *Server) handleMovieLookup(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(firstErr, metadata.ErrTMDBAuth):
 			writeErr(w, http.StatusBadGateway,
 				"TMDB rejected the key. A v4 token starts with 'ey' — paste the v3 API key "+
-					"(not the account username) in Settings → Metadata sources, or re-check the token.")
+					"(not the account username) in Metadata › Sources, or re-check the token.")
 		case errors.Is(firstErr, metadata.ErrTVDBAuth):
 			writeErr(w, http.StatusBadGateway,
-				"TheTVDB rejected the key — re-check it in Settings → Metadata sources.")
+				"TheTVDB rejected the key — re-check it in Metadata › Sources.")
 		default:
 			writeErr(w, http.StatusBadGateway, "movie lookup failed")
 		}
@@ -303,7 +303,7 @@ func (s *Server) handleMovieLookup(w http.ResponseWriter, r *http.Request) {
 	if errors.Is(tvdbErr, metadata.ErrTVDBAuth) && len(cands) > 0 {
 		out["warning"] = "TheTVDB rejected the key, so these results are TMDB's. " +
 			"A free (user-supported) TheTVDB key also needs your subscriber PIN — " +
-			"add it in Settings → Metadata sources."
+			"add it in Metadata › Sources."
 	}
 	writeJSON(w, http.StatusOK, out)
 }
@@ -429,7 +429,7 @@ func (s *Server) gameLookup(w http.ResponseWriter, r *http.Request, title string
 		if errors.Is(searchErr, metadata.ErrIGDBAuth) {
 			writeErr(w, http.StatusBadGateway,
 				"IGDB rejected the credentials. Twitch answers a wrong client id OR secret the same way, "+
-					"so re-check both in Settings → Metadata sources.")
+					"so re-check both in Metadata › Sources.")
 			return
 		}
 		writeErr(w, http.StatusBadGateway, "game lookup failed")
