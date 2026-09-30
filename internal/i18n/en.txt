@@ -6019,6 +6019,10 @@ settings.jobs.log.trimmed = The earliest lines are in the export.
 
 # --- Current jobs: what is running and what waits behind it.
 settings.jobs.current.title = Current jobs
+# A running job's log, open under its row. Past jobs may hold the same job's last
+# run open on the same screen (settings.jobs.log.*), so these name it as live.
+settings.jobs.current.log.aria = Live log of {title}
+settings.jobs.current.log.copy.aria = Copy the live log of {title}
 # The words beside the two counts in the card's head: "1 running", "3 waiting".
 settings.jobs.current.running.word = running
 settings.jobs.current.waiting.word = waiting

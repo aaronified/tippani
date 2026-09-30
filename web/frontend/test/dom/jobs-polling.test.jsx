@@ -191,7 +191,7 @@ describe('a running job’s log', () => {
   it('keeps following its newest line once it holds all the lines it keeps', async () => {
     flooding()
     await page()
-    const log = screen.getByRole('log', { name: 'Log of Fetch covers' })
+    const log = screen.getByRole('log', { name: 'Live log of Fetch covers' })
     expect(within(log).getByText('line 2000')).toBeTruthy()
     const moves = measured(log)
     await tick(1000)
@@ -202,7 +202,7 @@ describe('a running job’s log', () => {
   it('and stops following the moment the reader scrolls up to read', async () => {
     flooding()
     await page()
-    const log = screen.getByRole('log', { name: 'Log of Fetch covers' })
+    const log = screen.getByRole('log', { name: 'Live log of Fetch covers' })
     const moves = measured(log)
     log.scrollTop = 1200
     fireEvent.scroll(log)

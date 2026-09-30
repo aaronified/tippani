@@ -5850,6 +5850,8 @@ settings.jobs.log.trimmed = শুরুর দিকের লাইনগু�
 
 # --- Current jobs: what is running and what waits behind it.
 settings.jobs.current.title = চলতি কাজ
+settings.jobs.current.log.aria = চলতি লগ: {title}
+settings.jobs.current.log.copy.aria = চলতি লগ কপি: {title}
 # The words beside the two counts in the card's head: "1 running", "3 waiting".
 # bn: বাকি, the word v3.7 gave to a thing still to be done — a job cannot wait.
 settings.jobs.current.running.word = চলছে

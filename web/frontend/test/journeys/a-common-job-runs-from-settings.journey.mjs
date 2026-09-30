@@ -35,7 +35,7 @@
 // lines". Give the last run's log Past jobs' name (`last` dropped from the card's
 // PastLog) and it goes red there too: nothing is named for the last run, and with
 // Past jobs' row open two copy buttons would share "Copy the log of Fill gaps in
-// every work", which the last two assertions refuse.
+// every work", which the last two presses refuse.
 //
 // It knows the words on the screen and, past the clipboard above, nothing else: no
 // setup, no address but the screen's own.
@@ -74,12 +74,16 @@ it('a common job runs from its row in Settings › Jobs, and the row then shows 
   expect(copied, 'the clipboard does not hold the job\u2019s log').toMatch(/every work in the library as the fill starts/)
 
   // AND THE SAME RUN OPEN IN PAST JOBS IS A SECOND LOG ON THIS SCREEN, so its copy
-  // answers to a name of its own. Each is asked for by its whole name, and `said`
-  // refuses a name two things carry.
+  // answers to a name of its own. Each is pressed by its whole name, and `press`
+  // refuses a name two buttons carry (`said` would not: it reads names, and two
+  // of one name are one name to it).
   await app.see('Past jobs')
   await app.press('Fill gaps in every work')
-  expect(await app.said('Copy the log of Fill gaps in every work')).toBeTruthy()
-  expect(await app.said('Copy the log of the last run of Fill gaps in every work')).toBeTruthy()
+  for (const name of ['Copy the log of Fill gaps in every work', 'Copy the log of the last run of Fill gaps in every work']) {
+    await app.gone('copied')
+    await app.press(name)
+    await app.see('copied')
+  }
 
   expect(app.pageErrors(), 'the page threw on the way').toEqual([])
 })

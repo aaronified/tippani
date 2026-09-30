@@ -153,8 +153,11 @@ describe('Current jobs', () => {
   it('opens the running job on its live log, and says of each waiting one how many are ahead', async () => {
     await page()
     const current = await card('Current jobs')
-    const log = await within(current).findByRole('log', { name: 'Log of Fetch covers' })
+    // "LIVE", because Past jobs can hold this job's last run open on the same
+    // screen under "Log of Fetch covers", copy button and all.
+    const log = await within(current).findByRole('log', { name: 'Live log of Fetch covers' })
     await within(log).findByText('«Rooms of Attention» — cover fetched')
+    expect(within(current).getByRole('button', { name: 'Copy the live log of Fetch covers' })).toBeTruthy()
     expect(within(current).getByRole('button', { name: 'Fetch covers', expanded: true })).toBeTruthy()
     expect(within(current).getByText('Waiting — one job ahead')).toBeTruthy()
     expect(within(current).getByText('Waiting — 2 jobs ahead')).toBeTruthy()

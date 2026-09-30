@@ -405,7 +405,10 @@ function RunningJob({ job, user, open, stopping, onToggle, onStop }) {
       <div className="job-body">
         <ProgressBar value={j.done || 0} max={j.total || 0} label={jobSummary(j) || undefined} />
         {open && (
-          <JobLog lines={live.lines} trimmed={live.trimmed} loaded={live.loaded} label={t('settings.jobs.log.aria', { title })} copyLabel={t('settings.jobs.log.copy.aria', { title })} follow />
+          // THE LIVE LOG, named as one. Past jobs can hold the same job's last run
+          // open on the same screen, under "Log of …", and a run started again
+          // while it is open would give two logs and two copy buttons one name.
+          <JobLog lines={live.lines} trimmed={live.trimmed} loaded={live.loaded} label={t('settings.jobs.current.log.aria', { title })} copyLabel={t('settings.jobs.current.log.copy.aria', { title })} follow />
         )}
       </div>
     </div>
