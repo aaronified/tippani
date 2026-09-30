@@ -12024,7 +12024,8 @@ button.work-pill:hover { color: var(--ink); border-color: var(--ink-border); }
    one line more: how it went last time — the release log's door again, opening that
    run's log — or where its job stands now. The door sits flush under the head, so
    the row reads as one thing rather than two rows sharing a rule. */
-.common-job-what { flex-basis: 100%; }
+.common-job-what,
+.common-job-pending { flex-basis: 100%; }
 .common-job .job-line { padding-bottom: 4px; }
 .common-job-last { padding-top: 0; }
 .common-job-now { margin: 0; padding: 0 2px 10px; }

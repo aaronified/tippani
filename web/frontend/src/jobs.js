@@ -930,6 +930,28 @@ export function useCommonJobs() {
   return { ...state, reload: () => kick.current() }
 }
 
+// useLibraryGaps — the rows Metadata counts its gaps over, for the Common jobs card
+// to say what each job has left: {books, movies, people}, or null until both have
+// answered (or when either could not be read, where a row then says nothing rather
+// than a number it does not have). Read again whenever `key` changes, which the
+// card ties to which jobs are running, so a job that ends is followed by the count
+// it left behind. Not polled: nothing but a job changes these numbers while the
+// reader is on Settings.
+export function useLibraryGaps(key) {
+  const [gaps, setGaps] = useState(null)
+  useEffect(() => {
+    let alive = true
+    Promise.all([json('GET', '/metadata/library'), json('GET', '/people/records')]).then(([lib, people]) => {
+      if (!alive) return
+      setGaps(lib.ok && people.ok
+        ? { books: lib.data?.books || [], movies: lib.data?.movies || [], people: people.data?.people || [] }
+        : null)
+    })
+    return () => { alive = false }
+  }, [key])
+  return gaps
+}
+
 // ---- a screen that started a job and waits for its end -----------------------
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))

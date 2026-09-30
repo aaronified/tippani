@@ -23,6 +23,7 @@ import { jobOutcome, jobStateLabel, jobWaitingText, useKindJob } from './jobs.js
 import { CreditPills, IssuePills, RowCounts, WorkPills } from './issuePills.jsx'
 import { workDetailsPanel } from './WorkDetails.jsx'
 import { nearDupGroups } from './nearDupes.js'
+import { BOOK_GAPS, MOVIE_GAPS, bookPasses, fetchable, lacksLinks, lacksPhoto, moviePasses } from './libraryGaps.js'
 
 // Metadata tab — a management console: coverage stats up top, then filterable
 // books / films-shows lists with multi-select bulk actions (fill actors, delete,
@@ -724,11 +725,6 @@ const GAP_KEYS = {
 }
 const gapLabel = (token) => t(GAP_KEYS[token])
 
-// The gaps each half of the library can have, in the order they are drawn. The
-// tiles, the filter dropdown and the coverage lines all walk these, and the token
-// doubles as the name of its count on the stats object.
-const BOOK_GAPS = ['no_cover', 'low_res', 'no_author', 'no_series', 'no_year', 'no_genre', 'no_source']
-const MOVIE_GAPS = ['no_poster', 'low_res', 'no_cast', 'no_director', 'no_year', 'no_genre', 'no_source']
 
 // ── EVERYTHING THAT NEEDS WORK, IN ONE LIST.
 //
@@ -826,8 +822,8 @@ function recordDupGroups(rows) {
 // stated for themselves would be two rules the first day one of them changed:
 // the console would promise one set and the job fetch another.
 const PERSON_ISSUES = [
-  ['no_links', 'metadata.issue.no-links.label', (p) => !!p.no_links],
-  ['no_photo', 'metadata.issue.no-photo.label', (p) => !!p.no_photo],
+  ['no_links', 'metadata.issue.no-links.label', lacksLinks],
+  ['no_photo', 'metadata.issue.no-photo.label', lacksPhoto],
   ['no_works', 'metadata.issue.no-works.label', (p) => !(p.works > 0)],
   ['no_quotes', 'metadata.issue.no-quotes.label', (p) => !(p.quotes > 0)],
 ]
@@ -962,48 +958,6 @@ function filtersForType(type) {
 }
 const filterOptions = (type) => filtersForType(type).map((v) => [v, gapLabel(v)])
 const catKey = (kind, id) => `${kind}:${id}`
-// `ok` IS "EVERY OTHER FILTER WOULD REJECT IT", not a predicate of its own, and
-// that is the only definition that cannot drift. A hand-written "complete" test
-// is a second list of what completeness means, and the day a gap is added it
-// becomes the stale one — a work missing the new field would go on being called
-// complete, which is the one answer this filter must never give wrongly.
-const completeBy = (gaps, passes) => (x) => !gaps.some((g) => passes(x, g))
-
-function bookPasses(b, filter) {
-  const p = {
-    flagged: (b) => !b.has_cover || !b.has_ids, no_cover: (b) => !b.has_cover,
-    low_res: (b) => b.low_res_cover, no_author: (b) => !b.has_author,
-    no_series: (b) => !b.has_series, no_year: (b) => !b.has_year,
-    no_genre: (b) => !b.has_genre, no_source: (b) => !b.has_ids,
-    // A BOOK'S PEOPLE ARE ITS AUTHOR. The pack draws one "No people" over the
-    // whole library; each shelf answers it with the credit it actually has.
-    no_people: (b) => !b.has_author,
-    no_synopsis: (b) => !b.has_description,
-    ok: completeBy(BOOK_GAPS.concat('no_people', 'no_synopsis'), bookPasses),
-    all: () => true,
-  }[filter]
-  // A FILM'S GAP ASKED OF A BOOK MATCHES NOTHING: a book has no poster to be
-  // missing. The all-types view asks every gap of every row.
-  return p ? p(b) : false
-}
-function moviePasses(m, filter) {
-  const p = {
-    flagged: (m) => !m.has_poster || !m.has_cast || !m.has_source, no_poster: (m) => !m.has_poster,
-    low_res: (m) => m.low_res_poster, no_cast: (m) => !m.has_cast,
-    no_director: (m) => !m.has_director, no_year: (m) => !m.has_year,
-    no_genre: (m) => !m.has_genre, no_source: (m) => !m.has_source,
-    // A FILM'S PEOPLE ARE ITS CAST, not its director — the pack's own fixture
-    // flags a Ray film with a director and no cast as `nopeople`
-    // (`metadata.dc.html:464`). A film credited to nobody on screen is the row
-    // worth reaching; one with no director is `no_director`, beside it.
-    no_people: (m) => !m.has_cast,
-    no_synopsis: (m) => !m.has_description,
-    ok: completeBy(MOVIE_GAPS.concat('no_people', 'no_synopsis'), moviePasses),
-    all: () => true,
-  }[filter]
-  return p ? p(m) : false
-}
-
 // CatalogueConsole — one section (styled like the People console: no card,
 // its own scroll box) listing books, films and shows together. The first
 // dropdown picks the type and reshapes the second (filter) dropdown; rows render
@@ -2908,10 +2862,10 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, onOpenWork = null
   const shown = useMemo(() => base.filter(issueTest(PERSON_ISSUES, issue)), [base, issue])
 
   // WHAT THE BULK FETCH WOULD REACH: a row with no provider links OR no stored
-  // portrait, which is exactly the two pills a fetch can do something about. Read
-  // off PERSON_ISSUES rather than re-tested here, so the button and the pills
-  // cannot come to disagree about what "still needs work" means.
-  const fetchable = (p) => issueTest(PERSON_ISSUES, 'no_links')(p) || issueTest(PERSON_ISSUES, 'no_photo')(p)
+  // portrait, which is exactly the two pills a fetch can do something about — the
+  // pills' own tests, and the ones Settings › Jobs counts "Fetch missing people"
+  // by, so the button, the pills and the job cannot come to disagree about what
+  // "still needs work" means.
   const missing = shown.filter(fetchable)
 
   // Near-duplicate clusters over RECORDS, not spellings. The old list computed

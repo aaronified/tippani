@@ -124,6 +124,7 @@ import { t, tNodes } from './i18n.js'
 import { UserAvatar } from './avatar.jsx'
 import { PASSPHRASE_MAX, PASSWORD_MAX, PASSWORD_MIN, passwordProblem, sniffArchiveKey } from './secret.js'
 import { FeatureTour, tourStepsForTab } from './tour.jsx'
+import { bookPasses, moviePasses } from './libraryGaps.js'
 
 // DEMO: the read-only GitHub Pages build (VITE_DEMO=1). A fetch shim (demo/
 // install.js) serves dummy data and blocks writes; here it just suppresses URL
@@ -1861,8 +1862,10 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
   useEffect(() => {
     json('GET', '/metadata/library').then((r) => {
       if (!r.ok || !r.data) return
-      const books = (r.data.books || []).filter((b) => !b.has_cover || !b.has_ids).length
-      const movies = (r.data.movies || []).filter((m) => !m.has_poster || !m.has_cast || !m.has_source).length
+      // The works console's own "flagged" test, so the badge is the number that
+      // pill opens on.
+      const books = (r.data.books || []).filter((b) => bookPasses(b, 'flagged')).length
+      const movies = (r.data.movies || []).filter((m) => moviePasses(m, 'flagged')).length
       setMetaIssues(books + movies)
     })
     json('GET', '/trash').then((r) => { if (r.ok) setBinCount((r.data?.trash || []).length) })

@@ -38,9 +38,11 @@ import {
   pressStop,
   startJob,
   useCommonJobs,
+  useLibraryGaps,
   useStoppingJobs,
 } from './jobs.js'
 import { JobsCard, PastLog } from './jobsSection.jsx'
+import { bookPasses, fetchable, moviePasses } from './libraryGaps.js'
 import {
   ErrorText,
   GhostButton,
@@ -48,8 +50,11 @@ import {
   IconChevron,
   IconExport,
   IconMetadata,
+  IconNavUsers,
+  IconNavWorks,
   IconRerun,
   IconStop,
+  Tally,
   toast,
   Tooltip,
 } from './ui.jsx'
@@ -59,10 +64,22 @@ import {
 // IconMetadata, the arrow landing in a record; the backup its archive box), so a
 // reader who knows the press there knows it here. A row the server sends that
 // this list has no words for is not drawn: a press with no name is not a press.
+//
+// AND WHAT IT HAS LEFT TO DO, counted by Metadata's own tests (libraryGaps.js). The
+// owner: "This card should also know about what all are pending (from metadata)."
+// So each library job says how much of the library is still missing what it
+// fetches, in the number the Metadata screen shows for the same thing: a fill,
+// the works its Complete filter leaves out; a people fetch, the People console's
+// Fetch missing; a covers pass, the works with no cover or poster, which is what
+// its Missing only run walks. The backup has nothing a library is missing.
+const incomplete = (g) => g.books.filter((b) => !bookPasses(b, 'ok')).length + g.movies.filter((m) => !moviePasses(m, 'ok')).length
+const artless = (g) => g.books.filter((b) => bookPasses(b, 'no_cover')).length + g.movies.filter((m) => moviePasses(m, 'no_poster')).length
+const works = { icon: <IconNavWorks />, word: (n) => t('unit.work', { count: n }) }
+const people = { icon: <IconNavUsers />, word: (n) => t('unit.person', { count: n }) }
 const ROWS = {
-  'fill-all': { glyph: <IconMetadata /> },
-  'people-missing': { glyph: <IconMetadata /> },
-  covers: { glyph: <IconMetadata />, missingOnly: true },
+  'fill-all': { glyph: <IconMetadata />, pending: { ...works, count: incomplete } },
+  'people-missing': { glyph: <IconMetadata />, pending: { ...people, count: (g) => g.people.filter(fetchable).length } },
+  covers: { glyph: <IconMetadata />, missingOnly: true, pending: { ...works, count: artless } },
   backup: { glyph: <IconArchive />, credential: true },
 }
 const rowTitle = (id) => t(`settings.jobs.common.${id}.label`)
@@ -85,6 +102,9 @@ export function CommonJobsCard({ user, credentialPrompt = null }) {
   const stopping = useStoppingJobs()
   const [open, setOpen] = useState('') // the row whose last run's log is open
   const shown = rows.filter((row) => ROWS[row.id])
+  // Read again as a job starts or ends: the count a finished job left behind is
+  // the one its row should say.
+  const gaps = useLibraryGaps(rows.map((row) => row.current?.id || '').join(','))
 
   async function run(row, params, secret) {
     if (ROWS[row.id].credential && !secret) return setAsking(row)
@@ -117,6 +137,7 @@ export function CommonJobsCard({ user, credentialPrompt = null }) {
               key={row.id}
               row={row}
               user={user}
+              gaps={gaps}
               busy={busy === row.id}
               stopping={!!row.current && stopping.has(row.current.id)}
               open={open === row.id}
@@ -137,7 +158,7 @@ export function CommonJobsCard({ user, credentialPrompt = null }) {
   )
 }
 
-function CommonJob({ row, user, busy, stopping, open, onToggle, onRun, onStop }) {
+function CommonJob({ row, user, gaps, busy, stopping, open, onToggle, onRun, onStop }) {
   const spec = ROWS[row.id]
   const title = rowTitle(row.id)
   const now = isLive(row.current) ? row.current : null
@@ -155,6 +176,8 @@ function CommonJob({ row, user, busy, stopping, open, onToggle, onRun, onStop })
         <span className="job-line">
           <span className="job-title">{title}</span>
           <span className="job-meta common-job-what">{t(`settings.jobs.common.${row.id}.prose`)}</span>
+          {/* Not while it runs: the line under the row says how far it has got. */}
+          {!now && gaps && spec.pending && <Pending id={row.id} n={spec.pending.count(gaps)} of={spec.pending} />}
         </span>
         <div className="job-actions">
           {now ? (
@@ -205,6 +228,24 @@ function CommonJob({ row, user, busy, stopping, open, onToggle, onRun, onStop })
         <p className="job-meta common-job-now">{t('settings.jobs.common.never')}</p>
       )}
     </div>
+  )
+}
+
+// WHAT A JOB HAS LEFT, a count wearing the glyph of what it counts with its noun
+// beside it, the roomy shape (Tally), and the words for what is missing after it:
+// "38 works incomplete". None left is said, since that is the answer to "do I need
+// to run this?".
+function Pending({ id, n, of }) {
+  return (
+    <span className="job-meta common-job-pending">
+      {n === 0 ? t('settings.jobs.common.pending.none') : (
+        <>
+          <Tally n={n} icon={of.icon} word={of.word(n)} showWord />
+          {' '}
+          {t(`settings.jobs.common.${id}.pending`)}
+        </>
+      )}
+    </span>
   )
 }
 

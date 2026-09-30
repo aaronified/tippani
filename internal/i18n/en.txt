@@ -6063,6 +6063,13 @@ settings.jobs.common.covers.label = Fetch covers and details
 settings.jobs.common.covers.prose = Covers, posters and the details your works are missing, across the library.
 settings.jobs.common.backup.label = Back up now
 settings.jobs.common.backup.prose = Seals the library into the one archive the server keeps.
+# What each library job has left, after a count that wears its noun and glyph
+# ("38 works incomplete"), counted as the Metadata screen counts it. The backup
+# has none. `none` stands alone, when the library is missing nothing a job fetches.
+settings.jobs.common.fill-all.pending = incomplete
+settings.jobs.common.people-missing.pending = missing a portrait or links
+settings.jobs.common.covers.pending = with no cover or poster
+settings.jobs.common.pending.none = Nothing missing
 settings.jobs.common.run.label = Run
 settings.jobs.common.again.label = Run again
 # The covers pass's quick run: only what is missing, never a better picture over one already stored.
