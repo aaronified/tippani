@@ -53,7 +53,10 @@ func Reachable(ctx context.Context, supplier, wiki string) error {
 	}
 	resp.Body.Close()
 	if resp.StatusCode >= http.StatusInternalServerError {
-		return fmt.Errorf("%s answered HTTP %d", supplier, resp.StatusCode)
+		// In the house form, "<where>: status N", and named by its host: the row
+		// prints this after "did not answer", so "letterboxd answered HTTP 503"
+		// argued with its own line.
+		return fmt.Errorf("%s: status %d", req.URL.Host, resp.StatusCode)
 	}
 	return nil
 }

@@ -2,6 +2,7 @@ package metadata
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -149,10 +150,20 @@ func TestSearchBooksBestEffort(t *testing.T) {
 		t.Fatalf("got %+v", got)
 	}
 
-	// Both down -> error.
+	// Both down -> error, and each supplier's own is kept apart.
 	setBases(t, boom.URL, boom.URL)
-	if _, err := SearchBooks(context.Background(), "9780306406157", "", "", ""); err == nil {
-		t.Fatal("want error when both sources fail")
+	_, err = SearchBooks(context.Background(), "9780306406157", "", "", "")
+	var both *BookSearchError
+	if !errors.As(err, &both) || both.Google == nil || both.OpenLibrary == nil {
+		t.Fatalf("want each supplier's error when both fail, got %v", err)
+	}
+
+	// Google down, Open Library up and empty -> the error is Google's alone.
+	empty := jsonServer(t, `{"docs":[]}`)
+	setBases(t, boom.URL, empty.URL)
+	_, err = SearchBooks(context.Background(), "9780306406157", "", "", "")
+	if !errors.As(err, &both) || both.Google == nil || both.OpenLibrary != nil {
+		t.Fatalf("Open Library answered with nothing and did not fail, got %v", err)
 	}
 
 	// Title search queries both sources; when both are down it errors.

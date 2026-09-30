@@ -8,6 +8,7 @@ import (
 	"os"
 	"regexp"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -328,6 +329,40 @@ func TestASupplierThatCannotBeReachedSaysSoRatherThanFoundNothing(t *testing.T) 
 		if last := got.Sources[0].Last; last == nil || last.OK || last.Error == "" {
 			t.Errorf("%s could not be reached, and its row says: %+v", slug, last)
 		}
+	}
+
+	// AND A HOST THAT ANSWERS 5xx IS DOWN, not empty, and says so in the house
+	// form, by host rather than by the slug a reader never sees.
+	down := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}))
+	t.Cleanup(down.Close)
+	metadata.SetLetterboxdBaseForTest(t, down.URL)
+	got := decode[sourcesResp](t, c.mustDo("POST", "/admin/metadata/test", map[string]string{"source": "letterboxd"}, http.StatusOK))
+	want := strings.TrimPrefix(down.URL, "http://") + ": status 503"
+	if last := got.Sources[0].Last; last == nil || last.OK || last.Error != want {
+		t.Errorf("a host answering 503 reads: %+v, want the error %q", last, want)
+	}
+}
+
+// ONE SUPPLIER'S FAILURE IS NOT THE OTHER'S. A book search that finds nothing
+// because Google failed used to hand back Google's error alone, and it was
+// recorded against both rows, so Open Library read "did not answer — google
+// books: …" while it had answered.
+func TestABookSearchRecordsEachSuppliersOwnFailure(t *testing.T) {
+	stubHostsOnlyATestReaches(t)
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	srv.searchBooks = func(context.Context, string, string, string, string) ([]metadata.BookCandidate, error) {
+		return nil, &metadata.BookSearchError{Google: errors.New("google books: status 500")}
+	}
+	c.mustDo("POST", "/admin/metadata/test", map[string]string{"source": "google"}, http.StatusOK)
+	rows := decode[sourcesResp](t, c.mustDo("GET", "/metadata/status", nil, http.StatusOK)).Sources
+	if g := sourceNamed(t, rows, "google").Last; g == nil || g.OK || g.Error != "google books: status 500" {
+		t.Errorf("Google failed, and its row says: %+v", g)
+	}
+	if ol := sourceNamed(t, rows, "openlibrary").Last; ol == nil || !ol.OK || ol.Error != "" {
+		t.Errorf("Open Library answered with nothing, and its row says: %+v", ol)
 	}
 }
 

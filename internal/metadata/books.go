@@ -106,6 +106,39 @@ func deriveSeriesFromTitle(title, subtitle string) (string, float64) {
 	return "", 0
 }
 
+// BookSearchError is a book search that found nothing and in which at least one
+// of the two suppliers failed. Either field may be nil: a supplier that answered
+// with nothing did not fail.
+//
+// EACH SUPPLIER'S OWN ERROR, KEPT APART, because the Sources screen records an
+// answer per supplier. The search used to return Google's error alone, so a
+// Google outage printed under Open Library's row too ("did not answer — google
+// books: …") while Open Library had answered. Unwrap hands both on, so
+// errors.Is(err, ErrQuota) still finds Google's quota refusal.
+type BookSearchError struct {
+	Google, OpenLibrary error
+}
+
+func (e *BookSearchError) Error() string {
+	var parts []string
+	for _, err := range []error{e.Google, e.OpenLibrary} {
+		if err != nil {
+			parts = append(parts, err.Error())
+		}
+	}
+	return strings.Join(parts, "; ")
+}
+
+func (e *BookSearchError) Unwrap() []error {
+	var out []error
+	for _, err := range []error{e.Google, e.OpenLibrary} {
+		if err != nil {
+			out = append(out, err)
+		}
+	}
+	return out
+}
+
 // SearchBooks queries Google Books and Open Library and merges the candidates.
 // With an ISBN it's an exact isbn: lookup (title/author ignored). Otherwise it
 // searches by title AND author — Google `intitle:… inauthor:…`, OL
@@ -118,6 +151,9 @@ func deriveSeriesFromTitle(title, subtitle string) (string, float64) {
 // hits win; when none return a candidate the explaining error is surfaced
 // (notably ErrQuota). isbn should be normalized (PLAN §3); googleKey is the
 // optional settings-managed Google Books key (PLAN §6); "" stays anonymous.
+//
+// A search that found nothing because a supplier failed returns a
+// *BookSearchError, which keeps each supplier's error apart.
 func SearchBooks(ctx context.Context, isbn, title, author, googleKey string) ([]BookCandidate, error) {
 	var out []BookCandidate
 	var gErr, olErr error
@@ -143,15 +179,10 @@ func SearchBooks(ctx context.Context, isbn, title, author, googleKey string) ([]
 		}
 	}
 
-	if len(out) == 0 {
+	if len(out) == 0 && (gErr != nil || olErr != nil) {
 		// Nothing found. Surface an error so the handler can explain (the quota
 		// case especially); a clean empty result stays a non-error empty list.
-		if gErr != nil {
-			return nil, gErr
-		}
-		if olErr != nil {
-			return nil, olErr
-		}
+		return nil, &BookSearchError{Google: gErr, OpenLibrary: olErr}
 	}
 	// Backfill series for any candidate a provider didn't tag directly — the name
 	// + index often ride in the title's subtitle ("Title: The Malazan Book of the

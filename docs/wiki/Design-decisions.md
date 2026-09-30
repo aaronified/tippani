@@ -19883,18 +19883,20 @@ uses. The screen's own copy of the testable list went with the change, and
 
 **A Test that found nothing asks whether the host answered, and Test all asks everyone at
 once.** A rating ran Test all on a server that could reach nothing, and Amazon, Letterboxd,
-Wikimedia and Fandom each said "answered · found nothing" while IMDb beside them said it could
-not be asked. Those rungs, and Google's image results, return "nothing" for a refused
+Wikimedia and Fandom each said "answered · found nothing" while IMDb beside them said it did
+not answer. Those rungs, and Google's image results, return "nothing" for a refused
 connection on purpose: each is one guess among several and must not fail the lookup it is part
 of. So a Test that finds nothing on one of those five now sends one HEAD to the same host,
 through the same client and the same offline switch (`metadata.Reachable`), and a transport
-error or a 5xx is what the row reports. It is asked only after the real question, never
+error or a 5xx ("letterboxd.com: status 503") is what the row reports. It is asked only after the real question, never
 instead of it, so the rule that a Test asks the way a lookup asks still holds. The same pass
 found Test all asking twelve suppliers one after another inside one request, under the
 server's 60-second write timeout with ten seconds allowed per call. They are now asked
 together, with a 30-second deadline for the press, and a supplier still quiet at it reads "no
 answer within 30s". One book search answers for both Google Books and Open Library, as it does
-in a lookup, where Test all had run it twice.
+in a lookup, where Test all had run it twice. And each book row now carries its own supplier's
+failure: a search that finds nothing because Google failed returned Google's error alone, which
+was recorded against Open Library too.
 
 **A game's fill and re-verify ask IGDB, and a game with no id is resolved by an exact IGDB
 title.** The owner, over a fill that said «The Witcher 3: Wild Hunt» had "no pinned identity

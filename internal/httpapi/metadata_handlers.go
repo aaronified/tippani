@@ -121,10 +121,14 @@ func (s *Server) recordBooksLookup(cands []metadata.BookCandidate, err error) {
 	// deliberate, because what the fault list is for is "did this supplier put
 	// anything in front of me", not "how big was its raw reply".
 	//
-	// AN ERROR BELONGS TO BOTH, because the error this search returns is the pair
-	// of them failing — `SearchBooks` composes "google books: …; open library: …"
-	// — and there is no way here to say which half died. Recording it against one
-	// would exonerate the other on no evidence.
+	// EACH ROW GETS ITS OWN SUPPLIER'S ERROR. A search that found nothing because
+	// a supplier failed returns a *metadata.BookSearchError holding each one's
+	// error apart, and a supplier that answered with nothing has none. The error
+	// used to be Google's alone and was recorded against both, so a Google outage
+	// read "did not answer — google books: …" under Open Library too. An error of
+	// any other shape still belongs to both: there is no way here to say which
+	// half died, and recording it against one would exonerate the other on no
+	// evidence.
 	//
 	// "google" AND NOT "google-books", because `vocab.source.google.label` already
 	// reads "Google Books" — the app named this supplier once and the fault list
@@ -138,8 +142,13 @@ func (s *Server) recordBooksLookup(cands []metadata.BookCandidate, err error) {
 			openLibrary++
 		}
 	}
-	s.recordLookup(faultAreaBooks, "google", google, "", err)
-	s.recordLookup(faultAreaBooks, "openlibrary", openLibrary, "", err)
+	gErr, olErr := err, err
+	var both *metadata.BookSearchError
+	if errors.As(err, &both) {
+		gErr, olErr = both.Google, both.OpenLibrary
+	}
+	s.recordLookup(faultAreaBooks, "google", google, "", gErr)
+	s.recordLookup(faultAreaBooks, "openlibrary", openLibrary, "", olErr)
 }
 
 // resolveTMDB picks the effective TMDB client per request, in the PLAN §6
