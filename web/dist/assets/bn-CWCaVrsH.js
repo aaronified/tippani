@@ -712,6 +712,7 @@ vocab.source.tmdb.label = TMDB
 vocab.source.tvdb.label = TheTVDB
 # What a row whose supplier the app does not recognise is called.
 vocab.source.manual.label = আপনি
+vocab.source.import.label = ইমপোর্ট করা
 # What a row whose supplier the app does not recognise is called.
 vocab.source.unknown.label = অজানা সূত্র
 
@@ -3327,12 +3328,10 @@ common.work.id.open.tip = {source} সাইটে খুলুন
 # The id as it reads when it is not being edited. The arrow means "opens away".
 common.work.id.display.label = #{n} ↗
 
-work.ids.label = আইডি
 work.ids.edit.label = বদলান
 work.ids.edit.tip = সব আইডি বদলান
 work.ids.no-page.tip = {source} — খোলার মতো কোনও পাতা নেই
-work.ids.save.tip = সব আইডি একসঙ্গে সেভ করুন
-work.ids.save.blocked = কোনও আইডি বদলায়নি
+work.ids.save.tip = আইডি আর লিংক একসঙ্গে সেভ করুন
 work.ids.form.hint = এই ধরনের বই বা সিনেমা যেসব আইডি দিয়ে খোঁজা যায়। ফাঁকা থাকলে সেটা বাদ যায়।
 
 # Saving. {field} is a field name, already lower-cased by the caller.
@@ -5650,6 +5649,7 @@ settings.metadata.area.books.label = বইয়ে
 settings.metadata.area.films.label = সিনেমায়
 settings.metadata.area.games.label = গেমে
 settings.metadata.area.pictures.label = ছবিতে
+settings.metadata.area.people.label = মানুষের খোঁজে
 # Half an IGDB pair fails at the Twitch token exchange, which arrives as a
 # lookup failure — so the missing half is named. {half} is one of the nouns
 # below, not a sentence.
@@ -5719,6 +5719,8 @@ settings.sources.need-key.prose.other = {count}টির জন্য আগে 
 settings.sources.records.tip.one = আপনার লাইব্রেরির {count}টি ঘর {source} থেকে এসেছে
 settings.sources.records.tip.other = আপনার লাইব্রেরির {count}টি ঘর {source} থেকে এসেছে
 settings.sources.records.none.tip = {source} থেকে এখনও কিছু আসেনি
+settings.sources.fields.one = {n}টা ঘর
+settings.sources.fields.other = {n}টা ঘর
 settings.sources.test.aria = {source}-কে একটা পরীক্ষামূলক প্রশ্ন করুন
 settings.sources.test.tip = {source}-এর কাছে নিশ্চিত থাকা একটা জিনিস চেয়ে দেখা হবে, আর যা আসবে তা জানানো হবে
 settings.sources.test.off.tip = {source}-কে জিজ্ঞেস করতে এই সারির সেটআপে "গুগল ছবির ফল" চালু করুন
@@ -7342,6 +7344,10 @@ identity.row.sort.sub.company = তালিকায় এর নাম কো
 identity.row.born.none = লেখা নেই
 identity.row.born.sub.character = গল্পের ভিতরের, যদি কোনও কাজ বলে থাকে
 identity.row.link.add.label = লিংক যোগ
+identity.link.source.auto.label = অ্যাপ
+identity.link.source.you.label = আপনি
+identity.link.source.auto.tip = অ্যাপ খুঁজে পেয়েছে, {source} থেকে
+identity.link.source.you.tip = এই লিংকটা আপনি যোগ করেছেন
 identity.row.link.add.tip = এই রেকর্ডের একটা ঠিকানা পেস্ট করুন
 # ---- প্রদানকারীর আইডি থেকে লিঙ্ক যোগ করা ----------------------------------
 identity.link.id.title = লিঙ্ক যোগ করুন
@@ -7453,7 +7459,6 @@ unit.role.publisher = প্রকাশক
 unit.role.speaker = বক্তা
 # A work's links out (0062). See workLinks.jsx.
 links.web.label = একটা ওয়েবপেজ
-links.empty = এখনো কোনো লিংক নেই। এই রেকর্ডের কোনো পাতা, বা যেকোনো ওয়েব ঠিকানা যোগ করুন।
 links.paste.label = লিংক যোগ করুন
 links.name.label = কী নামে ডাকবেন (ঐচ্ছিক)
 links.name.placeholder = ওঁর প্রবন্ধ
@@ -7467,7 +7472,6 @@ links.paste.hint = যেকোনো ঠিকানা বসান। যো�
 links.reading = {name} হিসেবে পড়া হচ্ছে — {host}
 links.reading.none = এটা এখনও কোনও ঠিকানা নয়।
 links.already = এটা ইতিমধ্যেই এই রেকর্ডে আছে।
-links.add.aria = এই লিংকটা যোগ করুন
 links.remove.aria = {name} লিংকটা সরান
 # Ordering, grouping and filtering ANY board of quotes — a book's highlights and
 # a film's, a show's or a game's lines alike. One vocabulary, because one control
