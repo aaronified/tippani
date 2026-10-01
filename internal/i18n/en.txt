@@ -3324,6 +3324,12 @@ home.tile.library.tip = Open the Library
 home.tile.library.counts = books · {n} quotes
 home.tile.movies.tip = Open the Catalogue
 home.tile.movies.counts = films · {n} dialogues
+# The same caption when the screen shelf holds only shows, or only games.
+home.tile.shows.counts = shows · {n} dialogues
+home.tile.games.counts = games · {n} dialogues
+# When it holds more than one kind: the big figure is every title, and each kind's
+# count sits beside it with its glyph.
+home.tile.screen.counts = titles · {n} dialogues
 
 # THE FAVOURITES WALL.
 home.favourites.title = Favourites

@@ -52,7 +52,10 @@ import {
   HandNote,
   Hearts,
   IconDelete,
+  IconPlaying,
+  IconReel,
   IconShuffle,
+  IconWatching,
   InfoDot,
   IconButton,
   Masonry,
@@ -64,6 +67,7 @@ import {
   NavIcon,
   onActivate,
   Placeholder,
+  Tally,
   QuoteActions,
   QuoteTools,
   shuffleSeeded,
@@ -158,6 +162,13 @@ function StatesRow({ states, capacity, help, onToggleHelp, adaptive }) {
     </div>
   )
 }
+
+// [stats field, glyph, noun family, the caption when it is the only kind]
+const SCREEN_KINDS = [
+  ['films', <IconReel />, 'unit.film', 'home.tile.movies.counts'],
+  ['shows', <IconWatching />, 'unit.show', 'home.tile.shows.counts'],
+  ['games', <IconPlaying />, 'unit.game', 'home.tile.games.counts'],
+]
 
 // DailyQuizCard — the scheduled spaced-repetition session (ROADMAP №2): every
 // card due today, no skips, each grade folded into the schedule. Got it / Forgot
@@ -722,6 +733,14 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
     if (e.type === 'sent' && e.data?.states) takeStates(e.data.states, e.data.capacity)
   }), [takeStates])
   const kept = useKeptAnswers()
+  // THE SCREEN TILE NAMES ITS KINDS. It printed every screen work as "films";
+  // the owner: "the total section in the homepage lists games and shows as films
+  // as well. That card show all three (without changing the card size)." So the
+  // big figure stays the total, and beside it, in the room the figure leaves on
+  // its own line, each kind the shelf holds wears its glyph — the Catalogue's own
+  // drawings for a film, a show and a game. One kind alone keeps its word on the
+  // caption, as before, and needs no breakdown.
+  const screenKinds = stats ? SCREEN_KINDS.filter(([key]) => stats[key] > 0) : []
   const shownStates = useMemo(() => withKept(states, kept), [states, kept])
   const { stickers, reload: reloadStickers } = useStickers()
   // Drawn once per mount, not per render: a greeting that reshuffled every time
@@ -975,9 +994,22 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
           <HandCard variant={2} className="cursor-pointer w-full" style={{ padding: '13px 15px' }} onClick={onGoMovies} onKeyDown={onActivate(onGoMovies)} role="button" tabIndex={0}>
             <p style={{ fontFamily: 'var(--font-ui)', fontStyle: 'var(--font-ui-style)', fontVariantCaps: 'var(--font-ui-caps)', textTransform: 'var(--font-ui-case)', fontVariantNumeric: 'var(--font-ui-figures)', fontWeight: 600, fontSize: 'var(--type-display-26)' }}>
               {stats ? stats.movies : '–'}
+              {/* Spaces as characters between the figures, the rule Tally's own
+                  comment gives: a margin would make "19 12 4 3" read as "19124 3". */}
+              {screenKinds.length > 1 && ' '}
+              {screenKinds.length > 1 && (
+                <span className="home-tile-kinds">
+                  {screenKinds.map(([key, glyph, unit], i) => (
+                    <span key={key}>
+                      {i > 0 && ' '}
+                      <Tally n={stats[key]} icon={glyph} word={t(unit, { count: stats[key] })} />
+                    </span>
+                  ))}
+                </span>
+              )}
             </p>
             <MonoLabel style={{ fontSize: 'var(--type-display-11)', color: 'var(--amber)' }}>
-              {t('home.tile.movies.counts', { n: stats ? stats.dialogues : '–' })}
+              {t(screenKinds.length === 1 ? screenKinds[0][3] : 'home.tile.screen.counts', { n: stats ? stats.dialogues : '–' })}
             </MonoLabel>
           </HandCard>
         </Tooltip>

@@ -640,6 +640,11 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	// show one". The guard was right; the payload was missing.
 	var books, annotations, movies, dialogues, quotes, tags, favorites int
 	var boards, anthologies, anthologyQuotes, stickers int
+	// THE SCREEN SHELF BY KIND, because Home's tile printed every screen work as
+	// "films" — the owner: "the total section in the homepage lists games and
+	// shows as films as well". `movies` stays the total the rail and the tile's
+	// big number read.
+	var films, shows, games int
 	err = s.Store.DB.QueryRow(`
 		SELECT
 		  (SELECT count(*) FROM books WHERE user_id = ?),
@@ -659,10 +664,13 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		  -- through its anthology, which is what this join is for.
 		  (SELECT count(*) FROM anthology_entries e
 		     JOIN anthologies a ON a.id = e.anthology_id WHERE a.user_id = ?),
-		  (SELECT count(*) FROM stickers WHERE user_id = ?)`,
-		uid, uid, uid, uid, uid, uid, uid, uid, uid, uid, uid, uid, uid).
+		  (SELECT count(*) FROM stickers WHERE user_id = ?),
+		  (SELECT count(*) FROM movies WHERE user_id = ? AND COALESCE(media_type, 'movie') = 'movie'),
+		  (SELECT count(*) FROM movies WHERE user_id = ? AND media_type = 'show'),
+		  (SELECT count(*) FROM movies WHERE user_id = ? AND media_type = 'game')`,
+		uid, uid, uid, uid, uid, uid, uid, uid, uid, uid, uid, uid, uid, uid, uid, uid).
 		Scan(&books, &annotations, &movies, &dialogues, &quotes, &tags, &favorites,
-			&boards, &anthologies, &anthologyQuotes, &stickers)
+			&boards, &anthologies, &anthologyQuotes, &stickers, &films, &shows, &games)
 	if err != nil {
 		internalError(w, r, "scan stats", err)
 		return
@@ -973,6 +981,9 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		"books":            books,
 		"annotations":      annotations,
 		"movies":           movies,
+		"films":            films,
+		"shows":            shows,
+		"games":            games,
 		"dialogues":        dialogues,
 		"quotes":           quotes,
 		"tags":             tags,

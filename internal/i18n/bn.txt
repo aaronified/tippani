@@ -3255,6 +3255,9 @@ home.tile.library.tip = গ্রন্থাগার খুলুন
 home.tile.library.counts = বই · {n} উদ্ধৃতি
 home.tile.movies.tip = ক্যাটালগ খুলুন
 home.tile.movies.counts = সিনেমা · {n} সংলাপ
+home.tile.shows.counts = শো · {n} সংলাপ
+home.tile.games.counts = গেম · {n} সংলাপ
+home.tile.screen.counts = টাইটেল · {n} সংলাপ
 
 # THE FAVOURITES WALL.
 home.favourites.title = প্রিয়

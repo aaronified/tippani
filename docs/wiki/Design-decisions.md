@@ -19961,3 +19961,14 @@ the card spans both columns on a desk; and the pack's "records supplied" aside i
 need to be there"), with "Test all" on the card head's row. A key that fails to save says so
 under the row whose setup failed, not at the foot of the card; a rating found it printing a
 phone's screen away from the Save.
+
+**Home's screen tile counts films, shows and games apart.** It printed the screen shelf's
+total over "films", whatever the shelf held. The owner: "the total section in the homepage
+lists games and shows as films as well. That card show all three (without changing the card
+size)." The big figure stays the total and the caption says "titles"; beside the figure, in
+the room it leaves on its own line, each kind the shelf holds is a count wearing the
+Catalogue's own glyph for it (`Tally`, its word in the glyph's name), and a kind with none
+is left out. A shelf of one kind needs no breakdown and keeps its word on the caption. At
+390 and the default type the tile keeps the Library tile's height. At 175% the kinds move
+under the figure as one row and both tiles grow by that line; the alternative, holding the
+height, would have clipped them.
