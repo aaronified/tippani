@@ -16,7 +16,8 @@
 // THE MUTATIONS, each made and run and put back:
 //   - the breakdown never drawn: red, the mixed shelf's name has no "12 films";
 //   - the caption always "titles": red, a films-only shelf reads "titles";
-//   - a kind with none still drawn: red, "0 shows" in the name.
+//   - a kind with none still drawn: red, "0 shows" in the name;
+//   - the caption's noun taking no count (the plural always): red, "1 shows".
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, render, screen } from '@testing-library/react'
@@ -75,5 +76,12 @@ describe("Home's screen tile", () => {
     await mount({ movies: 3, films: 0, shows: 0, games: 3 })
     expect(screen.getByRole('button', { name: '3 games · 280 dialogues' })).toBeTruthy()
     expect(nameOf(tile())).not.toMatch(/films/)
+  })
+
+  // The noun takes the plural of what the figure counts: a shelf of one show is
+  // "1 show", where a caption written out per kind printed "1 shows".
+  it('says "show" for a shelf of one show', async () => {
+    await mount({ movies: 1, films: 0, shows: 1, games: 0 })
+    expect(screen.getByRole('button', { name: '1 show · 280 dialogues' })).toBeTruthy()
   })
 })

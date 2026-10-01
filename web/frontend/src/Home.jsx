@@ -14,6 +14,7 @@ import { AnnotationForm, annotationState, annDate, fmtDate } from './Library.jsx
 import { DialogueForm, dialogueState } from './Movies.jsx'
 import { UtteranceForm, utteranceMeta, utteranceState } from './Quotes.jsx'
 import { t, tNodes } from './i18n.js'
+import { GLYPH_NAME } from './identityLocal.jsx'
 import { openCharacterDoor } from './identity.jsx'
 import { usePersonOpener } from './personOpen.jsx'
 import { quoteKindMeta } from './quoteKind.js'
@@ -52,10 +53,7 @@ import {
   HandNote,
   Hearts,
   IconDelete,
-  IconPlaying,
-  IconReel,
   IconShuffle,
-  IconWatching,
   InfoDot,
   IconButton,
   Masonry,
@@ -67,6 +65,7 @@ import {
   NavIcon,
   onActivate,
   Placeholder,
+  Scroller,
   Tally,
   QuoteActions,
   QuoteTools,
@@ -163,11 +162,14 @@ function StatesRow({ states, capacity, help, onToggleHelp, adaptive }) {
   )
 }
 
-// [stats field, glyph, noun family, the caption when it is the only kind]
+// [stats field, the medium's glyph, its noun family]. The glyphs are the ones the
+// app already draws for a work's medium — GLYPH_NAME through NavIcon, as the
+// person and character pages badge a work — so a film here is the same picture
+// as a film there, and all three are one weight.
 const SCREEN_KINDS = [
-  ['films', <IconReel />, 'unit.film', 'home.tile.movies.counts'],
-  ['shows', <IconWatching />, 'unit.show', 'home.tile.shows.counts'],
-  ['games', <IconPlaying />, 'unit.game', 'home.tile.games.counts'],
+  ['films', <NavIcon name={GLYPH_NAME.film} />, 'unit.film'],
+  ['shows', <NavIcon name={GLYPH_NAME.show} />, 'unit.show'],
+  ['games', <NavIcon name={GLYPH_NAME.game} />, 'unit.game'],
 ]
 
 // DailyQuizCard — the scheduled spaced-repetition session (ROADMAP №2): every
@@ -757,11 +759,11 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
   // THE SCREEN TILE NAMES ITS KINDS. It printed every screen work as "films";
   // the owner: "the total section in the homepage lists games and shows as films
   // as well. That card show all three (without changing the card size)." So the
-  // big figure stays the total, and beside it, in the room the figure leaves on
-  // its own line, each kind the shelf holds wears its glyph — the Catalogue's own
-  // drawings for a film, a show and a game. One kind alone keeps its word on the
-  // caption, as before, and needs no breakdown.
+  // big figure stays the total, and beside it, on the figure's own line, each
+  // kind the shelf holds is a count wearing its medium's glyph. One kind alone
+  // needs no breakdown, and the caption names it instead of "titles".
   const screenKinds = stats ? SCREEN_KINDS.filter(([key]) => stats[key] > 0) : []
+  const screenNoun = screenKinds.length === 1 ? screenKinds[0][2] : 'unit.title'
   const shownStates = useMemo(() => withKept(states, kept), [states, kept])
   const { stickers, reload: reloadStickers } = useStickers()
   // Drawn once per mount, not per render: a greeting that reshuffled every time
@@ -1013,24 +1015,29 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
         {onGoMovies && (
         <Tooltip label={t('home.tile.movies.tip')} className="flex items-stretch">
           <HandCard variant={2} className="cursor-pointer w-full" style={{ padding: '13px 15px' }} onClick={onGoMovies} onKeyDown={onActivate(onGoMovies)} role="button" tabIndex={0}>
-            <p style={{ fontFamily: 'var(--font-ui)', fontStyle: 'var(--font-ui-style)', fontVariantCaps: 'var(--font-ui-caps)', textTransform: 'var(--font-ui-case)', fontVariantNumeric: 'var(--font-ui-figures)', fontWeight: 600, fontSize: 'var(--type-display-26)' }}>
+            {/* ONE LINE, AT ANY SIZE OF SHELF OR TYPE. The kinds sit beside the
+                figure and scroll under an edge fade when they do not fit, so the
+                tile is the Library tile's height whatever it counts: a shelf of a
+                hundred films, or the largest type, would otherwise wrap the kinds
+                onto a line of their own and grow both tiles by it. A space
+                character between the figure and the kinds, so the tile reads
+                "14 9 2 3" when it is copied rather than "149 2 3". */}
+            <p className="home-tile-figures" style={{ fontFamily: 'var(--font-ui)', fontStyle: 'var(--font-ui-style)', fontVariantCaps: 'var(--font-ui-caps)', textTransform: 'var(--font-ui-case)', fontVariantNumeric: 'var(--font-ui-figures)', fontWeight: 600, fontSize: 'var(--type-display-26)' }}>
               {stats ? stats.movies : '–'}
-              {/* Spaces as characters between the figures, the rule Tally's own
-                  comment gives: a margin would make "19 12 4 3" read as "19124 3". */}
               {screenKinds.length > 1 && ' '}
               {screenKinds.length > 1 && (
-                <span className="home-tile-kinds">
+                <Scroller className="home-tile-kinds">
                   {screenKinds.map(([key, glyph, unit], i) => (
                     <span key={key}>
                       {i > 0 && ' '}
                       <Tally n={stats[key]} icon={glyph} word={t(unit, { count: stats[key] })} />
                     </span>
                   ))}
-                </span>
+                </Scroller>
               )}
             </p>
             <MonoLabel style={{ fontSize: 'var(--type-display-11)', color: 'var(--amber)' }}>
-              {t(screenKinds.length === 1 ? screenKinds[0][3] : 'home.tile.screen.counts', { n: stats ? stats.dialogues : '–' })}
+              {t('home.tile.screen.counts', { noun: t(screenNoun, { count: stats ? stats.movies : 0 }), n: stats ? stats.dialogues : '–' })}
             </MonoLabel>
           </HandCard>
         </Tooltip>

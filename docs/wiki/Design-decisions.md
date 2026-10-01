@@ -19967,13 +19967,18 @@ phone's screen away from the Save.
 **Home's screen tile counts films, shows and games apart.** It printed the screen shelf's
 total over "films", whatever the shelf held. The owner: "the total section in the homepage
 lists games and shows as films as well. That card show all three (without changing the card
-size)." The big figure stays the total and the caption says "titles"; beside the figure, in
-the room it leaves on its own line, each kind the shelf holds is a count wearing the
-Catalogue's own glyph for it (`Tally`, its word in the glyph's name), and a kind with none
-is left out. A shelf of one kind needs no breakdown and keeps its word on the caption. At
-390 and the default type the tile keeps the Library tile's height. At 175% the kinds move
-under the figure as one row and both tiles grow by that line; the alternative, holding the
-height, would have clipped them.
+size)." The big figure stays the total; beside it, on its line, each kind the shelf holds is
+a count wearing that medium's glyph (`Tally`, the noun in the glyph's name), the glyph the
+person and character pages already badge a work's medium with (`GLYPH_NAME` through
+`NavIcon`), and a kind with none is left out. The caption names what the figure counts, in
+the number it takes: "titles" for a mixed shelf, and the kind's own noun for a shelf of one
+kind, "1 show" as against "12 shows". The figure and its kinds are one row that never wraps; the kinds scroll under
+the edge fade when they do not fit, so the tile is the Library tile's height at any size of
+shelf and any type size. The first build let the row wrap, and a rating measured what that
+cost: it fitted the owner's fourteen titles with 29px to spare at 390, and grew both tiles
+by a line for any shelf with three-digit films and at the larger type sizes. Two more of its
+claims were wrong: the film glyph was the Catalogue's outline reel beside two filled glyphs,
+not the medium glyph the app uses, and a caption written out per kind read "1 shows".
 
 **Categories on a phone: the tag form loses its box and its heading, tags go one to a row,
 stickers three.** The owner, 1 October: "The "+new tag" wording not required, we already

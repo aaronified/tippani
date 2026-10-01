@@ -11533,15 +11533,18 @@ button.credit-pill-person:hover, button.credit-pill-work:hover { color: var(--in
 }
 
 .tally-icon svg { display: inline-block; width: 1.15em; height: 1.15em; vertical-align: top; }
-/* HOME'S SCREEN TILE, the kinds beside its total. On the figure's own line, in the
-   room the figure leaves, so the tile stays the Library tile's height; the caption
-   face and the tile's amber, because these are a caption's figures and the big one
-   is the total. ONE INLINE BLOCK, so where the type is too large for the row to fit
-   beside the figure (175% at 390) it moves under the figure whole, on its own line
-   height: as plain inline text it split after the first kind, and the line it broke
-   onto took the big figure's height, a gap the size of the number. */
+/* HOME'S SCREEN TILE, the kinds beside its total, on ONE line at any size of
+   shelf or type: the owner asked for the card's size not to change, and a row
+   that wrapped grew both tiles by a line (a rating measured it: three-digit
+   shelves at 390, and the larger type sizes). So the figure and the kinds are a
+   row that never wraps, and the kinds take what room the figure leaves and
+   scroll under Scroller's measured fade when they need more. Baseline-aligned,
+   so the small figures sit on the big one's line. The caption face and the
+   tile's amber, because these are a caption's figures and the big one is the
+   total. */
+.home-tile-figures { display: flex; align-items: baseline; column-gap: .3em; min-width: 0; }
 .home-tile-kinds {
-  display: inline-block; line-height: 1.3;
+  flex: 0 1 auto; min-width: 0; overflow-x: auto; overscroll-behavior-x: contain; white-space: nowrap;
   color: var(--amber);
   font-family: var(--font-mono); font-weight: var(--font-mono-weight);
   font-style: var(--font-mono-style); font-variant-caps: var(--font-mono-caps);
