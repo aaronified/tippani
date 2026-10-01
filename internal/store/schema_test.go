@@ -616,6 +616,11 @@ func wantShapes() []tableShape {
 				{Name: "source", Type: "TEXT", NotNull: true, Default: "''", HasDflt: true},
 				{Name: "source_id", Type: "TEXT", NotNull: true, Default: "''", HasDflt: true},
 				{Name: "created_at", Type: "TEXT", NotNull: true, Default: "datetime('now')", HasDflt: true},
+				// Who supplied the portrait, and each link's supplier as a JSON map
+				// from address to source (0081). Empty is "not recorded", which is
+				// every portrait and link saved before it.
+				{Name: "image_source", Type: "TEXT", NotNull: true, Default: "''", HasDflt: true},
+				{Name: "link_sources", Type: "TEXT", NotNull: true, Default: "''", HasDflt: true},
 			},
 			Indexes: []indexShape{
 				// NOT UNIQUE ANY MORE, and that is the point of 0056. Two people
