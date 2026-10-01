@@ -350,6 +350,10 @@ Shows four numbers from your library: works, quotes, forgotten and mastered. In 
 **Make a key**, then copy the YAML it shows into gethomepage's `services.yaml`. The key is shown once, and it can
 only read those four numbers.
 
+<p align="center">
+  <img src="docs/img/homepage-widget.png" width="560" alt="The Tippani widget on a gethomepage dashboard, marked healthy: 41 works, 863 quotes, 39 forgot, 19 mastered">
+</p>
+
 ```yaml
 - Tippani:
     href: https://tippani.example.com
