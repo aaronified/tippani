@@ -2882,15 +2882,17 @@ func (s *Server) handlePractice(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"items": items, "pool": len(items)})
 }
 
-// handleReviewAnswer grades one card. POST /review/answer with
-// {"kind","id","result","mode","offset"}. mode="daily" always folds the grade
-// into the schedule (and enforces one answer per card per day); mode="practice"
-// only moves the schedule when srPracticeCounts is on, and allows skip. Every
-// non-skip answer is tallied into that mode's session for the local day.
 // How long an answer may wait to be sent. A browser left closed for longer than
 // that holds an answer nobody remembers giving.
 const answerKeptFor = 30 * 24 * time.Hour
 
+// handleReviewAnswer grades one card. POST /review/answer with
+// {"kind","id","result","mode","offset"}, and from a browser that kept the
+// answer, "client_id" and "answered_ago_ms" (see answerQueue.js). mode="daily"
+// always folds the grade into the schedule (and enforces one answer per card per
+// day); mode="practice" only moves the schedule when srPracticeCounts is on, and
+// allows skip. Every non-skip answer is tallied into that mode's session for the
+// local day it was given.
 func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Kind   string `json:"kind"`

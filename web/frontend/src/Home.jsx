@@ -21,7 +21,7 @@ import { PendingImportCard } from './StagingPage.jsx'
 import { overCapacity } from './quiz.js'
 import { QuizRunner, tzOffsetMinutes } from './review.jsx'
 import { dailyDeck } from './daily.js'
-import { keptAnswers, onAnswerQueue, useKeptAnswers } from './answerQueue.js'
+import { keptAnswers, onAnswerQueue, sentThisPage, useKeptAnswers } from './answerQueue.js'
 import {
   CreditFaces,
   PersonCredit,
@@ -188,23 +188,44 @@ function DailyQuizCard({ onPending, states, capacity, onStates, adaptive, submit
       // A failed fetch must NOT masquerade as "all caught up" — show an error and
       // leave the pending dot as the shell seeded it.
       if (!r.ok) return setPhase('error')
-      // THE ANSWERS STILL ON THIS DEVICE ARE ANSWERS. The server has not heard of
-      // them, so its deck still holds their cards and its tally leaves them out:
-      // a refresh would ask a card again that the reader answered a minute ago,
-      // which is the owner's report ("Now on page refresh, that will come back").
-      // So their cards leave the deck, and today's count into the tally. A cloze
-      // the server has not marked yet counts as answered, not as right or wrong.
+      // THE ANSWERS THIS PAGE KNOWS ABOUT ARE ANSWERS, whether the server has
+      // them or not. A refresh draws the deck from a server that has not heard
+      // of a kept answer, so it would ask again a card the reader answered a
+      // minute ago — the owner's report ("Now on page refresh, that will come
+      // back"). And the deck can be older than an answer the server HAS taken:
+      // it is asked for as the app starts, the kept answers go out at the same
+      // moment, and either reply can land first. So the rule is about the deck,
+      // not about the clock: an answer this page knows about (kept, or sent from
+      // here) whose card the deck still holds is an answer the deck was drawn
+      // without. Its card leaves the deck, it counts in today's tally (a cloze
+      // the server has not marked counts as answered, neither right nor wrong),
+      // and the states the deck brought are moved for it before anyone sees
+      // them. A card the deck no longer holds was answered on the server's side
+      // and is in its counts already.
+      const sent = sentThisPage().filter((e) => e.mode === 'daily')
       const kept = keptAnswers().filter((e) => e.mode === 'daily')
-      const waiting = new Set(kept.map((e) => `${e.kind}:${e.id}`))
-      const today = kept.filter((e) => localDay(e.t, e.offset) === localDay(Date.now(), tzOffsetMinutes()))
-      const items = (r.data.items || []).filter((c) => !waiting.has(`${c.kind}:${c.id}`))
+      const dealt = new Set((r.data.items || []).map((c) => `${c.kind}:${c.id}`))
+      const seen = new Set()
+      const unknown = [...sent, ...kept].filter((e) => {
+        if (seen.has(e.key) || !dealt.has(`${e.kind}:${e.id}`)) return false
+        seen.add(e.key)
+        return true
+      })
+      const answered = new Set(unknown.map((e) => `${e.kind}:${e.id}`))
+      const items = (r.data.items || []).filter((c) => !answered.has(`${c.kind}:${c.id}`))
       setData({ ...r.data, items })
+      // Only today's answers count today: one kept from yesterday leaves the deck
+      // (it was answered) and is filed on yesterday when it is sent.
+      const today = unknown.filter((e) => localDay(e.t, e.offset) === localDay(Date.now(), tzOffsetMinutes()))
       setTally({
         got: (r.data.got_today || 0) + today.filter((e) => e.attempt == null && e.result === 'got').length,
         forgot: (r.data.forgot_today || 0) + today.filter((e) => e.attempt == null && e.result === 'forgot').length,
       })
       setAnsweredToday((r.data.answered_today || 0) + today.length)
-      onStates?.(r.data.states, r.data.capacity)
+      // Home moves the states for answers still kept; the ones already sent are
+      // moved here, since nothing else will.
+      const keptKeys = new Set(kept.map((e) => e.key))
+      onStates?.(withKept(r.data.states, unknown.filter((e) => !keptKeys.has(e.key))), r.data.capacity)
       onPending(items.length)
       setPhase(items.length ? 'active' : 'done')
     })

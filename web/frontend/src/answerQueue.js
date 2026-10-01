@@ -36,6 +36,12 @@ const FIRST_WAIT = 2000
 const LONGEST_WAIT = 60000
 
 let owner = null
+// THE ANSWERS THIS PAGE HAS HANDED TO THE SERVER, for as long as it is open. A
+// screen whose fetch was answered before one of these reached the server holds a
+// reply that does not know about it: the Daily deck asked for while the app was
+// starting can arrive after the first kept answer has gone out, and would still
+// hold that answer's card. Kept or sent, the screen can see both.
+const sentHere = []
 let sending = false
 let timer = null
 let wait = 0
@@ -104,9 +110,15 @@ function body(e) {
   }
 }
 
-// A refusal sending again cannot change. 401 is not one (the reader signed out,
-// and the answer waits for them), nor 408 or 429 (come back later).
-const refusedForGood = (status) => status >= 400 && status < 500 && status !== 401 && status !== 408 && status !== 429
+// NOT LET IN, which is not a refusal of the answer: 401 is a reader signed out, and
+// 403 is the gate in front of an account whose password an admin chose ("choose
+// your own password first", server.go) — this app never answers 403 for a row,
+// another reader's is a 404. Either way the answer waits for its reader.
+const notLetIn = (status) => status === 401 || status === 403
+
+// A refusal sending again cannot change. Not one: being let in (above), 408 and
+// 429 (come back later).
+const refusedForGood = (status) => status >= 400 && status < 500 && !notLetIn(status) && status !== 408 && status !== 429
 
 async function drain() {
   if (sending || owner == null) return
@@ -122,6 +134,7 @@ async function drain() {
       const r = await json('POST', '/review/answer', body(head), { timeoutMs: 20000 })
       if (r.ok) {
         write(uid, read(uid).filter((e) => e.key !== head.key))
+        sentHere.push({ uid, entry: head })
         wait = 0
         settleFirst(head.key, r.data || {})
         emit({ type: 'sent', entry: head, data: r.data || {} })
@@ -136,7 +149,9 @@ async function drain() {
       // NOT SENT NOW, and nothing behind it will be either until it is: every
       // first attempt still waited on is answered "not yet".
       for (const e of read(uid)) settleFirst(e.key, null)
-      if (r.status === 401) break // signed out: it waits for the reader
+      // Not let in: no clock either. It is sent at the next start, return online,
+      // return to the tab or new answer, by which time the reader may be in.
+      if (notLetIn(r.status)) break
       wait = Math.min(wait ? wait * 2 : FIRST_WAIT, LONGEST_WAIT)
       timer = setTimeout(drain, wait)
       emit({ type: 'waiting', entry: head, status: r.status })
@@ -174,9 +189,11 @@ export function startAnswerQueue(uid) {
   nudge()
 }
 
-// stopAnswerQueue — signed out. Nothing kept is thrown away.
+// stopAnswerQueue — signed out. Nothing kept is thrown away; what this page sent
+// is forgotten, since the next reader's deck has nothing to do with it.
 export function stopAnswerQueue() {
   owner = null
+  sentHere.length = 0
   clearTimeout(timer)
   timer = null
 }
@@ -198,6 +215,11 @@ export function keepAnswer(fields) {
   emit({ type: 'kept', entry })
   drain()
   return { key: entry.key, first }
+}
+
+// sentThisPage — the answers this page sent for the signed-in reader.
+export function sentThisPage() {
+  return owner == null ? [] : sentHere.filter((s) => s.uid === owner).map((s) => s.entry)
 }
 
 // keptAnswers — the answers this reader has given that the server has not taken.

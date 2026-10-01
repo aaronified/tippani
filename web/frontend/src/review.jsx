@@ -646,6 +646,10 @@ function CardTools({ card, onPatch }) {
 // same schedule as before, only auto-graded. A correct save is required before
 // advancing; skip (Practice) advances locally, touching neither schedule nor
 // score.
+// How long a typed answer waits for the server's mark before the card lets the
+// reader go on with it kept. Long enough for a reply on any working connection.
+const CLOZE_MARK_WAIT_MS = 3000
+
 export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, onAnswered, onDone, submitStep = false }) {
   // Phones get no key legends anywhere; see Kbd.
   const noKeys = useIsMobileScreen()
@@ -869,23 +873,30 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
       first.then((data) => { if (data && posRef.current === at) setLastResp(data) })
       return
     }
-    // A cloze waits for its verdict, briefly. If it cannot be checked now it is
-    // still kept, and is marked when the server is reached; the reader moves on.
+    // A cloze waits for its verdict, BRIEFLY: CLOZE_MARK_WAIT_MS and no longer.
+    // The send itself may take twenty seconds to give up on a congested network,
+    // or wait behind an earlier answer, and the owner's ask was that the sending
+    // never hold the reader ("the sync will not even be visible to users"). Past
+    // the wait the card says "kept, to be marked" and Next works; a mark that
+    // arrives while the reader is still on the card replaces it.
     setChecking(true)
-    const data = await first
+    const settle = (data) => {
+      if (posRef.current !== at || !data) return
+      setLastResp(data)
+      // For a cloze card the server's own verdict is the truth — `result` was a
+      // placeholder. Everything downstream (the tally, the status dot) reads what
+      // came back.
+      const settled = data.result || result
+      setGraded(settled)
+      onAnswered?.(settled, data)
+    }
+    const data = await Promise.race([first, new Promise((resolve) => setTimeout(() => resolve(undefined), CLOZE_MARK_WAIT_MS))])
     if (posRef.current !== at) return
     setChecking(false)
-    if (!data) {
-      setGraded('kept')
-      return
-    }
-    setLastResp(data)
-    // For a cloze card the server's own verdict is the truth — `result` was a
-    // placeholder. Everything downstream (the tally, the status dot) reads what
-    // came back.
-    const settled = data.result || result
-    setGraded(settled)
-    onAnswered?.(settled, data)
+    if (data) return settle(data)
+    setGraded('kept')
+    // Still on this card when the mark comes: show it. `null` is "not sent".
+    if (data === undefined) first.then(settle)
   }
 
   // Two ways out of a card that keeps being forgotten. Neither is automatic.

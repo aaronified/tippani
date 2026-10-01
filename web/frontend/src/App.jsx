@@ -210,11 +210,15 @@ export default function App() {
 
   // THE QUIZ ANSWERS KEPT ON THIS DEVICE go out while their reader is signed in,
   // and wait, kept, while nobody is (answerQueue.js). Keyed on the reader's id,
-  // so signing in as someone else sends theirs and never this one's.
+  // so signing in as someone else sends theirs and never this one's. And not
+  // while the password an admin chose still stands: the server lets nothing
+  // through until the reader picks their own, and the moment they have, the
+  // answers go.
+  const answersOpen = user?.id != null && !user?.must_change_password
   useEffect(() => {
-    if (user?.id != null) startAnswerQueue(user.id)
+    if (answersOpen) startAnswerQueue(user.id)
     else stopAnswerQueue()
-  }, [user?.id])
+  }, [user?.id, answersOpen]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Per-user appearance preferences apply on login and reset on logout (§4).
   //
