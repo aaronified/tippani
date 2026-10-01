@@ -73,6 +73,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   fade, and the two exports are one row, "What is shown" and "All".** The "Export" word
   before them is gone. "All" replaces "Everything kept (30 days)", and its name to a
   hover, a hold and a screen reader is "Export all the logs kept (30 days)".
+- **Metadata → Categories: the tag form has no heading or box of its own, tags go one to a
+  row on a phone and stickers three.** The "＋ New tag" heading over the form and the
+  dashed box around it are gone, so the form sits straight inside the Tags card. The small
+  cards around each tag and each sticker stay. The ⋯ menu's row that goes to the form now
+  reads "New tag", without the plus in its text. Tags sit one to a row on a phone, where
+  they sat two, and two to a row on a desk. Stickers sit three to a row, where they sat
+  four, and five to a row on a wide screen. At two tags to a row on a phone the words
+  under a tag, "practise", "edit" and "delete", broke across two lines.
 
 ### Fixed
 
@@ -162,6 +170,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   which said "in Settings", and the refusals to look up a studio's or publisher's links
   without IGDB credentials and an actor's or director's links without a TMDB key, which
   said "in Settings first".
+- **A quiz answer is kept on the device and the card moves on at once, so a refresh no
+  longer brings an answered card back.** The Daily quiz and Practice both keep each answer
+  the moment it is given. "saving…" and the "couldn't save" line are gone. Answers the
+  server has not taken are sent in the order they were given and tried again until it
+  takes them: after a wait that grows from 2 seconds to a minute, when the device comes
+  back online, when the reader returns to the tab and on the next start of the app. The
+  answers are kept for the signed-in reader, and signing out does not discard them.
+  Nothing is sent while the app is closed, so an answer still waiting goes out the next
+  time it is open. An answer the server refuses outright is dropped instead of being sent
+  again, and so is one more than 30 days old. A Daily card that has been answered stays
+  out of the deck after a refresh even when its answer has not reached the server, and
+  the answer counts in the day's tally, the streak and "where you stand". The streak
+  counts today from the day's first answer, where it used to add the day only after a
+  refresh. A Practice round finished while answers are still waiting updates its score as
+  the server takes each one. After the oldest answer waiting has waited a minute, a line
+  under the Daily quiz says "2 answers waiting to be sent", or "1 answer waiting to be
+  sent", counting Practice's answers too. A fill-in-the-blank answer still waits for the
+  server to mark it, with "checking…" beside Check. When it cannot be marked yet the card
+  reads "kept, to be marked", shows the typed words under "what you wrote", and Next
+  still works. Until the server marks it, that answer is in neither the right nor the
+  wrong tally and does not move "where you stand". An answer sent late counts on the day
+  it was given, in that day's tally and streak, and an answer sent twice counts once.
+- **Home's screen tile no longer counts shows and games as films.** The big figure is
+  still the total, and each kind the shelf holds is counted beside it with its glyph: the
+  film, show and game glyphs the Catalogue uses, in that order. With more than one kind
+  the caption reads "titles · 280 dialogues", where 280 is the dialogue count. A kind
+  with none is left out. A shelf of one kind shows no counts beside the figure and keeps
+  its word on the caption: "films · 280 dialogues", "shows · 280 dialogues" or "games ·
+  280 dialogues". On a phone at the default text size the tile keeps the height of the
+  Library tile. At the largest text size the counts no longer fit beside the total and
+  move under it, and both tiles grow by that line.
 
 ## [3.1.2] - 2026-09-29
 
