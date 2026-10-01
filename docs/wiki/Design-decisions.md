@@ -19972,3 +19972,13 @@ is left out. A shelf of one kind needs no breakdown and keeps its word on the ca
 390 and the default type the tile keeps the Library tile's height. At 175% the kinds move
 under the figure as one row and both tiles grow by that line; the alternative, holding the
 height, would have clipped them.
+
+**Categories on a phone: the tag form loses its box and its heading, tags go one to a row,
+stickers three.** The owner, 1 October: "The "+new tag" wording not required, we already
+have the add tag button. The new tag section need not have a card boundary within the card.
+It is okay for tags or stickers though … Tags on mobile: 1 per row. Stickers on mobile: 3
+per row." That reverses the owner's own earlier "two columns for tags, four for stickers on
+the phone": at two to a row the owner's phone broke the verbs under a tag mid-word ("practi /
+se", "edi / t", "delet / e"), and the golden library breaks the same three at 390. The ⋯
+row that goes to the form keeps its name, now "New tag" with no text plus beside the glyph
+that already draws one.

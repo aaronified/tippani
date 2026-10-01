@@ -111,8 +111,8 @@ export function StickerPicker({ value, onChange, stickers, reload }) {
   )
 }
 
-// NewStickerCard — dashed add-card pairing with the Tags page's NewTagCard;
-// upload-only (naming happens inline on the cards/table below).
+// NewStickerCard — the dashed add-card for a sticker's upload. Upload-only
+// (naming happens inline on the cards/table below).
 export function NewStickerCard({ onUploaded }) {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -161,15 +161,13 @@ export function StickerList({ stickers, onChanged }) {
         <EmptyState>{t('tags.sticker.board.empty')}</EmptyState>
       ) : (
         <>
-          {/* FOUR ON A PHONE. The owner's, in the same breath as the tags beside
-              them: "two columns for tags, four for stickers on the phone." A
-              sticker IS its picture — a small square mark you put on a quote — so
-              four of them read at 390 where four tag cards would not, and one per
-              line was a column of stamps down the left of an empty screen.
-              `sm:grid-cols-3` is gone rather than kept: three at 640px is FEWER
-              than four at 390, and a grid that thins as the screen grows is the
-              one shape a reader can be certain is a mistake. */}
-          <div className="grid grid-cols-4 gap-3 lg:grid-cols-5">
+          {/* THREE ON A PHONE. The owner, 1 October: "Tags on mobile: 1 per
+              row. Stickers on mobile: 3 per row." Earlier it was four ("four for
+              stickers on the phone"); at four a sticker's name under its picture
+              had a quarter of 390 to sit in. Five on a wide screen, and nothing
+              between thins the grid: a grid with fewer columns on a wider screen
+              is the one shape a reader can be certain is a mistake. */}
+          <div className="grid grid-cols-3 gap-3 lg:grid-cols-5">
             {latest.map((s, i) => (
               <StickerCard key={s.id} sticker={s} index={i} onChanged={onChanged} />
             ))}

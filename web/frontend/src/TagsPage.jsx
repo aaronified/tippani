@@ -98,8 +98,8 @@ export default function TagsPage({ embedded = false, lead = null }) {
   // the page re-clustering per row.
   const dupIds = useMemo(() => new Set(dupGroups.flat().map((row) => row.id)), [dupGroups])
 
-  // Tags has no header controls at all — the "＋ New tag" card is a card in the
-  // grid, which is right where it is and unreachable from anywhere else. The ⋯
+  // Tags has no header controls at all — the new-tag form sits at the head of the
+  // Tags card, which is right where it is and unreachable from anywhere else. The ⋯
   // gives it a name and a keyboard route, which is the whole argument for a menu
   // bar over an overflow: the row exists because the screen can do the thing, not
   // because there was nowhere else to put the button.
@@ -159,14 +159,15 @@ export default function TagsPage({ embedded = false, lead = null }) {
           )}
           {tags && tags.length > 0 && (
             <>
-              {/* TWO COLUMNS ON A PHONE, NOT ONE. The owner: "Tags: two columns
-                  for tags, four for stickers on the phone." A tag card is a word
-                  and a use count — the narrowest card in the app — and one per
-                  line turned a vocabulary of twenty into twenty screens of
-                  scrolling with two thirds of every line empty. `sm:grid-cols-2`
-                  was doing nothing a phone could see, because it only began at
-                  640px where there was already room for two. */}
-              <div className="grid grid-cols-2 gap-3">
+              {/* ONE PER ROW ON A PHONE, TWO ON A DESK. The owner, 1 October:
+                  "Tags on mobile: 1 per row. Stickers on mobile: 3 per row." It
+                  reverses an earlier ruling of theirs ("two columns for tags, four
+                  for stickers on the phone"): at two to a row the owner's phone
+                  broke a tag's name mid-word ("Discriminatio / n") and its verbs
+                  with it ("practi / se", "edi / t"). `mobile` rather than a
+                  Tailwind breakpoint, so the grid turns where the rest of the app
+                  does. */}
+              <div className={`grid gap-3 ${mobile ? 'grid-cols-1' : 'grid-cols-2'}`}>
                 {top.map((row, i) => (
                   <CompactTagCard key={row.id} tag={row} index={i} dupe={dupIds.has(row.id)} onChanged={load} />
                 ))}
@@ -431,18 +432,20 @@ function TagTable({ tags, dupIds, onChanged }) {
   )
 }
 
-// NewTagCard — dashed "＋ New tag" card (mockup 24) around the shared form.
+// NewTagCard — the shared form, open at the head of the Tags card.
 //
-// IT TAKES A REF so the ⋯ can send you to it. The card is a card in the grid and
-// that is the right place for it, but a menu row that claims the screen can make
-// a tag has to actually land somewhere — so the row scrolls this into view and
-// puts the cursor in its first field, which is what pressing the card does.
+// NO CARD OF ITS OWN AND NO HEADING. It wore a dashed box and "＋ New tag" (mockup
+// 24), a card inside the Tags card. The owner, 1 October: "The "+new tag" wording
+// not required, we already have the add tag button. The new tag section need not
+// have a card boundary within the card. It is okay for tags or stickers though":
+// the small cards around each tag and each sticker stay.
+//
+// IT TAKES A REF so the ⋯ can send you to it: a menu row that claims the screen
+// can make a tag has to land somewhere, so the row scrolls this into view and
+// puts the cursor in its first field.
 const NewTagCard = forwardRef(function NewTagCard({ onCreated }, ref) {
   return (
-    <section ref={ref} className="p-5" style={{ border: '1.6px dashed var(--ink-border)', borderRadius: 14 }}>
-      <p className="mb-3 font-semibold" style={{ color: 'var(--accent-ui)' }}>
-        {t('tags.new.title')}
-      </p>
+    <section ref={ref} aria-label={t('tags.new.title')}>
       <TagForm
         submitLabel={t('tags.new.submit.label')}
         onSubmit={async (fields) => {

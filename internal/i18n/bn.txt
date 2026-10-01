@@ -2248,7 +2248,7 @@ tags.header.counts = {n} {noun} · বই আর সিনেমায় এক
 tags.board.empty = এখনও কোনও ট্যাগ নেই — উপরে একটা তৈরি করুন, বা কোনও উদ্ধৃতিতে ট্যাগ বসান
 
 # The dashed add card, and the form inside it.
-tags.new.title = ＋ নতুন ট্যাগ
+tags.new.title = নতুন ট্যাগ
 tags.new.submit.label = ট্যাগ তৈরি করুন
 tags.form.edit.title = ট্যাগ এডিট করুন
 # The radio group of live chip previews, one per tag style.

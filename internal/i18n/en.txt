@@ -2264,8 +2264,9 @@ common.link.delete.label = delete
 tags.header.counts = {n} {noun} · shared by books & films
 tags.board.empty = no tags yet — create one above, or tag an annotation
 
-# The dashed add card, and the form inside it.
-tags.new.title = ＋ New tag
+# The new-tag form at the head of the Tags card. The title is the ⋯ row that
+# goes to it, and the form's name for a screen reader; nothing paints it.
+tags.new.title = New tag
 tags.new.submit.label = Create tag
 tags.form.edit.title = Edit tag
 # The radio group of live chip previews, one per tag style.
