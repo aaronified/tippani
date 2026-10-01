@@ -38,11 +38,13 @@
 //
 // WRITES THE README'S OWN FILES, under the names README.md uses: against the server
 // above, `--out docs/img` writes the sixteen images the header, the strip and the
-// feature tables show, and no conversion or rename follows. (The suppliers' logos
-// under docs/img/providers are their own files, left as supplied.) The six screens are JPEG at the size they were shot, the eight
-// feature crops JPEG at twice the density and no wider than 1040px, and the
-// wordmark PNG on a clear ground. Chrome encodes and scales them itself, on a
-// canvas.
+// feature tables show, and no conversion or rename follows. Two kinds of image are
+// left as supplied and are not this script's: the suppliers' logos under
+// docs/img/providers, and docs/img/homepage-widget.png, the owner's own screenshot
+// of the gethomepage widget (its phone's metadata stripped, its pixels untouched).
+// The six screens are JPEG at the size they were shot, the eight feature crops JPEG
+// at twice the density and no wider than 1040px, and the wordmark PNG on a clear
+// ground. Chrome encodes and scales them itself, on a canvas.
 // --look also writes each framed feature shot's whole page as look-*.png, so a crop is
 // chosen by looking at it.
 import { mkdirSync, writeFileSync } from 'node:fs'
