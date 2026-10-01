@@ -87,13 +87,20 @@ function mediumCrumb(works) {
 // linkPills — the record's stored links as the pack's pills, each wearing its
 // site's own mark. A link to a site the app knows keeps that mark; anything else
 // keeps its hostname, which is the only honest name for it.
-function linkPills(text) {
+// Each link also says who added it, the pack's §1.3: "auto" (the app found it)
+// or "you" (the reader pasted it), from the person's `link_sources`. A link with
+// no record says nothing.
+function linkPills(text, sources = {}) {
   // THE NAME IS `namedLinks`' TO DECIDE — one function for every screen that
   // draws a link, per the directive in its own note. It answers the reader's name
   // where they gave one, the provider's where the app knows the site, and the
   // host otherwise, which is what pills want and is its default. All this screen
   // adds is the mark a foreign site is drawn with.
-  return namedLinks(text).map((r) => (r.slug ? r : { ...r, fallbackIcon: GLOBE }))
+  return namedLinks(text).map((r) => {
+    const src = sources?.[r.url]
+    const out = r.slug ? r : { ...r, fallbackIcon: GLOBE }
+    return src ? { ...out, provenance: src === 'manual' ? 'you' : 'auto', supplier: src } : out
+  })
 }
 
 const mediaBadge = (a) => {
@@ -249,7 +256,7 @@ export function CharacterGlobal({
     [works, record.image_path, onOpenWork],
   )
   const performers = useMemo(() => castOf(works), [works])
-  const pills = useMemo(() => linkPills(record.links), [record.links])
+  const pills = useMemo(() => linkPills(record.links, record.link_sources), [record.links, record.link_sources])
   return (
     <ScreenBody>
       <ScreenHead
@@ -447,7 +454,7 @@ export function PersonGlobal({
     ],
     [roles, credits, portrait, onOpenRole, onOpenWork],
   )
-  const pills = useMemo(() => linkPills(record.links), [record.links])
+  const pills = useMemo(() => linkPills(record.links, record.link_sources), [record.links, record.link_sources])
   // "performer · author · 3 works", which is the pack's crumb: what this person
   // DOES comes before how much of it there is.
   const n = tiles.length
@@ -458,6 +465,7 @@ export function PersonGlobal({
       <ScreenHead title={record.name} crumb={crumb} glyph={GLOBE} scopeTitle={t('identity.scope.library.body')} />
       <PortraitBlock
         src={portrait}
+        source={record.image_source || ''}
         name={record.name}
         // `soft` is NOT passed any more: PortraitBlock measures the file and
         // decides. Hardcoding it here made every portrait in the app claim to

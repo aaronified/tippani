@@ -1886,11 +1886,22 @@ func (s *Server) applyReverifyPerson(ctx context.Context, uid int64, kind, name 
 		olog.Errorf(olog.CodeMetaReverifyApply, "[meta] re-verify person %q upsert failed: %v", name, perr)
 		return "", errors.New("write failed")
 	}
+	// Who supplied the picture, from its address (the reader can take the
+	// portrait without the identity, so `source` may be the old pin), and each
+	// fetched link credited to the supplier, read inside this transaction.
+	var curLinks, curSources string
+	_ = tx.QueryRow(`SELECT links, link_sources FROM people WHERE id = ? AND user_id = ?`, pid, uid).Scan(&curLinks, &curSources)
+	linkSources := curSources
+	if hasLinks {
+		linkSources = relinkSources(curLinks, newLinks, readLinkSources(curSources), linkSupplierFor(kind))
+	}
 	if _, xerr := tx.Exec(`
 		UPDATE people SET bio = ?, image_path = ?, born = ?, died = ?, links = ?,
-		                  source = ?, source_id = ?
+		                  source = ?, source_id = ?, link_sources = ?,
+		                  image_source = CASE WHEN ? <> '' THEN ? ELSE image_source END
 		WHERE id = ? AND user_id = ?`,
-		newBio, image, newBorn, newDied, newLinks, source, sourceID, pid, uid); xerr != nil {
+		newBio, image, newBorn, newDied, newLinks, source, sourceID, linkSources,
+		newImage, pictureSupplier(portraitURL, source), pid, uid); xerr != nil {
 		s.removeCoverFile(newImage)
 		olog.Errorf(olog.CodeMetaReverifyApply, "[meta] re-verify person %q upsert failed: %v", name, xerr)
 		return "", errors.New("write failed")

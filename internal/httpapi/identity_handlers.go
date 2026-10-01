@@ -33,6 +33,10 @@ type personDetail struct {
 	personRow
 	SortName string `json:"sort_name"`
 	Note     string `json:"note"`
+	// Who supplied the portrait, and each link (address to source): the person
+	// page tags them. Empty where nothing is recorded.
+	ImageSource string            `json:"image_source,omitempty"`
+	LinkSources map[string]string `json:"link_sources,omitempty"`
 	// Aliases are the other spellings that RESOLVE to this record. Not decoration:
 	// each one is why a credit string somewhere lands here instead of making a
 	// second person.
@@ -138,10 +142,15 @@ func (s *Server) handlePersonByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	out := personDetail{personRow: p}
+	var linkSources string
 	if err := s.Store.DB.QueryRow(
-		`SELECT sort_name, note FROM people WHERE id = ?`, id).Scan(&out.SortName, &out.Note); err != nil {
+		`SELECT sort_name, note, image_source, link_sources FROM people WHERE id = ? AND user_id = ?`, id, uid).
+		Scan(&out.SortName, &out.Note, &out.ImageSource, &linkSources); err != nil {
 		internalError(w, r, "read person identity", err)
 		return
+	}
+	if ls := readLinkSources(linkSources); len(ls) > 0 {
+		out.LinkSources = ls
 	}
 	out.Kinds = s.personKindsOf(id)
 	if out.Aliases, err = store.PersonAliases(s.Store.DB, uid, id); err != nil {
@@ -264,6 +273,9 @@ func (s *Server) handleUpdatePersonByID(w http.ResponseWriter, r *http.Request) 
 		// is wherever they found it.
 		ImageURL   string `json:"image_url"`
 		ClearImage bool   `json:"clear_image"`
+		// ImageSource is the supplier a picture taken from a strip came from; a
+		// pasted address names nobody and is the reader's.
+		ImageSource string `json:"image_source"`
 	}
 	if !decodeBody(w, r, &req) {
 		return
@@ -322,9 +334,21 @@ func (s *Server) handleUpdatePersonByID(w http.ResponseWriter, r *http.Request) 
 	put("died", req.Died)
 	put("links", req.Links)
 	put("note", req.Note)
+	// A LINK THE READER ADDED IS THEIRS; the ones already there keep their source.
+	// Compared, not assumed: every fact save re-sends the links field unchanged.
+	if req.Links != nil {
+		var oldLinks, oldSources string
+		_ = tx.QueryRow(`SELECT links, link_sources FROM people WHERE id = ? AND user_id = ?`, id, uid).Scan(&oldLinks, &oldSources)
+		set = append(set, "link_sources = ?")
+		args = append(args, relinkSources(oldLinks, strings.TrimSpace(*req.Links), readLinkSources(oldSources), store.SourceManual))
+	}
 	if changeImage {
-		set = append(set, "image_path = ?")
-		args = append(args, newImage)
+		set = append(set, "image_path = ?", "image_source = ?")
+		src := ""
+		if !req.ClearImage {
+			src = pickedPictureSource(req.ImageSource)
+		}
+		args = append(args, newImage, src)
 	}
 	if len(set) > 0 {
 		// The column names are literals above, never input.

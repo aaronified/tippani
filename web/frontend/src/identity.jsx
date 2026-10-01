@@ -1105,7 +1105,7 @@ function PersonBody({ stack, id, work, onOpenWork: given = null }) {
     urlLabel: t('identity.person.portrait.url.aria', { name: data?.name || '' }),
     busy,
     named: true,
-    onPicked: (url) => setPortrait(url),
+    onPicked: (url, source) => setPortrait(url, source),
     onUpload: (file) => uploadPortrait(file),
     fallbackQuery: data?.name || '',
     search: () => ({ kind: 'portrait', name: data?.name || '', person_id: id }),
@@ -1177,9 +1177,11 @@ function PersonBody({ stack, id, work, onOpenWork: given = null }) {
     load()
   }
 
-  const setPortrait = async (url) => {
+  // `source`: the supplier a picture from the strip came from, so the portrait
+  // is credited to it; a pasted address sends none and is the reader's.
+  const setPortrait = async (url, source) => {
     setBusy(true)
-    const r = await json('PUT', `/people/id/${id}`, url ? { image_url: url } : { clear_image: true })
+    const r = await json('PUT', `/people/id/${id}`, url ? { image_url: url, ...(source ? { image_source: source } : {}) } : { clear_image: true })
     setBusy(false)
     if (!r.ok) return setErr(errText(r))
     setErr('')

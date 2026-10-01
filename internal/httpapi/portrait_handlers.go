@@ -142,7 +142,10 @@ const errPortraitLookup = "lookup failed — try again in a moment"
 // download failed), the facts, and the reference links that came back with them.
 type portraitFind struct {
 	source, sourceID, image, bio, born, died string
-	links                                    map[string]string
+	// imageSource is who supplied the picture, by its address's host: set only
+	// when the bytes arrived, so a failed download credits nobody.
+	imageSource string
+	links       map[string]string
 }
 
 // pinned is whether the resolve found anything to write on a record. Links alone
@@ -181,7 +184,7 @@ func (s *Server) findPortrait(ctx context.Context, uid int64, kind, name string)
 		if ferr != nil {
 			logOutwardFailure(olog.CodeCoverFetch, ferr, "[people] portrait kind=%s name=%q url=%q failed: %v", kind, name, imageURL, ferr)
 		} else {
-			f.image = file
+			f.image, f.imageSource = file, pictureSupplier(imageURL, f.source)
 		}
 	}
 	return f, nil
@@ -226,12 +229,13 @@ func persistPortraitOn(tx *sql.Tx, uid, personID int64, kind string, f portraitF
 	if _, err := tx.Exec(`
 		UPDATE people SET
 			image_path = CASE WHEN ? <> '' THEN ? ELSE image_path END,
+			image_source = CASE WHEN ? <> '' THEN ? ELSE image_source END,
 			bio  = CASE WHEN bio  = '' AND ? <> '' THEN ? ELSE bio  END,
 			born = CASE WHEN born = '' AND ? <> '' THEN ? ELSE born END,
 			died = CASE WHEN died = '' AND ? <> '' THEN ? ELSE died END,
 			source = ?, source_id = ?
 		WHERE id = ? AND user_id = ?`,
-		f.image, f.image, f.bio, f.bio, f.born, f.born, f.died, f.died, f.source, f.sourceID, personID, uid); err != nil {
+		f.image, f.image, f.image, f.imageSource, f.bio, f.bio, f.born, f.born, f.died, f.died, f.source, f.sourceID, personID, uid); err != nil {
 		return "", err
 	}
 	// Fetching an actor's portrait for someone already saved as an author adds

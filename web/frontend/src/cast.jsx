@@ -637,7 +637,7 @@ export function usePicturePicker({
                   // what the page was allowed to draw.
                   setPics(null)
                   setUrlOpen(false)
-                  await onPicked(im.url)
+                  await onPicked(im.url, im.source === 'google' ? 'google-images' : im.source)
                 }}
               >
                 <img src={im.thumb || im.url} alt="" loading="lazy" />

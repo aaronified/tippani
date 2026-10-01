@@ -512,11 +512,14 @@ func (s *Server) handleCharacterImage(w http.ResponseWriter, r *http.Request) {
 		CastID   int64   `json:"cast_id"`
 		ImageURL string  `json:"image_url"`
 		Path     *string `json:"path"`
+		// The supplier a picture taken from a strip came from; a pasted address
+		// is the reader's.
+		ImageSource string `json:"image_source"`
 	}
 	if !decodeBody(w, r, &req) {
 		return
 	}
-	path := ""
+	path, source := "", ""
 	// The reader's own address, fetched once and served from here afterwards — the
 	// same bargain every other picture in this app strikes, and the reason none of
 	// them hotlink.
@@ -528,7 +531,7 @@ func (s *Server) handleCharacterImage(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, http.StatusBadGateway, "that picture could not be fetched")
 			return
 		}
-		path = name
+		path, source = name, pickedPictureSource(req.ImageSource)
 	} else if req.CastID > 0 {
 		// SCOPED TWICE: the row is the caller's, and it is THIS character's. The
 		// second half is what stops a reader pointing one character's record at
@@ -536,8 +539,8 @@ func (s *Server) handleCharacterImage(w http.ResponseWriter, r *http.Request) {
 		// they asked for.
 		var linked sql.NullInt64
 		if err := s.Store.DB.QueryRow(
-			`SELECT COALESCE(character_image_path, ''), character_id FROM work_cast
-			  WHERE id = ? AND user_id = ? AND origin <> 'removed'`, req.CastID, uid).Scan(&path, &linked); err != nil {
+			`SELECT COALESCE(character_image_path, ''), character_id, character_image_source FROM work_cast
+			  WHERE id = ? AND user_id = ? AND origin <> 'removed'`, req.CastID, uid).Scan(&path, &linked, &source); err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				writeErr(w, http.StatusNotFound, "cast row not found")
 				return
@@ -558,7 +561,7 @@ func (s *Server) handleCharacterImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if _, err := s.Store.DB.Exec(
-		`UPDATE characters SET image_path = ? WHERE id = ? AND user_id = ?`, path, id, uid); err != nil {
+		`UPDATE characters SET image_path = ?, image_source = ? WHERE id = ? AND user_id = ?`, path, source, id, uid); err != nil {
 		internalError(w, r, "set character image", err)
 		return
 	}

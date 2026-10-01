@@ -162,11 +162,14 @@ func (s *Server) saveFetchedPerson(uid, id int64, kind string, f portraitFind, l
 			return err
 		}
 	}
-	var cur string
-	if err := tx.QueryRow(`SELECT links FROM people WHERE id = ? AND user_id = ?`, id, uid).Scan(&cur); err == nil {
+	var cur, curSources string
+	if err := tx.QueryRow(`SELECT links, link_sources FROM people WHERE id = ? AND user_id = ?`, id, uid).Scan(&cur, &curSources); err == nil {
 		if merged := mergeLinks(cur, links); merged != "" && merged != cur {
-			if _, err := tx.Exec(`UPDATE people SET links = ? WHERE id = ? AND user_id = ?`,
-				strings.TrimSpace(merged), id, uid); err != nil {
+			// A fetched address is credited to the supplier that answered; the
+			// ones already there keep theirs.
+			merged = strings.TrimSpace(merged)
+			if _, err := tx.Exec(`UPDATE people SET links = ?, link_sources = ? WHERE id = ? AND user_id = ?`,
+				merged, relinkSources(cur, merged, readLinkSources(curSources), linkSupplierFor(kind)), id, uid); err != nil {
 				s.removeCoverFile(f.image)
 				return err
 			}

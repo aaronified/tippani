@@ -33,7 +33,7 @@ import { coverImgURL } from './api.js'
 import { t } from './i18n.js'
 import { Silhouette } from './silhouette.jsx'
 import { useSlowArrival } from './imageWait.js'
-import { IconChevron, IconClose, IconEdit, IconPlus, Lightbox, NameScroll, ProviderMark, Scroller, Tooltip, usePanelHead } from './ui.jsx'
+import { FieldSourceTag, IconChevron, IconClose, IconEdit, IconPlus, Lightbox, NameScroll, ProviderMark, Scroller, Tooltip, sourceName, usePanelHead } from './ui.jsx'
 
 // ---- the header -------------------------------------------------------------
 
@@ -337,7 +337,7 @@ function ratioOf({ w, h }) {
   return t('identity.portrait.ratio', { a: Math.round(w / d), b: Math.round(h / d) })
 }
 
-export function PortraitBlock({ src, name, px, soft, from = '', actions, editor = null }) {
+export function PortraitBlock({ src, name, px, soft, from = '', source = '', actions, editor = null }) {
   const [dim, setDim] = useState(null)
   const [spread, setSpread] = useState(null)
   // THE PICTURE OPENS FULL SCREEN, on the owner's report that it used to: "the
@@ -468,6 +468,9 @@ export function PortraitBlock({ src, name, px, soft, from = '', actions, editor 
           prop above and Lightbox's own note on why the two are named apart. */}
       {zoom && src && <Lightbox src={src} title={name} onClose={() => setZoom(false)} />}
       <span className="cs-portrait-side">
+        {/* WHO SUPPLIED THE PICTURE (the pack's §1.3): the supplier's mark, or
+            "You" for one the reader chose; nothing where nothing is recorded. */}
+        {src && source ? <FieldSourceTag source={source} /> : null}
         {/* AND NOTHING WHERE THERE IS NOTHING TO MEASURE. An empty span is still a
             child of an 8px-gap column, so a slot with no picture drew a line of
             air above the caption that explains why. */}
@@ -736,6 +739,15 @@ export function PillRow({ pills, addLabel, addIcon, addTitle, onAdd }) {
               {p.slug ? <ProviderMark source={p.slug} /> : p.fallbackIcon}
             </span>
             <span>{p.name}</span>
+            {p.provenance ? (
+              <span
+                className="cs-pill-src"
+                data-src={p.provenance}
+                title={p.provenance === 'you' ? t('identity.link.source.you.tip') : t('identity.link.source.auto.tip', { source: sourceName(p.supplier) })}
+              >
+                {p.provenance === 'you' ? t('identity.link.source.you.label') : t('identity.link.source.auto.label')}
+              </span>
+            ) : null}
           </>
         )
         // `mono` for a pill whose label is a NUMBER rather than a name — an

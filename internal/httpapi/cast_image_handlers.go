@@ -169,8 +169,8 @@ func (s *Server) storeCastImage(ctx context.Context, uid, castID int64, srcURL s
 		return errCastImageFetch
 	}
 	if _, err := s.Store.DB.Exec(
-		`UPDATE work_cast SET character_image_path = ?, updated_at = datetime('now')
-		 WHERE id = ? AND user_id = ?`, name, castID, uid,
+		`UPDATE work_cast SET character_image_path = ?, character_image_source = ?, updated_at = datetime('now')
+		 WHERE id = ? AND user_id = ?`, name, pictureSupplier(srcURL, ""), castID, uid,
 	); err != nil {
 		return fmt.Errorf("store character image: %w", err)
 	}

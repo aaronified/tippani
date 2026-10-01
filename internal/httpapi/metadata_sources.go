@@ -215,10 +215,11 @@ func (s *Server) suppliedBySource(uid int64) map[string]supplied {
 		}
 	}
 	rows.Close()
-	// A PERSON a supplier filled: the record's source is the supplier its portrait
-	// fetch answered from, and the portrait is one field.
-	prow, err := s.Store.DB.Query(`SELECT source, count(*) FROM people
-		WHERE user_id = ? AND source <> '' GROUP BY source`, uid)
+	// A PERSON a supplier filled: one whose portrait it supplied (image_source,
+	// 0081; `source` is the identity a record is pinned to, which is not who gave
+	// the picture), and the portrait is one field.
+	prow, err := s.Store.DB.Query(`SELECT image_source, count(*) FROM people
+		WHERE user_id = ? AND image_source NOT IN ('', 'manual') AND image_path <> '' GROUP BY image_source`, uid)
 	if err != nil {
 		olog.Tracef("[meta] supplied by source, people: %v", err)
 		return out

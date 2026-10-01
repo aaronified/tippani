@@ -9996,7 +9996,16 @@ html[data-theme="dark"] .has-sticky-rail .meta-rail-row.is-stuck {
      overflow needed fixing. The verbs are 44px squares now (they lost their words
      with `keepLabel`), so 9rem is what the strip actually asks for: from 320px up
      the face and the column share a line and the verbs wrap WITHIN the column. */
-  .cs-portrait-side { flex: 1 1 9rem; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+  /* Who supplied the picture keeps its own width in the side column. */
+.cs-portrait-side > .field-src { align-self: flex-start; }
+/* A link's "auto" or "you" (the pack's §1.3): a quiet caption inside the pill,
+   in the accent only for the reader's own, as a field's "You" is. */
+.cs-pill-src {
+  font-family: var(--font-mono); font-size: var(--type-mono-11); color: var(--faint);
+  text-transform: lowercase; margin-inline-start: .35em;
+}
+.cs-pill-src[data-src="you"] { color: var(--accent-ui); }
+.cs-portrait-side { flex: 1 1 9rem; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
   /* A PICTURE FIELD CANNOT BE JUDGED FROM A THUMBNAIL, so the app states the
      pixels and inks the statement when they are under the floor — the part of the
      pack most easily faked. */

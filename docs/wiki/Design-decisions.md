@@ -20019,3 +20019,17 @@ wearing the console's own section glyph; a portrait counts as one field. Only wh
 still holds counts: the provenance table outlives a binned work, so the count joins the live
 works. A zero reads "0 fields" alone, and only a zero from a supplier that cannot be asked is
 red: one that needs a key and has supplied fields is not a warning.
+
+**A person's page says who supplied the portrait and who added each link.** The owner chose
+"Links auto/you + portrait source", the pack's §1.3. `people.source` could not answer it: it is
+the identity a record is pinned to, and an author's photo from Wikipedia was filed under Open
+Library. So 0081 gives the picture its own `image_source` (people, characters, and a cast row's
+character picture) and a person's links a `link_sources` map from address to source, kept
+beside the free-text `links` field they describe. A picture's supplier is read from the host
+that served it, recorded only when the bytes arrived; one the reader picked from a strip is
+credited to the supplier that offered it, and a pasted address or an upload is theirs. A
+fetched link is credited to the supplier that answered, one the reader typed is theirs, an
+unchanged links field changes nothing, and a removed link is forgotten. The page draws the
+portrait's tag and, on each link, "auto" or "you" (the supplier in its tooltip); anything
+written before 0081 says nothing. The Sources rows count a person for the supplier of their
+portrait, not of their identity.

@@ -132,6 +132,11 @@ func (s *Server) uploadCover(w http.ResponseWriter, r *http.Request, table, colu
 		if err == nil && isWork {
 			err = store.RecordFieldSources(tx, uid, credit[0], id, store.SourceManual, "", []string{credit[1]})
 		}
+		// A portrait or a character's picture says who supplied it in a column
+		// beside the picture (0081); an upload is the reader's.
+		if col := map[string]string{"people": "image_source", "characters": "image_source", "work_cast": "character_image_source"}[table]; err == nil && col != "" {
+			_, err = tx.Exec(`UPDATE `+table+` SET `+col+` = ? WHERE id = ? AND user_id = ?`, store.SourceManual, id, uid)
+		}
 		if err == nil {
 			err = tx.Commit()
 		} else {
