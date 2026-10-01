@@ -34,10 +34,10 @@
 // a lookup, a work's are all pasted — so a tag on every row would say the same
 // word every time, which is not a tag. When something does fetch them, the column
 // is the same free text a person's is and the tag can be told apart then.
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { t } from './i18n.js'
 import { PROVIDERS, linkLine, namedLinks } from './people.jsx'
-import { FieldIconButton, GhostButton, IconClose, IconGlobe, IconPlus, MonoLabel, ProviderMark, useFormHost } from './ui.jsx'
+import { FieldIconButton, IconClose, IconGlobe, IconPlus, MonoLabel, ProviderMark, useFormHost } from './ui.jsx'
 
 // hostOf is `new URL().hostname`, and the try is the whole of it: a reader pastes
 // half an address as often as a whole one.
@@ -203,32 +203,15 @@ function LinkRow({ url, slug, name, onRemove }) {
   )
 }
 
-// WorkLinks — the panel body: the list, and nothing else.
-//
-// A PANEL MAY CARRY ONE VERB IN ITS HEADER, AND ONLY ITS OWN (§1.12). The list is
-// what is already there; adding to it is not another member of it, so `+` sits in
-// the header and opens the paste box on its own surface rather than as a last row
-// pretending to be a link.
-export function WorkLinks({ value, busy, onSave, onEmptyAdd }) {
+// WorkLinks — the stored links, each removable. NOTHING WHEN THERE ARE NONE: the
+// paste box sits under it on the same screen, so an empty list needs no sentence
+// and no button of its own. It had both, on a screen of their own between the
+// section's + and the paste box, which the owner called "a middleman screen
+// with nothing, that can be skipped".
+export function WorkLinks({ value, onSave }) {
   const rows = linkRows(value)
   const remove = (url) => onSave(rows.filter((r) => r.url !== url).map((r) => r.url).join('\n'))
-
-  if (rows.length === 0) {
-    return (
-      <div style={{ display: 'grid', gap: 'var(--row)' }}>
-        <p className="microcopy" style={{ color: 'var(--faint)' }}>{t('links.empty')}</p>
-        {/* The empty state carries the verb as well as the header does. A panel
-            whose only affordance is a 34px key in the corner is a panel a reader
-            leaves again. */}
-        <div>
-          <GhostButton type="button" disabled={!!busy} onClick={onEmptyAdd}>
-            <IconPlus />
-            <span>{t('links.paste.label')}</span>
-          </GhostButton>
-        </div>
-      </div>
-    )
-  }
+  if (rows.length === 0) return null
   return (
     <ul className="work-link-list">
       {rows.map((r) => (
@@ -257,35 +240,51 @@ export function linkRows(value) {
 // two ways, so they belong behind the one press that means "add". The cheap way
 // goes first because it is one press against a paste, and the box below is
 // unchanged for the site the record cannot address, which is most sites.
-export function PasteLink({ item, value, busy, onSave, onDone }) {
+//
+// ONE FORM WITH WHAT SITS ABOVE IT. `children` is the rest of the screen it is
+// on — a work's ids and its list of links — and `changed` counts the ids edited
+// there, so the one ✓ saves both in one request and its badge counts both. The
+// owner: "the edit and add opens separate screens. They can be merged into one."
+// `onSave` is handed the links field to write, or undefined when this press adds
+// no link and only the ids moved.
+export function PasteLink({ item, value, busy, onSave, onDone, changed = 0, children }) {
   const [draft, setDraft] = useState('')
   const [name, setName] = useState('')
   const reading = readLink(draft)
   const rows = linkRows(value)
   const suggested = derivedLinks(item || {}, value)
-  const host = useFormHost(reading ? '' : t('links.reading.none'))
+  const adds = !!reading && !rows.some((r) => r.url === reading.url)
+  const pending = changed + (adds ? 1 : 0)
+  // A ✓ THAT WOULD WRITE NOTHING IS GREYED, with the reason: an address already
+  // here is not an add.
+  const host = useFormHost(pending ? '' : reading ? t('links.already') : t('links.reading.none'))
+  useEffect(() => {
+    host?.setDirty?.(pending)
+    return () => host?.setDirty?.(0)
+  }, [host, pending])
 
   // append is the one writer, so the button and the box cannot disagree about
   // what adding means — the de-dupe, the join and the failure are all here.
   async function append(url, label = '') {
-    if (!rows.some((r) => r.url === url)) {
-      // `linkLine` on every row and not only the new one: this rewrites the whole
-      // field, so a row whose name is dropped here loses it for good.
-      const lines = [...rows.map((r) => linkLine(r.url, r.label)), linkLine(url, label)]
-      if (await onSave(lines.join('\n')) === false) return false
-    }
+    // `linkLine` on every row and not only the new one: this rewrites the whole
+    // field, so a row whose name is dropped here loses it for good.
+    const links = !url || rows.some((r) => r.url === url)
+      ? undefined
+      : [...rows.map((r) => linkLine(r.url, r.label)), linkLine(url, label)].join('\n')
+    if ((links !== undefined || changed) && await onSave(links) === false) return false
+    host?.setDirty?.(0)
     return true
   }
 
   async function submit(e) {
     if (e.target !== e.currentTarget) return
     e.preventDefault()
-    if (!reading) return
+    if (!pending) return
     // The same address twice is not two links. Compared whole rather than by
     // provider: two different Wikipedia pages on one record is a legitimate thing
     // — an author and their book — and refusing the second would be this panel
     // deciding what a record may say.
-    if (!(await append(reading.url, name))) return
+    if (!(await append(reading?.url, name))) return
     onDone()
   }
 
@@ -298,6 +297,7 @@ export function PasteLink({ item, value, busy, onSave, onDone }) {
 
   return (
     <form id={host?.formId} onSubmit={submit} style={{ display: 'grid', gap: 'var(--row)' }}>
+      {children}
       {suggested.length > 0 && (
         <div style={{ display: 'grid', gap: 'var(--row)' }}>
           <MonoLabel>{t('links.suggest.heading')}</MonoLabel>

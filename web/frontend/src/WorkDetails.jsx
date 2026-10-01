@@ -924,11 +924,6 @@ export function WorkDetails({ onClose, kind, item: seed, onChanged, onDelete, st
           genreSuggestions={genreSuggestions}
           onSaveField={saveField}
           onSaveAll={saveAll}
-          // EVERY ID IN ONE REQUEST, which is the pack's own note on that dialog.
-          // `save` already PUTs the full record with a patch over it, so a patch
-          // naming three ids writes three ids once — where three rows saving
-          // themselves would have been three full-state writes over each other.
-          onSaveIds={(patch) => save(patch, 'ids')}
           onClose={onClose}
           onCover={(patch) => save(patch, 'cover')}
           onChanged={emit}
@@ -1225,65 +1220,76 @@ export function workPeoplePanel(stack, props) {
   }
 }
 
-// WorkLinksHost — the links list, which owns its record like every other panel
-// body does (useWorkRecord's header says why) and writes the whole column on each
-// removal.
-function WorkLinksHost({ kind, item, onChanged, onAdd }) {
-  const spec = { key: 'links', label: t('common.field.links.label') }
-  const { rec, busy, saveField } = useWorkRecord({ kind, initial: item, onChanged, specs: [spec] })
-  return (
-    <WorkLinks
-      value={rec.links || ''}
-      busy={busy}
-      onSave={(next) => saveField(spec, next)}
-      onEmptyAdd={onAdd}
-    />
-  )
-}
-
-function PasteLinkHost({ kind, item, onChanged, onDone }) {
-  const spec = { key: 'links', label: t('common.field.links.label') }
-  const { rec, busy, saveField } = useWorkRecord({ kind, initial: item, onChanged, specs: [spec] })
+// LinksHost — a work's ways out on ONE screen: every id it can be filed under,
+// the links it holds, and the box that adds one. The pencil on the section's head
+// and the ＋ at the end of its row both open it. The owner, of the screens it
+// replaces — an ids dialog behind the pencil, and behind the ＋ a list that was
+// empty for most works with the paste box one press further in: "the edit and add
+// opens separate screens. They can be merged into one. And also add has a
+// middleman screen with nothing, that can be skipped."
+//
+// ONE REQUEST STILL, which is what the ids' dialog existed for (the pack: "Ids
+// saved — every one in a single request"): the ids edited here and a pasted link
+// go out together on the one ✓, and its badge counts both. A link's ✕ saves at
+// once, as it always did.
+//
+// EVERY ID, FILLED OR NOT, unlike the strip outside — this is the place the
+// missing ones are missing FROM, so an empty box here is the offer the strip
+// deliberately does not make.
+function LinksHost({ kind, item, onChanged, specs, mediaType, onDone }) {
+  const linkSpec = { key: 'links', label: t('common.field.links.label') }
+  const { rec, busy, save } = useWorkRecord({ kind, initial: item, onChanged, specs: [...specs, linkSpec] })
+  const [draft, setDraft] = useState({})
+  const stored = (sp) => {
+    const raw = rec[sp.key]
+    return raw === 0 || raw === '0' ? '' : String(raw ?? '')
+  }
+  const shown = (sp) => draft[sp.key] ?? stored(sp)
+  // WHAT THE TICK COUNTS: ids whose SUBSTANCE differs from what is stored.
+  // Trimmed, because a trailing space is not a change to an id, and retyping the
+  // same number is not one either.
+  const changed = specs.filter((sp) => shown(sp).trim() !== stored(sp).trim())
+  const write = (links) => save({
+    ...Object.fromEntries(changed.map((sp) => [sp.key, coerce(sp, shown(sp))])),
+    ...(links === undefined ? {} : { links }),
+  }, 'ids')
   return (
     <PasteLink
-      // THE WHOLE RECORD AND NOT JUST THE LINKS, because the pages this panel can
-      // offer are derived from the row's own pinned ids — a tmdb_id, an OL key, a
-      // fandom wiki. `rec` rather than `item`: this panel re-reads, so a lookup
-      // that pinned an id a moment ago is already in it.
+      // THE WHOLE RECORD AND NOT JUST THE LINKS, because the pages this screen
+      // can offer are derived from the row's own pinned ids — a tmdb_id, an OL
+      // key, a fandom wiki. `rec` rather than `item`: this panel re-reads, so a
+      // lookup that pinned an id a moment ago is already in it.
       item={rec}
       value={rec.links || ''}
       busy={busy}
-      onSave={(next) => saveField(spec, next)}
+      changed={changed.length}
+      onSave={write}
       onDone={onDone}
-    />
+    >
+      {specs.map((sp) => (
+        <Field
+          key={sp.key}
+          id={`work-id-${sp.key}`}
+          label={labelFor(sp, mediaType)}
+          value={shown(sp)}
+          // THE EVENT, NOT THE VALUE. `Field` passes its input's onChange
+          // straight through, so a handler written for a value receives the
+          // event and stores "[object Object]" — which is exactly what the id
+          // the old dialog wrote turned out to be until a test read the body.
+          onChange={(e) => setDraft((d) => ({ ...d, [sp.key]: e.target.value }))}
+        />
+      ))}
+      {specs.length > 0 && <p className="microcopy" style={{ color: 'var(--faint)' }}>{t('work.ids.form.hint')}</p>}
+      <WorkLinks value={rec.links || ''} onSave={(links) => save({ links }, 'links')} />
+    </PasteLink>
   )
 }
 
-// A PANEL MAY CARRY ONE VERB IN ITS HEADER, AND ONLY ITS OWN (§1.12): `+` on
-// Links. The list is what is already there, and adding to it is not another
-// member of it — so the paste box is its own surface rather than a last row
-// pretending to be a link.
-export function pasteLinkPanel(stack, props) {
-  return {
-    title: t('links.paste.label'),
-    saveTip: t('links.add.aria'),
-    render: () => <PasteLinkHost {...props} onDone={() => stack.back()} />,
-  }
-}
-
 export function workLinksPanel(stack, props) {
-  const add = () => stack.push(pasteLinkPanel(stack, props))
   return {
     title: t('common.field.links.label'),
-    headVerb: (
-      <IconButton
-        icon={<IconPlus />}
-        ariaLabel={t('links.paste.label')}
-        tooltip={t('links.paste.label')}
-        onClick={add}
-      />
-    ),
-    render: () => <WorkLinksHost {...props} onAdd={add} />,
+    saveTip: t('work.ids.save.tip'),
+    render: () => <LinksHost {...props} onDone={() => stack.back()} />,
   }
 }
 
@@ -1333,7 +1339,7 @@ export function workDetailsPanel(stack, { kind, item, onChanged, onDelete, onGoT
 
 // ---- the resting view ------------------------------------------------------
 
-function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, genreSuggestions, onSaveField, onSaveAll, onSaveIds, onCover, onChanged, onFetch, onDelete, onClose }) {
+function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, genreSuggestions, onSaveField, onSaveAll, onCover, onChanged, onFetch, onDelete, onClose }) {
   // THE SEARCH DOOR IS READ FROM THE SHELL, not threaded through the seven
   // callers that open this sheet — the same lesson `onOpenWork` and `onSearch`
   // both taught on the identity panels: "a capability that has to be re-threaded
@@ -1923,9 +1929,8 @@ function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, gen
       />
 
       {/* ── THE WAYS OUT OF THIS RECORD, IN ONE SECTION ──
-          A pill per id the record holds and a pill per link the reader added, one
-          editor for the ids behind the head's pencil and the paste box behind the
-          ＋. The rows this replaces were five or six ids in a form whose other
+          A pill per id the record holds and a pill per link the reader added, and
+          one screen behind both the head's pencil and the ＋. The rows this replaces were five or six ids in a form whose other
           rows are the title and the description — reading as what the record is
           ABOUT rather than as its footnotes — and, above them, a `Links` row
           whose value was a count. Two headings for one question. */}
@@ -1934,9 +1939,7 @@ function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, gen
           item={item}
           specs={idSpecs}
           mediaType={mediaType}
-          busy={!!busy}
-          onSave={onSaveIds}
-          onOpenLinks={stack ? () => stack.push(workLinksPanel(stack, { kind, item, onChanged })) : undefined}
+          onOpenLinks={stack ? () => stack.push(workLinksPanel(stack, { kind, item, onChanged, specs: idSpecs, mediaType })) : undefined}
         />
       )}
       </UnsavedFieldsContext.Provider>
@@ -1977,8 +1980,7 @@ function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, gen
 // page, and the pencil on the section head still edits it AS AN ID — the columns
 // are what re-verify and the metadata fetch read, so nothing about the storage
 // joins the merge. Only the reading does.
-function WorkIds({ item, specs, mediaType, busy, onSave, onOpenLinks }) {
-  const [open, setOpen] = useState(false)
+function WorkIds({ item, specs, mediaType, onOpenLinks }) {
   const pills = specs
     .map((sp) => {
       const raw = item[sp.key]
@@ -2023,12 +2025,12 @@ function WorkIds({ item, specs, mediaType, busy, onSave, onOpenLinks }) {
     <>
       {/* THE PENCIL IS ON THE HEAD, not a second control in the row. `Cast · N`
           on this same screen sets the precedent: the row is the content and the
-          head carries the verb that changes it. The ＋ at the end of the row adds
-          a LINK — the paste box and the addresses this record can already build
-          — and the pencil opens every id this medium has, filled or not. */}
+          head carries the verb that changes it. The pencil and the ＋ at the end
+          of the row open the same screen: every id this medium has, filled or
+          not, the links, and the paste box. */}
       <SectionHead
         label={t('common.field.links.label')}
-        action={specs.length ? () => setOpen(true) : undefined}
+        action={specs.length ? onOpenLinks : undefined}
         actionLabel={t('work.ids.edit.label')}
         actionTitle={t('work.ids.edit.tip')}
       />
@@ -2039,108 +2041,7 @@ function WorkIds({ item, specs, mediaType, busy, onSave, onOpenLinks }) {
         addIcon={<IconPlus />}
         addTitle={t('links.paste.label')}
       />
-      <WorkIdsDialog
-        open={open}
-        item={item}
-        specs={specs}
-        mediaType={mediaType}
-        busy={busy}
-        onClose={() => setOpen(false)}
-        onSave={async (patch) => {
-          const ok = await onSave(patch)
-          if (ok !== false) setOpen(false)
-          return ok
-        }}
-      />
     </>
-  )
-}
-
-// WorkIdsDialog — every id this medium has, in one form, saved in one request.
-//
-// ONE REQUEST IS THE WHOLE POINT. Editing three of a film's ids as three rows was
-// three PUTs of the whole record, and the pack's own note on this screen is "Ids
-// saved — every one in a single request". They are also the fields most often
-// filled together, because they arrive together: a reader pinning a record to its
-// supplier pastes two or three ids off two or three tabs in one sitting.
-//
-// EVERY ID, FILLED OR NOT, unlike the strip outside — this is the place the
-// missing ones are missing FROM, so an empty box here is the offer the strip
-// deliberately does not make.
-//
-// The header pair is the app's standing one: the ✓ takes the accent and a count
-// of how many ids this press will change, and the ✕ is red because it discards.
-function WorkIdsDialog({ open, item, specs, mediaType, busy, onClose, onSave }) {
-  const [draft, setDraft] = useState({})
-  useEffect(() => {
-    if (!open) return
-    const next = {}
-    for (const sp of specs) {
-      const raw = item[sp.key]
-      next[sp.key] = raw === 0 || raw === '0' ? '' : String(raw ?? '')
-    }
-    setDraft(next)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, item])
-  const stored = (sp) => {
-    const raw = item[sp.key]
-    return raw === 0 || raw === '0' ? '' : String(raw ?? '')
-  }
-  // WHAT THE TICK COUNTS: ids whose SUBSTANCE differs from what is stored.
-  // Trimmed, because a trailing space is not a change to an id, and retyping the
-  // same number is not one either — the standing rule is that a tick which looks
-  // armed when nothing has changed teaches the reader to stop reading it.
-  const changed = specs.filter((sp) => String(draft[sp.key] ?? '').trim() !== stored(sp).trim())
-  return (
-    <FormModal
-      open={open}
-      onClose={onClose}
-      title={t('work.ids.label')}
-      maxWidth={460}
-      dirty={changed.length}
-      closeDanger
-      saveTip={t('work.ids.save.tip')}
-    >
-      <WorkIdsForm
-        specs={specs}
-        mediaType={mediaType}
-        draft={draft}
-        onDraft={(key, v) => setDraft((d) => ({ ...d, [key]: v }))}
-        busy={busy}
-        blocked={changed.length === 0 ? t('work.ids.save.blocked') : ''}
-        onSubmit={() => onSave(Object.fromEntries(changed.map((sp) => [sp.key, coerce(sp, draft[sp.key])])))}
-      />
-    </FormModal>
-  )
-}
-
-// The form body, a child of the modal for the reason identity.jsx's link dialog
-// states: useFormHost reads the context FormModal puts around its CHILDREN, so a
-// call in the component that renders the modal registers with the surface outside
-// it and the modal draws no ✓ at all.
-function WorkIdsForm({ specs, mediaType, draft, onDraft, busy, blocked, onSubmit }) {
-  const host = useFormHost(busy ? t('common.action.save.busy') : blocked)
-  return (
-    <form
-      id={host?.formId}
-      style={{ display: 'grid', gap: 'var(--row)' }}
-      onSubmit={(e) => { e.preventDefault(); onSubmit() }}
-    >
-      {specs.map((sp) => (
-        <Field
-          key={sp.key}
-          id={`work-id-${sp.key}`}
-          label={labelFor(sp, mediaType)}
-          value={draft[sp.key] ?? ''}
-          // THE EVENT, NOT THE VALUE. `Field` passes its input's onChange
-          // straight through, so a handler written for a value receives the
-          // event and stores "[object Object]" — which is exactly what the id
-          // this dialog wrote turned out to be until a test read the body.
-          onChange={(e) => onDraft(sp.key, e.target.value)}
-        />
-      ))}
-      <p className="microcopy" style={{ color: 'var(--faint)' }}>{t('work.ids.form.hint')}</p>
-    </form>
   )
 }
 

@@ -3404,12 +3404,10 @@ common.work.id.display.label = #{n} ↗
 # AN ID IS NOT A FACT ABOUT THE WORK, it is how one catalogue files it — so the
 # pack takes all of them out of the form and gives them a strip at its foot: one
 # pill per id the record holds, and one editor for the lot.
-work.ids.label = Ids
 work.ids.edit.label = Edit
 work.ids.edit.tip = Edit every id
 work.ids.no-page.tip = {source} — no page to open
-work.ids.save.tip = Save every id in one go
-work.ids.save.blocked = no id has changed
+work.ids.save.tip = Save the ids and the link in one go
 work.ids.form.hint = The IDs this kind of work can be looked up by. Empty ones are skipped.
 
 # Saving. {field} is a field name, already lower-cased by the caller.
@@ -7811,7 +7809,6 @@ unit.role.speaker = speaker
 
 # A work's links out (0062). See workLinks.jsx.
 links.web.label = A web page
-links.empty = No links yet. Add a page for this record, or any web address.
 links.paste.label = Add a link
 links.name.label = What to call it (optional)
 links.name.placeholder = Their essays
@@ -7825,7 +7822,6 @@ links.paste.hint = Paste any address. You will see how it is read before it is a
 links.reading = Reads as {name} — {host}
 links.reading.none = That is not an address yet.
 links.already = Already on this record.
-links.add.aria = Add this link
 links.remove.aria = Remove the {name} link
 
 # Ordering, grouping and filtering ANY board of quotes — a book's highlights and

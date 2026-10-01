@@ -64,22 +64,15 @@ const openLinks = async () => {
     return el
   })
 }
-// A PANEL MAY CARRY ONE VERB IN ITS HEADER, AND ONLY ITS OWN (§1.12): the list is
-// what is already there, so adding to it is its own surface rather than a last
-// row pretending to be a link.
+// THE PASTE BOX IS ON THE SAME SCREEN AS THE LIST. It had a screen of its own,
+// behind a header ＋ on the list's, until the owner: "the edit and add opens
+// separate screens. They can be merged into one."
+const pasteBox = () => document.querySelector('.tp-panel input[aria-label="Add a link"]')
 const openPaste = async () => {
   await openLinks()
-  // The header verb, not the empty state's button — this record has links. It is
-  // "Add a link" and not "Paste a link" since the panel gained the derived list:
-  // pasting is one of the two ways in behind that one verb, not the verb itself.
-  fireEvent.click(screen.getByRole('button', { name: /^Add a link$/i }))
-  // The panel is named after the verb too, so the box is asked for by tag.
-  return waitFor(() => {
-    const el = document.querySelector('.tp-panel input.tp-input')
-    expect(el).toBeTruthy()
-    return el
-  })
+  return pasteBox()
 }
+const linkPill = (url) => document.querySelector(`.cs-pills a[href="${url}"]`)
 
 // THE IDS AND THE LINKS ARE ONE SECTION, which replaces the row this block used
 // to describe.
@@ -237,14 +230,11 @@ describe('the Links panel', () => {
     fireEvent.change(screen.getByLabelText(/What to call it/i), { target: { value: 'Their talks' } })
     fireEvent.click(screen.getByLabelText('Save'))
     await waitFor(() => expect(PUTS).toHaveLength(1))
-    await waitFor(() => expect(document.querySelectorAll('.work-link-row')).toHaveLength(3))
+    await waitFor(() => expect(pasteBox()).toBeNull())
 
-    const again = await waitFor(() => {
-      fireEvent.click(screen.getByRole('button', { name: /^Add a link$/i }))
-      const el = document.querySelector('.tp-panel input.tp-input')
-      expect(el).toBeTruthy()
-      return el
-    })
+    fireEvent.click(document.querySelector('.cs-pills .cs-pill.is-add'))
+    await waitFor(() => expect(document.querySelectorAll('.work-link-row')).toHaveLength(3))
+    const again = pasteBox()
     fireEvent.change(again, { target: { value: 'letterboxd.com/film/stalker/' } })
     fireEvent.click(screen.getByLabelText('Save'))
     await waitFor(() => expect(PUTS).toHaveLength(2))
@@ -272,8 +262,8 @@ describe('the Links panel', () => {
     // every other write in the panel.
     expect(PUTS[0].body.title).toBe(BOOK.title)
     expect(PUTS[0].body.published_year).toBe(1967)
-    // And walking back lands on a list that is showing it.
-    await waitFor(() => expect(document.querySelectorAll('.work-link-row')).toHaveLength(3))
+    // And the ✓ closes the screen, as a header ✓ does.
+    await waitFor(() => expect(pasteBox()).toBeNull())
   })
 
   // AND THE ROW SHOWS IT AFTERWARDS, which is the whole point of the merge: the
@@ -282,22 +272,14 @@ describe('the Links panel', () => {
   // ROW printed a summary and the pills were the ids' — and the new one can, if
   // the details panel goes on holding the record it was rendered with.
   //
-  // WAITED ON, NOT SLEPT THROUGH. The first cut fired two Escapes back to back
-  // and failed: the save leaves the reader on the LIST, so the second press was
-  // closing the details panel rather than returning to it. Each step waits for
-  // the surface it is leaving to actually be there.
   it('and the pill row behind the panel is showing it when you come back', async () => {
     const box = await openPaste()
     fireEvent.change(box, { target: { value: 'letterboxd.com/film/stalker/' } })
     fireEvent.click(screen.getByLabelText('Save'))
     await waitFor(() => expect(PUTS).toHaveLength(1))
-    // The save lands back on the list, with the new row on it.
-    await waitFor(() => expect(document.querySelectorAll('.work-link-row')).toHaveLength(3))
-    fireEvent.keyDown(document, { key: 'Escape' })
     await waitFor(() => {
-      const text = [...document.querySelectorAll('.cs-pills .cs-pill')].map((el) => el.textContent).join(' | ')
-      expect(text, 'the link was saved and the row it was added to does not know')
-        .toMatch(/letterboxd/i)
+      expect(linkPill('https://letterboxd.com/film/stalker/'), 'the link was saved and the row it was added to does not know')
+        .toBeTruthy()
     })
   })
 
@@ -305,6 +287,7 @@ describe('the Links panel', () => {
     const box = await openPaste()
     fireEvent.change(box, { target: { value: 'https://example.org/a-review' } })
     expect(await screen.findByText(/already on this record/i)).toBeTruthy()
+    expect(screen.getByLabelText('Save').disabled, 'the ✓ offers to add what is already there').toBe(true)
     fireEvent.click(screen.getByLabelText('Save'))
     await waitFor(() => expect(document.querySelectorAll('.work-link-row')).toHaveLength(2))
     expect(PUTS).toHaveLength(0)
@@ -324,5 +307,57 @@ describe('the Links panel', () => {
     // blocked key in this app says no.
     expect(screen.getByLabelText('Save').disabled).toBe(true)
     expect(await screen.findByText(/not an address yet/)).toBeTruthy()
+  })
+})
+
+// ONE SCREEN FOR THE IDS AND THE LINKS. The owner, of the two it replaced: "the
+// edit and add opens separate screens. They can be merged into one. And also add
+// has a middleman screen with nothing, that can be skipped." The pencil opened an
+// ids dialog; the ＋ opened a list, empty on most works, whose own ＋ opened the
+// paste box.
+//
+// THE MUTATIONS, each built, run red and put back: the screen's save sending the
+// links alone (WorkDetails.jsx's `write` without the ids) reddens the one-request
+// case; the head's pencil given no action reddens the first; the paste box drawn
+// only once a link exists reddens the last.
+describe('the ids and the links on one screen', () => {
+  const pencil = () => [...document.querySelectorAll('.cs-head-row')]
+    .find((h) => /^links$/i.test(h.querySelector('.cs-section')?.textContent?.trim() || ''))
+    ?.querySelector('.cs-section-action')
+
+  it('the head\'s pencil opens it, with every id and the paste box', async () => {
+    panel()
+    await shown()
+    fireEvent.click(pencil())
+    await waitFor(() => expect(pasteBox(), 'the pencil opened a screen with no way to add a link').toBeTruthy())
+    expect(screen.getByLabelText(/^ISBN$/i).value).toBe('9780143108276')
+    expect(document.querySelectorAll('.work-link-row')).toHaveLength(2)
+  })
+
+  it('and an id and a link go out together on the one ✓', async () => {
+    await openLinks()
+    fireEvent.change(screen.getByLabelText(/^ASIN$/i), { target: { value: 'B00NPB8WUQ' } })
+    fireEvent.change(pasteBox(), { target: { value: 'letterboxd.com/film/stalker/' } })
+    fireEvent.click(screen.getByLabelText('Save'))
+    await waitFor(() => expect(PUTS).toHaveLength(1))
+    expect(PUTS[0].body.asin).toBe('B00NPB8WUQ')
+    expect(PUTS[0].body.links).toContain('https://letterboxd.com/film/stalker/')
+  })
+
+  it('and on a work with no links the ＋ lands on the paste box', async () => {
+    STORED = { ...BOOK, links: '' }
+    render(
+      <PanelHarness
+        panel={(stack) => workDetailsPanel(stack, { kind: 'book', item: STORED, onChanged: () => {}, onDelete: null })}
+      />,
+    )
+    await shown()
+    fireEvent.click(document.querySelector('.cs-pills .cs-pill.is-add'))
+    await waitFor(() => expect(pasteBox(), 'the ＋ opened a screen with nothing to add on it').toBeTruthy())
+    expect(document.body.textContent).not.toMatch(/No links yet/)
+    fireEvent.change(pasteBox(), { target: { value: 'example.net/talks' } })
+    fireEvent.click(screen.getByLabelText('Save'))
+    await waitFor(() => expect(PUTS).toHaveLength(1))
+    expect(PUTS[0].body.links).toBe('https://example.net/talks')
   })
 })

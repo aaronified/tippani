@@ -3328,12 +3328,10 @@ common.work.id.open.tip = {source} সাইটে খুলুন
 # The id as it reads when it is not being edited. The arrow means "opens away".
 common.work.id.display.label = #{n} ↗
 
-work.ids.label = আইডি
 work.ids.edit.label = বদলান
 work.ids.edit.tip = সব আইডি বদলান
 work.ids.no-page.tip = {source} — খোলার মতো কোনও পাতা নেই
-work.ids.save.tip = সব আইডি একসঙ্গে সেভ করুন
-work.ids.save.blocked = কোনও আইডি বদলায়নি
+work.ids.save.tip = আইডি আর লিংক একসঙ্গে সেভ করুন
 work.ids.form.hint = এই ধরনের বই বা সিনেমা যেসব আইডি দিয়ে খোঁজা যায়। ফাঁকা থাকলে সেটা বাদ যায়।
 
 # Saving. {field} is a field name, already lower-cased by the caller.
@@ -7461,7 +7459,6 @@ unit.role.publisher = প্রকাশক
 unit.role.speaker = বক্তা
 # A work's links out (0062). See workLinks.jsx.
 links.web.label = একটা ওয়েবপেজ
-links.empty = এখনো কোনো লিংক নেই। এই রেকর্ডের কোনো পাতা, বা যেকোনো ওয়েব ঠিকানা যোগ করুন।
 links.paste.label = লিংক যোগ করুন
 links.name.label = কী নামে ডাকবেন (ঐচ্ছিক)
 links.name.placeholder = ওঁর প্রবন্ধ
@@ -7475,7 +7472,6 @@ links.paste.hint = যেকোনো ঠিকানা বসান। যো�
 links.reading = {name} হিসেবে পড়া হচ্ছে — {host}
 links.reading.none = এটা এখনও কোনও ঠিকানা নয়।
 links.already = এটা ইতিমধ্যেই এই রেকর্ডে আছে।
-links.add.aria = এই লিংকটা যোগ করুন
 links.remove.aria = {name} লিংকটা সরান
 # Ordering, grouping and filtering ANY board of quotes — a book's highlights and
 # a film's, a show's or a game's lines alike. One vocabulary, because one control

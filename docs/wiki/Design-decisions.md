@@ -10529,6 +10529,31 @@ genuinely new work".
 `internal/i18n/{en,bn}.txt` · `scripts/glossary/catalogue.js` ·
 `test/pure/provider-urls.test.js` · `test/dom/link-suggest.test.jsx`</sub>
 
+### A work's ids and links on one screen
+
+*The owner, of Work details › Links: "the edit and add opens separate screens. They can be
+merged into one. And also add has a middleman screen with nothing, that can be skipped."*
+
+**Decided.** The section's pencil and the ＋ at the end of its pill row open one panel:
+every id the medium has (filled or not, as the ids dialog had them), the stored links each
+with its ✕, then the pages the record can already address and the paste box. The ids dialog
+and the separate paste panel are gone, and so is the list's empty state, which was the
+middleman: with the box on the same screen an empty list draws nothing.
+
+- **STILL ONE REQUEST.** The dialog existed for the pack's "Ids saved — every one in a
+  single request". The panel's one ✓ sends the edited ids and a pasted link in one PUT, and
+  its badge counts both. A ✕ on a link still saves at once.
+- **THE ✓ IS GREYED WHEN IT WOULD WRITE NOTHING**, with the reason: an empty box, an
+  address that is not one yet, or one already on the record.
+- **THIS PASS AMENDS THE ENTRY ABOVE ON §1.12.** That entry put the paste box on its own
+  panel because a panel may carry one header verb. The owner's ruling removes the need: with
+  the box in the body there is no header verb to spend. §1.11 still holds: a derived page
+  is a whole decision, so a pick appends and closes the panel, and so does the ✓.
+
+<sub>Unreleased — `web/frontend/src/WorkDetails.jsx` · `workLinks.jsx` ·
+`internal/i18n/{en,bn}.txt` · `test/dom/work-links.test.jsx` ·
+`test/dom/link-suggest.test.jsx`</sub>
+
 ### The character screens: the owner's rulings, before a line of them was drawn
 
 *The owner supplied the design pack's own prototype for the character popup —

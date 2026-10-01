@@ -61,24 +61,17 @@ const open = async (rec, kind) => {
     />,
   )
   await waitFor(() => expect(screen.getByRole('button', { name: /^Edit title$/i })).toBeTruthy())
-// THE LINKS PANEL IS BEHIND THE ＋ AT THE END OF THE PILL ROW. It was behind an
-// `Edit links` row of the form until the ids and the links became one section on
-// the owner's ruling; the row is gone and its door is the row's add control.
+// THE LINKS SCREEN IS BEHIND THE ＋ AT THE END OF THE PILL ROW, and the paste box
+// is on it. It was one press further in, behind a list that was empty on most
+// works, until the owner: "add has a middleman screen with nothing, that can be
+// skipped."
   fireEvent.click(document.querySelector('.cs-pills .cs-pill.is-add'))
-  // TWO BUTTONS SAY IT ON AN EMPTY COLUMN — the header verb and the empty state's
-  // own labelled one, deliberately (a panel whose only affordance is a 34px key in
-  // the corner is a panel a reader leaves again). Either opens this panel; the
-  // header verb is the one that exists in both states, so it is the one pressed.
-  const add = await waitFor(() => {
-    const b = screen.getAllByRole('button', { name: /^Add a link$/i })[0]
-    expect(b).toBeTruthy()
-    return b
-  })
-  fireEvent.click(add)
   return waitFor(() => {
-    expect(document.querySelector('.tp-panel input.tp-input')).toBeTruthy()
+    expect(box()).toBeTruthy()
   })
 }
+
+const box = () => document.querySelector('.tp-panel input[aria-label="Add a link"]')
 
 const offers = () => [...document.querySelectorAll('.work-link-offer')]
 
@@ -116,13 +109,15 @@ describe('the pages a record can already address', () => {
 
   // A PICK CLOSES ITS PANEL (§1.11). There is nothing left to type and nothing to
   // confirm, so leaving it open asks the reader to find the ✕ for a finished job.
-  it('close the panel, landing back on the list they were added to', async () => {
+  it('close the panel, landing back on the row they were added to', async () => {
     await open(FILM, 'movie')
     await waitFor(() => expect(offers().length).toBe(4))
     fireEvent.click(offers()[3])
+    await waitFor(() => expect(PUTS.length).toBe(1))
+    const url = PUTS[0].body.links
     await waitFor(() => {
-      expect(document.querySelector('.tp-panel input.tp-input')).toBeNull()
-      expect(document.querySelector('.work-link-row')).toBeTruthy()
+      expect(box()).toBeNull()
+      expect(document.querySelector(`.cs-pills a[href="${url}"]`), 'the pick was saved and the row behind does not show it').toBeTruthy()
     })
   })
 
@@ -131,13 +126,14 @@ describe('the pages a record can already address', () => {
     await waitFor(() => expect(offers().length).toBe(4))
     fireEvent.click(offers()[0])
     // The pick pops the panel AFTER its save resolves, so waiting on the write
-    // alone races the pop — wait for the list to be back under us.
-    await waitFor(() => expect(document.querySelector('.work-link-row')).toBeTruthy())
+    // alone races the pop — wait for the panel to be gone.
+    await waitFor(() => expect(box()).toBeNull())
     expect(PUTS.length).toBe(1)
     // Back into the panel: the one just added is gone from the offers and is a
     // stored row instead. A row you cannot press is the roster of absences again.
-    fireEvent.click(screen.getAllByRole('button', { name: /^Add a link$/i })[0])
+    fireEvent.click(document.querySelector('.cs-pills .cs-pill.is-add'))
     await waitFor(() => expect(offers().length).toBe(3))
+    expect(document.querySelectorAll('.work-link-row')).toHaveLength(1)
     expect(offers().map((b) => b.querySelector('.mono-label').textContent))
       .toEqual(['TMDB', 'TheTVDB', 'Fandom'])
   })
@@ -152,12 +148,11 @@ describe('the pages a record can already address', () => {
 
   it('leave the paste box working for a site no id can reach', async () => {
     await open(FILM, 'movie')
-    const box = document.querySelector('.tp-panel input.tp-input')
-    fireEvent.change(box, { target: { value: 'letterboxd.com/film/the-matrix/' } })
+    fireEvent.change(box(), { target: { value: 'letterboxd.com/film/the-matrix/' } })
     // The reading still appears, and the box still stores what it read — the
     // derived list is another way in, not a replacement.
     await waitFor(() => expect(document.body.textContent).toMatch(/Reads as Letterboxd/i))
-    fireEvent.submit(box.closest('form'))
+    fireEvent.submit(box().closest('form'))
     await waitFor(() => expect(PUTS.length).toBe(1))
     expect(PUTS[0].body.links).toBe('https://letterboxd.com/film/the-matrix/')
   })
