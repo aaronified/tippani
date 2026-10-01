@@ -162,10 +162,12 @@ func TestAGameWithNoIdIsResolvedByAnExactIGDBTitle(t *testing.T) {
 	if src := fieldSourceOf(t, c, id, "description"); src != "igdb" {
 		t.Errorf("the description a resolved game took from IGDB is recorded as from %q", src)
 	}
-	// AND THE SEARCH IS ON THE SOURCES ROW, where every lookup is recorded.
+	// AND THE ROW CARRIES THE FILL'S LAST ASK. The search answered two; then the
+	// fill fetched the one it took, which answered one, and since every ask a
+	// supplier answers updates its row (c4c70678) that fetch is what the row reads.
 	status := decode[sourcesResp](t, c.mustDo("GET", "/metadata/status", nil, http.StatusOK))
-	if last := sourceNamed(t, status.Sources, "igdb").Last; last == nil || !last.OK || last.Found != 2 {
-		t.Errorf("the IGDB row does not carry the search the fill made: %+v", last)
+	if last := sourceNamed(t, status.Sources, "igdb").Last; last == nil || !last.OK || last.Found != 1 {
+		t.Errorf("the IGDB row does not carry the fill's last ask, the fetch of the game it took: %+v", last)
 	}
 }
 
