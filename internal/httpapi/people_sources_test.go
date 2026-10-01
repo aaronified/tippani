@@ -85,3 +85,22 @@ func TestAPortraitSaysWhoSuppliedItAndCountsForThatSupplier(t *testing.T) {
 		t.Errorf("Open Library is credited with the picture it did not supply: %d people", o.People)
 	}
 }
+
+// A TRANSLATOR'S AND AN EDITOR'S LINKS COME FROM OPEN LIBRARY, as an author's do:
+// lookupLinks asks it for all three book kinds, and the credit said TMDB for two
+// of them until a changelog pass read the two functions side by side.
+func TestABookPersonsFetchedLinkIsOpenLibrarys(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	for _, kind := range []string{"translator", "editor"} {
+		id := seedPerson(t, srv, 1, kind, "Mirra Ginsburg "+kind)
+		url := "https://openlibrary.org/authors/OL9A-" + kind
+		if err := srv.saveFetchedPerson(1, id, kind, portraitFind{}, map[string]string{"openlibrary": url}); err != nil {
+			t.Fatal(err)
+		}
+		got := decode[personSources](t, c.mustDo("GET", "/people/id/"+itoa(id), nil, http.StatusOK)).LinkSources[url]
+		if got != "openlibrary" {
+			t.Errorf("the %s's fetched link is credited to %q, want openlibrary", kind, got)
+		}
+	}
+}

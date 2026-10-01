@@ -47,7 +47,8 @@ func pickedPictureSource(source string) string {
 // role the fetch asked as (lookupLinks' arms).
 func linkSupplierFor(kind string) string {
 	switch kind {
-	case "author":
+	// The book people, all three: lookupLinks asks Open Library for each.
+	case "author", "translator", "editor":
 		return "openlibrary"
 	case "studio", "publisher":
 		return "igdb"
