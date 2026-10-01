@@ -19988,4 +19988,6 @@ per row." That reverses the owner's own earlier "two columns for tags, four for 
 the phone": at two to a row the owner's phone broke the verbs under a tag mid-word ("practi /
 se", "edi / t", "delet / e"), and the golden library breaks the same three at 390. The ⋯
 row that goes to the form keeps its name, now "New tag" with no text plus beside the glyph
-that already draws one.
+that already draws one. The tag columns follow the card's width (13em each) rather than the
+screen's: at 900 Metadata goes two-up, the Tags card is narrower than a phone's, and a
+rating found the same verbs broken there while the grid turned at the app's phone width.

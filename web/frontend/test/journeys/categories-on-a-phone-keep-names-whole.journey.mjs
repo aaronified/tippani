@@ -11,8 +11,12 @@
 // WHAT IS MEASURED, AND WHAT IS NOT. `splitWords` lists the words a line break cut
 // in two, which is the owner's complaint as the screen draws it; a picture of the
 // card at one per row would still read as fine if a name broke inside it. How many
-// stickers sit on a row has no word on the screen to read, so the three per row is
-// checked in the capture at 390, not here.
+// stickers sit on a row has no word on the screen to read, and neither does the
+// dashed box the form lost, so both are checked in the capture at 390, not here.
+//
+// AND AT 900 AND 1280. At 900 Metadata goes two-up and the Tags card is narrower
+// than a phone's: a rating found the same three verbs broken there when the grid
+// turned at the app's `mobile` width rather than at the card's.
 //
 // The golden library already holds the tag from the owner's screenshot,
 // "Discrimination", so the width it needs is on the screen with no setup.
@@ -21,24 +25,30 @@
 //   - the tag grid back at two columns on a phone (TagsPage.jsx), run with the
 //     old heading still in: red at the split words, [ 'practise', 'edit',
 //     'delete' ] (the golden library's names fit; the verbs under them do not);
-//   - the form's "New tag" heading put back alone: red, the screen says "New tag".
+//   - the form's "New tag" heading put back alone: red, the screen says "New tag";
+//   - the grid turning at `mobile` (one column at 768 and below, two above): red
+//     at 900, [ 'practise', 'edit', 'delete' ].
 
-import { expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
-import { PHONE, openApp } from './harness/world.mjs'
+import { DESKTOP, PHONE, openApp } from './harness/world.mjs'
 
-const app = openApp({ viewport: PHONE })
+for (const [where, viewport] of [['a phone', PHONE], ['a 900px desk', { width: 900, height: 900 }], ['a desk', DESKTOP]]) {
+  describe(`Categories on ${where}`, () => {
+    const app = openApp({ viewport })
 
-it('Categories on a phone prints every tag name and verb whole, with no heading over the form', async () => {
-  await app.goto('/metadata')
-  await app.press('Categories')
-  await app.see('Discrimination')
-  await app.see('Create tag')
+    it('prints every tag name and verb whole, with no heading over the form', async () => {
+      await app.goto('/metadata')
+      await app.press('Categories')
+      await app.see('Discrimination')
+      await app.see('Create tag')
 
-  expect(await app.splitWords()).toEqual([])
-  // The form's own button says what it does; nothing above it says it again.
-  await app.gone('New tag')
-  expect(await app.sideways(), 'Categories slides sideways on a phone').toBe(0)
+      expect(await app.splitWords()).toEqual([])
+      // The form's own button says what it does; nothing above it says it again.
+      await app.gone('New tag')
+      expect(await app.sideways(), 'Categories slides sideways').toBe(0)
 
-  expect(app.pageErrors(), 'the page threw on the way').toEqual([])
-})
+      expect(app.pageErrors(), 'the page threw on the way').toEqual([])
+    })
+  })
+}

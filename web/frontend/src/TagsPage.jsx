@@ -159,15 +159,19 @@ export default function TagsPage({ embedded = false, lead = null }) {
           )}
           {tags && tags.length > 0 && (
             <>
-              {/* ONE PER ROW ON A PHONE, TWO ON A DESK. The owner, 1 October:
-                  "Tags on mobile: 1 per row. Stickers on mobile: 3 per row." It
-                  reverses an earlier ruling of theirs ("two columns for tags, four
-                  for stickers on the phone"): at two to a row the owner's phone
-                  broke a tag's name mid-word ("Discriminatio / n") and its verbs
-                  with it ("practi / se", "edi / t"). `mobile` rather than a
-                  Tailwind breakpoint, so the grid turns where the rest of the app
-                  does. */}
-              <div className={`grid gap-3 ${mobile ? 'grid-cols-1' : 'grid-cols-2'}`}>
+              {/* ONE PER ROW ON A PHONE, TWO WHERE THE CARD HAS ROOM. The owner,
+                  1 October: "Tags on mobile: 1 per row. Stickers on mobile: 3 per
+                  row." It reverses an earlier ruling of theirs ("two columns for
+                  tags, four for stickers on the phone"): at two to a row the
+                  owner's phone broke the verbs under a tag mid-word ("practi /
+                  se", "edi / t"). The columns follow the CARD, not the screen: at
+                  900 Metadata goes two-up and the card is narrower than a phone's,
+                  and a rating found the same three verbs broken there when the
+                  grid turned at the app's `mobile` width. 13em, measured: the Tags
+                  card is 316px at 390 and 334px at 900 (one column each) and 440px
+                  at 1280 (two, as before); no verb breaks from 1240 up, where two a
+                  row are 204px each. It grows with the type. */}
+              <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(13em, 1fr))' }}>
                 {top.map((row, i) => (
                   <CompactTagCard key={row.id} tag={row} index={i} dupe={dupIds.has(row.id)} onChanged={load} />
                 ))}
