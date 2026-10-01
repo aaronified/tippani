@@ -52,6 +52,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   at most 30 seconds, and a source still quiet by then reads "did not answer — no answer
   within 30s". One book search answers for both Google Books and Open Library, so Test
   all asks it once.
+- **A person's page says who supplied the portrait and who added each link.** The
+  portrait is tagged with the supplier it came from, or "You" for a picture you chose or
+  uploaded. Each link is tagged "auto" when the app found it, with the supplier in the
+  tooltip ("Found by the app, from Open Library"), and "you" when you added it. A fetched
+  portrait is credited to the supplier whose address served it, once the picture has
+  arrived, so an author's photo served by Wikimedia reads Wikimedia and Metadata →
+  Sources counts the person for Wikimedia. A picture chosen from the picture search is
+  credited to the supplier that offered it, and a pasted address or an upload is yours. A
+  link found by Fetch or a re-verify is credited to Open Library for an author, translator
+  or editor, IGDB for a studio or publisher and TMDB for an actor or director, and a link
+  you type is yours.
+  Saving other facts about the person re-credits no link, and a link you remove is
+  forgotten. A portrait or link saved before this says nothing. A character's picture,
+  and the character picture on a cast row, are credited the same way, and no screen shows
+  those credits.
 
 ### Changed
 
@@ -82,6 +97,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   1280. Stickers sit three to a row, where they sat four, and five to a row on a wide
   screen. At two tags to a row on a phone the words under a tag, "practise", "edit" and
   "delete", broke across two lines.
+- **Metadata → Sources: each row counts the fields its supplier wrote, the works they
+  are in and the people it supplied portraits for.** The row's single number is now a line
+  such as "214 fields | 38" with the works glyph after the 38, then "· 12" with the people
+  glyph after it. The works and people figures are drawn only above zero, and a supplier
+  that has written nothing reads "0 fields". A portrait counts as a field. Only works
+  still in the library are counted, so a work in the bin is left out. The line is red only
+  for a supplier that is missing its key and has written nothing, where it was red for
+  every supplier missing a key.
+- **Metadata → Sources: a row's last answer follows every ask its supplier answers.** It
+  used to move only after a lookup, a picture search or a Test. It now also moves after a
+  re-verify, Fill gaps, Fetch covers and details (for its book searches and Amazon pages),
+  adding or re-syncing a film, show or game by its id, cast taken from IMDb or TheTVDB,
+  and a person's portrait or links. A Stop records nothing. An empty answer met while a
+  job walks the library is recorded as the last answer, and it does not count toward the
+  run of empty answers that raises a fault on a supplier, since it says more about the
+  library's gaps than about the supplier. Open Library, TMDB and IGDB now list "people"
+  among what they supply, so a miss on an obscure translator or actor is counted apart
+  from their book, film and game searches, and Fandom lists games.
+- **Work details → Links: the ids and the links are one screen.** The pencil on the
+  section's head used to open an Ids dialog, and the ＋ at the end of its row opened a
+  list of links, empty for most works, whose own ＋ opened the paste box on a third
+  screen. Both now open one screen, Links: every id the medium has, filled or not, then
+  the links already saved, each with its ✕, then the pages the work can already address
+  and the paste box. The "No links yet" sentence and its Add a link button are gone, so a
+  work with no links lands straight on the box. The one ✓ saves the edited ids and a
+  pasted link in a single request, its badge counts both, and it closes the screen. It
+  stays greyed until an id has changed or the box holds an address the work does not
+  already have. A link's ✕ still saves at once, and pressing one of the suggested pages
+  still adds it and closes the screen.
 
 ### Fixed
 
@@ -152,11 +196,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   already ask IGDB by that id. The IGDB id now counts as a source.
 - **A source row with no recorded answer in Metadata → Sources now says "no answer
   recorded since the server started".** It used to say "nothing has asked it yet", which
-  was false once a fill had asked that source. A row's last answer is kept only from the
-  Add screen's lookups, picture searches and Test, and a restart clears it; a fill, a
-  covers pass and a re-verify ask the same sources and record nothing, apart from the
-  IGDB title search a fill or re-verify makes for a game with no id, which is recorded on
-  the IGDB row.
+  was false once a fill had asked that source. A row's last answer is kept in memory, so a
+  restart clears it.
 - **A book search that finds nothing no longer blames the wrong source in Metadata →
   Sources.** When Google Books or Open Library failed and the search found nothing, one
   error was recorded against both rows, Google Books' when it had failed. Open Library
@@ -205,6 +246,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   left out. A shelf of one kind shows no counts beside the figure, and the caption names
   that kind in the number the total takes: "1 show · N dialogues", "12 shows · N
   dialogues".
+- **Every way of filling a work's fields now credits the supplier they came from.**
+  Taking a lookup match onto a work you already had (Details' Fetch metadata, the shelf's
+  Edit, the Metadata console's match, or a picture chosen in the cover strip) marked every
+  field it changed as yours, so Details showed no supplier mark and no supplier's count in
+  Metadata → Sources rose. Each field is now credited to the supplier that gave it, and a
+  merged Google Books and Open Library match credits each field to whichever of the two
+  gave it. In a book's Edit form a box you retyped after taking the match stays yours. A
+  picture from the strip is credited to the supplier that offered it, Google Images and
+  Amazon included, and a pasted address or an uploaded cover is yours. Changes to genres,
+  series number, a game's publisher and a picture are credited too, where a save passed
+  over them before, and genres are compared as a set, so saving the same list in another
+  order or case is not a change. A subtitle, a page count and a series number carried no
+  credit from any path and now carry one. Adding a book from a match now keeps the series,
+  series number, subtitle, publisher and page count the match carries, each credited to
+  its supplier. Fetch covers and details credits a cover to the supplier whose address
+  served it, the fields it filled to the supplier of the match, and a poster to TMDB. A
+  re-verify whose cover or poster did not download no longer credits a supplier for one
+  the work does not have. A film typed in by hand is yours field by field, as a typed
+  book already was. What an import fills in, on a new work or a gap in one you have, is
+  credited to "Imported". Nothing already saved is re-credited.
 
 ## [3.1.2] - 2026-09-29
 
