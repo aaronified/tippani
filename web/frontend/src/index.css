@@ -4473,8 +4473,12 @@
   .src-row-name { text-wrap: pretty; color: var(--ink); font-size: var(--type-ui-15); font-weight: 600; }
   .src-row-count {
     font-family: var(--font-mono); font-size: var(--type-mono-12); color: var(--faint);
-    font-variant-numeric: tabular-nums; white-space: nowrap;
+    font-variant-numeric: tabular-nums; text-align: end;
   }
+  /* The counts wrap between their parts, never inside one (`.tally` is nowrap),
+     so "214 fields | 38 works · 12 people" takes a second line on a phone rather
+     than squeezing the supplier's name. */
+  .src-row-count .tally-n { font-variant-numeric: inherit; }
   /* A SUPPLIER THAT CANNOT BE ASKED HAS A RED NUMBER, because a zero from one
      that simply has not been used yet means something else entirely. */
   .src-row-count.is-needed { color: var(--error); }

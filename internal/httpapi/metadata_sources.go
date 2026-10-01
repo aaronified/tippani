@@ -55,10 +55,16 @@ const (
 
 // sourceRow is one supplier as this console draws it.
 type sourceRow struct {
-	Source  string   `json:"source"`
-	Areas   []string `json:"areas"`
-	State   string   `json:"state"`
-	Records int      `json:"records"`
+	Source string   `json:"source"`
+	Areas  []string `json:"areas"`
+	State  string   `json:"state"`
+	// What this supplier wrote into the reader's library: fields (a portrait
+	// counts as one), and the works and people they belong to. The owner, 30
+	// September: "not just the count of works and peoples, but of fields.
+	// \"Fields | works\"".
+	Fields int `json:"fields"`
+	Works  int `json:"works"`
+	People int `json:"people"`
 	// Last is what this supplier said the last time anything asked it, in this
 	// process. Absent when nothing has — which is the ordinary state of a server
 	// that has just started, and is why it is a pointer rather than a zero row
@@ -179,43 +185,69 @@ func (s *Server) sourceState(slug string) string {
 	}
 }
 
-// recordsBySource counts the fields in this reader's library that each supplier
-// wrote. One query rather than one per supplier: the table is keyed by user first,
-// so the whole answer is a single scan of that prefix.
-func (s *Server) recordsBySource(uid int64) map[string]int {
-	out := map[string]int{}
-	rows, err := s.Store.DB.Query(
-		`SELECT source, count(*) FROM work_field_source WHERE user_id = ? GROUP BY source`, uid)
+// supplied is what one supplier wrote into a reader's library.
+type supplied struct{ fields, works, people int }
+
+// suppliedBySource counts, per supplier, the fields it wrote into this reader's
+// library and the works and people those fields belong to. ONLY LIVE WORKS: the
+// provenance table outlives a work that was binned or purged, and a count of
+// what the library holds must not include what it no longer does.
+func (s *Server) suppliedBySource(uid int64) map[string]supplied {
+	out := map[string]supplied{}
+	// A COUNT IS NOT WORTH A FAILED SCREEN: a read that fails logs and leaves the
+	// numbers at zero rather than taking the status response with it.
+	rows, err := s.Store.DB.Query(`
+		SELECT f.source, count(*), count(DISTINCT f.kind || ':' || f.work_id)
+		  FROM work_field_source f
+		 WHERE f.user_id = ? AND CASE f.kind
+		       WHEN 'book' THEN EXISTS (SELECT 1 FROM books b WHERE b.id = f.work_id AND b.user_id = f.user_id)
+		       ELSE EXISTS (SELECT 1 FROM movies m WHERE m.id = f.work_id AND m.user_id = f.user_id) END
+		 GROUP BY f.source`, uid)
 	if err != nil {
-		// A COUNT IS NOT WORTH A FAILED SCREEN. Every other fact on this console
-		// stands without it, so a read that fails logs and leaves the numbers at
-		// zero rather than taking the status response with it — the same
-		// reasoning filmSourceNotice is written under.
-		olog.Tracef("[meta] records by source: %v", err)
+		olog.Tracef("[meta] supplied by source: %v", err)
 		return out
 	}
-	defer rows.Close()
 	for rows.Next() {
 		var src string
-		var n int
-		if err := rows.Scan(&src, &n); err != nil {
-			return out
+		var got supplied
+		if rows.Scan(&src, &got.fields, &got.works) == nil {
+			out[src] = got
 		}
-		out[src] = n
+	}
+	rows.Close()
+	// A PERSON a supplier filled: the record's source is the supplier its portrait
+	// fetch answered from, and the portrait is one field.
+	prow, err := s.Store.DB.Query(`SELECT source, count(*) FROM people
+		WHERE user_id = ? AND source <> '' GROUP BY source`, uid)
+	if err != nil {
+		olog.Tracef("[meta] supplied by source, people: %v", err)
+		return out
+	}
+	defer prow.Close()
+	for prow.Next() {
+		var src string
+		var n int
+		if prow.Scan(&src, &n) == nil {
+			got := out[src]
+			got.people, got.fields = n, got.fields+n
+			out[src] = got
+		}
 	}
 	return out
 }
 
 // sourceRows composes the list the console draws.
 func (s *Server) sourceRows(uid int64) []sourceRow {
-	counts := s.recordsBySource(uid)
+	counts := s.suppliedBySource(uid)
 	out := make([]sourceRow, 0, len(sourceAreas))
 	for _, src := range sourceAreas {
 		row := sourceRow{
-			Source:  src.slug,
-			Areas:   src.areas,
-			State:   s.sourceState(src.slug),
-			Records: counts[src.slug],
+			Source: src.slug,
+			Areas:  src.areas,
+			State:  s.sourceState(src.slug),
+			Fields: counts[src.slug].fields,
+			Works:  counts[src.slug].works,
+			People: counts[src.slug].people,
 		}
 		// THE LAST WORD FROM THE AREA IT LEADS IN. A supplier can be recorded in
 		// two areas — TheTVDB answers film lookups and picture searches — and the

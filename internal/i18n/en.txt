@@ -5900,6 +5900,9 @@ settings.sources.need-key.prose.other = {count} need a key before they can be as
 settings.sources.records.tip.one = {count} field in your library came from {source}
 settings.sources.records.tip.other = {count} fields in your library came from {source}
 settings.sources.records.none.tip = Nothing in your library came from {source} yet
+# The row's lead count: the fields this supplier wrote into the library.
+settings.sources.fields.one = {n} field
+settings.sources.fields.other = {n} fields
 settings.sources.test.aria = Ask {source} a test question
 settings.sources.test.tip = Ask {source} for something it certainly has, and report what came back
 settings.sources.test.off.tip = Switch on Google image results in this row's setup to ask {source}

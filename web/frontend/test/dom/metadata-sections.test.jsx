@@ -49,7 +49,7 @@ vi.mock('../../src/api.js', async (orig) => ({
     if (method === 'GET' && (path === '/metadata/status' || path === '/admin/metadata-keys')) {
       // THE SUPPLIER ROWS THE STATUS NAMES, one of them TMDB: a key opens from its
       // supplier's row.
-      return { ok: true, data: { tmdb: { source: 'builtin' }, books_lookup: { ok: true }, sources: [{ source: 'tmdb', state: 'builtin', areas: ['films'], records: 0 }] } }
+      return { ok: true, data: { tmdb: { source: 'builtin' }, books_lookup: { ok: true }, sources: [{ source: 'tmdb', state: 'builtin', areas: ['films'], fields: 0, works: 0, people: 0 }] } }
     }
     return { ok: true, data: { people: [], characters: [], groups: [] } }
   }),

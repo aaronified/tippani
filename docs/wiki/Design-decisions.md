@@ -20010,3 +20010,12 @@ whitelist of recordable fields named `publisher_name` and `page_count`, which no
 and lacked `subtitle`, `pages` and `series_index`, which three writers send, so those edition
 facts carried no credit from any path. Nothing is backfilled: what was written before stays
 unattributed.
+
+**Each All sources row reads "Fields | works", with people where the supplier filled any.**
+The owner chose "Works & people it supplied", then: "not just the count of works and peoples,
+but of fields. \"Fields | works\"". So a row says how many fields the supplier wrote into the
+library, then the works those fields are in and the people whose portrait it supplied, each
+wearing the console's own section glyph; a portrait counts as one field. Only what the library
+still holds counts: the provenance table outlives a binned work, so the count joins the live
+works. A zero reads "0 fields" alone, and only a zero from a supplier that cannot be asked is
+red: one that needs a key and has supplied fields is not a warning.

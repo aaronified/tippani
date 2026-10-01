@@ -35,12 +35,15 @@ import {
   IconEdit,
   IconPlus,
   IconFetch,
+  IconNavUsers,
+  IconNavWorks,
   IconReset,
   IconSearch,
   IconTextOrder,
   InfoDot,
   MonoLabel,
   SourceIcon,
+  Tally,
   toast,
   Toggle,
   Tooltip,
@@ -442,12 +445,23 @@ function SourceRows({ admin, sources, scrapeOn = false, info = null, editors = n
             {/* THE COUNT IS THE ROW'S ARGUMENT FOR ITSELF, so it is drawn even at
                 zero: a supplier that has never supplied anything is exactly the one
                 a reader is deciding whether to configure. */}
+            {/* FIELDS | WORKS, and people where it filled any. The owner: "not just
+                the count of works and peoples, but of fields. \"Fields | works\"".
+                The works and people wear the console's own section glyphs, the
+                doors beside this card; the word stays on fields, the count the row
+                leads with. A zero reads "0 fields" alone, and only a zero from a
+                supplier that cannot be asked is red: one that needs a key and has
+                supplied fields is not a warning. */}
             <Tooltip
-              label={row.records
-                ? t('settings.sources.records.tip', { count: row.records, source: name })
+              label={row.fields
+                ? t('settings.sources.records.tip', { count: row.fields, source: name })
                 : t('settings.sources.records.none.tip', { source: name })}
             >
-              <span className={'src-row-count' + (row.state === 'needed' ? ' is-needed' : '')}>{row.records}</span>
+              <span className={'src-row-count' + (row.state === 'needed' && !row.fields ? ' is-needed' : '')}>
+                {t('settings.sources.fields', { count: row.fields || 0, n: row.fields || 0 })}
+                {row.works > 0 && <> | <Tally n={row.works} icon={<IconNavWorks />} word={t('unit.work', { count: row.works })} /></>}
+                {row.people > 0 && <> · <Tally n={row.people} icon={<IconNavUsers />} word={t('unit.person', { count: row.people })} /></>}
+              </span>
             </Tooltip>
             {admin && (
               <span className="src-row-verbs">

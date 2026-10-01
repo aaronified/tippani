@@ -40,7 +40,7 @@ vi.mock('../../src/api.js', async (orig) => ({
 
 const { MetadataSources } = await import('../../src/MetadataSources.jsx')
 
-const row = (source, state) => ({ source, state, areas: ['films'], records: 0 })
+const row = (source, state) => ({ source, state, areas: ['films'], fields: 0, works: 0, people: 0 })
 
 beforeEach(() => {
   cleanup()
@@ -90,5 +90,23 @@ describe('a supplier row', () => {
     STATUS.sources = [row('wikimedia', 'optional')]
     await page()
     expect(screen.getByText(/no answer recorded since the server started/i)).toBeTruthy()
+  })
+
+  // "Fields | works", and people where it supplied any. The owner, 30 September:
+  // "not just the count of works and peoples, but of fields."
+  it('says how many fields a supplier wrote, in how many works, and the people it filled', async () => {
+    STATUS.sources = [
+      { ...row('google', 'saved'), fields: 214, works: 38 },
+      { ...row('wikimedia', 'optional'), fields: 12, people: 12 },
+      row('tmdb', 'builtin'),
+    ]
+    await page()
+    const text = document.body.textContent
+    expect(text).toMatch(/214 fields \| 38/)
+    // The glyph carries the noun, so a screen reader hears "38 works".
+    expect(screen.getByRole('img', { name: 'works' })).toBeTruthy()
+    expect(screen.getByRole('img', { name: 'people' })).toBeTruthy()
+    expect(text).toMatch(/12 fields · 12/)
+    expect(text).toMatch(/0 fields/)
   })
 })

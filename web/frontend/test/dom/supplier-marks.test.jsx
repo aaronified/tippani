@@ -33,7 +33,7 @@ vi.mock('../../src/api.js', async (orig) => ({
     // THE SUPPLIERS THE SERVER LISTS: since the keys card became each supplier's
     // row on "All sources", the rows are where a reader meets them.
     if (path.startsWith('/metadata/status')) {
-      return { ok: true, data: { sources: ['google', 'openlibrary', 'amazon', 'tmdb', 'tvdb', 'igdb'].map((source) => ({ source, state: 'optional', areas: ['books'], records: 0 })) } }
+      return { ok: true, data: { sources: ['google', 'openlibrary', 'amazon', 'tmdb', 'tvdb', 'igdb'].map((source) => ({ source, state: 'optional', areas: ['books'], fields: 0, works: 0, people: 0 })) } }
     }
     return { ok: true, data: {} }
   }),

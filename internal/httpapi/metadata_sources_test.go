@@ -96,47 +96,44 @@ func TestEverySourceSaysWhetherItCanBeAsked(t *testing.T) {
 	}
 }
 
-// HOW MUCH OF THIS LIBRARY CAME FROM EACH SUPPLIER — the pack's "records
-// supplied", and the number that tells a reader which of these rows they actually
-// depend on.
+// HOW MUCH OF THIS LIBRARY CAME FROM EACH SUPPLIER: the fields it wrote and the
+// works they are in. The owner, 30 September: "not just the count of works and
+// peoples, but of fields. \"Fields | works\"". An API journey: books added from a
+// supplier, read back on the console, one put in the bin.
 //
-// AND IT IS THEIRS, NOT THE SERVER'S. Every query on this console is scoped by
-// user; a count that summed the whole table would tell one reader how much
-// somebody else's shelf owes to TMDB, which is both wrong and none of their
-// business.
-func TestASourceRowCountsOnlyYourOwnRecords(t *testing.T) {
+// AND IT IS THEIRS, NOT THE SERVER'S: every query on this console is scoped by
+// user. And only what the library still holds counts: the provenance table
+// outlives a binned work.
+func TestASourceRowCountsTheFieldsAndWorksItSupplied(t *testing.T) {
 	srv := newTestServer(t)
 	h := srv.Handler()
 	mine := signupAdmin(t, h)
 	other := addUser(t, h, mine, "someone")
 
-	book := createBook(t, mine, "A Book")
-	// Written directly: what is under test is the count this console reports, and
-	// the path that fills the table is a provider fetch.
-	for _, field := range []string{"description", "cover", "published_year"} {
-		if _, err := srv.Store.DB.Exec(
-			`INSERT INTO work_field_source (user_id, kind, work_id, field, source) VALUES (1, 'book', ?, ?, 'google')`,
-			book, field); err != nil {
-			t.Fatal(err)
-		}
+	add := func(c *testClient, title string) int64 {
+		return decode[struct{ ID int64 }](t, c.mustDo("POST", "/books", map[string]any{
+			"title": title, "author": "Eliot", "description": "A study.", "source": "google", "source_id": title,
+		}, http.StatusCreated)).ID
 	}
-	if _, err := srv.Store.DB.Exec(
-		`INSERT INTO work_field_source (user_id, kind, work_id, field, source) VALUES (2, 'book', 99, 'description', 'google')`); err != nil {
-		t.Fatal(err)
-	}
+	first := add(mine, "Middlemarch")
+	add(mine, "Romola")
+	add(other, "Silas Marner")
 
-	got := decode[sourcesResp](t, mine.mustDo("GET", "/metadata/status", nil, http.StatusOK))
-	if n := sourceNamed(t, got.Sources, "google").Records; n != 3 {
-		t.Errorf("my three fields from Google count as %d", n)
+	row := func(c *testClient) sourceRow {
+		return sourceNamed(t, decode[sourcesResp](t, c.mustDo("GET", "/metadata/status", nil, http.StatusOK)).Sources, "google")
 	}
-	if n := sourceNamed(t, got.Sources, "tmdb").Records; n != 0 {
-		t.Errorf("a supplier that wrote nothing counts %d", n)
+	if got := row(mine); got.Fields != 6 || got.Works != 2 {
+		t.Errorf("two books of three fields each from Google read %d fields | %d works", got.Fields, got.Works)
 	}
-
-	// THE OTHER ACCOUNT SEES ITS OWN ONE, not my three.
-	got = decode[sourcesResp](t, other.mustDo("GET", "/metadata/status", nil, http.StatusOK))
-	if n := sourceNamed(t, got.Sources, "google").Records; n != 1 {
-		t.Errorf("another account is shown %d of my records", n)
+	if got := sourceNamed(t, decode[sourcesResp](t, mine.mustDo("GET", "/metadata/status", nil, http.StatusOK)).Sources, "tmdb"); got.Fields != 0 || got.Works != 0 {
+		t.Errorf("a supplier that wrote nothing reads %d | %d", got.Fields, got.Works)
+	}
+	if got := row(other); got.Fields != 3 || got.Works != 1 {
+		t.Errorf("another account is shown %d | %d, not its own one book", got.Fields, got.Works)
+	}
+	mine.mustDo("DELETE", "/books/"+itoa(first), nil, http.StatusOK)
+	if got := row(mine); got.Fields != 3 || got.Works != 1 {
+		t.Errorf("a binned book still counts: %d | %d", got.Fields, got.Works)
 	}
 }
 

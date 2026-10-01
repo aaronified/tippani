@@ -58,7 +58,7 @@ const EVERY_SOURCE = ['google', 'openlibrary', 'amazon', 'tmdb', 'tvdb', 'imdb',
 // reader does to reach them.
 const page = async () => {
   if (!STATUS.sources) {
-    STATUS = { ...STATUS, sources: EVERY_SOURCE.map((source) => ({ source, state: 'optional', areas: ['books'], records: 0 })) }
+    STATUS = { ...STATUS, sources: EVERY_SOURCE.map((source) => ({ source, state: 'optional', areas: ['books'], fields: 0, works: 0, people: 0 })) }
   }
   render(<MetadataSources user={ADMIN} onPreferences={() => {}} />)
   await screen.findByText('All sources')
@@ -554,7 +554,7 @@ describe('the mark on each key row', () => {
 // ask' card. The combined card can be renamed to 'all sources'."
 describe('all sources', () => {
   it('opens a supplier\u2019s keys from its own row, and only a supplier that takes one has the door', async () => {
-    STATUS = { ...STATUS, sources: EVERY_SOURCE.map((source) => ({ source, state: 'optional', areas: ['books'], records: 0 })) }
+    STATUS = { ...STATUS, sources: EVERY_SOURCE.map((source) => ({ source, state: 'optional', areas: ['books'], fields: 0, works: 0, people: 0 })) }
     render(<MetadataSources user={ADMIN} onPreferences={() => {}} />)
     await screen.findByText('All sources')
     const doors = (await screen.findAllByRole('button', { name: /^Set up / })).map((b) => b.getAttribute('aria-label'))
@@ -568,7 +568,7 @@ describe('all sources', () => {
   })
 
   it('shows a reader who is not an admin the rows and no doors', async () => {
-    STATUS = { ...STATUS, sources: EVERY_SOURCE.map((source) => ({ source, state: 'optional', areas: ['books'], records: 0 })) }
+    STATUS = { ...STATUS, sources: EVERY_SOURCE.map((source) => ({ source, state: 'optional', areas: ['books'], fields: 0, works: 0, people: 0 })) }
     render(<MetadataSources user={{ username: 'b', is_admin: false, preferences: {} }} onPreferences={() => {}} />)
     await screen.findByText('All sources')
     expect(screen.getByText('Open Library')).toBeTruthy()
