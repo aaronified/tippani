@@ -713,6 +713,8 @@ vocab.source.tmdb.label = TMDB
 vocab.source.tvdb.label = TheTVDB
 # What a row whose supplier the app does not recognise is called.
 vocab.source.manual.label = You
+# Not a supplier: the field came in a file the reader imported.
+vocab.source.import.label = Imported
 vocab.source.unknown.label = unknown source
 
 # ---------------------------------------------------------------------------

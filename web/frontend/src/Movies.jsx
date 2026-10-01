@@ -862,6 +862,7 @@ export function EditMovie({ movie, onSaved, onCancel }) {
   const [tvdbId, setTvdbId] = useState(movie.tvdb_id ? String(movie.tvdb_id) : '')
   const [posterPath, setPosterPath] = useState(movie.poster_path || '')
   const [posterUrl, setPosterUrl] = useState('')
+  const [posterSource, setPosterSource] = useState('') // the supplier a picked poster is credited to
   const [clearCover, setClearCover] = useState(false)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -900,6 +901,7 @@ export function EditMovie({ movie, onSaved, onCancel }) {
       tmdb_id: idNum(tmdbId),
       tvdb_id: idNum(tvdbId),
       poster_url: posterUrl || undefined,
+      ...(posterUrl && posterSource ? { sources: { poster: posterSource } } : {}),
       clear_cover: clearCover || undefined,
     })
     setBusy(false)
@@ -930,8 +932,9 @@ export function EditMovie({ movie, onSaved, onCancel }) {
         currentPath={posterPath}
         coverUrl={posterUrl}
         clearCover={clearCover}
-        onSetUrl={(u) => {
+        onSetUrl={(u, src) => {
           setPosterUrl(u)
+          setPosterSource(src || '')
           setClearCover(false)
         }}
         onClear={(reset) => {

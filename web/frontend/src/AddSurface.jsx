@@ -259,6 +259,15 @@ export function AddLookup({ initialKind = 'book', onAdded, onCreated, initialQue
       description: c.description || undefined,
       published_year: c.published_year || undefined,
       genres: c.genres || undefined,
+      // Everything the match carries, as the Details merge and the console take
+      // it: a match that declines to fill a blank it can fill is the rule 0061
+      // names. And each field credited to the supplier it came from.
+      series: c.series || undefined,
+      series_index: c.series_index || undefined,
+      subtitle: c.subtitle || undefined,
+      publisher: c.publisher || undefined,
+      pages: c.pages || undefined,
+      sources: c.sources || undefined,
       cover_url: c.cover_url || undefined,
       source: c.source,
       source_id: c.source_id,

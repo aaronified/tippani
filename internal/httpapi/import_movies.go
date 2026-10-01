@@ -139,6 +139,9 @@ func upsertImportMovie(tx *sql.Tx, uid int64, m importer.MovieHeader) (importMov
 		id, uid, m.Title, nullableInt(m.Year), mediaType); err != nil {
 		return importMovieResult{}, err
 	}
+	if err := recordFilled(tx, uid, "movie", id, nil, store.SourceImport, ""); err != nil {
+		return importMovieResult{}, err
+	}
 	if err := applyImportedShelf(tx, "movie", mediaType, uid, id, movieShelf(m)); err != nil {
 		return importMovieResult{}, err
 	}
@@ -167,6 +170,11 @@ func anchorScore(h movieDupHint, importedYear int) int {
 // set already on the row — curated by hand, or from TMDB's belongs_to_collection
 // — always wins over the file's version.
 func backfillImportMovie(tx *sql.Tx, uid, movieID int64, m importer.MovieHeader, seps metadata.CreditSeps) error {
+	// What the file fills is credited to the import, read as before and after.
+	before, err := emptyFields(tx, uid, "movie", movieID)
+	if err != nil {
+		return err
+	}
 	if m.Director != "" {
 		if _, err := tx.Exec(
 			`UPDATE movies SET director = COALESCE(director, ?), updated_at = datetime('now') WHERE id = ?`,
@@ -229,6 +237,9 @@ func backfillImportMovie(tx *sql.Tx, uid, movieID int64, m importer.MovieHeader,
 	// whether either changed is not something this function knows — it reads the
 	// columns back rather than guessing, which is also what makes a repeated
 	// import a no-op here.
+	if err := recordFilled(tx, uid, "movie", movieID, before, store.SourceImport, ""); err != nil {
+		return err
+	}
 	if err := store.SyncCreditsFromColumns(tx, uid, "movie", movieID, seps); err != nil {
 		return err
 	}

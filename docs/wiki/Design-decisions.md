@@ -19991,3 +19991,22 @@ row that goes to the form keeps its name, now "New tag" with no text plus beside
 that already draws one. The tag columns follow the card's width (13em each) rather than the
 screen's: at 900 Metadata goes two-up, the Tags card is narrower than a phone's, and a
 rating found the same verbs broken there while the grid turned at the app's phone width.
+
+**Every path that writes a work's fields says who supplied them.** The owner: "I have added
+new books and movies since then and have used the looked up results. They too do not show the
+provider glyphs or increase the number. And it should track if i am re-scanning/fetching
+missing and taking fields from there." Taking a match onto a work you already have (Details ›
+Fetch metadata, the shelf's Edit, the Metadata console's match, a picture from the cover strip)
+went through the edit endpoint, which recorded every changed field as yours. The edit body now
+carries per-field `sources`, the wire the re-verify apply already used, and the server credits
+each field it CHANGED to the supplier named for it (validated for the kind; a cover or poster
+may also be Google Images or Amazon), and every other changed field to you; `source` keeps its
+own job of pinning an id. A merged book candidate names, per field, the supplier other than its
+primary that gave it. Fetch missing credits the cover to whichever address served it and the
+fields it filled to the match; Rescan no longer credits a cover that did not arrive; an
+uploaded picture is yours; a film typed in by hand is yours, as a typed book was; and an
+imported file's fields read "Imported", which is neither you nor a supplier the app asked. The
+whitelist of recordable fields named `publisher_name` and `page_count`, which nothing sends,
+and lacked `subtitle`, `pages` and `series_index`, which three writers send, so those edition
+facts carried no credit from any path. Nothing is backfilled: what was written before stays
+unattributed.

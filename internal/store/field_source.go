@@ -30,6 +30,11 @@ type FieldSource struct {
 // distinction this table exists to draw.
 const SourceManual = "manual"
 
+// SourceImport is a field that arrived in a file the reader imported. Not the
+// reader's typing (manual) and not a supplier the app asked: only the import
+// path writes it, and no client may claim it (knownBookSource does not accept it).
+const SourceImport = "import"
+
 // recordableFields is the whitelist, and it is a whitelist because the
 // alternative silently records whatever a caller happens to pass.
 //
@@ -42,11 +47,14 @@ const SourceManual = "manual"
 var recordableFields = map[string]bool{
 	// Both kinds.
 	"title": true, "description": true, "genres": true, "poster": true,
+	"series": true, "series_index": true, "publisher": true,
 	// Films, shows and games.
-	"director": true, "release_year": true, "series": true, "publisher": true,
-	// Books.
-	"author": true, "published_year": true, "publisher_name": true,
-	"page_count": true, "isbn": true, "cover": true,
+	"director": true, "release_year": true,
+	// Books. `subtitle` and `pages` are the names every writer sends; this list
+	// once said `publisher_name` and `page_count`, which nothing sends, so the
+	// three edition facts were dropped here from every path.
+	"author": true, "published_year": true, "subtitle": true, "pages": true,
+	"isbn": true, "cover": true,
 }
 
 // RecordFieldSources notes that `source` wrote each of `fields` on one work.

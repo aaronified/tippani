@@ -487,6 +487,12 @@ func upsertImportBook(tx *sql.Tx, uid int64, b importer.Book, seps metadata.Cred
 		return 0, false, err
 	}
 	if id != 0 {
+		// A matched book takes only the gaps the file fills, and those are credited
+		// to the import; what the library already had keeps its own credit.
+		before, err := emptyFields(tx, uid, "book", id)
+		if err != nil {
+			return 0, false, err
+		}
 		// Backfill every identifier/field the matched row is missing from this
 		// import (fill-empty-only, so existing data always wins). OR IGNORE skips
 		// rather than fails if another row already owns this isbn/asin (partial
@@ -521,6 +527,9 @@ func upsertImportBook(tx *sql.Tx, uid int64, b importer.Book, seps metadata.Cred
 			b.Subtitle, b.Publisher, b.Pages, b.Links, id); err != nil {
 			return 0, false, err
 		}
+		if err := recordFilled(tx, uid, "book", id, before, store.SourceImport, ""); err != nil {
+			return 0, false, err
+		}
 		// Shelf state is its own backfill (fill-empty-only, never clearing) so a
 		// re-import of an older export cannot un-mark a book you are reading now.
 		if err := applyImportedShelf(tx, "book", "", uid, id, bookShelf(b)); err != nil {
@@ -550,6 +559,9 @@ func upsertImportBook(tx *sql.Tx, uid int64, b importer.Book, seps metadata.Cred
 		b.Subtitle, b.Publisher, b.Pages, b.Links, // and 0061's and 0062's
 		nullable(isbn), nullable(b.ASIN),
 		nullable(b.Series), nullableFloat(b.SeriesIndex)); err != nil {
+		return 0, false, err
+	}
+	if err := recordFilled(tx, uid, "book", id, nil, store.SourceImport, ""); err != nil {
 		return 0, false, err
 	}
 	if err := applyImportedShelf(tx, "book", "", uid, id, bookShelf(b)); err != nil {

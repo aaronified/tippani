@@ -864,6 +864,16 @@ export function WorkDetails({ onClose, kind, item: seed, onChanged, onDelete, st
       if (r.key === '__cover') patch[kind === 'book' ? 'cover_url' : 'poster_url'] = kind === 'book' ? r.next : hiResPoster(r.next)
       else patch[r.key] = r.next
     }
+    // EACH TAKEN FIELD IS CREDITED TO ITS SUPPLIER. Without this the save was an
+    // edit like any other and the server recorded every field as the reader's:
+    // the owner's report, a looked-up match showing no supplier mark and moving
+    // no count. The server credits only what this save changes.
+    patch.sources = {}
+    for (const r of chosen) {
+      const field = r.key === '__cover' ? (kind === 'book' ? 'cover' : 'poster') : r.key
+      const src = merge.candidate?.sources?.[field] || merge.candidate?.source
+      if (src) patch.sources[field] = src
+    }
     if (await save(patch, 'merge')) {
       toast(t('common.work.merge.toast', { count: chosen.length, n: chosen.length }))
       setMerge(null)
@@ -1532,7 +1542,12 @@ function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, gen
         asin={item.asin}
         coverUrl=""
         clearCover={false}
-        onSetUrl={(u) => onCover(kind === 'book' ? { cover_url: u } : { poster_url: u })}
+        onSetUrl={(u, src) => onCover({
+          [kind === 'book' ? 'cover_url' : 'poster_url']: u,
+          // A picture taken from the strip is credited to whoever offered it;
+          // a pasted address names nobody, and the server makes it the reader's.
+          ...(src ? { sources: { [kind === 'book' ? 'cover' : 'poster']: src } } : {}),
+        })}
         onClear={(reset) => { if (reset !== true) onCover({ clear_cover: true }) }}
         onUploaded={(next) => onChanged?.(next)}
         search={kind === 'book'

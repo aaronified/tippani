@@ -1474,7 +1474,7 @@ func (s *Server) applyReverifyBook(ctx context.Context, uid, id int64, set map[s
 	}
 	defer tx.Rollback()
 	if src := knownBookSource(source); src != "" || len(sources) > 0 {
-		if perr := recordPerField(tx, uid, "book", id, set, sources, knownBookSource, src, ""); perr != nil {
+		if perr := recordPerField(tx, uid, "book", id, arrived(set, "cover", newCover), sources, knownBookSource, src, ""); perr != nil {
 			// Not fatal, for the reason the movie path gives: the fields are the
 			// write, this is the note beside them.
 			olog.Warnf(olog.CodeMetaReverifyApply,
@@ -1736,7 +1736,7 @@ func (s *Server) applyReverifyMovie(ctx context.Context, uid, id int64, set map[
 	// A plan of "" means the row is unpinned or its supplier has no key, in which
 	// case there is nothing true to record and RecordFieldSources returns early.
 	if src, srcID := s.movieFetchPlanFor(tx, uid, id); src != "" {
-		if perr := recordPerField(tx, uid, "movie", id, set, sources, knownMovieSource, src, srcID); perr != nil {
+		if perr := recordPerField(tx, uid, "movie", id, arrived(set, "poster", newPoster), sources, knownMovieSource, src, srcID); perr != nil {
 			// NOT FATAL. The fields are written; this is the note beside them. A
 			// failed audit line must not undo a re-verify the reader approved.
 			olog.Warnf(olog.CodeMetaReverifyApply,
@@ -2111,6 +2111,69 @@ func recordPerField(tx *sql.Tx, uid int64, kind string, id int64,
 		}
 	}
 	return nil
+}
+
+// arrived is `set` without its picture field when no picture arrived: a download
+// that failed, a blank address or a Stop must not leave a supplier's mark on a
+// cover the work does not have.
+func arrived(set map[string]json.RawMessage, field, got string) map[string]json.RawMessage {
+	if _, asked := set[field]; !asked || got != "" {
+		return set
+	}
+	out := make(map[string]json.RawMessage, len(set))
+	for k, v := range set {
+		if k != field {
+			out[k] = v
+		}
+	}
+	return out
+}
+
+// recordEdits credits each field a save CHANGED: to the supplier the client says
+// it took that field from (per-field `sources`, the wire re-verify apply already
+// carries), validated for the kind and the field, and to the reader otherwise.
+// A field named in `sources` that the save did not change is not credited: the
+// claim is about where a value came from, and an unchanged value came from
+// wherever it came from before.
+func recordEdits(tx *sql.Tx, uid int64, kind string, id int64, edited []string, sources map[string]string) error {
+	bySource := map[string][]string{}
+	for _, f := range edited {
+		src := fieldSupplier(kind, f, sources[f])
+		if src == "" {
+			src = store.SourceManual
+		}
+		bySource[src] = append(bySource[src], f)
+	}
+	for src, fields := range bySource {
+		if err := store.RecordFieldSources(tx, uid, kind, id, src, "", fields); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// fieldSupplier is the supplier a client may credit one field of one kind to, or
+// "". A cover or poster may also come from a picture rung, Google Images or
+// Amazon, which no catalogue whitelist names.
+func fieldSupplier(kind, field, source string) string {
+	if field == "cover" || field == "poster" {
+		if s := knownPictureSource(source); s != "" {
+			return s
+		}
+	}
+	if kind == "book" {
+		return knownBookSource(source)
+	}
+	return knownMovieSource(source)
+}
+
+// knownPictureSource: the picture rungs a cover or poster strip offers.
+func knownPictureSource(source string) string {
+	switch strings.TrimSpace(source) {
+	case "google-images", "amazon":
+		return strings.TrimSpace(source)
+	}
+	return ""
 }
 
 // knownMovieSource is knownBookSource's counterpart. Same whitelist discipline,

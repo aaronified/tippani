@@ -1480,11 +1480,18 @@ export function BookRow({ book, checked, onCheck, open, onToggleLookup, onOpen, 
       series_index: c.series_index || b.series_index || 0,
       source: c.source || undefined,
       source_id: c.source_id || undefined,
+      // Each field the match supplied, credited to its supplier; the server
+      // credits only those this save changes. `source` alone pins the id.
+      sources: Object.fromEntries(
+        ['title', 'author', 'isbn', 'description', 'published_year', 'genres', 'series', 'series_index']
+          .map((f) => [f, c.sources?.[f] || c.source])
+          .filter(([, v]) => v),
+      ),
     }
     const r = await json('PUT', `/books/${book.id}`, base)
     if (!r.ok) return setErr(errText(r))
     // Cover as a separate PUT: if it fails, the metadata above is already saved.
-    if (c.cover_url) await json('PUT', `/books/${book.id}`, { ...base, cover_url: c.cover_url })
+    if (c.cover_url) await json('PUT', `/books/${book.id}`, { ...base, cover_url: c.cover_url, sources: { ...base.sources, cover: c.sources?.cover || c.source } })
     onDone()
   }
 

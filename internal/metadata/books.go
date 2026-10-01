@@ -47,6 +47,10 @@ type BookCandidate struct {
 	Subtitle  string `json:"subtitle"`
 	Publisher string `json:"publisher"`
 	Pages     int    `json:"pages"` // 0 = the source did not say
+	// Sources names, per field, a supplier other than Source where a merge took
+	// that field from another candidate (keys are the record's field names). The
+	// field is then credited to its own supplier when the match is taken.
+	Sources map[string]string `json:"sources,omitempty"`
 
 	// Both provider ids, not just the one in SourceID. A merged candidate is
 	// assembled from two providers and has two identities; keeping only the
@@ -408,7 +412,50 @@ func mergeSameBook(cands []BookCandidate) []BookCandidate {
 			out.Source, out.SourceID = "openlibrary", out.OpenLibraryID
 		}
 	}
+	out.Sources = creditFields(out, cands)
 	return []BookCandidate{out}
+}
+
+// creditFields says which candidate each of the merged record's fields came from,
+// where that is not the record's own primary: the first candidate, the primary's
+// first, whose value is the one the merge kept.
+func creditFields(out BookCandidate, cands []BookCandidate) map[string]string {
+	fields := map[string]func(BookCandidate) string{
+		"title": func(c BookCandidate) string { return c.Title }, "author": func(c BookCandidate) string { return c.Author },
+		"description": func(c BookCandidate) string { return c.Description }, "isbn": func(c BookCandidate) string { return c.ISBN13 },
+		"cover": func(c BookCandidate) string { return c.CoverURL }, "series": func(c BookCandidate) string { return c.Series },
+		"subtitle": func(c BookCandidate) string { return c.Subtitle }, "publisher": func(c BookCandidate) string { return c.Publisher },
+		"published_year": func(c BookCandidate) string { return nonZero(float64(c.PublishedYear)) },
+		"series_index":   func(c BookCandidate) string { return nonZero(c.SeriesIndex) },
+		"pages":          func(c BookCandidate) string { return nonZero(float64(c.Pages)) },
+	}
+	var credit map[string]string
+	for f, of := range fields {
+		v := of(out)
+		if v == "" {
+			continue
+		}
+		from := ""
+		for _, c := range cands {
+			if of(c) == v && (from == "" || c.Source == out.Source) {
+				from = c.Source
+			}
+		}
+		if from != "" && from != out.Source {
+			if credit == nil {
+				credit = map[string]string{}
+			}
+			credit[f] = from
+		}
+	}
+	return credit
+}
+
+func nonZero(f float64) string {
+	if f == 0 {
+		return ""
+	}
+	return strconv.FormatFloat(f, 'f', -1, 64)
 }
 
 // unionGenres merges two subject lists case-insensitively, keeping first-seen

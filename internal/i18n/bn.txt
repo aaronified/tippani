@@ -712,6 +712,7 @@ vocab.source.tmdb.label = TMDB
 vocab.source.tvdb.label = TheTVDB
 # What a row whose supplier the app does not recognise is called.
 vocab.source.manual.label = আপনি
+vocab.source.import.label = ইমপোর্ট করা
 # What a row whose supplier the app does not recognise is called.
 vocab.source.unknown.label = অজানা সূত্র
 

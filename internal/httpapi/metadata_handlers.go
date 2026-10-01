@@ -6,6 +6,7 @@ package httpapi
 import (
 	"cmp"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -705,6 +706,7 @@ func (s *Server) coversRefetchChunk(ctx context.Context, uid int64, cursor strin
 		isbn, asin string
 		cover      string
 		cachedURL  string // cover_url captured in source_metadata at add time
+		cachedSrc  string // and the supplier it came from, the add body's `source`
 		genreCount int
 	}
 	var books []bookRow
@@ -725,9 +727,10 @@ func (s *Server) coversRefetchChunk(ctx context.Context, uid int64, cursor strin
 		if raw != "" {
 			var meta struct {
 				CoverURL string `json:"cover_url"`
+				Source   string `json:"source"`
 			}
 			_ = json.Unmarshal([]byte(raw), &meta)
-			b.cachedURL = meta.CoverURL
+			b.cachedURL, b.cachedSrc = meta.CoverURL, knownBookSource(meta.Source)
 		}
 		books = append(books, b)
 	}
@@ -801,33 +804,37 @@ func (s *Server) coversRefetchChunk(ctx context.Context, uid int64, cursor strin
 		lowRes := !missingOnly && b.cover != "" && oldW > 0 && oldW < lowResCoverWidth
 		wantCover := b.cover == "" || lowRes
 		var urls []string
-		name := ""
+		// The supplier each address belongs to, in step with `urls`: the cover that
+		// arrives is credited to whoever served it, not to the book's match.
+		var from []string
+		try := func(u, src string) { urls, from = append(urls, u), append(from, src) }
+		name, coverFrom := "", ""
 		if wantCover {
 			// Amazon's ISBN-10 image CDN is keyless and serves the full-size
 			// scan — the best-quality source, so try it first. A book Amazon
 			// doesn't stock returns a tiny placeholder the size floor rejects,
 			// so it harmlessly falls through to the next source.
 			if isbnN != "" {
-				urls = append(urls, metadata.AmazonCoverByISBN(isbnN))
+				try(metadata.AmazonCoverByISBN(isbnN), "amazon")
 			}
 			if b.cachedURL != "" {
-				urls = append(urls, metadata.AmazonFullSizeImage(metadata.GoogleHiResCover(b.cachedURL)))
+				try(metadata.AmazonFullSizeImage(metadata.GoogleHiResCover(b.cachedURL)), b.cachedSrc)
 			}
 			if cand != nil {
-				urls = append(urls, cand.CoverURL)
+				try(cand.CoverURL, knownBookSource(cand.Source))
 			}
 			if isbnN != "" {
-				urls = append(urls, "https://covers.openlibrary.org/b/isbn/"+isbnN+"-L.jpg?default=false")
+				try("https://covers.openlibrary.org/b/isbn/"+isbnN+"-L.jpg?default=false", "openlibrary")
 			}
 			if b.asin != "" {
-				urls = append(urls, metadata.AmazonCoverURL(b.asin))
+				try(metadata.AmazonCoverURL(b.asin), "amazon")
 			}
-			for _, u := range urls {
+			for i, u := range urls {
 				if u == "" || ctx.Err() != nil {
 					continue
 				}
 				if n, ferr := s.fetchImage(ctx, u, s.coversDir()); ferr == nil {
-					name = n
+					name, coverFrom = n, from[i]
 					break
 				}
 			}
@@ -857,6 +864,13 @@ func (s *Server) coversRefetchChunk(ctx context.Context, uid int64, cursor strin
 					return err
 				}
 				defer tx.Rollback()
+				// WHAT THIS PASS FILLED, read before and after: the UPDATE below
+				// fills only blanks, so the fields it filled are the ones that were
+				// empty and are not now, and those are the candidate's.
+				before, err := emptyFields(tx, b.uid, "book", b.id)
+				if err != nil {
+					return err
+				}
 				if backfill {
 					// 0061's three join the fill-empty backfill on the same terms as
 					// the three above, in the NULLIF/zero spelling their NOT NULL
@@ -895,8 +909,16 @@ func (s *Server) coversRefetchChunk(ctx context.Context, uid int64, cursor strin
 					}
 				}
 				if name != "" {
-					if _, err := tx.Exec(`UPDATE books SET cover_path = ?, updated_at = datetime('now') WHERE id = ?`, name, b.id); err != nil {
+					if _, err := tx.Exec(`UPDATE books SET cover_path = ?, updated_at = datetime('now') WHERE id = ? AND user_id = ?`, name, b.id, b.uid); err != nil {
 						return fmt.Errorf("cover: %w", err)
+					}
+					if err := store.RecordFieldSources(tx, b.uid, "book", b.id, coverFrom, "", []string{"cover"}); err != nil {
+						return fmt.Errorf("cover source: %w", err)
+					}
+				}
+				if cand != nil {
+					if err := recordFilled(tx, b.uid, "book", b.id, before, knownBookSource(cand.Source), cand.SourceID); err != nil {
+						return fmt.Errorf("field sources: %w", err)
 					}
 				}
 				return tx.Commit()
@@ -1020,7 +1042,23 @@ func (s *Server) coversRefetchChunk(ctx context.Context, uid int64, cursor strin
 			row.what = "kept its poster: nothing larger was found"
 			continue
 		}
-		if _, uerr := s.Store.DB.Exec(`UPDATE movies SET poster_path = ?, updated_at = datetime('now') WHERE id = ?`, name, m.row.id); uerr == nil {
+		// The poster and who served it, in one write: the address is TMDB's image
+		// host by construction (the only poster this pass fetches).
+		uerr := func() error {
+			tx, err := s.Store.DB.Begin()
+			if err != nil {
+				return err
+			}
+			defer tx.Rollback()
+			if _, err := tx.Exec(`UPDATE movies SET poster_path = ?, updated_at = datetime('now') WHERE id = ? AND user_id = ?`, name, m.row.id, uid); err != nil {
+				return err
+			}
+			if err := store.RecordFieldSources(tx, uid, "movie", m.row.id, "tmdb", "", []string{"poster"}); err != nil {
+				return err
+			}
+			return tx.Commit()
+		}()
+		if uerr == nil {
 			fetched++
 			row.what = "poster fetched"
 			if m.oldPoster != "" {
@@ -1082,4 +1120,54 @@ func (s *Server) coversRefetchChunk(ctx context.Context, uid int64, cursor strin
 	c.fetched, c.enriched, c.failed, c.skipped = fetched, enriched, failed, skipped
 	c.next, c.remaining = next, remaining
 	return c, nil
+}
+
+// emptyFields says, for the fields a pass can fill on a work, whether each is
+// empty now. Read inside the pass's transaction, before and after its write; a
+// field empty before and filled after is one the pass filled. `kind` is "book"
+// or "movie", a literal from the caller.
+func emptyFields(tx *sql.Tx, uid int64, kind string, id int64) (map[string]bool, error) {
+	names := []string{"title", "author", "description", "published_year", "isbn", "series", "series_index",
+		"subtitle", "publisher", "pages", "genres"}
+	q := `SELECT title = '', author IS NULL OR author = '', description IS NULL OR description = '',
+		COALESCE(published_year, 0) = 0, isbn IS NULL OR isbn = '', series IS NULL OR series = '',
+		COALESCE(series_index, 0) = 0, subtitle = '', publisher = '', pages = 0,
+		NOT EXISTS (SELECT 1 FROM book_genres WHERE book_id = books.id)
+		FROM books WHERE id = ? AND user_id = ?`
+	if kind == "movie" {
+		names = []string{"title", "director", "description", "release_year", "series", "series_index", "publisher", "genres"}
+		q = `SELECT title = '', director IS NULL OR director = '', description IS NULL OR description = '',
+			COALESCE(release_year, 0) = 0, series IS NULL OR series = '', COALESCE(series_index, 0) = 0,
+			COALESCE(publisher, '') = '', NOT EXISTS (SELECT 1 FROM movie_genres WHERE movie_id = movies.id)
+			FROM movies WHERE id = ? AND user_id = ?`
+	}
+	vals := make([]bool, len(names))
+	ptrs := make([]any, len(names))
+	for i := range vals {
+		ptrs[i] = &vals[i]
+	}
+	if err := tx.QueryRow(q, id, uid).Scan(ptrs...); err != nil {
+		return nil, err
+	}
+	out := make(map[string]bool, len(names))
+	for i, n := range names {
+		out[n] = vals[i]
+	}
+	return out, nil
+}
+
+// recordFilled credits to `source` every field that was empty in `before` (nil:
+// a work just created, where everything was) and is not now.
+func recordFilled(tx *sql.Tx, uid int64, kind string, id int64, before map[string]bool, source, sourceID string) error {
+	after, err := emptyFields(tx, uid, kind, id)
+	if err != nil {
+		return err
+	}
+	var filled []string
+	for f, empty := range after {
+		if wasEmpty, known := before[f]; !empty && (before == nil || (known && wasEmpty)) {
+			filled = append(filled, f)
+		}
+	}
+	return store.RecordFieldSources(tx, uid, kind, id, source, sourceID, filled)
 }

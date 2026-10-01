@@ -710,6 +710,7 @@ export function EditBook({ book, onSaved, onCancel }) {
   // coverUrl / clearCover are the pending change carried in the Save PUT.
   const [coverPath, setCoverPath] = useState(book.cover_path || '')
   const [coverUrl, setCoverUrl] = useState('')
+  const [coverSource, setCoverSource] = useState('') // the supplier a picked cover is credited to
   const [clearCover, setClearCover] = useState(false)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -722,9 +723,21 @@ export function EditBook({ book, onSaved, onCancel }) {
   //  - fill-only (one-click "Fetch metadata"): fill only the empty fields so it
   //    can't clobber edits you already made.
   const keep = (v, next) => (String(v).trim() ? v : next || v)
+  // WHAT A MATCH PUT IN EACH BOX, and whose it was: at the save, a box still
+  // holding exactly that value is credited to the supplier; a box the reader
+  // retyped is theirs.
+  const taken = useRef({})
   function applyCandidate(c, overwrite = false) {
     const has = (x) => x != null && String(x).trim() !== ''
     const take = overwrite ? (v, next) => (has(next) ? next : v) : keep
+    const from = (f) => c.sources?.[f] || c.source
+    taken.current = {
+      title: [from('title'), c.title], author: [from('author'), c.author], isbn: [from('isbn'), c.isbn13],
+      published_year: [from('published_year'), c.published_year ? String(c.published_year) : ''],
+      description: [from('description'), c.description], series: [from('series'), c.series],
+      series_index: [from('series_index'), c.series_index ? String(c.series_index) : ''],
+      genres: [from('genres'), (c.genres || []).join('\n')],
+    }
     setTitle((v) => take(v, c.title))
     setAuthor((v) => take(v, c.author))
     setIsbn((v) => take(v, c.isbn13))
@@ -735,6 +748,7 @@ export function EditBook({ book, onSaved, onCancel }) {
     setSeriesIndex((v) => take(v, c.series_index ? String(c.series_index) : ''))
     if (c.cover_url && (overwrite || (!coverPath && !coverUrl))) {
       setCoverUrl(c.cover_url)
+      setCoverSource(c.sources?.cover || c.source || '')
       setClearCover(false)
     }
   }
@@ -743,6 +757,20 @@ export function EditBook({ book, onSaved, onCancel }) {
   // edition picker (below) so you pick the right match, folding in what used to
   // be a separate "Browse other matches" button.
   const [pickerOpen, setPickerOpen] = useState(false)
+
+  function matchSources() {
+    const now = {
+      title: title.trim(), author: author.trim(), isbn: isbn.trim(), published_year: year.trim(),
+      description: description.trim(), series: series.trim(), series_index: String(seriesIndex || ''),
+      genres: genres.join('\n'),
+    }
+    const out = {}
+    for (const [f, [src, value]] of Object.entries(taken.current)) {
+      if (src && value && String(value).trim() === now[f]) out[f] = src
+    }
+    if (coverUrl && coverSource) out.cover = coverSource
+    return out
+  }
 
   async function submit(e) {
     e.preventDefault()
@@ -780,6 +808,7 @@ export function EditBook({ book, onSaved, onCancel }) {
       series_index: Number(seriesIndex) || 0,
       description: description.trim(),
       cover_url: coverUrl || undefined,
+      sources: matchSources(),
       clear_cover: clearCover || undefined,
     })
     setBusy(false)
@@ -796,8 +825,9 @@ export function EditBook({ book, onSaved, onCancel }) {
         asin={asin}
         coverUrl={coverUrl}
         clearCover={clearCover}
-        onSetUrl={(u) => {
+        onSetUrl={(u, src) => {
           setCoverUrl(u)
+          setCoverSource(src || '')
           setClearCover(false)
         }}
         onClear={(reset) => {

@@ -68,8 +68,12 @@ type movieReq struct {
 	TextOrder string `json:"text_order"`
 	Source    string `json:"source"`    // "tmdb" | "tvdb": with SourceID, create/resync from that supplier
 	SourceID  string `json:"source_id"` // id within the source
-	Title     string `json:"title"`
-	Director  string `json:"director"` // "creator" for shows; one column, labelled per media_type in the UI
+	// Sources credits changed fields to the supplier each was taken from, as
+	// bookReq.Sources does. Never sent with Source+SourceID: that pair makes this
+	// PUT a re-sync, which records the supplier itself.
+	Sources  map[string]string `json:"sources"`
+	Title    string            `json:"title"`
+	Director string            `json:"director"` // "creator" for shows; one column, labelled per media_type in the UI
 	// Publisher is the OTHER company credit a game has (0042). Its own field
 	// rather than a second meaning for Director, because collapsing the two is
 	// the bug that migration exists to end.
@@ -415,6 +419,25 @@ func (s *Server) handleCreateMovie(w http.ResponseWriter, r *http.Request) {
 	// 0056: the two company columns are the input; the link rows are the record.
 	if err := s.syncMovieCredits(tx, uid, id, req.Director, req.Publisher); err != nil {
 		internalError(w, r, "create movie: credits", err)
+		return
+	}
+	// A film typed in by hand is the reader's, field by field, as a typed book
+	// already is (bookCreateSource): an absent row then means "we do not know".
+	typed := []string{"title"}
+	for _, f := range []struct {
+		name string
+		set  bool
+	}{
+		{"director", strings.TrimSpace(req.Director) != ""}, {"description", strings.TrimSpace(req.Description) != ""},
+		{"release_year", req.ReleaseYear != 0}, {"series", strings.TrimSpace(req.Series) != ""},
+		{"publisher", strings.TrimSpace(req.Publisher) != ""}, {"genres", len(req.Genres) > 0},
+	} {
+		if f.set {
+			typed = append(typed, f.name)
+		}
+	}
+	if err := store.RecordFieldSources(tx, uid, "movie", id, store.SourceManual, "", typed); err != nil {
+		internalError(w, r, "create movie: record field sources", err)
 		return
 	}
 	if err := tx.Commit(); err != nil {
@@ -975,13 +998,20 @@ func (s *Server) handleUpdateMovie(w http.ResponseWriter, r *http.Request) {
 	// TMDB wrote it for ever. Films had this gap too, so fixing one kind and not the
 	// other would leave the asymmetry the provenance table exists to remove.
 	var was struct {
-		title, director, description, series sql.NullString
-		releaseYear                          sql.NullInt64
+		title, director, description, series, publisher sql.NullString
+		releaseYear                                     sql.NullInt64
+		seriesIndex                                     sql.NullFloat64
 	}
 	if err := tx.QueryRow(`
-		SELECT title, director, description, series, release_year
+		SELECT title, director, description, series, release_year, publisher, series_index
 		  FROM movies WHERE id = ? AND user_id = ?`, id, uid).
-		Scan(&was.title, &was.director, &was.description, &was.series, &was.releaseYear); err != nil && err != sql.ErrNoRows {
+		Scan(&was.title, &was.director, &was.description, &was.series, &was.releaseYear,
+			&was.publisher, &was.seriesIndex); err != nil && err != sql.ErrNoRows {
+		failErr("update movie: read current", err)
+		return
+	}
+	wasGenres, err := storedGenres(tx, "movie", uid, id)
+	if err != nil {
 		failErr("update movie: read current", err)
 		return
 	}
@@ -1026,13 +1056,19 @@ func (s *Server) handleUpdateMovie(w http.ResponseWriter, r *http.Request) {
 		{"description", was.description.String, req.Description},
 		{"series", was.series.String, req.Series},
 		{"release_year", wasYear, nowYear},
+		{"publisher", was.publisher.String, req.Publisher},
+		{"series_index", floatBlank(was.seriesIndex.Float64), floatBlank(req.SeriesIndex)},
+		{"genres", wasGenres, genreKey(req.Genres)},
 	} {
 		if strings.TrimSpace(f.was) != strings.TrimSpace(f.now) {
 			edited = append(edited, f.name)
 		}
 	}
+	if changePoster {
+		edited = append(edited, "poster")
+	}
 	if len(edited) > 0 {
-		if err := store.RecordFieldSources(tx, uid, "movie", id, store.SourceManual, "", edited); err != nil {
+		if err := recordEdits(tx, uid, "movie", id, edited, req.Sources); err != nil {
 			failErr("update movie: record field sources", err)
 			return
 		}

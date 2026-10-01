@@ -12,6 +12,7 @@ import (
 
 	"tippani/internal/metadata"
 	"tippani/internal/olog"
+	"tippani/internal/store"
 )
 
 // maxUploadBytes bounds the whole multipart envelope; the image itself is
@@ -121,8 +122,23 @@ func (s *Server) uploadCover(w http.ResponseWriter, r *http.Request, table, colu
 		writeErr(w, http.StatusBadRequest, "that file isn't an accepted image (JPG/PNG/WebP/GIF, under 10 MB)")
 		return
 	}
-	if _, err := s.Store.DB.Exec(
-		`UPDATE `+table+` SET `+column+` = ? WHERE id = ? AND user_id = ?`, name, id, uid); err != nil {
+	// AN UPLOADED PICTURE IS THE READER'S, so a work's cover or poster is credited
+	// to them in the same transaction: without it a cover taken from Google and
+	// then replaced by an upload went on saying Google.
+	credit, isWork := map[string][2]string{"books": {"book", "cover"}, "movies": {"movie", "poster"}}[table]
+	tx, err := s.Store.DB.Begin()
+	if err == nil {
+		_, err = tx.Exec(`UPDATE `+table+` SET `+column+` = ? WHERE id = ? AND user_id = ?`, name, id, uid)
+		if err == nil && isWork {
+			err = store.RecordFieldSources(tx, uid, credit[0], id, store.SourceManual, "", []string{credit[1]})
+		}
+		if err == nil {
+			err = tx.Commit()
+		} else {
+			tx.Rollback()
+		}
+	}
+	if err != nil {
 		s.removeCoverFile(name)
 		internalError(w, r, "update cover", err)
 		return

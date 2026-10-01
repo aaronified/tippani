@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sort"
 	"strings"
 	"unicode"
 
@@ -328,6 +329,40 @@ func titleCaseGenre(s string) string {
 // join rows, recompute the denormalized genre_text — which feeds FTS via the
 // UPDATE trigger (PLAN §3) — then GC genres nothing references. The genres
 // table is shared between books and movies (PLAN §3b).
+// genreKey is a list of genres as a comparable string: cleaned and title-cased
+// as setGenres stores them, case-folded and sorted, so a save that re-posts the
+// same genres in another order or casing (every ♥ press is a full-state save) is
+// not a change.
+func genreKey(names []string) string {
+	names = cleanNames(names)
+	out := make([]string, len(names))
+	for i, n := range names {
+		out[i] = strings.ToLower(titleCaseGenre(n))
+	}
+	sort.Strings(out)
+	return strings.Join(out, "\n")
+}
+
+// storedGenres is a work's genres as genreKey writes them. `kind` is "book" or
+// "movie", a literal from the caller, never the wire.
+func storedGenres(tx *sql.Tx, kind string, uid, id int64) (string, error) {
+	rows, err := tx.Query(`SELECT g.name FROM `+kind+`_genres x JOIN genres g ON g.id = x.genre_id
+	                        WHERE x.`+kind+`_id = ? AND g.user_id = ?`, id, uid)
+	if err != nil {
+		return "", err
+	}
+	defer rows.Close()
+	var names []string
+	for rows.Next() {
+		var n string
+		if err := rows.Scan(&n); err != nil {
+			return "", err
+		}
+		names = append(names, n)
+	}
+	return genreKey(names), rows.Err()
+}
+
 func setGenres(tx *sql.Tx, kind string, userID, ownerID int64, names []string) error {
 	names = cleanNames(names)
 	// Genres carry a consistent casing (Title Case, acronyms preserved); tags keep

@@ -10782,6 +10782,8 @@ const SOURCE_KEYS = {
   // Not a supplier. `manual` is the store's word for "somebody looked at this and
   // decided", which it treats as a real answer rather than the absence of one.
   manual: "vocab.source.manual.label",
+  // Not a supplier: the field came in a file the reader imported.
+  import: "vocab.source.import.label",
 };
 
 // An unknown slug falls through to itself rather than to a missing key.

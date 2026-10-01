@@ -55,6 +55,12 @@ type bookReq struct {
 	ClearCover     bool     `json:"clear_cover"` // update: drop the current cover
 	Source         string   `json:"source"`
 	SourceID       string   `json:"source_id"`
+	// Sources credits fields to the supplier they were taken from, field by
+	// field (a merge can take two suppliers' fields at once): the wire the
+	// re-verify apply carries. Validated per field; only a field this save
+	// changes is credited, and every other changed field is the reader's.
+	// Source and SourceID keep their own meaning, which is to pin an id.
+	Sources map[string]string `json:"sources"`
 	// Both provider ids, for a candidate assembled from both of them. Source and
 	// SourceID still carry the primary, so a client that sends only those keeps
 	// working exactly as before.
@@ -369,9 +375,25 @@ func (s *Server) handleCreateBook(w http.ResponseWriter, r *http.Request) {
 	}
 	// WHERE EACH FIELD CAME FROM (0054), in this transaction: provenance that
 	// outlived a rolled-back insert would describe a row that does not exist.
+	// A merged candidate names, per field, a supplier other than its primary
+	// (`sources`); those fields are credited to it, the rest to the primary.
 	if src, srcID := bookCreateSource(&req); true {
-		if perr := store.RecordFieldSources(tx, uid, "book", id, src, srcID,
-			bookFieldsFrom(&req, coverPath)); perr != nil {
+		var own []string
+		taken := map[string][]string{}
+		for _, f := range bookFieldsFrom(&req, coverPath) {
+			if o := fieldSupplier("book", f, req.Sources[f]); o != "" && o != src {
+				taken[o] = append(taken[o], f)
+			} else {
+				own = append(own, f)
+			}
+		}
+		perr := store.RecordFieldSources(tx, uid, "book", id, src, srcID, own)
+		for o, fields := range taken {
+			if perr == nil {
+				perr = store.RecordFieldSources(tx, uid, "book", id, o, "", fields)
+			}
+		}
+		if perr != nil {
 			s.removeCoverFile(coverPath)
 			internalError(w, r, "create book: record field sources", perr)
 			return
@@ -643,12 +665,18 @@ func (s *Server) handleUpdateBook(w http.ResponseWriter, r *http.Request) {
 		// would be describing a state the column cannot be in.
 		subtitle, publisher, links string
 		pages                      int
+		seriesIndex                sql.NullFloat64
 	}
 	if err := tx.QueryRow(`
-		SELECT title, author, description, isbn, series, published_year, subtitle, publisher, pages, links
+		SELECT title, author, description, isbn, series, published_year, subtitle, publisher, pages, links, series_index
 		  FROM books WHERE id = ? AND user_id = ?`, id, uid).
 		Scan(&was.title, &was.author, &was.description, &was.isbn, &was.series, &was.publishedYear,
-			&was.subtitle, &was.publisher, &was.pages, &was.links); err != nil && err != sql.ErrNoRows {
+			&was.subtitle, &was.publisher, &was.pages, &was.links, &was.seriesIndex); err != nil && err != sql.ErrNoRows {
+		failErr("update book", err)
+		return
+	}
+	wasGenres, err := storedGenres(tx, "book", uid, id)
+	if err != nil {
 		failErr("update book", err)
 		return
 	}
@@ -718,13 +746,18 @@ func (s *Server) handleUpdateBook(w http.ResponseWriter, r *http.Request) {
 		{"publisher", was.publisher, req.Publisher},
 		{"pages", itoaZeroBlank(was.pages), itoaZeroBlank(req.Pages)},
 		{"links", was.links, req.Links},
+		{"series_index", floatBlank(was.seriesIndex.Float64), floatBlank(req.SeriesIndex)},
+		{"genres", wasGenres, genreKey(req.Genres)},
 	} {
 		if strings.TrimSpace(f.was) != strings.TrimSpace(f.now) {
 			edited = append(edited, f.name)
 		}
 	}
+	if changeCover {
+		edited = append(edited, "cover")
+	}
 	if len(edited) > 0 {
-		if err := store.RecordFieldSources(tx, uid, "book", id, store.SourceManual, "", edited); err != nil {
+		if err := recordEdits(tx, uid, "book", id, edited, req.Sources); err != nil {
 			failErr("update book", err)
 			return
 		}
@@ -811,6 +844,7 @@ func bookFieldsFrom(req *bookReq, coverPath string) []string {
 	add(strings.TrimSpace(req.Description) != "", "description")
 	add(req.PublishedYear != 0, "published_year")
 	add(strings.TrimSpace(req.Series) != "", "series")
+	add(req.SeriesIndex != 0, "series_index")
 	add(strings.TrimSpace(req.ISBN) != "", "isbn")
 	add(strings.TrimSpace(req.Subtitle) != "", "subtitle")
 	add(strings.TrimSpace(req.Publisher) != "", "publisher")
@@ -829,9 +863,13 @@ func bookFieldsFrom(req *bookReq, coverPath string) []string {
 // nobody. Recording the second as manual is what makes an ABSENT row mean "we do
 // not know" — a library that predates the table, or a field nothing has written
 // since — rather than collapsing the reader's own work into the same silence.
+//
+// A NAMED SOURCE THE VOCABULARY DOES NOT KNOW RECORDS NOTHING ("" here): the raw
+// string used to be written as the field's supplier, which is a claim nothing
+// checked.
 func bookCreateSource(req *bookReq) (source, sourceID string) {
 	if s := strings.TrimSpace(req.Source); s != "" {
-		return s, strings.TrimSpace(req.SourceID)
+		return knownBookSource(s), strings.TrimSpace(req.SourceID)
 	}
 	return store.SourceManual, ""
 }
@@ -842,6 +880,14 @@ func bookCreateSource(req *bookReq) (source, sourceID string) {
 // the digit would make clearing a page count read as an edit from 480 to 0 rather
 // than to nothing — true, but it would then also make an untouched blank compare
 // equal to itself only by luck of formatting.
+// floatBlank is a series number as text, blank for zero (no number).
+func floatBlank(f float64) string {
+	if f == 0 {
+		return ""
+	}
+	return strconv.FormatFloat(f, 'f', -1, 64)
+}
+
 func itoaZeroBlank(n int) string {
 	if n == 0 {
 		return ""

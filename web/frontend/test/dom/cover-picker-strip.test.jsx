@@ -84,7 +84,7 @@ describe('the candidate strip', () => {
     expect(img.getAttribute('src')).toBe('https://encrypted-tbn0.gstatic.com/t')
 
     fireEvent.click(img.closest('button'))
-    expect(onSetUrl).toHaveBeenCalledWith('https://pics.test/dune-full.jpg')
+    expect(onSetUrl).toHaveBeenCalledWith('https://pics.test/dune-full.jpg', 'google-images') // a web picture is Google Images, not Google Books
   })
 
   // A catalogue candidate has one address and must not be changed by the
@@ -100,7 +100,7 @@ describe('the candidate strip', () => {
     })
     expect(img.getAttribute('src')).toBe('https://books.google.com/dune.jpg')
     fireEvent.click(img.closest('button'))
-    expect(onSetUrl).toHaveBeenCalledWith('https://books.google.com/dune.jpg')
+    expect(onSetUrl).toHaveBeenCalledWith('https://books.google.com/dune.jpg', 'google') // credited to the supplier that offered it
   })
 
   // The preview above the controls shows the pending pick. For a picture whose

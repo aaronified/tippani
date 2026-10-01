@@ -184,10 +184,12 @@ export function CoverControls({
     // search returns pictures from hosts no allowlist can name in advance, so
     // the page previews the supplier's own thumbnail host and the server fetches
     // the original, where no Content-Security-Policy applies.
-    const add = (url, source, thumb = '') => {
+    // `slug` is the supplier the picture is credited to when it is taken; the
+    // strip prints its name.
+    const add = (url, slug, thumb = '') => {
       if (url && !seen.has(url)) {
         seen.add(url)
-        found.push({ url, source, thumb })
+        found.push({ url, slug, source: sourceName(slug), thumb })
       }
     }
     if (kind === 'movies') {
@@ -211,7 +213,7 @@ export function CoverControls({
       // The badge under each candidate says where it came from, so it has to
       // read the source rather than guess from a two-way ternary — which
       // labelled every IGDB and Wikidata game cover "TMDB".
-      for (const c of r.data.candidates || []) add(hiResPoster(c.poster_url), sourceName(c.source || 'tmdb'))
+      for (const c of r.data.candidates || []) add(hiResPoster(c.poster_url), c.source || 'tmdb')
     } else {
       const body = {}
       if (search?.isbn?.trim()) body.isbn = search.isbn.trim()
@@ -224,8 +226,8 @@ export function CoverControls({
         return setErr(errText(r, t('error.lookup.failed')))
       }
       for (const c of r.data.candidates || [])
-        add(c.cover_url, sourceName(c.source === 'openlibrary' || c.source === 'amazon' ? c.source : 'google'))
-      if (search?.asin?.trim()) add(amazonCoverURL(search.asin), sourceName('amazon'))
+        add(c.cover_url, c.sources?.cover || (c.source === 'openlibrary' || c.source === 'amazon' ? c.source : 'google'))
+      if (search?.asin?.trim()) add(amazonCoverURL(search.asin), 'amazon')
     }
     // THE PICTURE SOURCES, after the catalogue ones and never instead of them.
     // A catalogue hands back the record's own art — the publisher's cover, the
@@ -249,7 +251,7 @@ export function CoverControls({
       media_type: kind === 'movies' ? (search?.mediaType || 'movie') : undefined,
     }).catch(() => ({ ok: false }))
     if (pics.ok) {
-      for (const im of pics.data?.images || []) add(im.url, sourceName(im.source), im.thumb)
+      for (const im of pics.data?.images || []) add(im.url, im.source === 'google' ? 'google-images' : im.source, im.thumb)
     }
     setSearching(false)
     setCovers(found)
@@ -403,7 +405,7 @@ export function CoverControls({
                 source={c.source}
                 noun={noun}
                 onPick={() => {
-                  onSetUrl(c.url)
+                  onSetUrl(c.url, c.slug)
                   setPreviewFor({ url: c.url, thumb: c.thumb })
                   setCovers(null)
                 }}
