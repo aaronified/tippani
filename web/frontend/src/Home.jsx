@@ -21,6 +21,7 @@ import { PendingImportCard } from './StagingPage.jsx'
 import { overCapacity } from './quiz.js'
 import { QuizRunner, tzOffsetMinutes } from './review.jsx'
 import { dailyDeck } from './daily.js'
+import { keptAnswers, onAnswerQueue, useKeptAnswers } from './answerQueue.js'
 import {
   CreditFaces,
   PersonCredit,
@@ -166,6 +167,9 @@ function DailyQuizCard({ onPending, states, capacity, onStates, adaptive, submit
   const [data, setData] = useState(null)
   const [phase, setPhase] = useState('loading') // loading | active | done | error
   const [tally, setTally] = useState({ got: 0, forgot: 0 })
+  // Answers given today that the server had not taken when the deck came: the
+  // streak counts today from the first of them, as the server will.
+  const [answeredToday, setAnsweredToday] = useState(0)
   const [help, setHelp] = useState(false)
 
   useEffect(() => {
@@ -173,27 +177,43 @@ function DailyQuizCard({ onPending, states, capacity, onStates, adaptive, submit
       // A failed fetch must NOT masquerade as "all caught up" — show an error and
       // leave the pending dot as the shell seeded it.
       if (!r.ok) return setPhase('error')
-      setData(r.data)
-      setTally({ got: r.data.got_today || 0, forgot: r.data.forgot_today || 0 })
+      // THE ANSWERS STILL ON THIS DEVICE ARE ANSWERS. The server has not heard of
+      // them, so its deck still holds their cards and its tally leaves them out:
+      // a refresh would ask a card again that the reader answered a minute ago,
+      // which is the owner's report ("Now on page refresh, that will come back").
+      // So their cards leave the deck, and today's count into the tally. A cloze
+      // the server has not marked yet counts as answered, not as right or wrong.
+      const kept = keptAnswers().filter((e) => e.mode === 'daily')
+      const waiting = new Set(kept.map((e) => `${e.kind}:${e.id}`))
+      const today = kept.filter((e) => localDay(e.t, e.offset) === localDay(Date.now(), tzOffsetMinutes()))
+      const items = (r.data.items || []).filter((c) => !waiting.has(`${c.kind}:${c.id}`))
+      setData({ ...r.data, items })
+      setTally({
+        got: (r.data.got_today || 0) + today.filter((e) => e.attempt == null && e.result === 'got').length,
+        forgot: (r.data.forgot_today || 0) + today.filter((e) => e.attempt == null && e.result === 'forgot').length,
+      })
+      setAnsweredToday((r.data.answered_today || 0) + today.length)
       onStates?.(r.data.states, r.data.capacity)
-      const n = (r.data.items || []).length
-      onPending(n)
-      setPhase(n ? 'active' : 'done')
+      onPending(items.length)
+      setPhase(items.length ? 'active' : 'done')
     })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  function onAnswered(result, res) {
+  // Counted as the answer is kept: the server's own counts arrive as it takes
+  // each one (Home listens to the queue for them).
+  function onAnswered(result) {
     setTally((prev) => ({
       got: prev.got + (result === 'got' ? 1 : 0),
       forgot: prev.forgot + (result === 'forgot' ? 1 : 0),
     }))
-    if (res && typeof res.remaining === 'number') onPending(res.remaining)
-    // Every answer carries fresh library-wide status counts, so "where you
-    // stand" ticks live instead of waiting for the next Home visit.
-    if (res?.states) onStates?.(res.states, res.capacity)
+    setAnsweredToday((n) => n + 1)
   }
 
-  const streak = data?.streak || 0
+  // THE STREAK COUNTS TODAY FROM ITS FIRST ANSWER. The server's figure, read with
+  // the deck, ends yesterday until an answer of today reaches it; it read 54 on
+  // "all caught up" and 55 after a refresh, the owner's screenshots. A day the
+  // server already counted adds nothing.
+  const streak = (data?.streak || 0) + (data && !data.answered_today && answeredToday > 0 ? 1 : 0)
   return (
     <HandCard variant={0} style={{ padding: '16px 18px 14px' }}>
       <div className="mb-2.5 flex items-baseline justify-between gap-3">
@@ -218,7 +238,8 @@ function DailyQuizCard({ onPending, states, capacity, onStates, adaptive, submit
           allowSkip={false}
           submitStep={submitStep}
           onAnswered={onAnswered}
-          onDone={() => setPhase('done')}
+          onIndex={(i) => onPending(Math.max(0, data.items.length - i))}
+          onDone={() => { onPending(0); setPhase('done') }}
         />
       ) : (
         <div className="review-card-body py-4 text-center" style={{ padding: '18px 6px 12px' }}>
@@ -236,11 +257,62 @@ function DailyQuizCard({ onPending, states, capacity, onStates, adaptive, submit
         </div>
       )}
 
+      <KeptLine />
+
       {states && (
         <StatesRow states={states} capacity={capacity} help={help} onToggleHelp={() => setHelp((v) => !v)} adaptive={adaptive} />
       )}
     </HandCard>
   )
+}
+
+// The reader's local date of a moment (epoch ms), at a UTC offset in minutes.
+const localDay = (ms, offset) => new Date(ms + (offset || 0) * 60000).toISOString().slice(0, 10)
+
+// KeptLine — the one place the sending is ever mentioned, and only once it is
+// slow: answers the server has not taken, after the oldest has waited a minute.
+// A quick send is not news. A long wait is, because nothing can be sent while the
+// app is closed, and an answer the reader thinks is safe should not be news later.
+const KEPT_QUIET_MS = 60000
+function KeptLine() {
+  const kept = useKeptAnswers()
+  const [, tick] = useState(0)
+  const oldest = kept.length ? kept[0].t : null
+  const late = oldest != null && Date.now() - oldest >= KEPT_QUIET_MS
+  useEffect(() => {
+    if (oldest == null || late) return undefined
+    const id = setTimeout(() => tick((n) => n + 1), oldest + KEPT_QUIET_MS - Date.now())
+    return () => clearTimeout(id)
+  }, [oldest, late])
+  if (!late) return null
+  return (
+    <p className="mono-label mt-2" style={{ color: 'var(--faint)', letterSpacing: '.06em' }}>
+      {t('quiz.kept.waiting', { n: kept.length, count: kept.length })}
+    </p>
+  )
+}
+
+// withKept — "where you stand" with the kept Daily answers already in it. A
+// Daily answer always moves its card, and where to depends only on the grade (a
+// card answered a moment ago is "remembered" if it was got and "probably
+// forgotten" if not; recallStatus on the server), so the move is known before the
+// server hears. The server's counts are the base, and as it takes each answer the
+// base moves and the answer leaves this list, so nothing is counted twice. A
+// Practice answer moves a card only when Practice is set to count, and a cloze's
+// grade is the server's, so both wait for its counts.
+const STATE_FIELD = { remembered: 'remembered', forgetting: 'forgetting', 'probably-forgotten': 'probably_forgotten', unseen: 'unseen' }
+function withKept(states, kept) {
+  if (!states) return states
+  const out = { ...states }
+  for (const e of kept) {
+    if (e.mode !== 'daily' || e.attempt != null) continue
+    const from = STATE_FIELD[e.from]
+    const to = e.result === 'got' ? 'remembered' : 'probably_forgotten'
+    if (!from || from === to || !(out[from] > 0)) continue
+    out[from] -= 1
+    out[to] = (out[to] || 0) + 1
+  }
+  return out
 }
 
 // PracticeCard — unlimited retrieval practice (ROADMAP №2): the same reveal/grade
@@ -287,18 +359,24 @@ function PracticeCard({ onStates, userId, submitStep }) {
     setPhase('done')
   }
 
-  function onAnswered(result, res) {
+  function onAnswered(result) {
     // Tally lives in the persisted session so a reload doesn't lose the count.
+    // "Where you stand" follows the server's counts as it takes each answer
+    // (Home listens to the queue for them).
     setSession((s) => (s ? {
       ...s,
       got: s.got + (result === 'got' ? 1 : 0),
       forgot: s.forgot + (result === 'forgot' ? 1 : 0),
     } : s))
-    // Practice answers refresh the Daily card's "where you stand" row too — the
-    // server returns the counts on every answer (they move when practice is set
-    // to touch the schedule, and stay honest either way).
-    if (res?.states) onStates?.(res.states, res.capacity)
   }
+
+  // THE SCORE IS THE SERVER'S, so it is read again as the server takes each
+  // Practice answer: a round finished while answers were still on this device
+  // would otherwise show a score a few answers short until the next visit.
+  const idle = phase !== 'active'
+  useEffect(() => onAnswerQueue((e) => {
+    if (e.type === 'sent' && e.entry.mode === 'practice' && idle) loadScore()
+  }), [idle]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function reset() {
     await json('DELETE', '/review/practice')
@@ -636,6 +714,15 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
     setStates(s)
     if (Number.isFinite(cap)) setCapacity(cap)
   }, [])
+  // THE SERVER'S COUNTS ARRIVE AS IT TAKES EACH KEPT ANSWER, whichever card gave
+  // it and whether or not that card is still on screen; until then the kept Daily
+  // answers are moved on top of them (withKept), so the row moves when the reader
+  // answers, not when the network gets round to it.
+  useEffect(() => onAnswerQueue((e) => {
+    if (e.type === 'sent' && e.data?.states) takeStates(e.data.states, e.data.capacity)
+  }), [takeStates])
+  const kept = useKeptAnswers()
+  const shownStates = useMemo(() => withKept(states, kept), [states, kept])
   const { stickers, reload: reloadStickers } = useStickers()
   // Drawn once per mount, not per render: a greeting that reshuffled every time
   // a quiz card re-rendered would be a flicker, not a flourish. A reload picks
@@ -859,7 +946,7 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
           entered the library yet, and that is easy to forget. */}
       <PendingImportCard pending={pendingImport} onOpen={onReviewImport} />
 
-      <DailyQuizCard onPending={onPending} states={states} capacity={capacity} onStates={takeStates} adaptive={!user?.preferences?.srLadder} submitStep={!!user?.preferences?.srSubmit} />
+      <DailyQuizCard onPending={onPending} states={shownStates} capacity={capacity} onStates={takeStates} adaptive={!user?.preferences?.srLadder} submitStep={!!user?.preferences?.srSubmit} />
 
       <PracticeCard onStates={takeStates} userId={user?.id} submitStep={!!user?.preferences?.srSubmit} />
 

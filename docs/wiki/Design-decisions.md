@@ -2,7 +2,7 @@
 
 Every design decision I have made in this project, with the reasoning that produced it,
 the alternative I turned down, and — where it applies — the part I got wrong and what
-changed my mind. Eight hundred and ninety-six entries, grouped by what they are about
+changed my mind. Eight hundred and ninety-seven entries, grouped by what they are about
 rather than by when they happened. An entry is a `###` heading in the eighteen numbered
 sections or a `##` heading after them; a heading inside an entry is part of it, and the
 three headings in §18 that hold tables rather than a decision are not entries.
@@ -3162,6 +3162,20 @@ Why 365 and not more: one year is the longest retention interval Cepeda, Vul, Ro
 **Approved.** Mine, and I approved fixing `json()` for the whole app rather than the quiz alone — it unsticks in-flight flags everywhere.
 
 <sub>1.0.0 — `CHANGELOG.md`</sub>
+
+### A grade is kept on the device and sent until the server takes it
+
+**Decided.** Every quiz answer, Daily and Practice, is written to this browser's storage the moment it is given (`answerQueue.js`, keyed per reader), and the card moves on at once with nothing on screen about sending. One sender posts the kept answers in the order given and drops each only when the server has answered: a 2xx takes it, a 4xx other than 401/408/429 drops it (sending again would be refused again), and anything else, a network failure included, waits 2 s, doubling to a minute, and tries again; so do coming back online, coming back to the tab, and the next start of the app. Each answer carries an id the browser made and how long ago it was given. The server keeps the id in the recall log (migration 0080) and answers an id it already holds with the state as it stands, writing nothing; it files the answer at `now − ago`, on that day's tally and streak, and an answer older than the card's last review is logged but moves no schedule. Until the server has an answer, the Daily card leaves its card out of the deck, counts it in the tally and the streak, and moves it in "where you stand". After the oldest kept answer has waited a minute, one line under the card says how many are waiting. A typed blank still waits briefly for its mark, because the server grades it; if the mark cannot come, the card says "kept, to be marked" and Next works.
+
+**Why.** The owner, 1 October: "this saving thing is often a long thing … If i click next at this point, it progresses without saving and then after the quiz is over it again comes back on page refresh", and, of a round where four of five answers reached the server, "Now on page refresh, that will come back." The entry above made Next always work and accepted losing the grade as "a small cost"; the owner's report is what that cost looks like, a card asked twice and a score short. The owner asked for "the whole quiz [to] be recorded before syncing … That way the sync will not even be visible to users … make sure that the sync keeps on retrying."
+
+**Instead of.** A server job, the owner's first idea ("Can this be a job"): the answer that goes missing never reaches the server, so nothing the server runs can recover it, and the jobs queue is for work that outlives a press, not for one row. A timestamp in place of the age: the browser's clock may be wrong, and the age needs only the clock to run at the right speed. Holding a Practice repeat to the same-day echo the Daily mode already had: Practice answers the same card several times a day by design, so only an id can tell a repeat from a resend.
+
+**Got wrong on the way.** The first sender fell back to its in-memory copy whenever storage had no key, so after another tab sent the last answer and removed the key, this tab brought the sent answers back. The dom test found it by leaking one test's answer into the next. Memory is now used only when storage throws.
+
+**Approved.** The owner agreed the design on 1 October ("i agree with your suggestion").
+
+<sub>Unreleased — `web/frontend/src/answerQueue.js` · `internal/httpapi/review_handlers.go` · `internal/store/migrations/0080_recall_client_id.sql`</sub>
 
 ### Practice state persists per user, not per browser
 

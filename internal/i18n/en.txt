@@ -3178,8 +3178,12 @@ quiz.cloze.placeholder = type what belongs in the blank
 # The same placeholder where there is a keyboard. {key} is a key cap.
 quiz.cloze.placeholder-key = type what belongs in the blank · {key}
 quiz.cloze.check.label = Check
+# Beside Check while the server marks the attempt.
+quiz.checking.label = checking…
 # Above the right answer, once it has been checked.
 quiz.cloze.answer.label = the missing words
+# Above the reader's own attempt, when it could not be checked yet.
+quiz.cloze.yours.label = what you wrote
 # Under the revealed words when the attempt was a close synonym rather than the
 # word itself: it counted, and it earned less. See quiz.tuning.cloze-synonym.
 quiz.cloze.synonym.note = counted as a synonym — worth less than the words themselves
@@ -3216,7 +3220,13 @@ quiz.verdict.correct.label = correct
 quiz.verdict.wrong.label = not quite
 quiz.verdict.recalled.label = recalled
 quiz.verdict.noted.label = noted
-quiz.saving.label = saving…
+# A cloze attempt that could not be checked yet: it is kept on the device and
+# marked once it reaches the server.
+quiz.verdict.kept.label = kept, to be marked
+# The answers kept on the device that the server has not taken yet, said only once
+# the oldest has waited a minute: a quick send is never mentioned.
+quiz.kept.waiting.one = {n} answer waiting to be sent
+quiz.kept.waiting.other = {n} answers waiting to be sent
 quiz.next.label = Next
 quiz.finish.label = Finish
 # With the confirm step on: an option is chosen but nothing has been posted.
@@ -3248,7 +3258,6 @@ common.toast.saved = saved
 # the shipped English used a contraction at these two sites and this pass is a
 # migration rather than a copy edit — collapse them if the copy is ever revised.
 error.save.quiz-card = couldn’t save
-error.save.quiz-answer = couldn’t save — this answer won’t count towards your schedule
 error.load.quiz-card = couldn’t load this quote
 error.setaside.generic = couldn’t set it aside
 

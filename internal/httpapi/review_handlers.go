@@ -612,7 +612,14 @@ func tzOffset(v string) (int, bool) {
 // seed, and the SQLite datetime modifier that shifts a stored UTC timestamp
 // into the reviewer's local time.
 func reviewDay(offset int) (day string, seed int64, mod string) {
-	local := time.Now().UTC().Add(time.Duration(offset) * time.Minute)
+	return reviewDayAt(offset, time.Now())
+}
+
+// reviewDayAt is reviewDay for a moment other than now: an answer the browser
+// kept while the server could not be reached belongs to the day it was given,
+// not to the day it arrived.
+func reviewDayAt(offset int, at time.Time) (day string, seed int64, mod string) {
+	local := at.UTC().Add(time.Duration(offset) * time.Minute)
 	return local.Format("2006-01-02"), local.Unix() / 86400, fmt.Sprintf("%+d minutes", offset)
 }
 
@@ -904,11 +911,17 @@ type reviewCand struct {
 }
 
 func elapsedDays(ts sql.NullString) float64 {
+	return elapsedDaysAt(ts, time.Now())
+}
+
+// elapsedDaysAt is elapsedDays measured to a given moment: the gap a kept answer
+// was given across, not the one it was sent across.
+func elapsedDaysAt(ts sql.NullString, at time.Time) float64 {
 	if !ts.Valid {
 		return 0
 	}
 	if t, err := time.Parse("2006-01-02 15:04:05", ts.String); err == nil {
-		return time.Since(t).Hours() / 24
+		return at.Sub(t).Hours() / 24
 	}
 	return 0
 }
@@ -2874,6 +2887,10 @@ func (s *Server) handlePractice(w http.ResponseWriter, r *http.Request) {
 // into the schedule (and enforces one answer per card per day); mode="practice"
 // only moves the schedule when srPracticeCounts is on, and allows skip. Every
 // non-skip answer is tallied into that mode's session for the local day.
+// How long an answer may wait to be sent. A browser left closed for longer than
+// that holds an answer nobody remembers giving.
+const answerKeptFor = 30 * 24 * time.Hour
+
 func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Kind   string `json:"kind"`
@@ -2894,10 +2911,44 @@ func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
 		// built with (clozeSpan is derived from kind and id alone, never from the
 		// day) and decides got/forgot itself, ignoring whatever `result` said.
 		Attempt *string `json:"attempt"`
+		// THE BROWSER KEEPS AN ANSWER UNTIL THIS HAS TAKEN IT, and sends it again
+		// until it does (answerQueue.js). So an answer arrives with the id the
+		// browser gave it, which makes a second arrival an echo (0080), and with
+		// how long ago it was given, which decides its day, its gap since the last
+		// review and the time the log records. Both are optional: a client that
+		// sends neither is answered as one always was, at the moment it arrives.
+		//
+		// HOW LONG AGO, NOT WHEN. Both ends of that span are read off the same
+		// clock, the browser's, so a phone whose clock is wrong by a day still
+		// says the right thing; a time of day would carry the error in, and an
+		// answer from a phone set a month behind would be refused as too old and
+		// lost.
+		ClientID      string `json:"client_id"`
+		AnsweredAgoMs *int64 `json:"answered_ago_ms"`
 	}
 	if !decodeBody(w, r, &req) {
 		return
 	}
+	if len(req.ClientID) > 64 || strings.ContainsFunc(req.ClientID, func(c rune) bool {
+		return !(c == '-' || c == '_' || (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'))
+	}) {
+		writeErr(w, http.StatusBadRequest, "client_id must be up to 64 letters, digits, - or _")
+		return
+	}
+	at := time.Now().UTC()
+	if req.AnsweredAgoMs != nil {
+		ago := time.Duration(*req.AnsweredAgoMs) * time.Millisecond
+		switch {
+		case ago < 0:
+			writeErr(w, http.StatusBadRequest, "answered_ago_ms cannot be negative")
+			return
+		case ago > answerKeptFor:
+			writeErr(w, http.StatusBadRequest, "the answer is older than an answer is kept for")
+			return
+		}
+		at = at.Add(-ago)
+	}
+	atSQL := at.Format("2006-01-02 15:04:05")
 	if !validReviewKind(req.Kind) {
 		writeErr(w, http.StatusBadRequest, "kind must be book, screen or utterance")
 		return
@@ -3032,7 +3083,7 @@ func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
 		// route that hands out cloze answers on demand.
 		clozeAnswer = answerText
 	}
-	day, _, mod := reviewDay(offset)
+	day, _, mod := reviewDayAt(offset, at)
 	age, err := s.itemAgeDays(req.Kind, req.ID)
 	if err != nil {
 		internalError(w, r, "review answer item age", err)
@@ -3093,6 +3144,33 @@ func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// AN ID THE LOG ALREADY HOLDS IS AN ANSWER ALREADY TAKEN: the reply to its
+	// first arrival was lost, and the browser sent it again. Answered with the
+	// state as it stands, and nothing written. Read inside the transaction, so a
+	// second arrival cannot slip between this and the log row the first writes.
+	if req.ClientID != "" {
+		var seen bool
+		if err := tx.QueryRow(`SELECT EXISTS(SELECT 1 FROM item_recalls WHERE user_id = ? AND client_id = ?)`,
+			uid, req.ClientID).Scan(&seen); err != nil {
+			internalError(w, r, "review answer seen", err)
+			return
+		}
+		if seen {
+			s.answerResponse(w, r, uid, req.Mode, offset, req.Kind, req.ID, req.Result, "", false, stability, age, lapseCount, lastReviewed, lastResult, pf, found)
+			return
+		}
+	}
+
+	// A KEPT ANSWER OLDER THAN THE CARD'S LAST REVIEW moved nothing: another
+	// device's answer, given after it and sent first, already set the schedule
+	// from a later moment, and applying this one over it would measure a gap that
+	// runs backwards. It is still logged and tallied, because it was still given.
+	if lastReviewed.Valid {
+		if last, err := time.Parse("2006-01-02 15:04:05", lastReviewed.String); err == nil && last.After(at) {
+			moveSchedule = false
+		}
+	}
+
 	// Daily idempotency: the deck already excludes cards answered today, so a
 	// well-behaved client never re-answers one. A stale second device or a
 	// retried POST could, and re-applying growth would compound the half-life
@@ -3110,7 +3188,7 @@ func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
 		// two rules the reviewer is on.
 		prev := stability
 		stability = nextStability(pf.adaptive(), req.Result, stability,
-			elapsedDays(lastReviewed), found && reviewCount > lapseCount, tuning)
+			elapsedDaysAt(lastReviewed, at), found && reviewCount > lapseCount, tuning)
 		// THE DIFFICULTY IS DERIVED, NOT DECLARED. A client-sent "direction" would
 		// be the client telling the server what its own answer was worth, and the
 		// obvious abuse - claim every answer was the hardest kind - would inflate a
@@ -3132,17 +3210,17 @@ func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
 		}
 		if found {
 			q := `UPDATE item_reviews SET stability = ?, review_count = review_count + 1,
-			       last_result = ?, last_reviewed_at = datetime('now'), last_touched_at = datetime('now')`
+			       last_result = ?, last_reviewed_at = ?, last_touched_at = ?`
 			if req.Result == "forgot" {
 				q += `, lapse_count = lapse_count + 1`
 			}
 			q += ` WHERE kind = ? AND item_id = ?`
-			_, err = tx.Exec(q, stability, req.Result, req.Kind, req.ID)
+			_, err = tx.Exec(q, stability, req.Result, atSQL, atSQL, req.Kind, req.ID)
 		} else {
 			_, err = tx.Exec(`INSERT INTO item_reviews (kind, item_id, stability, review_count, lapse_count,
 			                  last_result, last_reviewed_at, last_touched_at)
-			                  VALUES (?, ?, ?, 1, ?, ?, datetime('now'), datetime('now'))`,
-				req.Kind, req.ID, stability, boolToInt(req.Result == "forgot"), req.Result)
+			                  VALUES (?, ?, ?, 1, ?, ?, ?, ?)`,
+				req.Kind, req.ID, stability, boolToInt(req.Result == "forgot"), req.Result, atSQL, atSQL)
 		}
 		if err != nil {
 			internalError(w, r, "review answer upsert", err)
@@ -3182,12 +3260,12 @@ func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
 	// are recorded rather than derived because `counted` depends on a SETTING as
 	// it stood at this moment, which nothing can recover afterwards.
 	if _, err := tx.Exec(
-		`INSERT INTO item_recalls (user_id, kind, item_id, result, stability, elapsed_days, answered_at, mode, counted)
+		`INSERT INTO item_recalls (user_id, kind, item_id, result, stability, elapsed_days, answered_at, mode, counted, client_id)
 		 VALUES (?, ?, ?, ?, ?,
-		         CASE WHEN ? IS NULL THEN NULL ELSE julianday('now') - julianday(?) END,
-		         datetime('now'), ?, ?)`,
-		uid, req.Kind, req.ID, req.Result, stability, lastReviewed, lastReviewed,
-		req.Mode, boolToInt(moveSchedule),
+		         CASE WHEN ? IS NULL THEN NULL ELSE julianday(?) - julianday(?) END,
+		         ?, ?, ?, NULLIF(?, ''))`,
+		uid, req.Kind, req.ID, req.Result, stability, lastReviewed, atSQL, lastReviewed,
+		atSQL, req.Mode, boolToInt(moveSchedule), req.ClientID,
 	); err != nil {
 		olog.Warnf(olog.CodeReviewRecallLog, "[review] recall log insert failed for %s/%d: %v", req.Kind, req.ID, err)
 	}
@@ -3209,13 +3287,13 @@ func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
 	// answers, so they log nothing).
 	if req.Result != "skip" {
 		if _, err := tx.Exec(`INSERT INTO quiz_sessions (user_id, mode, day, answered, got, forgot, taken_at)
-		                      VALUES (?, ?, ?, 1, ?, ?, datetime('now'))
+		                      VALUES (?, ?, ?, 1, ?, ?, ?)
 		                      ON CONFLICT(user_id, mode, day) DO UPDATE SET
 		                        answered = answered + 1,
 		                        got = got + excluded.got,
 		                        forgot = forgot + excluded.forgot,
-		                        taken_at = datetime('now')`,
-			uid, req.Mode, day, boolToInt(req.Result == "got"), boolToInt(req.Result == "forgot")); err != nil {
+		                        taken_at = excluded.taken_at`,
+			uid, req.Mode, day, boolToInt(req.Result == "got"), boolToInt(req.Result == "forgot"), atSQL); err != nil {
 			internalError(w, r, "review answer tally", err)
 			return
 		}

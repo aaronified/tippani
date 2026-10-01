@@ -6,6 +6,7 @@ import { applyTypeScale } from './type.js'
 import { applyReviewPrefs, tzOffsetMinutes } from './review.jsx'
 import { dailyDeck } from './daily.js'
 import { forgetSessionCaches } from './sessionCaches.js'
+import { startAnswerQueue, stopAnswerQueue } from './answerQueue.js'
 import { pickEpigraph } from './epigraphs.js'
 import { installShortcuts, shortcutFor } from './keys.js'
 import AddSurface from './AddSurface.jsx'
@@ -206,6 +207,14 @@ export default function App() {
   useEffect(() => {
     if (!checking && !user) loadStatus()
   }, [user]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // THE QUIZ ANSWERS KEPT ON THIS DEVICE go out while their reader is signed in,
+  // and wait, kept, while nobody is (answerQueue.js). Keyed on the reader's id,
+  // so signing in as someone else sends theirs and never this one's.
+  useEffect(() => {
+    if (user?.id != null) startAnswerQueue(user.id)
+    else stopAnswerQueue()
+  }, [user?.id])
 
   // Per-user appearance preferences apply on login and reset on logout (§4).
   //

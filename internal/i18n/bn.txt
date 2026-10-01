@@ -3119,8 +3119,10 @@ quiz.cloze.placeholder = শূন্যস্থানে যা বসবে, 
 # The same placeholder where there is a keyboard. {key} is a key cap.
 quiz.cloze.placeholder-key = শূন্যস্থানে যা বসবে, লিখুন · {key}
 quiz.cloze.check.label = মিলিয়ে দেখুন
+quiz.checking.label = মিলিয়ে দেখা হচ্ছে…
 # Above the right answer, once it has been checked.
 quiz.cloze.answer.label = যে শব্দগুলো ছিল
+quiz.cloze.yours.label = আপনি যা লিখেছেন
 # Under the revealed words when the attempt was a close synonym rather than the
 # word itself: it counted, and it earned less. See quiz.tuning.cloze-synonym.
 quiz.cloze.synonym.note = সমার্থক হিসেবে গোনা হল — আসল শব্দের চেয়ে কম দামে
@@ -3157,7 +3159,9 @@ quiz.verdict.correct.label = ঠিক
 quiz.verdict.wrong.label = ঠিক হল না
 quiz.verdict.recalled.label = মনে ছিল
 quiz.verdict.noted.label = লিখে রাখা হল
-quiz.saving.label = সেভ হচ্ছে…
+quiz.verdict.kept.label = রাখা হল, পরে মিলিয়ে দেখা হবে
+quiz.kept.waiting.one = {n}টি উত্তর পাঠানোর অপেক্ষায়
+quiz.kept.waiting.other = {n}টি উত্তর পাঠানোর অপেক্ষায়
 quiz.next.label = পরেরটা
 quiz.finish.label = শেষ করুন
 # With the confirm step on: an option is chosen but nothing has been posted.
@@ -3189,7 +3193,6 @@ common.toast.saved = সেভ হয়েছে
 # the shipped English used a contraction at these two sites and this pass is a
 # migration rather than a copy edit — collapse them if the copy is ever revised.
 error.save.quiz-card = সেভ করা গেল না
-error.save.quiz-answer = সেভ করা গেল না — এই উত্তরটা দিনপঞ্জির হিসেবে ধরা হবে না
 error.load.quiz-card = এই উদ্ধৃতিটা আনা গেল না
 error.setaside.generic = সরিয়ে রাখা গেল না
 

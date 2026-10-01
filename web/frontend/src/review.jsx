@@ -22,6 +22,7 @@ import { t } from './i18n.js'
 import { clipChipName, episodeLabel } from './text.js'
 import { locatorMeta } from './attribution.js'
 import { forgetDailyDeck } from './daily.js'
+import { keepAnswer } from './answerQueue.js'
 import { CreditFaces, DEFAULT_CREDIT_SEPS, splitCredits, usePeople } from './credits.jsx'
 import { REVIEW_BULK_KIND } from './bulkOps.jsx'
 import {
@@ -677,16 +678,17 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
   const [attempt, setAttempt] = useState('') // what was typed into a cloze blank
   const [dismissed, setDismissed] = useState(false) // "Keep asking", this session
   const [setAside, setSetAside] = useState(false)   // it is out of the deck now
-  const [saving, setSaving] = useState(false)
+  // ONLY A CLOZE WAITS FOR THE SERVER, because the server is what grades it: the
+  // answer never travels to the browser. Every other grade is kept on this device
+  // and sent in the background (answerQueue.js), so nothing about sending it is
+  // shown or waited on.
+  const [checking, setChecking] = useState(false)
   // The cloze field, so the shortcut has something to focus.
   const clozeRef = useRef(null)
-  const [saveErr, setSaveErr] = useState('') // the grade didn't reach the server
   // posRef is the card on screen right now, readable from a settled request's
-  // closure: a slow reply must not paint its error onto a card the reader has
-  // already moved past. inflight lets "Finish" wait for the last grade to land,
-  // so Practice's done screen can't snapshot the round one answer short.
+  // closure: a slow reply must not paint onto a card the reader has already
+  // moved past.
   const posRef = useRef(startIndex)
-  const inflight = useRef(null)
   // Portrait lookups for the person chips on prompts and options (the server
   // names each option's author/actor/director in option_meta).
   const { map: authorMap } = usePeople('author')
@@ -755,7 +757,7 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
   const wantShift = mode === 'practice'
 
   useEffect(() => installShortcuts((id, { shift }) => {
-    if (saving) return
+    if (checking) return
     if (shift !== wantShift) return
     // A flip card is two acts: reveal, then say whether you had it. Nothing else
     // is answerable until the first, exactly as the buttons are not shown.
@@ -773,7 +775,7 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
       // very much worse than doing nothing.
       if (idx >= 0 && idx < (card.options?.length || 0) && !committed) pick(idx)
     }
-  }, { ctx: () => ctx }), [saving, flip, shown, cloze, ctx, wantShift, committed, i, card?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, { ctx: () => ctx }), [checking, flip, shown, cloze, ctx, wantShift, committed, i, card?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // THE THREE QUOTES THAT WERE NOT THE ANSWER STILL GOT READ (3.0).
   //
@@ -812,10 +814,9 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
     }
   }, [answered, card, mode]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function advance() {
+  function advance() {
     posRef.current = i + 1
-    setSaving(false) // a still-flying grade must never gate the next card
-    setSaveErr('')
+    setChecking(false) // a cloze still being checked must never gate the next card
     if (i + 1 < cards.length) {
       setI(i + 1)
       onIndex?.(i + 1)
@@ -829,57 +830,62 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
       setSetAside(false)
       return
     }
-    // Last card: let the grade settle before the host reads the round's tally.
-    await inflight.current
+    // Last card. The round's tally was counted as each answer was kept, so
+    // there is nothing to wait for.
     onDone?.()
   }
 
-  // grade posts one result for the card on screen. Both card types end here —
+  // grade records one result for the card on screen. Both card types end here —
   // an MCQ derives got/forgot from the pick, a flip card is told by the reader —
-  // so there is one request, one error path and one tally, not two.
+  // so there is one way an answer is kept and one tally.
+  //
+  // KEPT, NOT POSTED. The answer is written to this device and the sender takes
+  // it from there (answerQueue.js), so the reader is never held by the network
+  // and an answer that cannot be sent yet is not lost. The host counts it now.
   async function grade(result, typed = null) {
     const at = i
-    setSaving(true)
-    setSaveErr('')
-    // .catch is belt-and-braces over api.js's own guard: `saving` gates the
-    // options, and awaiting a rejected promise in advance() would throw.
     // The deck this card came out of is now out of date — the card has been graded
     // and is no longer due today — so the shared request is dropped rather than
     // handed to whatever mounts next. See daily.js.
     forgetDailyDeck()
-    const req = json('POST', '/review/answer', {
+    const { first } = keepAnswer({
       kind: card.kind,
       id: card.id,
       result,
       mode,
       offset: tzOffsetMinutes(),
+      // Where the card stood before this answer, so the host can move it in
+      // "where you stand" before the server has heard.
+      from: card.status || 'unseen',
       // Only on a cloze card, and when present the SERVER decides the grade —
       // `result` above is ignored. The answer never travelled to the browser, so
       // the browser is not in a position to mark it.
       ...(typed != null ? { attempt: typed } : {}),
-    }).catch(() => ({ ok: false, status: 0, data: null }))
-    inflight.current = req
-    const r = await req
-    const here = posRef.current === at
-    if (here) setSaving(false)
-    // A failed save used to revert the pick — but with the answer already
-    // revealed and skip off (Daily), that removed the Next button outright and
-    // stranded the reader on a dead card. Keep the reveal, say plainly that the
-    // grade didn't land, and let them move on.
-    if (!r.ok) {
-      if (here) setSaveErr(t('error.save.quiz-answer'))
+    })
+    if (typed == null) {
+      onAnswered?.(result, null)
+      // The reply still carries the one thing the card cannot know: the lapse
+      // count after this answer, which decides the leech offer.
+      first.then((data) => { if (data && posRef.current === at) setLastResp(data) })
       return
     }
-    // The result string, not the raw boolean — both cards' tallies compare
-    // against 'got'/'forgot' (a boolean never matched, so the session tallies
-    // silently stayed at zero).
-    if (here) setLastResp(r.data)
+    // A cloze waits for its verdict, briefly. If it cannot be checked now it is
+    // still kept, and is marked when the server is reached; the reader moves on.
+    setChecking(true)
+    const data = await first
+    if (posRef.current !== at) return
+    setChecking(false)
+    if (!data) {
+      setGraded('kept')
+      return
+    }
+    setLastResp(data)
     // For a cloze card the server's own verdict is the truth — `result` was a
     // placeholder. Everything downstream (the tally, the status dot) reads what
     // came back.
-    const settled = r.data?.result || result
-    if (here && typed != null) setGraded(settled)
-    onAnswered?.(settled, r.data)
+    const settled = data.result || result
+    setGraded(settled)
+    onAnswered?.(settled, data)
   }
 
   // Two ways out of a card that keeps being forgotten. Neither is automatic.
@@ -910,7 +916,7 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
   // grade — and that path is the one every reader is on by default.
   //
   async function pick(idx) {
-    if (committed || saving) return
+    if (committed || checking) return
     if (twoStep) {
       setPicked(idx) // selected, not answered: nothing leaves the browser yet
       return
@@ -920,14 +926,14 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
   }
 
   async function submit() {
-    if (picked == null || committed || saving) return
+    if (picked == null || committed || checking) return
     setCommitted(true)
     await grade(picked === card.answer ? 'got' : 'forgot')
   }
 
   // A cloze card: type it, then check. The server grades it.
   async function checkCloze() {
-    if (graded != null || saving || !attempt.trim()) return
+    if (graded != null || checking || !attempt.trim()) return
     await grade('forgot', attempt)
   }
 
@@ -935,7 +941,7 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
   // answer and posts nothing — which is what makes the self-grade honest rather
   // than a button you press to make the card go away.
   async function selfGrade(result) {
-    if (graded != null || saving) return
+    if (graded != null || checking) return
     setGraded(result)
     await grade(result)
   }
@@ -1003,19 +1009,22 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
                   onChange={(e) => setAttempt(e.target.value)}
                 />
               </div>
-              <button type="submit" className="tp-btn tp-btn-primary tactile" disabled={saving || !attempt.trim()}>
+              <button type="submit" className="tp-btn tp-btn-primary tactile" disabled={checking || !attempt.trim()}>
                 {t('quiz.cloze.check.label')}
               </button>
+              {checking && <MonoLabel style={{ color: 'var(--faint)' }}>{t('quiz.checking.label')}</MonoLabel>}
             </form>
           ) : (
             <div style={{ borderTop: '1px solid var(--line)', paddingTop: 12 }}>
-              <MonoLabel style={{ color: 'var(--faint)' }}>{t('quiz.cloze.answer.label')}</MonoLabel>
+              {/* A KEPT ATTEMPT IS THE READER'S OWN WORDS, not the answer: it could
+                  not be checked yet, and is marked when the server is reached. */}
+              <MonoLabel style={{ color: 'var(--faint)' }}>{t(graded === 'kept' ? 'quiz.cloze.yours.label' : 'quiz.cloze.answer.label')}</MonoLabel>
               {/* THE ANSWER IS QUOTE TEXT, so it takes the quote's face like the
                   block above it. A cloze answer in one face directly under the
                   same words in another is the disagreement this whole change is
                   about, on one screen. */}
               <p className={`mt-1 ${languageClass(card.language)}`.trim()} style={{ ...QUOTE_TEXT, fontSize: 'var(--type-display-17)' }}>
-                {lastResp?.answer || attempt}
+                {(graded !== 'kept' && lastResp?.answer) || attempt}
               </p>
               {/* WHICH OF THE TWO RIGHT ANSWERS THIS WAS. A synonym counts and
                   earns less, and a discount nobody is told about is a schedule
@@ -1049,7 +1058,7 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
                     <button
                       type="button"
                       className="tp-btn tactile"
-                      disabled={saving}
+                      disabled={checking}
                       onClick={() => selfGrade('forgot')}
                     >
                       {t('quiz.grade.forgot.label')} <Kbd keys={shortcutFor('grade-forgot', mode === 'practice')} />
@@ -1059,7 +1068,7 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
                     <button
                       type="button"
                       className="tp-btn tp-btn-primary tactile"
-                      disabled={saving}
+                      disabled={checking}
                       onClick={() => selfGrade('got')}
                     >
                       {t('quiz.grade.got.label')} <Kbd keys={shortcutFor('grade-got', mode === 'practice')} />
@@ -1116,7 +1125,7 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
               personMaps={personMaps}
               isWork={isSource}
               revealed={answered}
-              disabled={committed || saving}
+              disabled={committed || checking}
               hotkey={idx < 4 ? shortcutFor(`pick-${idx + 1}`, mode === 'practice') : ''}
               onPick={() => pick(idx)}
               style={{
@@ -1180,19 +1189,22 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
               their own judgement would be the app marking their homework. */}
           <MonoLabel
             style={{
-              color: (flip ? graded === 'got' : cloze ? clozeRight : picked === card.answer)
-                ? 'var(--ok)'
-                : 'var(--error)',
+              color: graded === 'kept'
+                ? 'var(--faint)'
+                : (flip ? graded === 'got' : cloze ? clozeRight : picked === card.answer)
+                  ? 'var(--ok)'
+                  : 'var(--error)',
             }}
           >
-            {flip
-              ? t(graded === 'got' ? 'quiz.verdict.recalled.label' : 'quiz.verdict.noted.label')
-              : t((cloze ? clozeRight : picked === card.answer) ? 'quiz.verdict.correct.label' : 'quiz.verdict.wrong.label')}
+            {graded === 'kept'
+              ? t('quiz.verdict.kept.label')
+              : flip
+                ? t(graded === 'got' ? 'quiz.verdict.recalled.label' : 'quiz.verdict.noted.label')
+                : t((cloze ? clozeRight : picked === card.answer) ? 'quiz.verdict.correct.label' : 'quiz.verdict.wrong.label')}
           </MonoLabel>
-          {/* Never disabled: the grade saves in the background, and a slow or
-              failed save must not hold the reader on a card they've answered. */}
+          {/* Never disabled, and nothing beside it about sending: the answer is
+              kept on this device and sent in the background (answerQueue.js). */}
           <span className="flex items-center gap-2.5">
-            {saving && <MonoLabel style={{ color: 'var(--faint)' }}>{t('quiz.saving.label')}</MonoLabel>}
             <button type="button" className="tp-btn tp-btn-primary tactile" onClick={advance}>
               {t(i + 1 < cards.length ? 'quiz.next.label' : 'quiz.finish.label')}
             </button>
@@ -1203,7 +1215,7 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
            tapping another option — which is the whole feature. */
         <div className="mt-3 flex items-center justify-between gap-3">
           <MonoLabel style={{ color: 'var(--faint)' }}>{t('quiz.submit.hint')}</MonoLabel>
-          <button type="button" className="tp-btn tp-btn-primary tactile" disabled={saving} onClick={submit}>
+          <button type="button" className="tp-btn tp-btn-primary tactile" disabled={checking} onClick={submit}>
             {t('quiz.submit.label')}
           </button>
         </div>
@@ -1215,7 +1227,6 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
           <button type="button" className="tp-link" onClick={advance}>{t('quiz.skip.label')}</button>
         </div>
       ) : null}
-      {saveErr && <div className="mt-2"><ErrorText>{saveErr}</ErrorText></div>}
     </div>
   )
 }
