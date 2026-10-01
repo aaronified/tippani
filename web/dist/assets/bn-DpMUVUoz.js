@@ -2247,7 +2247,7 @@ common.link.delete.label = মুছুন
 tags.header.counts = {n} {noun} · বই আর সিনেমায় একই ট্যাগ চলে
 tags.board.empty = এখনও কোনও ট্যাগ নেই — উপরে একটা তৈরি করুন, বা কোনও উদ্ধৃতিতে ট্যাগ বসান
 
-# The dashed add card, and the form inside it.
+# The new-tag form at the head of the Tags card; the title is the ⋯ row's name.
 tags.new.title = নতুন ট্যাগ
 tags.new.submit.label = ট্যাগ তৈরি করুন
 tags.form.edit.title = ট্যাগ এডিট করুন
@@ -3254,10 +3254,7 @@ home.practice.toast.reset = ঝালাইয়ের স্কোর মু�
 home.tile.library.tip = গ্রন্থাগার খুলুন
 home.tile.library.counts = বই · {n} উদ্ধৃতি
 home.tile.movies.tip = ক্যাটালগ খুলুন
-home.tile.movies.counts = সিনেমা · {n} সংলাপ
-home.tile.shows.counts = শো · {n} সংলাপ
-home.tile.games.counts = গেম · {n} সংলাপ
-home.tile.screen.counts = টাইটেল · {n} সংলাপ
+home.tile.screen.counts = {noun} · {n} সংলাপ
 
 # THE FAVOURITES WALL.
 home.favourites.title = প্রিয়
