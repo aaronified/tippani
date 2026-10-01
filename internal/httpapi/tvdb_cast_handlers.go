@@ -137,6 +137,11 @@ func (s *Server) handleCastFromTVDB(w http.ResponseWriter, r *http.Request) {
 	} else {
 		d, err = client.MovieDetails(r.Context(), id)
 	}
+	castFound := 0
+	if d != nil {
+		castFound = len(d.Cast)
+	}
+	s.recordAsk(r.Context(), faultAreaFilms, "tvdb", castFound, "", err)
 	if err != nil {
 		codedError(w, r, olog.CodeTVDBCastFetch, "tvdb cast fetch", err)
 		return

@@ -5651,6 +5651,7 @@ settings.metadata.area.books.label = বইয়ে
 settings.metadata.area.films.label = সিনেমায়
 settings.metadata.area.games.label = গেমে
 settings.metadata.area.pictures.label = ছবিতে
+settings.metadata.area.people.label = মানুষের খোঁজে
 # Half an IGDB pair fails at the Twitch token exchange, which arrives as a
 # lookup failure — so the missing half is named. {half} is one of the nouns
 # below, not a sentence.

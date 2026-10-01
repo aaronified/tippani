@@ -30,9 +30,13 @@
 package httpapi
 
 import (
+	"context"
+	"errors"
 	"strings"
 	"sync"
 	"time"
+
+	"tippani/internal/jobs"
 )
 
 // The areas a source can fail in. A supplier appears in more than one — TheTVDB
@@ -43,6 +47,10 @@ const (
 	faultAreaFilms    = "films"
 	faultAreaGames    = "games"
 	faultAreaPictures = "pictures"
+	// faultAreaPeople is an ask about a person or a company: a portrait, a bio,
+	// reference links. Its own area, so a person ask that misses an obscure
+	// translator does not lengthen Open Library's run of empty BOOK answers.
+	faultAreaPeople = "people"
 )
 
 // HOW MANY CONSECUTIVE NOTHINGS BEFORE A SOURCE IS CALLED BROKEN, and there are two
@@ -141,6 +149,13 @@ func regKey(area, source string) string { return area + "/" + source }
 // is kept is the last outcome plus one integer, which is the least that can answer
 // "has this stopped working".
 func (r *lookupRegistry) record(area, source string, found int, note string, err error) {
+	r.fold(area, source, found, note, err, false)
+}
+
+// fold is record's body. `walk` is an ask made while walking the library (a job):
+// an empty answer there is about the shelf's gaps, not the supplier, so it keeps
+// the run where it was instead of lengthening it.
+func (r *lookupRegistry) fold(area, source string, found int, note string, err error, walk bool) {
 	if source == "" {
 		return
 	}
@@ -165,14 +180,14 @@ func (r *lookupRegistry) record(area, source string, found int, note string, err
 		// timeout in the middle of a dry spell should neither extend it nor
 		// pretend it ended.
 		switch {
-		case err != nil:
+		case err != nil, walk && found == 0:
 			next.EmptyRun = p.EmptyRun
 		case found > 0:
 			next.EmptyRun = 0
 		default:
 			next.EmptyRun = p.EmptyRun + 1
 		}
-	} else if err == nil && found == 0 {
+	} else if err == nil && found == 0 && !walk {
 		next.EmptyRun = 1
 	}
 	r.m.Store(key, next)
@@ -250,4 +265,24 @@ func sortFaults(rows []faultRow) {
 // reads as "the server noticed this" rather than as reaching into a field.
 func (s *Server) recordLookup(area, source string, found int, note string, err error) {
 	s.lookups.record(area, source, found, note, err)
+}
+
+// recordAsk is the door every supplier call records its answer through, so a
+// row's last answer moves after a fill, a re-verify, Fetch missing, a person's
+// portrait or links, not only after a lookup or a Test. Two answers are not the
+// supplier's: a Stop (or a reader gone) records nothing, and an empty answer met
+// while a job walks the library is recorded without lengthening the run.
+func (s *Server) recordAsk(ctx context.Context, area, source string, found int, note string, err error) {
+	if found == 0 && (errors.Is(err, context.Canceled) || errors.Is(ctx.Err(), context.Canceled)) {
+		return
+	}
+	s.lookups.fold(area, source, found, note, err, jobs.From(ctx) != nil)
+}
+
+// one is 1 for an ask that found its thing, 0 otherwise.
+func one(found bool) int {
+	if found {
+		return 1
+	}
+	return 0
 }

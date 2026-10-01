@@ -73,6 +73,11 @@ func (s *Server) handleCastFromIMDb(w http.ResponseWriter, r *http.Request) {
 	jobSubject(r.Context(), id)
 
 	title, cast, err := metadata.IMDbCast(r.Context(), id)
+	answered := err // no such title is IMDb answering "none"
+	if errors.Is(err, metadata.ErrNoIMDbTitle) {
+		answered = nil
+	}
+	s.recordAsk(r.Context(), faultAreaFilms, "imdb", len(cast), "", answered)
 	if err != nil {
 		if errors.Is(err, metadata.ErrNoIMDbTitle) {
 			writeErr(w, http.StatusNotFound, "IMDb has no title with that id")

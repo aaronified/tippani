@@ -92,7 +92,10 @@ type lookupOutcome struct {
 // books lookup failed and could not say it worked and returned nothing, which is
 // precisely the state the owner is looking at on the picture ladder. `books_lookup`
 // keeps the two-state shape it always had; the registry gets the third.
-func (s *Server) recordBooksLookup(cands []metadata.BookCandidate, err error) {
+func (s *Server) recordBooksLookup(ctx context.Context, cands []metadata.BookCandidate, err error) {
+	if len(cands) == 0 && (errors.Is(err, context.Canceled) || errors.Is(ctx.Err(), context.Canceled)) {
+		return // a Stop, not the suppliers' answer
+	}
 	rec := &lookupOutcome{OK: err == nil, CheckedAt: time.Now().UTC().Format(time.RFC3339)}
 	if err != nil {
 		rec.Error = strings.ReplaceAll(err.Error(), "\n", "; ")
@@ -148,8 +151,8 @@ func (s *Server) recordBooksLookup(cands []metadata.BookCandidate, err error) {
 	if errors.As(err, &both) {
 		gErr, olErr = both.Google, both.OpenLibrary
 	}
-	s.recordLookup(faultAreaBooks, "google", google, "", gErr)
-	s.recordLookup(faultAreaBooks, "openlibrary", openLibrary, "", olErr)
+	s.recordAsk(ctx, faultAreaBooks, "google", google, "", gErr)
+	s.recordAsk(ctx, faultAreaBooks, "openlibrary", openLibrary, "", olErr)
 }
 
 // resolveTMDB picks the effective TMDB client per request, in the PLAN §6
@@ -768,12 +771,16 @@ func (s *Server) coversRefetchChunk(ctx context.Context, uid int64, cursor strin
 		// Best candidate from the keyless/keyed sources.
 		var cand *metadata.BookCandidate
 		if isbnN != "" || b.title != "" {
-			if cs, _ := s.searchBooks(ctx, isbnN, b.title, b.author, gkey); len(cs) > 0 {
+			cs, serr := s.searchBooks(ctx, isbnN, b.title, b.author, gkey)
+			s.recordBooksLookup(ctx, cs, serr)
+			if len(cs) > 0 {
 				cand = &cs[0]
 			}
 		}
 		if cand == nil && b.asin != "" && cookie != "" && ctx.Err() == nil {
-			if a, aerr := metadata.FetchAmazonBook(ctx, b.asin, cookie, domain); aerr == nil {
+			a, aerr := metadata.FetchAmazonBook(ctx, b.asin, cookie, domain)
+			s.recordAsk(ctx, faultAreaBooks, "amazon", one(a != nil), "", aerr)
+			if aerr == nil {
 				cand = a
 			}
 		}

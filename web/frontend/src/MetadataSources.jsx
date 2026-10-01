@@ -418,10 +418,10 @@ function SourceRows({ admin, sources, scrapeOn = false, info = null, editors = n
         const off = row.source === 'google-images' && !scrapeOn
         const editor = admin ? editors?.[row.source] : null
         // NO ANSWER ON RECORD IS A FACT, NOT A WARNING, and it is worth drawing:
-        // a row carries an answer only after an ask that records one (a lookup, a
-        // picture search, a Test, and IGDB's game search inside a fill; the rest
-        // of a fill's asks record nothing yet), so a quiet row would otherwise be
-        // indistinguishable from one whose answer failed to render.
+        // every ask a supplier answers records one (lookups, picture searches,
+        // Test, fills, Rescans, Fetch missing, a person's portrait and links), so a
+        // quiet row is one nothing has asked since the server started, and would
+        // otherwise be indistinguishable from one whose answer failed to render.
         //
         // IT SAYS WHOSE FACT IT IS. The record is the server's memory of each
         // source's last answer, since it started (metadata_faults.go keeps it in

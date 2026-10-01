@@ -515,6 +515,7 @@ func (s *Server) reverifyBook(ctx context.Context, uid, id int64, gkey, cookie, 
 	switch {
 	case isbnN != "":
 		cs, lerr := s.searchBooks(ctx, isbnN, "", "", gkey)
+		s.recordBooksLookup(ctx, cs, lerr)
 		if lerr != nil {
 			it.Status, it.Error = "fetch_failed", reverifyLookupError("book isbn", lerr)
 			return it
@@ -525,6 +526,7 @@ func (s *Server) reverifyBook(ctx context.Context, uid, id int64, gkey, cookie, 
 		}
 	case asin != "" && cookie != "":
 		a, lerr := metadata.FetchAmazonBook(ctx, asin, cookie, domain)
+		s.recordAsk(ctx, faultAreaBooks, "amazon", one(a != nil), "", lerr)
 		if lerr != nil {
 			it.Status, it.Error = "fetch_failed", reverifyLookupError("book asin", lerr)
 			return it
@@ -533,6 +535,7 @@ func (s *Server) reverifyBook(ctx context.Context, uid, id int64, gkey, cookie, 
 		alt = []metadata.BookCandidate{*a}
 	case googleID != "":
 		g, lerr := s.googleVolume(ctx, googleID, gkey)
+		s.recordAsk(ctx, faultAreaBooks, "google", one(g != nil), "", lerr)
 		if lerr != nil {
 			it.Status, it.Error = "fetch_failed", reverifyLookupError("book google_id", lerr)
 			return it
@@ -1996,6 +1999,12 @@ func (s *Server) fetchAllMovieSources(ctx context.Context, uid, id int64, mediaT
 	var out []fetchedSource
 	var lastErr error
 	add := func(source, sourceID string, det *metadata.MovieDetails, err error) {
+		// Every supplier this fill asked says so on its Sources row.
+		area := faultAreaFilms
+		if source == "igdb" || (source == "fandom" && mediaType == "game") {
+			area = faultAreaGames
+		}
+		s.recordAsk(ctx, area, source, one(det != nil), "", err)
 		if err != nil {
 			// Logged and remembered, not returned: another supplier may still
 			// answer, and one being down must not cost the reader the other's.

@@ -624,6 +624,7 @@ func (s *Server) fetchSourceDetails(ctx context.Context, source, sourceID, media
 			return nil, igdbKeyMissing, http.StatusServiceUnavailable
 		}
 		d, err := igdb.Details(ctx, sourceID)
+		s.recordAsk(ctx, faultAreaGames, "igdb", one(d != nil), "", err)
 		if err != nil {
 			logOutwardFailure(olog.CodeMetaIGDBLookup, err, "[movie] igdb details source_id=%s failed: %v", sourceID, err)
 			if errors.Is(err, metadata.ErrIGDBAuth) {
@@ -643,6 +644,11 @@ func (s *Server) fetchSourceDetails(ctx context.Context, source, sourceID, media
 		// answer rather than a lookup that reports success and shows nothing.
 		if d.Slug != "" {
 			cast, cerr := metadata.GameVoiceCast(ctx, d.Slug)
+			wd := cerr // no item for the slug is Wikidata answering "none"
+			if errors.Is(cerr, metadata.ErrNoWikidataGame) {
+				wd = nil
+			}
+			s.recordAsk(ctx, faultAreaGames, "wikidata", len(cast), "", wd)
 			switch {
 			case errors.Is(cerr, metadata.ErrNoWikidataGame):
 				olog.Warnf(olog.CodeMetaGameNoCast, "[movie] no wikidata item for igdb slug %q; cast left blank", d.Slug)
@@ -662,6 +668,7 @@ func (s *Server) fetchSourceDetails(ctx context.Context, source, sourceID, media
 		// lookup does when IGDB is unconfigured or refusing, and asking for a
 		// credential here would put the wall back one screen further on.
 		d, err := metadata.GameDetailsWikidata(ctx, sourceID)
+		s.recordAsk(ctx, faultAreaGames, "wikidata", one(d != nil), "", err)
 		if err != nil {
 			logOutwardFailure(olog.CodeMetaIGDBLookup, err, "[movie] wikidata game details qid=%s failed: %v", sourceID, err)
 			return nil, "that Wikidata record could not be read", http.StatusBadGateway
@@ -679,6 +686,7 @@ func (s *Server) fetchSourceDetails(ctx context.Context, source, sourceID, media
 		} else {
 			d, err = tvdb.MovieDetails(ctx, sourceID)
 		}
+		s.recordAsk(ctx, faultAreaFilms, "tvdb", one(d != nil), "", err)
 		if err != nil {
 			// Both callers (create + resync) only surface the message; log the cause here.
 			logOutwardFailure(olog.CodeMetaLookupFailed, err, "[movie] tvdb details source_id=%s show=%t failed: %v", sourceID, show, err)
@@ -701,6 +709,7 @@ func (s *Server) fetchSourceDetails(ctx context.Context, source, sourceID, media
 		} else {
 			d, err = tmdb.Details(ctx, id)
 		}
+		s.recordAsk(ctx, faultAreaFilms, "tmdb", one(d != nil), "", err)
 		if err != nil {
 			// Both callers (create + resync) only surface the message; log the cause here.
 			logOutwardFailure(olog.CodeMetaLookupFailed, err, "[movie] tmdb details source_id=%s show=%t failed: %v", sourceID, show, err)

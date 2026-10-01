@@ -20033,3 +20033,15 @@ unchanged links field changes nothing, and a removed link is forgotten. The page
 portrait's tag and, on each link, "auto" or "you" (the supplier in its tooltip); anything
 written before 0081 says nothing. The Sources rows count a person for the supplier of their
 portrait, not of their identity.
+
+**Every ask a supplier answers is on its row, recorded at the call.** A row's last answer moved
+only after a lookup, a picture search or a Test; a Rescan, a fill, Fetch missing, adding a film
+by its id, cast from IMDb or TheTVDB, and a person's portrait or links asked the same suppliers
+and left the row saying nothing had. Each of those calls now records through one door,
+`recordAsk`, rather than through the outbound gate's observer: the gate sees round trips, not
+asks, and knows neither what was found nor which area the ask was about. Two answers are not
+the supplier's: a Stop records nothing, and an empty answer met while a job walks the library
+is recorded without lengthening the run of empty answers that raises a fault, since it is
+about the shelf's gaps. Asks about a person or a company have their own area, "people", on
+Open Library's, TMDB's and IGDB's rows, so a miss on an obscure translator does not count
+against Open Library's book search.

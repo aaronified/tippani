@@ -58,7 +58,7 @@ func (s *Server) handleBookLookup(w http.ResponseWriter, r *http.Request) {
 		// GET /metadata/status surfaces this (§10). The COUNT goes with it now:
 		// a books search that works and finds nothing, over and over, is a fault
 		// the old boolean could not express — see metadata_faults.go.
-		s.recordBooksLookup(cands, searchErr)
+		s.recordBooksLookup(r.Context(), cands, searchErr)
 	}
 
 	// Amazon (opt-in): an ASIN + a stored session cookie. Best-effort and
@@ -67,7 +67,9 @@ func (s *Server) handleBookLookup(w http.ResponseWriter, r *http.Request) {
 	if req.ASIN != "" {
 		if cookie, _ := s.Store.GetSetting(settingAmazonCookie); cookie != "" {
 			domain, _ := s.Store.GetSetting(settingAmazonDomain)
-			if a, aerr := metadata.FetchAmazonBook(r.Context(), req.ASIN, cookie, domain); aerr == nil {
+			a, aerr := metadata.FetchAmazonBook(r.Context(), req.ASIN, cookie, domain)
+			s.recordAsk(r.Context(), faultAreaBooks, "amazon", one(a != nil), "", aerr)
+			if aerr == nil {
 				if a.ISBN13 == "" {
 					a.ISBN13 = isbn
 				}
@@ -335,7 +337,9 @@ func (s *Server) gameLookup(w http.ResponseWriter, r *http.Request, title string
 	// game and a title search cannot.
 	var pinMsg string
 	if igdbID > 0 && igdb != nil {
-		if d, err := igdb.Details(r.Context(), strconv.FormatInt(igdbID, 10)); err == nil {
+		d, err := igdb.Details(r.Context(), strconv.FormatInt(igdbID, 10))
+		s.recordAsk(r.Context(), faultAreaGames, "igdb", one(d != nil), "", err)
+		if err == nil {
 			add([]metadata.MovieCandidate{d.Candidate()})
 		} else {
 			olog.Tracef("[meta] game lookup pin igdb#%d failed: %v", igdbID, err)

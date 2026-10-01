@@ -290,6 +290,7 @@ func (s *Server) resolvePersonPortrait(ctx context.Context, uid int64, kind, nam
 			return "", "", "", "", "", "", links, nil
 		}
 		l, logo, id, cerr := igdb.CompanyLinks(ctx, name)
+		s.recordAsk(ctx, faultAreaPeople, "igdb", one(id > 0), "", cerr)
 		if cerr != nil {
 			// Best-effort, like the actor and director paths. A studio whose
 			// logo could not be fetched is still a studio.
@@ -324,6 +325,7 @@ func (s *Server) resolvePersonPortrait(ctx context.Context, uid int64, kind, nam
 		return "", "", "", "", "", "", links, terr
 	}
 	res, rerr := s.resolveAuthor(ctx, name, titles)
+	s.recordAsk(ctx, faultAreaPeople, "openlibrary", one(res.Key != ""), "", rerr)
 	if rerr != nil {
 		return "", "", "", "", "", "", links, rerr
 	}
@@ -376,6 +378,7 @@ func (s *Server) resolveActorMeta(ctx context.Context, uid int64, name string) (
 		return source, sourceID, imageURL, "", "", ""
 	}
 	pm, err := tmdb.PersonDetails(ctx, id)
+	s.recordAsk(ctx, faultAreaPeople, "tmdb", one(pm != nil), "", err)
 	if err != nil || pm == nil {
 		olog.Tracef("[people] actor %q person details miss: %v", name, err)
 		return source, sourceID, imageURL, "", "", ""
@@ -484,6 +487,7 @@ func (s *Server) resolveDirectorMeta(ctx context.Context, uid int64, name string
 		return source, sourceID, imageURL, "", "", ""
 	}
 	pm, err := tmdb.PersonDetails(ctx, id)
+	s.recordAsk(ctx, faultAreaPeople, "tmdb", one(pm != nil), "", err)
 	if err != nil || pm == nil {
 		olog.Tracef("[people] director %q person details miss: %v", name, err)
 		return source, sourceID, imageURL, "", "", ""

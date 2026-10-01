@@ -93,17 +93,17 @@ var sourceAreas = []struct {
 	areas []string
 }{
 	{"google", []string{faultAreaBooks}},
-	{"openlibrary", []string{faultAreaBooks}},
+	{"openlibrary", []string{faultAreaBooks, faultAreaPeople}},
 	{"amazon", []string{faultAreaBooks, faultAreaPictures}},
-	{"tmdb", []string{faultAreaFilms, faultAreaPictures}},
+	{"tmdb", []string{faultAreaFilms, faultAreaPeople, faultAreaPictures}},
 	{"tvdb", []string{faultAreaFilms, faultAreaPictures}},
 	{"imdb", []string{faultAreaFilms}},
 	{"letterboxd", []string{faultAreaFilms}},
-	{"igdb", []string{faultAreaGames}},
+	{"igdb", []string{faultAreaGames, faultAreaPeople}},
 	{"wikidata", []string{faultAreaGames}},
 	{"google-images", []string{faultAreaPictures}},
 	{"wikimedia", []string{faultAreaPictures}},
-	{"fandom", []string{faultAreaFilms, faultAreaPictures}},
+	{"fandom", []string{faultAreaFilms, faultAreaGames, faultAreaPictures}},
 }
 
 // everySourceHasARow is the contract sourceAreas has to keep, and it is checked
@@ -374,7 +374,7 @@ func (s *Server) testSource(ctx context.Context, slug string) bool {
 		// directly. A Test that reached past the seam would be a second way of
 		// asking, and the whole argument above is that there must not be one.
 		cands, err := s.searchBooks(ctx, "", probeBook, "", gkey)
-		s.recordBooksLookup(cands, quietBy(ctx, err))
+		s.recordBooksLookup(ctx, cands, quietBy(ctx, err))
 	case "amazon":
 		if cookie, _ := s.Store.GetSetting(settingAmazonCookie); cookie != "" {
 			domain, _ := s.Store.GetSetting(settingAmazonDomain)
