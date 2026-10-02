@@ -69,7 +69,17 @@ async function shownCount() {
 // selected. The pill row is above the list, so the FIRST match is the pill — and
 // the anchors keep a chip's words from being read as a count that follows them.
 // The return value is the promise the press is then held to.
+//
+// IT WAITS FOR THE CONSOLE BEFORE IT READS IT. The Works tab is drawn before the
+// works are: the section says "loading…" until its fetch of the library lands,
+// and the pills and the "shown" count arrive in the same render. So one read
+// straight after `press('Works')` races that fetch. On a busy CI runner the read
+// won (run 37048073116): it found no "all" pill, and the screenshot taken after
+// the failure shows the pills, because by then they had arrived. A 1.5 s delay
+// on the server's answer makes the file fail that way every time without this
+// line, and pass with it.
 async function pressPill(label) {
+  await app.see('shown')
   const seen = await app.onScreen()
   const m = seen.match(new RegExp(`\\n${label}\\n(\\d+)`, 'i'))
   expect(m, `the "${label}" filter should be on screen with its count`).toBeTruthy()
