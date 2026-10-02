@@ -36,8 +36,14 @@
 // and re-nesting.
 //
 // WHAT A TEST WRITER NEEDS TO KNOW: the block quoted above. Nothing about which
-// component draws it, which hook returns it, or what any of it is called in the
-// source.
+// component draws it or which hook returns it.
+//
+// DECLARED EXCEPTION: the cases that check who a picked picture is credited to
+// know the request it leaves as — `POST /cast/{id}/image` for a role and `PUT
+// /characters/{id}/image` for the record, with the body's `image_url` and
+// `image_source` — because the
+// mocked network is the only place the credit can be seen in this tier; what the
+// server stores from it is people_sources_test.go's.
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { useEffect, useState } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'

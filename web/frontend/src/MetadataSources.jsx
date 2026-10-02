@@ -449,14 +449,17 @@ function SourceRows({ admin, sources, scrapeOn = false, info = null, editors = n
                 the count of works and peoples, but of fields. \"Fields | works\"".
                 The works and people wear the console's own section glyphs, the
                 doors beside this card; the word stays on fields, the count the row
-                leads with. A zero reads "0 fields" alone, and only a supplier that
-                cannot be asked and has written nothing at all is red: one that
-                needs a key and has supplied fields, works or people is not a
-                warning. */}
+                leads with. Zero fields reads "0 fields", and " · " and the people
+                after it where a supplier filled people and no field. Only a
+                supplier that cannot be asked and has written nothing at all is
+                red: one that needs a key and has supplied fields, works or people
+                is not a warning, and its tooltip does not say nothing came from it. */}
             <Tooltip
               label={row.fields
                 ? t('settings.sources.records.tip', { count: row.fields, source: name })
-                : t('settings.sources.records.none.tip', { source: name })}
+                : row.people
+                  ? t('settings.sources.records.people.tip', { count: row.people, source: name })
+                  : t('settings.sources.records.none.tip', { source: name })}
             >
               <span className={'src-row-count' + (row.state === 'needed' && !row.fields && !row.works && !row.people ? ' is-needed' : '')}>
                 {t('settings.sources.fields', { count: row.fields || 0, n: row.fields || 0 })}

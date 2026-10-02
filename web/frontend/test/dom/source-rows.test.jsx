@@ -14,9 +14,10 @@
 // key recorded nothing and reported nothing. It is not offered now, which is the
 // second case here.
 // DECLARED EXCEPTION, in the terms this repo asks for. This file knows the
-// module it renders and three CSS class shapes — `.is-src-<state>`, the mark's
-// own aria-label, and the count's `.is-needed`, its red — and nothing observable
-// could serve instead: what is under test
+// module it renders, the mark's own aria-label, and four CSS class shapes —
+// `.is-src-<state>`, the count's `.src-row-count` and its red `.is-needed` — and
+// nothing observable could serve instead: the count has no role or label of its
+// own to be found by, and what is under test
 // is precisely whether a state the SERVER can send is one the STYLESHEET has a
 // rule for, and a colour with no rule is invisible to a reader of the rendered
 // text. It mocks the network because the four states are a server's answer and
@@ -26,7 +27,7 @@
 // restating them; this file is the half that proves the screen can paint what it
 // is sent.
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 
 let STATUS
 
@@ -40,6 +41,7 @@ vi.mock('../../src/api.js', async (orig) => ({
 }))
 
 const { MetadataSources } = await import('../../src/MetadataSources.jsx')
+const { ToastHost } = await import('../../src/ui.jsx')
 
 const row = (source, state) => ({ source, state, areas: ['films'], fields: 0, works: 0, people: 0 })
 
@@ -119,5 +121,17 @@ describe('a supplier row', () => {
     await page()
     const counts = [...document.querySelectorAll('.src-row-count')]
     expect(counts.map((c) => c.classList.contains('is-needed'))).toEqual([false, true])
+  })
+
+  // AND ITS TOOLTIP DOES NOT SAY NOTHING CAME FROM IT. The count reads "0 fields"
+  // with the people after it, and the tooltip a pointer rests on said "Nothing in
+  // your library came from TMDB" over two people it had supplied.
+  it('tells a pointer on a people-only count that the people came from it', async () => {
+    STATUS.sources = [{ ...row('tmdb', 'needed'), people: 2 }]
+    render(<ToastHost />)
+    await page()
+    fireEvent.pointerEnter(document.querySelector('.src-row-count'), { pointerType: 'mouse' })
+    expect(await screen.findByText(/2 people in your library have a picture, a link or a record from TMDB/)).toBeTruthy()
+    expect(screen.queryByText(/Nothing in your library came from TMDB/)).toBeNull()
   })
 })

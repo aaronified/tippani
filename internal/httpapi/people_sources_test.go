@@ -14,15 +14,21 @@ import (
 // portrait source": the pack's §1.3, each link marked auto (the app found it) or
 // you (the reader pasted it), and the portrait tagged with its supplier.
 //
-// Every case presses the person's Fetch (POST /people/id/{id}/fetch) and reads
-// the record and the Sources rows back.
+// The person cases press the person's Fetch (POST /people/id/{id}/fetch), or a
+// merge (POST /people/merge), and read the record and the Sources rows back. The
+// character cases set a picture as the reader's strip does (POST
+// /cast/{id}/image, PUT /characters/{id}/image), remove a role (DELETE
+// /cast/{id}) or merge two characters (POST /characters/merge), and read the
+// Sources rows back.
 //
 // SETUP KNOWS the people table (seedPerson writes a record straight in, as other
-// people tests do; personIDFor finds one by name) and four seams the offline
-// test server needs, because it has no supplier to ask: srv.resolveAuthor (Open
+// people tests do; personIDFor finds one by name), a film and its cast rows made
+// through POST /movies and POST /movies/{id}/cast, and the seams the offline test
+// server needs, because it has no supplier to ask: srv.resolveAuthor (Open
 // Library's author match), srv.authorLinks (Open Library's links for a name),
-// srv.fetchImage (the portrait download) and srv.fetchUserImage (a picture from
-// an address the reader gave).
+// srv.fetchImage (the portrait download), srv.fetchUserImage (a picture from an
+// address the reader gave), and srv.TMDB's Key and BaseURL pointed at a fake TMDB
+// for the film whose role is removed.
 
 type personSources struct {
 	ImageSource string            `json:"image_source"`
