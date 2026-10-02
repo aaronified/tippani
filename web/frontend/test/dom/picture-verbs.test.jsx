@@ -126,6 +126,24 @@ describe('a character seen from inside one work', () => {
     await open({ id: 4, name: 'Andy Dufresne', work: FILM })
   })
 
+  // THIS WORK'S PICTURE, TAKEN FROM THE STRIP, IS ITS SUPPLIER'S TOO: the work's
+  // cast row is written with the strip's source, as the record's is.
+  it("credits this work's picture taken from the strip to the supplier that offered it", async () => {
+    IMAGES = [{ url: 'https://pics.test/andy-film.jpg', thumb: 'https://encrypted-tbn0.gstatic.com/b', source: 'google' }]
+    try {
+      await act(async () => { byWord(/fetch/i).click() })
+      const pick = await screen.findByRole('button', { name: /^Use this picture from / })
+      await act(async () => { pick.click() })
+      await waitFor(() => {
+        const save = CALLS.find(([m, p, b]) => m === 'POST' && p === '/cast/9/image' && b?.image_url)
+        expect(save, 'the pick saved nothing on this work').toBeTruthy()
+        expect(save[2].image_source).toBe('google-images')
+      })
+    } finally {
+      IMAGES = []
+    }
+  })
+
   it('offers a way to fetch, a way to upload and a way to paste an address', () => {
     expect(strip(), 'the picture block has no control strip at all').toBeTruthy()
     const words = named().join(' | ')
@@ -242,11 +260,7 @@ describe("the character's own record, which IS the identity", () => {
     IMAGES = [{ url: 'https://pics.test/andy.jpg', thumb: 'https://encrypted-tbn0.gstatic.com/a', source: 'google' }]
     try {
       await act(async () => { byWord(/fetch/i).click() })
-      const pick = await waitFor(() => {
-        const b = document.querySelector('button.cover-pick')
-        expect(b, 'the strip drew nothing to pick').toBeTruthy()
-        return b
-      })
+      const pick = await screen.findByRole('button', { name: /^Use this picture from / })
       await act(async () => { pick.click() })
       await waitFor(() => {
         const save = CALLS.find(([m, p, b]) => m === 'PUT' && p === '/characters/4/image' && b?.image_url)

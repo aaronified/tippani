@@ -265,6 +265,7 @@ func (s *Server) suppliedBySource(uid int64) map[string]supplied {
 		UNION ALL
 		SELECT character_image_source, count(*) FROM work_cast
 		 WHERE user_id = ? AND character_image_source NOT IN ('', 'manual') AND character_image_path <> ''
+		   AND origin <> 'removed'
 		 GROUP BY character_image_source`, uid, uid)
 	if err != nil {
 		olog.Tracef("[meta] supplied by source, characters: %v", err)

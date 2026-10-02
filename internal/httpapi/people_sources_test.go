@@ -18,10 +18,11 @@ import (
 // the record and the Sources rows back.
 //
 // SETUP KNOWS the people table (seedPerson writes a record straight in, as other
-// people tests do; personIDFor finds one by name) and three seams the offline
+// people tests do; personIDFor finds one by name) and four seams the offline
 // test server needs, because it has no supplier to ask: srv.resolveAuthor (Open
-// Library's author match), srv.authorLinks (Open Library's links for a name) and
-// srv.fetchImage (the portrait download).
+// Library's author match), srv.authorLinks (Open Library's links for a name),
+// srv.fetchImage (the portrait download) and srv.fetchUserImage (a picture from
+// an address the reader gave).
 
 type personSources struct {
 	ImageSource string            `json:"image_source"`
@@ -168,10 +169,75 @@ func TestACharacterPictureIsTheStripsSupplierOrTheReaders(t *testing.T) {
 	if got := fields(); got != 2 {
 		t.Errorf("and the record's: Google Images' row reads %d fields, want 2", got)
 	}
-	// A pasted address names no supplier: the reader's, and no supplier's field.
-	c.mustDo("POST", "/cast/"+itoa(row.ID)+"/image", map[string]any{"image_url": "https://pics.example/mine.jpg"}, http.StatusOK)
+	// A pasted address names no supplier: the reader's, and no supplier's field,
+	// even on a host a supplier owns, which a credit by host would give it.
+	c.mustDo("POST", "/cast/"+itoa(row.ID)+"/image", map[string]any{"image_url": "https://upload.wikimedia.org/wikipedia/commons/anand.jpg"}, http.StatusOK)
+	rows := decode[sourcesResp](t, c.mustDo("GET", "/metadata/status", nil, http.StatusOK)).Sources
+	if got, w := sourceNamed(t, rows, "google-images").Fields, sourceNamed(t, rows, "wikimedia").Fields; got != 1 || w != 0 {
+		t.Errorf("a pasted picture replaced the strip's: Google Images reads %d fields and Wikimedia %d, want 1 and 0", got, w)
+	}
+}
+
+// A ROLE THE READER TOOK OFF IS NOT COUNTED. Removing a supplier's cast row keeps
+// it as a tombstone, picture and all (a role the reader added is deleted
+// outright), and the count is of what the library holds.
+func TestARemovedRolesPictureIsNotCounted(t *testing.T) {
+	srv := newTestServer(t)
+	fake := portraitTMDB(t, `[{"id":380,"character":"Neil McCauley","name":"Robert De Niro","profile_path":"/de.jpg"}]`)
+	t.Cleanup(fake.Close)
+	srv.TMDB.Key = "testkey"
+	srv.TMDB.BaseURL = fake.URL
+	srv.fetchUserImage = func(context.Context, string, string) (string, error) { return "dddddddddddddddd.jpg", nil }
+	c := signupAdmin(t, srv.Handler())
+	m := addFromTMDB(t, c)
+	row := castRowFor(t, c, m.ID, "Neil McCauley")
+	fields := func() int {
+		return sourceNamed(t, decode[sourcesResp](t, c.mustDo("GET", "/metadata/status", nil, http.StatusOK)).Sources, "google-images").Fields
+	}
+	c.mustDo("POST", "/cast/"+itoa(row.ID)+"/image", map[string]any{"image_url": "https://pics.example/neil.jpg", "image_source": "google-images"}, http.StatusOK)
 	if got := fields(); got != 1 {
-		t.Errorf("a pasted picture replaced the strip's and Google Images' row still reads %d fields, want 1", got)
+		t.Fatalf("setup: Google Images reads %d fields, want 1", got)
+	}
+	c.mustDo("DELETE", "/cast/"+itoa(row.ID), nil, http.StatusNoContent)
+	if got := fields(); got != 0 {
+		t.Errorf("a removed role's picture still counts: Google Images reads %d fields, want 0", got)
+	}
+}
+
+// A PERSON COUNTS FOR A LINK ALONE: no portrait and no identity, one link Open
+// Library gave.
+func TestAPersonCountsForASupplierThatGaveOnlyALink(t *testing.T) {
+	srv := newTestServer(t)
+	srv.resolveAuthor = func(context.Context, string, []string) (metadata.AuthorResolution, error) {
+		return metadata.AuthorResolution{}, nil
+	}
+	srv.authorLinks = func(context.Context, string) (map[string]string, error) {
+		return map[string]string{"openlibrary": "https://openlibrary.org/authors/OL3A"}, nil
+	}
+	c := signupAdmin(t, srv.Handler())
+	id := seedPerson(t, srv, 1, "author", "Mirra Ginsburg")
+	fetchPersonByID(c, id)
+	if o := sourceNamed(t, decode[sourcesResp](t, c.mustDo("GET", "/metadata/status", nil, http.StatusOK)).Sources, "openlibrary"); o.People != 1 || o.Fields != 0 {
+		t.Errorf("Open Library's row reads %d fields | %d people for a person it gave one link, want 0 | 1", o.Fields, o.People)
+	}
+}
+
+// A CHARACTER MERGE BORROWS THE PICTURE'S CREDIT WITH THE PICTURE, as a person's
+// does: the survivor had none, takes the other's, and stays on its supplier's
+// count.
+func TestACharacterMergeCarriesThePicturesCredit(t *testing.T) {
+	srv := newTestServer(t)
+	n := 0
+	srv.fetchUserImage = func(context.Context, string, string) (string, error) {
+		n++
+		return fmt.Sprintf("%016x.jpg", n), nil
+	}
+	c := signupAdmin(t, srv.Handler())
+	keep, drop, _, _ := twoWolands(t, srv, c)
+	c.mustDo("PUT", "/characters/"+itoa(drop)+"/image", map[string]any{"image_url": "https://pics.example/woland.jpg", "image_source": "google-images"}, http.StatusOK)
+	c.mustDo("POST", "/characters/merge", map[string]any{"keep_id": keep, "drop_id": drop}, http.StatusOK)
+	if got := sourceNamed(t, decode[sourcesResp](t, c.mustDo("GET", "/metadata/status", nil, http.StatusOK)).Sources, "google-images").Fields; got != 1 {
+		t.Errorf("the survivor borrowed the picture and not its credit: Google Images reads %d fields, want 1", got)
 	}
 }
 

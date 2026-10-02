@@ -14,8 +14,9 @@
 // key recorded nothing and reported nothing. It is not offered now, which is the
 // second case here.
 // DECLARED EXCEPTION, in the terms this repo asks for. This file knows the
-// module it renders and two CSS class shapes — `.is-src-<state>` and the mark's
-// own aria-label — and nothing observable could serve instead: what is under test
+// module it renders and three CSS class shapes — `.is-src-<state>`, the mark's
+// own aria-label, and the count's `.is-needed`, its red — and nothing observable
+// could serve instead: what is under test
 // is precisely whether a state the SERVER can send is one the STYLESHEET has a
 // rule for, and a colour with no rule is invisible to a reader of the rendered
 // text. It mocks the network because the four states are a server's answer and
@@ -108,5 +109,15 @@ describe('a supplier row', () => {
     expect(screen.getByRole('img', { name: 'people' })).toBeTruthy()
     expect(text).toMatch(/12 fields · 12/)
     expect(text).toMatch(/0 fields/)
+  })
+
+  // RED IS FOR A SUPPLIER THAT CANNOT BE ASKED AND HAS WRITTEN NOTHING. One that
+  // needs its key again but supplied people (by identity or a link, with no
+  // field) has written something, and its count is not a warning.
+  it('reds the count of a supplier that cannot be asked only when it has written nothing', async () => {
+    STATUS.sources = [{ ...row('tmdb', 'needed'), people: 2 }, row('igdb', 'needed')]
+    await page()
+    const counts = [...document.querySelectorAll('.src-row-count')]
+    expect(counts.map((c) => c.classList.contains('is-needed'))).toEqual([false, true])
   })
 })
