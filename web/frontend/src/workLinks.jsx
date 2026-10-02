@@ -210,7 +210,9 @@ function LinkRow({ url, slug, name, onRemove }) {
 // with nothing, that can be skipped".
 export function WorkLinks({ value, onSave }) {
   const rows = linkRows(value)
-  const remove = (url) => onSave(rows.filter((r) => r.url !== url).map((r) => r.url).join('\n'))
+  // `linkLine` on every row that stays, as append does: this rewrites the whole
+  // field, so a name dropped here would be lost from every other link for good.
+  const remove = (url) => onSave(rows.filter((r) => r.url !== url).map((r) => linkLine(r.url, r.label)).join('\n'))
   if (rows.length === 0) return null
   return (
     <ul className="work-link-list">
@@ -231,15 +233,12 @@ export function linkRows(value) {
   return namedLinks(value, { web: () => t('links.web.label') })
 }
 
-// PasteLink — the + panel: the pages this record can already address, and a box
-// for everything else.
+// PasteLink — the adding half of the Links screen: the pages this record can
+// already address, and a box for everything else.
 //
-// THE DERIVED LIST IS IN HERE RATHER THAN IN A HEADER VERB OF ITS OWN, and §1.12
-// is why: a panel carries one verb and only its own, and Links already spends it
-// on `+`. Two ways to add a link are not two verbs — they are the same verb done
-// two ways, so they belong behind the one press that means "add". The cheap way
-// goes first because it is one press against a paste, and the box below is
-// unchanged for the site the record cannot address, which is most sites.
+// TWO WAYS TO ADD A LINK ARE ONE VERB DONE TWO WAYS, so they sit together under
+// the list: the cheap way first, because it is one press against a paste, and the
+// box below it for the site the record cannot address, which is most sites.
 //
 // ONE FORM WITH WHAT SITS ABOVE IT. `children` is the rest of the screen it is
 // on — a work's ids and its list of links — and `changed` counts the ids edited
@@ -247,7 +246,10 @@ export function linkRows(value) {
 // owner: "the edit and add opens separate screens. They can be merged into one."
 // `onSave` is handed the links field to write, or undefined when this press adds
 // no link and only the ids moved.
-export function PasteLink({ item, value, busy, onSave, onDone, changed = 0, children }) {
+//
+// `focus` is the door the screen was opened by: the ＋ lands in the paste box, and
+// the pencil, which edits ids, does not.
+export function PasteLink({ item, value, busy, onSave, onDone, changed = 0, focus = 'link', children }) {
   const [draft, setDraft] = useState('')
   const [name, setName] = useState('')
   const reading = readLink(draft)
@@ -255,9 +257,14 @@ export function PasteLink({ item, value, busy, onSave, onDone, changed = 0, chil
   const suggested = derivedLinks(item || {}, value)
   const adds = !!reading && !rows.some((r) => r.url === reading.url)
   const pending = changed + (adds ? 1 : 0)
-  // A ✓ THAT WOULD WRITE NOTHING IS GREYED, with the reason: an address already
-  // here is not an add.
-  const host = useFormHost(pending ? '' : reading ? t('links.already') : t('links.reading.none'))
+  // A ✓ THAT WOULD WRITE NOTHING IS GREYED, with the reason it would: nothing
+  // changed yet, an address already here, or text that is not an address. And
+  // while a save is in flight, so a second press does not send it twice.
+  const host = useFormHost(busy
+    ? t('common.action.save.busy')
+    : pending
+      ? ''
+      : !draft.trim() ? t('links.save.nothing') : reading ? t('links.already') : t('links.reading.none'))
   useEffect(() => {
     host?.setDirty?.(pending)
     return () => host?.setDirty?.(0)
@@ -319,7 +326,7 @@ export function PasteLink({ item, value, busy, onSave, onDone, changed = 0, chil
         placeholder={t('links.paste.placeholder')}
         autoComplete="off"
         spellCheck="false"
-        autoFocus
+        autoFocus={focus === 'link'}
         disabled={!!busy}
         onChange={(e) => setDraft(e.target.value)}
       />

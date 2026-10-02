@@ -7822,6 +7822,7 @@ links.paste.hint = Paste any address. You will see how it is read before it is a
 links.reading = Reads as {name} — {host}
 links.reading.none = That is not an address yet.
 links.already = Already on this record.
+links.save.nothing = Nothing to save yet
 links.remove.aria = Remove the {name} link
 
 # Ordering, grouping and filtering ANY board of quotes — a book's highlights and

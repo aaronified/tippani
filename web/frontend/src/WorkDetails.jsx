@@ -1236,9 +1236,12 @@ export function workPeoplePanel(stack, props) {
 // EVERY ID, FILLED OR NOT, unlike the strip outside — this is the place the
 // missing ones are missing FROM, so an empty box here is the offer the strip
 // deliberately does not make.
-function LinksHost({ kind, item, onChanged, specs, mediaType, onDone }) {
+//
+// A SAVE THAT FAILS SAYS SO, on the screen it failed on: the ids dialog this
+// replaces showed its error, and a ✓ that does nothing and says nothing is worse.
+function LinksHost({ kind, item, onChanged, specs, mediaType, focus, onDone }) {
   const linkSpec = { key: 'links', label: t('common.field.links.label') }
-  const { rec, busy, save } = useWorkRecord({ kind, initial: item, onChanged, specs: [...specs, linkSpec] })
+  const { rec, busy, error, save } = useWorkRecord({ kind, initial: item, onChanged, specs: [...specs, linkSpec] })
   const [draft, setDraft] = useState({})
   const stored = (sp) => {
     const raw = rec[sp.key]
@@ -1265,11 +1268,15 @@ function LinksHost({ kind, item, onChanged, specs, mediaType, onDone }) {
       changed={changed.length}
       onSave={write}
       onDone={onDone}
+      focus={focus}
     >
-      {specs.map((sp) => (
+      <ErrorText>{error}</ErrorText>
+      {specs.map((sp, i) => (
         <Field
           key={sp.key}
           id={`work-id-${sp.key}`}
+          // The pencil's door lands on the first id, as the ＋'s lands in the box.
+          autoFocus={focus === 'ids' && i === 0}
           label={labelFor(sp, mediaType)}
           value={shown(sp)}
           // THE EVENT, NOT THE VALUE. `Field` passes its input's onChange
@@ -1930,8 +1937,9 @@ function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, gen
 
       {/* ── THE WAYS OUT OF THIS RECORD, IN ONE SECTION ──
           A pill per id the record holds and a pill per link the reader added, and
-          one screen behind both the head's pencil and the ＋. The rows this replaces were five or six ids in a form whose other
-          rows are the title and the description — reading as what the record is
+          one screen behind both the head's pencil and the ＋. The rows this
+          replaces were five or six ids in a form whose other rows are the title
+          and the description — reading as what the record is
           ABOUT rather than as its footnotes — and, above them, a `Links` row
           whose value was a count. Two headings for one question. */}
       {(idSpecs.length > 0 || String(item.links || '').trim()) && (
@@ -1939,7 +1947,7 @@ function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, gen
           item={item}
           specs={idSpecs}
           mediaType={mediaType}
-          onOpenLinks={stack ? () => stack.push(workLinksPanel(stack, { kind, item, onChanged, specs: idSpecs, mediaType })) : undefined}
+          onOpenLinks={stack ? (focus) => stack.push(workLinksPanel(stack, { kind, item, onChanged, specs: idSpecs, mediaType, focus })) : undefined}
         />
       )}
       </UnsavedFieldsContext.Provider>
@@ -1949,7 +1957,7 @@ function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, gen
 
 // ---- the ids ---------------------------------------------------------------
 //
-// WorkIds — the strip at the foot of the panel, and the one dialog behind it.
+// WorkIds — the strip at the foot of the panel, and the one screen behind it.
 //
 // AN ID IS NOT A FACT ABOUT THE WORK. It is how one catalogue files it, which is
 // why the pack takes all of them out of the form: a book's ISBN and ASIN, a
@@ -1960,7 +1968,7 @@ function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, gen
 // ONLY THE ONES WITH A VALUE GET A PILL. The alternative is the roster of
 // absences workLinks.jsx argues against at length — six slots with four of them
 // reading "not linked" tells the reader which catalogues their book OUGHT to be
-// in, and is wrong about it. What is missing is behind the editor, where every id
+// in, and is wrong about it. What is missing is on the Links screen, where every id
 // this medium has is offered whether it is filled or not.
 //
 // A PILL WITHOUT AN ADDRESS KEEPS ITS PILL. An IGDB numeric id names no page the
@@ -2030,13 +2038,13 @@ function WorkIds({ item, specs, mediaType, onOpenLinks }) {
           not, the links, and the paste box. */}
       <SectionHead
         label={t('common.field.links.label')}
-        action={specs.length ? onOpenLinks : undefined}
+        action={specs.length && onOpenLinks ? () => onOpenLinks('ids') : undefined}
         actionLabel={t('work.ids.edit.label')}
         actionTitle={t('work.ids.edit.tip')}
       />
       <PillRow
         pills={[...pills, ...linked]}
-        onAdd={onOpenLinks}
+        onAdd={onOpenLinks ? () => onOpenLinks('link') : undefined}
         addLabel={t('links.paste.label')}
         addIcon={<IconPlus />}
         addTitle={t('links.paste.label')}

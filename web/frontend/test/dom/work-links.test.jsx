@@ -7,16 +7,20 @@
 // the reading is shown before anything is stored.
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 
 let PUTS
 let STORED
+let REFUSE = ''
+let HOLD = null
 
 vi.mock('../../src/api.js', async (orig) => ({
   ...(await orig()),
   json: vi.fn(async (method, path, body) => {
     if (method === 'PUT') {
       PUTS.push({ path, body })
+      if (REFUSE) return { ok: false, status: 500, data: { error: REFUSE } }
+      if (HOLD) await HOLD
       STORED = { ...STORED, ...body }
       return { ok: true, data: STORED }
     }
@@ -28,6 +32,7 @@ vi.mock('../../src/api.js', async (orig) => ({
 }))
 
 const { workDetailsPanel } = await import('../../src/WorkDetails.jsx')
+const { ToastHost } = await import('../../src/ui.jsx')
 const { PanelHarness, resetPanelHistory } = await import('../panel-harness.jsx')
 
 const BOOK = {
@@ -40,6 +45,8 @@ const BOOK = {
 
 beforeEach(() => {
   PUTS = []
+  REFUSE = ''
+  HOLD = null
   STORED = { ...BOOK }
   resetPanelHistory()
 })
@@ -51,28 +58,26 @@ const panel = () =>
     />,
   )
 const shown = () => waitFor(() => expect(screen.getByRole('button', { name: /^Edit title$/i })).toBeTruthy())
-// THE LINKS PANEL IS BEHIND THE ＋ AT THE END OF THE PILL ROW. It was behind an
-// `Edit links` row of the form until the ids and the links became one section on
-// the owner's ruling; the row is gone and its door is the row's add control.
+// THE LINKS SCREEN IS BEHIND THE ＋ AT THE END OF THE PILL ROW, and behind the
+// section head's pencil. It was behind an `Edit links` row of the form until the
+// ids and the links became one section on the owner's ruling.
+const plus = () => screen.getByRole('button', { name: 'Add a link' })
+const removes = () => screen.queryAllByRole('button', { name: /^Remove the .* link$/ })
 const openLinks = async () => {
   panel()
   await shown()
-  fireEvent.click(document.querySelector('.cs-pills .cs-pill.is-add'))
-  return waitFor(() => {
-    const el = document.querySelector('.work-link-row')
-    expect(el).toBeTruthy()
-    return el
-  })
+  fireEvent.click(plus())
+  return waitFor(() => expect(removes().length).toBeGreaterThan(0))
 }
 // THE PASTE BOX IS ON THE SAME SCREEN AS THE LIST. It had a screen of its own,
 // behind a header ＋ on the list's, until the owner: "the edit and add opens
 // separate screens. They can be merged into one."
-const pasteBox = () => document.querySelector('.tp-panel input[aria-label="Add a link"]')
+const pasteBox = () => screen.queryByRole('textbox', { name: 'Add a link' })
 const openPaste = async () => {
   await openLinks()
   return pasteBox()
 }
-const linkPill = (url) => document.querySelector(`.cs-pills a[href="${url}"]`)
+const linkPill = (url) => screen.queryAllByRole('link').find((a) => a.getAttribute('href') === url)
 
 // THE IDS AND THE LINKS ARE ONE SECTION, which replaces the row this block used
 // to describe.
@@ -321,9 +326,9 @@ describe('the Links panel', () => {
 // case; the head's pencil given no action reddens the first; the paste box drawn
 // only once a link exists reddens the last.
 describe('the ids and the links on one screen', () => {
-  const pencil = () => [...document.querySelectorAll('.cs-head-row')]
-    .find((h) => /^links$/i.test(h.querySelector('.cs-section')?.textContent?.trim() || ''))
-    ?.querySelector('.cs-section-action')
+  // The head's verb, found beside the heading it belongs to: "Edit" alone is
+  // also Cast's.
+  const pencil = () => within(screen.getByText(/^links$/i).parentElement).getByRole('button', { name: /edit/i })
 
   it('the head\'s pencil opens it, with every id and the paste box', async () => {
     panel()
@@ -331,13 +336,21 @@ describe('the ids and the links on one screen', () => {
     fireEvent.click(pencil())
     await waitFor(() => expect(pasteBox(), 'the pencil opened a screen with no way to add a link').toBeTruthy())
     expect(screen.getByLabelText(/^ISBN$/i).value).toBe('9780143108276')
-    expect(document.querySelectorAll('.work-link-row')).toHaveLength(2)
+    expect(removes()).toHaveLength(2)
+    // THE PENCIL EDITS IDS, so it lands on the first of them and not in the box.
+    expect(document.activeElement).toBe(screen.getByLabelText(/^ISBN$/i))
   })
 
   it('and an id and a link go out together on the one ✓', async () => {
     await openLinks()
     fireEvent.change(screen.getByLabelText(/^ASIN$/i), { target: { value: 'B00NPB8WUQ' } })
     fireEvent.change(pasteBox(), { target: { value: 'letterboxd.com/film/stalker/' } })
+    // THE BADGE COUNTS BOTH: one id changed and one link to add.
+    // The count sits beside the ✓ rather than in its name (it is drawn, not
+    // said), so it is read off the nearest box around the ✓ that holds a figure.
+    let beside = screen.getByLabelText('Save')
+    while (beside && !/\d/.test(beside.textContent)) beside = beside.parentElement
+    expect(beside?.textContent, 'the ✓ does not count the id and the link').toBe('2')
     fireEvent.click(screen.getByLabelText('Save'))
     await waitFor(() => expect(PUTS).toHaveLength(1))
     expect(PUTS[0].body.asin).toBe('B00NPB8WUQ')
@@ -352,12 +365,67 @@ describe('the ids and the links on one screen', () => {
       />,
     )
     await shown()
-    fireEvent.click(document.querySelector('.cs-pills .cs-pill.is-add'))
+    fireEvent.click(plus())
     await waitFor(() => expect(pasteBox(), 'the ＋ opened a screen with nothing to add on it').toBeTruthy())
     expect(document.body.textContent).not.toMatch(/No links yet/)
+    expect(document.activeElement, 'the ＋ did not land in the box').toBe(pasteBox())
     fireEvent.change(pasteBox(), { target: { value: 'example.net/talks' } })
     fireEvent.click(screen.getByLabelText('Save'))
     await waitFor(() => expect(PUTS).toHaveLength(1))
     expect(PUTS[0].body.links).toBe('https://example.net/talks')
+  })
+
+  // NOTHING CHANGED IS ITS OWN REASON. With the box empty the greyed ✓ said "That
+  // is not an address yet", about a box the reader had not touched and on a
+  // screen they may have opened to edit an id.
+  it('says there is nothing to save before anything has changed', async () => {
+    render(<>
+      <ToastHost />
+      <PanelHarness panel={(stack) => workDetailsPanel(stack, { kind: 'book', item: BOOK, onChanged: () => {}, onDelete: null })} />
+    </>)
+    await shown()
+    fireEvent.click(pencil())
+    const save = await waitFor(() => {
+      const b = screen.getByLabelText('Save')
+      expect(b.disabled).toBe(true)
+      return b
+    })
+    // A pointer resting on the greyed ✓ is told why.
+    fireEvent.pointerEnter(save, { pointerType: 'mouse' })
+    expect(await screen.findByText('Nothing to save yet')).toBeTruthy()
+  })
+
+  it('and a save that fails says so on the screen', async () => {
+    REFUSE = 'the library is busy'
+    await openLinks()
+    fireEvent.change(pasteBox(), { target: { value: 'example.net/talks' } })
+    fireEvent.click(screen.getByLabelText('Save'))
+    expect(await screen.findByText(/the library is busy/), 'a refused save left the screen saying nothing').toBeTruthy()
+  })
+
+  // TAKING ONE LINK OFF KEEPS THE OTHERS' NAMES. The removal rewrote the field
+  // from bare addresses, so every other link lost the name a reader gave it.
+  it('and taking one link off keeps the name on another', async () => {
+    STORED = { ...BOOK, links: 'https://example.org/a-review | Their review\nhttps://www.imdb.com/title/tt0084787/' }
+    render(<PanelHarness panel={(stack) => workDetailsPanel(stack, { kind: 'book', item: STORED, onChanged: () => {}, onDelete: null })} />)
+    await shown()
+    fireEvent.click(plus())
+    fireEvent.click(await screen.findByRole('button', { name: /Remove the IMDb link/i }))
+    await waitFor(() => expect(PUTS).toHaveLength(1))
+    expect(PUTS[0].body.links, 'the other link lost its name').toContain('Their review')
+  })
+
+  // AND WHILE IT IS ON ITS WAY THE ✓ IS GREYED, so a second press does not send
+  // the same save twice.
+  it('greys the ✓ while a save is on its way', async () => {
+    let release
+    HOLD = new Promise((r) => { release = r })
+    await openLinks()
+    fireEvent.change(pasteBox(), { target: { value: 'example.net/talks' } })
+    fireEvent.click(screen.getByLabelText('Save'))
+    await waitFor(() => expect(PUTS).toHaveLength(1))
+    expect(screen.getByLabelText('Save').disabled, 'the ✓ can be pressed again mid-save').toBe(true)
+    release()
+    await waitFor(() => expect(pasteBox()).toBeNull())
   })
 })
