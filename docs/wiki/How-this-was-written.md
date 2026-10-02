@@ -71,15 +71,15 @@ the measurement, stamped with the commit it was counted at and re-counted by the
 kit's `ai_census.py --check`. The breakdown by model, and the commits that carry no
 trailer, follow it under *By model*.
 
-## Measured as of `f00ad46be8709c14651184896de3675dab39587c` (2026-10-02)
+## Measured as of `08fff63c94b2289fd6a2d377f98fbb772e9340ae` (2026-10-03)
 
 | Figure | Value |
 | --- | --- |
-| Commits, no merges, exclusions applied | 2,082 |
-| AI-assisted commits | 2,069 — 99.4% |
-| Lines added / removed, AI-assisted commits | +903,088 / -376,875 |
-| Lines added / removed, all commits | +912,685 / -385,358 |
-| **Surviving lines from AI-assisted commits** | **523,058 of 527,212 — 99.2%** |
+| Commits, no merges, exclusions applied | 2,087 |
+| AI-assisted commits | 2,074 — 99.4% |
+| Lines added / removed, AI-assisted commits | +903,186 / -376,889 |
+| Lines added / removed, all commits | +912,783 / -385,372 |
+| **Surviving lines from AI-assisted commits** | **523,143 of 527,296 — 99.2%** |
 
 These figures describe the tree at that sha and change with every commit, which is why
 they are stamped: an unstamped percentage cannot be checked against anything, and so is
@@ -161,7 +161,7 @@ awk 'NR == FNR { ai[$1]; next }
 ## By model
 
 Models used, by commit count, at the same commit. Merges are excluded, and the block's
-exclusion list is not applied, so the rows sum to 2,079 against the block's 2,069. One
+exclusion list is not applied, so the rows sum to 2,084 against the block's 2,074. One
 commit, `b77a22e5`, carries its line outside git's trailer block, so the count and the
 breakdown below grep the message. The per-commit listing asks git for trailers, and shows
 `b77a22e5` with none:
@@ -169,17 +169,17 @@ breakdown below grep the message. The per-commit listing asks git for trailers, 
 | Model | Commits |
 | :-- | --: |
 | Claude Opus 5 | 1,169 |
-| Claude Opus 5.5 | 673 |
+| Claude Opus 5.5 | 676 |
 | Claude Opus 4.8 | 150 |
 | Claude Fable 5 | 54 |
-| Claude Sonnet 5 | 16 |
+| Claude Sonnet 5 | 18 |
 | Claude Sonnet 5.5 | 7 |
 | Claude Haiku 4.5 | 5 |
 | Claude Fable 5.1 | 4 |
 | Claude Sonnet 4.6 | 1 |
 
 Some of those trailers carry a `(1M context)` suffix naming the long-context
-variant: 450 of the Opus 5 commits, 462 of the Opus 5.5 ones and 146 of the Opus 4.8
+variant: 450 of the Opus 5 commits, 465 of the Opus 5.5 ones and 146 of the Opus 4.8
 ones. It is the same model with a larger window, so the table folds them; the last
 command below prints them unfolded if you would rather see it raw.
 
@@ -199,7 +199,7 @@ fixed, because a disclosure that rounds its own gaps away is not one.
 To see it yourself:
 
 ```bash
-SHA=f00ad46b   # the commit the block above is stamped with
+SHA=08fff63c   # the commit the block above is stamped with
 
 # every commit, with the model that co-authored it
 git log --no-merges --date=short "$SHA" \

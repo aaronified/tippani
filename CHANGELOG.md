@@ -14,7 +14,7 @@ already too tight before anyone wrote the next test.
 
 ### Fixed
 
-- **CI is green on 3.1.4's push again.** The works-filter journey read the
+- **Two journeys wait for the app, and the Go tests get a longer budget.** The works-filter journey read the
   screen for a pill before the console had drawn it, and a save-then-navigate
   journey waited on Puppeteer's own count of every request the page had ever
   made rather than the app's own calls — both now wait for the app instead of
