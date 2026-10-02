@@ -10772,6 +10772,9 @@ const SOURCE_KEYS = {
   igdb: "vocab.source.igdb.label",
   wikidata: "vocab.source.wikidata.label",
   google: "vocab.source.google.label",
+  // A picture from the cover strip's web search, which is Google's too but not
+  // Google Books: the strip credits it apart (CoverPicker's add()).
+  "google-images": "vocab.source.google-images.label",
   openlibrary: "vocab.source.openlibrary.label",
   amazon: "vocab.source.amazon.label",
   wikimedia: "vocab.source.wikimedia.label",

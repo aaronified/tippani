@@ -82,8 +82,12 @@ describe('the candidate strip', () => {
       return el
     })
     expect(img.getAttribute('src')).toBe('https://encrypted-tbn0.gstatic.com/t')
+    // CALLED BY ITS NAME, not by the slug the credit is stored under.
+    const pick = img.closest('button')
+    expect(pick.textContent, 'the picture is captioned with a slug').toContain('Google Images')
+    expect(pick.textContent).not.toContain('google-images')
 
-    fireEvent.click(img.closest('button'))
+    fireEvent.click(pick)
     expect(onSetUrl).toHaveBeenCalledWith('https://pics.test/dune-full.jpg', 'google-images') // a web picture is Google Images, not Google Books
   })
 
