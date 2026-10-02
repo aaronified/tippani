@@ -159,6 +159,28 @@ export function openApp({ viewport = DESKTOP, theme = 'light', empty = false, en
       downloadPath: w.downloadDir,
       eventsEnabled: true,
     })
+
+    // THE APP'S OWN CALLS STILL IN FLIGHT, for `goto` to wait on. A save is a
+    // fetch: fonts, pictures, scripts and the page itself are never one. They are
+    // read from Chrome's own events by request id, on this session, and not from
+    // Puppeteer's request events. Puppeteer holds a response back until Chrome
+    // sends that response's extra-info event, and when that event never comes the
+    // request never ends as far as Puppeteer can tell, though Chrome has said it
+    // finished loading. Whether that is what happened on CI (see `goto`) is not
+    // known; it is one way Puppeteer's count can stick that this way cannot.
+    w.calls = new Map()
+    w.lastCall = Date.now()
+    cdp.on('Network.requestWillBeSent', (e) => {
+      if (e.type !== 'Fetch' && e.type !== 'XHR') return
+      w.calls.set(e.requestId, `${e.request.method} ${e.request.url}`)
+      w.lastCall = Date.now()
+    })
+    const landed = (e) => {
+      if (w.calls.delete(e.requestId)) w.lastCall = Date.now()
+    }
+    cdp.on('Network.loadingFinished', landed)
+    cdp.on('Network.loadingFailed', landed)
+    await cdp.send('Network.enable')
     await emulateEngineMedia(w.page, engine.browser, theme)
 
     // THE THREE PINS, BEFORE THE FIRST NAVIGATION. Each is the screenshot
@@ -239,8 +261,34 @@ export function openApp({ viewport = DESKTOP, theme = 'light', empty = false, en
     // write returns, so "see it, then reload" could navigate mid-PUT and abort it —
     // on a loaded run, linking-a-language-to-its-code lost its added row that way
     // one run in several. A reader's reload is never that fast; a journey's is.
+    //
+    // IT WAITS FOR THE APP'S CALLS, NOT FOR THE WHOLE NETWORK. It used to be
+    // Puppeteer's waitForNetworkIdle, and that counts every request the page has
+    // ever made against the ones Puppeteer saw end. The count lasts as long as
+    // the page, across every navigation. Twice on CI (runs 36837644329 and
+    // 37048073116) something stayed in that count after a-mark-is-drawn-as-chosen
+    // saved its mark, and the server logged no request at all while goto waited.
+    // From then on every goto in the file waited out the full 15 s, and three of
+    // them put the case past its 60 s. Only a call to the app can be a save, so
+    // only those are waited for. The quiet 100 ms after the last one stays,
+    // because a save that reads before it writes (GET /auth/me, then the PUT) is
+    // two calls with a gap between them.
+    //
+    // WHAT IS LEFT WHEN THE WAIT RUNS OUT IS NAMED, AND THEN FORGOTTEN. Fifteen
+    // seconds is far longer than any save, so a call still open then is a defect
+    // or a lost event. Saying which is how the next one gets found. Forgetting
+    // it means it costs one goto rather than every goto after it.
     goto: async (path) => {
-      await w.page.waitForNetworkIdle({ idleTime: 100, timeout: 15000 }).catch(() => {})
+      const deadline = Date.now() + 15000
+      while (w.calls.size || Date.now() - w.lastCall < 100) {
+        if (Date.now() > deadline) {
+          console.warn(`goto ${path}: waited 15 s for the app's calls to land. ` +
+            (w.calls.size ? `These never did: ${[...w.calls.values()].join(', ')}` : 'It never stopped making new ones.'))
+          break
+        }
+        await new Promise((r) => setTimeout(r, 25))
+      }
+      w.calls.clear()
       return w.page.goto(w.server.baseUrl + path, { waitUntil: 'networkidle0' })
     },
 
