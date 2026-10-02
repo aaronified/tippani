@@ -20020,8 +20020,8 @@ that already draws one. The tag columns follow the card's width (13em each) rath
 screen's: at 900 Metadata goes two-up, the Tags card is narrower than a phone's, and a
 rating found the same verbs broken there while the grid turned at the app's phone width.
 
-**Every path that writes a work's fields says who supplied them.** The owner: "I have added
-new books and movies since then and have used the looked up results. They too do not show the
+**Every path that writes a work's fields says who supplied them.** The owner: "I have added new
+books and movies since then and have used the looked up results. They too do not show the
 provider glyphs or increase the number. And it should track if i am re-scanning/fetching
 missing and taking fields from there." Taking a match onto a work you already have (Details ›
 Fetch metadata, the shelf's Edit, the Metadata console's match, a picture from the cover strip)
@@ -20033,34 +20033,34 @@ own job of pinning an id. A merged book candidate names, per field, the supplier
 primary that gave it, and every path honours that: taking the match, Fetch covers and details,
 Fill gaps and Re-verify credit each field, the cover included, to the half that gave it. A
 Re-verify diff carries that supplier per field, and the review applies each field under it by
-default; the review screen does not print it. A film's Fill credits the supplier that answered rather than the first in the
-work's pin order, which named TheTVDB for TMDB's fields when TheTVDB's read failed. Fetch covers
-and details credits a cover it found elsewhere (Amazon's, Open Library's by ISBN) to whichever
-address served it; Re-verify no longer credits a cover that did not arrive; an uploaded picture
-is yours; a film typed in by hand is yours, as a typed book was; and an
-imported file's fields read "Imported", which is neither you nor a supplier the app asked. The
-whitelist of recordable fields named `publisher_name` and `page_count`, which nothing sends,
-and lacked `subtitle`, `pages` and `series_index`, which three writers send, so those edition
-facts carried no credit from any path. Nothing is backfilled: what was written before stays
-unattributed.
+default; the review screen does not print it. A film's Fill credits the supplier that answered
+rather than the first in the work's pin order, which named TheTVDB for TMDB's fields when
+TheTVDB's read failed. Fetch covers and details credits a cover it found elsewhere (Amazon's,
+Open Library's by ISBN) to whichever address served it; Re-verify no longer credits a cover
+that did not arrive; an uploaded picture is yours; a film typed in by hand is yours, as a typed
+book was; and an imported file's fields read "Imported", which is neither you nor a supplier
+the app asked. The whitelist of recordable fields named `publisher_name` and `page_count`,
+which nothing sends, and lacked `subtitle`, `pages` and `series_index`, which three writers
+send, so those edition facts carried no credit from any path. Nothing is backfilled: what was
+written before stays unattributed.
 
-**Each All sources row reads "Fields | works", with people where the supplier filled any.**
-The owner chose "Works & people it supplied", then: "not just the count of works and peoples,
-but of fields. \"Fields | works\"". So a row says how many fields the supplier wrote into the
+**Each All sources row reads "Fields | works", with people where the supplier filled any.** The
+owner chose "Works & people it supplied", then: "not just the count of works and peoples, but
+of fields. \"Fields | works\"". So a row says how many fields the supplier wrote into the
 library, then the works those fields are in and the people it supplied any of, each wearing the
 console's own section glyph. A person counts for every supplier that wrote any of them, the
 option's own words: their portrait (`image_source`), their identity and the facts that came
-with it (`source`, written by a fetch, a re-verify, a `PUT /people` that names one, and a
-merge that borrows it) and each fetched link
-(`link_sources`). A portrait is one field, and so is a character's picture, on the record or on
-a cast row; a character is not a person and adds to no people count. Only what the library
-still holds counts: the provenance table outlives a binned work, so the count joins the live
-works, and a role the reader removed keeps its row as a tombstone, so its picture is left out.
-Zero fields reads "0 fields", with the people after it where there are any, and the count is
-red only when the supplier needs a key it has not been given and has supplied nothing at all, no
-field, work or person: a supplier that once filled a person's links before its key was cleared
-is not a warning, and its tooltip says no field but so many people came from it rather than that
-nothing did.
+with it (`source`, written by a fetch, a re-verify, a `PUT /people` that names one, and a merge
+that borrows it) and each fetched link (`link_sources`). A portrait is one field, and so is a
+character's picture, on the record or on a cast row; a character is not a person and adds to no
+people count. Only what the library still holds counts: the provenance table outlives a binned
+work, so the count joins the live works, and a role the reader removed keeps its row as a
+tombstone, so its picture is left out. Zero fields reads "0 fields", with the people after it
+where there are any, and the count is red only when the supplier needs a key it has not been
+given and has supplied nothing at all, no field, work or person: a supplier that once filled a
+person's links before its key was cleared is not a warning, and its tooltip says no field, but
+so many people have a link or a record from it, rather than that nothing came from it. It does
+not offer a picture as a reason: a portrait counts as a field, so with no field there is none.
 
 **A person's page says who supplied the portrait and who added each link.** The owner chose
 "Links auto/you + portrait source", the pack's §1.3. `people.source` could not answer it: it is
@@ -20072,35 +20072,40 @@ that served it, recorded only when the bytes arrived; one the reader picked from
 credited to the supplier that offered it, and a pasted address or an upload is theirs. A
 fetched link is credited to the supplier that answered, one the reader typed is theirs, an
 unchanged links field changes nothing, and a removed link is forgotten. "The supplier that
-answered" is the one the fetch actually asked: links that came with a portrait are credited
-to the supplier of the identity the fetch found, not to the host that served the picture, so a
+answered" is the one the fetch actually asked: links that came with a portrait are credited to
+the supplier of the identity the fetch found, not to the host that served the picture, so a
 speaker's, which come from Open Library's author match, are Open Library's even though a
 speaker's own link lookup asks TMDB, and an author whose photo came from Wikimedia still has
-Open Library's links. Links the fetch had to look up separately are that lookup's supplier's.
-A Re-verify that rewrites a person's links credits them the same way. A merge that borrows a portrait or
-links borrows their credits with them, and its undo puts them back. The page draws the
-portrait's tag and, on each link, "auto" or "you" (the supplier in its tooltip); anything
+Open Library's links. Links the fetch had to look up separately are that lookup's supplier's. A
+Re-verify that rewrites a person's links credits them the same way. A merge that borrows a
+portrait or links borrows their credits with them, and its undo puts them back. The page draws
+the portrait's tag and, on each link, "auto" or "you" (the supplier in its tooltip); anything
 written before 0081 says nothing.
 
 **Every ask a supplier answers is on its row, recorded at the call.** A row's last answer moved
 only after a lookup, a picture search or a Test; Re-verify, Fill gaps, Fetch covers and
-details, adding a film by its id, cast from IMDb or TheTVDB, and a person's portrait or links asked the same suppliers
-and left the row saying nothing had. Each of those calls now records through one door,
-`recordAsk`, rather than through the outbound gate's observer: the gate sees round trips, not
-asks, and knows neither what was found nor which area the ask was about. Two answers are not
-the supplier's: a Stop records nothing, and an empty answer met while the app walks the
-library is recorded without lengthening the run of empty answers that raises a fault, since it
-is about the shelf's gaps. A walk is any queued job, Re-verify included, or the request forms of
-Fill gaps and Fetch covers and details, which an API caller walks a shelf through and which mark
-themselves (`asLibraryWalk`); the app runs both as jobs. The Details panel's field offers ask
-about one work for the reader looking at it, and count, as a lookup and a Test do. "A queued job" is `jobs.Queued`, not "has a recorder": every request
-carries a log of its own, and reading that as a job spared a reader's own lookups from the run
-too, so no fault could be raised by them (the first cut's defect). Letterboxd and Fandom
-answered a page they could not reach exactly as a page that is not there, so the first cut
-recorded neither; they now return the error, so every ask is on the row as an answer, a miss or a
-failure. Only a 404 (or an article Fandom reports missing) is a miss: a 403 or a 5xx is the
-supplier not answering, as it is for TMDB and TheTVDB. For a work with no Fandom wiki stored, the
-search for one is the ask, and is recorded the same way, so most films, which have none, still
-put Fandom's answer on its row. Asks about a person or a company have their own area, "people", on
-Open Library's, TMDB's and IGDB's rows, so a miss on an obscure translator does not count
-against Open Library's book search.
+details, adding a film by its id, cast from IMDb or TheTVDB, and a person's portrait or links
+asked the same suppliers and left the row saying nothing had. Each of those calls now records
+through one door, `recordAsk`, rather than through the outbound gate's observer: the gate sees
+round trips, not asks, and knows neither what was found nor which area the ask was about. Two
+answers are not the supplier's: a Stop records nothing, and an empty answer met while the app
+walks the library is recorded without lengthening the run of empty answers that raises a fault,
+since it is about the shelf's gaps. A walk is any queued job, Re-verify included, or the
+request forms of Fill gaps and Fetch covers and details, which an API caller walks a shelf
+through and which mark themselves (`asLibraryWalk`); the app runs both as jobs. The Details
+panel's field offers ask about one work for the reader looking at it, and count, as a lookup
+and a Test do. "A queued job" is `jobs.Queued`, not "has a recorder": every request carries a
+log of its own, and reading that as a job spared a reader's own lookups from the run too, so no
+fault could be raised by them (the first cut's defect). Letterboxd and Fandom answered a page
+they could not reach exactly as a page that is not there, so the first cut recorded neither;
+they now return the error, so every ask is on the row as an answer, a miss or a failure. Only a
+404 (or an article Fandom reports missing) is a miss: a 403 or a 5xx is the supplier not
+answering, as it is for TMDB and TheTVDB. For a work with no Fandom wiki stored, the search for
+one is the ask, and is recorded the same way, so most films, which have none, still put
+Fandom's answer on its row. That answer is about the work, not about Fandom, so like a walk's
+it does not lengthen the run that raises a fault: recorded as an ordinary answer, three presses
+of the field picker on films with no wiki put a working Fandom on the fault list. A wiki host's
+404 is a miss; the cross-wiki index's 404 is not, because it says the endpoint is not where it
+was. Asks about a person or a company have their own area, "people", on Open Library's, TMDB's
+and IGDB's rows, so a miss on an obscure translator does not count against Open Library's book
+search.
