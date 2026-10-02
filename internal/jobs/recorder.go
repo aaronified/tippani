@@ -40,6 +40,21 @@ func From(ctx context.Context) Recorder {
 	return r
 }
 
+// Queued reports whether ctx belongs to a job the runner is working through.
+//
+// From(ctx) != nil CANNOT ANSWER THAT: every request carries a recorder of its
+// own (a Lazy, installed by the request logger), so a reader's lookup and a fill
+// over two thousand works both have one. Only a queued job's recorder is not a
+// Lazy.
+func Queued(ctx context.Context) bool {
+	r := From(ctx)
+	if r == nil {
+		return false
+	}
+	_, lazy := r.(*Lazy)
+	return !lazy
+}
+
 // A request's log is held in memory until the request ends, and bounded: an
 // in-request job is one person's lookup, and five hundred lines or a quarter of a
 // megabyte is far past anything one makes.

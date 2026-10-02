@@ -276,7 +276,7 @@ func (s *Server) recordAsk(ctx context.Context, area, source string, found int, 
 	if found == 0 && (errors.Is(err, context.Canceled) || errors.Is(ctx.Err(), context.Canceled)) {
 		return
 	}
-	s.lookups.fold(area, source, found, note, err, jobs.From(ctx) != nil)
+	s.lookups.fold(area, source, found, note, err, jobs.Queued(ctx))
 }
 
 // one is 1 for an ask that found its thing, 0 otherwise.

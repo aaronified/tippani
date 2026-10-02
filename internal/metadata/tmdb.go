@@ -85,19 +85,30 @@ func (t *TMDB) PersonDetails(ctx context.Context, id string) (*PersonMeta, error
 // none). Namesake-prone, so callers prefer a person id pinned from a film's
 // stored cast and fall back to this only for actors that have none.
 func (t *TMDB) PersonSearchID(ctx context.Context, name string) string {
+	id, _ := t.PersonSearch(ctx, name)
+	return id
+}
+
+// PersonSearch is PersonSearchID with the failure kept apart from the miss, for
+// a caller that records the answer on TMDB's Sources row: "" and nil is a search
+// that found nobody, and an error is one that did not get an answer.
+func (t *TMDB) PersonSearch(ctx context.Context, name string) (string, error) {
 	body, err := t.get(ctx, "/search/person", url.Values{"query": {name}})
 	if err != nil {
-		return ""
+		return "", err
 	}
 	var r struct {
 		Results []struct {
 			ID int64 `json:"id"`
 		} `json:"results"`
 	}
-	if json.Unmarshal(body, &r) != nil || len(r.Results) == 0 || r.Results[0].ID == 0 {
-		return ""
+	if err := json.Unmarshal(body, &r); err != nil {
+		return "", err
 	}
-	return strconv.FormatInt(r.Results[0].ID, 10)
+	if len(r.Results) == 0 || r.Results[0].ID == 0 {
+		return "", nil
+	}
+	return strconv.FormatInt(r.Results[0].ID, 10), nil
 }
 
 // CastMember is one credit, and it carries TWO images because they are two

@@ -372,7 +372,9 @@ func (s *Server) resolveActorMeta(ctx context.Context, uid int64, name string) (
 		return source, sourceID, imageURL, "", "", ""
 	default:
 		// Old TMDB film that stored no person id, or nothing stored → by-name search.
-		id = tmdb.PersonSearchID(ctx, name)
+		var serr error
+		id, serr = tmdb.PersonSearch(ctx, name)
+		s.recordAsk(ctx, faultAreaPeople, "tmdb", one(id != ""), "", serr)
 	}
 	if id == "" {
 		return source, sourceID, imageURL, "", "", ""
@@ -481,7 +483,9 @@ func (s *Server) resolveDirectorMeta(ctx context.Context, uid int64, name string
 	}
 	id := sourceID
 	if source != "tmdb" || id == "" {
-		id = tmdb.PersonSearchID(ctx, name) // no pinned crew id → by-name search
+		var serr error
+		id, serr = tmdb.PersonSearch(ctx, name) // no pinned crew id → by-name search
+		s.recordAsk(ctx, faultAreaPeople, "tmdb", one(id != ""), "", serr)
 	}
 	if id == "" {
 		return source, sourceID, imageURL, "", "", ""
