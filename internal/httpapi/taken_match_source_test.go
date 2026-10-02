@@ -21,7 +21,11 @@ import (
 // read.
 //
 // SETUP KNOWS the addresses and fields the other field-source tests use, plus
-// the edit body's `sources` map.
+// the edit body's `sources` map; the seams the offline server needs to have a
+// supplier answer, srv.searchBooks for a book and srv.TMDB and srv.TVDB pointed
+// at fakes (portraitTMDB, newTVDBCastStub) for a film; and the re-verify reply's
+// `diffs` and `offers`, with each one's `alts` and `source`, which is what the
+// review and the Details panel's field picker read.
 
 func putBook(t *testing.T, c *testClient, id int64, body map[string]any) {
 	t.Helper()

@@ -45,8 +45,9 @@ func pickedPictureSource(source string) string {
 
 // linkSupplierFor is the supplier lookupLinks asks for a person's links, by the
 // role it asks as. lookupLinks reads its supplier from here, so the two cannot
-// drift; links that came with a portrait (findPortrait) are its supplier's
-// instead, which is fetchedLinksSupplier's half.
+// drift; links that came with a portrait (findPortrait) are credited to the
+// supplier of the identity that find matched, not to the picture's host, which
+// is fetchedLinksSupplier's half.
 func linkSupplierFor(kind string) string {
 	switch kind {
 	// The book people, all three: lookupLinks asks Open Library for each.
@@ -106,8 +107,9 @@ func relinkSources(prev, next string, had map[string]string, by string) string {
 	return string(b)
 }
 
-// fetchedLinksSupplier is who gave a person's fetched links: the supplier of the
-// portrait find they came with, else lookupLinks' supplier for the role. A
+// fetchedLinksSupplier is who gave a person's fetched links: the supplier whose
+// identity match the portrait find came with (its `source`, which may differ from
+// the host that served the picture), else lookupLinks' supplier for the role. A
 // speaker shows why it cannot be the role alone: their portrait and links come
 // from Open Library, while a speaker's own lookupLinks asks TMDB.
 func fetchedLinksSupplier(kind, foundWith string) string {

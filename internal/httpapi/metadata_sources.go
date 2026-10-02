@@ -220,7 +220,8 @@ func (s *Server) suppliedBySource(uid int64) map[string]supplied {
 	// definition the owner chose ("a work or person counts for a source when that
 	// source wrote any of its fields, pictures or links"): its portrait
 	// (image_source, 0081), its identity and the facts that came with it
-	// (`source`, which only a fetch or a re-verify writes), and each fetched link
+	// (`source`, written by a fetch, a re-verify, a PUT /people that names one and
+	// a merge that borrows it), and each fetched link
 	// (link_sources). A portrait is also one field.
 	prow, err := s.Store.DB.Query(`SELECT source, image_source, image_path <> '', link_sources FROM people WHERE user_id = ?`, uid)
 	if err != nil {

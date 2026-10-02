@@ -14,6 +14,8 @@
 //   * the findings when it ends, a field changed since the check never ticked;
 //   * Apply as a job that carries, per field, the stored value the reader was
 //     shown and the check it came from, and the lines it answers with;
+//   * each field applied under the supplier that gave it: the half of a merged
+//     match that gave that field, and a person under their own supplier;
 //   * a failed check and one stopped elsewhere each say so in words.
 //
 // THE NETWORK: the jobs routes are answered by test/dom/helpers/jobsServer.js,
