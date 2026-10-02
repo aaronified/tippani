@@ -34,7 +34,16 @@ jobs:
       # ceiling, so the next handful of tests anybody wrote would have tipped it —
       # and a timeout reads as a hung test rather than as a budget, which is a
       # confusing morning for whoever's commit lands on it.
-      - run: go test -timeout 20m ./...
+      #
+      # 30m, not 20m, and it is a budget raised rather than a suite made faster
+      # (#53 stays open for that). On runners the package took 817-1037 s on the
+      # five green pushes and schedules of 1-2 Oct, and twice it ran out of 1200 s
+      # with no test hung (runs 36843800712 and 37048073116). Measured here on
+      # 3 Oct: a typical test spends 0.7-0.9 s in newTestServer, opening the store
+      # and running every migration, against about 60 ms for one bcrypt hash. So
+      # the bcrypt above is not where the time goes; a fresh migrated database per
+      # test is, and sharing one migrated template is the speed-up #53 is for.
+      - run: go test -timeout 30m ./...
 
       # Smoke-test the `healthcheck` subcommand against a real running server
       # (the container HEALTHCHECK depends on it). Runs on the CI runner.
