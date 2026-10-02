@@ -60,18 +60,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   has arrived, so an author's photo served by Wikimedia reads Wikimedia and Metadata →
   Sources counts the person for Wikimedia. A picture picked from the picture search strip
   is credited to the supplier that offered it, and a web picture is named "Google Images".
-  A link that came with a portrait is credited to that portrait's supplier, which for a
-  speaker is Open Library. Any other link found by Fetch or a re-verify is credited by
-  role: Open Library for an author, translator or editor, IGDB for a studio or publisher
-  and TMDB for an actor or director. A link you type is yours. Saving other facts about
-  the person re-credits no link, and a link you remove is forgotten. When merging two
-  people gives the kept one the other's portrait or links, it takes who supplied them too,
-  and undoing the merge puts both back. A portrait or link saved before this says nothing.
-  A character's picture, and the character picture on a cast row, are credited too: a
-  picture picked from the strip is the offering supplier's, and a pasted address or an
-  upload is yours, on the character's record and on a cast row. Merging two characters
-  does the same for the picture. No screen tags those credits; Metadata → Sources counts
-  each picture as a field for its supplier.
+  A link that came with the lookup that found the person is credited to the supplier that
+  lookup found them at, which can differ from the host that served the picture: an author
+  whose photo came from Wikimedia still has Open Library's links, and so does a speaker,
+  whose role alone would say TMDB. Fetch and a re-verify applied from the review screen
+  credit them the same way. Any other link they find is credited by role: Open Library for
+  an author, translator or editor, IGDB for a studio or publisher and TMDB for an actor or
+  director. A link you type is yours. Saving other facts about the person re-credits no
+  link, and a link you remove is forgotten. When merging two people gives the kept one the
+  other's portrait or links, it takes who supplied them too, and undoing the merge puts
+  both back. A portrait or link saved before this says nothing. A character's picture, and
+  the character picture on a cast row, are credited too: a picture picked from the strip
+  is the offering supplier's, and a pasted address or an upload is yours, on the
+  character's record and on a cast row. Merging two characters does the same for the
+  picture. No screen tags those credits; Metadata → Sources counts each picture as a field
+  for its supplier.
 
 ### Changed
 
@@ -110,24 +113,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   them: the portrait, the identity and the facts that came with it (written by a Fetch or
   a re-verify), or a fetched link. A portrait counts as a field, and so does a character's
   picture, on the character's record or on a cast row; a character adds nothing to the
-  people figure. Only works still in the library are counted, so a work in the bin is left
-  out. The line is red only for a supplier that is missing its key and has written
-  nothing, where it was red for every supplier missing a key.
+  people figure. A cast row whose role you removed counts no picture. Only works still in
+  the library are counted, so a work in the bin is left out. The line is red only for a
+  supplier that needs a key it has not been given and has supplied no field, work or
+  person, where it was red for every supplier missing a key.
 - **Metadata → Sources: a row's last answer follows every ask its supplier answers.** It
   used to move only after a lookup, a picture search or a Test. It now also moves after a
   re-verify, Fill gaps, Fetch covers and details (for its book searches and Amazon pages),
   adding or re-syncing a film, show or game by its id, cast taken from IMDb or TheTVDB,
   and a person's portrait or links, including an actor's or director's search by name at
-  TMDB that finds nobody. A Stop records nothing. An empty answer met while a queued job
-  walks the library, such as a fill's IGDB search for a game by its title, is recorded as
-  the last answer, and it does not count toward the run of empty answers that raises a
-  fault on a supplier, since it says more about the library's gaps than about the
-  supplier. An empty answer to a reader's own request, a lookup or a Test, still counts.
-  Letterboxd and Fandom return nothing both for a miss and for a host the app could not
-  reach, so a fill or a re-verify that gets nothing from either records no answer for that
-  supplier; a page they return is recorded. Open Library, TMDB and IGDB now list "people"
-  among what they supply, so a miss on an obscure translator or actor is counted apart
-  from their book, film and game searches, and Fandom lists games.
+  TMDB that finds nobody. A Stop records nothing. An empty answer met while the library is
+  walked, by a queued job or by Fill gaps or Fetch covers and details run as a request,
+  such as a fill's IGDB search for a game by its title, is recorded as the last answer,
+  and it does not count toward the run of empty answers that raises a fault on a supplier,
+  since it says more about the library's gaps than about the supplier. An empty answer to
+  a reader's own request, a lookup, a Test or a re-verify of works they chose, still
+  counts. Letterboxd and Fandom report what a fill or a re-verify met like every other
+  source: a host the app could not reach reads "did not answer" on the row, and a page
+  that is not there reads "answered · found nothing". Open Library, TMDB and IGDB now list
+  "people" among what they supply, so a miss on an obscure translator or actor is counted
+  apart from their book, film and game searches, and Fandom lists games.
 - **Work details → Links: the ids and the links are one screen.** The pencil on the
   section's head used to open an Ids dialog, and the ＋ at the end of its row opened a list
   of links, empty for most works, whose own ＋ opened the paste box on a third screen. Both
@@ -139,9 +144,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   pasted link in a single request, its badge counts both, and it closes the screen. It
   stays greyed until an id has changed or the box holds an address the work does not
   already have, and while a save is on its way. With nothing changed, its greyed state
-  says "Nothing to save yet". A save that fails shows its error on the screen. A link's ✕
-  still saves at once and keeps the names given to the other links, and pressing one of
-  the suggested pages still adds it and closes the screen.
+  says "Nothing to save yet". A save that lands says "links saved" in a toast, whether it
+  came from the ✓, a link's ✕ or a suggested page and whether it held ids or links. A save
+  that fails shows its error on the screen. A link's ✕ still saves at once and keeps the
+  names given to the other links, and pressing one of the suggested pages still adds it
+  and closes the screen.
 
 ### Fixed
 
@@ -192,7 +199,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   "Fetch missing", now open where a fresh visit does, and so do the section tabs: Works on
   every type's flagged works, People and Characters on everyone. A pill, then Back, then a
   door used to land on the pill's filter: the People door showed "3 people shown" under a
-  door that said 69, and the Works door landed on 14 under a door that said 41.
+  door reading 69, and the Works door landed on 14 under a door reading 41.
 - **Fill gaps and a re-verify now look a game up in IGDB.** A game was reported as having
   "no pinned identity (TMDB/TheTVDB id)", even when it had been added from an IGDB pick,
   because both read only a work's TMDB and TheTVDB ids. They now ask IGDB for the record
@@ -268,23 +275,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   it changed as yours, so Details showed no supplier mark and no supplier's count in
   Metadata → Sources rose. Each field is now credited to the supplier that gave it. A
   merged Google Books and Open Library match credits each field to whichever of the two
-  gave it, whether you take the match, run Fetch covers and details or run Fill gaps; the
-  genres, which join both suppliers' lists, are credited to the match's main supplier. In
-  a book's Edit form a box you retyped after taking the match stays yours. A picture from
-  the strip is credited to the supplier that offered it, Google Images and Amazon
-  included, and the strip and Details name a web picture "Google Images". A pasted address
-  or an uploaded cover is yours. Changes to genres, series number, a game's publisher and
-  a picture are credited too, where a save passed over them before, and genres are
-  compared as a set, so saving the same list in another order or case is not a change. A
-  subtitle, a page count and a series number carried no credit from any path and now carry
-  one. Adding a book from a match now keeps the series, series number, subtitle, publisher
-  and page count the match carries, each credited to its supplier. A cover that Fetch
-  covers and details finds at another address, such as Amazon's or Open Library's by ISBN,
-  is credited to the supplier whose address served it, and a poster to TMDB. A re-verify
-  whose cover or poster did not download no longer credits a supplier for one the work
-  does not have. A film typed in by hand is yours field by field, its series number
-  included, as a typed book already was. What an import fills in, on a new work or a gap
-  in one you have, is credited to "Imported". Nothing already saved is re-credited.
+  gave it, whether you take the match, run Fetch covers and details, run Fill gaps or
+  apply a re-verify, and the Details field picker offers each of its fields under the half
+  that gave it. The genres, which join both suppliers' lists, are credited to the match's
+  main supplier. In a book's Edit form a box you retyped after taking the match stays
+  yours. A picture from the strip is credited to the supplier that offered it, Google
+  Images and Amazon included, and the strip and Details name a web picture "Google
+  Images". A pasted address or an uploaded cover is yours. Changes to genres, series
+  number, a game's publisher and a picture are credited too, where a save passed over them
+  before, and genres are compared as a set, so saving the same list in another order or
+  case is not a change. A subtitle, a page count and a series number carried no credit
+  from any path and now carry one. Adding a book from a match now keeps the series, series
+  number, subtitle, publisher and page count the match carries, each credited to its
+  supplier. A cover that Fetch covers and details finds at another address, such as
+  Amazon's or Open Library's by ISBN, is credited to the supplier whose address served it,
+  and a poster to TMDB. A film's Fill gaps credits the supplier that answered, not the
+  first one the work is pinned to, so TMDB's fields on a film pinned to TheTVDB and TMDB,
+  whose TheTVDB read failed, are credited to TMDB. A re-verify whose cover or poster did
+  not download no longer credits a supplier for one the work does not have. A film typed
+  in by hand is yours field by field, its series number included, as a typed book already
+  was. What an import fills in, on a new work or a gap in one you have, is credited to
+  "Imported". Nothing already saved is re-credited.
 
 ## [3.1.2] - 2026-09-29
 

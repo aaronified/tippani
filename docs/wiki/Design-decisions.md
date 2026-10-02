@@ -20031,8 +20031,11 @@ each field it CHANGED to the supplier named for it (validated for the kind; a co
 may also be Google Images or Amazon), and every other changed field to you; `source` keeps its
 own job of pinning an id. A merged book candidate names, per field, the supplier other than its
 primary that gave it, and every path honours that: taking the match, Fetch covers and details,
-and Fill gaps credit each field, the cover included, to the half that gave it. Fetch covers and
-details credits a cover it found elsewhere (Amazon's, Open Library's by ISBN) to whichever
+Fill gaps and Re-verify credit each field, the cover included, to the half that gave it. A
+Re-verify diff carries that supplier per field, so the review screen shows it and the apply
+sends it back. A film's Fill credits the supplier that answered rather than the first in the
+work's pin order, which named TheTVDB for TMDB's fields when TheTVDB's read failed. Fetch covers
+and details credits a cover it found elsewhere (Amazon's, Open Library's by ISBN) to whichever
 address served it; Re-verify no longer credits a cover that did not arrive; an uploaded picture
 is yours; a film typed in by hand is yours, as a typed book was; and an
 imported file's fields read "Imported", which is neither you nor a supplier the app asked. The
@@ -20047,12 +20050,15 @@ but of fields. \"Fields | works\"". So a row says how many fields the supplier w
 library, then the works those fields are in and the people it supplied any of, each wearing the
 console's own section glyph. A person counts for every supplier that wrote any of them, the
 option's own words: their portrait (`image_source`), their identity and the facts that came
-with it (`source`, which only a fetch or a re-verify writes) and each fetched link
+with it (`source`, written by a fetch, a re-verify, a `PUT /people` that names one, and a
+merge that borrows it) and each fetched link
 (`link_sources`). A portrait is one field, and so is a character's picture, on the record or on
 a cast row; a character is not a person and adds to no people count. Only what the library
 still holds counts: the provenance table outlives a binned work, so the count joins the live
-works. A zero reads "0 fields" alone, and only a zero from a supplier that cannot be asked is
-red: one that needs a key and has supplied fields is not a warning.
+works, and a role the reader removed keeps its row as a tombstone, so its picture is left out.
+A zero reads "0 fields" alone, and the count is red only when the supplier needs a key it has
+not been given and has supplied nothing at all, no field, work or person: a supplier that once
+filled a person's links before its key was cleared is not a warning.
 
 **A person's page says who supplied the portrait and who added each link.** The owner chose
 "Links auto/you + portrait source", the pack's §1.3. `people.source` could not answer it: it is
@@ -20064,9 +20070,12 @@ that served it, recorded only when the bytes arrived; one the reader picked from
 credited to the supplier that offered it, and a pasted address or an upload is theirs. A
 fetched link is credited to the supplier that answered, one the reader typed is theirs, an
 unchanged links field changes nothing, and a removed link is forgotten. "The supplier that
-answered" is the one the fetch actually asked: links that came with a portrait are that
-portrait's supplier's, so a speaker's, which come from Open Library's author match, are Open
-Library's even though a speaker's own link lookup asks TMDB. A merge that borrows a portrait or
+answered" is the one the fetch actually asked: links that came with a portrait are credited
+to the supplier of the identity the fetch found, not to the host that served the picture, so a
+speaker's, which come from Open Library's author match, are Open Library's even though a
+speaker's own link lookup asks TMDB, and an author whose photo came from Wikimedia still has
+Open Library's links. Links the fetch had to look up separately are that lookup's supplier's.
+A Re-verify that rewrites a person's links credits them the same way. A merge that borrows a portrait or
 links borrows their credits with them, and its undo puts them back. The page draws the
 portrait's tag and, on each link, "auto" or "you" (the supplier in its tooltip); anything
 written before 0081 says nothing.
@@ -20077,12 +20086,15 @@ details, adding a film by its id, cast from IMDb or TheTVDB, and a person's port
 and left the row saying nothing had. Each of those calls now records through one door,
 `recordAsk`, rather than through the outbound gate's observer: the gate sees round trips, not
 asks, and knows neither what was found nor which area the ask was about. Two answers are not
-the supplier's: a Stop records nothing, and an empty answer met while a queued job walks the
+the supplier's: a Stop records nothing, and an empty answer met while the app walks the
 library is recorded without lengthening the run of empty answers that raises a fault, since it
-is about the shelf's gaps. "A queued job" is `jobs.Queued`, not "has a recorder": every request
+is about the shelf's gaps. A walk is a queued job, or Fill gaps or Fetch covers and details run
+as a request, which mark themselves (`asLibraryWalk`) because they ask about every work on the
+shelf just as a job does. "A queued job" is `jobs.Queued`, not "has a recorder": every request
 carries a log of its own, and reading that as a job spared a reader's own lookups from the run
-too, so no fault could be raised by them (the first cut's defect). Letterboxd and Fandom answer
-a page they could not reach exactly as a page that is not there, so a nil from either is not
-recorded at all; a page they returned is. Asks about a person or a company have their own area, "people", on
+too, so no fault could be raised by them (the first cut's defect). Letterboxd and Fandom
+answered a page they could not reach exactly as a page that is not there, so the first cut
+recorded neither; they now return the transport error, so every ask is on the row as an answer,
+a miss or a failure. Asks about a person or a company have their own area, "people", on
 Open Library's, TMDB's and IGDB's rows, so a miss on an obscure translator does not count
 against Open Library's book search.
