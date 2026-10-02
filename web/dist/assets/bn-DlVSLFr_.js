@@ -7344,11 +7344,11 @@ identity.row.sort.sub.company = তালিকায় এর নাম কো
 identity.row.born.none = লেখা নেই
 identity.row.born.sub.character = গল্পের ভিতরের, যদি কোনও কাজ বলে থাকে
 identity.row.link.add.label = লিংক যোগ
+identity.row.link.add.tip = এই রেকর্ডের একটা ঠিকানা পেস্ট করুন
 identity.link.source.auto.label = অ্যাপ
 identity.link.source.you.label = আপনি
 identity.link.source.auto.tip = অ্যাপ খুঁজে পেয়েছে, {source} থেকে
 identity.link.source.you.tip = এই লিংকটা আপনি যোগ করেছেন
-identity.row.link.add.tip = এই রেকর্ডের একটা ঠিকানা পেস্ট করুন
 # ---- প্রদানকারীর আইডি থেকে লিঙ্ক যোগ করা ----------------------------------
 identity.link.id.title = লিঙ্ক যোগ করুন
 identity.link.id.provider.label = কোন সাইট
@@ -7472,6 +7472,7 @@ links.paste.hint = যেকোনো ঠিকানা বসান। যো�
 links.reading = {name} হিসেবে পড়া হচ্ছে — {host}
 links.reading.none = এটা এখনও কোনও ঠিকানা নয়।
 links.already = এটা ইতিমধ্যেই এই রেকর্ডে আছে।
+links.save.nothing = এখনো সেভ করার কিছু নেই
 links.remove.aria = {name} লিংকটা সরান
 # Ordering, grouping and filtering ANY board of quotes — a book's highlights and
 # a film's, a show's or a game's lines alike. One vocabulary, because one control
