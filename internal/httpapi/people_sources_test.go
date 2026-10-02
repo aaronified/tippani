@@ -14,16 +14,20 @@ import (
 // portrait source": the pack's §1.3, each link marked auto (the app found it) or
 // you (the reader pasted it), and the portrait tagged with its supplier.
 //
-// The person cases press the person's Fetch (POST /people/id/{id}/fetch), or a
-// merge (POST /people/merge), and read the record and the Sources rows back. The
-// character cases set a picture as the reader's strip does (POST
-// /cast/{id}/image, PUT /characters/{id}/image), remove a role (DELETE
-// /cast/{id}) or merge two characters (POST /characters/merge), and read the
-// Sources rows back.
+// The person cases press the person's Fetch (POST /people/id/{id}/fetch), save
+// the person as the page's form does (PUT /people/id/{id}), or merge two (POST
+// /people/merge), and read the record (GET /people/id/{id}) and the Sources rows
+// (GET /metadata/status) back. The character cases set a picture as the reader's
+// strip does (POST /cast/{id}/image, PUT /characters/{id}/image), remove a role
+// (DELETE /cast/{id}) or merge two characters (POST /characters/merge), and read
+// the Sources rows back.
 //
 // SETUP KNOWS the people table (seedPerson writes a record straight in, as other
-// people tests do; personIDFor finds one by name), a film and its cast rows made
-// through POST /movies and POST /movies/{id}/cast, and the seams the offline test
+// people tests do; personIDFor finds one by name); works and roles made through
+// the API: POST /books, POST /movies (by title, or by tmdb_id through
+// addFromTMDB), POST /movies/{id}/cast, twoWolands' two books with a Woland each
+// (POST /books/{id}/cast, GET /characters), a quote (POST /quotes) for a speaker,
+// and POST /trash/{id}/restore for a binned work; and the seams the offline test
 // server needs, because it has no supplier to ask: srv.resolveAuthor (Open
 // Library's author match), srv.authorLinks (Open Library's links for a name),
 // srv.fetchImage (the portrait download), srv.fetchUserImage (a picture from an

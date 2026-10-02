@@ -14,10 +14,11 @@
 // key recorded nothing and reported nothing. It is not offered now, which is the
 // second case here.
 // DECLARED EXCEPTION, in the terms this repo asks for. This file knows the
-// module it renders, the mark's own aria-label, and four CSS class shapes —
-// `.is-src-<state>`, the count's `.src-row-count` and its red `.is-needed` — and
-// nothing observable could serve instead: the count has no role or label of its
-// own to be found by, and what is under test
+// module it renders (and ui.jsx's ToastHost, where a tooltip draws its words), the
+// mark's own aria-label, and three CSS class shapes — `.is-src-<state>`, the
+// count's `.src-row-count` and its red `.is-needed` — and nothing observable could
+// serve instead: the count has no role or label of its own to be found by, and
+// what is under test
 // is precisely whether a state the SERVER can send is one the STYLESHEET has a
 // rule for, and a colour with no rule is invisible to a reader of the rendered
 // text. It mocks the network because the four states are a server's answer and
@@ -131,7 +132,7 @@ describe('a supplier row', () => {
     render(<ToastHost />)
     await page()
     fireEvent.pointerEnter(document.querySelector('.src-row-count'), { pointerType: 'mouse' })
-    expect(await screen.findByText(/2 people in your library have a picture, a link or a record from TMDB/)).toBeTruthy()
+    expect(await screen.findByText(/No field, but 2 people in your library have a link or a record from TMDB/)).toBeTruthy()
     expect(screen.queryByText(/Nothing in your library came from TMDB/)).toBeNull()
   })
 })

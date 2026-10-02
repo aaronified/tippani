@@ -5902,8 +5902,8 @@ settings.sources.need-key.prose.other = {count} need a key before they can be as
 settings.sources.records.tip.one = {count} field in your library came from {source}
 settings.sources.records.tip.other = {count} fields in your library came from {source}
 settings.sources.records.none.tip = Nothing in your library came from {source} yet
-settings.sources.records.people.tip.one = No field, but {count} person in your library has a picture, a link or a record from {source}
-settings.sources.records.people.tip.other = No field, but {count} people in your library have a picture, a link or a record from {source}
+settings.sources.records.people.tip.one = No field, but {count} person in your library has a link or a record from {source}
+settings.sources.records.people.tip.other = No field, but {count} people in your library have a link or a record from {source}
 # The row's lead count: the fields this supplier wrote into the library.
 settings.sources.fields.one = {n} field
 settings.sources.fields.other = {n} fields

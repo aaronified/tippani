@@ -40,13 +40,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   fields | 38" with the works glyph after the 38, then "· 12" with the people glyph after
   it. The works and people figures are drawn only above zero, and a supplier that has
   written nothing reads "0 fields". For a supplier that supplied people and no field, the
-  count's tooltip reads "No field, but 2 people in your library have a picture, a link or
-  a record from TMDB". A person counts for every supplier that wrote any of them: the
-  portrait, the identity and the facts that came with it (written by a Fetch or an applied
-  re-verify, carried over by a merge of two people, or set by an API call that names it),
-  or a fetched link. A portrait counts as a field, and so does a character's picture, on
-  the character's record or on a cast row; a character adds nothing to the people figure.
-  A cast row whose role you removed counts no picture. Only works still in the library are
+  count's tooltip reads "No field, but 2 people in your library have a link or a record
+  from TMDB". A person counts for every supplier that wrote any of them: the portrait, the
+  identity and the facts that came with it (written by a Fetch or an applied re-verify,
+  carried over by a merge of two people, or set by an API call that names it), or a
+  fetched link. A portrait counts as a field, and so does a character's picture, on the
+  character's record or on a cast row; a character adds nothing to the people figure. A
+  cast row whose role you removed counts no picture. Only works still in the library are
   counted, so a work in the bin is left out. The line is red only for a supplier that
   needs a key it has not been given and has supplied no field, work or person, where it
   was red for every supplier missing a key.
