@@ -13,8 +13,8 @@
     "web/frontend/vite.config.js"
   ],
   "sha256": {
-    "internal/i18n/bn.txt": "7fdff30a425fe8ed3238725f520f7d90ee33328435f352b63e70a7c2622e5720",
-    "internal/i18n/en.txt": "46eb9fde8820a7f41ef1cd0bad0f8cf89368a8053465f6486019bf7f60260ad7",
+    "internal/i18n/bn.txt": "f44ba1f1bb0aeeb8ba5b2f73eaa26d29ec1aa88ed9b734bdc932fbc44c9318f3",
+    "internal/i18n/en.txt": "6598881cd28cceadd176d17fa16db92051089f4de4e46017533e48e450c34f59",
     "web/frontend/index.html": "e117a908fb6f5d08da419313d66fb54ff988f6eb838679d2e73e4fa0fb7eefff",
     "web/frontend/package-lock.json": "bb11669a318d0aef1ad6a2c77c07ee7a608a94cd5ef5e5972c77e25e62161028",
     "web/frontend/package.json": "79431a751199f0313734def387b8951ab3918262adfa8597138f238812dd47a6",
@@ -36,7 +36,7 @@
     "web/frontend/src/ImportPage.jsx": "5487858da0615a7219fa302403356e8a4e33deb7b3ceb2f41fdf000268f80847",
     "web/frontend/src/Library.jsx": "9832501e84f5d0a437036b641867f34f4f1b30d66da8daa653f937976b6e2efd",
     "web/frontend/src/MetadataPage.jsx": "bc8d47cc2d10c03bf253acd3148ca7badcffd229bd5d867bcdfa0b1d52ec29e3",
-    "web/frontend/src/MetadataSources.jsx": "f73558e17188749660dd5dc95ed49c16a74b0d98737e68aa1285ef419df9f8e4",
+    "web/frontend/src/MetadataSources.jsx": "ff7fb901bc706995ffbf6fc7c0f37cc5eb98bdb9d86454231b85fbf519347150",
     "web/frontend/src/Movies.jsx": "83ff22869ed4f9265c4e49b21576649b8ca10bb1a96b4a452f2d648eb30af29f",
     "web/frontend/src/Quotes.jsx": "8d078197e7b38b0b0893e7ce311d28c0610c72fdb4ee8dc3b862d82e3e3c8480",
     "web/frontend/src/ReverifyReview.jsx": "ffa3b89343e1cf916bec8e1fd5dee1ec3c045a08848c1af9d26e547f76577b0f",
@@ -47,7 +47,7 @@
     "web/frontend/src/StatsPage.jsx": "aa9324c41024d61d47923c1d5eec662eaa47ad9404b87908148b19dc0607dfc7",
     "web/frontend/src/TagsPage.jsx": "8e263eb8da238382b5d2d9eaa8e21da58465084fc88530005b6a95c5c5242bbd",
     "web/frontend/src/WorkDetail.jsx": "2cf557a7b20ce68db7facc06afaabb0a31f0d80142974dc3ef7a48756d95fbdd",
-    "web/frontend/src/WorkDetails.jsx": "a02034769554ad076c2e79e282656cc909a8cc50e6dbb84eb9219d28936aecc0",
+    "web/frontend/src/WorkDetails.jsx": "40681550e05f88d910114df8ffceb7fb4683063a41efedb975d91e8c3f735b25",
     "web/frontend/src/actions.jsx": "2c26a988147e107943b65e44b2c8b39ed243fba404ff1982357105b0bd02a166",
     "web/frontend/src/addFields.js": "34a7edda2c4bc7d20747abd310eb549589cb1b04a4fd0414fc185df912b7e932",
     "web/frontend/src/addModes.js": "f7c189ad6240ac15cad6c34e9b50a40c7c5cfb4b7b69abe2deed2b4f8e9a4297",

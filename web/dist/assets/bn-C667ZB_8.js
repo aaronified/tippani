@@ -3333,6 +3333,8 @@ work.ids.edit.tip = সব আইডি বদলান
 work.ids.no-page.tip = {source} — খোলার মতো কোনও পাতা নেই
 work.ids.save.tip = আইডি আর লিংক একসঙ্গে সেভ করুন
 work.ids.form.hint = এই ধরনের বই বা সিনেমা যেসব আইডি দিয়ে খোঁজা যায়। ফাঁকা থাকলে সেটা বাদ যায়।
+work.ids.saved.field = আইডি
+work.ids.both.saved.field = আইডি আর লিংক
 
 # Saving. {field} is a field name, already lower-cased by the caller.
 common.work.field-saved.toast = {field} সেভ হয়েছে
@@ -5719,6 +5721,8 @@ settings.sources.need-key.prose.other = {count}টির জন্য আগে 
 settings.sources.records.tip.one = আপনার লাইব্রেরির {count}টি ঘর {source} থেকে এসেছে
 settings.sources.records.tip.other = আপনার লাইব্রেরির {count}টি ঘর {source} থেকে এসেছে
 settings.sources.records.none.tip = {source} থেকে এখনও কিছু আসেনি
+settings.sources.records.people.tip.one = কোনো ঘর নয়, তবে আপনার লাইব্রেরির {count} জনের ছবি, লিংক বা তথ্য {source} থেকে এসেছে
+settings.sources.records.people.tip.other = কোনো ঘর নয়, তবে আপনার লাইব্রেরির {count} জনের ছবি, লিংক বা তথ্য {source} থেকে এসেছে
 settings.sources.fields.one = {n}টা ঘর
 settings.sources.fields.other = {n}টা ঘর
 settings.sources.test.aria = {source}-কে একটা পরীক্ষামূলক প্রশ্ন করুন
