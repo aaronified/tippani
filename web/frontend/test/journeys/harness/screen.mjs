@@ -284,6 +284,16 @@ export function screenVerbs(getPage) {
       if (snap?.name) named.push({ handle: h, name: snap.name })
       else await h.dispose()
     }
+    // A BUTTON THAT OPENS THE CHOOSER, where no input carries the name. `useFilePick`
+    // (ui.jsx) keeps its input `hidden` and out of the accessibility tree, because the
+    // caller's own button is the control, so the name to ask for is the button's —
+    // and pressing it and answering the chooser is what the reader does.
+    if (!named.some((c) => fold(c.name).includes(fold(name)))) {
+      await Promise.all(named.map((c) => c.handle.dispose()))
+      const [chooser] = await Promise.all([page().waitForFileChooser({ timeout: DEFAULT_TIMEOUT }), press(name)])
+      await chooser.accept([filePath])
+      return
+    }
     const { hit, error } = pick(named, name, 'hand a file to')
     if (error) {
       await Promise.all(named.map((c) => c.handle.dispose()))
