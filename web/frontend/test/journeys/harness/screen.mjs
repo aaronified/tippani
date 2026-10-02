@@ -272,7 +272,7 @@ export function screenVerbs(getPage) {
   // visibility filter every other verb uses would throw it away. So this asks
   // for file inputs by tag and matches on the `aria-label` the primitive puts on
   // every one of them, which is the same name a screen reader announces.
-  async function upload(name, filePath) {
+  async function upload(name, filePath, { timeout = DEFAULT_TIMEOUT } = {}) {
     const inputs = await within('input[type="file"]')
     const named = []
     for (const h of inputs) {
@@ -293,8 +293,13 @@ export function screenVerbs(getPage) {
     // and pressing it and answering the chooser is what the reader does.
     if (!named.some((c) => fold(c.name).includes(fold(name)))) {
       await Promise.all(named.map((c) => c.handle.dispose()))
-      const [chooser] = await Promise.all([page().waitForFileChooser({ timeout: DEFAULT_TIMEOUT }), press(name)])
-      await chooser.accept([filePath])
+      // The waiter is armed before the press, because the chooser opens during it;
+      // the press is awaited first, so a name nothing carries fails with press's own
+      // words rather than with the chooser's timeout, which says nothing about why.
+      const chooser = page().waitForFileChooser({ timeout })
+      chooser.catch(() => {})
+      await press(name, { timeout })
+      await (await chooser).accept([filePath])
       return
     }
     const { hit, error } = pick(named, name, 'hand a file to')

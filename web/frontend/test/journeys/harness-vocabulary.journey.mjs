@@ -69,6 +69,19 @@ it('says what IS pressable when the name matches nothing', async () => {
   nothingThrew()
 })
 
+// A FILE HANDED TO A NAME NOTHING CARRIES SAYS SO. Where no file input carries
+// the name, `upload` presses the button of that name and answers the chooser it
+// opens, and a name nothing carries has to fail in press's words: the chooser's
+// own timeout says only that no chooser opened, which reads like a broken app.
+it('says nothing carries a name it was asked to hand a file to', async () => {
+  await app.goto('/')
+  await app.see('Library')
+  await expect(app.upload('A door nothing has', '/dev/null', shortWait))
+    .rejects.toThrow(/nothing a person could press is named "A door nothing has"/)
+
+  nothingThrew()
+})
+
 it('takes the whole name when a shorter one would be ambiguous', async () => {
   await app.goto('/')
   // "Library 22 | 13" and "Home" are both reachable; the prefix picks the one nav
