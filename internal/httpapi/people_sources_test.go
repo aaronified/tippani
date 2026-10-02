@@ -1,8 +1,12 @@
 package httpapi
 
 import (
+	"context"
+	"fmt"
 	"net/http"
 	"testing"
+
+	"tippani/internal/metadata"
 )
 
 // WHO SUPPLIED A PERSON'S PORTRAIT AND EACH OF THEIR LINKS. The owner chose
@@ -10,17 +14,39 @@ import (
 // portrait source": the pack's §1.3, each link marked auto (the app found it) or
 // you (the reader pasted it), and the portrait tagged with its supplier.
 //
+// Every case presses the person's Fetch (POST /people/id/{id}/fetch) and reads
+// the record and the Sources rows back.
+//
 // SETUP KNOWS the people table (seedPerson writes a record straight in, as other
-// people tests do) and persistPortraitOn, the write every portrait fetch goes
-// through: a fetch needs a supplier the offline test server cannot reach.
+// people tests do; personIDFor finds one by name) and three seams the offline
+// test server needs, because it has no supplier to ask: srv.resolveAuthor (Open
+// Library's author match), srv.authorLinks (Open Library's links for a name) and
+// srv.fetchImage (the portrait download).
 
 type personSources struct {
 	ImageSource string            `json:"image_source"`
 	LinkSources map[string]string `json:"link_sources"`
 }
 
+// openLibraryKnows makes Open Library match every name with the given portrait
+// address and one link of its own.
+func openLibraryKnows(srv *Server, imageURL string) {
+	srv.resolveAuthor = func(_ context.Context, name string, _ []string) (metadata.AuthorResolution, error) {
+		return metadata.AuthorResolution{Key: "OL1A", Name: name, Bio: "Wrote books.", ImageURL: imageURL,
+			Links: map[string]string{"openlibrary": "https://openlibrary.org/authors/OL1A"}}, nil
+	}
+	srv.fetchImage = func(context.Context, string, string) (string, error) { return "bbbbbbbbbbbbbbbb.jpg", nil }
+}
+
+func fetchPersonByID(c *testClient, id int64) personSources {
+	c.t.Helper()
+	c.mustDo("POST", "/people/id/"+itoa(id)+"/fetch", nil, http.StatusOK)
+	return decode[personSources](c.t, c.mustDo("GET", "/people/id/"+itoa(id), nil, http.StatusOK))
+}
+
 func TestALinkTheReaderAddsIsTheirsAndAFetchedOneIsTheSuppliers(t *testing.T) {
 	srv := newTestServer(t)
+	openLibraryKnows(srv, "")
 	c := signupAdmin(t, srv.Handler())
 	id := seedPerson(t, srv, 1, "author", "Ursula K. Le Guin")
 	read := func() personSources {
@@ -28,11 +54,13 @@ func TestALinkTheReaderAddsIsTheirsAndAFetchedOneIsTheSuppliers(t *testing.T) {
 	}
 
 	// A FETCH ADDS ONE, credited to the supplier that answered.
-	if err := srv.saveFetchedPerson(1, id, "author", portraitFind{}, map[string]string{"openlibrary": "https://openlibrary.org/authors/OL1A"}); err != nil {
-		t.Fatal(err)
-	}
-	if got := read().LinkSources["https://openlibrary.org/authors/OL1A"]; got != "openlibrary" {
+	if got := fetchPersonByID(c, id).LinkSources["https://openlibrary.org/authors/OL1A"]; got != "openlibrary" {
 		t.Errorf("a fetched link is credited to %q, want openlibrary", got)
+	}
+	// AND THE PERSON COUNTS FOR IT, with no portrait at all: Open Library gave the
+	// record its identity, its facts and a link.
+	if o := sourceNamed(t, decode[sourcesResp](t, c.mustDo("GET", "/metadata/status", nil, http.StatusOK)).Sources, "openlibrary"); o.People != 1 {
+		t.Errorf("Open Library's row counts %d people for an author it supplied everything but a picture for", o.People)
 	}
 
 	// THE READER ADDS ONE: theirs, and the fetched one keeps its credit.
@@ -58,49 +86,115 @@ func TestALinkTheReaderAddsIsTheirsAndAFetchedOneIsTheSuppliers(t *testing.T) {
 
 func TestAPortraitSaysWhoSuppliedItAndCountsForThatSupplier(t *testing.T) {
 	srv := newTestServer(t)
+	// An author's identity is Open Library's, but this picture came from Wikimedia.
+	openLibraryKnows(srv, "https://upload.wikimedia.org/wikipedia/commons/shelley.jpg")
 	c := signupAdmin(t, srv.Handler())
 	id := seedPerson(t, srv, 1, "author", "Mary Shelley")
 
-	// An author's identity is Open Library's, but this picture came from Wikimedia.
-	tx, err := srv.Store.DB.Begin()
-	if err != nil {
-		t.Fatal(err)
-	}
-	f := portraitFind{source: "openlibrary", sourceID: "OL2A", image: "shelley.jpg",
-		imageSource: pictureSupplier("https://upload.wikimedia.org/wikipedia/commons/shelley.jpg", "openlibrary")}
-	if _, err := persistPortraitOn(tx, 1, id, "author", f); err != nil {
-		t.Fatal(err)
-	}
-	if err := tx.Commit(); err != nil {
-		t.Fatal(err)
-	}
-	if got := decode[personSources](t, c.mustDo("GET", "/people/id/"+itoa(id), nil, http.StatusOK)).ImageSource; got != "wikimedia" {
+	if got := fetchPersonByID(c, id).ImageSource; got != "wikimedia" {
 		t.Errorf("the portrait is credited to %q, want wikimedia", got)
 	}
 	rows := decode[sourcesResp](t, c.mustDo("GET", "/metadata/status", nil, http.StatusOK)).Sources
 	if w := sourceNamed(t, rows, "wikimedia"); w.People != 1 || w.Fields != 1 {
 		t.Errorf("Wikimedia's row reads %d fields | %d people, want 1 | 1", w.Fields, w.People)
 	}
-	if o := sourceNamed(t, rows, "openlibrary"); o.People != 0 {
-		t.Errorf("Open Library is credited with the picture it did not supply: %d people", o.People)
+	if o := sourceNamed(t, rows, "openlibrary"); o.Fields != 0 || o.People != 1 {
+		t.Errorf("Open Library's row reads %d fields | %d people: the picture is not its field, the person is still one it supplied",
+			o.Fields, o.People)
+	}
+}
+
+// A SPEAKER'S LINKS ARE OPEN LIBRARY'S WHEN OPEN LIBRARY GAVE THEM. A speaker's
+// portrait and links come from Open Library's author match, while a speaker's
+// own link lookup asks TMDB, so a credit read off the role alone said TMDB.
+func TestASpeakersFetchedLinksAreCreditedToTheSupplierThatGaveThem(t *testing.T) {
+	srv := newTestServer(t)
+	openLibraryKnows(srv, "")
+	c := signupAdmin(t, srv.Handler())
+	c.mustDo("POST", "/quotes", map[string]any{"quote": "Imagination is more important than knowledge.", "speaker": "Albert Einstein"}, http.StatusCreated)
+	id := personIDFor(t, srv, 1, "Albert Einstein")
+	if got := fetchPersonByID(c, id).LinkSources["https://openlibrary.org/authors/OL1A"]; got != "openlibrary" {
+		t.Errorf("a speaker's link Open Library gave is credited to %q", got)
 	}
 }
 
 // A TRANSLATOR'S AND AN EDITOR'S LINKS COME FROM OPEN LIBRARY, as an author's do:
-// lookupLinks asks it for all three book kinds, and the credit said TMDB for two
+// when the author match finds nobody, the fetch asks for links alone, and Open
+// Library is who it asks for all three book kinds. The credit said TMDB for two
 // of them until a changelog pass read the two functions side by side.
 func TestABookPersonsFetchedLinkIsOpenLibrarys(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
 	for _, kind := range []string{"translator", "editor"} {
-		id := seedPerson(t, srv, 1, kind, "Mirra Ginsburg "+kind)
-		url := "https://openlibrary.org/authors/OL9A-" + kind
-		if err := srv.saveFetchedPerson(1, id, kind, portraitFind{}, map[string]string{"openlibrary": url}); err != nil {
-			t.Fatal(err)
+		srv := newTestServer(t)
+		srv.resolveAuthor = func(context.Context, string, []string) (metadata.AuthorResolution, error) {
+			return metadata.AuthorResolution{}, nil
 		}
-		got := decode[personSources](t, c.mustDo("GET", "/people/id/"+itoa(id), nil, http.StatusOK)).LinkSources[url]
-		if got != "openlibrary" {
+		url := "https://openlibrary.org/authors/OL9A-" + kind
+		srv.authorLinks = func(context.Context, string) (map[string]string, error) {
+			return map[string]string{"openlibrary": url}, nil
+		}
+		c := signupAdmin(t, srv.Handler())
+		c.mustDo("POST", "/books", map[string]any{"title": "The Master and Margarita", "author": "Mikhail Bulgakov", kind: "Mirra Ginsburg"}, http.StatusCreated)
+		if got := fetchPersonByID(c, personIDFor(t, srv, 1, "Mirra Ginsburg")).LinkSources[url]; got != "openlibrary" {
 			t.Errorf("the %s's fetched link is credited to %q, want openlibrary", kind, got)
 		}
+	}
+}
+
+// A CHARACTER'S PICTURE IS THE STRIP'S SUPPLIER'S OR THE READER'S, on a cast row
+// and on the character's own record alike, and it is a field on that supplier's
+// Sources row. A cast row's picture was credited by its address's host, so a
+// strip pick from an unknown host was nobody's and a pasted one could be a
+// supplier's; and no character picture was counted at all.
+func TestACharacterPictureIsTheStripsSupplierOrTheReaders(t *testing.T) {
+	srv := newTestServer(t)
+	n := 0
+	srv.fetchUserImage = func(context.Context, string, string) (string, error) {
+		n++
+		return fmt.Sprintf("%016x.jpg", n), nil
+	}
+	c := signupAdmin(t, srv.Handler())
+	film := decode[struct{ ID int64 }](t, c.mustDo("POST", "/movies", map[string]any{"title": "Anand", "media_type": "movie"}, http.StatusCreated))
+	row := decode[doorRow](t, c.mustDo("POST", "/movies/"+itoa(film.ID)+"/cast",
+		map[string]any{"character": "Anand", "actor": "Rajesh Khanna"}, http.StatusCreated))
+	fields := func() int {
+		return sourceNamed(t, decode[sourcesResp](t, c.mustDo("GET", "/metadata/status", nil, http.StatusOK)).Sources, "google-images").Fields
+	}
+
+	c.mustDo("POST", "/cast/"+itoa(row.ID)+"/image", map[string]any{"image_url": "https://pics.example/anand.jpg", "image_source": "google-images"}, http.StatusOK)
+	if got := fields(); got != 1 {
+		t.Errorf("a cast row's strip pick: Google Images' row reads %d fields, want 1", got)
+	}
+	c.mustDo("PUT", "/characters/"+itoa(row.CharacterID)+"/image", map[string]any{"image_url": "https://pics.example/anand2.jpg", "image_source": "google-images"}, http.StatusOK)
+	if got := fields(); got != 2 {
+		t.Errorf("and the record's: Google Images' row reads %d fields, want 2", got)
+	}
+	// A pasted address names no supplier: the reader's, and no supplier's field.
+	c.mustDo("POST", "/cast/"+itoa(row.ID)+"/image", map[string]any{"image_url": "https://pics.example/mine.jpg"}, http.StatusOK)
+	if got := fields(); got != 1 {
+		t.Errorf("a pasted picture replaced the strip's and Google Images' row still reads %d fields, want 1", got)
+	}
+}
+
+// A MERGE BORROWS WHO SUPPLIED WHAT IT BORROWS. The survivor takes the dropped
+// record's portrait and links where its own are empty, and their credits come
+// with them: the portrait keeps its tag, the links their marks, and the person
+// stays on its supplier's count. An undo puts the survivor's own back.
+func TestAMergeCarriesThePortraitAndLinksCredits(t *testing.T) {
+	srv := newTestServer(t)
+	openLibraryKnows(srv, "https://upload.wikimedia.org/wikipedia/commons/shelley.jpg")
+	c := signupAdmin(t, srv.Handler())
+	keep := seedPerson(t, srv, 1, "author", "Mary Shelley")
+	drop := seedPerson(t, srv, 1, "author", "Mary W. Shelley")
+	fetchPersonByID(c, drop)
+	merged := decode[struct {
+		TrashID int64 `json:"trash_id"`
+	}](t, c.mustDo("POST", "/people/merge", map[string]any{"keep_id": keep, "drop_id": drop}, http.StatusOK))
+	got := decode[personSources](t, c.mustDo("GET", "/people/id/"+itoa(keep), nil, http.StatusOK))
+	if got.ImageSource != "wikimedia" || got.LinkSources["https://openlibrary.org/authors/OL1A"] != "openlibrary" {
+		t.Errorf("the survivor borrowed a portrait and a link and not their credits: %+v", got)
+	}
+	c.mustDo("POST", "/trash/"+itoa(merged.TrashID)+"/restore", nil, http.StatusOK)
+	if back := decode[personSources](t, c.mustDo("GET", "/people/id/"+itoa(keep), nil, http.StatusOK)); back.ImageSource != "" || len(back.LinkSources) != 0 {
+		t.Errorf("an undone merge left the borrowed credits on the survivor: %+v", back)
 	}
 }

@@ -4,36 +4,66 @@
 // portrait the supplier's tag; a link or a picture with nothing recorded says
 // nothing.
 //
-// DECLARED EXCEPTION: the two components are rendered on their own, handed what
-// the person record carries (the server's link_sources and image_source), since
-// the offline journey server has no supplier to fetch a portrait or a link from.
-
-import { afterEach, describe, expect, it } from 'vitest'
+// THE PAGE ITSELF IS RENDERED, from the record GET /people/id/{id} returns: the
+// first draft rendered the pill row and the portrait block on their own, handed
+// props written by the test, so the page's own wiring (link_sources into the
+// pills, image_source into the portrait) could break with the test green.
+//
+// DECLARED EXCEPTION: the record is mocked at the API, and this knows its
+// `links`, `link_sources`, `image_path` and `image_source` fields. The offline
+// journey world has no supplier, so nothing in it can fetch a link or a portrait
+// for the "auto" half; the server's half is people_sources_test.go.
+//
+// THE MUTATIONS, built and run and put back: linkPills ignoring the sources
+// (identityGlobal.jsx) reddens the first case; PersonGlobal not passing
+// image_source to the portrait reddens the second.
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 
-import { PillRow, PortraitBlock } from '../../src/characterRows.jsx'
+let PERSON
 
+vi.mock('../../src/api.js', async (orig) => ({
+  ...(await orig()),
+  json: vi.fn(async (method, path) => {
+    if (method === 'GET' && path.startsWith('/people/id/')) return { ok: true, data: PERSON }
+    return { ok: true, data: {} }
+  }),
+}))
+
+const { personPanel } = await import('../../src/identity.jsx')
+
+const LINKS = ['https://openlibrary.org/authors/OL1A', 'https://ursulakleguin.com', 'https://example.org/review']
+
+beforeEach(() => {
+  PERSON = {
+    id: 7, name: 'Ursula K. Le Guin', sort_name: '', born: '1929', died: '2018', note: '',
+    aliases: [], credits: [], roles: [], lines: [], shared_lines: 0,
+    links: LINKS.join('\n'),
+    link_sources: { [LINKS[0]]: 'openlibrary', [LINKS[1]]: 'manual' },
+    image_path: 'leguin.jpg', image_source: 'wikimedia',
+  }
+})
 afterEach(() => cleanup())
 
+const open = () => render(personPanel({ push: vi.fn(), open: vi.fn() }, { id: 7, name: 'Ursula K. Le Guin' }).render())
+
 describe("a person's page", () => {
-  it('marks each link auto or you, and leaves an unrecorded one unmarked', () => {
-    render(<PillRow pills={[
-      { url: 'https://openlibrary.org/authors/OL1A', slug: 'openlibrary', name: 'Open Library', provenance: 'auto', supplier: 'openlibrary' },
-      { url: 'https://ursulakleguin.com', name: 'ursulakleguin.com', provenance: 'you', supplier: 'manual' },
-      { url: 'https://example.org', name: 'example.org' },
-    ]} />)
-    const pill = (name) => screen.getByRole('link', { name: new RegExp(name) })
-    expect(pill('Open Library').textContent).toMatch(/auto$/)
-    expect(pill('ursulakleguin.com').textContent).toMatch(/you$/)
-    expect(pill('example.org').textContent).toBe('example.org')
+  it('marks each link auto or you, and leaves an unrecorded one unmarked', async () => {
+    open()
+    const pill = async (name) => (await screen.findByRole('link', { name: new RegExp(name) })).textContent
+    expect(await pill('Open Library')).toMatch(/auto$/)
+    expect(await pill('ursulakleguin.com')).toMatch(/you$/)
+    expect(await pill('example.org')).not.toMatch(/(auto|you)$/)
     expect(screen.getByTitle('Found by the app, from Open Library')).toBeTruthy()
   })
 
-  it("tags the portrait with whoever supplied it", () => {
-    render(<PortraitBlock src="/covers/shelley.jpg" source="wikimedia" name="Mary Shelley" px="" />)
-    expect(document.body.textContent).toMatch(/wikimedia/i)
+  it('tags the portrait with whoever supplied it, and says nothing when nobody is recorded', async () => {
+    open()
+    expect(await screen.findByText(/wikimedia/i)).toBeTruthy()
     cleanup()
-    render(<PortraitBlock src="/covers/shelley.jpg" name="Mary Shelley" px="" />)
+    PERSON = { ...PERSON, image_source: '' }
+    open()
+    await screen.findByRole('link', { name: /Open Library/ })
     expect(document.body.textContent).not.toMatch(/wikimedia/i)
   })
 })

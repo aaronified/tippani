@@ -1128,7 +1128,7 @@ func (s *Server) lookupLinks(ctx context.Context, kind, name string) (map[string
 	// literary translator to go and add a TMDB key.
 	switch kind {
 	case "author", "translator", "editor":
-		who = "openlibrary"
+		who = linkSupplierFor(kind)
 		links, err = s.authorLinks(ctx, name)
 	case "studio", "publisher":
 		// A STUDIO IS NOT A PERSON, and neither of the other two branches can
@@ -1153,7 +1153,7 @@ func (s *Server) lookupLinks(ctx context.Context, kind, name string) (map[string
 				"company links come from IGDB — add the IGDB client id and secret in Metadata › Sources first"}
 		}
 		var logo string
-		who = "igdb"
+		who = linkSupplierFor(kind)
 		links, logo, _, err = igdb.CompanyLinks(ctx, name)
 		if err == nil && logo != "" {
 			// The logo rides back on the same call rather than needing a second
@@ -1170,7 +1170,7 @@ func (s *Server) lookupLinks(ctx context.Context, kind, name string) (map[string
 			return nil, &refusal{http.StatusServiceUnavailable,
 				"these links come from TMDB — add a TMDB key in Metadata › Sources first"}
 		}
-		who = "tmdb"
+		who = linkSupplierFor(kind)
 		links, err = s.actorLinks(ctx, tmdb, name)
 	}
 	s.recordAsk(ctx, faultAreaPeople, who, len(links), "", err)

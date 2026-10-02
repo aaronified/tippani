@@ -1584,9 +1584,9 @@ function CharacterBody({ stack, id, work, onSearch: givenSearch = null, onOpenWo
   const linkAdder = useLinkAdder({ form, setBusy, setErr, setDialog: setLinkDialog, load })
   const addProviderLink = linkAdder(`/characters/${id}`)
 
-  const setWorkImage = async (castID, url) => {
+  const setWorkImage = async (castID, url, source) => {
     setBusy(true)
-    const r = await json('POST', `/cast/${castID}/image`, url ? { image_url: url } : undefined)
+    const r = await json('POST', `/cast/${castID}/image`, url ? { image_url: url, ...(source ? { image_source: source } : {}) } : undefined)
     setBusy(false)
     if (!r.ok) return setErr(errText(r))
     setErr('')
@@ -1612,9 +1612,9 @@ function CharacterBody({ stack, id, work, onSearch: givenSearch = null, onOpenWo
   // one of its works already holds, and that is the ordinary path — but a reader
   // with a picture of the character that none of their works has could not use it
   // at all before.
-  const setRecordImage = async (url) => {
+  const setRecordImage = async (url, source) => {
     setBusy(true)
-    const r = await json('PUT', `/characters/${id}/image`, { image_url: url })
+    const r = await json('PUT', `/characters/${id}/image`, { image_url: url, ...(source ? { image_source: source } : {}) })
     setBusy(false)
     if (!r.ok) return setErr(errText(r))
     setErr('')
@@ -1747,7 +1747,7 @@ function CharacterBody({ stack, id, work, onSearch: givenSearch = null, onOpenWo
     workTitle: here?.work_title || '',
     mediaType: here?.media_type || '',
     busy,
-    onImage: (url) => here && setWorkImage(here.cast_id, url),
+    onImage: (url, source) => here && setWorkImage(here.cast_id, url, source),
     named: true,
     onUpload: here ? (file) => uploadPicture(`/cast/${here.cast_id}/image/upload`, file) : null,
   })
@@ -1766,7 +1766,7 @@ function CharacterBody({ stack, id, work, onSearch: givenSearch = null, onOpenWo
     urlLabel: t('cast.picture.url.aria', { name: data?.name || '' }),
     busy,
     named: true,
-    onPicked: (url) => setRecordImage(url),
+    onPicked: (url, source) => setRecordImage(url, source),
     onUpload: (file) => uploadPicture(`/characters/${id}/image/upload`, file),
     fallbackQuery: data?.name || '',
     // THE WORK THIS CHARACTER IS IN, WHICH THIS SENT NOTHING OF — and that is the

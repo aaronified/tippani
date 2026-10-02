@@ -259,6 +259,8 @@ describe('the people panel', () => {
       const withBody = posted(/^\/cast\/11\/image$/).filter(([, , b]) => b?.image_url)
       expect(withBody).toHaveLength(1)
       expect(withBody[0][2].image_url).toBe('https://example.com/w.png')
+      // A pasted address names no supplier: the server records it as the reader's.
+      expect(withBody[0][2].image_source).toBeUndefined()
     })
   })
 
@@ -300,6 +302,8 @@ describe('the people panel', () => {
       const withBody = posted(/^\/cast\/11\/image$/).filter(([, , b]) => b?.image_url)
       expect(withBody).toHaveLength(1)
       expect(withBody[0][2].image_url).toBe('https://pics.test/waller.jpg')
+      // CREDITED TO THE STRIP'S SUPPLIER: a web picture is Google Images'.
+      expect(withBody[0][2].image_source).toBe('google-images')
     })
   })
 

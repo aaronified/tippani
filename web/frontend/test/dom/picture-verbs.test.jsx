@@ -38,12 +38,13 @@
 // WHAT A TEST WRITER NEEDS TO KNOW: the block quoted above. Nothing about which
 // component draws it, which hook returns it, or what any of it is called in the
 // source.
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { useEffect, useState } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 let RECORD
 let CALLS
+let IMAGES = []
 
 vi.mock('../../src/api.js', async (orig) => ({
   ...(await orig()),
@@ -51,7 +52,7 @@ vi.mock('../../src/api.js', async (orig) => ({
     CALLS.push([method, path, body])
     if (method === 'GET' && /^\/characters\/\d+$/.test(path)) return { ok: true, data: RECORD }
     if (method === 'POST' && path === '/images/search') {
-      return { ok: true, data: { sources: { tvdb: true }, images: [] } }
+      return { ok: true, data: { sources: { tvdb: true }, images: IMAGES } }
     }
     if (/whos-in-it/.test(path)) return { ok: true, data: { characters: [] } }
     return { ok: true, data: {} }
@@ -231,6 +232,29 @@ describe("the character's own record, which IS the identity", () => {
     const words = named().join(' | ')
     for (const re of [/fetch/i, /upload/i, /paste/i]) {
       expect(re.test(words), `no button named for ${re} on the record — the strip reads: ${words}`).toBe(true)
+    }
+  })
+
+  // A PICTURE TAKEN FROM THE STRIP IS ITS SUPPLIER'S. The record's own picker
+  // dropped the source on the way to the save, so the server, told nothing,
+  // recorded every strip pick on a character's record as the reader's.
+  it("credits a picture taken from the strip to the supplier that offered it", async () => {
+    IMAGES = [{ url: 'https://pics.test/andy.jpg', thumb: 'https://encrypted-tbn0.gstatic.com/a', source: 'google' }]
+    try {
+      await act(async () => { byWord(/fetch/i).click() })
+      const pick = await waitFor(() => {
+        const b = document.querySelector('button.cover-pick')
+        expect(b, 'the strip drew nothing to pick').toBeTruthy()
+        return b
+      })
+      await act(async () => { pick.click() })
+      await waitFor(() => {
+        const save = CALLS.find(([m, p, b]) => m === 'PUT' && p === '/characters/4/image' && b?.image_url)
+        expect(save, 'the pick saved nothing').toBeTruthy()
+        expect(save[2].image_source).toBe('google-images')
+      })
+    } finally {
+      IMAGES = []
     }
   })
 

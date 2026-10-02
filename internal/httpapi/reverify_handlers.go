@@ -1210,7 +1210,7 @@ func (s *Server) applyReverifyItem(ctx context.Context, uid int64, item reverify
 		case "movie":
 			note, aerr = s.applyReverifyMovie(ctx, uid, item.ID, set, item.Sources)
 		case "person":
-			note, aerr = s.applyReverifyPerson(ctx, uid, kind, name, set)
+			note, aerr = s.applyReverifyPerson(ctx, uid, kind, name, set, item.Source)
 		}
 		if note != "" {
 			notes = append(notes, note)
@@ -1787,7 +1787,9 @@ func (s *Server) applyReverifyMovie(ctx context.Context, uid, id int64, set map[
 	return note, nil
 }
 
-func (s *Server) applyReverifyPerson(ctx context.Context, uid int64, kind, name string, set map[string]json.RawMessage) (note string, err error) {
+// found is the preview's supplier (reverifyItem.Source), which is who gave the
+// fresh links: resolvePersonPortrait returns them with the identity it found.
+func (s *Server) applyReverifyPerson(ctx context.Context, uid int64, kind, name string, set map[string]json.RawMessage, found string) (note string, err error) {
 	if !validPersonKind(kind) || name == "" {
 		return "", errors.New("kind must be author, actor or director, with a name")
 	}
@@ -1901,7 +1903,7 @@ func (s *Server) applyReverifyPerson(ctx context.Context, uid int64, kind, name 
 	_ = tx.QueryRow(`SELECT links, link_sources FROM people WHERE id = ? AND user_id = ?`, pid, uid).Scan(&curLinks, &curSources)
 	linkSources := curSources
 	if hasLinks {
-		linkSources = relinkSources(curLinks, newLinks, readLinkSources(curSources), linkSupplierFor(kind))
+		linkSources = relinkSources(curLinks, newLinks, readLinkSources(curSources), fetchedLinksSupplier(kind, found))
 	}
 	if _, xerr := tx.Exec(`
 		UPDATE people SET bio = ?, image_path = ?, born = ?, died = ?, links = ?,

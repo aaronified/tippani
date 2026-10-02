@@ -113,7 +113,7 @@ func (s *Server) handleCastImage(w http.ResponseWriter, r *http.Request) {
 		// no-allowlist path the person form already uses for exactly this, with the
 		// same size and format checks. So provenance chooses, and this is the one
 		// place the two paths differ.
-		err = s.storeCastImage(r.Context(), uid, castID, req.ImageURL, s.fetchUserImage)
+		err = s.storeCastImage(r.Context(), uid, castID, req.ImageURL, pickedPictureSource(req.ImageSource), s.fetchUserImage)
 	} else {
 		// Already ours, or the provider never had one: nothing to fetch, and the
 		// answer is the row as it stands.
@@ -154,12 +154,12 @@ func (s *Server) fetchCastImage(ctx context.Context, uid, castID int64) (fetched
 	if stored != "" || srcURL == "" {
 		return false, nil
 	}
-	return true, s.storeCastImage(ctx, uid, castID, srcURL, s.fetchImage)
+	return true, s.storeCastImage(ctx, uid, castID, srcURL, pictureSupplier(srcURL, ""), s.fetchImage)
 }
 
 // storeCastImage fetches srcURL with fetch and stores it as cast row castID's
-// picture. A failed download is errCastImageFetch.
-func (s *Server) storeCastImage(ctx context.Context, uid, castID int64, srcURL string,
+// picture, credited to source. A failed download is errCastImageFetch.
+func (s *Server) storeCastImage(ctx context.Context, uid, castID int64, srcURL, source string,
 	fetch func(ctx context.Context, rawURL, destDir string) (string, error)) error {
 	name, ferr := fetch(ctx, srcURL, s.coversDir())
 	if ferr != nil {
@@ -170,7 +170,7 @@ func (s *Server) storeCastImage(ctx context.Context, uid, castID int64, srcURL s
 	}
 	if _, err := s.Store.DB.Exec(
 		`UPDATE work_cast SET character_image_path = ?, character_image_source = ?, updated_at = datetime('now')
-		 WHERE id = ? AND user_id = ?`, name, pictureSupplier(srcURL, ""), castID, uid,
+		 WHERE id = ? AND user_id = ?`, name, source, castID, uid,
 	); err != nil {
 		return fmt.Errorf("store character image: %w", err)
 	}
@@ -192,6 +192,9 @@ func (s *Server) storeCastImage(ctx context.Context, uid, castID int64, srcURL s
 // chip can tell a fetched picture from an uploaded one.
 type castImageReq struct {
 	ImageURL string `json:"image_url"`
+	// The supplier a picture taken from a strip came from; a pasted address is
+	// the reader's (pickedPictureSource).
+	ImageSource string `json:"image_source"`
 }
 
 // maxCastImageURL is the practical ceiling browsers and proxies agree on for a

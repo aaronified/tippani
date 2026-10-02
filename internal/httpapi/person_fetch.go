@@ -64,10 +64,11 @@ func (s *Server) fetchPerson(ctx context.Context, uid int64, p personRow) (perso
 	if err != nil {
 		return personRow{}, nil, &refusal{http.StatusBadGateway, errPortraitLookup}
 	}
-	links := found.links
+	links, linksFrom := found.links, fetchedLinksSupplier(kind, found.source)
 	if len(links) == 0 {
 		// Logged where it failed; the fetch goes on without links.
 		links, _ = s.lookupLinks(ctx, kind, p.Name)
+		linksFrom = linkSupplierFor(kind)
 	}
 	if links == nil {
 		links = map[string]string{}
@@ -76,7 +77,7 @@ func (s *Server) fetchPerson(ctx context.Context, uid int64, p personRow) (perso
 		s.removeCoverFile(found.image)
 		return personRow{}, nil, errStoppedItem
 	}
-	if err := s.saveFetchedPerson(uid, id, kind, found, links); err != nil {
+	if err := s.saveFetchedPerson(uid, id, kind, found, links, linksFrom); err != nil {
 		return personRow{}, nil, err
 	}
 	p, err = s.personByID(uid, id)
@@ -148,7 +149,7 @@ func (s *Server) fetchKind(uid, id int64) string {
 // THE LINKS ARE FOLDED INTO THE LINKS AS THEY ARE NOW, read inside the
 // transaction: a save of the record's links between the caller's read and this
 // write would otherwise be written over.
-func (s *Server) saveFetchedPerson(uid, id int64, kind string, f portraitFind, links map[string]string) error {
+func (s *Server) saveFetchedPerson(uid, id int64, kind string, f portraitFind, links map[string]string, linksFrom string) error {
 	tx, err := s.Store.DB.Begin()
 	if err != nil {
 		s.removeCoverFile(f.image)
@@ -169,7 +170,7 @@ func (s *Server) saveFetchedPerson(uid, id int64, kind string, f portraitFind, l
 			// ones already there keep theirs.
 			merged = strings.TrimSpace(merged)
 			if _, err := tx.Exec(`UPDATE people SET links = ?, link_sources = ? WHERE id = ? AND user_id = ?`,
-				merged, relinkSources(cur, merged, readLinkSources(curSources), linkSupplierFor(kind)), id, uid); err != nil {
+				merged, relinkSources(cur, merged, readLinkSources(curSources), linksFrom), id, uid); err != nil {
 				s.removeCoverFile(f.image)
 				return err
 			}

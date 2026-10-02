@@ -331,9 +331,11 @@ export function CastSection({ kind, item, onCastChanged, onOpenCharacter }) {
   // A picture the reader chose, through the same route the provider's goes
   // through — so nothing downstream can tell one from the other, and a later
   // refetch leaves it alone (the path is not a provider fact).
-  async function setImage(id, url) {
+  // `source` is the strip's supplier for a picture taken from it, and nothing for
+  // a pasted address, which the server records as the reader's.
+  async function setImage(id, url, source) {
     setBusy('image')
-    const r = await json('POST', `/cast/${id}/image`, { image_url: url })
+    const r = await json('POST', `/cast/${id}/image`, { image_url: url, ...(source ? { image_source: source } : {}) })
     setBusy('')
     if (!r.ok) return setErr(errText(r, t('error.load.cast-picture')))
     setErr('')
@@ -390,7 +392,7 @@ export function CastSection({ kind, item, onCastChanged, onOpenCharacter }) {
               mediaType={kind === 'book' ? 'book' : item.media_type || 'movie'}
               onSave={(f) => save(c.id, f)}
               onRemove={() => remove(c.id)}
-              onImage={(u) => setImage(c.id, u)}
+              onImage={(u, source) => setImage(c.id, u, source)}
               onOpenPerson={c.actor ? () => openPerson({ kind: 'actor', name: c.actor, person: actorMap[c.actor] }) : null}
               // BOTH HALVES REQUIRED. `character_id` is nullable — 0056 links the
               // pair on demand and a library that has not been through the

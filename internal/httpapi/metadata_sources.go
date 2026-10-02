@@ -33,6 +33,7 @@ import (
 
 	"tippani/internal/metadata"
 	"tippani/internal/olog"
+	"tippani/internal/store"
 )
 
 // The four states a supplier's credential can be in, in the pack's own words
@@ -215,22 +216,67 @@ func (s *Server) suppliedBySource(uid int64) map[string]supplied {
 		}
 	}
 	rows.Close()
-	// A PERSON a supplier filled: one whose portrait it supplied (image_source,
-	// 0081; `source` is the identity a record is pinned to, which is not who gave
-	// the picture), and the portrait is one field.
-	prow, err := s.Store.DB.Query(`SELECT image_source, count(*) FROM people
-		WHERE user_id = ? AND image_source NOT IN ('', 'manual') AND image_path <> '' GROUP BY image_source`, uid)
+	// A PERSON COUNTS FOR EVERY SUPPLIER THAT WROTE ANY OF IT, which is the
+	// definition the owner chose ("a work or person counts for a source when that
+	// source wrote any of its fields, pictures or links"): its portrait
+	// (image_source, 0081), its identity and the facts that came with it
+	// (`source`, which only a fetch or a re-verify writes), and each fetched link
+	// (link_sources). A portrait is also one field.
+	prow, err := s.Store.DB.Query(`SELECT source, image_source, image_path <> '', link_sources FROM people WHERE user_id = ?`, uid)
 	if err != nil {
 		olog.Tracef("[meta] supplied by source, people: %v", err)
 		return out
 	}
-	defer prow.Close()
+	gave := func(src string) bool { return src != "" && src != store.SourceManual }
 	for prow.Next() {
+		var src, img, links string
+		var hasImage bool
+		if prow.Scan(&src, &img, &hasImage, &links) != nil {
+			continue
+		}
+		by := map[string]bool{}
+		if gave(src) {
+			by[src] = true
+		}
+		if gave(img) && hasImage {
+			by[img] = true
+			got := out[img]
+			got.fields++
+			out[img] = got
+		}
+		for _, from := range readLinkSources(links) {
+			if gave(from) {
+				by[from] = true
+			}
+		}
+		for from := range by {
+			got := out[from]
+			got.people++
+			out[from] = got
+		}
+	}
+	prow.Close()
+	// A CHARACTER'S PICTURE IS A FIELD its supplier wrote, on the character's own
+	// record or on one cast row. A character is not a person, so it adds to no
+	// people count.
+	crow, err := s.Store.DB.Query(`
+		SELECT image_source, count(*) FROM characters
+		 WHERE user_id = ? AND image_source NOT IN ('', 'manual') AND image_path <> '' GROUP BY image_source
+		UNION ALL
+		SELECT character_image_source, count(*) FROM work_cast
+		 WHERE user_id = ? AND character_image_source NOT IN ('', 'manual') AND character_image_path <> ''
+		 GROUP BY character_image_source`, uid, uid)
+	if err != nil {
+		olog.Tracef("[meta] supplied by source, characters: %v", err)
+		return out
+	}
+	defer crow.Close()
+	for crow.Next() {
 		var src string
 		var n int
-		if prow.Scan(&src, &n) == nil {
+		if crow.Scan(&src, &n) == nil {
 			got := out[src]
-			got.people, got.fields = n, got.fields+n
+			got.fields += n
 			out[src] = got
 		}
 	}

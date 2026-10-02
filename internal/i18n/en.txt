@@ -7650,13 +7650,13 @@ identity.row.sort.sub.company = How the company files in a list
 identity.row.born.none = not said
 identity.row.born.sub.character = In-world, where a work states it
 identity.row.link.add.label = Add link
+identity.row.link.add.tip = Paste an address for this record
 # Beside a link on a person's page: who added it (the pack's §1.3). "auto" is a
 # link the app found, from {source}; "you" is one the reader pasted.
 identity.link.source.auto.label = auto
 identity.link.source.you.label = you
 identity.link.source.auto.tip = Found by the app, from {source}
 identity.link.source.you.tip = You added this link
-identity.row.link.add.tip = Paste an address for this record
 # ---- add a link from a provider id ----------------------------------------
 # "Add a link" used to focus the free-text field, so a reader holding a person's
 # IMDb id had to know the page is /name/<id>/ — not /person/ or /people/ —

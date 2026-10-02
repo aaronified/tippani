@@ -43,8 +43,10 @@ func pickedPictureSource(source string) string {
 	return store.SourceManual
 }
 
-// linkSupplierFor is the supplier a person's fetched links come from, by the
-// role the fetch asked as (lookupLinks' arms).
+// linkSupplierFor is the supplier lookupLinks asks for a person's links, by the
+// role it asks as. lookupLinks reads its supplier from here, so the two cannot
+// drift; links that came with a portrait (findPortrait) are its supplier's
+// instead, which is fetchedLinksSupplier's half.
 func linkSupplierFor(kind string) string {
 	switch kind {
 	// The book people, all three: lookupLinks asks Open Library for each.
@@ -102,4 +104,16 @@ func relinkSources(prev, next string, had map[string]string, by string) string {
 	}
 	b, _ := json.Marshal(out)
 	return string(b)
+}
+
+// fetchedLinksSupplier is who gave a person's fetched links: the supplier of the
+// portrait find they came with, else lookupLinks' supplier for the role. A
+// speaker shows why it cannot be the role alone: their portrait and links come
+// from Open Library, while a speaker's own lookupLinks asks TMDB.
+func fetchedLinksSupplier(kind, foundWith string) string {
+	switch foundWith {
+	case "openlibrary", "tmdb", "igdb", "tvdb", "wikidata":
+		return foundWith
+	}
+	return linkSupplierFor(kind)
 }

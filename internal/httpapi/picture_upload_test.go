@@ -134,6 +134,10 @@ func TestAReaderCanUploadAPictureForARoleAnIdentityAndAPerson(t *testing.T) {
 	if got != pname {
 		t.Fatalf("people.image_path = %q, want the uploaded %q", got, pname)
 	}
+	// AND IT IS THE READER'S: the person's page tags an uploaded portrait "You".
+	if src := decode[personSources](t, c.mustDo("GET", fmt.Sprintf("/people/id/%d", pid), nil, 200)).ImageSource; src != "manual" {
+		t.Errorf("an uploaded portrait is credited to %q, want the reader (manual)", src)
+	}
 }
 
 func TestAnotherReadersRowCannotBeGivenAPicture(t *testing.T) {

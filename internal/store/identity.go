@@ -761,6 +761,12 @@ type MergedCredit struct {
 // reader picked which record survives, and that pick includes its values.
 var mergeFillable = []string{"bio", "image_path", "born", "died", "links", "source", "source_id", "sort_name", "note"}
 
+// mergeCompanions travel with a borrowed column: who supplied a picture goes
+// with the picture, and who supplied each link with the links (0081). Borrowed
+// only when their column is, so a survivor that keeps its own picture never
+// takes the other record's credit for it.
+var mergeCompanions = map[string]string{"image_path": "image_source", "links": "link_sources"}
+
 // MergePeople folds `dropID` into `keepID` and returns how to put it back.
 //
 // MERGING TWO RECORDS MUST NOT CHANGE WHAT ANY COVER PRINTS. That is the one rule
@@ -1026,6 +1032,9 @@ func MergePeople(tx *sql.Tx, uid, keepID, dropID int64, seps metadata.CreditSeps
 		if _, err := tx.Exec(`UPDATE people SET `+col+` = ? WHERE id = ? AND user_id = ?`, theirs, keepID, uid); err != nil {
 			return nil, fmt.Errorf("merge fill %s: %w", col, err)
 		}
+		if err := borrowCompanion(tx, "people", mergeCompanions[col], uid, keepID, dropID, undo.Filled); err != nil {
+			return nil, err
+		}
 	}
 
 	if _, err := tx.Exec(`DELETE FROM people WHERE id = ? AND user_id = ?`, dropID, uid); err != nil {
@@ -1165,6 +1174,10 @@ func UndoPersonMerge(tx *sql.Tx, uid int64, u *MergeUndo, seps metadata.CreditSe
 // is mergeFillable; the lists differ because the tables do — a character has a
 // description and no bio, no born/died, and no provider source.
 var characterMergeFillable = []string{"sort_name", "description", "image_path", "image_url", "note"}
+
+// characterMergeCompanions is mergeCompanions for the other table: a character
+// has a picture's supplier and no links of its own to credit.
+var characterMergeCompanions = map[string]string{"image_path": "image_source"}
 
 // CharacterAliasWas is AliasWas for the other table. See it, and MergeUndo's note
 // on why a reversal has to know what a key held before the merge took it.
@@ -1313,6 +1326,9 @@ func MergeCharacters(tx *sql.Tx, uid, keepID, dropID int64) (*CharacterMergeUndo
 		if _, err := tx.Exec(`UPDATE characters SET `+col+` = ? WHERE id = ? AND user_id = ?`, theirs, keepID, uid); err != nil {
 			return nil, fmt.Errorf("merge fill %s: %w", col, err)
 		}
+		if err := borrowCompanion(tx, "characters", characterMergeCompanions[col], uid, keepID, dropID, undo.Filled); err != nil {
+			return nil, err
+		}
 	}
 
 	if _, err := tx.Exec(`DELETE FROM characters WHERE id = ? AND user_id = ?`, dropID, uid); err != nil {
@@ -1375,11 +1391,32 @@ func UndoCharacterMerge(tx *sql.Tx, uid int64, u *CharacterMergeUndo) error {
 
 func fillableColumn(col string) bool {
 	for _, c := range mergeFillable {
-		if c == col {
+		if c == col || mergeCompanions[c] == col {
 			return true
 		}
 	}
 	return false
+}
+
+// borrowCompanion copies a borrowed column's companion (mergeCompanions) from the
+// dropped record to the survivor and notes the survivor's own value for undo.
+// table and comp are this file's literals, never input.
+func borrowCompanion(tx *sql.Tx, table, comp string, uid, keepID, dropID int64, filled map[string]any) error {
+	if comp == "" {
+		return nil
+	}
+	var mine, theirs string
+	if err := tx.QueryRow(
+		`SELECT COALESCE((SELECT `+comp+` FROM `+table+` WHERE id = ?), ''),
+		        COALESCE((SELECT `+comp+` FROM `+table+` WHERE id = ?), '')`, keepID, dropID).
+		Scan(&mine, &theirs); err != nil {
+		return err
+	}
+	filled[comp] = mine
+	if _, err := tx.Exec(`UPDATE `+table+` SET `+comp+` = ? WHERE id = ? AND user_id = ?`, theirs, keepID, uid); err != nil {
+		return fmt.Errorf("merge fill %s: %w", comp, err)
+	}
+	return nil
 }
 
 // characterFillableColumn is fillableColumn over the other table's list. Kept as
@@ -1387,7 +1424,7 @@ func fillableColumn(col string) bool {
 // as the two lists do: a column added to either is one edit in one place.
 func characterFillableColumn(col string) bool {
 	for _, c := range characterMergeFillable {
-		if c == col {
+		if c == col || characterMergeCompanions[c] == col {
 			return true
 		}
 	}
