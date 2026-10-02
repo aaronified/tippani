@@ -527,7 +527,7 @@ func upsertImportBook(tx *sql.Tx, uid int64, b importer.Book, seps metadata.Cred
 			b.Subtitle, b.Publisher, b.Pages, b.Links, id); err != nil {
 			return 0, false, err
 		}
-		if err := recordFilled(tx, uid, "book", id, before, store.SourceImport, ""); err != nil {
+		if err := recordFilled(tx, uid, "book", id, before, store.SourceImport, "", nil); err != nil {
 			return 0, false, err
 		}
 		// Shelf state is its own backfill (fill-empty-only, never clearing) so a
@@ -561,7 +561,7 @@ func upsertImportBook(tx *sql.Tx, uid int64, b importer.Book, seps metadata.Cred
 		nullable(b.Series), nullableFloat(b.SeriesIndex)); err != nil {
 		return 0, false, err
 	}
-	if err := recordFilled(tx, uid, "book", id, nil, store.SourceImport, ""); err != nil {
+	if err := recordFilled(tx, uid, "book", id, nil, store.SourceImport, "", nil); err != nil {
 		return 0, false, err
 	}
 	if err := applyImportedShelf(tx, "book", "", uid, id, bookShelf(b)); err != nil {

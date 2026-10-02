@@ -147,6 +147,10 @@ type reverifyItem struct {
 	// field_offers.go for why the two questions cannot share one answer.
 	Offers []fieldDiff `json:"offers,omitempty"`
 	Error  string      `json:"error,omitempty"`
+	// credit names, per field, the other half of a merged match where it gave
+	// that field (BookCandidate.Sources). Not on the wire: a fill reads it from
+	// the item it built, so the fields it fills are credited field by field.
+	credit map[string]string
 }
 
 // handleMetadataReverify: POST /metadata/reverify
@@ -559,6 +563,7 @@ func (s *Server) reverifyBook(ctx context.Context, uid, id int64, gkey, cookie, 
 		return it
 	}
 	it.Source = cand.Source
+	it.credit = cand.Sources
 	bookSrcs := dedupeBookSources(alt)
 	it.Sources = make([]string, 0, len(bookSrcs))
 	for _, b := range bookSrcs {

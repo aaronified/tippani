@@ -1,9 +1,13 @@
 package httpapi
 
 import (
+	"context"
+	"errors"
 	"net/http"
 	"strconv"
 	"testing"
+
+	"tippani/internal/metadata"
 )
 
 // TAKING A MATCH CREDITS ITS SUPPLIER. The owner: "I have added new books and
@@ -48,12 +52,12 @@ func TestTakingAMatchOnABookCreditsTheSupplierAndKeepsWhatYouTyped(t *testing.T)
 func TestTakingAFilmMatchCreditsEachSupplier(t *testing.T) {
 	srv := newTestServer(t)
 	c := signupAdmin(t, srv.Handler())
-	m := decode[struct{ ID int64 }](t, c.mustDo("POST", "/movies", map[string]any{"title": "Ran"}, http.StatusCreated))
-	if got := sourcesByField(t, c, m.ID); got["title"] != "manual" {
-		t.Errorf("a film typed in by hand is not the reader's: %v", got)
+	m := decode[struct{ ID int64 }](t, c.mustDo("POST", "/movies", map[string]any{"title": "Ran", "series": "Kurosawa", "series_index": 2}, http.StatusCreated))
+	if got := sourcesByField(t, c, m.ID); got["title"] != "manual" || got["series_index"] != "manual" {
+		t.Errorf("a film typed in by hand is not the reader's, field by field: %v", got)
 	}
 	c.mustDo("PUT", "/movies/"+strconv.FormatInt(m.ID, 10), map[string]any{
-		"title": "Ran", "director": "Akira Kurosawa", "release_year": 1985, "genres": []string{"Drama"},
+		"title": "Ran", "director": "Akira Kurosawa", "release_year": 1985, "genres": []string{"Drama", "War"},
 		"sources": map[string]string{"director": "tmdb", "release_year": "letterboxd", "genres": "tmdb"},
 	}, http.StatusOK)
 	got := sourcesByField(t, c, m.ID)
@@ -62,9 +66,9 @@ func TestTakingAFilmMatchCreditsEachSupplier(t *testing.T) {
 			t.Errorf("%s is credited to %q, want %q (%v)", f, got[f], w, got)
 		}
 	}
-	// A ♥ press re-posts the same genres in another casing: not an edit.
+	// A ♥ press re-posts the same genres in another order and casing: not an edit.
 	c.mustDo("PUT", "/movies/"+strconv.FormatInt(m.ID, 10), map[string]any{
-		"title": "Ran", "director": "Akira Kurosawa", "release_year": 1985, "genres": []string{"drama"}, "favorite": true,
+		"title": "Ran", "director": "Akira Kurosawa", "release_year": 1985, "genres": []string{"war", "drama"}, "favorite": true,
 	}, http.StatusOK)
 	if got := sourcesByField(t, c, m.ID); got["genres"] != "tmdb" {
 		t.Errorf("re-posting the same genres took them from tmdb: %v", got)
@@ -102,5 +106,74 @@ func TestAnApprovedImportCreditsTheFileForWhatItBrought(t *testing.T) {
 		if got[f] != "import" {
 			t.Errorf("%s came in the file and is credited to %q (%v)", f, got[f], got)
 		}
+	}
+}
+
+// A MERGED MATCH IS CREDITED FIELD BY FIELD ON THE PATHS THAT FILL GAPS TOO. An
+// ISBN search merges Google's and Open Library's answers into one candidate and
+// names, per field, the half that gave it; Fetch covers and details and Fill gaps
+// gave every field to the merge's primary supplier, so a year Open Library gave
+// read Google.
+func TestAMergedMatchIsCreditedFieldByFieldWhenItFillsGaps(t *testing.T) {
+	for _, press := range []struct {
+		path string
+		body func(int64) map[string]any
+	}{
+		{"/covers/refetch", func(int64) map[string]any { return map[string]any{} }},
+		{"/metadata/fill", func(id int64) map[string]any { return map[string]any{"book_ids": []int64{id}} }},
+	} {
+		srv := newTestServer(t)
+		srv.searchBooks = func(_ context.Context, isbn, _, _, _ string) ([]metadata.BookCandidate, error) {
+			return []metadata.BookCandidate{{Source: "google", SourceID: "g1", Title: "Dune", ISBN13: isbn,
+				Author: "Frank Herbert", PublishedYear: 1965, CoverURL: "https://covers.example/dune.jpg",
+				Sources: map[string]string{"published_year": "openlibrary", "cover": "openlibrary"}}}, nil
+		}
+		srv.fetchImage = func(_ context.Context, u, _ string) (string, error) {
+			if u == "https://covers.example/dune.jpg" {
+				return "cccccccccccccccc.jpg", nil
+			}
+			return "", errors.New("not this one")
+		}
+		c := signupAdmin(t, srv.Handler())
+		b := decode[struct{ ID int64 }](t, c.mustDo("POST", "/books", map[string]any{"title": "Dune", "isbn": "9780441013593"}, http.StatusCreated))
+		c.mustDo("POST", press.path, press.body(b.ID), http.StatusOK)
+		got := booksSourcesByField(t, c, b.ID)
+		if got["published_year"] != "openlibrary" || got["author"] != "google" {
+			t.Errorf("%s: the year is credited to %q and the author to %q, want openlibrary and google (%v)",
+				press.path, got["published_year"], got["author"], got)
+		}
+		if got["cover"] != "openlibrary" {
+			t.Errorf("%s: the cover Open Library gave is credited to %q (%v)", press.path, got["cover"], got)
+		}
+	}
+}
+
+// AN IMPORTED BOOK IS CREDITED TO THE FILE TOO, on both of the import's writes:
+// a new book, and a gap in one already on the shelf, where what the reader
+// typed keeps its credit.
+func TestAnApprovedImportCreditsTheFileForABook(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	md := "---\ntitle: Middlemarch\nauthor: George Eliot\n---\n\n> A quote.\n"
+	if rec := c.importApprove("/import/markdown", "mm.md", []byte(md)); rec.Code != http.StatusOK {
+		t.Fatalf("import: %d %s", rec.Code, rec.Body)
+	}
+	list := decode[struct {
+		Books []struct{ ID int64 } `json:"books"`
+	}](t, c.mustDo("GET", "/books", nil, http.StatusOK))
+	if len(list.Books) != 1 {
+		t.Fatalf("expected one imported book, got %d", len(list.Books))
+	}
+	if got := booksSourcesByField(t, c, list.Books[0].ID); got["title"] != "import" || got["author"] != "import" {
+		t.Errorf("a new book from a file is not credited to the import: %v", got)
+	}
+
+	typed := decode[struct{ ID int64 }](t, c.mustDo("POST", "/books", map[string]any{"title": "Romola", "isbn": "9780140434705"}, http.StatusCreated))
+	md = "---\ntitle: Romola\nauthor: George Eliot\nisbn: 9780140434705\n---\n\n> Another.\n"
+	if rec := c.importApprove("/import/markdown", "romola.md", []byte(md)); rec.Code != http.StatusOK {
+		t.Fatalf("import: %d %s", rec.Code, rec.Body)
+	}
+	if got := booksSourcesByField(t, c, typed.ID); got["title"] != "manual" || got["author"] != "import" {
+		t.Errorf("an import filling a gap: %v, want the typed title the reader's and the author the import's", got)
 	}
 }

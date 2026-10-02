@@ -874,12 +874,6 @@ func bookCreateSource(req *bookReq) (source, sourceID string) {
 	return store.SourceManual, ""
 }
 
-// itoaZeroBlank prints a count for the edit comparison above, with 0 as the empty
-// string: the comparison is between "what was there" and "what is there now", and
-// on a column whose unset value IS zero, "0" and "" are the same answer. Printing
-// the digit would make clearing a page count read as an edit from 480 to 0 rather
-// than to nothing — true, but it would then also make an untouched blank compare
-// equal to itself only by luck of formatting.
 // floatBlank is a series number as text, blank for zero (no number).
 func floatBlank(f float64) string {
 	if f == 0 {
@@ -888,6 +882,12 @@ func floatBlank(f float64) string {
 	return strconv.FormatFloat(f, 'f', -1, 64)
 }
 
+// itoaZeroBlank prints a count for the edit comparison above, with 0 as the empty
+// string: the comparison is between "what was there" and "what is there now", and
+// on a column whose unset value IS zero, "0" and "" are the same answer. Printing
+// the digit would make clearing a page count read as an edit from 480 to 0 rather
+// than to nothing — true, but it would then also make an untouched blank compare
+// equal to itself only by luck of formatting.
 func itoaZeroBlank(n int) string {
 	if n == 0 {
 		return ""

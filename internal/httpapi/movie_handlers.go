@@ -430,6 +430,7 @@ func (s *Server) handleCreateMovie(w http.ResponseWriter, r *http.Request) {
 	}{
 		{"director", strings.TrimSpace(req.Director) != ""}, {"description", strings.TrimSpace(req.Description) != ""},
 		{"release_year", req.ReleaseYear != 0}, {"series", strings.TrimSpace(req.Series) != ""},
+		{"series_index", req.SeriesIndex != 0},
 		{"publisher", strings.TrimSpace(req.Publisher) != ""}, {"genres", len(req.Genres) > 0},
 	} {
 		if f.set {

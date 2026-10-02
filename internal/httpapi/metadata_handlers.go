@@ -828,7 +828,7 @@ func (s *Server) coversRefetchChunk(ctx context.Context, uid int64, cursor strin
 				try(metadata.AmazonFullSizeImage(metadata.GoogleHiResCover(b.cachedURL)), b.cachedSrc)
 			}
 			if cand != nil {
-				try(cand.CoverURL, knownBookSource(cand.Source))
+				try(cand.CoverURL, candidateFieldSource(cand, "cover"))
 			}
 			if isbnN != "" {
 				try("https://covers.openlibrary.org/b/isbn/"+isbnN+"-L.jpg?default=false", "openlibrary")
@@ -924,7 +924,7 @@ func (s *Server) coversRefetchChunk(ctx context.Context, uid int64, cursor strin
 					}
 				}
 				if cand != nil {
-					if err := recordFilled(tx, b.uid, "book", b.id, before, knownBookSource(cand.Source), cand.SourceID); err != nil {
+					if err := recordFilled(tx, b.uid, "book", b.id, before, knownBookSource(cand.Source), cand.SourceID, cand.Sources); err != nil {
 						return fmt.Errorf("field sources: %w", err)
 					}
 				}
@@ -1165,16 +1165,42 @@ func emptyFields(tx *sql.Tx, uid int64, kind string, id int64) (map[string]bool,
 
 // recordFilled credits to `source` every field that was empty in `before` (nil:
 // a work just created, where everything was) and is not now.
-func recordFilled(tx *sql.Tx, uid int64, kind string, id int64, before map[string]bool, source, sourceID string) error {
+//
+// perField names, field by field, a supplier other than source where a merged
+// match took that field from its other half (BookCandidate.Sources); nil when the
+// whole set came from one place.
+func recordFilled(tx *sql.Tx, uid int64, kind string, id int64, before map[string]bool, source, sourceID string, perField map[string]string) error {
 	after, err := emptyFields(tx, uid, kind, id)
 	if err != nil {
 		return err
 	}
-	var filled []string
+	bySource := map[string][]string{}
 	for f, empty := range after {
 		if wasEmpty, known := before[f]; !empty && (before == nil || (known && wasEmpty)) {
-			filled = append(filled, f)
+			from := source
+			if other := knownBookSource(perField[f]); other != "" {
+				from = other
+			}
+			bySource[from] = append(bySource[from], f)
 		}
 	}
-	return store.RecordFieldSources(tx, uid, kind, id, source, sourceID, filled)
+	for from, fields := range bySource {
+		id2 := ""
+		if from == source {
+			id2 = sourceID
+		}
+		if err := store.RecordFieldSources(tx, uid, kind, id, from, id2, fields); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// candidateFieldSource is who gave a merged match's field: its other half when
+// the merge says so, else the match's own supplier.
+func candidateFieldSource(c *metadata.BookCandidate, field string) string {
+	if other := knownBookSource(c.Sources[field]); other != "" {
+		return other
+	}
+	return knownBookSource(c.Source)
 }

@@ -324,11 +324,6 @@ func titleCaseGenre(s string) string {
 	return b.String()
 }
 
-// setGenres replaces the genre set of one book or movie (kind: "book" or
-// "movie"; the caller has already verified ownership): upsert names, replace
-// join rows, recompute the denormalized genre_text — which feeds FTS via the
-// UPDATE trigger (PLAN §3) — then GC genres nothing references. The genres
-// table is shared between books and movies (PLAN §3b).
 // genreKey is a list of genres as a comparable string: cleaned and title-cased
 // as setGenres stores them, case-folded and sorted, so a save that re-posts the
 // same genres in another order or casing (every ♥ press is a full-state save) is
@@ -363,6 +358,11 @@ func storedGenres(tx *sql.Tx, kind string, uid, id int64) (string, error) {
 	return genreKey(names), rows.Err()
 }
 
+// setGenres replaces the genre set of one book or movie (kind: "book" or
+// "movie"; the caller has already verified ownership): upsert names, replace
+// join rows, recompute the denormalized genre_text — which feeds FTS via the
+// UPDATE trigger (PLAN §3) — then GC genres nothing references. The genres
+// table is shared between books and movies (PLAN §3b).
 func setGenres(tx *sql.Tx, kind string, userID, ownerID int64, names []string) error {
 	names = cleanNames(names)
 	// Genres carry a consistent casing (Title Case, acronyms preserved); tags keep

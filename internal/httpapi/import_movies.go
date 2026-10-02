@@ -139,7 +139,7 @@ func upsertImportMovie(tx *sql.Tx, uid int64, m importer.MovieHeader) (importMov
 		id, uid, m.Title, nullableInt(m.Year), mediaType); err != nil {
 		return importMovieResult{}, err
 	}
-	if err := recordFilled(tx, uid, "movie", id, nil, store.SourceImport, ""); err != nil {
+	if err := recordFilled(tx, uid, "movie", id, nil, store.SourceImport, "", nil); err != nil {
 		return importMovieResult{}, err
 	}
 	if err := applyImportedShelf(tx, "movie", mediaType, uid, id, movieShelf(m)); err != nil {
@@ -237,7 +237,7 @@ func backfillImportMovie(tx *sql.Tx, uid, movieID int64, m importer.MovieHeader,
 	// whether either changed is not something this function knows — it reads the
 	// columns back rather than guessing, which is also what makes a repeated
 	// import a no-op here.
-	if err := recordFilled(tx, uid, "movie", movieID, before, store.SourceImport, ""); err != nil {
+	if err := recordFilled(tx, uid, "movie", movieID, before, store.SourceImport, "", nil); err != nil {
 		return err
 	}
 	if err := store.SyncCreditsFromColumns(tx, uid, "movie", movieID, seps); err != nil {
