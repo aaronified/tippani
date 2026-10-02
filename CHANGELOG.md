@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.5] - 2026-10-03
+
+Nothing in the app itself changed. 3.1.4's own push went red twice (run
+37048073116, #53), and this release is the fix: the test suites that were
+racing the app instead of waiting for it, and a Go test budget that was
+already too tight before anyone wrote the next test.
+
+### Fixed
+
+- **CI is green on 3.1.4's push again.** The works-filter journey read the
+  screen for a pill before the console had drawn it, and a save-then-navigate
+  journey waited on Puppeteer's own count of every request the page had ever
+  made rather than the app's own calls — both now wait for the app instead of
+  guessing when it is done. `internal/httpapi`'s own test job gets 30 minutes
+  instead of 20: its tests were never hung, the budget was, and the comment
+  beside it now says where the time goes.
+
 ## [3.1.4] - 2026-10-02
 
 ### Added
