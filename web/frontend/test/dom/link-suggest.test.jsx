@@ -8,6 +8,9 @@
 // address, one press appends, and a site with no id in the row is simply not in
 // it. Those are the two halves pinned here: what the list contains, and that the
 // paste box behind it is untouched.
+//
+// DECLARED EXCEPTION: `.src-mark`, a site's mark, which is a CSS mask on a span
+// with no name. Everything else goes by role, name and title.
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 
@@ -65,22 +68,26 @@ const open = async (rec, kind) => {
 // is on it. It was one press further in, behind a list that was empty on most
 // works, until the owner: "add has a middleman screen with nothing, that can be
 // skipped."
-  fireEvent.click(document.querySelector('.cs-pills .cs-pill.is-add'))
+  fireEvent.click(plus())
   return waitFor(() => {
     expect(box()).toBeTruthy()
   })
 }
 
-const box = () => document.querySelector('.tp-panel input[aria-label="Add a link"]')
+const plus = () => screen.getByRole('button', { name: 'Add a link' })
+const box = () => screen.queryByRole('textbox', { name: 'Add a link' })
 
-const offers = () => [...document.querySelectorAll('.work-link-offer')]
+// Each offer is a button titled "Add the <site> page for this record"; the site
+// is read back out of that title.
+const offers = () => screen.queryAllByTitle(/^Add the .* page for this record$/)
+const site = (b) => b.getAttribute('title').replace(/^Add the (.*) page for this record$/, '$1')
 
 describe('the pages a record can already address', () => {
   it('are offered as presses, with each site own mark', async () => {
     await open(FILM, 'movie')
     await waitFor(() => expect(offers().length).toBe(4))
     // The app's provider order, not the row's column order.
-    expect(offers().map((b) => b.querySelector('.mono-label').textContent))
+    expect(offers().map(site))
       .toEqual(['IMDb', 'TMDB', 'TheTVDB', 'Fandom'])
     // A MARK PER ROW. The name alone is what the app had before it carried the
     // site marks, and a list of twelve names is the thing marks were vendored for.
@@ -117,7 +124,7 @@ describe('the pages a record can already address', () => {
     const url = PUTS[0].body.links
     await waitFor(() => {
       expect(box()).toBeNull()
-      expect(document.querySelector(`.cs-pills a[href="${url}"]`), 'the pick was saved and the row behind does not show it').toBeTruthy()
+      expect(screen.queryAllByRole('link').some((a) => a.getAttribute('href') === url), 'the pick was saved and the row behind does not show it').toBe(true)
     })
   })
 
@@ -131,10 +138,10 @@ describe('the pages a record can already address', () => {
     expect(PUTS.length).toBe(1)
     // Back into the panel: the one just added is gone from the offers and is a
     // stored row instead. A row you cannot press is the roster of absences again.
-    fireEvent.click(document.querySelector('.cs-pills .cs-pill.is-add'))
+    fireEvent.click(plus())
     await waitFor(() => expect(offers().length).toBe(3))
-    expect(document.querySelectorAll('.work-link-row')).toHaveLength(1)
-    expect(offers().map((b) => b.querySelector('.mono-label').textContent))
+    expect(screen.getAllByRole('button', { name: /^Remove the .* link$/ })).toHaveLength(1)
+    expect(offers().map(site))
       .toEqual(['TMDB', 'TheTVDB', 'Fandom'])
   })
 

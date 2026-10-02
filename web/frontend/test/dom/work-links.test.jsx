@@ -5,6 +5,14 @@
 // the work's quotes. What is pinned here is the door, what it says at rest, and
 // the two rules the panel behind it exists for: the list is what was ADDED, and
 // the reading is shown before anything is stored.
+//
+// DECLARED EXCEPTION: a site's mark is a CSS mask on a span with no name, so
+// `.src-mark` is how a known site's mark is told from the globe; and "the ways
+// out of a record" reads an ARRANGEMENT — ids and links under one heading, the
+// verbs that belong to it — from the section's classes (`.cs-head-row`,
+// `.cs-section`, `.cs-pills`, `.cs-pill`, `.cs-pill-id`, `.inline-field`),
+// because where a thing sits has no name to ask for. Everything else here goes
+// by role and name.
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
@@ -174,7 +182,7 @@ describe('the ways out of a record', () => {
 describe('the Links panel', () => {
   it('draws a known site with its mark and anything else under the globe', async () => {
     await openLinks()
-    const rows = [...document.querySelectorAll('.work-link-row')]
+    const rows = removes().map((b) => b.closest('li'))
     expect(rows).toHaveLength(2)
     // The site's own mark is a mask, not an <img> — see providerMarks.js.
     expect(rows[0].querySelector('.src-mark')).toBeTruthy()
@@ -200,9 +208,8 @@ describe('the Links panel', () => {
     await waitFor(() => expect(PUTS).toHaveLength(1))
     expect(PUTS[0].body.links, 'the name never reached the record').toContain('Their talks')
     await waitFor(() => {
-      const rows = [...document.querySelectorAll('.work-link-row')].map((el) => el.textContent)
-      expect(rows.join(' | '), 'the link was named and the row it made does not say so')
-        .toContain('Their talks')
+      expect(screen.queryByRole('button', { name: /^Remove the Their talks link$/ }),
+        'the link was named and the row it made does not say so').toBeTruthy()
     })
   })
 
@@ -237,8 +244,8 @@ describe('the Links panel', () => {
     await waitFor(() => expect(PUTS).toHaveLength(1))
     await waitFor(() => expect(pasteBox()).toBeNull())
 
-    fireEvent.click(document.querySelector('.cs-pills .cs-pill.is-add'))
-    await waitFor(() => expect(document.querySelectorAll('.work-link-row')).toHaveLength(3))
+    fireEvent.click(plus())
+    await waitFor(() => expect(removes()).toHaveLength(3))
     const again = pasteBox()
     fireEvent.change(again, { target: { value: 'letterboxd.com/film/stalker/' } })
     fireEvent.click(screen.getByLabelText('Save'))
@@ -294,7 +301,7 @@ describe('the Links panel', () => {
     expect(await screen.findByText(/already on this record/i)).toBeTruthy()
     expect(screen.getByLabelText('Save').disabled, 'the ✓ offers to add what is already there').toBe(true)
     fireEvent.click(screen.getByLabelText('Save'))
-    await waitFor(() => expect(document.querySelectorAll('.work-link-row')).toHaveLength(2))
+    await waitFor(() => expect(removes()).toHaveLength(2))
     expect(PUTS).toHaveLength(0)
   })
 
@@ -427,5 +434,39 @@ describe('the ids and the links on one screen', () => {
     expect(screen.getByLabelText('Save').disabled, 'the ✓ can be pressed again mid-save').toBe(true)
     release()
     await waitFor(() => expect(pasteBox()).toBeNull())
+  })
+
+  // A SAVE THAT LANDS SAYS SO, as every field's save does.
+  it('says a link was saved', async () => {
+    render(<>
+      <ToastHost />
+      <PanelHarness panel={(stack) => workDetailsPanel(stack, { kind: 'book', item: BOOK, onChanged: () => {}, onDelete: null })} />
+    </>)
+    await shown()
+    fireEvent.click(plus())
+    await waitFor(() => expect(pasteBox()).toBeTruthy())
+    fireEvent.change(pasteBox(), { target: { value: 'example.net/talks' } })
+    fireEvent.click(screen.getByLabelText('Save'))
+    expect(await screen.findByText('links saved')).toBeTruthy()
+  })
+
+  // EACH DOOR LANDS WHERE ITS VERB IS on any work: the ＋ in the box on a work
+  // with links, the pencil on a film's first id.
+  it('lands the ＋ in the box on a work with links too', async () => {
+    await openLinks()
+    expect(document.activeElement).toBe(pasteBox())
+  })
+
+  it("and the pencil on a film's first id", async () => {
+    const FILM = { id: 8, title: 'Stalker', director: '', description: '', media_type: 'movie', release_year: 1979,
+      tmdb_id: 1398, tvdb_id: 0, imdb_id: '', links: '', genres: [], series: '', favorite: false }
+    STORED = { ...FILM }
+    render(<PanelHarness panel={(stack) => workDetailsPanel(stack, { kind: 'movie', item: FILM, onChanged: () => {}, onDelete: null })} />)
+    await shown()
+    fireEvent.click(pencil())
+    await waitFor(() => expect(pasteBox()).toBeTruthy())
+    const first = screen.getAllByRole('textbox').find((el) => el !== pasteBox() && el.getAttribute('aria-label') !== 'What to call it (optional)')
+    expect(document.activeElement, 'the pencil did not land on the first id').toBe(first)
+    expect(first.value).toBe('1398')
   })
 })

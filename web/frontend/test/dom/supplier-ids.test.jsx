@@ -68,7 +68,7 @@ beforeEach(() => {
 
 // THEY ARE NO LONGER ROWS, and every case below moved with them rather than
 // being deleted. The pack collapses a work's ids into a strip at the foot of the
-// Details panel — one pill per id the record holds, and one dialog behind Edit
+// Details panel — one pill per id the record holds, and one screen behind Edit
 // that writes the lot in a single request — because an id is not a fact about the
 // work but how one catalogue files it, and five labelled rows of them read as the
 // record's subject.
