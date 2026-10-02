@@ -2023,12 +2023,7 @@ func (s *Server) fetchAllMovieSources(ctx context.Context, uid, id int64, mediaT
 		if source == "igdb" || (source == "fandom" && mediaType == "game") {
 			area = faultAreaGames
 		}
-		// LETTERBOXD AND FANDOM ARE SILENT ON EVERY MISS, a host never reached
-		// included (their own notes say why), so a nil from either is not an
-		// answer and is not recorded as "found nothing". A page they returned is.
-		if det != nil || err != nil || (source != "letterboxd" && source != "fandom") {
-			s.recordAsk(ctx, area, source, one(det != nil), "", err)
-		}
+		s.recordAsk(ctx, area, source, one(det != nil), "", err)
 		if err != nil {
 			// Logged and remembered, not returned: another supplier may still
 			// answer, and one being down must not cost the reader the other's.

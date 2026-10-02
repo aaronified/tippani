@@ -103,8 +103,8 @@ type letterboxdLD struct {
 
 // LetterboxdDetails fetches one film page and returns what it publishes about
 // itself. Empty title in, nothing out; a page that is not there, or not readable,
-// is nothing rather than an error — a rung that cannot answer must not be able to
-// fail the request it is one of.
+// is nothing rather than an error. A host never reached is an error, so a caller
+// can tell "found nothing" from "did not answer"; none fails a request on it.
 func LetterboxdDetails(ctx context.Context, title string) (*MovieDetails, error) {
 	slug := LetterboxdSlug(title)
 	if slug == "" {
@@ -121,8 +121,12 @@ func LetterboxdDetails(ctx context.Context, title string) (*MovieDetails, error)
 	req.Header.Set("Accept-Language", "en-US,en;q=0.9")
 	resp, err := httpClient.Do(req)
 	if err != nil {
+		// NOT REACHED IS AN ERROR, apart from a page that is not there: the
+		// Sources row says "did not answer" for the one and "found nothing" for the
+		// other, and a fill records whichever happened. The caller decides whether
+		// a failure fails anything; a fill's other suppliers still count.
 		olog.Tracef("[meta] letterboxd %s: %v", slug, outbound.RedactError(err))
-		return nil, nil
+		return nil, outbound.RedactError(err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {

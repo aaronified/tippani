@@ -534,6 +534,7 @@ func (s *Server) coversWorkload(uid int64) (int, error) {
 // the covers job (runCovers, below), which walks the same stretch a row at a
 // time and outlives the tab.
 func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
+	r = asLibraryWalk(r)
 	var req struct {
 		Cursor string `json:"cursor"`
 		Limit  int    `json:"limit"`

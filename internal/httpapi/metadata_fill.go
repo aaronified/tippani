@@ -106,6 +106,7 @@ func missingStored(v any) bool {
 }
 
 func (s *Server) handleMetadataFill(w http.ResponseWriter, r *http.Request) {
+	r = asLibraryWalk(r)
 	var req struct {
 		BookIDs  []int64 `json:"book_ids"`
 		MovieIDs []int64 `json:"movie_ids"`

@@ -32,6 +32,7 @@ package httpapi
 import (
 	"context"
 	"errors"
+	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -268,15 +269,32 @@ func (s *Server) recordLookup(area, source string, found int, note string, err e
 }
 
 // recordAsk is the door every supplier call records its answer through, so a
-// row's last answer moves after a fill, a re-verify, Fetch missing, a person's
-// portrait or links, not only after a lookup or a Test. Two answers are not the
-// supplier's: a Stop (or a reader gone) records nothing, and an empty answer met
-// while a job walks the library is recorded without lengthening the run.
+// row's last answer moves after Fill gaps, Re-verify, Fetch covers and details, a
+// person's portrait or links, not only after a lookup or a Test. Two answers are
+// not the supplier's: a Stop (or a reader gone) records nothing, and an empty
+// answer met while the library is walked (walkingLibrary) is recorded without
+// lengthening the run.
 func (s *Server) recordAsk(ctx context.Context, area, source string, found int, note string, err error) {
 	if found == 0 && (errors.Is(err, context.Canceled) || errors.Is(ctx.Err(), context.Canceled)) {
 		return
 	}
-	s.lookups.fold(area, source, found, note, err, jobs.Queued(ctx))
+	s.lookups.fold(area, source, found, note, err, walkingLibrary(ctx))
+}
+
+type libraryWalkKey struct{}
+
+// asLibraryWalk marks a request that walks the library as a job would: Fill gaps
+// and Fetch covers and details, whose callers chunk a whole shelf into requests.
+// Their empty answers are about the shelf's gaps, as a queued job's are.
+func asLibraryWalk(r *http.Request) *http.Request {
+	return r.WithContext(context.WithValue(r.Context(), libraryWalkKey{}, true))
+}
+
+// walkingLibrary is whether an empty answer here is the shelf's rather than the
+// supplier's: a queued job, or a request marked by asLibraryWalk. A reader's own
+// lookup, a Test and a Re-verify of the works they chose are neither.
+func walkingLibrary(ctx context.Context) bool {
+	return jobs.Queued(ctx) || ctx.Value(libraryWalkKey{}) != nil
 }
 
 // one is 1 for an ask that found its thing, 0 otherwise.

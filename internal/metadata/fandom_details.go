@@ -48,7 +48,12 @@ func FandomWorkDetails(ctx context.Context, title, wiki string) (*MovieDetails, 
 	}
 	base := strings.Replace(fandomHostFmt, "%s", slug, 1)
 	body, status, err := httpGet(ctx, base+"/api.php?"+q.Encode(), "")
-	if err != nil || status != 200 {
+	if err != nil {
+		// Not reached is an error, a missing article is not (LetterboxdDetails
+		// says why).
+		return nil, err
+	}
+	if status != 200 {
 		return nil, nil
 	}
 	var r struct {

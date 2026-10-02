@@ -20,9 +20,11 @@ import (
 // row back from GET /metadata/status.
 //
 // SETUP KNOWS the book search seam (srv.searchBooks), as the re-verify tests do:
-// the offline test server has no supplier to ask; the TheTVDB, Letterboxd, IGDB
-// and TMDB fakes other tests in this package use; and emptyRunFault, the length
-// of run a fault needs, so the reader's lookups match it rather than a copy.
+// the offline test server has no supplier to ask; newTVDBStub and a hand-made
+// TheTVDB server; metadata.SetLetterboxdBaseForTest and
+// SetFandomAndScrapeBasesForTest; srv.TMDB's Key and BaseURL; the job routes
+// (mustStart, waitJob, POST /jobs/{id}/stop); and emptyRunFault, the length of
+// run a fault needs, so the reader's lookups match it rather than a copy.
 
 func rowLast(t *testing.T, c *testClient, source string) *sourceLast {
 	t.Helper()
@@ -85,19 +87,26 @@ func TestAStoppedAskLeavesTheRowAsItWas(t *testing.T) {
 	}
 }
 
-// LETTERBOXD UNREACHED IS NOT LETTERBOXD ANSWERING. It is silent on every miss,
-// an unreachable host included, so a fill that could not reach it must leave its
-// row alone rather than write "answered, found nothing"; a page it returned is
-// on the row.
-func TestAnUnreachedLetterboxdIsNotRecordedAsAnswering(t *testing.T) {
-	for _, reachable := range []bool{false, true} {
+// LETTERBOXD SAYS WHAT HAPPENED: not reached is "did not answer", a page that is
+// not there is "found nothing", and a page is one found. The first cut recorded
+// nothing for both of the first two, so a Letterboxd that answered 404 to every
+// film never put a word on its row; before that, it recorded "found nothing" for
+// a host it never reached.
+func TestLetterboxdOnARowSaysWhatHappened(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		status int // 0: the host is closed
+		ok     bool
+		found  int
+	}{{"not reached", 0, false, 0}, {"no such page", http.StatusNotFound, true, 0}, {"a page", http.StatusOK, true, 1}} {
 		srv := newTestServer(t)
 		lb := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(tc.status)
 			_, _ = w.Write([]byte(`<html><script type="application/ld+json">
 				{"@type":"Movie","name":"The Matrix","description":"Letterboxd's synopsis."}
 				</script></html>`))
 		}))
-		if !reachable {
+		if tc.status == 0 {
 			lb.Close()
 		} else {
 			t.Cleanup(lb.Close)
@@ -108,12 +117,37 @@ func TestAnUnreachedLetterboxdIsNotRecordedAsAnswering(t *testing.T) {
 		m := decode[struct{ ID int64 }](t, c.mustDo("POST", "/movies", map[string]any{"title": "The Matrix", "media_type": "movie"}, http.StatusCreated))
 		c.mustDo("PUT", "/movies/"+strconv.FormatInt(m.ID, 10), map[string]any{"title": "The Matrix", "media_type": "movie", "tvdb_id": 70}, http.StatusOK)
 		c.mustDo("POST", "/metadata/reverify", map[string]any{"movie_ids": []int64{m.ID}}, http.StatusOK)
-		last := rowLast(t, c, "letterboxd")
+		if last := rowLast(t, c, "letterboxd"); last == nil || last.OK != tc.ok || last.Found != tc.found {
+			t.Errorf("%s: Letterboxd's row reads %+v, want answered=%v found=%d", tc.name, last, tc.ok, tc.found)
+		}
+	}
+}
+
+// AND FANDOM THE SAME, for a work whose wiki is already known: a host not reached
+// is "did not answer", an article is one found.
+func TestFandomOnARowSaysWhatHappened(t *testing.T) {
+	for _, reachable := range []bool{false, true} {
+		srv := newTestServer(t)
+		fandom := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			_, _ = w.Write([]byte(`{"query":{"pages":[{"title":"The Matrix","extract":"Fandom's synopsis."}]}}`))
+		}))
+		if !reachable {
+			fandom.Close()
+		} else {
+			t.Cleanup(fandom.Close)
+		}
+		metadata.SetFandomAndScrapeBasesForTest(t, fandom.URL, "")
+		srv.TVDB = newTVDBStub(t, `{"data":{"id":70,"name":"The Matrix","year":"1999","overview":"x","characters":[]}}`)
+		c := signupAdmin(t, srv.Handler())
+		m := decode[struct{ ID int64 }](t, c.mustDo("POST", "/movies", map[string]any{"title": "The Matrix", "media_type": "movie"}, http.StatusCreated))
+		c.mustDo("PUT", "/movies/"+strconv.FormatInt(m.ID, 10), map[string]any{"title": "The Matrix", "media_type": "movie", "tvdb_id": 70, "fandom_wiki": "matrix"}, http.StatusOK)
+		c.mustDo("POST", "/metadata/reverify", map[string]any{"movie_ids": []int64{m.ID}}, http.StatusOK)
+		last := rowLast(t, c, "fandom")
 		switch {
-		case !reachable && last != nil:
-			t.Errorf("an unreachable Letterboxd is recorded as answering: %+v", last)
-		case reachable && (last == nil || last.Found != 1):
-			t.Errorf("a page Letterboxd returned is not on its row: %+v", last)
+		case !reachable && (last == nil || last.OK):
+			t.Errorf("an unreachable Fandom reads %+v, want did not answer", last)
+		case reachable && (last == nil || !last.OK || last.Found != 1):
+			t.Errorf("an article Fandom returned reads %+v, want one found", last)
 		}
 	}
 }
@@ -158,5 +192,58 @@ func TestATMDBPersonSearchThatFindsNobodyIsOnItsRow(t *testing.T) {
 	c.do("POST", "/people/portrait", map[string]any{"kind": "actor", "name": "Nobody Of This Name"})
 	if last := rowLast(t, c, "tmdb"); last == nil || !last.OK || last.Found != 0 {
 		t.Errorf("TMDB's empty person search is not on its row: %+v", last)
+	}
+}
+
+// A WALK OF THE LIBRARY IS SPARED THE RUN, a reader is not. Three books with
+// nothing to be found, walked by a queued fill and by Fill gaps' own requests,
+// raise no fault on Google's row: the silence is the shelf's. (A reader's three
+// lookups do: TestAReadersEmptyAnswersStillRaiseAFault.)
+func TestAWalkOfTheLibraryIsSparedTheEmptyRun(t *testing.T) {
+	for _, how := range []string{"a queued fill", "Fill gaps"} {
+		srv := newTestServer(t)
+		srv.searchBooks = func(context.Context, string, string, string, string) ([]metadata.BookCandidate, error) {
+			return nil, nil
+		}
+		c := signupAdmin(t, srv.Handler())
+		var ids []int64
+		for i, isbn := range []string{"9780441013593", "9780141439747", "9780140434705"} {
+			b := decode[struct{ ID int64 }](t, c.mustDo("POST", "/books", map[string]any{"title": fmt.Sprintf("Book %d", i), "isbn": isbn}, http.StatusCreated))
+			ids = append(ids, b.ID)
+		}
+		if how == "a queued fill" {
+			c.waitJob(c.mustStart("fill", map[string]any{"book_ids": ids}).ID, "succeeded")
+		} else {
+			for _, id := range ids {
+				c.mustDo("POST", "/metadata/fill", map[string]any{"book_ids": []int64{id}}, http.StatusOK)
+			}
+		}
+		if last := rowLast(t, c, "google"); last == nil {
+			t.Fatalf("%s: Google's row was never asked", how)
+		}
+		st := decode[struct {
+			Faults []faultRow `json:"faults"`
+		}](t, c.mustDo("GET", "/metadata/status", nil, http.StatusOK))
+		for _, f := range st.Faults {
+			if f.Source == "google" && f.Kind == "empty" {
+				t.Errorf("%s: a walk of the library raised Google's empty fault: %+v", how, f)
+			}
+		}
+	}
+}
+
+// A DIRECTOR'S BY-NAME SEARCH IS ON TMDB'S ROW TOO, the second of the two sites.
+func TestATMDBDirectorSearchThatFindsNobodyIsOnItsRow(t *testing.T) {
+	srv := newTestServer(t)
+	fake := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"results":[]}`))
+	}))
+	t.Cleanup(fake.Close)
+	srv.TMDB.Key = "testkey"
+	srv.TMDB.BaseURL = fake.URL
+	c := signupAdmin(t, srv.Handler())
+	c.do("POST", "/people/portrait", map[string]any{"kind": "director", "name": "Nobody Of This Name"})
+	if last := rowLast(t, c, "tmdb"); last == nil || !last.OK || last.Found != 0 {
+		t.Errorf("TMDB's empty director search is not on its row: %+v", last)
 	}
 }
