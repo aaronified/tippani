@@ -275,10 +275,23 @@ func (s *Server) recordLookup(area, source string, found int, note string, err e
 // answer met while the library is walked (walkingLibrary) is recorded without
 // lengthening the run.
 func (s *Server) recordAsk(ctx context.Context, area, source string, found int, note string, err error) {
+	s.recordAnswer(ctx, area, source, found, note, err, walkingLibrary(ctx))
+}
+
+// recordAskAboutTheWork is recordAsk for an ask whose empty answer is about the
+// work rather than the supplier, wherever it is asked from: whether a work has a
+// Fandom wiki at all. Most films have none, so a reader opening the field picker on
+// three of them would otherwise accuse a working Fandom (emptyRunFault says why
+// that matters). Recorded as the row's last answer, sparing the run as a walk's is.
+func (s *Server) recordAskAboutTheWork(ctx context.Context, area, source string, err error) {
+	s.recordAnswer(ctx, area, source, 0, "", err, true)
+}
+
+func (s *Server) recordAnswer(ctx context.Context, area, source string, found int, note string, err error, spared bool) {
 	if found == 0 && (errors.Is(err, context.Canceled) || errors.Is(ctx.Err(), context.Canceled)) {
 		return
 	}
-	s.lookups.fold(area, source, found, note, err, walkingLibrary(ctx))
+	s.lookups.fold(area, source, found, note, err, spared)
 }
 
 type libraryWalkKey struct{}

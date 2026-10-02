@@ -466,8 +466,9 @@ func (s *Server) fandomCharacterTier(uid int64, pin castPin, character, workTitl
 // request that is already talking to Fandom, and the alternative is a background
 // job, which this app does not have and does not want.
 //
-// The error is FandomFindWiki's: set only when the probe reached no Fandom host,
-// for a caller that records the ask (a stored wiki asked nothing).
+// The error is FandomFindWiki's: set only when nothing Fandom said was an answer
+// (no host reached, or only a 403 or a 5xx), for a caller that records the ask (a
+// stored wiki asked nothing).
 func (s *Server) fandomWikiFor(ctx context.Context, uid, workID int64, stored, title, series string) (string, error) {
 	if w := strings.TrimSpace(stored); w != "" {
 		return w, nil

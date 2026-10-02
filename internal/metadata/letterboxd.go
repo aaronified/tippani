@@ -102,9 +102,10 @@ type letterboxdLD struct {
 }
 
 // LetterboxdDetails fetches one film page and returns what it publishes about
-// itself. Empty title in, nothing out; a page that is not there, or not readable,
-// is nothing rather than an error. A host never reached is an error, so a caller
-// can tell "found nothing" from "did not answer"; none fails a request on it.
+// itself. Empty title in, nothing out; a page that is not there (a 404), or one
+// whose body cannot be read, is nothing rather than an error. A host never reached,
+// or one answering any other status (a 403, a 5xx), is an error, so a caller can
+// tell "found nothing" from "did not answer"; none fails a request on it.
 func LetterboxdDetails(ctx context.Context, title string) (*MovieDetails, error) {
 	slug := LetterboxdSlug(title)
 	if slug == "" {

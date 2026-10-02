@@ -132,7 +132,9 @@ func TestLetterboxdOnARowSaysWhatHappened(t *testing.T) {
 // a 200 saying the article is missing is "found nothing", an article is one found.
 // With none stored, the probe for one is the ask, and a work with no wiki is
 // Fandom's answer too: every host answering 404 is "found nothing", no host
-// reached, or every host a 503, is "did not answer". The first cut recorded
+// reached, or every host a 503, is "did not answer". A wiki host's 404 is an
+// answer (no such page); the cross-wiki index's 404 is not (its endpoint is not
+// where it was). The first cut recorded
 // nothing for a work with no stored wiki, which is most films, and the second
 // read a 503 from every host as "found nothing" there and as "did not answer"
 // with a wiki stored.
@@ -154,6 +156,8 @@ func TestFandomOnARowSaysWhatHappened(t *testing.T) {
 		{"no wiki for the work", "", http.StatusNotFound, 0, "", true, 0},
 		{"no wiki and no host reached", "", 0, 0, "", false, 0},
 		{"no wiki and every host and the index a 503", "", http.StatusServiceUnavailable, http.StatusServiceUnavailable, "", false, 0},
+		{"an article on a wiki answering 404", "matrix", http.StatusNotFound, 0, "", true, 0},
+		{"no wiki and the index answering 404", "", 0, http.StatusNotFound, "", false, 0},
 	} {
 		srv := newTestServer(t)
 		fandom := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -182,6 +186,39 @@ func TestFandomOnARowSaysWhatHappened(t *testing.T) {
 		c.mustDo("POST", "/metadata/reverify", map[string]any{"movie_ids": []int64{m.ID}}, http.StatusOK)
 		if last := rowLast(t, c, "fandom"); last == nil || last.OK != tc.ok || last.Found != tc.found {
 			t.Errorf("%s: Fandom's row reads %+v, want answered=%v found=%d", tc.name, last, tc.ok, tc.found)
+		}
+	}
+}
+
+// A FILM WITH NO FANDOM WIKI IS NOT A FAULT OF FANDOM'S. Most films have none, and
+// the Details panel's field picker asks about one work for the reader looking at it,
+// so its empty answers lengthen the run. Recording "no wiki" there put a working
+// Fandom on the fault list after three presses on one ordinary film. The answer is
+// still on the row; it does not count toward the run.
+func TestAFilmWithNoFandomWikiRaisesNoFault(t *testing.T) {
+	srv := newTestServer(t)
+	hosts := httptest.NewServer(http.NotFoundHandler())
+	t.Cleanup(hosts.Close)
+	index := httptest.NewServer(http.NotFoundHandler())
+	index.Close()
+	metadata.SetFandomAndScrapeBasesForTest(t, hosts.URL, "")
+	metadata.SetFandomSearchBaseForTest(t, index.URL)
+	srv.TVDB = newTVDBStub(t, `{"data":{"id":70,"name":"Anand","year":"1971","overview":"x","characters":[]}}`)
+	c := signupAdmin(t, srv.Handler())
+	m := decode[struct{ ID int64 }](t, c.mustDo("POST", "/movies", map[string]any{"title": "Anand", "media_type": "movie"}, http.StatusCreated))
+	c.mustDo("PUT", "/movies/"+strconv.FormatInt(m.ID, 10), map[string]any{"title": "Anand", "media_type": "movie", "tvdb_id": 70}, http.StatusOK)
+	for i := 0; i < emptyRunFault; i++ {
+		c.mustDo("POST", "/metadata/reverify", map[string]any{"movie_ids": []int64{m.ID}, "offers": true}, http.StatusOK)
+	}
+	if last := rowLast(t, c, "fandom"); last == nil || !last.OK || last.Found != 0 {
+		t.Errorf("Fandom's row reads %+v, want answered with nothing found", last)
+	}
+	st := decode[struct {
+		Faults []faultRow `json:"faults"`
+	}](t, c.mustDo("GET", "/metadata/status", nil, http.StatusOK))
+	for _, f := range st.Faults {
+		if f.Source == "fandom" {
+			t.Errorf("%d field pickers on a film with no wiki raised a fault on Fandom: %+v", emptyRunFault, f)
 		}
 	}
 }

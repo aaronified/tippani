@@ -2017,13 +2017,15 @@ func (s *Server) fetchAllMovieSources(ctx context.Context, uid, id int64, mediaT
 	tmdbID, tvdbID, igdbID int64, tmdb *metadata.TMDB, tvdb *metadata.TVDB, igdb *metadata.IGDB) ([]fetchedSource, error) {
 	var out []fetchedSource
 	var lastErr error
+	areaOf := func(source string) string {
+		if source == "igdb" || (source == "fandom" && mediaType == "game") {
+			return faultAreaGames
+		}
+		return faultAreaFilms
+	}
 	add := func(source, sourceID string, det *metadata.MovieDetails, err error) {
 		// Every supplier this fill asked says so on its Sources row.
-		area := faultAreaFilms
-		if source == "igdb" || (source == "fandom" && mediaType == "game") {
-			area = faultAreaGames
-		}
-		s.recordAsk(ctx, area, source, one(det != nil), "", err)
+		s.recordAsk(ctx, areaOf(source), source, one(det != nil), "", err)
 		if err != nil {
 			// Logged and remembered, not returned: another supplier may still
 			// answer, and one being down must not cost the reader the other's.
@@ -2103,13 +2105,18 @@ func (s *Server) fetchAllMovieSources(ctx context.Context, uid, id int64, mediaT
 		// franchise rather than for this instalment — see FandomWikiCandidatesFor.
 		//
 		// A WORK WITH NO WIKI IS FANDOM'S ANSWER TOO: the probe asked its hosts, so
-		// the row says it found nothing, or did not answer when no host was reached.
+		// the row says it found nothing, or did not answer when nothing Fandom said
+		// was an answer. But it is an answer about the work, not about Fandom, so it
+		// does not lengthen the run that raises a fault (recordAskAboutTheWork).
 		wiki, werr := s.fandomWikiFor(ctx, uid, id, storedWiki, title, series)
 		if wiki != "" {
 			det, err := metadata.FandomWorkDetails(ctx, title, wiki)
 			add("fandom", wiki, det, err)
 		} else {
-			add("fandom", "", nil, werr)
+			s.recordAskAboutTheWork(ctx, areaOf("fandom"), "fandom", werr)
+			if werr != nil {
+				warnOutwardFailure(olog.CodeMetaReverifyFetch, werr, "[meta] re-verify fandom, finding the wiki for %q: %v", title, werr)
+			}
 		}
 	}
 	return out, lastErr

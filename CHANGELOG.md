@@ -69,11 +69,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   "did not answer" on the row, and a page that is not there (a 404, or a Fandom article
   reported missing) reads "answered · found nothing". For a work with no Fandom wiki
   stored, the search for one is recorded on Fandom's row too: "answered · found nothing"
-  when a wiki address it tried answered with a 404 or Fandom's search index answered, and
-  no wiki was found, and "did not answer" when none of them did, whether they were not
-  reached or answered with a 403 or a server error. Open Library, TMDB and IGDB now list
-  "people" among what they supply, so a miss on an obscure translator or actor is counted
-  apart from their book, film and game searches, and Fandom lists games.
+  when a wiki address it tried answered with a 404, or Fandom's search index answered with
+  a 200 and no wiki was found, and "did not answer" when neither did, whether a wiki
+  address was not reached or answered with a 403 or a server error, and whether the index
+  was not reached or answered with anything but a 200, its 404 included. Having no wiki is
+  a fact about the work, not about Fandom, and most films have none, so that "found
+  nothing" never counts toward the run of empty answers that raises a fault on Fandom, not
+  even when a reader's own request, such as the Details field picker, asked. Open Library,
+  TMDB and IGDB now list "people" among what they supply, so a miss on an obscure
+  translator or actor is counted apart from their book, film and game searches, and Fandom
+  lists games.
 - **Work details → Links: the ids and the links are one screen.** The pencil on the
   section's head used to open an Ids dialog, and the ＋ at the end of its row opened a list
   of links, empty for most works, whose own ＋ opened the paste box on a third screen. Both

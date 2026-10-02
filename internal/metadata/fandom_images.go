@@ -192,9 +192,9 @@ func FandomResolveWikiFor(ctx context.Context, title, series string) string {
 // FandomFindWiki is FandomResolveWikiFor for a caller that records the ask on
 // Fandom's Sources row. The error is the search's last failure, returned only when
 // nothing Fandom said was an answer, so "this work has no wiki" (nil) and "Fandom
-// did not answer" (the error) read differently there. An answer is a 200 or a 404,
-// as for FandomWorkDetails: a 403 or a 5xx is Fandom not answering, whether or not
-// a wiki is stored. The search's error stands for the probes' too: it always runs
+// did not answer" (the error) read differently there. An answer is a wiki host's
+// 200 or 404, as for FandomWorkDetails, or the index's 200: a 403 or a 5xx is
+// Fandom not answering, whether or not a wiki is stored. The search's error stands for the probes' too: it always runs
 // after them, with the title they were spelled from.
 func FandomFindWiki(ctx context.Context, title, series string) (string, error) {
 	reached := false
@@ -244,8 +244,8 @@ func FandomFindWiki(ctx context.Context, title, series string) (string, error) {
 // THE SERIES IS ASKED FIRST where there is one, because the index is a list of
 // WIKIS and a wiki is named for the franchise rather than the instalment.
 //
-// `reached` is whether any request got an answer (a 200 or a 404), and `err` the
-// last that did not, for FandomFindWiki to tell a miss from a failure by.
+// `reached` is whether any request got an answer (a 200), and `err` the last that
+// did not, for FandomFindWiki to tell a miss from a failure by.
 func fandomSearchWiki(ctx context.Context, terms ...string) (slug string, reached bool, err error) {
 	for _, term := range terms {
 		if term == "" {
@@ -257,10 +257,9 @@ func fandomSearchWiki(ctx context.Context, terms ...string) (slug string, reache
 			err = gerr
 			continue
 		}
-		if status == 404 {
-			reached = true
-			continue
-		}
+		// ONLY A 200 IS AN ANSWER HERE. A wiki host's 404 says there is no such wiki;
+		// the index's 404 says the endpoint is not where it was, which is Fandom not
+		// answering the question at all.
 		if status != 200 {
 			err = fandomStatusError(fandomSearchBase, status)
 			continue
