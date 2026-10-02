@@ -3333,6 +3333,8 @@ work.ids.edit.tip = সব আইডি বদলান
 work.ids.no-page.tip = {source} — খোলার মতো কোনও পাতা নেই
 work.ids.save.tip = আইডি আর লিংক একসঙ্গে সেভ করুন
 work.ids.form.hint = এই ধরনের বই বা সিনেমা যেসব আইডি দিয়ে খোঁজা যায়। ফাঁকা থাকলে সেটা বাদ যায়।
+work.ids.saved.field = আইডি
+work.ids.both.saved.field = আইডি আর লিংক
 
 # Saving. {field} is a field name, already lower-cased by the caller.
 common.work.field-saved.toast = {field} সেভ হয়েছে

@@ -1254,15 +1254,18 @@ function LinksHost({ kind, item, onChanged, specs, mediaType, focus, onDone }) {
   const changed = specs.filter((sp) => shown(sp).trim() !== stored(sp).trim())
   // A SAVE THAT LANDS SAYS SO, as every field's does (saveField's toast): the
   // screens this replaces saved through saveField, and an add or a removal that
-  // went quiet when they merged reads as one that did not happen.
-  const saved = (ok) => {
-    if (ok) toast(t('common.work.field-saved.toast', { field: t('common.field.links.label').toLowerCase() }))
+  // went quiet when they merged reads as one that did not happen. It names what
+  // the press saved — the pack's id save says "Ids saved" — so an id edited alone
+  // is not reported as a link.
+  const linksWord = () => t('common.field.links.label').toLowerCase()
+  const saved = (ok, field) => {
+    if (ok) toast(t('common.work.field-saved.toast', { field }))
     return ok
   }
   const write = async (links) => saved(await save({
     ...Object.fromEntries(changed.map((sp) => [sp.key, coerce(sp, shown(sp))])),
     ...(links === undefined ? {} : { links }),
-  }, 'ids'))
+  }, 'ids'), !changed.length ? linksWord() : links === undefined ? t('work.ids.saved.field') : t('work.ids.both.saved.field'))
   return (
     <PasteLink
       // THE WHOLE RECORD AND NOT JUST THE LINKS, because the pages this screen
@@ -1294,7 +1297,7 @@ function LinksHost({ kind, item, onChanged, specs, mediaType, focus, onDone }) {
         />
       ))}
       {specs.length > 0 && <p className="microcopy" style={{ color: 'var(--faint)' }}>{t('work.ids.form.hint')}</p>}
-      <WorkLinks value={rec.links || ''} onSave={async (links) => saved(await save({ links }, 'links'))} />
+      <WorkLinks value={rec.links || ''} onSave={async (links) => saved(await save({ links }, 'links'), linksWord())} />
     </PasteLink>
   )
 }

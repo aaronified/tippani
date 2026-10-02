@@ -3409,6 +3409,9 @@ work.ids.edit.tip = Edit every id
 work.ids.no-page.tip = {source} — no page to open
 work.ids.save.tip = Save the ids and the link in one go
 work.ids.form.hint = The IDs this kind of work can be looked up by. Empty ones are skipped.
+# What the Links screen's ✓ saved, in common.work.field-saved.toast's {field}.
+work.ids.saved.field = ids
+work.ids.both.saved.field = ids and links
 
 # Saving. {field} is a field name, already lower-cased by the caller.
 common.work.field-saved.toast = {field} saved

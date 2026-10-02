@@ -259,9 +259,12 @@ export function screenVerbs(getPage) {
   }
 
   // upload — HAND THE APP A FILE, the way a reader hands it one through the
-  // picker their platform draws. Puppeteer's `uploadFile` is the only honest
-  // stand-in: a file chooser is the operating system's window, not the page's,
-  // so there is nothing on screen for `press` to press.
+  // picker their platform draws. A file chooser is the operating system's window,
+  // not the page's, so the choosing itself is never pressed: where a file input
+  // carries the name, Puppeteer's `uploadFile` hands it the file; where a button
+  // carries it (`useFilePick`, below), the button is pressed and the chooser it
+  // opens is answered. Asking for a name neither carries fails on the second
+  // branch, with `press`'s "nothing a person could press" message.
   //
   // IT LOOKS PAST `candidates`, AND THAT IS DELIBERATE. The app's own picker
   // (`FilePick` in ui.jsx) keeps its `input[type=file]` `sr-only` — in the tree,

@@ -10,9 +10,9 @@
 // `.src-mark` is how a known site's mark is told from the globe; and "the ways
 // out of a record" reads an ARRANGEMENT — ids and links under one heading, the
 // verbs that belong to it — from the section's classes (`.cs-head-row`,
-// `.cs-section`, `.cs-pills`, `.cs-pill`, `.cs-pill-id`, `.inline-field`),
-// because where a thing sits has no name to ask for. Everything else here goes
-// by role and name.
+// `.cs-section`, `.cs-section-action`, `.cs-pills`, `.cs-pill`, `.cs-pill-id`,
+// `.is-add`, `.inline-field`, `.field-icon-btn`), because where a thing sits has
+// no name to ask for. Everything else here goes by role and name.
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
@@ -448,6 +448,40 @@ describe('the ids and the links on one screen', () => {
     fireEvent.change(pasteBox(), { target: { value: 'example.net/talks' } })
     fireEvent.click(screen.getByLabelText('Save'))
     expect(await screen.findByText('links saved')).toBeTruthy()
+  })
+
+  // AND A LINK TAKEN OFF SAYS SO TOO: the ✕ saves at once, with no ✓ to press.
+  it('says a link was saved when one is taken off', async () => {
+    render(<>
+      <ToastHost />
+      <PanelHarness panel={(stack) => workDetailsPanel(stack, { kind: 'book', item: BOOK, onChanged: () => {}, onDelete: null })} />
+    </>)
+    await shown()
+    fireEvent.click(plus())
+    fireEvent.click(await screen.findByRole('button', { name: /Remove the IMDb link/i }))
+    expect(await screen.findByText('links saved')).toBeTruthy()
+  })
+
+  // THE TOAST NAMES WHAT THE PRESS SAVED. The pack's id save says "Ids saved"; an
+  // id edited alone was reported as "links saved".
+  it('says the ids were saved when only an id changed, and both when both did', async () => {
+    render(<>
+      <ToastHost />
+      <PanelHarness panel={(stack) => workDetailsPanel(stack, { kind: 'book', item: BOOK, onChanged: () => {}, onDelete: null })} />
+    </>)
+    await shown()
+    fireEvent.click(pencil())
+    const isbn = await screen.findByRole('textbox', { name: /ISBN/ })
+    fireEvent.change(isbn, { target: { value: '9780679760801' } })
+    fireEvent.click(screen.getByLabelText('Save'))
+    expect(await screen.findByText('ids saved')).toBeTruthy()
+    expect(screen.queryByText('links saved'), 'an id saved alone was reported as a link').toBeNull()
+
+    fireEvent.click(await waitFor(() => pencil()))
+    fireEvent.change(await screen.findByRole('textbox', { name: /ISBN/ }), { target: { value: '9780143108276' } })
+    fireEvent.change(pasteBox(), { target: { value: 'example.net/talks' } })
+    fireEvent.click(screen.getByLabelText('Save'))
+    expect(await screen.findByText('ids and links saved')).toBeTruthy()
   })
 
   // EACH DOOR LANDS WHERE ITS VERB IS on any work: the ＋ in the box on a work
