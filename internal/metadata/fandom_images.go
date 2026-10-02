@@ -184,11 +184,27 @@ func FandomResolveWiki(ctx context.Context, title string) string {
 // cross-wiki search behind it. See FandomWikiCandidatesFor for why a series is the
 // input that was missing.
 func FandomResolveWikiFor(ctx context.Context, title, series string) string {
+	wiki, _ := FandomFindWiki(ctx, title, series)
+	return wiki
+}
+
+// FandomFindWiki is FandomResolveWikiFor for a caller that records the ask on
+// Fandom's Sources row. The error is the search's last transport failure, returned
+// only when no request reached Fandom at all, so "this work has no wiki" (nil) and
+// "Fandom did not answer" (the error) read differently there. Any status is an
+// answer. The search's error stands for the probes' too: it always runs after
+// them, with the title they were spelled from.
+func FandomFindWiki(ctx context.Context, title, series string) (string, error) {
+	reached := false
 	for _, slug := range FandomWikiCandidatesFor(title, series) {
 		base := strings.Replace(fandomHostFmt, "%s", slug, 1)
 		_, status, err := httpGet(ctx, base+"/api.php?action=query&meta=siteinfo&format=json", "")
-		if err == nil && status == 200 {
-			return slug
+		if err != nil {
+			continue
+		}
+		reached = true
+		if status == 200 {
+			return slug, nil
 		}
 	}
 	// AND WHEN EVERY GUESS MISSES, ASK RATHER THAN GIVE UP. Every candidate above
@@ -202,7 +218,11 @@ func FandomResolveWikiFor(ctx context.Context, title, series string) string {
 	// ranking, and the top hit for a common title can easily be another franchise.
 	// So the search runs only where the certain answers have all missed, which is
 	// also where it costs nothing — those requests have already happened.
-	return fandomSearchWiki(ctx, strings.TrimSpace(series), strings.TrimSpace(title))
+	wiki, searched, err := fandomSearchWiki(ctx, strings.TrimSpace(series), strings.TrimSpace(title))
+	if wiki != "" || reached || searched {
+		return wiki, nil
+	}
+	return "", err
 }
 
 // fandomSearchWiki asks Fandom's cross-wiki index which wiki a work lives on and
@@ -219,14 +239,22 @@ func FandomResolveWikiFor(ctx context.Context, title, series string) string {
 //
 // THE SERIES IS ASKED FIRST where there is one, because the index is a list of
 // WIKIS and a wiki is named for the franchise rather than the instalment.
-func fandomSearchWiki(ctx context.Context, terms ...string) string {
+//
+// `reached` is whether any request got an answer, and `err` the last that did not,
+// for FandomFindWiki to tell a miss from a failure by.
+func fandomSearchWiki(ctx context.Context, terms ...string) (slug string, reached bool, err error) {
 	for _, term := range terms {
 		if term == "" {
 			continue
 		}
 		q := url.Values{"query": {term}, "limit": {"1"}}
-		body, status, err := httpGet(ctx, fandomSearchBase+"/api/v1/SearchSuggestions/List?"+q.Encode(), "")
-		if err != nil || status != 200 {
+		body, status, gerr := httpGet(ctx, fandomSearchBase+"/api/v1/SearchSuggestions/List?"+q.Encode(), "")
+		if gerr != nil {
+			err = gerr
+			continue
+		}
+		reached = true
+		if status != 200 {
 			continue
 		}
 		var r struct {
@@ -238,10 +266,10 @@ func fandomSearchWiki(ctx context.Context, terms ...string) string {
 			continue
 		}
 		if slug := fandomHostSlug(r.Items[0].URL); slug != "" {
-			return slug
+			return slug, true, nil
 		}
 	}
-	return ""
+	return "", reached, err
 }
 
 // fandomSearchBase is the cross-wiki index, overridable for tests.

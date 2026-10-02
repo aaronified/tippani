@@ -21,10 +21,12 @@ import (
 //
 // SETUP KNOWS the book search seam (srv.searchBooks), as the re-verify tests do:
 // the offline test server has no supplier to ask; newTVDBStub and a hand-made
-// TheTVDB server; metadata.SetLetterboxdBaseForTest and
-// SetFandomAndScrapeBasesForTest; srv.TMDB's Key and BaseURL; the job routes
-// (mustStart, waitJob, POST /jobs/{id}/stop); and emptyRunFault, the length of
-// run a fault needs, so the reader's lookups match it rather than a copy.
+// TheTVDB server; metadata.SetLetterboxdBaseForTest, SetFandomAndScrapeBasesForTest
+// and SetFandomSearchBaseForTest; srv.TMDB's Key and BaseURL; the job routes
+// (mustStart, waitJob, POST /jobs/{id}/stop); the request forms of Fill gaps and
+// Fetch covers and details (POST /metadata/fill, POST /covers/refetch), which an
+// API caller walks a shelf with; and emptyRunFault, the length of run a fault
+// needs, so the reader's lookups and the walks match it rather than a copy.
 
 func rowLast(t *testing.T, c *testClient, source string) *sourceLast {
 	t.Helper()
@@ -87,18 +89,20 @@ func TestAStoppedAskLeavesTheRowAsItWas(t *testing.T) {
 	}
 }
 
-// LETTERBOXD SAYS WHAT HAPPENED: not reached is "did not answer", a page that is
-// not there is "found nothing", and a page is one found. The first cut recorded
-// nothing for both of the first two, so a Letterboxd that answered 404 to every
-// film never put a word on its row; before that, it recorded "found nothing" for
-// a host it never reached.
+// LETTERBOXD SAYS WHAT HAPPENED: not reached, or a status that is not an answer
+// (a bot wall's 403, a 5xx), is "did not answer"; a page that is not there is
+// "found nothing"; and a page is one found. The first cut recorded nothing for the
+// first two, so a Letterboxd that answered 404 to every film never put a word on
+// its row; before that, it recorded "found nothing" for a host it never reached,
+// and the second cut still did for a 503.
 func TestLetterboxdOnARowSaysWhatHappened(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
 		status int // 0: the host is closed
 		ok     bool
 		found  int
-	}{{"not reached", 0, false, 0}, {"no such page", http.StatusNotFound, true, 0}, {"a page", http.StatusOK, true, 1}} {
+	}{{"not reached", 0, false, 0}, {"a server error", http.StatusServiceUnavailable, false, 0},
+		{"no such page", http.StatusNotFound, true, 0}, {"a page", http.StatusOK, true, 1}} {
 		srv := newTestServer(t)
 		lb := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(tc.status)
@@ -123,31 +127,52 @@ func TestLetterboxdOnARowSaysWhatHappened(t *testing.T) {
 	}
 }
 
-// AND FANDOM THE SAME, for a work whose wiki is already known: a host not reached
-// is "did not answer", an article is one found.
+// AND FANDOM THE SAME, whether the work's wiki is known or has to be found. With
+// a wiki stored, the article is the ask: not reached or a 503 is "did not answer",
+// a 200 saying the article is missing is "found nothing", an article is one found.
+// With none stored, the probe for one is the ask, and a work with no wiki is
+// Fandom's answer too: every host answering 404 is "found nothing", no host
+// reached is "did not answer". The first cut recorded nothing for a work with no
+// stored wiki, which is most films.
 func TestFandomOnARowSaysWhatHappened(t *testing.T) {
-	for _, reachable := range []bool{false, true} {
+	const article = `{"query":{"pages":[{"title":"The Matrix","extract":"Fandom's synopsis."}]}}`
+	for _, tc := range []struct {
+		name   string
+		wiki   string // stored on the work; "" leaves the probe to find one
+		status int    // 0: every Fandom host is closed
+		body   string
+		ok     bool
+		found  int
+	}{
+		{"not reached", "matrix", 0, "", false, 0},
+		{"a server error", "matrix", http.StatusServiceUnavailable, "", false, 0},
+		{"no such article", "matrix", http.StatusOK, `{"query":{"pages":[{"title":"The Matrix","missing":true}]}}`, true, 0},
+		{"an article", "matrix", http.StatusOK, article, true, 1},
+		{"no wiki for the work", "", http.StatusNotFound, "", true, 0},
+		{"no wiki and no host reached", "", 0, "", false, 0},
+	} {
 		srv := newTestServer(t)
 		fandom := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			_, _ = w.Write([]byte(`{"query":{"pages":[{"title":"The Matrix","extract":"Fandom's synopsis."}]}}`))
+			w.WriteHeader(tc.status)
+			_, _ = w.Write([]byte(tc.body))
 		}))
-		if !reachable {
+		if tc.status == 0 {
 			fandom.Close()
 		} else {
 			t.Cleanup(fandom.Close)
 		}
+		// The index is closed in every case, so only the hosts decide reach.
+		index := httptest.NewServer(http.NotFoundHandler())
+		index.Close()
 		metadata.SetFandomAndScrapeBasesForTest(t, fandom.URL, "")
+		metadata.SetFandomSearchBaseForTest(t, index.URL)
 		srv.TVDB = newTVDBStub(t, `{"data":{"id":70,"name":"The Matrix","year":"1999","overview":"x","characters":[]}}`)
 		c := signupAdmin(t, srv.Handler())
 		m := decode[struct{ ID int64 }](t, c.mustDo("POST", "/movies", map[string]any{"title": "The Matrix", "media_type": "movie"}, http.StatusCreated))
-		c.mustDo("PUT", "/movies/"+strconv.FormatInt(m.ID, 10), map[string]any{"title": "The Matrix", "media_type": "movie", "tvdb_id": 70, "fandom_wiki": "matrix"}, http.StatusOK)
+		c.mustDo("PUT", "/movies/"+strconv.FormatInt(m.ID, 10), map[string]any{"title": "The Matrix", "media_type": "movie", "tvdb_id": 70, "fandom_wiki": tc.wiki}, http.StatusOK)
 		c.mustDo("POST", "/metadata/reverify", map[string]any{"movie_ids": []int64{m.ID}}, http.StatusOK)
-		last := rowLast(t, c, "fandom")
-		switch {
-		case !reachable && (last == nil || last.OK):
-			t.Errorf("an unreachable Fandom reads %+v, want did not answer", last)
-		case reachable && (last == nil || !last.OK || last.Found != 1):
-			t.Errorf("an article Fandom returned reads %+v, want one found", last)
+		if last := rowLast(t, c, "fandom"); last == nil || last.OK != tc.ok || last.Found != tc.found {
+			t.Errorf("%s: Fandom's row reads %+v, want answered=%v found=%d", tc.name, last, tc.ok, tc.found)
 		}
 	}
 }
@@ -195,28 +220,36 @@ func TestATMDBPersonSearchThatFindsNobodyIsOnItsRow(t *testing.T) {
 	}
 }
 
-// A WALK OF THE LIBRARY IS SPARED THE RUN, a reader is not. Three books with
-// nothing to be found, walked by a queued fill and by Fill gaps' own requests,
-// raise no fault on Google's row: the silence is the shelf's. (A reader's three
-// lookups do: TestAReadersEmptyAnswersStillRaiseAFault.)
+// A WALK OF THE LIBRARY IS SPARED THE RUN, a reader is not. A fault's worth of
+// books with nothing to be found, walked by a queued fill and by the request
+// forms of Fill gaps and Fetch covers and details, raise no fault on Google's
+// row: the silence is the shelf's. (A reader's lookups do:
+// TestAReadersEmptyAnswersStillRaiseAFault.)
 func TestAWalkOfTheLibraryIsSparedTheEmptyRun(t *testing.T) {
-	for _, how := range []string{"a queued fill", "Fill gaps"} {
+	isbns := []string{"9780441013593", "9780141439747", "9780140434705", "9780143108276", "9780060850524"}
+	if emptyRunFault > len(isbns) {
+		t.Fatalf("a fault needs %d empty answers and the walk has %d books", emptyRunFault, len(isbns))
+	}
+	for _, how := range []string{"a queued fill", "Fill gaps", "Fetch covers and details"} {
 		srv := newTestServer(t)
 		srv.searchBooks = func(context.Context, string, string, string, string) ([]metadata.BookCandidate, error) {
 			return nil, nil
 		}
 		c := signupAdmin(t, srv.Handler())
 		var ids []int64
-		for i, isbn := range []string{"9780441013593", "9780141439747", "9780140434705"} {
+		for i, isbn := range isbns[:emptyRunFault] {
 			b := decode[struct{ ID int64 }](t, c.mustDo("POST", "/books", map[string]any{"title": fmt.Sprintf("Book %d", i), "isbn": isbn}, http.StatusCreated))
 			ids = append(ids, b.ID)
 		}
-		if how == "a queued fill" {
+		switch how {
+		case "a queued fill":
 			c.waitJob(c.mustStart("fill", map[string]any{"book_ids": ids}).ID, "succeeded")
-		} else {
+		case "Fill gaps":
 			for _, id := range ids {
 				c.mustDo("POST", "/metadata/fill", map[string]any{"book_ids": []int64{id}}, http.StatusOK)
 			}
+		default:
+			c.mustDo("POST", "/covers/refetch", map[string]any{"limit": len(ids)}, http.StatusOK)
 		}
 		if last := rowLast(t, c, "google"); last == nil {
 			t.Fatalf("%s: Google's row was never asked", how)

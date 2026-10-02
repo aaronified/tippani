@@ -2101,9 +2101,15 @@ func (s *Server) fetchAllMovieSources(ctx context.Context, uid, id int64, mediaT
 		// The wiki is resolved once and remembered on the row; see fandomWikiFor.
 		// THE SERIES RIDES ALONG, because a franchise wiki is named for the
 		// franchise rather than for this instalment — see FandomWikiCandidatesFor.
-		if wiki := s.fandomWikiFor(ctx, uid, id, storedWiki, title, series); wiki != "" {
+		//
+		// A WORK WITH NO WIKI IS FANDOM'S ANSWER TOO: the probe asked its hosts, so
+		// the row says it found nothing, or did not answer when no host was reached.
+		wiki, werr := s.fandomWikiFor(ctx, uid, id, storedWiki, title, series)
+		if wiki != "" {
 			det, err := metadata.FandomWorkDetails(ctx, title, wiki)
 			add("fandom", wiki, det, err)
+		} else {
+			add("fandom", "", nil, werr)
 		}
 	}
 	return out, lastErr

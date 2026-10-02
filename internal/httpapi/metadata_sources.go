@@ -458,7 +458,7 @@ func (s *Server) testSource(ctx context.Context, slug string) bool {
 		_, cast, err := metadata.IMDbCast(ctx, probeIMDb)
 		record(faultAreaFilms, len(cast), "", err)
 	case "letterboxd":
-		// A PAGE IT CANNOT READ IS NOTHING RATHER THAN AN ERROR (LetterboxdDetails
+		// A PAGE THAT IS NOT THERE IS NOTHING RATHER THAN AN ERROR (LetterboxdDetails
 		// says why), so the host is asked when it found nothing.
 		det, err := metadata.LetterboxdDetails(ctx, probeFilm)
 		found := 0

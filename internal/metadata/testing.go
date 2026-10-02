@@ -70,6 +70,15 @@ func SetFandomAndScrapeBasesForTest(t *testing.T, fandomFmt, googleScrape string
 	t.Cleanup(func() { fandomHostFmt, googleScrapeBase = f, g })
 }
 
+// SetFandomSearchBaseForTest points Fandom's cross-wiki index, the probe's last
+// rung, at a stub for one test, so a test of an unreached Fandom reaches nothing.
+func SetFandomSearchBaseForTest(t *testing.T, base string) {
+	t.Helper()
+	orig := fandomSearchBase
+	fandomSearchBase = base
+	t.Cleanup(func() { fandomSearchBase = orig })
+}
+
 // AllowAnyImageHostForTest lets FetchImage reach a plain-http stub on 127.0.0.1
 // for one test, lifting the scheme, host-allowlist and private-address guards.
 // Exported for httpapi's tests of a Stop landing mid-download, which have to run

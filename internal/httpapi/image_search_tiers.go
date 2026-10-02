@@ -428,7 +428,7 @@ func (s *Server) fandomCharacterTier(uid int64, pin castPin, character, workTitl
 			s.rememberFandomWiki(uid, pin.WorkID, wiki)
 			return hits
 		}
-		wiki := s.fandomWikiFor(ctx, uid, pin.WorkID, pin.FandomWiki, workTitle, pin.Series)
+		wiki, _ := s.fandomWikiFor(ctx, uid, pin.WorkID, pin.FandomWiki, workTitle, pin.Series)
 		if wiki == "" {
 			// WHICH SLUGS WERE TRIED, because "no wiki" is the answer a reader is
 			// most likely to disagree with and the one they can fix. The wiki for
@@ -465,21 +465,24 @@ func (s *Server) fandomCharacterTier(uid int64, pin castPin, character, workTitl
 // Writing here rather than in a separate pass is deliberate: this runs inside a
 // request that is already talking to Fandom, and the alternative is a background
 // job, which this app does not have and does not want.
-func (s *Server) fandomWikiFor(ctx context.Context, uid, workID int64, stored, title, series string) string {
+//
+// The error is FandomFindWiki's: set only when the probe reached no Fandom host,
+// for a caller that records the ask (a stored wiki asked nothing).
+func (s *Server) fandomWikiFor(ctx context.Context, uid, workID int64, stored, title, series string) (string, error) {
 	if w := strings.TrimSpace(stored); w != "" {
-		return w
+		return w, nil
 	}
 	if strings.TrimSpace(title) == "" {
-		return ""
+		return "", nil
 	}
-	wiki := metadata.FandomResolveWikiFor(ctx, title, series)
+	wiki, err := metadata.FandomFindWiki(ctx, title, series)
 	// Nor is one learned as a Stop landed: the job that asked has abandoned the
 	// work, and a Stop leaves the work as it was (job_stop.go).
 	if wiki == "" || workID == 0 || ctx.Err() != nil {
-		return wiki
+		return wiki, err
 	}
 	s.rememberFandomWiki(uid, workID, wiki)
-	return wiki
+	return wiki, nil
 }
 
 // rememberFandomWiki stores a wiki on the work, and ONLY into an empty column, so

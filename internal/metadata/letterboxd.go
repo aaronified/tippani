@@ -129,11 +129,17 @@ func LetterboxdDetails(ctx context.Context, title string) (*MovieDetails, error)
 		return nil, outbound.RedactError(err)
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode == http.StatusNotFound {
 		// A WRONG SLUG IS A 404 AND IS THE ORDINARY CASE. Not logged above trace:
 		// this rung guesses, and a guess that missed is not a fault to report.
 		olog.Tracef("[meta] letterboxd %s -> %d", slug, resp.StatusCode)
 		return nil, nil
+	}
+	if resp.StatusCode != http.StatusOK {
+		// ANY OTHER STATUS IS LETTERBOXD NOT ANSWERING — a bot wall's 403, a 5xx —
+		// and says so rather than passing for a page that is not there, in the
+		// house form Reachable uses, by host.
+		return nil, fmt.Errorf("%s: status %d", req.URL.Host, resp.StatusCode)
 	}
 	page, err := io.ReadAll(io.LimitReader(resp.Body, maxHTMLBody))
 	if err != nil {

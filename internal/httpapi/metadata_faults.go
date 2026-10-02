@@ -283,16 +283,19 @@ func (s *Server) recordAsk(ctx context.Context, area, source string, found int, 
 
 type libraryWalkKey struct{}
 
-// asLibraryWalk marks a request that walks the library as a job would: Fill gaps
-// and Fetch covers and details, whose callers chunk a whole shelf into requests.
-// Their empty answers are about the shelf's gaps, as a queued job's are.
+// asLibraryWalk marks the request forms of Fill gaps and Fetch covers and details
+// as a walk of the library. The app runs both as queued jobs; these routes are for
+// an API caller, which walks a shelf through them a chunk at a time, and their
+// empty answers are about the shelf's gaps just as the jobs' are.
 func asLibraryWalk(r *http.Request) *http.Request {
 	return r.WithContext(context.WithValue(r.Context(), libraryWalkKey{}, true))
 }
 
 // walkingLibrary is whether an empty answer here is the shelf's rather than the
-// supplier's: a queued job, or a request marked by asLibraryWalk. A reader's own
-// lookup, a Test and a Re-verify of the works they chose are neither.
+// supplier's: any queued job (Fill gaps, Re-verify and Fetch covers and details
+// among them, over whichever works the reader picked), or a request marked by
+// asLibraryWalk. A reader's own lookup, a Test and the Details panel's field
+// offers (POST /metadata/reverify for one work) are neither.
 func walkingLibrary(ctx context.Context) bool {
 	return jobs.Queued(ctx) || ctx.Value(libraryWalkKey{}) != nil
 }
