@@ -68,6 +68,11 @@ type fieldDiff struct {
 	// check job keeps one of the two only where they are equal (keptDiff).
 	Fresh any        `json:"fresh"`
 	Alts  []fieldAlt `json:"alts,omitempty"`
+	// Source is who gave Fresh when it is not the item's own supplier: a merged
+	// book match names, per field, the half that gave it (BookCandidate.Sources),
+	// and the item's Source is only the primary's. On the wire, so the review's
+	// apply and a Fill credit the field to the half that gave it.
+	Source string `json:"source,omitempty"`
 }
 
 // altsFor builds the per-source list for one field from what each supplier
@@ -147,10 +152,6 @@ type reverifyItem struct {
 	// field_offers.go for why the two questions cannot share one answer.
 	Offers []fieldDiff `json:"offers,omitempty"`
 	Error  string      `json:"error,omitempty"`
-	// credit names, per field, the other half of a merged match where it gave
-	// that field (BookCandidate.Sources). Not on the wire: a fill reads it from
-	// the item it built, so the fields it fills are credited field by field.
-	credit map[string]string
 }
 
 // handleMetadataReverify: POST /metadata/reverify
@@ -563,7 +564,6 @@ func (s *Server) reverifyBook(ctx context.Context, uid, id int64, gkey, cookie, 
 		return it
 	}
 	it.Source = cand.Source
-	it.credit = cand.Sources
 	bookSrcs := dedupeBookSources(alt)
 	it.Sources = make([]string, 0, len(bookSrcs))
 	for _, b := range bookSrcs {
@@ -613,6 +613,11 @@ func (s *Server) reverifyBook(ctx context.Context, uid, id int64, gkey, cookie, 
 	if len(bookSrcs) > 1 {
 		attachBookAlts(d, bookSrcs)
 	}
+	for i := range d {
+		if other := knownBookSource(cand.Sources[d[i].Field]); other != "" && other != cand.Source {
+			d[i].Source = other
+		}
+	}
 	it.Diffs = d
 	// WHAT IS ON OFFER, which is not what has changed. One supplier is enough
 	// here, unlike the alts above: the choice a field picker draws is between the
@@ -624,7 +629,7 @@ func (s *Server) reverifyBook(ctx context.Context, uid, id int64, gkey, cookie, 
 			"published_year": year, "series": series, "series_index": seriesIdx,
 			"genres": genres, "subtitle": subtitle, "publisher": publisher, "pages": pages,
 		}, pickerFields(bookAltPickers), func(f string) []fieldAlt {
-			return bookAltsFor(bookSrcs, bookAltPickers[f])
+			return bookAltsFor(bookSrcs, f)
 		})
 	}
 	return it
@@ -674,25 +679,32 @@ var bookAltPickers = map[string]func(*metadata.BookCandidate) any{
 // rather than as fetchedSources. Extracted from attachBookAlts when the offers
 // pass needed the same loop: two copies of "ask every supplier for one field"
 // is the drift the picker tables exist to prevent.
-func bookAltsFor(cands []metadata.BookCandidate, pick func(*metadata.BookCandidate) any) []fieldAlt {
+//
+// A MERGED CANDIDATE OFFERS EACH FIELD UNDER THE HALF THAT GAVE IT, not under its
+// primary: the merge names it (BookCandidate.Sources).
+func bookAltsFor(cands []metadata.BookCandidate, field string) []fieldAlt {
+	pick := bookAltPickers[field]
 	var out []fieldAlt
 	for j := range cands {
 		v := pick(&cands[j])
 		if isEmptyValue(v) {
 			continue
 		}
-		out = append(out, fieldAlt{Source: cands[j].Source, Value: v})
+		src := cands[j].Source
+		if other := knownBookSource(cands[j].Sources[field]); other != "" {
+			src = other
+		}
+		out = append(out, fieldAlt{Source: src, Value: v})
 	}
 	return out
 }
 
 func attachBookAlts(diffs []fieldDiff, cands []metadata.BookCandidate) {
 	for i := range diffs {
-		pick, ok := bookAltPickers[diffs[i].Field]
-		if !ok {
+		if _, ok := bookAltPickers[diffs[i].Field]; !ok {
 			continue
 		}
-		alts := bookAltsFor(cands, pick)
+		alts := bookAltsFor(cands, diffs[i].Field)
 		if len(alts) < 2 {
 			continue
 		}

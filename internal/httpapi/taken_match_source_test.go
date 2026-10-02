@@ -177,3 +177,66 @@ func TestAnApprovedImportCreditsTheFileForABook(t *testing.T) {
 		t.Errorf("an import filling a gap: %v, want the typed title the reader's and the author the import's", got)
 	}
 }
+
+// A RE-VERIFY OF A MERGED MATCH SAYS WHICH HALF GAVE EACH FIELD, on the diff and
+// on the field's offer, so the review's apply and the Details field picker credit
+// it there. The per-field credit stayed on the server, and only Fill gaps could
+// use it: a Re-verify taken as offered credited Open Library's year to Google.
+func TestARecheckOfAMergedMatchNamesTheHalfThatGaveEachField(t *testing.T) {
+	srv := newTestServer(t)
+	srv.searchBooks = func(_ context.Context, isbn, _, _, _ string) ([]metadata.BookCandidate, error) {
+		return []metadata.BookCandidate{{Source: "google", SourceID: "g1", Title: "Dune", ISBN13: isbn,
+			Author: "Frank Herbert", PublishedYear: 1965,
+			Sources: map[string]string{"published_year": "openlibrary"}}}, nil
+	}
+	c := signupAdmin(t, srv.Handler())
+	b := decode[struct{ ID int64 }](t, c.mustDo("POST", "/books", map[string]any{"title": "Dune", "isbn": "9780441013593"}, http.StatusCreated))
+	type row struct {
+		Field  string `json:"field"`
+		Source string `json:"source"`
+		Alts   []struct {
+			Source string `json:"source"`
+		} `json:"alts"`
+	}
+	res := decode[struct {
+		Items []struct {
+			Diffs  []row `json:"diffs"`
+			Offers []row `json:"offers"`
+		} `json:"items"`
+	}](t, c.mustDo("POST", "/metadata/reverify", map[string]any{"book_ids": []int64{b.ID}, "offers": true}, http.StatusOK))
+	by := map[string]row{}
+	for _, d := range res.Items[0].Diffs {
+		by[d.Field] = d
+	}
+	if by["published_year"].Source != "openlibrary" || by["author"].Source != "" {
+		t.Errorf("the diffs name year %q and author %q, want openlibrary and the item's own (%+v)",
+			by["published_year"].Source, by["author"].Source, res.Items[0].Diffs)
+	}
+	for _, o := range res.Items[0].Offers {
+		if o.Field == "published_year" && (len(o.Alts) == 0 || o.Alts[0].Source != "openlibrary") {
+			t.Errorf("the year is offered under %+v, want Open Library", o.Alts)
+		}
+	}
+}
+
+// A FILM'S FILL CREDITS THE SUPPLIER THAT ANSWERED. A film pinned to TheTVDB and
+// TMDB whose TheTVDB read fails is filled from TMDB, and the fill passed no
+// credit, so the apply fell back to the pin order and named TheTVDB.
+func TestAFilmFillCreditsTheSupplierThatAnswered(t *testing.T) {
+	srv := newTestServer(t)
+	tmdb := portraitTMDB(t, `[]`)
+	t.Cleanup(tmdb.Close)
+	srv.TMDB.Key = "testkey"
+	srv.TMDB.BaseURL = tmdb.URL
+	st, client, done := newTVDBCastStub(t, `{}`)
+	t.Cleanup(done)
+	st.code = http.StatusInternalServerError
+	srv.TVDB = client
+	c := signupAdmin(t, srv.Handler())
+	m := decode[struct{ ID int64 }](t, c.mustDo("POST", "/movies", map[string]any{"title": "Portal 2", "media_type": "movie"}, http.StatusCreated))
+	c.mustDo("PUT", "/movies/"+strconv.FormatInt(m.ID, 10), map[string]any{"title": "Portal 2", "media_type": "movie", "tvdb_id": 70, "tmdb_id": 603}, http.StatusOK)
+	c.mustDo("POST", "/metadata/fill", map[string]any{"movie_ids": []int64{m.ID}}, http.StatusOK)
+	if got := sourcesByField(t, c, m.ID); got["description"] != "tmdb" {
+		t.Errorf("the description TMDB gave is credited to %q (%v)", got["description"], got)
+	}
+}

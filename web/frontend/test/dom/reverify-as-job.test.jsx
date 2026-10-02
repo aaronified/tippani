@@ -212,6 +212,38 @@ describe('the findings and the apply', () => {
     await waitFor(() => expect(flashes).toEqual(['re-verify: 1 item updated']))
   })
 
+  // A MERGED MATCH'S FIELD IS APPLIED UNDER THE HALF THAT GAVE IT. The check
+  // names it on the diff when it is not the item's own supplier, and a plain tick
+  // takes it from there rather than from the item, which named only the primary.
+  it("credits a merged match's field to the half that gave it", async () => {
+    JOBS.plan('reverify', { result: [{ ...FINDINGS[0], source: 'google', diffs: [{ ...FINDINGS[0].diffs[0], source: 'openlibrary' }, ...FINDINGS[0].diffs.slice(1)] }] })
+    open()
+    await screen.findByText('The Paper Boat')
+    await waitFor(() => expect(within(dialog()).getAllByRole('checkbox').length).toBe(3))
+    JOBS.plan('reverify-apply', { result: [{ type: 'book', id: 3, ok: true }] })
+    fireEvent.click(within(dialog()).getByRole('button', { name: 'Apply 1 approved change' }))
+    await waitFor(() => expect(JOBS.started().some(([k]) => k === 'reverify-apply')).toBe(true))
+    const [, params] = JOBS.started().find(([k]) => k === 'reverify-apply')
+    expect(params.items[0].sources).toEqual({ published_year: 'openlibrary' })
+  })
+
+  // A PERSON'S APPLY SAYS WHO THE CHECK ASKED, which is who gave the links it
+  // found. Without it the server credited them by the person's role, and a
+  // speaker's role says TMDB where Open Library gave them.
+  it("sends a person's supplier with the person", async () => {
+    JOBS.plan('reverify', { result: [{
+      type: 'person', kind: 'speaker', name: 'Tagore', status: 'ok', source: 'openlibrary',
+      diffs: [{ field: 'links', stored: null, fresh: 'https://openlibrary.org/authors/OL1A' }],
+    }] })
+    open()
+    await waitFor(() => expect(within(dialog()).getAllByRole('checkbox').length).toBe(1))
+    JOBS.plan('reverify-apply', { result: [{ type: 'person', ok: true }] })
+    fireEvent.click(within(dialog()).getByRole('button', { name: 'Apply 1 approved change' }))
+    await waitFor(() => expect(JOBS.started().some(([k]) => k === 'reverify-apply')).toBe(true))
+    const [, params] = JOBS.started().find(([k]) => k === 'reverify-apply')
+    expect(params.items[0]).toMatchObject({ type: 'person', kind: 'speaker', name: 'Tagore', source: 'openlibrary' })
+  })
+
   // A FIELD SOMEBODY CHANGED BETWEEN THE REVIEW AND THE PRESS is skipped by the
   // server rather than overwritten, and its line says why — in the server's words.
   it('shows the server’s note for an item it left alone', async () => {

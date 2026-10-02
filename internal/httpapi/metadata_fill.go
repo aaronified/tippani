@@ -292,6 +292,7 @@ func (s *Server) fillOne(ctx context.Context, uid int64, it reverifyItem) fillRe
 		return res
 	}
 	set := map[string]json.RawMessage{}
+	credit := map[string]string{}
 	for _, d := range it.Diffs {
 		if !missingStored(d.Stored) {
 			continue
@@ -327,6 +328,15 @@ func (s *Server) fillOne(ctx context.Context, uid int64, it reverifyItem) fillRe
 		}
 		set[d.Field] = raw
 		res.Filled = append(res.Filled, d.Field)
+		// WHO GAVE IT: the half of a merged match that did, else the item's own
+		// supplier, which for a film is the one Fresh came from — the apply's own
+		// fallback is the work's pin order, and the first pinned supplier may be
+		// the one that did not answer.
+		from := d.Source
+		if from == "" {
+			from = it.Source
+		}
+		credit[d.Field] = from
 	}
 	if len(set) == 0 {
 		return res // nothing was missing; nothing written
@@ -334,9 +344,9 @@ func (s *Server) fillOne(ctx context.Context, uid int64, it reverifyItem) fillRe
 	var note string
 	var err error
 	if it.Type == "book" {
-		note, err = s.applyReverifyBook(ctx, uid, it.ID, set, it.Source, it.credit)
+		note, err = s.applyReverifyBook(ctx, uid, it.ID, set, it.Source, credit)
 	} else {
-		note, err = s.applyReverifyMovie(ctx, uid, it.ID, set, nil)
+		note, err = s.applyReverifyMovie(ctx, uid, it.ID, set, credit)
 	}
 	res.Note = note
 	if err != nil {

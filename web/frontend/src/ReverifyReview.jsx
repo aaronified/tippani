@@ -549,7 +549,10 @@ export function ReverifyFlow({ selection = null, fillsOnly: fillsOnlyProp = fals
         }
         if (Object.keys(set).length === 0) return null
         return it.type === 'person'
-          ? { type: 'person', kind: it.kind, name: it.name, set, expect }
+          // The person's supplier, which is who gave the links the preview found:
+          // without it the apply credited them by role, and a speaker's role says
+          // TMDB where Open Library gave them.
+          ? { type: 'person', kind: it.kind, name: it.name, set, source: it.source, expect }
           : { type: it.type, id: it.id, set, sources, source: it.source, expect }
       })
       .filter(Boolean)
@@ -794,5 +797,7 @@ export function ReverifyFlow({ selection = null, fillsOnly: fillsOnlyProp = fals
 // defaultSourceFor — the supplier a plain tick takes a field from: the first
 // that answered for it, else the item's own preferred source.
 function defaultSourceFor(item, diff) {
-  return diff?.alts?.[0]?.source || item.source || ''
+  // `diff.source` is the half of a merged match that gave this field, when it is
+  // not the item's own supplier.
+  return diff?.alts?.[0]?.source || diff?.source || item.source || ''
 }
