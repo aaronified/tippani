@@ -24,7 +24,6 @@ package metadata
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/url"
 	"strconv"
 	"strings"
@@ -60,11 +59,7 @@ func FandomWorkDetails(ctx context.Context, title, wiki string) (*MovieDetails, 
 	if status != 200 {
 		// A missing article is a 200 that says so (below); any other status is
 		// the wiki not answering, as LetterboxdDetails reads it.
-		host := base
-		if u, err := url.Parse(base); err == nil && u.Host != "" {
-			host = u.Host
-		}
-		return nil, fmt.Errorf("%s: status %d", host, status)
+		return nil, fandomStatusError(base, status)
 	}
 	var r struct {
 		Query struct {

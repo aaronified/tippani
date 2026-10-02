@@ -132,24 +132,28 @@ func TestLetterboxdOnARowSaysWhatHappened(t *testing.T) {
 // a 200 saying the article is missing is "found nothing", an article is one found.
 // With none stored, the probe for one is the ask, and a work with no wiki is
 // Fandom's answer too: every host answering 404 is "found nothing", no host
-// reached is "did not answer". The first cut recorded nothing for a work with no
-// stored wiki, which is most films.
+// reached, or every host a 503, is "did not answer". The first cut recorded
+// nothing for a work with no stored wiki, which is most films, and the second
+// read a 503 from every host as "found nothing" there and as "did not answer"
+// with a wiki stored.
 func TestFandomOnARowSaysWhatHappened(t *testing.T) {
 	const article = `{"query":{"pages":[{"title":"The Matrix","extract":"Fandom's synopsis."}]}}`
 	for _, tc := range []struct {
 		name   string
 		wiki   string // stored on the work; "" leaves the probe to find one
 		status int    // 0: every Fandom host is closed
+		index  int    // the cross-wiki index's status; 0: closed
 		body   string
 		ok     bool
 		found  int
 	}{
-		{"not reached", "matrix", 0, "", false, 0},
-		{"a server error", "matrix", http.StatusServiceUnavailable, "", false, 0},
-		{"no such article", "matrix", http.StatusOK, `{"query":{"pages":[{"title":"The Matrix","missing":true}]}}`, true, 0},
-		{"an article", "matrix", http.StatusOK, article, true, 1},
-		{"no wiki for the work", "", http.StatusNotFound, "", true, 0},
-		{"no wiki and no host reached", "", 0, "", false, 0},
+		{"not reached", "matrix", 0, 0, "", false, 0},
+		{"a server error", "matrix", http.StatusServiceUnavailable, 0, "", false, 0},
+		{"no such article", "matrix", http.StatusOK, 0, `{"query":{"pages":[{"title":"The Matrix","missing":true}]}}`, true, 0},
+		{"an article", "matrix", http.StatusOK, 0, article, true, 1},
+		{"no wiki for the work", "", http.StatusNotFound, 0, "", true, 0},
+		{"no wiki and no host reached", "", 0, 0, "", false, 0},
+		{"no wiki and every host and the index a 503", "", http.StatusServiceUnavailable, http.StatusServiceUnavailable, "", false, 0},
 	} {
 		srv := newTestServer(t)
 		fandom := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -161,9 +165,14 @@ func TestFandomOnARowSaysWhatHappened(t *testing.T) {
 		} else {
 			t.Cleanup(fandom.Close)
 		}
-		// The index is closed in every case, so only the hosts decide reach.
-		index := httptest.NewServer(http.NotFoundHandler())
-		index.Close()
+		index := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(tc.index)
+		}))
+		if tc.index == 0 {
+			index.Close()
+		} else {
+			t.Cleanup(index.Close)
+		}
 		metadata.SetFandomAndScrapeBasesForTest(t, fandom.URL, "")
 		metadata.SetFandomSearchBaseForTest(t, index.URL)
 		srv.TVDB = newTVDBStub(t, `{"data":{"id":70,"name":"The Matrix","year":"1999","overview":"x","characters":[]}}`)

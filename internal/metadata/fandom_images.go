@@ -29,6 +29,7 @@ package metadata
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/url"
 	"regexp"
 	"strings"
@@ -189,11 +190,12 @@ func FandomResolveWikiFor(ctx context.Context, title, series string) string {
 }
 
 // FandomFindWiki is FandomResolveWikiFor for a caller that records the ask on
-// Fandom's Sources row. The error is the search's last transport failure, returned
-// only when no request reached Fandom at all, so "this work has no wiki" (nil) and
-// "Fandom did not answer" (the error) read differently there. Any status is an
-// answer. The search's error stands for the probes' too: it always runs after
-// them, with the title they were spelled from.
+// Fandom's Sources row. The error is the search's last failure, returned only when
+// nothing Fandom said was an answer, so "this work has no wiki" (nil) and "Fandom
+// did not answer" (the error) read differently there. An answer is a 200 or a 404,
+// as for FandomWorkDetails: a 403 or a 5xx is Fandom not answering, whether or not
+// a wiki is stored. The search's error stands for the probes' too: it always runs
+// after them, with the title they were spelled from.
 func FandomFindWiki(ctx context.Context, title, series string) (string, error) {
 	reached := false
 	for _, slug := range FandomWikiCandidatesFor(title, series) {
@@ -202,9 +204,11 @@ func FandomFindWiki(ctx context.Context, title, series string) (string, error) {
 		if err != nil {
 			continue
 		}
-		reached = true
 		if status == 200 {
 			return slug, nil
+		}
+		if status == 404 {
+			reached = true
 		}
 	}
 	// AND WHEN EVERY GUESS MISSES, ASK RATHER THAN GIVE UP. Every candidate above
@@ -240,8 +244,8 @@ func FandomFindWiki(ctx context.Context, title, series string) (string, error) {
 // THE SERIES IS ASKED FIRST where there is one, because the index is a list of
 // WIKIS and a wiki is named for the franchise rather than the instalment.
 //
-// `reached` is whether any request got an answer, and `err` the last that did not,
-// for FandomFindWiki to tell a miss from a failure by.
+// `reached` is whether any request got an answer (a 200 or a 404), and `err` the
+// last that did not, for FandomFindWiki to tell a miss from a failure by.
 func fandomSearchWiki(ctx context.Context, terms ...string) (slug string, reached bool, err error) {
 	for _, term := range terms {
 		if term == "" {
@@ -253,10 +257,15 @@ func fandomSearchWiki(ctx context.Context, terms ...string) (slug string, reache
 			err = gerr
 			continue
 		}
-		reached = true
-		if status != 200 {
+		if status == 404 {
+			reached = true
 			continue
 		}
+		if status != 200 {
+			err = fandomStatusError(fandomSearchBase, status)
+			continue
+		}
+		reached = true
 		var r struct {
 			Items []struct {
 				URL string `json:"url"`
@@ -270,6 +279,16 @@ func fandomSearchWiki(ctx context.Context, terms ...string) (slug string, reache
 		}
 	}
 	return "", reached, err
+}
+
+// fandomStatusError is a status from Fandom that is not an answer, in the house
+// form Reachable uses: "<host>: status N".
+func fandomStatusError(base string, status int) error {
+	host := base
+	if u, err := url.Parse(base); err == nil && u.Host != "" {
+		host = u.Host
+	}
+	return fmt.Errorf("%s: status %d", host, status)
 }
 
 // fandomSearchBase is the cross-wiki index, overridable for tests.
