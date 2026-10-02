@@ -4476,8 +4476,8 @@
     font-variant-numeric: tabular-nums; text-align: end;
   }
   /* The counts wrap between their parts, never inside one (`.tally` is nowrap),
-     so "214 fields | 38 works · 12 people" takes a second line on a phone rather
-     than squeezing the supplier's name. */
+     so "214 fields | 38 · 12", each figure with its glyph, takes a second line on a
+     phone rather than squeezing the supplier's name. */
   .src-row-count .tally-n { font-variant-numeric: inherit; }
   /* A SUPPLIER THAT CANNOT BE ASKED HAS A RED NUMBER, because a zero from one
      that simply has not been used yet means something else entirely. */

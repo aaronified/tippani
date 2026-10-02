@@ -20030,9 +20030,11 @@ carries per-field `sources`, the wire the re-verify apply already used, and the 
 each field it CHANGED to the supplier named for it (validated for the kind; a cover or poster
 may also be Google Images or Amazon), and every other changed field to you; `source` keeps its
 own job of pinning an id. A merged book candidate names, per field, the supplier other than its
-primary that gave it. Fetch missing credits the cover to whichever address served it and the
-fields it filled to the match; Rescan no longer credits a cover that did not arrive; an
-uploaded picture is yours; a film typed in by hand is yours, as a typed book was; and an
+primary that gave it, and every path honours that: taking the match, Fetch covers and details,
+and Fill gaps credit each field, the cover included, to the half that gave it. Fetch covers and
+details credits a cover it found elsewhere (Amazon's, Open Library's by ISBN) to whichever
+address served it; Re-verify no longer credits a cover that did not arrive; an uploaded picture
+is yours; a film typed in by hand is yours, as a typed book was; and an
 imported file's fields read "Imported", which is neither you nor a supplier the app asked. The
 whitelist of recordable fields named `publisher_name` and `page_count`, which nothing sends,
 and lacked `subtitle`, `pages` and `series_index`, which three writers send, so those edition
@@ -20042,8 +20044,12 @@ unattributed.
 **Each All sources row reads "Fields | works", with people where the supplier filled any.**
 The owner chose "Works & people it supplied", then: "not just the count of works and peoples,
 but of fields. \"Fields | works\"". So a row says how many fields the supplier wrote into the
-library, then the works those fields are in and the people whose portrait it supplied, each
-wearing the console's own section glyph; a portrait counts as one field. Only what the library
+library, then the works those fields are in and the people it supplied any of, each wearing the
+console's own section glyph. A person counts for every supplier that wrote any of them, the
+option's own words: their portrait (`image_source`), their identity and the facts that came
+with it (`source`, which only a fetch or a re-verify writes) and each fetched link
+(`link_sources`). A portrait is one field, and so is a character's picture, on the record or on
+a cast row; a character is not a person and adds to no people count. Only what the library
 still holds counts: the provenance table outlives a binned work, so the count joins the live
 works. A zero reads "0 fields" alone, and only a zero from a supplier that cannot be asked is
 red: one that needs a key and has supplied fields is not a warning.
@@ -20057,19 +20063,26 @@ beside the free-text `links` field they describe. A picture's supplier is read f
 that served it, recorded only when the bytes arrived; one the reader picked from a strip is
 credited to the supplier that offered it, and a pasted address or an upload is theirs. A
 fetched link is credited to the supplier that answered, one the reader typed is theirs, an
-unchanged links field changes nothing, and a removed link is forgotten. The page draws the
+unchanged links field changes nothing, and a removed link is forgotten. "The supplier that
+answered" is the one the fetch actually asked: links that came with a portrait are that
+portrait's supplier's, so a speaker's, which come from Open Library's author match, are Open
+Library's even though a speaker's own link lookup asks TMDB. A merge that borrows a portrait or
+links borrows their credits with them, and its undo puts them back. The page draws the
 portrait's tag and, on each link, "auto" or "you" (the supplier in its tooltip); anything
-written before 0081 says nothing. The Sources rows count a person for the supplier of their
-portrait, not of their identity.
+written before 0081 says nothing.
 
 **Every ask a supplier answers is on its row, recorded at the call.** A row's last answer moved
-only after a lookup, a picture search or a Test; a Rescan, a fill, Fetch missing, adding a film
-by its id, cast from IMDb or TheTVDB, and a person's portrait or links asked the same suppliers
+only after a lookup, a picture search or a Test; Re-verify, Fill gaps, Fetch covers and
+details, adding a film by its id, cast from IMDb or TheTVDB, and a person's portrait or links asked the same suppliers
 and left the row saying nothing had. Each of those calls now records through one door,
 `recordAsk`, rather than through the outbound gate's observer: the gate sees round trips, not
 asks, and knows neither what was found nor which area the ask was about. Two answers are not
-the supplier's: a Stop records nothing, and an empty answer met while a job walks the library
-is recorded without lengthening the run of empty answers that raises a fault, since it is
-about the shelf's gaps. Asks about a person or a company have their own area, "people", on
+the supplier's: a Stop records nothing, and an empty answer met while a queued job walks the
+library is recorded without lengthening the run of empty answers that raises a fault, since it
+is about the shelf's gaps. "A queued job" is `jobs.Queued`, not "has a recorder": every request
+carries a log of its own, and reading that as a job spared a reader's own lookups from the run
+too, so no fault could be raised by them (the first cut's defect). Letterboxd and Fandom answer
+a page they could not reach exactly as a page that is not there, so a nil from either is not
+recorded at all; a page they returned is. Asks about a person or a company have their own area, "people", on
 Open Library's, TMDB's and IGDB's rows, so a miss on an obscure translator does not count
 against Open Library's book search.
