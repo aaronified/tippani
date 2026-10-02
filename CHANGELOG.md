@@ -109,11 +109,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   in and the people it supplied.** The row's single number is now a line such as "214
   fields | 38" with the works glyph after the 38, then "· 12" with the people glyph after
   it. The works and people figures are drawn only above zero, and a supplier that has
-  written nothing reads "0 fields". A person counts for every supplier that wrote any of
-  them: the portrait, the identity and the facts that came with it (written by a Fetch or
-  a re-verify), or a fetched link. A portrait counts as a field, and so does a character's
-  picture, on the character's record or on a cast row; a character adds nothing to the
-  people figure. A cast row whose role you removed counts no picture. Only works still in
+  written nothing reads "0 fields". For a supplier that supplied people and no field, the
+  count's tooltip reads "No field, but 2 people in your library have a picture, a link or
+  a record from TMDB". A person counts for every supplier that wrote any of them: the
+  portrait, the identity and the facts that came with it (written by a Fetch or an applied
+  re-verify, carried over by a merge of two people, or set by an API call that names it),
+  or a fetched link. A portrait counts as a field, and so does a character's picture, on
+  the character's record or on a cast row; a character adds nothing to the people figure.
+  A cast row whose role you removed counts no picture. Only works still in
   the library are counted, so a work in the bin is left out. The line is red only for a
   supplier that needs a key it has not been given and has supplied no field, work or
   person, where it was red for every supplier missing a key.
@@ -123,16 +126,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   adding or re-syncing a film, show or game by its id, cast taken from IMDb or TheTVDB,
   and a person's portrait or links, including an actor's or director's search by name at
   TMDB that finds nobody. A Stop records nothing. An empty answer met while the library is
-  walked, by a queued job or by Fill gaps or Fetch covers and details run as a request,
-  such as a fill's IGDB search for a game by its title, is recorded as the last answer,
-  and it does not count toward the run of empty answers that raises a fault on a supplier,
-  since it says more about the library's gaps than about the supplier. An empty answer to
-  a reader's own request, a lookup, a Test or a re-verify of works they chose, still
-  counts. Letterboxd and Fandom report what a fill or a re-verify met like every other
-  source: a host the app could not reach reads "did not answer" on the row, and a page
-  that is not there reads "answered · found nothing". Open Library, TMDB and IGDB now list
-  "people" among what they supply, so a miss on an obscure translator or actor is counted
-  apart from their book, film and game searches, and Fandom lists games.
+  walked, by any queued job (a re-verify, Fill gaps and Fetch covers and details among
+  them), such as a fill's IGDB search for a game by its title, is recorded as the last
+  answer, and it does not count toward the run of empty answers that raises a fault on a
+  supplier, since it says more about the library's gaps than about the supplier. The same
+  holds when an API caller walks the library with Fill gaps or Fetch covers and details
+  one request at a time. An empty answer to a reader's own request, a lookup, a Test or
+  the Details field picker, which re-verifies the one work it is on, still counts.
+  Letterboxd and Fandom report what a fill or a re-verify met like every other source: a
+  host the app could not reach, or one that answers with a 403 or a server error, reads
+  "did not answer" on the row, and a page that is not there (a 404, or a Fandom article
+  reported missing) reads "answered · found nothing". For a work with no Fandom wiki
+  stored, the search for one is recorded on Fandom's row too: "answered · found nothing"
+  when Fandom's hosts or its search index answered normally or with a 404 and no wiki
+  exists, and "did not answer" when none of them did, whether they were not reached or
+  answered with a 403 or a server error. Open Library, TMDB and IGDB now list "people"
+  among what they supply, so a miss on an obscure translator or actor is counted apart
+  from their book, film and game searches, and Fandom lists games.
 - **Work details → Links: the ids and the links are one screen.** The pencil on the
   section's head used to open an Ids dialog, and the ＋ at the end of its row opened a list
   of links, empty for most works, whose own ＋ opened the paste box on a third screen. Both
@@ -144,11 +154,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   pasted link in a single request, its badge counts both, and it closes the screen. It
   stays greyed until an id has changed or the box holds an address the work does not
   already have, and while a save is on its way. With nothing changed, its greyed state
-  says "Nothing to save yet". A save that lands says "links saved" in a toast, whether it
-  came from the ✓, a link's ✕ or a suggested page and whether it held ids or links. A save
-  that fails shows its error on the screen. A link's ✕ still saves at once and keeps the
-  names given to the other links, and pressing one of the suggested pages still adds it
-  and closes the screen.
+  says "Nothing to save yet". A save that lands says what it saved in a toast: "ids saved"
+  when the ✓ saved only ids, "links saved" when it saved only a link, and "ids and links
+  saved" when it saved both. A link's ✕ says "links saved", and so does a suggested page
+  unless an id was edited too, when it says "ids and links saved". A save that fails shows
+  its error on the screen. A link's ✕ still saves at once and keeps the names given to the
+  other links, and pressing one of the suggested pages still adds it and closes the
+  screen.
 
 ### Fixed
 

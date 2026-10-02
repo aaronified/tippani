@@ -20032,8 +20032,8 @@ may also be Google Images or Amazon), and every other changed field to you; `sou
 own job of pinning an id. A merged book candidate names, per field, the supplier other than its
 primary that gave it, and every path honours that: taking the match, Fetch covers and details,
 Fill gaps and Re-verify credit each field, the cover included, to the half that gave it. A
-Re-verify diff carries that supplier per field, so the review screen shows it and the apply
-sends it back. A film's Fill credits the supplier that answered rather than the first in the
+Re-verify diff carries that supplier per field, and the review applies each field under it by
+default; the review screen does not print it. A film's Fill credits the supplier that answered rather than the first in the
 work's pin order, which named TheTVDB for TMDB's fields when TheTVDB's read failed. Fetch covers
 and details credits a cover it found elsewhere (Amazon's, Open Library's by ISBN) to whichever
 address served it; Re-verify no longer credits a cover that did not arrive; an uploaded picture
@@ -20056,9 +20056,11 @@ merge that borrows it) and each fetched link
 a cast row; a character is not a person and adds to no people count. Only what the library
 still holds counts: the provenance table outlives a binned work, so the count joins the live
 works, and a role the reader removed keeps its row as a tombstone, so its picture is left out.
-A zero reads "0 fields" alone, and the count is red only when the supplier needs a key it has
-not been given and has supplied nothing at all, no field, work or person: a supplier that once
-filled a person's links before its key was cleared is not a warning.
+Zero fields reads "0 fields", with the people after it where there are any, and the count is
+red only when the supplier needs a key it has not been given and has supplied nothing at all, no
+field, work or person: a supplier that once filled a person's links before its key was cleared
+is not a warning, and its tooltip says no field but so many people came from it rather than that
+nothing did.
 
 **A person's page says who supplied the portrait and who added each link.** The owner chose
 "Links auto/you + portrait source", the pack's §1.3. `people.source` could not answer it: it is
@@ -20088,13 +20090,17 @@ and left the row saying nothing had. Each of those calls now records through one
 asks, and knows neither what was found nor which area the ask was about. Two answers are not
 the supplier's: a Stop records nothing, and an empty answer met while the app walks the
 library is recorded without lengthening the run of empty answers that raises a fault, since it
-is about the shelf's gaps. A walk is a queued job, or Fill gaps or Fetch covers and details run
-as a request, which mark themselves (`asLibraryWalk`) because they ask about every work on the
-shelf just as a job does. "A queued job" is `jobs.Queued`, not "has a recorder": every request
+is about the shelf's gaps. A walk is any queued job, Re-verify included, or the request forms of
+Fill gaps and Fetch covers and details, which an API caller walks a shelf through and which mark
+themselves (`asLibraryWalk`); the app runs both as jobs. The Details panel's field offers ask
+about one work for the reader looking at it, and count, as a lookup and a Test do. "A queued job" is `jobs.Queued`, not "has a recorder": every request
 carries a log of its own, and reading that as a job spared a reader's own lookups from the run
 too, so no fault could be raised by them (the first cut's defect). Letterboxd and Fandom
 answered a page they could not reach exactly as a page that is not there, so the first cut
-recorded neither; they now return the transport error, so every ask is on the row as an answer,
-a miss or a failure. Asks about a person or a company have their own area, "people", on
+recorded neither; they now return the error, so every ask is on the row as an answer, a miss or a
+failure. Only a 404 (or an article Fandom reports missing) is a miss: a 403 or a 5xx is the
+supplier not answering, as it is for TMDB and TheTVDB. For a work with no Fandom wiki stored, the
+search for one is the ask, and is recorded the same way, so most films, which have none, still
+put Fandom's answer on its row. Asks about a person or a company have their own area, "people", on
 Open Library's, TMDB's and IGDB's rows, so a miss on an obscure translator does not count
 against Open Library's book search.
