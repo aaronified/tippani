@@ -812,6 +812,25 @@ describe('what every option says once it is answered', () => {
     expect(screen.getAllByText('from Heat · Michael Mann · 1995')).toHaveLength(3)
   })
 
+  // THE FACES: each character the server found is drawn with its picture, under
+  // every option and under the card itself, and the card's line stops printing
+  // the character as a word once its chip is there.
+  it('draws each character with their face, under the options and under the card', async () => {
+    const card = heat()
+    card.who = [{ name: 'Neil McCauley', path: 'neil.jpg' }]
+    card.option_meta = card.option_meta.map((om) => ({ ...om, who: [{ ...om.who[0], path: `${om.person.split(' ')[0].toLowerCase()}.jpg` }] }))
+    render(<QuizRunner mode="daily" cards={[card]} />)
+    fireEvent.click(screen.getAllByText('Robert De Niro')[0])
+    await waitFor(() => expect(posted()).toHaveLength(1))
+    await waitFor(() => {
+      const src = [...document.querySelectorAll('img')].map((img) => img.getAttribute('src') || '')
+      for (const face of ['neil.jpg', 'al.jpg', 'val.jpg']) expect(src.some((u) => u.includes(face)), face).toBe(true)
+    })
+    expect(screen.getByText('Film · 1995 · Michael Mann')).toBeTruthy()
+    // Three options and the card: an actor plays the part each time.
+    expect(screen.getAllByText('as')).toHaveLength(4)
+  })
+
   // The card's own work, told under the words once they have been answered: a
   // "who said this?" card hid it, and ended without saying whose line it was.
   it('tells the card’s own work, with its year and director, after the grade', async () => {

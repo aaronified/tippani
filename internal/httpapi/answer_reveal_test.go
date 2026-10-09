@@ -14,8 +14,8 @@ package httpapi
 // /auth/me/preferences (srTier, srQuestions) and GET /review/daily. It parks the
 // other works' quotes in item_reviews and writes a film's cast into work_cast,
 // as review_test.go and work_cast_test.go do. It reads each card's id,
-// direction, options, answer, year and director, and each option's source,
-// creator, year and who — the fields the reveal is drawn from.
+// direction, options, answer, year, director and who, and each option's source,
+// creator, year and who — the fields the details are drawn from.
 
 import (
 	"net/http"
@@ -105,6 +105,11 @@ func TestEveryWorkOptionNamesItsCreatorAndYear(t *testing.T) {
 	}
 	if card.Year != 1871 {
 		t.Errorf("the card's own year = %d, want 1871", card.Year)
+	}
+	// AND WHO SAYS IT, as a face for the details under the words, on a card
+	// that asks about the work and not the speaker.
+	if len(card.Who) != 1 || card.Who[0].Name != "Dorothea" {
+		t.Errorf("the card's own character is %+v, want Dorothea", card.Who)
 	}
 	for i, title := range card.Options {
 		b, om := revealBookOf(t, title), card.OptionMeta[i]
@@ -198,6 +203,9 @@ func TestAnActorOptionSaysWhoTheyPlay(t *testing.T) {
 	if card.Director != "Michael Mann" || card.Year != 1995 {
 		t.Errorf("the card's line = %q, %d; want Michael Mann, 1995", card.Director, card.Year)
 	}
+	if len(card.Who) != 1 || card.Who[0].Name != "Vincent Hanna" {
+		t.Errorf("the card's own character is %+v, want Vincent Hanna", card.Who)
+	}
 	for i, actor := range card.Options {
 		om := card.OptionMeta[i]
 		if om.Source != "Heat" || om.Creator != "Michael Mann" || om.Year != 1995 {
@@ -205,6 +213,48 @@ func TestAnActorOptionSaysWhoTheyPlay(t *testing.T) {
 		}
 		if len(om.Who) != 1 || om.Who[0].Name != plays[actor] {
 			t.Errorf("%s is revealed as playing %+v, want %q", actor, om.Who, plays[actor])
+		}
+	}
+}
+
+// "Which of these is from Heat?" Each film line on the card says who says it.
+func TestAFilmLineOptionSaysWhoSaysIt(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	films := []struct{ title, who string }{
+		{"Heat", "Vincent Hanna"}, {"Casablanca", "Rick Blaine"},
+		{"Chinatown", "Jake Gittes"}, {"Vertigo", "Scottie Ferguson"},
+	}
+	says := map[string]string{}
+	var own int64
+	for i, f := range films {
+		film := decode[struct {
+			ID int64 `json:"id"`
+		}](t, c.mustDo("POST", "/movies", map[string]any{"title": f.title, "media_type": "movie"}, http.StatusCreated))
+		says[f.title] = f.who
+		line := decode[dialogueRow](t, c.mustDo("POST", "/dialogues", map[string]any{
+			"movie_id": film.ID, "quote": longLine + " in " + f.title, "character": f.who,
+		}, http.StatusCreated))
+		if i == 0 {
+			own = line.ID
+		}
+	}
+	ageSeededItems(t, srv)
+	c.mustDo("PUT", "/auth/me/preferences", map[string]any{
+		"srTier": tierMedium, "srQuestions": `{"daily":["quote","cloze"]}`}, http.StatusOK)
+	var card reviewCard
+	for _, it := range decode[reviewDeckResp](t, c.mustDo("GET", "/review/daily", nil, 200)).Items {
+		if it.Kind == kindScreen && it.ID == own {
+			card = it
+		}
+	}
+	if card.Direction != dirQuote || len(card.Options) < 3 {
+		t.Fatalf("asked %q with options %v, want which quote", card.Direction, card.Options)
+	}
+	for i, opt := range card.Options {
+		om := card.OptionMeta[i]
+		if len(om.Who) != 1 || om.Who[0].Name != says[om.Source] {
+			t.Errorf("the line %q from %q says it is spoken by %+v, want %q", opt, om.Source, om.Who, says[om.Source])
 		}
 	}
 }

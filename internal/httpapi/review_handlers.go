@@ -855,6 +855,15 @@ type reviewCard struct {
 	// about the same people.
 	EasyChips  []characterImage `json:"easy_chips,omitempty"`
 	EasyPeople []string         `json:"easy_people,omitempty"`
+	// Who is the card's own characters with their faces, for the answer's
+	// details: drawn under the words once the card is graded (SourceLines), on
+	// every direction rather than only Easy's. The owner's list of an answer's
+	// details names "Who: speaker or character", and a character the card printed
+	// as a word was the one detail without its picture. fillCharacterFaces.
+	Who []characterImage `json:"who,omitempty"`
+	// whoWork is the book or film Who is looked up in: every card's, where
+	// workID below is set only for the cards Easy hands chips to.
+	whoWork int64
 	// workID is the parent book/movie, carried for the batched picture lookup the
 	// deck handlers do after every card is built. Unexported, so it never reaches
 	// the wire: the client has no use for it and a work id on a quiz card would be
@@ -1554,6 +1563,9 @@ func recentWork(out []reviewCand, key string) bool {
 func finishCard(c reviewCand, direction string) reviewCard {
 	card := c.card
 	card.Direction = direction
+	if _, id, ok := splitWorkKey(c.workKey); ok {
+		card.whoWork = id
+	}
 	card.Status = recallStatus(c.seen, card.Stability, c.elapsed, c.age, c.lastResult)
 	// Derived, never stored — the same discipline the status dot follows.
 	card.Leech = card.LapseCount >= reviewLeechLapses
@@ -2130,9 +2142,9 @@ func fieldSet(s string) map[string]bool {
 	return out
 }
 
-// fillCharacterFaces does the round's ONE picture lookup: the faces of the
-// characters on the cards offerEasyChips marked, and of the characters each
-// option's reveal names (optionMeta.Who).
+// fillCharacterFaces does the round's ONE picture lookup: the faces of each
+// card's own characters (reviewCard.Who, and Easy's chips out of the same
+// rows), and of the characters each option's reveal names (optionMeta.Who).
 //
 // ONE FUNCTION AND TWO CALLERS, not a copy in each deck handler: the Daily Quiz
 // and Practice draw the same card and a control drawn once behaves once. It is
@@ -2148,9 +2160,9 @@ func fieldSet(s string) map[string]bool {
 func (s *Server) fillCharacterFaces(uid int64, items []reviewCard) {
 	byKind := map[string][]characterImageRef{}
 	for _, it := range items {
-		if it.workID != 0 && strings.TrimSpace(it.Character) != "" {
+		if it.whoWork != 0 && strings.TrimSpace(it.Character) != "" {
 			k := faceMedium(it.Kind)
-			byKind[k] = append(byKind[k], characterImageRef{WorkID: it.workID, Character: it.Character})
+			byKind[k] = append(byKind[k], characterImageRef{WorkID: it.whoWork, Character: it.Character})
 		}
 		for _, om := range it.OptionMeta {
 			if om.whoWork != 0 {
@@ -2174,6 +2186,9 @@ func (s *Server) fillCharacterFaces(uid int64, items []reviewCard) {
 			if om.whoWork != 0 {
 				items[i].OptionMeta[j].Who = characterImagesFor(found[faceMedium(om.whoKind)], seps, om.whoWork, om.whoText)
 			}
+		}
+		if items[i].whoWork != 0 {
+			items[i].Who = characterImagesFor(found[faceMedium(items[i].Kind)], seps, items[i].whoWork, items[i].Character)
 		}
 		if items[i].workID == 0 || strings.TrimSpace(items[i].Character) == "" {
 			continue

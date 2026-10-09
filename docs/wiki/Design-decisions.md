@@ -3545,7 +3545,14 @@ option adds its creator and year under its own title and cover. A person option 
 the work they were drawn from and, for an actor, the character they play there, after an
 "as". The card's own work, with its year and a film's director, is printed under the
 quote on every card that hid it, which is every direction but "which quote?" (whose
-prompt is the attribution) and the flip card (whose reveal is).
+prompt is the attribution) and the flip card (whose reveal is). The card's own characters are drawn there
+with their faces, on every direction, where they were a word in the line; a speech option
+carries the line's own speaker and its date in place of a year.
+
+**Where there is no "who".** A work option ("which book?") and an author option ("who
+wrote this?") name no character: the option is a work, or the person who wrote a whole
+book, and no one line is theirs to attribute. The card's own line still says who speaks
+it, under the words.
 
 **How.** The server fills these on every option (`optionMeta.reveal`,
 `revealPerson`), and the client draws them only after the grade (`OptionReveal` in

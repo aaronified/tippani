@@ -3198,6 +3198,10 @@ quiz.cloze.synonym.note = counted as a synonym — worth less than the words the
 # Under each option of a "which quote?" card, once it has been answered: the
 # work that option came out of. {title} is a book, film, show, game or occasion.
 quiz.option.source.label = from {title}
+# Between a person and the part they play, once a quiz card is answered: an
+# actor option's chip, then this, then the character's chip ("Al Pacino as
+# Vincent Hanna"); also between a film line's actor and character under the
+# card. One word, set small; bn names the role rather than translating "as".
 quiz.option.as.label = as
 
 # A multiple-choice option that is longer than three lines.

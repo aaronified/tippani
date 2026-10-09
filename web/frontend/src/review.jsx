@@ -483,6 +483,12 @@ function SourceLines({ card, maps = {} }) {
     // name again underneath it would just read as a stutter.
     people = card.speaker && card.speaker !== card.title ? [{ name: card.speaker, kind: 'speaker' }] : []
   else people = splitCredits(card.author, DEFAULT_CREDIT_SEPS).map((n) => ({ name: n, kind: 'author' }))
+  // WHO SAYS IT, WITH THEIR FACE, where the server found the line's characters
+  // (card.who): the owner's "Who: speaker or character". Drawn as chips, so the
+  // meta line below stops printing the same name as a word.
+  const who = card.who || []
+  const character = who.length ? '' : card.character
+  const faces = Object.fromEntries(who.map((c) => [c.name, { image_path: c.path || c.actor_image || '' }]))
   let meta
   // THE WORK'S YEAR, on every kind that has one: one of the details the owner
   // named for an answer ("Work: cover, title, creator, year").
@@ -492,7 +498,7 @@ function SourceLines({ card, maps = {} }) {
     // The film's creator is its director, named in words: the chip row under the
     // title is who SAYS the line, and a second face there would read as a second
     // speaker.
-    meta = [media, year, card.director, episodeLabel(card), card.character, card.timestamp].filter(Boolean).join(' · ')
+    meta = [media, year, card.director, episodeLabel(card), character, card.timestamp].filter(Boolean).join(' · ')
   } else if (card.kind === 'utterance') {
     // WHEN, WHERE, AND WHERE IN THE TEXT. This line was the date alone, so a
     // speech's place and an essay's page — both 0047 columns the capture screen
@@ -517,7 +523,7 @@ function SourceLines({ card, maps = {} }) {
     // the last of four reads of that column still dropping it.
     // ONE LOCATOR: the chapter where there is one, else the page. See
     // `locatorMeta` — four screens wrote this pair out and no two agreed.
-    meta = [year, card.character, locatorMeta(card)].filter(Boolean).join(' · ')
+    meta = [year, character, locatorMeta(card)].filter(Boolean).join(' · ')
   }
   return (
     <div className="flex items-start gap-3">
@@ -530,10 +536,19 @@ function SourceLines({ card, maps = {} }) {
         <p style={{ fontFamily: 'var(--font-quote-base)', fontStyle: 'var(--font-quote-base-style)', fontVariantCaps: 'var(--font-quote-base-caps)', textTransform: 'var(--font-quote-base-case)', fontVariantNumeric: 'var(--font-quote-base-figures)', fontWeight: 600, fontSize: 'var(--type-display-19)', lineHeight: 1.2 }}>
           {card.title}
         </p>
-        {people.length > 0 && (
-          <div className="mt-1.5 flex flex-wrap gap-1.5">
+        {(people.length > 0 || who.length > 0) && (
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
             {people.map((p) => (
               <PersonChip key={p.kind + p.name} name={p.name} map={maps[p.kind]} />
+            ))}
+            {/* An actor PLAYS the part, and "as" says so; a book's author does
+                not, so a novel's character stands on its own, the way Easy's
+                chips draw one. */}
+            {who.length > 0 && card.kind === 'screen' && people.length > 0 && (
+              <MonoLabel style={{ fontSize: 'var(--type-ui-11)', color: 'var(--faint)' }}>{t('quiz.option.as.label')}</MonoLabel>
+            )}
+            {who.map((c) => (
+              <PersonChip key={'character:' + c.name} name={c.name} map={faces} />
             ))}
           </div>
         )}
