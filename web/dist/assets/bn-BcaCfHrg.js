@@ -2046,7 +2046,7 @@ quiz.tuning.cloze-synonym.hint = কাছাকাছি মানের শব
 quiz.tuning.cloze-words.label = একাধিক শব্দের শূন্যস্থান কবে থেকে
 quiz.tuning.cloze-words.hint = উদ্ধৃতি এত দিন মনে থাকার আগে ফাঁকা জায়গায় একটাই শব্দ লুকোয়; তারপর পুরো অংশও লুকোতে পারে। ১ দিলে শুরু থেকেই পুরো অংশ।
 quiz.tuning.cloze-max.label = শূন্যস্থান শুধু এত শব্দ পর্যন্ত
-quiz.tuning.cloze-max.hint = যত শব্দের উদ্ধৃতি পর্যন্ত ফাঁকা জায়গার প্রশ্ন হবে, টাইপ করে বা বেছে নিয়ে। এর চেয়ে লম্বা উদ্ধৃতিতে একটা শব্দ মনে করা অনেকগুলোর মধ্যে আন্দাজ মাত্র, তাই সেখানে জিজ্ঞেস করা হয় কোন বই, কোন উদ্ধৃতি বা কে বলেছে।
+quiz.tuning.cloze-max.hint = যত শব্দের উদ্ধৃতি পর্যন্ত ফাঁকা জায়গার প্রশ্ন হবে, টাইপ করে বা বেছে নিয়ে। এর চেয়ে লম্বা উদ্ধৃতিতে একটা শব্দ মনে করা অনেকগুলোর মধ্যে আন্দাজ মাত্র, তাই সেখানে জিজ্ঞেস করা হয় কোন উৎস, কোন উদ্ধৃতি, বা কে লিখেছে বা বলেছে।
 quiz.tuning.ladder-1.label = সিঁড়ির ধাপ 1
 quiz.tuning.ladder-1.hint = প্রথম ধাপ, আর ভুল হলে কার্ড এখানেই ফেরে। শুধু সিঁড়ি বাছলে খাটে।
 quiz.tuning.ladder-2.label = সিঁড়ির ধাপ 2
@@ -3134,6 +3134,10 @@ quiz.cloze.synonym.note = সমার্থক হিসেবে গোনা 
 # Under each option of a "which quote?" card, once it has been answered: the
 # work that option came out of. {title} is a book, film, show, game or occasion.
 quiz.option.source.label = {title} থেকে
+# Between a person and the part they play, once a quiz card is answered: an
+# actor option's chip, then this, then the character's chip ("Al Pacino as
+# Vincent Hanna"); also between a film line's actor and character under the
+# card. One word, set small; bn names the role rather than translating "as".
 quiz.option.as.label = চরিত্র
 
 # A multiple-choice option that is longer than three lines.
