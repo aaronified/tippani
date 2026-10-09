@@ -2359,11 +2359,12 @@ func buildQuestion(c reviewCand, preferred string, p quizPools, seed int64, scor
 	// would put a self-marked card into the daily score, which is the one thing
 	// 1.16.0 exists to stop.
 	//
-	// Almost nothing reaches here. The cloze above needs no distractors either,
-	// only words: one quote from one book is a complete question. What is left is
-	// a quote too short to mask a phrase out of, or one outside the Latin script
-	// clozeReadable gates on — and for those there is honestly no question to ask,
-	// so the card sits out the round.
+	// What reaches here is a quote with no blank to give: one too short to mask
+	// a phrase out of, one outside the Latin script clozeReadable gates on, or —
+	// since the blanks became a short quote's question — one too long, for a
+	// reader who keeps nothing but the blanks. For those there is honestly no
+	// question to ask, so the card sits out the round, and askableAlone keeps
+	// Home's count of what is left from waiting on it.
 	//
 	// ok=false is impossible for an unscored deck, because flip is always
 	// available there — which is why Practice can still show you everything.
@@ -3650,19 +3651,73 @@ func (s *Server) dailyRemaining(uid int64, offset int, pf prefs, answered int) (
 		return 0, nil
 	}
 	day, _, mod := reviewDay(offset)
+	on := parseReviewQuestions(pf.SRQuestions).forDeck(reviewDeckDaily)
+	clozeMax := parseReviewTuning(pf.SRTuning).ClozeMaxWords
+	tierSeed := tierDaySeed()
 	total := 0
 	for _, rs := range sourcesFor(scopeFlags(pf.SRReviewScope)) {
-		q := `SELECT COUNT(*) FROM ` + rs.from() + ` ` + rs.reviewJoin() + ` ` + rs.where() + `
+		// ROWS AND NOT A COUNT, because a due card the deck cannot ask is not
+		// remaining: it is never answered, so it would stay due and the count would
+		// never reach zero. See askableAlone.
+		q := `SELECT x.id, COALESCE(x.quote,''), COALESCE(x.note,'') FROM ` + rs.from() + ` ` + rs.reviewJoin() + ` ` + rs.where() + `
 		        AND (r.item_id IS NULL OR date(r.last_touched_at, ?) <> ?)
 		        AND ` + dueSQL + `
 		        AND COALESCE(julianday('now') - julianday(x.created_at), 1e9) >= ?`
-		var n int
-		if err := s.Store.DB.QueryRow(q, uid, mod, day, reviewNewItemDays).Scan(&n); err != nil {
+		rows, err := s.Store.DB.Query(q, uid, mod, day, reviewNewItemDays)
+		if err != nil {
 			return 0, err
 		}
-		total += n
+		for rows.Next() {
+			var id int64
+			var quote, note string
+			if err := rows.Scan(&id, &quote, &note); err != nil {
+				rows.Close()
+				return 0, err
+			}
+			if askableAlone(rs.kind, id, quote, note, on, clozeMax, pf.SRTier, tierSeed) {
+				total++
+			}
+		}
+		err = rows.Err()
+		rows.Close()
+		if err != nil {
+			return 0, err
+		}
 	}
 	return min(total, slots), nil
+}
+
+// askableAlone — can the daily deck ask this card anything, judged from the card
+// alone?
+//
+// A LONG QUOTE IN A BLANKS-ONLY REPERTOIRE CANNOT BE ASKED, and it is the case
+// this exists for: buildQuestion drops a card whose every direction failed out of
+// a scored deck, and a long quote's blanks are gone (tierDirectionsFor), so a
+// reader who keeps only the blanks has long quotes that are due every day and
+// never dealt. The same holds for a quote no blank can be cut from at all (too
+// few words, or a script clozeReadable does not read).
+//
+// THE OTHER DIRECTIONS ARE TAKEN AS ASKABLE, as they were before this existed:
+// they are built from the library around the card, and judging them here would
+// mean building the pools on every answer. Only the blanks are a fact about the
+// card's own words.
+func askableAlone(kind string, id int64, quote, note string, on map[string]bool, clozeMax float64, tier string, tierSeed int64) bool {
+	text := quote
+	if strings.TrimSpace(text) == "" {
+		text = note
+	}
+	at := tierForCard(tier, kind, id, tierSeed)
+	dirs := tierDirectionsFor(at, directionsForMode(kind, true, on), !clozeShortEnough(text, clozeMax))
+	if len(dirs) == 0 {
+		return false
+	}
+	for _, d := range dirs {
+		if d != dirCloze && d != dirClozeMCQ {
+			return true
+		}
+	}
+	_, _, ok := clozeSpan(text, kind, id, 1)
+	return ok
 }
 
 // statusCounts is the "where you stand" breakdown across the in-scope library.

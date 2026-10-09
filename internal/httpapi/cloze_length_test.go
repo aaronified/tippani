@@ -7,9 +7,10 @@ package httpapi
 // once the blank is gone, "Ask which work".
 //
 // SETUP KNOWS POST /books (title, author), POST /annotations (book_id, quote),
-// PUT /auth/me/preferences (srTier, srQuestions, srTuning) and GET /review/daily,
-// and reads each card's id, direction and quote — the fields every deck test in
-// this package reads. seedDistractorBook and ageSeededItems are review_test.go's.
+// PUT /auth/me/preferences (srTier, srQuestions, srTuning), GET /review/daily and
+// GET /review/scores, and reads each card's id, direction and quote and the
+// daily count of what is left — the fields every deck test in this package
+// reads. seedDistractorBook and ageSeededItems are review_test.go's.
 
 import (
 	"encoding/json"
@@ -183,5 +184,27 @@ func TestHardAsksWhoWroteALongQuoteBeforeWhichWork(t *testing.T) {
 	}
 	if asked < 12 {
 		t.Fatalf("only %d long-quote cards came up in six rounds, which measured almost nothing", asked)
+	}
+}
+
+// HOME'S COUNT OF WHAT IS LEFT MATCHES WHAT THE DECK CAN ASK. A reader who keeps
+// only the blanks has long quotes that no deck will deal; counting them as left
+// would leave the count, and the pending dot, never reaching zero.
+func TestTheDueCountLeavesOutALongQuoteNoBlankCanAsk(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	book := decode[bookDetail](t, c.mustDo("POST", "/books",
+		map[string]any{"title": "Middlemarch", "author": "George Eliot"}, http.StatusCreated))
+	for _, q := range []string{shortLine, longLine, longLine + " again", longLine + " once more"} {
+		c.mustDo("POST", "/annotations", map[string]any{"book_id": book.ID, "quote": q}, http.StatusCreated)
+	}
+	ageSeededItems(t, srv)
+	c.mustDo("PUT", "/auth/me/preferences", map[string]any{
+		"srTier": tierMedium, "srQuestions": `{"daily":["cloze","cloze-mcq"]}`}, http.StatusOK)
+
+	dealt := len(decode[reviewDeckResp](t, c.mustDo("GET", "/review/daily", nil, 200)).Items)
+	left := decode[scoresResp](t, c.mustDo("GET", "/review/scores", nil, 200)).Daily.Remaining
+	if dealt != 1 || left != dealt {
+		t.Errorf("the deck dealt %d and Home counts %d left, want 1 and 1", dealt, left)
 	}
 }
