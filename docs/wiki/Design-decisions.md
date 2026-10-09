@@ -3515,7 +3515,9 @@ of `clampTuning`: below six no quote could be blanked at all, so the setting cou
 the blanks off by itself. A longer quote is asked the other questions. On Hard, which gives
 up "which work?" and "which quote?", a long quote gets them back, after Hard's own "who?"
 questions, so a card whose "who?" cannot be built (too few people to choose from) is still
-asked rather than dropped from a scored deck (`tierDirectionsFor`).
+asked rather than dropped from a scored deck (`tierDirectionsFor`). A reader who keeps
+nothing but the blanks has long quotes no deck can ask, and Home's count of what is left
+leaves them out (`askableAlone`), or it would never reach zero.
 
 **Why.** In a one-liner every word carries the line, and recalling the missing word is
 recalling the quote. In a paragraph it is a guess at one word among sixty, and getting it
@@ -3547,7 +3549,10 @@ the work they were drawn from and, for an actor, the character they play there, 
 quote on every card that hid it, which is every direction but "which quote?" (whose
 prompt is the attribution) and the flip card (whose reveal is). The card's own characters are drawn there
 with their faces, on every direction, where they were a word in the line; a speech option
-carries the line's own speaker and its date in place of a year.
+carries the line's own speaker and its date in place of a year. The speaker comes off the
+line, never the work: speeches are pooled by their attribution, so two given on occasions
+of one name ("Inaugural address") share an entry, and the first version named whichever
+speaker that entry was read from under both lines.
 
 **Where there is no "who".** A work option ("which book?") and an author option ("who
 wrote this?") name no character: the option is a work, or the person who wrote a whole
@@ -3592,11 +3597,19 @@ inside a box that itself moves. The screen has one scroller, its body, and a hea
 stays put.
 
 **Closing is pausing.** A round closed part-way waits on Home and reopens at the card the
-reader had reached, never at a card already answered: a card answered and then closed
-before Next is skipped on reopening (the Daily quiz counts its answers, since it has no
-skip; Practice records the card after the last one answered). A round closed on its last
-answer, before Finish, is done. A Practice round kept across a reload comes back closed,
-behind Continue practice, rather than opening over Home by itself.
+reader had reached, never at a card already answered: QuizRunner reports every answer it
+keeps by its card's index (`onKept`), a typed one the server has not marked yet included,
+and both Home cards reopen past the furthest. A round closed on its last answer, before
+Finish, is done, and so is a kept Practice round whose last card was answered when the
+page is reloaded. A Practice round with cards left comes back closed, behind Continue
+practice, rather than opening over Home by itself. The first version counted grades
+instead of kept answers, so a typed blank still waiting for its mark did not count and its
+round reopened on the card after it; the rating pass found that and the reload case.
+
+**On a desk the card stops at the window.** Its body scrolls and its head stays, so a tall
+answer never carries the ✕ off the top. **On a phone the back key names where it returns:**
+Home for the Daily quiz and Practice, and for a themed round the screen it was started
+from (Stats, Categories, Library or Catalogue, a work, an anthology).
 
 **Approved.** The owner, 9 October: "the review / quiz should happen in a popup (a
 dedicated screen in phone) so that the user doesnt need to scroll up and down too much."
