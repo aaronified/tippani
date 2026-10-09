@@ -917,6 +917,11 @@ type optionMeta struct {
 	// a speech's speaker, a person the client draws from the People map.
 	Who     []characterImage `json:"who,omitempty"`
 	Speaker string           `json:"speaker,omitempty"`
+	// Date is a speech's own date, where a book or a film has a year: the
+	// occasion is the speech's work, and when it happened is the quote's, so it
+	// comes off the line rather than the work (formatPartialDate on the client).
+	Date      string `json:"date,omitempty"`
+	DateCirca bool   `json:"date_circa,omitempty"`
 	// What fillCharacterFaces looks Who up by. Unexported: the raw text is only
 	// a key for the batched lookup.
 	whoWork int64
@@ -924,10 +929,17 @@ type optionMeta struct {
 	whoText string
 }
 
-// reveal fills an option's line from the work it belongs to and the character
-// text of who says it. A speech has no creator and no year (its title is its
-// attribution, and its date is partial and lives on the quote); its speaker is
-// named unless the title already is them.
+// reveal fills an option's line from the work it belongs to and who says it:
+// for a book or a film the character text, for a speech its speaker. A speech
+// has no creator and no year (its title is its attribution, and its date is
+// partial and lives on the quote); its speaker is named unless the title
+// already is them.
+//
+// A SPEECH'S SPEAKER COMES OFF THE LINE, not the work. Two speeches given on
+// occasions of one name ("Inaugural address") share a pool entry, keyed by the
+// attribution, and that entry's `author` is whichever speaker was read first —
+// so the work's speaker named Lincoln under Kennedy's line. The work's is the
+// fallback for a caller with no line in hand.
 func (o *optionMeta) reveal(w workRef, who string) {
 	o.Year, o.YearCirca = w.year, w.circa
 	switch w.kind {
@@ -936,7 +948,11 @@ func (o *optionMeta) reveal(w workRef, who string) {
 	case kindScreen:
 		o.Creator = w.director
 	case kindUtterance:
-		if a := strings.TrimSpace(w.author); a != "" && !strings.EqualFold(a, strings.TrimSpace(w.title)) {
+		a := strings.TrimSpace(who)
+		if a == "" {
+			a = strings.TrimSpace(w.author)
+		}
+		if a != "" && !strings.EqualFold(a, strings.TrimSpace(w.title)) {
 			o.Speaker = a
 		}
 		return
@@ -963,6 +979,15 @@ func ownWork(card *reviewCard, ownKey string, p quizPools) workRef {
 		w.author = card.Speaker
 	}
 	return w
+}
+
+// ownWho is who says the card's own line, in reveal's terms: the speaker of a
+// speech, the character text of anything else.
+func ownWho(card *reviewCard) string {
+	if card.Kind == kindUtterance {
+		return card.Speaker
+	}
+	return card.Character
 }
 
 // reviewCand wraps a card with the transient facts used to order it and build
@@ -1615,9 +1640,13 @@ type quoteRef struct {
 	// options were still read, and reading them counts as seeing them.
 	kind string
 	id   int64
-	// who is the line's own character text, the "who says it" of the reveal.
-	// Empty for a speech, whose speaker is its work's `author`.
+	// who is the line's own "who says it", for the reveal: the character text of
+	// a book or film line, the speaker of a speech (see reveal for why a speech's
+	// comes off the line rather than the work).
 	who string
+	// date / dateCirca are a speech's own occasion date; empty for anything else.
+	date      string
+	dateCirca bool
 }
 
 // quizPools holds a round's distractor material: every in-scope work (for
@@ -1860,15 +1889,17 @@ func (s *Server) quizPools(uid int64, sc reviewScope, seed int64) (quizPools, er
 		// this would make an essay reviewable and then never offer it as anybody's
 		// distractor, so the two are kept in step by hand until the pool is moved
 		// onto `reviewSource`.
-		if err := scan(`SELECT id, COALESCE(quote,''), COALESCE(note,''), COALESCE(speaker,''), COALESCE(occasion,''), COALESCE(work_title,'')
+		if err := scan(`SELECT id, COALESCE(quote,''), COALESCE(note,''), COALESCE(speaker,''), COALESCE(occasion,''), COALESCE(work_title,''),
+		                       COALESCE(occasion_date,''), occasion_circa
 		                FROM utterances
 		                WHERE user_id = ? AND (COALESCE(quote,'') <> '' OR COALESCE(note,'') <> '')
 		                  AND (COALESCE(occasion,'') <> '' OR COALESCE(work_title,'') <> '' OR COALESCE(speaker,'') <> '')
 		                `+uttOrder,
 			func(rows *sql.Rows) error {
 				var id int64
-				var quote, note, speaker, occasion, workTitle string
-				if err := rows.Scan(&id, &quote, &note, &speaker, &occasion, &workTitle); err != nil {
+				var quote, note, speaker, occasion, workTitle, date string
+				var circa bool
+				if err := rows.Scan(&id, &quote, &note, &speaker, &occasion, &workTitle, &date, &circa); err != nil {
 					olog.Warnf(olog.CodeReviewRowScan, "[review] utterance pool row scan failed: %v", err)
 					return nil
 				}
@@ -1883,7 +1914,8 @@ func (s *Server) quizPools(uid int64, sc reviewScope, seed int64) (quizPools, er
 				if text == "" {
 					text = note
 				}
-				p.quotes = append(p.quotes, quoteRef{work: w, text: text, kind: kindUtterance, id: id})
+				p.quotes = append(p.quotes, quoteRef{work: w, text: text, kind: kindUtterance, id: id,
+					who: speaker, date: date, dateCirca: circa})
 				return nil
 			}, uttArgs...); err != nil {
 			return p, err
@@ -2470,7 +2502,8 @@ func attachMCQ(card *reviewCard, ownKey string, p quizPools, seed int64, tier st
 	// The answer's own ref. `own` can be the zero workRef when the card's work
 	// missed the pool sample, so the title falls back to the card's own — the
 	// same fallback the source branch above makes for the same reason.
-	mine := quoteRef{work: own, text: correct, kind: card.Kind, id: card.ID, who: card.Character}
+	mine := quoteRef{work: own, text: correct, kind: card.Kind, id: card.ID, who: ownWho(card),
+		date: card.OccasionDate, dateCirca: card.OccasionCirca}
 	if mine.work.title == "" {
 		mine.work = ownWork(card, ownKey, p)
 	}
@@ -2491,6 +2524,7 @@ func attachMCQ(card *reviewCard, ownKey string, p quizPools, seed int64, tier st
 			Source: o.work.title, Art: o.work.art, ItemKind: o.kind, ItemID: o.id,
 		}
 		card.OptionMeta[i].reveal(o.work, o.who)
+		card.OptionMeta[i].Date, card.OptionMeta[i].DateCirca = o.date, o.dateCirca
 	}
 	card.Answer = ans
 	return true
@@ -2651,12 +2685,13 @@ func attachClozeMCQ(card *reviewCard, ownKey string, p quizPools, seed int64, mu
 	card.OptionMeta = make([]optionMeta, len(opts))
 	for i, o := range opts {
 		if i == ans {
-			card.OptionMeta[i] = optionMeta{Source: mine.title, Art: mine.art}
-			card.OptionMeta[i].reveal(mine, card.Character)
+			card.OptionMeta[i] = optionMeta{Source: mine.title, Art: mine.art,
+				Date: card.OccasionDate, DateCirca: card.OccasionCirca}
+			card.OptionMeta[i].reveal(mine, ownWho(card))
 			continue
 		}
 		if q, ok := from[o]; ok {
-			card.OptionMeta[i] = optionMeta{Source: q.work.title, Art: q.work.art}
+			card.OptionMeta[i] = optionMeta{Source: q.work.title, Art: q.work.art, Date: q.date, DateCirca: q.dateCirca}
 			card.OptionMeta[i].reveal(q.work, q.who)
 		}
 	}

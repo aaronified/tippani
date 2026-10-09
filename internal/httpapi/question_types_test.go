@@ -287,3 +287,74 @@ func TestQuoteOptionsCarryTheirSource(t *testing.T) {
 		t.Errorf("the answer names the wrong source: %+v", got)
 	}
 }
+
+// ---- a speech's reveal names its own speaker --------------------------------
+
+// TWO SPEECHES GIVEN ON OCCASIONS OF ONE NAME share a pool entry, keyed by the
+// attribution, and the entry's speaker is whichever line was read first. Here
+// that is Lincoln, and the line in the sample is Kennedy's: the reveal names the
+// speaker of the LINE, and its date. Built by hand because which of two lines a
+// real pool reads first follows the day's seed.
+func inauguralPools() (quizPools, workRef) {
+	shared := workRef{key: "utterance:inaugural address", kind: kindUtterance,
+		title: "Inaugural address", author: "Abraham Lincoln"}
+	tagore := workRef{key: "utterance:santiniketan address", kind: kindUtterance,
+		title: "Santiniketan address", author: "Rabindranath Tagore"}
+	churchill := workRef{key: "utterance:their finest hour", kind: kindUtterance,
+		title: "Their finest hour", author: "Winston Churchill"}
+	p := quizPools{byKey: map[string]workRef{}, works: []workRef{shared, tagore, churchill}}
+	for _, w := range p.works {
+		p.byKey[w.key] = w
+	}
+	p.quotes = []quoteRef{
+		{work: shared, kind: kindUtterance, id: 2, who: "John F. Kennedy", date: "1961-01-20",
+			text: "Ask not what your country can do for you; ask what you can do for your country."},
+		{work: churchill, kind: kindUtterance, id: 3, who: "Winston Churchill", date: "1940-06-18",
+			text: "This was their finest hour, and the battle of Britain is about to begin."},
+		{work: tagore, kind: kindUtterance, id: 4, who: "Rabindranath Tagore",
+			text: "Where the mind is without fear and the head is held high."},
+	}
+	return p, shared
+}
+
+func TestASpeechOptionNamesItsOwnSpeaker(t *testing.T) {
+	p, shared := inauguralPools()
+
+	// "Who said this?" over Kennedy's line: the right option is Kennedy, and
+	// nobody else is named under him.
+	who := reviewCard{Kind: kindUtterance, ID: 2, Direction: dirSpeaker, Title: "Inaugural address",
+		Speaker: "John F. Kennedy", OccasionDate: "1961-01-20",
+		Quote: "Ask not what your country can do for you; ask what you can do for your country."}
+	if !attachSpeaker(&who, shared.key, p, 5, tierMedium) {
+		t.Fatal("three speakers could not be asked who gave one of the speeches")
+	}
+	if got := who.OptionMeta[who.Answer]; got.Speaker != "" || got.Source != "Inaugural address" {
+		t.Errorf("the answer, Kennedy, is revealed as speaker %q of %q", got.Speaker, got.Source)
+	}
+	for i, om := range who.OptionMeta {
+		if om.Speaker != "" {
+			t.Errorf("option %q names a speaker under itself: %q", who.Options[i], om.Speaker)
+		}
+	}
+
+	// "Which quote is from this occasion?" over Tagore's: Kennedy's line among the
+	// options says Kennedy, and when.
+	which := reviewCard{Kind: kindUtterance, ID: 4, Direction: dirQuote, Title: "Santiniketan address",
+		Speaker: "Rabindranath Tagore", Quote: "Where the mind is without fear and the head is held high."}
+	if !attachMCQ(&which, "utterance:santiniketan address", p, 13, tierMedium, authorLureAllowed(0)) {
+		t.Fatal("no quote card from three speeches")
+	}
+	seen := false
+	for i, opt := range which.Options {
+		if !strings.HasPrefix(opt, "Ask not") {
+			continue
+		}
+		seen = true
+		if om := which.OptionMeta[i]; om.Speaker != "John F. Kennedy" || om.Date != "1961-01-20" {
+			t.Errorf("Kennedy's line is revealed as %q on %q", om.Speaker, om.Date)
+		}
+	}
+	if !seen {
+		t.Fatalf("Kennedy's line was not among the options: %v", which.Options)
+	}
+}

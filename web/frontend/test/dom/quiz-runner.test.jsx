@@ -765,7 +765,7 @@ describe('what every option says once it is answered', () => {
     option_meta: [
       { source: 'Persuasion', creator: 'Austen', year: 1817, who: [{ name: 'Anne Elliot' }] },
       { source: 'Emma', creator: 'Jane Austen', year: 1815, year_circa: true, who: [{ name: 'Knightley' }] },
-      { source: 'At Gettysburg', speaker: 'Abraham Lincoln' },
+      { source: 'At Gettysburg', speaker: 'Abraham Lincoln', date: '1863' },
     ],
     answer: 0,
   })
@@ -793,8 +793,8 @@ describe('what every option says once it is answered', () => {
     expect(screen.getByText('from Emma · Jane Austen · c. 1815')).toBeTruthy()
     expect(screen.getByText('Knightley')).toBeTruthy()
     expect(screen.getByText('Anne Elliot')).toBeTruthy()
-    // A speech has no writer and no year of its own; its speaker is the who.
-    expect(screen.getByText('from At Gettysburg')).toBeTruthy()
+    // A speech has no writer; its date is the line's, and its speaker is the who.
+    expect(screen.getByText('from At Gettysburg · 1863')).toBeTruthy()
     expect(screen.getByText('Abraham Lincoln')).toBeTruthy()
   })
 

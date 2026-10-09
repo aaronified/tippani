@@ -323,7 +323,8 @@ function QuizOption({ opt, om, personMaps, isWork, revealed, disabled, onPick, s
 // work, so the server resolves the pair.
 function OptionReveal({ om, isWork, personMaps }) {
   if (!om) return null
-  const year = om.year ? formatYear(om.year, om.year_circa) : ''
+  // A speech has no year of its own work; its date is the line's, and partial.
+  const year = om.year ? formatYear(om.year, om.year_circa) : om.date ? formatPartialDate(om.date, om.date_circa) : ''
   // A work option's title and cover are the option itself; what it lacked was the
   // rest of the line. "from" wraps the title alone, so a language that puts the
   // word after it (bn: "{title} থেকে") does not put it after the year.

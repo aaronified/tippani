@@ -250,12 +250,10 @@ func attachSpeaker(card *reviewCard, ownKey string, p quizPools, seed int64, tie
 	if !c.enough() {
 		c.addWiderPool(p, ownKey, rng)
 	}
-	// The answer's own origin is the card: its work, and the character the line
-	// is spoken by — which, for an actor, is the part they play.
-	own := personOrigin{work: ownWork(card, ownKey, p)}
-	if card.Kind == kindScreen {
-		own.who = card.Character
-	}
+	// The answer's own origin is the card: its work, and who says the line —
+	// for an actor the part they play, for a speech its speaker, who is this
+	// option and so goes unsaid.
+	own := personOrigin{work: ownWork(card, ownKey, p), who: ownWho(card)}
 	return personChoices(card, answer, c, own, kind, rng, tier)
 }
 
