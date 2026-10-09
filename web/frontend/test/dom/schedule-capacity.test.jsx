@@ -115,6 +115,9 @@ const mount = async () => {
 
 const note = () => document.querySelector('[data-outgrown]')
 
+// The round opens in its own screen, from the card on Home.
+const startRound = async () => fireEvent.click(await screen.findByRole('button', { name: 'Start' }))
+
 describe('when the library outgrows the schedule', () => {
   it('says nothing at all while the schedule can keep up', async () => {
     DAILY = deck(2920, 2920)
@@ -146,6 +149,7 @@ describe('when the library outgrows the schedule', () => {
     ANSWER = { ok: true, stability: 30, status: 'remembered', capacity: 2920, states: statesOf(4000) }
     await mount()
     await waitFor(() => expect(note()).toBeTruthy())
+    await startRound()
     await act(async () => { fireEvent.click(screen.getByText('Emma')) })
     await waitFor(() => expect(screen.getByText(/not quite/i)).toBeTruthy())
     expect(note(), 'the note went away on the first graded card').toBeTruthy()
@@ -161,6 +165,7 @@ describe('when the library outgrows the schedule', () => {
     ANSWER = { ok: true, stability: 30, status: 'remembered', states: statesOf(4000) }
     await mount()
     await waitFor(() => expect(note()).toBeTruthy())
+    await startRound()
     await act(async () => { fireEvent.click(screen.getByText('Emma')) })
     await waitFor(() => expect(screen.getByText(/not quite/i)).toBeTruthy())
     expect(note(), 'a response without the capacity cleared one the screen already knew').toBeTruthy()

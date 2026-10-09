@@ -6448,7 +6448,11 @@ export const backdropClose = (onClose, when = true) => (e) => {
 // It is a prop rather than something read from the form host, because only the caller
 // knows the WORD — "New anthology" is what the reader is going back to, and a back key
 // that says nothing is a guess about where it lands.
-export function FormModal({ open = true, onClose, title, maxWidth = 560, saveTip, dirty, closeDanger = false, backTo = null, children }) {
+// `screen` IS FOR SOMETHING YOU DO RATHER THAN SOMETHING YOU FILL IN: a quiz
+// round. On a desk it is the same centred card; on a phone it is the whole screen,
+// with a back key where a page has one, and no drag and no strip of page above —
+// see `.tp-screen`.
+export function FormModal({ open = true, onClose, title, maxWidth = 560, saveTip, dirty, closeDanger = false, backTo = null, screen = false, children }) {
   const mobile = useIsMobileScreen();
   // A FORM OPENED FROM INSIDE A PANEL DOES NOT ESCALATE TO A SCREEN.
   //
@@ -6474,7 +6478,8 @@ export function FormModal({ open = true, onClose, title, maxWidth = 560, saveTip
   // THE PANEL LENDS ITS BOX to anything opened from inside it — see
   // PanelSurfaceContext for the report and the pack's own answer.
   const surface = useContext(PanelSurfaceContext);
-  const sheet = mobile && !surface;
+  const page = mobile && screen && !surface;
+  const sheet = mobile && !surface && !screen;
   useBodyScrollLock(open);
   // Desktop only: the sheet branch below renders MobileSheet, which takes the
   // Back entry for itself. Two markers for one dialog is two presses to close it.
@@ -6538,6 +6543,39 @@ export function FormModal({ open = true, onClose, title, maxWidth = 560, saveTip
       surface.node,
     );
   }
+  // A SCREEN OF ITS OWN ON A PHONE. The owner, 9 October: "the review / quiz
+  // should happen in a popup (a dedicated screen in phone) so that the user
+  // doesnt need to scroll up and down too much." A sheet is the wrong shape for
+  // that: it stops short of the top, it drags, and a card taller than its anchor
+  // is scrolled inside a box that is itself moving. So the page takes the whole
+  // glass, its body is the one thing that scrolls, and the head's back key — and
+  // the device's Back, through useBackToClose above — returns to where the round
+  // was started. The key names that place when the caller does (`backTo`).
+  if (page) {
+    return createPortal(
+      <div className="tp-screen" role="dialog" aria-modal="true" aria-label={ariaLabelText(title)}>
+        <div className="tp-panel-head">
+          <div className="tp-panel-slot">
+            <button
+              type="button"
+              className="tp-panel-back tactile"
+              aria-label={backTo ? t("common.panel.back.aria", { title: backTo }) : t("common.action.back.label")}
+              onClick={onClose}
+            >
+              <IconBack />
+              {backTo && <span className="tp-panel-back-word">{backTo}</span>}
+            </button>
+          </div>
+          <h2 className="tp-panel-title">{title}</h2>
+          <div className="tp-panel-slot tp-panel-slot-r">{save}</div>
+        </div>
+        <Scroller axis="v" className="tp-screen-body">
+          <FormHostContext.Provider value={host}>{children}</FormHostContext.Provider>
+        </Scroller>
+      </div>,
+      document.body,
+    );
+  }
   // THE PHONE'S OWN BACK ARROW, for the same reason as the desktop key: a sheet
   // opened from inside another surface steps back to it rather than dismissing the
   // pair. MobileSheet draws one when given the verb, and its own useBackToClose then
@@ -6564,7 +6602,9 @@ export function FormModal({ open = true, onClose, title, maxWidth = 560, saveTip
         style={{ maxWidth, padding: "20px" }}
       >
         <div className="mb-3 flex items-center gap-2">
-          {backTo && (
+          {/* A SCREEN'S `backTo` IS THE PHONE'S: on a desk the round is a popup
+              over the page it was started from, and its way out is the ✕. */}
+          {backTo && !screen && (
             <button
               type="button"
               className="tp-panel-back tactile shrink-0"
@@ -6579,7 +6619,7 @@ export function FormModal({ open = true, onClose, title, maxWidth = 560, saveTip
             {title}
           </h2>
           {save}
-          {!backTo && (
+          {(!backTo || screen) && (
             <IconButton
               icon={<IconClose />}
               ariaLabel={t("common.action.close.label")}

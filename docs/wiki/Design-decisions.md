@@ -3568,6 +3568,36 @@ cover, title, creator, year" and "Who: speaker or character". Asked who the peer
 
 <sub>v3.2.0 — `internal/httpapi/review_handlers.go` · `internal/httpapi/speaker.go` · `internal/httpapi/answer_reveal_test.go` · `web/frontend/src/review.jsx` · `web/frontend/test/dom/quiz-runner.test.jsx`</sub>
 
+### A quiz round runs in its own screen, and Home's cards open it
+
+**Decided.** The Daily quiz and Practice cards on Home no longer hold the round. Each says
+what is waiting (the Daily card how many cards are due, Practice its score or a round left
+open) and has the press that opens it: Start, then Continue once some of the round has
+been answered, and Start practice, then Continue practice. The round runs in
+`FormModal`'s new `screen` mode, a centred popup on a desk and the whole screen on a phone,
+whose head carries a back key naming Home; the phone's Back closes it too. Themed practice
+uses the same mode, so a round looks the same wherever it was started.
+
+**Why a screen and not the sheet.** The phone's other popups are bottom sheets that stop
+at 94% of the height and drag between anchors. A round is something the reader does for
+several minutes, and a quiz card can be taller than any anchor, so the card would scroll
+inside a box that itself moves. The screen has one scroller, its body, and a head that
+stays put.
+
+**Closing is pausing.** A round closed part-way waits on Home and reopens at the card the
+reader had reached, never at a card already answered: a card answered and then closed
+before Next is skipped on reopening (the Daily quiz counts its answers, since it has no
+skip; Practice records the card after the last one answered). A round closed on its last
+answer, before Finish, is done. A Practice round kept across a reload comes back closed,
+behind Continue practice, rather than opening over Home by itself.
+
+**Approved.** The owner, 9 October: "the review / quiz should happen in a popup (a
+dedicated screen in phone) so that the user doesnt need to scroll up and down too much."
+The plan (launchers on Home, a centred popup on a desk, a full screen on a phone, Back
+closes it, themed practice the same) was put to the owner the same day.
+
+<sub>v3.2.0 — `web/frontend/src/ui.jsx` · `web/frontend/src/Home.jsx` · `web/frontend/src/review.jsx` · `web/frontend/src/index.css` · `web/frontend/test/dom/daily-quiz-in-its-own-screen.test.jsx` · `web/frontend/test/journeys/a-round-takes-the-phone-screen.journey.mjs`</sub>
+
 ### The built-in TMDB credential is injected at build time, and is a read token
 
 **Decided.** `defaultTMDBKey` becomes a `var` filled by `-ldflags -X main.defaultTMDBKey=…` from a CI secret, empty in the source and empty in any locally built binary. The credential shipped is a **v4 read access token**, not a v3 API key. Resolution order is unchanged: a key saved in Settings > the built-in > none.

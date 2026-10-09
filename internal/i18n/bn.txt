@@ -3219,6 +3219,13 @@ home.daily.done.label = আজকের মতো শেষ ✓
 home.daily.done.summary = {got} মনে ছিল · {missed} আবার ফিরবে · কাল আবার
 home.daily.empty.label = আজ কিছু বাকি নেই
 home.daily.empty.summary = আরও উদ্ধৃতি জমান বা ঝালিয়ে নিন — দিনপঞ্জি তৈরি হবে
+# THE DECK BEFORE IT IS OPENED. The round runs in its own screen (a popup on a
+# desk, the whole screen on a phone); the card on Home says how many are due and
+# opens it. "Continue" once some of today's cards have been answered here.
+home.daily.due.label.one = আজ {n}টি কার্ড বাকি
+home.daily.due.label.other = আজ {n}টি কার্ড বাকি
+home.daily.start.label = শুরু করুন
+home.daily.resume.label = চালিয়ে যান
 
 # "WHERE YOU STAND" — a count per memory status, with the explainer under it.
 home.states.title = স্মৃতির হাল
@@ -3248,6 +3255,8 @@ home.practice.info.body = পুরো সংগ্রহ থেকে যত �
 home.practice.unlimited.label = যত খুশি
 home.practice.start.label = ঝালাই শুরু করুন
 home.practice.start.busy = লোড হচ্ছে…
+# A round left open on Home, reopened in its own screen where it stopped.
+home.practice.resume.label = ঝালাই চালিয়ে যান
 # The lifetime practice score. {n} answered, {percent} of them recalled.
 home.practice.score.label = {n}টা উত্তর · {percent}% মনে ছিল
 home.practice.reset.aria = ঝালাইয়ের স্কোর মুছুন

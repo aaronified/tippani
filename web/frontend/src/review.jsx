@@ -1385,7 +1385,9 @@ export function ThemedPracticeDialog({ theme, onClose }) {
 
   const empty = cards != null && cards.length === 0
   return (
-    <FormModal open onClose={onClose} title={theme?.label || t('quiz.practice.label')} maxWidth={560}>
+    // THE SAME SCREEN AS HOME'S ROUNDS: a round is a round wherever it was
+    // started from, and on a phone it takes the glass.
+    <FormModal open screen onClose={onClose} title={theme?.label || t('quiz.practice.label')} maxWidth={560}>
       <div className="review-card-body">
         {cards == null && <MonoLabel style={{ color: 'var(--faint)' }}>{t('common.action.load.busy')}</MonoLabel>}
         {/* NOT AN ERROR, and worth the sentence. A theme with nothing behind it

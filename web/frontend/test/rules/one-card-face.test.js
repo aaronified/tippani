@@ -25,6 +25,7 @@ const ALLOWED = [
   /\.tp-panel\b/, // a side panel: a surface over the page, not a card on it
   /\.tp-subsheet\b/, // a panel's child sheet, the same surface one step in
   /\.mobile-sheet-card\b/, // the phone's bottom sheet
+  /\.tp-screen\b/, // the phone's full-screen round (FormModal's `screen`): the sheet's paper, over the whole glass
   /\.film-frame\b/, // the film strip around sign-in and onboarding: it takes the material in .hand-card's own ::before rule
   // A STATE, NOT AN ELEMENT: the console toolbar and the section rail become a card
   // only while stuck, and .hand-card's position and border would fight their sticky

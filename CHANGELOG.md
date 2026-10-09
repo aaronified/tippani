@@ -36,6 +36,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   between. A reader who has switched on only the two blank questions keeps that choice:
   their longer quotes sit out the daily quiz, as quotes under six words already did, and
   come up as flip cards in Practice while "Practice counts" is off.
+- **The daily quiz and Practice now run in a screen of their own, where they used to run
+  inside their cards on Home.** The Daily quiz card says how many cards are due today,
+  with a Start button that reads Continue once some have been answered. The Practice card
+  offers Start practice, and a round left open shows Continue practice beside End
+  practice. A round opens as a centred popup on a desktop and as a full screen on a
+  phone, so the page behind it no longer needs scrolling up and down. On a phone the top
+  carries a back key naming Home, and the phone's own Back closes the round too; on a
+  desktop the ✕ does. Practice started from a book, tag, person or any other list opens
+  the same way. Closing a round part-way keeps it: reopening lands on the card you had
+  reached, and a card you already answered is never asked again. Closing on the last
+  answer, before Finish, ends the round. A Practice round kept over a reload comes back
+  behind Continue practice instead of opening over Home by itself.
 
 ## [3.1.5] - 2026-10-03
 

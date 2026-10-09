@@ -184,6 +184,17 @@ function DailyQuizCard({ onPending, states, capacity, onStates, adaptive, submit
   // streak counts today from the first of them, as the server will.
   const [answeredToday, setAnsweredToday] = useState(0)
   const [help, setHelp] = useState(false)
+  // THE ROUND RUNS IN ITS OWN SCREEN — the owner's, 9 October: "the review /
+  // quiz should happen in a popup (a dedicated screen in phone) so that the user
+  // doesnt need to scroll up and down too much." This card is the launcher: what
+  // is due, and the press that opens it.
+  const [open, setOpen] = useState(false)
+  // Where the round is: the card on screen (`pos`, from each advance) and how
+  // many were answered here (`given`). A closed round reopens at the later of
+  // the two, so a card answered and then closed before Next is not asked again —
+  // the Daily quiz has no skip, so the count IS the next card's index.
+  const [pos, setPos] = useState(0)
+  const [given, setGiven] = useState(0)
 
   useEffect(() => {
     dailyDeck(tzOffsetMinutes()).then((r) => {
@@ -236,6 +247,7 @@ function DailyQuizCard({ onPending, states, capacity, onStates, adaptive, submit
   // Counted as the answer is kept: the server's own counts arrive as it takes
   // each one (Home listens to the queue for them).
   function onAnswered(result) {
+    setGiven((n) => n + 1)
     setTally((prev) => ({
       got: prev.got + (result === 'got' ? 1 : 0),
       forgot: prev.forgot + (result === 'forgot' ? 1 : 0),
@@ -248,6 +260,16 @@ function DailyQuizCard({ onPending, states, capacity, onStates, adaptive, submit
   // "all caught up" and 55 after a refresh, the owner's screenshots. A day the
   // server already counted adds nothing.
   const streak = (data?.streak || 0) + (data && !data.answered_today && answeredToday > 0 ? 1 : 0)
+  const total = data?.items?.length || 0
+  const next = Math.max(pos, given)
+  const left = Math.max(0, total - next)
+  // Closed part-way, the deck waits here; closed on its last answer, before
+  // Finish, the day is done all the same.
+  function close() {
+    setOpen(false)
+    onPending(left)
+    if (left === 0) setPhase('done')
+  }
   return (
     <HandCard variant={0} style={{ padding: '16px 18px 14px' }}>
       <div className="mb-2.5 flex items-baseline justify-between gap-3">
@@ -266,15 +288,26 @@ function DailyQuizCard({ onPending, states, capacity, onStates, adaptive, submit
       ) : phase === 'loading' ? (
         <p className="microcopy py-6 text-center">{t('home.daily.loading')}</p>
       ) : phase === 'active' ? (
-        <QuizRunner
-          mode="daily"
-          cards={data.items}
-          allowSkip={false}
-          submitStep={submitStep}
-          onAnswered={onAnswered}
-          onIndex={(i) => onPending(Math.max(0, data.items.length - i))}
-          onDone={() => { onPending(0); setPhase('done') }}
-        />
+        <div className="review-card-body flex flex-wrap items-center gap-3">
+          <button type="button" className="tp-btn tp-btn-primary tactile" onClick={() => setOpen(true)}>
+            {t(given > 0 ? 'home.daily.resume.label' : 'home.daily.start.label')}
+          </button>
+          <MonoLabel style={{ fontSize: 'var(--type-ui-11)' }}>{t('home.daily.due.label', { n: left, count: left })}</MonoLabel>
+          {open && (
+            <FormModal screen onClose={close} title={t('home.daily.title')} backTo={t('nav.tab.home.label')} maxWidth={640}>
+              <QuizRunner
+                mode="daily"
+                cards={data.items}
+                allowSkip={false}
+                submitStep={submitStep}
+                startIndex={Math.min(next, total - 1)}
+                onAnswered={onAnswered}
+                onIndex={(i) => { setPos(i); onPending(Math.max(0, total - i)) }}
+                onDone={() => { setOpen(false); onPending(0); setPhase('done') }}
+              />
+            </FormModal>
+          )}
+        </div>
       ) : (
         <div className="review-card-body py-4 text-center" style={{ padding: '18px 6px 12px' }}>
           <p
@@ -365,7 +398,13 @@ function PracticeCard({ onStates, userId, submitStep }) {
   const [score, setScore] = useState(null) // lifetime practice score
   const [lastRound, setLastRound] = useState({ got: 0, forgot: 0 }) // the finished round's tally, for the done screen
   const [busy, setBusy] = useState(false)
+  // The round's own screen — see DailyQuizCard. A persisted round comes back
+  // closed, behind a Continue, rather than opening over Home on a reload.
+  const [open, setOpen] = useState(false)
   const cards = session?.cards || []
+  // The next card to show: past the one on screen once it has been answered, so
+  // a round closed before Next does not ask that card again.
+  const next = Math.max(session?.i || 0, session?.next || 0)
 
   function loadScore() {
     json('GET', `/review/scores?offset=${tzOffsetMinutes()}`).then((r) => {
@@ -382,11 +421,13 @@ function PracticeCard({ onStates, userId, submitStep }) {
     if (!items.length) return toast(t('error.load.practice'))
     setSession({ cards: items, i: 0, got: 0, forgot: 0 })
     setPhase('active')
+    setOpen(true)
   }
 
   // finishRound ends the current round (naturally or via End practice): stash
   // its tally for the done screen, drop the persisted deck, refresh the score.
   function finishRound() {
+    setOpen(false)
     setLastRound({ got: session?.got || 0, forgot: session?.forgot || 0 })
     loadScore()
     setSession(null)
@@ -399,6 +440,7 @@ function PracticeCard({ onStates, userId, submitStep }) {
     // (Home listens to the queue for them).
     setSession((s) => (s ? {
       ...s,
+      next: (s.i || 0) + 1,
       got: s.got + (result === 'got' ? 1 : 0),
       forgot: s.forgot + (result === 'forgot' ? 1 : 0),
     } : s))
@@ -462,21 +504,42 @@ function PracticeCard({ onStates, userId, submitStep }) {
       )}
 
       {phase === 'active' && cards.length > 0 && (
-        <>
-          <QuizRunner
-            mode="practice"
-            cards={cards}
-            allowSkip
-            submitStep={submitStep}
-            startIndex={Math.min(session?.i || 0, cards.length - 1)}
-            onIndex={(i) => setSession((s) => (s ? { ...s, i } : s))}
-            onAnswered={onAnswered}
-            onDone={finishRound}
-          />
-          <div className="mt-2 text-right">
-            <button type="button" className="tp-link" onClick={finishRound}>{t('home.practice.end.label')}</button>
-          </div>
-        </>
+        <div className="review-card-body flex flex-wrap items-center gap-3">
+          {/* Reopened where it stopped, and the session says so: the next answer
+              is counted against the card now on screen. */}
+          <button
+            type="button"
+            className="tp-btn tp-btn-primary tactile"
+            onClick={() => { setSession((s) => (s ? { ...s, i: next } : s)); setOpen(true) }}
+          >
+            {t('home.practice.resume.label')}
+          </button>
+          <button type="button" className="tp-link" onClick={finishRound}>{t('home.practice.end.label')}</button>
+          {open && (
+            <FormModal
+              screen
+              // Closed on its last answer, before Finish, the round is over.
+              onClose={() => (next >= cards.length ? finishRound() : setOpen(false))}
+              title={t('home.practice.title')}
+              backTo={t('nav.tab.home.label')}
+              maxWidth={640}
+            >
+              <QuizRunner
+                mode="practice"
+                cards={cards}
+                allowSkip
+                submitStep={submitStep}
+                startIndex={Math.min(next, cards.length - 1)}
+                onIndex={(i) => setSession((s) => (s ? { ...s, i } : s))}
+                onAnswered={onAnswered}
+                onDone={finishRound}
+              />
+              <div className="mt-2 text-right">
+                <button type="button" className="tp-link" onClick={finishRound}>{t('home.practice.end.label')}</button>
+              </div>
+            </FormModal>
+          )}
+        </div>
       )}
 
       {phase === 'done' && (

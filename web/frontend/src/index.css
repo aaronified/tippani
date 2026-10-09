@@ -1368,6 +1368,27 @@
     overflow: hidden;
     background: linear-gradient(180deg, color-mix(in srgb, var(--card), white 6%), color-mix(in srgb, var(--card), black 4%));
   }
+  /* A ROUND IS A SCREEN ON A PHONE (FormModal's `screen`). The whole glass, the
+     sheet's own ground, the panel's own head — and no drag, no anchors and no
+     strip of page above, because the round is the thing being done rather than
+     a question asked over something else. The body is the only scroller, so a
+     card taller than the phone scrolls in one place and the head stays put. */
+  .tp-screen {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    padding-top: env(safe-area-inset-top);
+    background: linear-gradient(180deg, color-mix(in srgb, var(--card), white 6%), color-mix(in srgb, var(--card), black 4%));
+  }
+  .tp-screen-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: var(--row) var(--edge) calc(var(--row) * 2 + env(safe-area-inset-bottom));
+  }
   .tp-panel-body {
     flex: 1;
     min-height: 0;

@@ -120,6 +120,9 @@ const mount = async () => {
   await act(async () => {})
 }
 
+// The round opens in its own screen, from the card on Home.
+const startRound = async () => fireEvent.click(await screen.findByRole('button', { name: /^(Start|Continue)$/ }))
+
 // The page goes away and comes back; the server still has not heard.
 const refresh = async () => {
   cleanup()
@@ -133,6 +136,7 @@ const count = (word) => Number((text().match(new RegExp(`(\\d+)\\s*${word}`, 'i'
 describe('the Daily quiz with an answer the server has not taken', () => {
   it('leaves the card out after a refresh, and counts it in the streak and where you stand', async () => {
     await mount()
+    await startRound()
     await screen.findByText('1 of 3')
     fireEvent.click(screen.getByRole('button', { name: /Persuasion/ }))
     // Moved on at once: Next is there with nothing about sending beside it.
@@ -140,6 +144,7 @@ describe('the Daily quiz with an answer the server has not taken', () => {
     expect(text()).not.toMatch(/saving|couldn/i)
 
     await refresh()
+    await startRound()
     await screen.findByText('1 of 2')
     expect(screen.queryByRole('button', { name: /Persuasion/ }), 'the answered card came back').toBeNull()
     expect(text()).toMatch(/3-day streak/)
@@ -150,6 +155,7 @@ describe('the Daily quiz with an answer the server has not taken', () => {
   it('counts a kept answer in the tally once the deck is done', async () => {
     DAILY = deck([choice(1, 'Persuasion')])
     await mount()
+    await startRound()
     fireEvent.click(await screen.findByRole('button', { name: /Persuasion/ }))
     await screen.findByRole('button', { name: 'Finish' })
 
@@ -162,6 +168,7 @@ describe('the Daily quiz with an answer the server has not taken', () => {
   // nothing is sent while the app is closed.
   it('says how many answers are waiting only once the oldest has waited a minute', async () => {
     await mount()
+    await startRound()
     fireEvent.click(await screen.findByRole('button', { name: /Persuasion/ }))
     await screen.findByRole('button', { name: 'Next' })
     expect(text()).not.toMatch(/waiting to be sent/)
@@ -177,6 +184,7 @@ describe('the Daily quiz with an answer the server has not taken', () => {
   // storage no longer holds the answer, and the deck still deals its card.
   it('keeps the card out when the deck was drawn before a send it arrived after', async () => {
     await mount()
+    await startRound()
     fireEvent.click(await screen.findByRole('button', { name: /Persuasion/ }))
     await screen.findByRole('button', { name: 'Next' })
     cleanup()
@@ -191,6 +199,7 @@ describe('the Daily quiz with an answer the server has not taken', () => {
     startAnswerQueue(7) // the next start of the app sends what was kept
     await waitFor(() => expect(keptAnswers()).toEqual([]))
     release()
+    await startRound()
     await screen.findByText('1 of 2')
     expect(screen.queryByRole('button', { name: /Persuasion/ }), 'the answered card came back').toBeNull()
     expect(text()).toMatch(/3-day streak/)
@@ -202,6 +211,7 @@ describe('the Daily quiz with an answer the server has not taken', () => {
   it('counts an answer once when the deck came after the server took it', async () => {
     DAILY = deck([choice(1, 'Persuasion')])
     await mount()
+    await startRound()
     fireEvent.click(await screen.findByRole('button', { name: /Persuasion/ }))
     await screen.findByRole('button', { name: 'Finish' })
     cleanup()
@@ -223,6 +233,7 @@ describe('the Daily quiz with an answer the server has not taken', () => {
   // refresh after today's first answer.
   it('counts today on the streak at the first answer, with no refresh', async () => {
     await mount()
+    await startRound()
     await screen.findByText('1 of 3')
     expect(text()).toMatch(/2-day streak/)
     fireEvent.click(screen.getByRole('button', { name: /Persuasion/ }))
@@ -243,6 +254,7 @@ describe('the Daily quiz with an answer the server has not taken', () => {
     let letGo
     ANSWER = () => new Promise((resolve) => { letGo = resolve })
     await mount()
+    await startRound()
     fireEvent.change(await screen.findByRole('textbox'), { target: { value: 'universally' } })
     fireEvent.click(screen.getByRole('button', { name: 'Check' }))
     await screen.findByText('kept, to be marked', {}, { timeout: 6000 })
@@ -257,10 +269,12 @@ describe('the Daily quiz with an answer the server has not taken', () => {
     let asked = 0
     ANSWER = () => { asked += 1; return { ok: false, status: 403 } }
     await mount()
+    await startRound()
     fireEvent.click(await screen.findByRole('button', { name: /Persuasion/ }))
     await screen.findByRole('button', { name: 'Next' })
     await waitFor(() => expect(asked, 'the answer was never offered to the server').toBeGreaterThan(0))
     await refresh()
+    await startRound()
     await screen.findByText('1 of 2')
     expect(screen.queryByRole('button', { name: /Persuasion/ }), 'the answer was thrown away').toBeNull()
   })
@@ -272,6 +286,7 @@ describe('the Daily quiz with an answer the server has not taken', () => {
       choice(2, 'Emma'),
     ])
     await mount()
+    await startRound()
     fireEvent.change(await screen.findByRole('textbox'), { target: { value: 'universally' } })
     fireEvent.click(screen.getByRole('button', { name: 'Check' }))
     await screen.findByText('kept, to be marked')

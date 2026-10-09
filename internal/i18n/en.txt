@@ -3286,6 +3286,13 @@ home.daily.done.label = all caught up ✓
 home.daily.done.summary = {got} recalled · {missed} to resurface · back tomorrow
 home.daily.empty.label = nothing due today
 home.daily.empty.summary = add or review more quotes to build your schedule
+# THE DECK BEFORE IT IS OPENED. The round runs in its own screen (a popup on a
+# desk, the whole screen on a phone); the card on Home says how many are due and
+# opens it. "Continue" once some of today's cards have been answered here.
+home.daily.due.label.one = {n} card due today
+home.daily.due.label.other = {n} cards due today
+home.daily.start.label = Start
+home.daily.resume.label = Continue
 
 # "WHERE YOU STAND" — a count per memory status, with the explainer under it.
 home.states.title = where you stand
@@ -3319,6 +3326,8 @@ home.practice.info.body = Unlimited recall practice across your library; skip wh
 home.practice.unlimited.label = unlimited
 home.practice.start.label = Start practice
 home.practice.start.busy = Loading…
+# A round left open on Home, reopened in its own screen where it stopped.
+home.practice.resume.label = Continue practice
 # The lifetime practice score. {n} answered, {percent} of them recalled.
 home.practice.score.label = {n} answered · {percent}% recalled
 home.practice.reset.aria = Reset practice score
