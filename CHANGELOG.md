@@ -11,15 +11,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Once a card is answered in the daily quiz or Practice, every option says what it was.**
   Until now only the quotes on "Pick the quote" named their work after the grade; the
-  options on every other question stayed bare, the right one among them. A quote there, or a phrase on
-  "Fill in the blank — with choices", now shows the work it came from with its cover, the
-  work's author or, for a film, its director, its year, and the character who says it with
-  their face. A speech shows its speaker. A work on "Name the source" gains its creator and
-  year under its title and cover. A person on "Who wrote this?" or "Who said this?" gains
-  the work they were drawn from and, for an actor, the character they play in it, after
-  the word "as". The card's own work is also printed under the quote after the grade, with
-  its year and a film's director, on every question that hid it, which is every one but
-  "Pick the quote" and the flip card. Nothing new is drawn before the answer is given.
+  options on every other question stayed bare, the right one among them. A quote there, or
+  a phrase on "Fill in the blank — with choices", now shows the work it came from with its
+  cover, the work's author or, for a film, its director, its year, and the character who
+  says it with their face. A speech has no cover, so it shows the speaker of its own line
+  and the line's date. A work on "Name the source" gains its creator and year under its
+  title and cover. A person on "Who wrote this?" or "Who said this?" gains the work they
+  were drawn from and, for an actor, the character they play in it, after the word "as".
+  The card's own work is also printed under the quote after the grade, with its year, a
+  film's director and the character who says the quote, drawn with their face, on every
+  question that hid it, which is every one but "Pick the quote" and the flip card. Those
+  two already showed the work, as the prompt on "Pick the quote" and as the reveal on the
+  flip card, and now add the year, a film's director and the character's face to it.
+  Nothing else here is drawn before the answer is given.
 
 ### Changed
 
@@ -41,13 +45,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   with a Start button that reads Continue once some have been answered. The Practice card
   offers Start practice, and a round left open shows Continue practice beside End
   practice. A round opens as a centred popup on a desktop and as a full screen on a
-  phone, so the page behind it no longer needs scrolling up and down. On a phone the top
-  carries a back key naming Home, and the phone's own Back closes the round too; on a
-  desktop the ✕ does. Practice started from a book, tag, person or any other list opens
-  the same way. Closing a round part-way keeps it: reopening lands on the card you had
-  reached, and a card you already answered is never asked again. Closing on the last
-  answer, before Finish, ends the round. A Practice round kept over a reload comes back
-  behind Continue practice instead of opening over Home by itself.
+  phone, so the page behind it no longer needs scrolling up and down. The popup stops at
+  the window and scrolls inside, under its title, so the ✕ stays at the top. On a phone
+  the top carries a back key naming the screen the round was started from, which is Home
+  for these two, and the phone's own Back closes the round too; on a desktop the ✕ does.
+  Practice started from a book, tag, person or any other list opens the same way, and on a
+  phone its back key names where it came from, such as Stats, Library or the work's title.
+  Closing a round part-way keeps it: reopening lands on the card you had reached, and a
+  card you already answered is never asked again, a typed answer still waiting for its
+  mark included. Closing on the last answer, before Finish, ends the round, and so does
+  reloading a Practice round whose last card was answered. A Practice round with cards
+  left comes back behind Continue practice after a reload instead of opening over Home by
+  itself.
 
 ## [3.1.5] - 2026-10-03
 
