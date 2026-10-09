@@ -6598,7 +6598,7 @@ export function FormModal({ open = true, onClose, title, maxWidth = 560, saveTip
         role="dialog"
         aria-modal="true"
         aria-label={ariaLabelText(title)}
-        className="hand-card hc-r2 w-full"
+        className={"hand-card hc-r2 w-full" + (screen ? " tp-screen-card" : "")}
         style={{ maxWidth, padding: "20px" }}
       >
         <div className="mb-3 flex items-center gap-2">
@@ -6633,7 +6633,15 @@ export function FormModal({ open = true, onClose, title, maxWidth = 560, saveTip
             />
           )}
         </div>
-        <FormHostContext.Provider value={host}>{children}</FormHostContext.Provider>
+        {/* A ROUND ON A DESK KEEPS ITS HEAD: the card stops at the window and its
+            body scrolls, so a tall answer never carries the ✕ off the top. */}
+        {screen ? (
+          <Scroller axis="v" className="tp-screen-card-body">
+            <FormHostContext.Provider value={host}>{children}</FormHostContext.Provider>
+          </Scroller>
+        ) : (
+          <FormHostContext.Provider value={host}>{children}</FormHostContext.Provider>
+        )}
       </div>
     </div>,
     document.body,

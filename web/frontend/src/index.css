@@ -1389,6 +1389,19 @@
     overscroll-behavior: contain;
     padding: var(--row) var(--edge) calc(var(--row) * 2 + env(safe-area-inset-bottom));
   }
+  /* THE SAME ROUND ON A DESK: the centred card stops at the window, less the
+     scrim's own padding (py-10 above and below), and only its body scrolls. */
+  .tp-screen-card {
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100dvh - 5rem);
+  }
+  .tp-screen-card-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
   .tp-panel-body {
     flex: 1;
     min-height: 0;
