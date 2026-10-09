@@ -21,7 +21,11 @@ import { t } from './i18n.js'
 // "who?" questions are the exceptions — `speaker` needs something with a
 // recorded speaker and `author` needs a book — which is why "keep at least one"
 // is not the same rule as "keep at least one universal one", and why the second
-// is the one that matters.
+// is the one that matters. The two blanks stay universal although they are asked
+// only of quotes between six words and the reader's "Blanks only up to" number
+// (25 by default): a reader who keeps nothing but blanks has chosen to leave the
+// other quotes out of the round, and resetting that choice to the defaults would
+// be the app overruling them.
 //
 // `decks` is where a type may be offered AT ALL, as against where it is on by
 // default. Flip names only practice, and that is the 1.15.3 decision written
@@ -269,6 +273,14 @@ export const TUNING_FIELDS = [
     get label() { return t('quiz.tuning.cloze-words.label') },
     get hint() { return t('quiz.tuning.cloze-words.hint') },
   },
+  {
+    // From six words, the shortest quote a blank can be cut from at all
+    // (clozeMinTokens in Go), so this can never switch the blanks off by itself.
+    // Mirrors clampTuning's bounds, as every row here does.
+    key: 'clozeMaxWords', min: 6, max: 200, step: 1, format: 'common.slider.words.format', decimals: 0,
+    get label() { return t('quiz.tuning.cloze-max.label') },
+    get hint() { return t('quiz.tuning.cloze-max.hint') },
+  },
   // THE RUNGS RUN TO 365, not 100, since the ceiling became a year. Every one of
   // these maxima mirrors reviewMaxStability in Go, which is where the number is
   // decided — a slider that stopped at 100 could not reach the rung the ladder
@@ -287,7 +299,7 @@ export const TUNING_FIELDS = [
 ]
 
 export const DEFAULT_TUNING = {
-  grow: 2.5, shrink: 0.5, clozeGrow: 1.25, clozeShrink: 0.85, clozeSynonym: 0.5, clozeWords: 30,
+  grow: 2.5, shrink: 0.5, clozeGrow: 1.25, clozeShrink: 0.85, clozeSynonym: 0.5, clozeWords: 30, clozeMaxWords: 25,
   ladder1: 7, ladder2: 30, ladder3: 100, ladder4: 365,
 }
 

@@ -46,9 +46,12 @@ type reviewTuning struct {
 	// counts (the card does not lapse) and earns nothing.
 	ClozeSynonym float64 `json:"clozeSynonym"`
 	ClozeWords   float64 `json:"clozeWords"` // half-life (days) at which a blank may span several words
-	Ladder1      float64 `json:"ladder1"`    // the fixed ladder's four rungs, in days
-	Ladder2      float64 `json:"ladder2"`
-	Ladder3      float64 `json:"ladder3"`
+	// ClozeMaxWords is the longest quote, in words, a blank is cut out of — typed
+	// or chosen. Longer quotes are asked the other questions. See clozeShortEnough.
+	ClozeMaxWords float64 `json:"clozeMaxWords"`
+	Ladder1       float64 `json:"ladder1"` // the fixed ladder's four rungs, in days
+	Ladder2       float64 `json:"ladder2"`
+	Ladder3       float64 `json:"ladder3"`
 	// Ladder4 is the year rung, added when the ceiling went from 100 to 365.
 	// A blob written before it exists has no `ladder4` key, so unmarshalling onto
 	// defaultReviewTuning() leaves it at 365 — which is what a reader who never
@@ -61,9 +64,10 @@ func defaultReviewTuning() reviewTuning {
 	return reviewTuning{
 		Grow: reviewGrow, Shrink: reviewShrink,
 		ClozeGrow: clozeGrowWeight, ClozeShrink: clozeShrinkWeight,
-		ClozeSynonym: clozeSynonymWeight,
-		ClozeWords:   clozeMultiWordFrom,
-		Ladder1:      reviewMinStability, Ladder2: 30, Ladder3: 100, Ladder4: reviewMaxStability,
+		ClozeSynonym:  clozeSynonymWeight,
+		ClozeWords:    clozeMultiWordFrom,
+		ClozeMaxWords: clozeMaxQuoteWords,
+		Ladder1:       reviewMinStability, Ladder2: 30, Ladder3: 100, Ladder4: reviewMaxStability,
 	}
 }
 
@@ -92,6 +96,10 @@ func clampTuning(t reviewTuning) reviewTuning {
 	// word it stood in for, which is the one reading that makes no sense at all.
 	t.ClozeSynonym = pick(t.ClozeSynonym, 0, 1, d.ClozeSynonym)
 	t.ClozeWords = pick(t.ClozeWords, 1, reviewMaxStability, d.ClozeWords)
+	// From the shortest quote a blank can be cut out of at all (clozeMinTokens),
+	// so the setting can never switch cloze off by itself, to a length no quote
+	// worth testing word for word reaches.
+	t.ClozeMaxWords = pick(t.ClozeMaxWords, clozeMinTokens, clozeMaxQuoteWordsCeiling, d.ClozeMaxWords)
 	// The ladder has to ASCEND, and has to stay inside the bounds every query
 	// floors and caps against — reviewMinStability/reviewMaxStability are spliced
 	// into the due-ness SQL, so a rung outside them is a card that is due for ever

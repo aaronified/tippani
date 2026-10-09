@@ -167,6 +167,8 @@ describe('what gets stored', () => {
 import { DEFAULT_TUNING, TUNING_FIELDS, parseTuning, tuningBlob, tuningProblem } from '../../src/quiz.js'
 
 const goTuning = readFileSync(join(repo, 'internal', 'httpapi', 'review_tuning.go'), 'utf8')
+// cloze.go declares the blank's own numbers, the longest-quote line among them.
+const goCloze = readFileSync(join(repo, 'internal', 'httpapi', 'cloze.go'), 'utf8')
 
 describe('the tuning defaults agree with Go', () => {
   it('on every value', () => {
@@ -181,6 +183,9 @@ describe('the tuning defaults agree with Go', () => {
     expect(DEFAULT_TUNING.shrink).toBe(constOf('reviewShrink'))
     expect(DEFAULT_TUNING.clozeGrow).toBe(constOf('clozeGrowWeight'))
     expect(DEFAULT_TUNING.clozeShrink).toBe(constOf('clozeShrinkWeight'))
+    // The longest quote a blank is cut from, declared beside the blank's other
+    // numbers rather than with the schedule's.
+    expect(DEFAULT_TUNING.clozeMaxWords).toBe(Number(goCloze.match(/\bclozeMaxQuoteWords\s*=\s*([0-9.]+)/)?.[1]))
   })
 
   it('and every field the panel shows has a bound on both sides', () => {
@@ -213,7 +218,8 @@ describe('the tuning defaults agree with Go', () => {
     // passing quietly.
     const resolve = (tok) => {
       if (/^[0-9.]+$/.test(tok)) return Number(tok)
-      const m = goHandlers.match(new RegExp('\\b' + tok + '\\s*=\\s*([0-9.]+)'))
+      const re = new RegExp('\\b' + tok + '\\s*=\\s*([0-9.]+)')
+      const m = goHandlers.match(re) || goCloze.match(re)
       return m ? Number(m[1]) : null
     }
     const goRange = (name) => {
@@ -224,7 +230,7 @@ describe('the tuning defaults agree with Go', () => {
     }
     const pairs = [
       ['grow', 'Grow'], ['shrink', 'Shrink'], ['clozeGrow', 'ClozeGrow'], ['clozeShrink', 'ClozeShrink'],
-      ['clozeSynonym', 'ClozeSynonym'], ['clozeWords', 'ClozeWords'],
+      ['clozeSynonym', 'ClozeSynonym'], ['clozeWords', 'ClozeWords'], ['clozeMaxWords', 'ClozeMaxWords'],
       ['ladder1', 'Ladder1'], ['ladder2', 'Ladder2'], ['ladder3', 'Ladder3'], ['ladder4', 'Ladder4'],
     ]
     // Every slider the panel draws is in that list, so a field added to one side

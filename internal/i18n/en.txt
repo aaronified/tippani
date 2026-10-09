@@ -588,6 +588,8 @@ common.recall.uncounted.note = Kept here, but these answers did not move the hal
 common.slider.multiplier.format = {n}×
 common.slider.days.format.one = {n} day
 common.slider.days.format.other = {n} days
+common.slider.words.format.one = {n} word
+common.slider.words.format.other = {n} words
 
 # --- the struck flash card on a row the quiz will not draw. {kind} is the word
 # for the work it hangs off — book, film, show.
@@ -2025,9 +2027,9 @@ quiz.question.source.hint = Shows the quote and asks where it came from. Multipl
 quiz.question.quote.label = Pick the quote
 quiz.question.quote.hint = Shows the work and asks which line is from it. Multiple choice.
 quiz.question.cloze.label = Fill in the blank
-quiz.question.cloze.hint = Blanks out a phrase for you to type. Checked by the server and forgiving about typos. Counts more when right and costs less when wrong.
+quiz.question.cloze.hint = Blanks out a phrase for you to type, on quotes no longer than your "Blanks only up to" setting. Checked by the server and forgiving about typos. Counts more when right and costs less when wrong.
 quiz.question.cloze-mcq.label = Fill in the blank — with choices
-quiz.question.cloze-mcq.hint = The same blank, but pick from four phrases. The wrong ones come from your other quotes.
+quiz.question.cloze-mcq.hint = The same blank, but pick from four phrases. The wrong ones come from your other quotes. Short quotes only, as for the typed blank.
 quiz.question.speaker.label = Who said this?
 quiz.question.speaker.hint = Asks who said the line — for film, show, game and speech quotes. Never asked of book highlights.
 quiz.question.author.label = Who wrote this?
@@ -2065,6 +2067,8 @@ quiz.tuning.cloze-synonym.label = A synonym is worth
 quiz.tuning.cloze-synonym.hint = A close synonym counts as right and earns this share of a full answer. 0 counts it without moving the card.
 quiz.tuning.cloze-words.label = Multi-word blanks from
 quiz.tuning.cloze-words.hint = A blank hides one word until the quote has been remembered this many days; after that it can hide a phrase. 1 allows phrases straight away.
+quiz.tuning.cloze-max.label = Blanks only up to
+quiz.tuning.cloze-max.hint = The longest quote, in words, a blank is cut out of, typed or chosen. In a longer quote one missing word is a guess among many, so it is asked which work, which quote or who said it instead.
 quiz.tuning.ladder-1.label = Ladder rung 1
 quiz.tuning.ladder-1.hint = The first step, and where any miss drops a card back to. Used only with Ladder.
 quiz.tuning.ladder-2.label = Ladder rung 2

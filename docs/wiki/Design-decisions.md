@@ -3505,6 +3505,36 @@ A standalone film fails the other way. Nothing scores highly, the distractors sh
 
 <sub>v3.0.0 — `internal/httpapi/review_handlers.go` · `web/frontend/src/review.jsx` · `web/frontend/test/dom/quiz-runner.test.jsx`</sub>
 
+### A blank is asked only of a short quote, and the line is the reader's
+
+**Decided.** Neither blank, typed or chosen, is cut from a quote longer than the reader's
+"Blanks only up to" number, 25 words by default, counted by the same tokeniser whose
+six-word floor already kept the shortest quotes out (`clozeShortEnough`). The number is a
+row in Settings › Review beside the other tuning numbers, bounded 6 to 200 like the rest
+of `clampTuning`: below six no quote could be blanked at all, so the setting could switch
+the blanks off by itself. A longer quote is asked the other questions. On Hard, which gives
+up "which work?" and "which quote?", a long quote gets them back, after Hard's own "who?"
+questions, so a card whose "who?" cannot be built (too few people to choose from) is still
+asked rather than dropped from a scored deck (`tierDirectionsFor`).
+
+**Why.** In a one-liner every word carries the line, and recalling the missing word is
+recalling the quote. In a paragraph it is a guess at one word among sixty, and getting it
+right says little about whether the passage is remembered.
+
+**The blanks stay universal.** They were already asked only of quotes of six words or more
+and in Latin script, and a reader who keeps nothing but blanks has chosen to leave the
+other quotes out of the round, as they already left out the shortest ones. Taking the
+blanks off the universal list was tried first and withdrawn: `review_questions.go` resets a
+set with no universal question to the defaults, so every reader who had chosen blanks only
+would have had that choice overruled on their next load.
+
+**Approved.** The owner, 9 October: "there is no point testing for exact words (cloze, in
+either easy or hard modes) in longer quotes. this is important only for smaller quotes."
+Asked where a short quote ends: "A setting, default 25". Asked what Hard does with a long
+quote once the blank is gone: "Ask which work".
+
+<sub>v3.2.0 — `internal/httpapi/cloze.go` · `internal/httpapi/review_tier.go` · `internal/httpapi/review_tuning.go` · `internal/httpapi/review_handlers.go` · `internal/httpapi/cloze_length_test.go` · `web/frontend/src/quiz.js`</sub>
+
 ### The built-in TMDB credential is injected at build time, and is a read token
 
 **Decided.** `defaultTMDBKey` becomes a `var` filled by `-ldflags -X main.defaultTMDBKey=…` from a CI secret, empty in the source and empty in any locally built binary. The credential shipped is a **v4 read access token**, not a v3 API key. Resolution order is unchanged: a key saved in Settings > the built-in > none.

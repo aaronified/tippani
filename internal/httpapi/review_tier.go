@@ -1,6 +1,9 @@
 package httpapi
 
-import "math"
+import (
+	"math"
+	"slices"
+)
 
 // The three difficulties, and Random.
 //
@@ -155,6 +158,47 @@ func tierDirections(tier string, dirs []string) []string {
 	}
 	if len(kept) == 0 {
 		return dirs
+	}
+	return kept
+}
+
+// tierDirectionsFor is tierDirections for one card, which may be too long to be
+// asked its exact words (clozeShortEnough).
+//
+// A LONG QUOTE LOSES BOTH BLANKS, the typed one and the one with choices: the
+// owner's "cloze, in either easy or hard modes". And on Hard it gets back what
+// Hard otherwise gives up, "which work?" and "which quote?", LAST: the owner,
+// asked what Hard should do with a long quote once the blank is gone, chose "Ask
+// which work". The two "who?" questions are still Hard's first choice where the
+// card has a person to ask about; the recognition questions follow them so a card
+// whose "who?" cannot be built (too few people to choose between) is still asked
+// rather than dropped from a scored deck.
+func tierDirectionsFor(tier string, dirs []string, long bool) []string {
+	if !long {
+		return tierDirections(tier, dirs)
+	}
+	var words []string
+	for _, d := range dirs {
+		if d != dirCloze && d != dirClozeMCQ {
+			words = append(words, d)
+		}
+	}
+	if len(words) == 0 {
+		// THE READER KEPT NOTHING BUT BLANKS, and a long quote has none to give.
+		// The card sits out a scored round and is a flip card in Practice, which
+		// is what already happens to a quote too short or in a script clozeSpan
+		// cannot blank. The blanks stay universal in review_questions.go: resetting
+		// a blanks-only choice to the defaults would be overruling the reader.
+		return nil
+	}
+	kept := tierDirections(tier, words)
+	if tier != tierHard {
+		return kept
+	}
+	for _, d := range []string{dirSource, dirQuote} {
+		if slices.Contains(words, d) && !slices.Contains(kept, d) {
+			kept = append(kept, d)
+		}
 	}
 	return kept
 }

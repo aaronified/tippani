@@ -2167,7 +2167,7 @@ func lureScore(own, cand workRef, sameAuthor bool) int {
 // The flip card is what makes the signature honest: it needs no distractor pool,
 // no second work to be wrong with, and no maskable span, so there is always a
 // question to ask about any quote with words in it.
-func buildQuestion(c reviewCand, preferred string, p quizPools, seed int64, scored bool, on map[string]bool, clozeWords float64, tier string, nth int) (reviewCard, bool) {
+func buildQuestion(c reviewCand, preferred string, p quizPools, seed int64, scored bool, on map[string]bool, clozeWords, clozeMax float64, tier string, nth int) (reviewCard, bool) {
 	// Fold the day seed with the card identity into one stable per-card seed;
 	// 0 stays 0 (practice → global RNG).
 	cardSeed := seed
@@ -2200,7 +2200,11 @@ func buildQuestion(c reviewCand, preferred string, p quizPools, seed int64, scor
 	sameAuthor := tierPrefersFarLures(at) || authorLureAllowed(nth)
 	// A tier NARROWS the reader's own repertoire and never widens it, so a
 	// question they turned off stays off at every difficulty.
-	dirs := tierDirections(at, directionsForMode(c.card.Kind, scored, on))
+	//
+	// AND A QUOTE TOO LONG FOR ITS WORDS TO BE THE TEST IS NOT ASKED THEM — see
+	// tierDirectionsFor and clozeShortEnough.
+	long := !clozeShortEnough(clozeTextOf(c.card), clozeMax)
+	dirs := tierDirectionsFor(at, directionsForMode(c.card.Kind, scored, on), long)
 	// The tier's own first choice, when the reader's repertoire still has it —
 	// weighted up rather than left to dailyDirection's hash, which would make a
 	// "hard" round hard one card in five by luck.
@@ -2216,6 +2220,13 @@ func buildQuestion(c reviewCand, preferred string, p quizPools, seed int64, scor
 	// tier's own list in order and picking a substitute here would be a second
 	// opinion about which direction leads.
 	if !slices.Contains(dirs, preferred) {
+		preferred = ""
+	}
+	// A LONG QUOTE'S "WHICH WORK?" ON HARD IS A FALLBACK, NOT A PICK. Hard gave it
+	// back to the card only for when its "who?" questions cannot be built
+	// (tierDirectionsFor puts it last), so the day's hash may not choose it first:
+	// that served "which quote?" to cards that had an author to be asked about.
+	if long && at == tierHard && (preferred == dirSource || preferred == dirQuote) {
 		preferred = ""
 	}
 	// The preferred direction, then every other one this kind allows — ONE LIST
@@ -2729,7 +2740,7 @@ func (s *Server) dailyDeck(uid int64, offset int) (dailyDeckState, error) {
 			}
 			// A card with too little material to be asked a GRADED question is
 			// left out rather than downgraded to a self-marked one.
-			if card, ok := buildQuestion(c, dailyDirection(c.card.Kind, c.card.ID, seed, onDaily), pools, seed, true, onDaily, tuning.ClozeWords, pf.SRTier, len(items)); ok {
+			if card, ok := buildQuestion(c, dailyDirection(c.card.Kind, c.card.ID, seed, onDaily), pools, seed, true, onDaily, tuning.ClozeWords, tuning.ClozeMaxWords, pf.SRTier, len(items)); ok {
 				items = append(items, card)
 			}
 		}
@@ -2874,7 +2885,7 @@ func (s *Server) handlePractice(w http.ResponseWriter, r *http.Request) {
 				preferred = dirFlip
 			}
 		}
-		if card, ok := buildQuestion(c, preferred, pools, 0, scored, onPractice, tuning.ClozeWords, pf.SRTier, len(items)); ok {
+		if card, ok := buildQuestion(c, preferred, pools, 0, scored, onPractice, tuning.ClozeWords, tuning.ClozeMaxWords, pf.SRTier, len(items)); ok {
 			items = append(items, card)
 		}
 	}

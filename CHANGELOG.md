@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **The daily quiz and Practice no longer ask for the exact words of a long quote.**
+  "Fill in the blank" and "Fill in the blank — with choices" are asked only of quotes up
+  to a set number of words, 25 by default. In a longer quote one missing word is a guess
+  among many, and getting it right says little about whether the quote is remembered, so
+  a longer quote is asked the other questions. The number is a new row, "Blanks only up
+  to", in Settings → Review under "The numbers behind the schedule", and it goes from 6
+  to 200 words. On Hard, which otherwise never asks "Name the source" or "Pick the
+  quote", a long quote is asked those instead of a blank only when "Who wrote this?" or
+  "Who said this?" cannot be asked of it, because that question is switched off, the work
+  has no author or speaker on record, or the library has too few people to choose
+  between. A reader who has switched on only the two blank questions keeps that choice:
+  their longer quotes sit out the daily quiz, as quotes under six words already did, and
+  come up as flip cards in Practice while "Practice counts" is off.
+
 ## [3.1.5] - 2026-10-03
 
 Nothing in the app itself changed. 3.1.4's own push went red twice (run

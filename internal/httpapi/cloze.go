@@ -43,6 +43,11 @@ const (
 	clozeMultiWordFrom = 30.0
 	clozeMinContext    = 15 // runes that must remain around the blank, or there is no question
 	clozeMinTokens     = 6  // a quote shorter than this has nothing to hide
+	// clozeMaxQuoteWords is the default longest quote a blank is cut from, and
+	// the ceiling is where the setting stops. 25 words is about one long
+	// sentence: one-liners and most dialogue keep their word test.
+	clozeMaxQuoteWords        = 25
+	clozeMaxQuoteWordsCeiling = 200
 )
 
 // clozeStopwords is a small, explicit English list. NOT a dependency, and not a
@@ -151,6 +156,30 @@ func clozeMaxWordsFor(stability, multiWordFrom float64) int {
 		return clozeMaxWords
 	}
 	return 1
+}
+
+// clozeShortEnough is whether a quote is short enough for its exact words to be
+// the test. The owner, 9 October: "there is no point testing for exact words
+// (cloze, in either easy or hard modes) in longer quotes. this is important only
+// for smaller quotes." In a short line every word carries the line; in a
+// paragraph a blanked word is a guess at one word among sixty, and getting it
+// right says little about whether the quote is remembered.
+//
+// THE SAME COUNT clozeSpan's floor uses (clozeTokens), so the two ends of the
+// range a cloze may be asked over are measured in one unit. maxWords is the
+// reader's own (reviewTuning.ClozeMaxWords), so this is a number they can move,
+// default 25.
+func clozeShortEnough(text string, maxWords float64) bool {
+	return float64(len(clozeTokens(strings.TrimSpace(text)))) <= maxWords
+}
+
+// clozeTextOf is the words a cloze would blank on this card: the quote, or the
+// note when a quote has none. The rule attachCloze and attachClozeMCQ apply.
+func clozeTextOf(card reviewCard) string {
+	if strings.TrimSpace(card.Quote) == "" {
+		return card.Note
+	}
+	return card.Quote
 }
 
 func clozeSpan(text string, kind string, id int64, maxWords int) (masked, answer string, ok bool) {
