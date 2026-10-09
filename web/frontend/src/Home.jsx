@@ -189,10 +189,11 @@ function DailyQuizCard({ onPending, states, capacity, onStates, adaptive, submit
   // doesnt need to scroll up and down too much." This card is the launcher: what
   // is due, and the press that opens it.
   const [open, setOpen] = useState(false)
-  // Where the round is: the card on screen (`pos`, from each advance) and how
-  // many were answered here (`given`). A closed round reopens at the later of
-  // the two, so a card answered and then closed before Next is not asked again —
-  // the Daily quiz has no skip, so the count IS the next card's index.
+  // Where the round is: the card on screen (`pos`, from each advance) and the
+  // card past the last one answered here (`given`, from each kept answer, a
+  // typed one the server has not marked included). A closed round reopens at
+  // the later of the two, so a card answered and then closed before Next is not
+  // asked again.
   const [pos, setPos] = useState(0)
   const [given, setGiven] = useState(0)
 
@@ -247,7 +248,6 @@ function DailyQuizCard({ onPending, states, capacity, onStates, adaptive, submit
   // Counted as the answer is kept: the server's own counts arrive as it takes
   // each one (Home listens to the queue for them).
   function onAnswered(result) {
-    setGiven((n) => n + 1)
     setTally((prev) => ({
       got: prev.got + (result === 'got' ? 1 : 0),
       forgot: prev.forgot + (result === 'forgot' ? 1 : 0),
@@ -302,6 +302,7 @@ function DailyQuizCard({ onPending, states, capacity, onStates, adaptive, submit
                 submitStep={submitStep}
                 startIndex={Math.min(next, total - 1)}
                 onAnswered={onAnswered}
+                onKept={(i) => setGiven((g) => Math.max(g, i + 1))}
                 onIndex={(i) => { setPos(i); onPending(Math.max(0, total - i)) }}
                 onDone={() => { setOpen(false); onPending(0); setPhase('done') }}
               />
@@ -405,6 +406,11 @@ function PracticeCard({ onStates, userId, submitStep }) {
   // The next card to show: past the one on screen once it has been answered, so
   // a round closed before Next does not ask that card again.
   const next = Math.max(session?.i || 0, session?.next || 0)
+  // A KEPT ROUND WHOSE LAST CARD WAS ANSWERED IS OVER, reloaded or not: there is
+  // nothing left to continue, and reopening it would ask that card again.
+  useEffect(() => {
+    if (phase === 'active' && !open && cards.length > 0 && next >= cards.length) finishRound()
+  }, [phase, open, cards.length, next]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function loadScore() {
     json('GET', `/review/scores?offset=${tzOffsetMinutes()}`).then((r) => {
@@ -440,7 +446,6 @@ function PracticeCard({ onStates, userId, submitStep }) {
     // (Home listens to the queue for them).
     setSession((s) => (s ? {
       ...s,
-      next: (s.i || 0) + 1,
       got: s.got + (result === 'got' ? 1 : 0),
       forgot: s.forgot + (result === 'forgot' ? 1 : 0),
     } : s))
@@ -532,6 +537,7 @@ function PracticeCard({ onStates, userId, submitStep }) {
                 startIndex={Math.min(next, cards.length - 1)}
                 onIndex={(i) => setSession((s) => (s ? { ...s, i } : s))}
                 onAnswered={onAnswered}
+                onKept={(i) => setSession((s) => (s ? { ...s, next: Math.max(s.next || 0, i + 1) } : s))}
                 onDone={finishRound}
               />
               <div className="mt-2 text-right">

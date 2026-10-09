@@ -723,7 +723,11 @@ function CardTools({ card, onPatch }) {
 // reader go on with it kept. Long enough for a reply on any working connection.
 const CLOZE_MARK_WAIT_MS = 3000
 
-export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, onAnswered, onDone, submitStep = false }) {
+// `onKept(i)` says card i has an answer kept on this device, whatever its grade
+// and whether or not the server has marked it: a host that reopens a round has
+// to start past it. `onAnswered` is the grade, and a typed answer the server has
+// not marked has none yet.
+export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, onAnswered, onKept, onDone, submitStep = false }) {
   // Phones get no key legends anywhere; see Kbd.
   const noKeys = useIsMobileScreen()
   // The blank's placeholder: the only shortcut in the app rendered as text rather
@@ -939,6 +943,7 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
       // the browser is not in a position to mark it.
       ...(typed != null ? { attempt: typed } : {}),
     })
+    onKept?.(at)
     if (typed == null) {
       onAnswered?.(result, null)
       // The reply still carries the one thing the card cannot know: the lapse
