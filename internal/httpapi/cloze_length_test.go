@@ -13,7 +13,6 @@ package httpapi
 // reads. seedDistractorBook and ageSeededItems are review_test.go's.
 
 import (
-	"encoding/json"
 	"net/http"
 	"strings"
 	"testing"
@@ -125,21 +124,53 @@ func TestTheLengthLineIsTheReaders(t *testing.T) {
 
 // A LINE UNDER SIX WORDS IS NOT A LINE: no quote that short can be blanked at all,
 // so the setting would switch the blanks off by itself. It falls back to the
-// default, the way every out-of-range tuning number does.
+// default, the way every out-of-range tuning number does — and the default is 25,
+// which is what the twelve-word quote below is asked under: still a blank on Hard.
+// A line kept at 3, or a fallback anywhere under twelve, would make it long.
 func TestALineTooShortToBlankFallsBackToTheDefault(t *testing.T) {
 	srv := newTestServer(t)
 	c := signupAdmin(t, srv.Handler())
-	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"srTuning": `{"clozeMaxWords":3}`}, http.StatusOK)
-	var me struct {
-		Preferences struct {
-			SRTuning string `json:"srTuning"`
-		} `json:"preferences"`
+	short, _ := seedLengthBook(t, srv, c)
+	c.mustDo("PUT", "/auth/me/preferences", map[string]any{
+		"srTier": tierHard, "srQuestions": `{"daily":["source","cloze"]}`,
+		"srTuning": `{"clozeMaxWords":3}`}, http.StatusOK)
+
+	card, ok := dailyCard(t, c, short)
+	if !ok || card.Direction != dirCloze {
+		t.Errorf("with the line set to 3, a twelve-word quote on Hard was asked %q (in deck: %v), want the typed blank",
+			card.Direction, ok)
 	}
-	if err := json.Unmarshal(c.mustDo("GET", "/auth/me", nil, 200).Body.Bytes(), &me); err != nil {
-		t.Fatal(err)
+}
+
+// THE LINE IS INCLUSIVE: a quote of exactly the line's length is short, one word
+// more is long. Counted by the tokeniser the line is counted by.
+func TestAQuoteOfExactlyTheLineKeepsItsBlank(t *testing.T) {
+	words := strings.Fields("the growing good of the world is partly dependent on unhistoric acts and " +
+		"that things are not so ill with you and me as they might have been half owing")
+	at, over := strings.Join(words[:clozeMaxQuoteWords], " "), strings.Join(words[:clozeMaxQuoteWords+1], " ")
+	if len(clozeTokens(at)) != clozeMaxQuoteWords || len(clozeTokens(over)) != clozeMaxQuoteWords+1 {
+		t.Fatalf("the fixtures are %d and %d words, want %d and %d",
+			len(clozeTokens(at)), len(clozeTokens(over)), clozeMaxQuoteWords, clozeMaxQuoteWords+1)
 	}
-	if strings.Contains(me.Preferences.SRTuning, `"clozeMaxWords":3`) {
-		t.Fatalf("a line of 3 words was kept: %s", me.Preferences.SRTuning)
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	book := decode[bookDetail](t, c.mustDo("POST", "/books",
+		map[string]any{"title": "Middlemarch", "author": "George Eliot"}, http.StatusCreated))
+	ids := map[string]int64{}
+	for name, q := range map[string]string{"at the line": at, "one word over": over} {
+		ids[name] = decode[annotationRow](t, c.mustDo("POST", "/annotations",
+			map[string]any{"book_id": book.ID, "quote": q}, http.StatusCreated)).ID
+	}
+	seedDistractorBook(t, srv, c, "Emma")
+	ageSeededItems(t, srv)
+	c.mustDo("PUT", "/auth/me/preferences", map[string]any{
+		"srTier": tierHard, "srQuestions": `{"daily":["source","cloze"]}`}, http.StatusOK)
+
+	for name, wantBlank := range map[string]bool{"at the line": true, "one word over": false} {
+		card, ok := dailyCard(t, c, ids[name])
+		if !ok || (card.Direction == dirCloze) != wantBlank {
+			t.Errorf("the quote %s was asked %q (in deck: %v), want a blank: %v", name, card.Direction, ok, wantBlank)
+		}
 	}
 }
 
