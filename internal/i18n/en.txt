@@ -3198,6 +3198,7 @@ quiz.cloze.synonym.note = counted as a synonym — worth less than the words the
 # Under each option of a "which quote?" card, once it has been answered: the
 # work that option came out of. {title} is a book, film, show, game or occasion.
 quiz.option.source.label = from {title}
+quiz.option.as.label = as
 
 # A multiple-choice option that is longer than three lines.
 quiz.option.expand.aria = Expand this option

@@ -3535,6 +3535,39 @@ quote once the blank is gone: "Ask which work".
 
 <sub>v3.2.0 — `internal/httpapi/cloze.go` · `internal/httpapi/review_tier.go` · `internal/httpapi/review_tuning.go` · `internal/httpapi/review_handlers.go` · `internal/httpapi/cloze_length_test.go` · `web/frontend/src/quiz.js`</sub>
 
+### After the grade, every option says what it is
+
+**Decided.** Once a card is answered, each of its options, the wrong ones as well as the
+right one, says what it is under its own text. A quote, or a phrase on a blank with
+choices, names the work it came from with its cover, that work's writer or director, its
+year, and the character who says it with their face, or a speech's speaker. A work
+option adds its creator and year under its own title and cover. A person option names
+the work they were drawn from and, for an actor, the character they play there, after an
+"as". The card's own work, with its year and a film's director, is printed under the
+quote on every card that hid it, which is every direction but "which quote?" (whose
+prompt is the attribution) and the flip card (whose reveal is).
+
+**How.** The server fills these on every option (`optionMeta.reveal`,
+`revealPerson`), and the client draws them only after the grade (`OptionReveal` in
+`review.jsx`), which is the contract `answer` and `source` already had: sent with the
+card, never painted before it is answered. The characters' faces come from the round's
+one picture lookup, which already found the Easy tier's chips and now takes the options'
+characters as more refs for the same two queries (`fillCharacterFaces`). A phrase is not
+the quote it was cut from, so a blank's options carry no item identity and reading them
+does not count as seeing those quotes.
+
+**Not done.** The answer's details are not fetched after the grade by a second request:
+a route that hands out a card's answers while it is in play is a worse thing to own than
+fields the client is trusted not to paint early, the reason `optionMeta` gives for
+`source`.
+
+**Approved.** The owner, 9 October: "when an answer is submitted, all important details
+about the answer should be shown, along with their peers." Asked which details: "Work:
+cover, title, creator, year" and "Who: speaker or character". Asked who the peers are:
+"The other choices".
+
+<sub>v3.2.0 — `internal/httpapi/review_handlers.go` · `internal/httpapi/speaker.go` · `internal/httpapi/answer_reveal_test.go` · `web/frontend/src/review.jsx` · `web/frontend/test/dom/quiz-runner.test.jsx`</sub>
+
 ### The built-in TMDB credential is injected at build time, and is a read token
 
 **Decided.** `defaultTMDBKey` becomes a `var` filled by `-ldflags -X main.defaultTMDBKey=…` from a CI secret, empty in the source and empty in any locally built binary. The credential shipped is a **v4 read access token**, not a v3 API key. Resolution order is unchanged: a key saved in Settings > the built-in > none.

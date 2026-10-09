@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Once a card is answered in the daily quiz or Practice, every option says what it was.**
+  Until now only the quotes on "Pick the quote" named their work after the grade; the
+  options on every other question stayed bare, the right one among them. A quote there, or a phrase on
+  "Fill in the blank — with choices", now shows the work it came from with its cover, the
+  work's author or, for a film, its director, its year, and the character who says it with
+  their face. A speech shows its speaker. A work on "Name the source" gains its creator and
+  year under its title and cover. A person on "Who wrote this?" or "Who said this?" gains
+  the work they were drawn from and, for an actor, the character they play in it, after
+  the word "as". The card's own work is also printed under the quote after the grade, with
+  its year and a film's director, on every question that hid it, which is every one but
+  "Pick the quote" and the flip card. Nothing new is drawn before the answer is given.
+
 ### Changed
 
 - **The daily quiz and Practice no longer ask for the exact words of a long quote.**

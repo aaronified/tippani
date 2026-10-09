@@ -43,10 +43,21 @@ func TestWhoWroteThisOffersAuthorsWithFaces(t *testing.T) {
 		t.Fatalf("option_meta does not mirror the options: %+v", card.OptionMeta)
 	}
 	for i, om := range card.OptionMeta {
-		// A PERSON IS SHOWN BY THEIR CHIP, and never by a poster.
-		if om.Kind != "author" || om.Person != card.Options[i] || om.Art != "" {
-			t.Errorf("option %d meta = %+v, want the author's own name and no art", i, om)
+		// A PERSON IS SHOWN BY THEIR CHIP, and never by a poster. A cover rides
+		// along only as the reveal's — the book this author was drawn from, drawn
+		// beside its title after the grade — so art never comes without the title
+		// it belongs to.
+		if om.Kind != "author" || om.Person != card.Options[i] || (om.Art != "" && om.Source == "") {
+			t.Errorf("option %d meta = %+v, want the author's own name and no art of its own", i, om)
 		}
+		// THE REVEAL NAMES THE BOOK, and not the author a second time: the option
+		// IS the creator.
+		if om.Source == "" || om.Creator != "" {
+			t.Errorf("option %d reveal = source %q creator %q, want the book and no creator", i, om.Source, om.Creator)
+		}
+	}
+	if got := card.OptionMeta[card.Answer].Source; got != "The Dispossessed" {
+		t.Errorf("the answer's reveal names %q, want its own book", got)
 	}
 	// THE TITLE IS NOT THE ANSWER TO THIS QUESTION, and printing it among four
 	// people would be a category error as well as a leak.

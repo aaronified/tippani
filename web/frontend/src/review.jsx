@@ -31,6 +31,7 @@ import {
   Field,
   FieldIconButton,
   formatPartialDate,
+  formatYear,
   FormModal,
   HandNote,
   IconEdit,
@@ -279,18 +280,11 @@ function QuizOption({ opt, om, personMaps, isWork, revealed, disabled, onPick, s
                 <PersonChip name={om.person} map={personMaps[om.kind]} size={18} />
               </span>
             )}
-            {/* WHERE THIS ONE CAME FROM, once the card is graded. Three of the
-                four quotes on a "which quote?" card are somebody else's, and the
-                round used to end with them read and unattributed. Never before
-                the grade: the sources ARE the answer. */}
-            {revealed && om?.source && (
-              <span className="mt-1.5 flex items-center gap-1.5" style={{ fontStyle: 'normal' }}>
-                <WorkArt path={om.art} size={22} />
-                <MonoLabel style={{ fontSize: 'var(--type-ui-11)', color: 'var(--faint)' }}>
-                  {t('quiz.option.source.label', { title: om.source })}
-                </MonoLabel>
-              </span>
-            )}
+            {/* WHAT THIS ONE IS, once the card is graded: the work it belongs to and
+                who says it, for every option and not only the right one. Never
+                before the grade: on a "which quote?" card the sources ARE the
+                answer. */}
+            {revealed && <OptionReveal om={om} isWork={isWork} personMaps={personMaps} />}
           </span>
         </span>
       </button>
@@ -306,6 +300,61 @@ function QuizOption({ opt, om, personMaps, isWork, revealed, disabled, onPick, s
         />
       )}
     </div>
+  )
+}
+
+// OptionReveal — every option's own details, drawn once the card is graded.
+//
+// THE OWNER'S, 9 October: "when an answer is submitted, all important details
+// about the answer should be shown, along with their peers." Asked which details,
+// "Work: cover, title, creator, year" and "Who: speaker or character"; asked who
+// the peers are, "The other choices". So the three wrong options are told as
+// fully as the right one: a "which quote?" option names its work, its writer or
+// director, its year and who says it; a phrase on a "with choices" blank names
+// the quote it was cut from the same way; a work option adds its creator and year
+// under its own title and cover; a person option says who they play and where.
+//
+// THE SERVER FILLS THESE ON EVERY OPTION and the client draws them only here,
+// behind `revealed`: the same contract `answer` and `source` have always had (see
+// optionMeta in review_handlers.go).
+//
+// A CHARACTER'S FACE COMES OFF THE OPTION, a speaker's out of the People map —
+// the split EasyChips makes, for its reason: a character's picture belongs to one
+// work, so the server resolves the pair.
+function OptionReveal({ om, isWork, personMaps }) {
+  if (!om) return null
+  const year = om.year ? formatYear(om.year, om.year_circa) : ''
+  // A work option's title and cover are the option itself; what it lacked was the
+  // rest of the line. "from" wraps the title alone, so a language that puts the
+  // word after it (bn: "{title} থেকে") does not put it after the year.
+  const source = !isWork && om.source ? t('quiz.option.source.label', { title: om.source }) : ''
+  const line = [source, om.creator, year].filter(Boolean).join(' · ')
+  const who = om.who || []
+  const faces = Object.fromEntries(who.map((c) => [c.name, { image_path: c.path || c.actor_image || '' }]))
+  const anyone = who.length > 0 || !!om.speaker
+  if (!line && !anyone) return null
+  return (
+    <span className="mt-1.5 flex flex-col gap-1" style={{ fontStyle: 'normal' }}>
+      {line && (
+        <span className="flex items-center gap-1.5">
+          {source && <WorkArt path={om.art} size={22} />}
+          <MonoLabel style={{ fontSize: 'var(--type-ui-11)', color: 'var(--faint)' }}>{line}</MonoLabel>
+        </span>
+      )}
+      {anyone && (
+        <span className="flex flex-wrap items-center gap-1.5">
+          {/* A PERSON OPTION IS ALREADY A FACE; what the reveal adds is who they
+              play. "as" says so, or the chip would read as a second person. */}
+          {om.person && who.length > 0 && (
+            <MonoLabel style={{ fontSize: 'var(--type-ui-11)', color: 'var(--faint)' }}>{t('quiz.option.as.label')}</MonoLabel>
+          )}
+          {who.map((c) => (
+            <PersonChip key={'character:' + c.name} name={c.name} map={faces} size={18} />
+          ))}
+          {om.speaker && <PersonChip key={'speaker:' + om.speaker} name={om.speaker} map={personMaps.speaker} size={18} />}
+        </span>
+      )}
+    </span>
   )
 }
 
@@ -434,9 +483,15 @@ function SourceLines({ card, maps = {} }) {
     people = card.speaker && card.speaker !== card.title ? [{ name: card.speaker, kind: 'speaker' }] : []
   else people = splitCredits(card.author, DEFAULT_CREDIT_SEPS).map((n) => ({ name: n, kind: 'author' }))
   let meta
+  // THE WORK'S YEAR, on every kind that has one: one of the details the owner
+  // named for an answer ("Work: cover, title, creator, year").
+  const year = card.year ? formatYear(card.year, card.year_circa) : ''
   if (card.kind === 'screen') {
     const media = t(card.media_type === 'show' ? 'vocab.kind.show.label' : 'vocab.kind.movie.label')
-    meta = [media, episodeLabel(card), card.character, card.timestamp].filter(Boolean).join(' · ')
+    // The film's creator is its director, named in words: the chip row under the
+    // title is who SAYS the line, and a second face there would read as a second
+    // speaker.
+    meta = [media, year, card.director, episodeLabel(card), card.character, card.timestamp].filter(Boolean).join(' · ')
   } else if (card.kind === 'utterance') {
     // WHEN, WHERE, AND WHERE IN THE TEXT. This line was the date alone, so a
     // speech's place and an essay's page — both 0047 columns the capture screen
@@ -461,7 +516,7 @@ function SourceLines({ card, maps = {} }) {
     // the last of four reads of that column still dropping it.
     // ONE LOCATOR: the chapter where there is one, else the page. See
     // `locatorMeta` — four screens wrote this pair out and no two agreed.
-    meta = [card.character, locatorMeta(card)].filter(Boolean).join(' · ')
+    meta = [year, card.character, locatorMeta(card)].filter(Boolean).join(' · ')
   }
   return (
     <div className="flex items-start gap-3">
@@ -989,6 +1044,16 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
         ? <SourceLines card={card} maps={personMaps} />
         : <QuoteBlock card={card} />}
       <EasyChips card={card} speakerMap={speakerMap} />
+      {/* THE ANSWER'S OWN DETAILS, once it is graded. Every direction but "quote"
+          (whose prompt IS the attribution) and the flip card (whose reveal IS
+          it) hid the work behind the words, and the card used to end without
+          saying whose they were: the owner's "all important details about the
+          answer should be shown". */}
+      {answered && card.direction !== 'quote' && !flip && (
+        <div className="mt-3" style={{ borderTop: '1px solid var(--line)', paddingTop: 12 }}>
+          <SourceLines card={card} maps={personMaps} />
+        </div>
+      )}
       {/* A CLOZE CARD: type the missing words, then check. The answer is graded
           on the server — it never travelled here, because unlike an option index
           the words ARE the thing being recalled. */}

@@ -58,8 +58,8 @@ const speakerMinOptions = 3
 // the client looks the portrait up by, so it has to be the kind the People
 // console files that person under and not merely a word that describes the
 // question.
-func personChoices(card *reviewCard, answer string, distractors []string, kind string, rng *rand.Rand, tier string) bool {
-	opts, ans := choicesFrom(answer, distractors, tierOptions(tier), rng)
+func personChoices(card *reviewCard, answer string, c *nameCollector, own personOrigin, kind string, rng *rand.Rand, tier string) bool {
+	opts, ans := choicesFrom(answer, c.out, tierOptions(tier), rng)
 	// THE FLOOR FOLLOWS THE TIER. Easy offers two faces on purpose, so holding it
 	// to three would mean the tier could never draw the card it is defined by —
 	// see tierMinOptions.
@@ -74,8 +74,44 @@ func personChoices(card *reviewCard, answer string, distractors []string, kind s
 	card.OptionMeta = make([]optionMeta, len(opts))
 	for i, o := range opts {
 		card.OptionMeta[i] = optionMeta{Person: o, Kind: kind}
+		from, ok := own, i == ans
+		if !ok {
+			from, ok = c.from[strings.ToLower(o)]
+		}
+		if ok {
+			card.OptionMeta[i].revealPerson(o, from)
+		}
 	}
 	return true
+}
+
+// personOrigin is where a person option was drawn from: the work, and — for an
+// actor — the character they play in it.
+type personOrigin struct {
+	work workRef
+	who  string
+}
+
+// revealPerson is reveal for an option that IS a person: the work they were
+// drawn from and who they play there, after the grade. The creator and the
+// speaker reveal would name are dropped when they are this same person — an
+// author option does not need its own name under it — and so is a speech's
+// title when the speech is titled by its speaker.
+func (o *optionMeta) revealPerson(name string, from personOrigin) {
+	w := from.work
+	if w.title == "" {
+		return
+	}
+	if !strings.EqualFold(strings.TrimSpace(w.title), name) {
+		o.Source, o.Art = w.title, w.art
+	}
+	o.reveal(w, from.who)
+	if strings.EqualFold(o.Creator, name) {
+		o.Creator = ""
+	}
+	if strings.EqualFold(o.Speaker, name) {
+		o.Speaker = ""
+	}
 }
 
 // nameCollector accumulates distinct names, case-insensitively, never admitting
@@ -85,19 +121,26 @@ type nameCollector struct {
 	answer string
 	seen   map[string]bool
 	out    []string
+	// from is where each admitted name was first found, lowercased, for the
+	// reveal after the grade.
+	from map[string]personOrigin
 }
 
 func newNameCollector(answer string) *nameCollector {
-	return &nameCollector{answer: answer, seen: map[string]bool{strings.ToLower(answer): true}}
+	return &nameCollector{answer: answer, seen: map[string]bool{strings.ToLower(answer): true},
+		from: map[string]personOrigin{}}
 }
 
-func (c *nameCollector) add(name string) {
+// add admits a name found in work w. An actor's character there comes off the
+// work's cast record; nobody else plays anyone.
+func (c *nameCollector) add(name string, w workRef) {
 	n := strings.TrimSpace(name)
 	if n == "" || c.seen[strings.ToLower(n)] {
 		return
 	}
 	c.seen[strings.ToLower(n)] = true
 	c.out = append(c.out, n)
+	c.from[strings.ToLower(n)] = personOrigin{work: w, who: w.castRole[strings.ToLower(n)]}
 }
 
 // addWiderPool takes everyone else the library has heard speak — every work but
@@ -106,25 +149,33 @@ func (c *nameCollector) add(name string) {
 // the scale. One walk either way, because two copies of it are how the two orders
 // come to disagree about who is in the pool.
 func (c *nameCollector) addWiderPool(p quizPools, ownKey string, rng *rand.Rand) {
-	var wider []string
+	type found struct {
+		name string
+		w    workRef
+	}
+	var wider []found
 	for _, w := range p.works {
 		if w.key == ownKey {
 			continue
 		}
 		switch w.kind {
 		case kindScreen:
-			wider = append(wider, w.cast...)
-			wider = append(wider, w.actorNames...)
+			for _, a := range w.cast {
+				wider = append(wider, found{a, w})
+			}
+			for _, a := range w.actorNames {
+				wider = append(wider, found{a, w})
+			}
 		case kindUtterance:
 			// A speech's workRef carries its speaker in `author` — see the field's
 			// comment. Other people who have given speeches are the natural wrong
 			// answers for one.
-			wider = append(wider, w.author)
+			wider = append(wider, found{w.author, w})
 		}
 	}
 	shuffleN(rng, len(wider), func(i, j int) { wider[i], wider[j] = wider[j], wider[i] })
 	for _, a := range wider {
-		c.add(a)
+		c.add(a.name, a.w)
 	}
 }
 
@@ -192,14 +243,20 @@ func attachSpeaker(card *reviewCard, ownKey string, p quizPools, seed int64, tie
 		c.addWiderPool(p, ownKey, rng)
 	}
 	for _, a := range p.byKey[ownKey].cast {
-		c.add(a)
+		c.add(a, p.byKey[ownKey])
 	}
 	// Then everyone else the library has heard speak, so a film with a thin cast
 	// record — or a speech, which has no cast at all — still gets a question.
 	if !c.enough() {
 		c.addWiderPool(p, ownKey, rng)
 	}
-	return personChoices(card, answer, c.out, kind, rng, tier)
+	// The answer's own origin is the card: its work, and the character the line
+	// is spoken by — which, for an actor, is the part they play.
+	own := personOrigin{work: ownWork(card, ownKey, p)}
+	if card.Kind == kindScreen {
+		own.who = card.Character
+	}
+	return personChoices(card, answer, c, own, kind, rng, tier)
 }
 
 // attachAuthor fills a book card's options with author credits — "who wrote the
@@ -235,12 +292,12 @@ func attachAuthor(card *reviewCard, ownKey string, p quizPools, seed int64, tier
 		if w.kind != kindBook || w.key == ownKey {
 			continue
 		}
-		c.add(w.author)
+		c.add(w.author, w)
 		if c.enough() {
 			break
 		}
 	}
-	return personChoices(card, answer, c.out, "author", rng, tier)
+	return personChoices(card, answer, c, personOrigin{work: ownWork(card, ownKey, p)}, "author", rng, tier)
 }
 
 // ---- the answer must not be printed above its own options --------------------

@@ -263,7 +263,10 @@ describe('the submit step', () => {
     // different expression, so checking it would pass while the option itself
     // sat there painted red — which is the actual leak, and is how the first
     // version of this test managed to pass against the bug it names.
-    const optionStyle = (label) => screen.getByText(label).closest('button').getAttribute('style') || ''
+    // The OPTION's button: once graded, the answer's own title is printed again
+    // under the quote, which is not an option and has no button.
+    const optionStyle = (label) =>
+      screen.getAllByText(label).map((el) => el.closest('button')).find(Boolean).getAttribute('style') || ''
     expect(optionStyle('Emma'), 'the wrong choice is marked wrong before it is submitted').not.toMatch(/--error/)
     expect(optionStyle('Persuasion'), 'the right answer is revealed before submitting').not.toMatch(/--ok/)
     expect(screen.queryByText('not quite')).toBeNull()
@@ -743,5 +746,79 @@ describe('an option that is more than one person', () => {
     // Twice in the DOM: the option's own label, and the chip under it that
     // states the credit. That pairing is what this card has always had.
     expect(screen.getAllByText('Austen')).toHaveLength(2)
+  })
+})
+
+// ── WHAT EVERY OPTION IS, ONCE IT IS ANSWERED.
+//
+// The owner, 9 October: "when an answer is submitted, all important details
+// about the answer should be shown, along with their peers" — the work (cover,
+// title, creator, year) and who says it, for the other choices as well as the
+// right one. The server sends these with the card (answer_reveal_test.go holds
+// that); what is held here is that none of it is on screen before the grade, and
+// all of it is after.
+describe('what every option says once it is answered', () => {
+  const which = () => ({
+    kind: 'book', id: 1, direction: 'quote', quote: 'the only way out is through',
+    title: 'Persuasion', author: 'Austen', color: 'yellow',
+    options: ['a line of ours', 'a line of theirs', 'a line of a speech'],
+    option_meta: [
+      { source: 'Persuasion', creator: 'Austen', year: 1817, who: [{ name: 'Anne Elliot' }] },
+      { source: 'Emma', creator: 'Jane Austen', year: 1815, year_circa: true, who: [{ name: 'Knightley' }] },
+      { source: 'At Gettysburg', speaker: 'Abraham Lincoln' },
+    ],
+    answer: 0,
+  })
+
+  const heat = () => ({
+    kind: 'screen', id: 5, direction: 'speaker', media_type: 'movie',
+    quote: "Don't let yourself get attached", title: 'Heat', director: 'Michael Mann', year: 1995,
+    character: 'Neil McCauley', actor: 'Robert De Niro', color: 'yellow',
+    options: ['Al Pacino', 'Robert De Niro', 'Val Kilmer'],
+    option_meta: [
+      { person: 'Al Pacino', kind: 'actor', source: 'Heat', creator: 'Michael Mann', year: 1995, who: [{ name: 'Vincent Hanna' }] },
+      { person: 'Robert De Niro', kind: 'actor', source: 'Heat', creator: 'Michael Mann', year: 1995, who: [{ name: 'Neil McCauley' }] },
+      { person: 'Val Kilmer', kind: 'actor', source: 'Heat', creator: 'Michael Mann', year: 1995, who: [{ name: 'Chris Shiherlis' }] },
+    ],
+    answer: 1,
+  })
+
+  it('names each quote’s work, writer, year and speaker, and only after the grade', async () => {
+    render(<QuizRunner mode="daily" cards={[which()]} />)
+    expect(screen.getByText('a line of theirs'), 'the card did not render at all').toBeTruthy()
+    for (const hidden of [/Jane Austen/, /Knightley/, /Abraham Lincoln/]) expect(screen.queryByText(hidden)).toBeNull()
+
+    fireEvent.click(screen.getByText('a line of theirs'))
+    await waitFor(() => expect(posted()).toHaveLength(1))
+    expect(screen.getByText('from Emma · Jane Austen · c. 1815')).toBeTruthy()
+    expect(screen.getByText('Knightley')).toBeTruthy()
+    expect(screen.getByText('Anne Elliot')).toBeTruthy()
+    // A speech has no writer and no year of its own; its speaker is the who.
+    expect(screen.getByText('from At Gettysburg')).toBeTruthy()
+    expect(screen.getByText('Abraham Lincoln')).toBeTruthy()
+  })
+
+  it('says who each actor plays, and only after the grade', async () => {
+    render(<QuizRunner mode="daily" cards={[heat()]} />)
+    expect(screen.getAllByText('Al Pacino').length, 'the card did not render at all').toBeGreaterThan(0)
+    for (const hidden of ['Vincent Hanna', 'Chris Shiherlis', 'as']) expect(screen.queryByText(hidden)).toBeNull()
+
+    fireEvent.click(screen.getAllByText('Al Pacino')[0])
+    await waitFor(() => expect(posted()).toHaveLength(1))
+    expect(screen.getByText('Vincent Hanna')).toBeTruthy()
+    expect(screen.getByText('Chris Shiherlis')).toBeTruthy()
+    // "as" before the character, or the chip reads as a second actor.
+    expect(screen.getAllByText('as')).toHaveLength(3)
+    expect(screen.getAllByText('from Heat · Michael Mann · 1995')).toHaveLength(3)
+  })
+
+  // The card's own work, told under the words once they have been answered: a
+  // "who said this?" card hid it, and ended without saying whose line it was.
+  it('tells the card’s own work, with its year and director, after the grade', async () => {
+    render(<QuizRunner mode="daily" cards={[heat()]} />)
+    expect(screen.queryByText(/1995 · Michael Mann/)).toBeNull()
+    fireEvent.click(screen.getAllByText('Robert De Niro')[0])
+    await waitFor(() => expect(posted()).toHaveLength(1))
+    expect(screen.getByText('Film · 1995 · Michael Mann · Neil McCauley')).toBeTruthy()
   })
 })

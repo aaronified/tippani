@@ -209,8 +209,10 @@ describe('what folds back onto the card, and what does not', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save' }))
     await waitFor(() => expect(puts().length).toBe(1))
 
+    // On the OPTION, which is a button: the answer's own title is also printed
+    // under the quote once the card is graded, and that copy is not an option.
     for (const opt of ['Persuasion', 'Emma', 'Villette']) {
-      expect(screen.getByText(opt)).toBeTruthy()
+      expect(screen.getAllByText(opt).some((el) => el.closest('button')), opt).toBe(true)
     }
   })
 })

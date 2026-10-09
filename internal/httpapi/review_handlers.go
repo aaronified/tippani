@@ -785,6 +785,13 @@ type reviewCard struct {
 	// "source" card asks you to recall, so every kind must fill it.
 	Title  string `json:"title"`
 	Author string `json:"author"` // book author; "" otherwise
+	// Director and Year are the rest of the work's line — "Work: cover, title,
+	// creator, year", the owner's list of an answer's details (9 October). A
+	// book's creator is Author above; a film's is its director. YearCirca is the
+	// reader's "about" tick on that year, carried for the reason OccasionCirca is.
+	Director  string `json:"director,omitempty"` // screen only
+	Year      int    `json:"year,omitempty"`     // book publication / film release
+	YearCirca bool   `json:"year_circa,omitempty"`
 	// Art is the work's cover / poster file, so the attribution side of a card
 	// shows the work the way every other screen in the app does. A speech has
 	// none — its "work" is an occasion — which is why it is omitempty rather than
@@ -884,7 +891,9 @@ type optionMeta struct {
 	Kind   string `json:"kind,omitempty"`   // author | actor | director | speaker
 	// Art is the work's stored cover/poster file (the same path every other
 	// screen resolves through coverImgURL). "" for a work that has none, and for
-	// a speech, which is an occasion and has no art to have.
+	// a speech, which is an occasion and has no art to have. On a person option
+	// it is the reveal's — the work that person was drawn from, beside Source —
+	// and never the option's own picture.
 	Art string `json:"art,omitempty"`
 	// Source names the work a QUOTE option came out of, revealed once the card is
 	// graded: four quotes were offered and the reader learns where all four came
@@ -895,6 +904,65 @@ type optionMeta struct {
 	// a real encounter with them, and the half-life should say so.
 	ItemKind string `json:"item_kind,omitempty"`
 	ItemID   int64  `json:"item_id,omitempty"`
+	// THE REST OF THE REVEAL, the owner's of 9 October: "when an answer is
+	// submitted, all important details about the answer should be shown, along
+	// with their peers" — peers being the other choices, details being the work
+	// (cover, title, creator, year) and who says it. Drawn after the grade, under
+	// the same contract as Source. See reveal.
+	Creator   string `json:"creator,omitempty"` // a book's author, a film's director
+	Year      int    `json:"year,omitempty"`
+	YearCirca bool   `json:"year_circa,omitempty"`
+	// Who is the characters who say this option's line, or the one a person
+	// option plays in its work, with their faces (fillCharacterFaces). Speaker is
+	// a speech's speaker, a person the client draws from the People map.
+	Who     []characterImage `json:"who,omitempty"`
+	Speaker string           `json:"speaker,omitempty"`
+	// What fillCharacterFaces looks Who up by. Unexported: the raw text is only
+	// a key for the batched lookup.
+	whoWork int64
+	whoKind string
+	whoText string
+}
+
+// reveal fills an option's line from the work it belongs to and the character
+// text of who says it. A speech has no creator and no year (its title is its
+// attribution, and its date is partial and lives on the quote); its speaker is
+// named unless the title already is them.
+func (o *optionMeta) reveal(w workRef, who string) {
+	o.Year, o.YearCirca = w.year, w.circa
+	switch w.kind {
+	case kindBook:
+		o.Creator = w.author
+	case kindScreen:
+		o.Creator = w.director
+	case kindUtterance:
+		if a := strings.TrimSpace(w.author); a != "" && !strings.EqualFold(a, strings.TrimSpace(w.title)) {
+			o.Speaker = a
+		}
+		return
+	}
+	if strings.TrimSpace(who) == "" {
+		return
+	}
+	if _, id, ok := splitWorkKey(w.key); ok {
+		o.whoWork, o.whoKind, o.whoText = id, w.kind, who
+	}
+}
+
+// ownWork is the card's own work as a pool entry, for the options that ARE it:
+// the right phrase on a "with choices" blank, the right person on a "who?" card.
+// The pool's entry when the work made the sample, the card's own fields when it
+// did not — the fallback attachMCQ makes for the same reason.
+func ownWork(card *reviewCard, ownKey string, p quizPools) workRef {
+	if w, ok := p.byKey[ownKey]; ok && w.title != "" {
+		return w
+	}
+	w := workRef{key: ownKey, kind: card.Kind, title: card.Title, art: card.Art,
+		author: card.Author, director: card.Director, year: card.Year, circa: card.YearCirca}
+	if card.Kind == kindUtterance {
+		w.author = card.Speaker
+	}
+	return w
 }
 
 // reviewCand wraps a card with the transient facts used to order it and build
@@ -1114,6 +1182,7 @@ func (s *Server) bookCandidates(uid int64, bucket deckBucket, th reviewTheme, mo
 	q := `SELECT x.id, x.book_id, COALESCE(x.quote,''), COALESCE(x.note,''), x.color,
 	             p.title, COALESCE(p.author,''), COALESCE(p.cover_path,''), COALESCE(x.character,''),
 	             COALESCE(x.chapter,''), COALESCE(x.location,''), COALESCE(x.language,''),
+	             COALESCE(p.published_year,0), p.published_circa,
 	             ` + schedCols + `
 	      FROM ` + rs.from() + ` ` + rs.reviewJoin() + ` ` + rs.where()
 	args := []any{reviewMinStability, uid}
@@ -1146,7 +1215,7 @@ func (s *Server) bookCandidates(uid int64, bucket deckBucket, th reviewTheme, mo
 		c.card.Kind = kindBook
 		if err := rows.Scan(&c.card.ID, &bookID, &c.card.Quote, &c.card.Note, &c.card.Color,
 			&c.card.Title, &c.card.Author, &c.card.Art, &c.card.Character, &c.card.Chapter, &c.card.Location,
-			&c.card.Language,
+			&c.card.Language, &c.card.Year, &c.card.YearCirca,
 			&c.seen, &c.card.Stability, &c.card.ReviewCount, &c.card.LapseCount, &lr, &c.lastResult, &c.age); err != nil {
 			olog.Warnf(olog.CodeReviewRowScan, "[review] book candidate row scan failed: %v", err)
 			continue
@@ -1162,7 +1231,7 @@ func (s *Server) screenCandidates(uid int64, bucket deckBucket, th reviewTheme, 
 	rs := screenSource()
 	q := `SELECT x.id, x.movie_id, COALESCE(x.quote,''), COALESCE(x.note,''), x.color, p.title, COALESCE(p.poster_path,''), COALESCE(x.character,''),
 	             COALESCE(x.actor,''), COALESCE(x.timestamp,''), x.season, x.episode, COALESCE(p.media_type,'movie'),
-	             COALESCE(x.language,''),
+	             COALESCE(x.language,''), COALESCE(p.director,''), COALESCE(p.release_year,0), p.release_circa,
 	             ` + schedCols + `
 	      FROM ` + rs.from() + ` ` + rs.reviewJoin() + ` ` + rs.where()
 	args := []any{reviewMinStability, uid}
@@ -1195,7 +1264,7 @@ func (s *Server) screenCandidates(uid int64, bucket deckBucket, th reviewTheme, 
 		c.card.Kind = kindScreen
 		if err := rows.Scan(&c.card.ID, &movieID, &c.card.Quote, &c.card.Note, &c.card.Color, &c.card.Title, &c.card.Art, &c.card.Character,
 			&c.card.Actor, &c.card.Timestamp, &c.card.Season, &c.card.Episode, &c.card.MediaType,
-			&c.card.Language,
+			&c.card.Language, &c.card.Director, &c.card.Year, &c.card.YearCirca,
 			&c.seen, &c.card.Stability, &c.card.ReviewCount, &c.card.LapseCount, &lr, &c.lastResult, &c.age); err != nil {
 			olog.Warnf(olog.CodeReviewRowScan, "[review] screen candidate row scan failed: %v", err)
 			continue
@@ -1493,9 +1562,12 @@ type workRef struct {
 	// shown by (see optionMeta). Empty for a speech, which has no art anywhere in
 	// the app, and for a book or film whose cover was never fetched.
 	art      string
-	director string          // screen only
-	genres   map[string]bool // books + screen
-	actors   map[string]bool // screen only, lowercased (similarity matching)
+	director string            // screen only
+	year     int               // books.published_year / movies.release_year; 0 = none
+	circa    bool              // the reader's "about" tick on that year
+	castRole map[string]string // screen only: lowercased actor → the character they play here
+	genres   map[string]bool   // books + screen
+	actors   map[string]bool   // screen only, lowercased (similarity matching)
 	// actorNames keeps the first-seen casing of each dialogue actor — the map
 	// above lowercases for matching, but option chips need a display name.
 	actorNames []string
@@ -1543,6 +1615,9 @@ type quoteRef struct {
 	// options were still read, and reading them counts as seeing them.
 	kind string
 	id   int64
+	// who is the line's own character text, the "who says it" of the reveal.
+	// Empty for a speech, whose speaker is its work's `author`.
+	who string
 }
 
 // quizPools holds a round's distractor material: every in-scope work (for
@@ -1593,17 +1668,20 @@ func (s *Server) quizPools(uid int64, sc reviewScope, seed int64) (quizPools, er
 	}
 	// works (title + person signal), genres, actors (screen), and a quote sample.
 	if sc.books {
-		if err := scan(`SELECT id, title, COALESCE(author,''), COALESCE(cover_path,'')
+		if err := scan(`SELECT id, title, COALESCE(author,''), COALESCE(cover_path,''), COALESCE(published_year,0), published_circa
 		                FROM books WHERE user_id = ? AND title <> ''`,
 			func(rows *sql.Rows) error {
 				var id int64
 				var title, author, cover string
-				if err := rows.Scan(&id, &title, &author, &cover); err != nil {
+				var year int
+				var circa bool
+				if err := rows.Scan(&id, &title, &author, &cover, &year, &circa); err != nil {
 					olog.Warnf(olog.CodeReviewRowScan, "[review] book work row scan failed: %v", err)
 					return nil
 				}
 				k := kindBook + ":" + strconv.FormatInt(id, 10)
-				p.byKey[k] = workRef{key: k, kind: kindBook, title: title, author: author, art: cover, genres: map[string]bool{}, actors: map[string]bool{}}
+				p.byKey[k] = workRef{key: k, kind: kindBook, title: title, author: author, art: cover, year: year, circa: circa,
+					genres: map[string]bool{}, actors: map[string]bool{}}
 				return nil
 			}); err != nil {
 			return p, err
@@ -1625,7 +1703,7 @@ func (s *Server) quizPools(uid int64, sc reviewScope, seed int64) (quizPools, er
 			return p, err
 		}
 		bookOrder, bookArgs := sample(kindBook)
-		if err := scan(`SELECT a.id, a.book_id, COALESCE(a.quote,''), COALESCE(a.note,'')
+		if err := scan(`SELECT a.id, a.book_id, COALESCE(a.quote,''), COALESCE(a.note,''), COALESCE(a.character,'')
 		                FROM annotations a JOIN books b ON b.id = a.book_id
 		                WHERE b.user_id = ? AND (COALESCE(a.quote,'') <> '' OR COALESCE(a.note,'') <> '')
 		                `+bookOrder,
@@ -1634,19 +1712,21 @@ func (s *Server) quizPools(uid int64, sc reviewScope, seed int64) (quizPools, er
 		}
 	}
 	if sc.screen {
-		if err := scan(`SELECT id, title, COALESCE(director,''), COALESCE(poster_path,'')
+		if err := scan(`SELECT id, title, COALESCE(director,''), COALESCE(poster_path,''), COALESCE(release_year,0), release_circa
 		                FROM movies WHERE user_id = ? AND title <> ''`,
 			func(rows *sql.Rows) error {
 				var id int64
 				var title, director, poster string
-				if err := rows.Scan(&id, &title, &director, &poster); err != nil {
+				var year int
+				var circa bool
+				if err := rows.Scan(&id, &title, &director, &poster, &year, &circa); err != nil {
 					olog.Warnf(olog.CodeReviewRowScan, "[review] screen work row scan failed: %v", err)
 					return nil
 				}
 				k := kindScreen + ":" + strconv.FormatInt(id, 10)
 				p.byKey[k] = workRef{
-					key: k, kind: kindScreen, title: title, director: director, art: poster,
-					genres: map[string]bool{}, actors: map[string]bool{},
+					key: k, kind: kindScreen, title: title, director: director, art: poster, year: year, circa: circa,
+					genres: map[string]bool{}, actors: map[string]bool{}, castRole: map[string]string{},
 				}
 				return nil
 			}); err != nil {
@@ -1681,13 +1761,13 @@ func (s *Server) quizPools(uid int64, sc reviewScope, seed int64) (quizPools, er
 		// billing is roughly "how likely is this person to be the answer somebody is
 		// weighing", so the top of the list holds the interesting wrong answers.
 		castSeen := map[string]bool{}
-		if err := scan(`SELECT work_id, actor FROM work_cast
+		if err := scan(`SELECT work_id, actor, character FROM work_cast
 		                WHERE user_id = ? AND kind = 'movie' AND origin <> ? AND TRIM(actor) <> ''
 		                ORDER BY work_id, billing, id`,
 			func(rows *sql.Rows) error {
 				var id int64
-				var actor string
-				if err := rows.Scan(&id, &actor); err != nil {
+				var actor, role string
+				if err := rows.Scan(&id, &actor, &role); err != nil {
 					olog.Warnf(olog.CodeReviewRowScan, "[review] screen cast row scan failed: %v", err)
 					return nil
 				}
@@ -1705,6 +1785,11 @@ func (s *Server) quizPools(uid int64, sc reviewScope, seed int64) (quizPools, er
 					return nil
 				}
 				castSeen[dedupe] = true
+				// WHO THEY PLAY HERE, for the reveal on a "who said this?" option. The
+				// first billing wins, as it does for the name.
+				if r := strings.TrimSpace(role); r != "" && w.castRole != nil {
+					w.castRole[strings.ToLower(a)] = r
+				}
 				// Append doesn't flow through the map copy the way the shared maps do —
 				// write the struct back, exactly as the actor scan below does.
 				w.cast = append(w.cast, a)
@@ -1752,7 +1837,7 @@ func (s *Server) quizPools(uid int64, sc reviewScope, seed int64) (quizPools, er
 			return p, err
 		}
 		screenOrder, screenArgs := sampleOn("d.id", kindScreen)
-		if err := scan(`SELECT d.id, d.movie_id, COALESCE(d.quote,''), COALESCE(d.note,'')
+		if err := scan(`SELECT d.id, d.movie_id, COALESCE(d.quote,''), COALESCE(d.note,''), COALESCE(d.character,'')
 		                FROM dialogues d JOIN movies m ON m.id = d.movie_id
 		                WHERE m.user_id = ? AND (COALESCE(d.quote,'') <> '' OR COALESCE(d.note,'') <> '')
 		                `+screenOrder,
@@ -1826,14 +1911,14 @@ func (s *Server) quizPools(uid int64, sc reviewScope, seed int64) (quizPools, er
 	return p, nil
 }
 
-// quoteScanner adds a row (id, work_id, quote, note) to the quote pool, linking
+// quoteScanner adds a row (id, work_id, quote, note, character) to the quote pool, linking
 // it to its work so distractors can be ranked and same-work quotes excluded, and
 // keeping the row's own id so a revealed option can be reported as seen.
 func (p *quizPools) quoteScanner(kind string) func(*sql.Rows) error {
 	return func(rows *sql.Rows) error {
 		var id, workID int64
-		var quote, note string
-		if err := rows.Scan(&id, &workID, &quote, &note); err != nil {
+		var quote, note, who string
+		if err := rows.Scan(&id, &workID, &quote, &note, &who); err != nil {
 			olog.Warnf(olog.CodeReviewRowScan, "[review] quote pool row scan failed: %v", err)
 			return nil
 		}
@@ -1845,7 +1930,7 @@ func (p *quizPools) quoteScanner(kind string) func(*sql.Rows) error {
 			return nil
 		}
 		if w, ok := p.byKey[kind+":"+strconv.FormatInt(workID, 10)]; ok {
-			p.quotes = append(p.quotes, quoteRef{work: w, text: text, kind: kind, id: id})
+			p.quotes = append(p.quotes, quoteRef{work: w, text: text, kind: kind, id: id, who: who})
 		}
 		return nil
 	}
@@ -2013,8 +2098,9 @@ func fieldSet(s string) map[string]bool {
 	return out
 }
 
-// fillEasyChips does the round's ONE picture lookup, for the cards offerEasyChips
-// marked.
+// fillCharacterFaces does the round's ONE picture lookup: the faces of the
+// characters on the cards offerEasyChips marked, and of the characters each
+// option's reveal names (optionMeta.Who).
 //
 // ONE FUNCTION AND TWO CALLERS, not a copy in each deck handler: the Daily Quiz
 // and Practice draw the same card and a control drawn once behaves once. It is
@@ -2025,20 +2111,21 @@ func fieldSet(s string) map[string]bool {
 // TWO QUERIES AND NOT ONE, because loadCharacterImages is per medium: a book's
 // characters and a film's live in different works and the fold is per (work,
 // name). A round of one medium therefore makes one query, which is the ordinary
-// case.
-func (s *Server) fillEasyChips(uid int64, items []reviewCard) {
+// case. The options ride the same two queries rather than a second pair: they are
+// more refs for the same lookup, not another lookup.
+func (s *Server) fillCharacterFaces(uid int64, items []reviewCard) {
 	byKind := map[string][]characterImageRef{}
 	for _, it := range items {
-		if it.workID == 0 || strings.TrimSpace(it.Character) == "" {
-			continue
+		if it.workID != 0 && strings.TrimSpace(it.Character) != "" {
+			k := faceMedium(it.Kind)
+			byKind[k] = append(byKind[k], characterImageRef{WorkID: it.workID, Character: it.Character})
 		}
-		// "movie" is loadCharacterImages' name for the screen medium — see its
-		// callers in dialogue_handlers.go and search_character_images.go.
-		k := "book"
-		if it.Kind == kindScreen {
-			k = "movie"
+		for _, om := range it.OptionMeta {
+			if om.whoWork != 0 {
+				k := faceMedium(om.whoKind)
+				byKind[k] = append(byKind[k], characterImageRef{WorkID: om.whoWork, Character: om.whoText})
+			}
 		}
-		byKind[k] = append(byKind[k], characterImageRef{WorkID: it.workID, Character: it.Character})
 	}
 	if len(byKind) == 0 {
 		return
@@ -2049,12 +2136,15 @@ func (s *Server) fillEasyChips(uid int64, items []reviewCard) {
 	}
 	seps := s.creditSeps(s.Store.DB, uid)
 	for i := range items {
+		// AFTER THE GRADE, so nothing here is a leak: the reveal is drawn once the
+		// card is answered, and naming who says a line is what it is for.
+		for j, om := range items[i].OptionMeta {
+			if om.whoWork != 0 {
+				items[i].OptionMeta[j].Who = characterImagesFor(found[faceMedium(om.whoKind)], seps, om.whoWork, om.whoText)
+			}
+		}
 		if items[i].workID == 0 || strings.TrimSpace(items[i].Character) == "" {
 			continue
-		}
-		k := "book"
-		if items[i].Kind == kindScreen {
-			k = "movie"
 		}
 		// THE SAME PREDICATE, on the resolved rows. The names are split here rather
 		// than in offerEasyChips — characterImagesFor applies the reader's own
@@ -2063,7 +2153,7 @@ func (s *Server) fillEasyChips(uid int64, items []reviewCard) {
 		// whole set: a line naming two characters and hiding one still gets the
 		// other.
 		var kept []characterImage
-		for _, ch := range characterImagesFor(found[k], seps, items[i].workID, items[i].Character) {
+		for _, ch := range characterImagesFor(found[faceMedium(items[i].Kind)], seps, items[i].workID, items[i].Character) {
 			if easyChipLeaks(&items[i], ch.Name) {
 				continue
 			}
@@ -2071,6 +2161,16 @@ func (s *Server) fillEasyChips(uid int64, items []reviewCard) {
 		}
 		items[i].EasyChips = kept
 	}
+}
+
+// faceMedium is loadCharacterImages' name for a card kind's medium: "movie" for
+// the screen — see its callers in dialogue_handlers.go and
+// search_character_images.go.
+func faceMedium(kind string) string {
+	if kind == kindScreen {
+		return "movie"
+	}
+	return "book"
 }
 
 // splitWorkKey reads "book:12" / "screen:7" back into its halves. ok=false for
@@ -2333,6 +2433,9 @@ func attachMCQ(card *reviewCard, ownKey string, p quizPools, seed int64, tier st
 		for i, o := range opts {
 			card.Options[i] = o.title
 			card.OptionMeta[i] = o.meta()
+			// A work option's creator and year, after the grade. No "who": the
+			// option is a work, and nobody says a title.
+			card.OptionMeta[i].reveal(o, "")
 		}
 		card.Answer = ans
 		return true
@@ -2366,9 +2469,9 @@ func attachMCQ(card *reviewCard, ownKey string, p quizPools, seed int64, tier st
 	// The answer's own ref. `own` can be the zero workRef when the card's work
 	// missed the pool sample, so the title falls back to the card's own — the
 	// same fallback the source branch above makes for the same reason.
-	mine := quoteRef{work: own, text: correct, kind: card.Kind, id: card.ID}
+	mine := quoteRef{work: own, text: correct, kind: card.Kind, id: card.ID, who: card.Character}
 	if mine.work.title == "" {
-		mine.work = workRef{key: ownKey, kind: card.Kind, title: card.Title}
+		mine.work = ownWork(card, ownKey, p)
 	}
 	opts, ans := choicesFromQuotes(mine, distractors, tierOptions(tier), rng)
 	if len(opts) < 2 {
@@ -2386,6 +2489,7 @@ func attachMCQ(card *reviewCard, ownKey string, p quizPools, seed int64, tier st
 		card.OptionMeta[i] = optionMeta{
 			Source: o.work.title, Art: o.work.art, ItemKind: o.kind, ItemID: o.id,
 		}
+		card.OptionMeta[i].reveal(o.work, o.who)
 	}
 	card.Answer = ans
 	return true
@@ -2469,6 +2573,7 @@ func attachClozeMCQ(card *reviewCard, ownKey string, p quizPools, seed int64, mu
 	type lure struct {
 		phrase string
 		score  int
+		from   quoteRef // the quote the phrase was cut from, for the reveal
 	}
 	var pool []lure
 	// THE ROUND'S AUTHOR CAP DOES NOT REACH HERE, and passing it in was wrong for
@@ -2503,7 +2608,7 @@ func attachClozeMCQ(card *reviewCard, ownKey string, p quizPools, seed int64, mu
 		if clozeJudge(answer, phrase) != clozeMiss {
 			continue
 		}
-		pool = append(pool, lure{phrase, clozeSurfaceScore(answer, phrase)})
+		pool = append(pool, lure{phrase, clozeSurfaceScore(answer, phrase), q})
 	}
 	sort.SliceStable(pool, func(i, j int) bool { return pool[i].score > pool[j].score })
 	var distractors []string
@@ -2531,6 +2636,29 @@ func attachClozeMCQ(card *reviewCard, ownKey string, p quizPools, seed int64, mu
 		card.Quote = masked
 	}
 	card.Options, card.Answer = opts, ans
+	// WHERE EACH PHRASE CAME FROM, after the grade: the quote it was cut out of,
+	// told like any other option's. The right one is this card's own words. No
+	// item identity: a phrase is not the quote, and reading four words of one is
+	// not reading it, so these do not count as seen.
+	from := map[string]quoteRef{}
+	for _, l := range pool {
+		if _, ok := from[l.phrase]; !ok {
+			from[l.phrase] = l.from
+		}
+	}
+	mine := ownWork(card, ownKey, p)
+	card.OptionMeta = make([]optionMeta, len(opts))
+	for i, o := range opts {
+		if i == ans {
+			card.OptionMeta[i] = optionMeta{Source: mine.title, Art: mine.art}
+			card.OptionMeta[i].reveal(mine, card.Character)
+			continue
+		}
+		if q, ok := from[o]; ok {
+			card.OptionMeta[i] = optionMeta{Source: q.work.title, Art: q.work.art}
+			card.OptionMeta[i].reveal(q.work, q.who)
+		}
+	}
 	return true
 }
 
@@ -2770,8 +2898,9 @@ func (s *Server) handleDailyQuiz(w http.ResponseWriter, r *http.Request) {
 	}
 	pf, scope, day, items := deck.pf, deck.scope, deck.day, deck.items
 	answered, got, forgot := deck.answered, deck.got, deck.forgot
-	// The Easy tier's chips, after every card is built — see fillEasyChips.
-	s.fillEasyChips(uid, items)
+	// The Easy tier's chips and the reveal's faces, after every card is built —
+	// see fillCharacterFaces.
+	s.fillCharacterFaces(uid, items)
 	states, err := s.reviewStates(uid, scope)
 	if err != nil {
 		internalError(w, r, "daily quiz states", err)
@@ -2889,7 +3018,7 @@ func (s *Server) handlePractice(w http.ResponseWriter, r *http.Request) {
 			items = append(items, card)
 		}
 	}
-	s.fillEasyChips(uid, items)
+	s.fillCharacterFaces(uid, items)
 	writeJSON(w, http.StatusOK, map[string]any{"items": items, "pool": len(items)})
 }
 
