@@ -218,9 +218,10 @@ func TestHardAsksWhoWroteALongQuoteBeforeWhichWork(t *testing.T) {
 	}
 }
 
-// HOME'S COUNT OF WHAT IS LEFT MATCHES WHAT THE DECK CAN ASK. A reader who keeps
+// THE DAILY `remaining` FIGURE MATCHES WHAT THE DECK CAN ASK. A reader who keeps
 // only the blanks has long quotes that no deck will deal; counting them as left
-// would leave the count, and the pending dot, never reaching zero.
+// would leave the figure never reaching zero. (No screen draws it today: Home
+// counts the dealt deck. /review/scores and a daily answer's reply both carry it.)
 func TestTheDueCountLeavesOutALongQuoteNoBlankCanAsk(t *testing.T) {
 	srv := newTestServer(t)
 	c := signupAdmin(t, srv.Handler())

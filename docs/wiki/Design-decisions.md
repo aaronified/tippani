@@ -3516,8 +3516,11 @@ the blanks off by itself. A longer quote is asked the other questions. On Hard, 
 up "which work?" and "which quote?", a long quote gets them back, after Hard's own "who?"
 questions, so a card whose "who?" cannot be built (too few people to choose from) is still
 asked rather than dropped from a scored deck (`tierDirectionsFor`). A reader who keeps
-nothing but the blanks has long quotes no deck can ask, and Home's count of what is left
-leaves them out (`askableAlone`), or it would never reach zero.
+nothing but the blanks has long quotes no deck can ask, and the daily `remaining` figure
+the API reports leaves them out (`askableAlone`), or it would never reach zero. No screen
+draws that figure (Home counts the deck it was dealt), so this keeps the API honest rather
+than changing anything on screen; the rating pass that found it, and the fix's commit
+body, called it Home's count, which it is not.
 
 **Why.** In a one-liner every word carries the line, and recalling the missing word is
 recalling the quote. In a paragraph it is a guess at one word among sixty, and getting it

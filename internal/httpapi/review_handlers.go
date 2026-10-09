@@ -2411,7 +2411,7 @@ func buildQuestion(c reviewCand, preferred string, p quizPools, seed int64, scor
 	// since the blanks became a short quote's question — one too long, for a
 	// reader who keeps nothing but the blanks. For those there is honestly no
 	// question to ask, so the card sits out the round, and askableAlone keeps
-	// Home's count of what is left from waiting on it.
+	// the daily `remaining` figure from waiting on it.
 	//
 	// ok=false is impossible for an unscored deck, because flip is always
 	// available there — which is why Practice can still show you everything.
@@ -3587,7 +3587,8 @@ func (s *Server) itemText(kind string, id int64) (string, error) {
 // no-op echo: the card's new status + half-life, the mode's day tally, the
 // library-wide status counts (so the "Where you stand" row updates live on
 // every answer, quiz or practice), and (for daily) how much of today's deck is
-// left so the pending dot stays honest.
+// left, `remaining`. No screen draws that figure today: Home's due count and the
+// pending dot come from the dealt deck itself (Home.jsx), since 03fac201.
 // answerResponse also carries whether the card has just BECOME a leech, and that
 // is load-bearing rather than a convenience.
 //
