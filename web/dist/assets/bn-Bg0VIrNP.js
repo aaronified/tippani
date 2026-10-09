@@ -594,6 +594,8 @@ common.recall.uncounted.note = এগুলো রাখা থাকে, তব
 common.slider.multiplier.format = {n}×
 common.slider.days.format.one = {n} দিন
 common.slider.days.format.other = {n} দিন
+common.slider.words.format.one = {n} শব্দ
+common.slider.words.format.other = {n} শব্দ
 
 # --- the struck flash card on a row the quiz will not draw. {kind} is the word
 # for the work it hangs off — book, film, show.
@@ -2004,9 +2006,9 @@ quiz.question.source.hint = উদ্ধৃতিটা দেখিয়ে �
 quiz.question.quote.label = কোন বাক্যটা?
 quiz.question.quote.hint = বই বা সিনেমার নাম দেখিয়ে জিজ্ঞেস করে কোন লাইনটা ওখান থেকে। কয়েকটা বিকল্প থেকে বাছতে হয়।
 quiz.question.cloze.label = শূন্যস্থান পূরণ
-quiz.question.cloze.hint = একটা অংশ ফাঁকা রেখে আপনাকে টাইপ করে ভরতে বলে। সার্ভার যাচাই করে, ছোটখাটো বানান ভুল ধরে না। ঠিক হলে বেশি নম্বর, ভুলে কম ক্ষতি।
+quiz.question.cloze.hint = একটা অংশ ফাঁকা রেখে আপনাকে টাইপ করে ভরতে বলে, শুধু সেই উদ্ধৃতিতে যা "শূন্যস্থান শুধু এত শব্দ পর্যন্ত"-এর চেয়ে লম্বা নয়। সার্ভার যাচাই করে, ছোটখাটো বানান ভুল ধরে না। ঠিক হলে বেশি নম্বর, ভুলে কম ক্ষতি।
 quiz.question.cloze-mcq.label = শূন্যস্থান পূরণ — বেছে নিয়ে
-quiz.question.cloze-mcq.hint = একই ফাঁকা জায়গা, তবে চারটে অংশ থেকে বাছতে হয়। ভুলগুলো আপনার অন্য উদ্ধৃতি থেকে নেওয়া।
+quiz.question.cloze-mcq.hint = একই ফাঁকা জায়গা, তবে চারটে অংশ থেকে বাছতে হয়। ভুলগুলো আপনার অন্য উদ্ধৃতি থেকে নেওয়া। টাইপ করা শূন্যস্থানের মতোই, শুধু ছোট উদ্ধৃতিতে।
 quiz.question.speaker.label = কে বলেছে?
 quiz.question.speaker.hint = লাইনটা কে বলেছে জিজ্ঞেস করে — সিনেমা, শো, গেম বা বক্তৃতার উদ্ধৃতিতে। বইয়ের হাইলাইটে কখনো আসে না।
 quiz.question.author.label = কে লিখেছে?
@@ -2043,6 +2045,8 @@ quiz.tuning.cloze-synonym.label = সমার্থক শব্দের দ�
 quiz.tuning.cloze-synonym.hint = কাছাকাছি মানের শব্দ দিলেও ঠিক ধরা হয়, আর পুরো উত্তরের এতটা অংশ পায়। ০ দিলে ঠিক ধরা হয়, কিন্তু কার্ড নড়ে না।
 quiz.tuning.cloze-words.label = একাধিক শব্দের শূন্যস্থান কবে থেকে
 quiz.tuning.cloze-words.hint = উদ্ধৃতি এত দিন মনে থাকার আগে ফাঁকা জায়গায় একটাই শব্দ লুকোয়; তারপর পুরো অংশও লুকোতে পারে। ১ দিলে শুরু থেকেই পুরো অংশ।
+quiz.tuning.cloze-max.label = শূন্যস্থান শুধু এত শব্দ পর্যন্ত
+quiz.tuning.cloze-max.hint = যত শব্দের উদ্ধৃতি পর্যন্ত ফাঁকা জায়গার প্রশ্ন হবে, টাইপ করে বা বেছে নিয়ে। এর চেয়ে লম্বা উদ্ধৃতিতে একটা শব্দ মনে করা অনেকগুলোর মধ্যে আন্দাজ মাত্র, তাই সেখানে জিজ্ঞেস করা হয় কোন বই, কোন উদ্ধৃতি বা কে বলেছে।
 quiz.tuning.ladder-1.label = সিঁড়ির ধাপ 1
 quiz.tuning.ladder-1.hint = প্রথম ধাপ, আর ভুল হলে কার্ড এখানেই ফেরে। শুধু সিঁড়ি বাছলে খাটে।
 quiz.tuning.ladder-2.label = সিঁড়ির ধাপ 2
@@ -3130,6 +3134,7 @@ quiz.cloze.synonym.note = সমার্থক হিসেবে গোনা 
 # Under each option of a "which quote?" card, once it has been answered: the
 # work that option came out of. {title} is a book, film, show, game or occasion.
 quiz.option.source.label = {title} থেকে
+quiz.option.as.label = চরিত্র
 
 # A multiple-choice option that is longer than three lines.
 quiz.option.expand.aria = এই উত্তরটা পুরো দেখুন
@@ -3214,6 +3219,13 @@ home.daily.done.label = আজকের মতো শেষ ✓
 home.daily.done.summary = {got} মনে ছিল · {missed} আবার ফিরবে · কাল আবার
 home.daily.empty.label = আজ কিছু বাকি নেই
 home.daily.empty.summary = আরও উদ্ধৃতি জমান বা ঝালিয়ে নিন — দিনপঞ্জি তৈরি হবে
+# THE DECK BEFORE IT IS OPENED. The round runs in its own screen (a popup on a
+# desk, the whole screen on a phone); the card on Home says how many are due and
+# opens it. "Continue" once some of today's cards have been answered here.
+home.daily.due.label.one = আজ {n}টি কার্ড বাকি
+home.daily.due.label.other = আজ {n}টি কার্ড বাকি
+home.daily.start.label = শুরু করুন
+home.daily.resume.label = চালিয়ে যান
 
 # "WHERE YOU STAND" — a count per memory status, with the explainer under it.
 home.states.title = স্মৃতির হাল
@@ -3243,6 +3255,8 @@ home.practice.info.body = পুরো সংগ্রহ থেকে যত �
 home.practice.unlimited.label = যত খুশি
 home.practice.start.label = ঝালাই শুরু করুন
 home.practice.start.busy = লোড হচ্ছে…
+# A round left open on Home, reopened in its own screen where it stopped.
+home.practice.resume.label = ঝালাই চালিয়ে যান
 # The lifetime practice score. {n} answered, {percent} of them recalled.
 home.practice.score.label = {n}টা উত্তর · {percent}% মনে ছিল
 home.practice.reset.aria = ঝালাইয়ের স্কোর মুছুন
