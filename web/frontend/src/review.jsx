@@ -338,7 +338,9 @@ function OptionReveal({ om, isWork, personMaps }) {
     <span className="mt-1.5 flex flex-col gap-1" style={{ fontStyle: 'normal' }}>
       {line && (
         <span className="flex items-center gap-1.5">
-          {source && <WorkArt path={om.art} size={22} />}
+          {/* Only a work that has a cover: a speech has none anywhere in the
+              app, and an empty frame beside an occasion reads as a missing one. */}
+          {source && om.art && <WorkArt path={om.art} size={22} />}
           <MonoLabel style={{ fontSize: 'var(--type-ui-11)', color: 'var(--faint)' }}>{line}</MonoLabel>
         </span>
       )}
