@@ -1129,7 +1129,7 @@ export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps, sel
   const [asking, setAsking] = useState(false)
   // "Quiz me on this one." The dialog belongs to the tile that opened it, so it
   // closes with the board rather than outliving it.
-  const { practise, practiceDialog } = usePractice()
+  const { practise, practiceDialog } = usePractice(t(kind === 'book' ? 'nav.tab.library.label' : 'nav.tab.movies.label'))
   const gather = useGatherDoor()
   const acts = actionsFor(kind, item, {
     // Absent unless the board passes a reload — a surface that cannot refresh

@@ -299,7 +299,7 @@ function CompactTagCard({ tag, index, dupe = false, onChanged }) {
   const { ask, confirmDialog } = useConfirm()
   const [editing, setEditing] = useState(false)
   const [error, setError] = useState('')
-  const { practise, practiceDialog } = usePractice()
+  const { practise, practiceDialog } = usePractice(t('metadata.section.categories.label'))
   const uses = tag.annotations + tag.dialogues
 
   return (
@@ -356,7 +356,7 @@ function TagTable({ tags, dupIds, onChanged }) {
   const { sort, toggle, apply } = useSort('uses', 'desc')
   const [editingId, setEditingId] = useState(null)
   const [error, setError] = useState('')
-  const { practise, practiceDialog } = usePractice()
+  const { practise, practiceDialog } = usePractice(t('metadata.section.categories.label'))
   const rows = apply(tags, {
     name: (row) => row.name.toLowerCase(),
     style: (row) => row.style,

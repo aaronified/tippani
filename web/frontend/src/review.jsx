@@ -1378,7 +1378,9 @@ export const themeKeys = ['book', 'movie', 'tag', 'color', 'person', 'anthology'
 // ThemedPracticeDialog — one themed round in a modal, over whatever screen it
 // was started from. Deliberately not a route: the round is a detour, and coming
 // back to the shelf you were on is the whole shape of it.
-export function ThemedPracticeDialog({ theme, onClose }) {
+// `from` names the screen the round was started from, for the phone's back key —
+// a key that says nothing is a guess about where it lands (FormModal's `backTo`).
+export function ThemedPracticeDialog({ theme, onClose, from }) {
   const [cards, setCards] = useState(null) // null = still loading
   const [tally, setTally] = useState({ got: 0, forgot: 0 })
   const [done, setDone] = useState(false)
@@ -1410,7 +1412,7 @@ export function ThemedPracticeDialog({ theme, onClose }) {
   return (
     // THE SAME SCREEN AS HOME'S ROUNDS: a round is a round wherever it was
     // started from, and on a phone it takes the glass.
-    <FormModal open screen onClose={onClose} title={theme?.label || t('quiz.practice.label')} maxWidth={560}>
+    <FormModal open screen onClose={onClose} title={theme?.label || t('quiz.practice.label')} backTo={from} maxWidth={560}>
       <div className="review-card-body">
         {cards == null && <MonoLabel style={{ color: 'var(--faint)' }}>{t('common.action.load.busy')}</MonoLabel>}
         {/* NOT AN ERROR, and worth the sentence. A theme with nothing behind it
@@ -1476,14 +1478,17 @@ export function ThemedPracticeDialog({ theme, onClose }) {
 // away from would keep posting grades against a schedule they thought they had
 // stopped touching.
 //
-//   const { practise, practiceDialog } = usePractice()
+//   const { practise, practiceDialog } = usePractice(t('nav.tab.stats.label'))
 //   ...
 //   <button onClick={() => practise({ book: id, label: title })}>Practise</button>
 //   {practiceDialog}
-export function usePractice() {
+//
+// `from` is the name of the screen the hook is on, which the round's back key
+// returns to on a phone.
+export function usePractice(from) {
   const [theme, setTheme] = useState(null)
   return {
     practise: (themed) => setTheme(themed),
-    practiceDialog: theme ? <ThemedPracticeDialog theme={theme} onClose={() => setTheme(null)} /> : null,
+    practiceDialog: theme ? <ThemedPracticeDialog theme={theme} from={from} onClose={() => setTheme(null)} /> : null,
   }
 }

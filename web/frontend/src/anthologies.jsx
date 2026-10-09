@@ -1391,7 +1391,7 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
   // kind, so a mixed anthology practises as one deck — and for two releases there
   // was no way to ask for it: themeQuery never put the parameter in the URL and no
   // screen had the button. A feature the reader cannot reach is not shipped.
-  const { practise, practiceDialog } = usePractice()
+  const { practise, practiceDialog } = usePractice(anthology?.title || t('anthologies.read.title.fallback'))
 
   const reload = useCallback(async () => {
     const r = await json('GET', `/anthologies/${id}`)

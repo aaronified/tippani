@@ -594,7 +594,7 @@ function BreakdownRow({ r, rank, showWorks, art, personMap, characterMap, onSear
 // cover thumbs / portrait chips and click through to Search.
 function BreakdownCard({ breakdown, personMaps, characterMap, onSearch }) {
   const [kind, setKind] = useState('authors')
-  const { practise, practiceDialog } = usePractice()
+  const { practise, practiceDialog } = usePractice(t('nav.tab.stats.label'))
   const meta = BREAKDOWN_KINDS.find((m) => m.key === kind) || BREAKDOWN_KINDS[0]
   const k = breakdown?.[kind] || { count: 0, top: [] }
   return (
@@ -694,7 +694,7 @@ function Colors({ colors }) {
   // tag has a card, a person has a panel; a colour category is only ever a
   // filter chip — except here, where it is a named row with a count beside it.
   // So this is where "quiz me on the ones I marked Disagreed" belongs.
-  const { practise, practiceDialog } = usePractice()
+  const { practise, practiceDialog } = usePractice(t('nav.tab.stats.label'))
   const total = rows.reduce((a, [k]) => a + (colors?.[k] || 0), 0)
   const max = Math.max(1, ...rows.map(([k]) => colors?.[k] || 0))
   // The label column was a fixed 52px, which fitted "Yellow" and nothing a
@@ -789,7 +789,7 @@ function LeaderList({ rows, onSearch, onPractise }) {
 
 // TopList — a labelled leaderboard card (Top tags).
 function TopList({ label, rows, onSearch }) {
-  const { practise, practiceDialog } = usePractice()
+  const { practise, practiceDialog } = usePractice(t('nav.tab.stats.label'))
   return (
     <Card>
       <SectionHead label={label} />

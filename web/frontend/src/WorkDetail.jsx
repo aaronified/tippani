@@ -133,8 +133,8 @@ export default function WorkDetail({
   // entry for a work all along — it was only ever offered from a person's panel
   // and from a colour on Stats, so the one screen where "quiz me on this" is the
   // obvious thing to want had no way to ask.
-  const { practise, practiceDialog } = usePractice()
   const [item, setItem] = useState(null)
+  const { practise, practiceDialog } = usePractice(item?.title)
   // Everything this screen says about its own kind. Resolved from the loaded row,
   // because only media_type tells a game from a film — before it lands the side's
   // own row stands in, which is what lets the frame draw while the fetch is out.
