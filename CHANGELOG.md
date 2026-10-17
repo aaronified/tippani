@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **On All sources, a source that asks nothing of you now says "built in", not "optional".**
+  Open Library, Wikimedia, Fandom, Wikidata, IMDb, Letterboxd and the keyless Google image
+  reading have no key to add, so "optional" sent a reader looking for a field that does not
+  exist. They take the same purple mark as TMDB and TheTVDB running on the app's own key.
+  Google Books and Amazon stay "optional", because a key or a cookie really does improve them.
+
+### Fixed
+
+- **The quiz popup is one size for the whole quiz, and its controls stay put.** On a desk the
+  Daily quiz and Practice popups changed height with every question, and the bottom of the
+  question wore a fade as if it scrolled when it did not. The popup now keeps one height from
+  the first question to the last, the fade shows only when the question really overflows, and
+  the verdict, Next, "fix or tag this", Submit and Skip are pinned at the bottom of the popup,
+  on a desk and on a phone, while the question and its options scroll above them. The same
+  fade fix applies to every scrolling row in the app that has something slide into it.
+
 ### Added
 
 - **A person can have a signature, and a shared picture can carry it.** On a person's record

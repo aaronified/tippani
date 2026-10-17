@@ -18596,8 +18596,13 @@ identical.
 
 **THE STATE COMES FROM THE SAME RESOLVERS THE LOOKUPS CALL**, so a row cannot claim a key
 that a fetch would not find. Four words, the pack's: `saved`, `builtin`, `optional`,
-`needed`. The keyless suppliers are `optional` rather than `saved`, which is a reading
+`needed`. The keyless suppliers were `optional` rather than `saved`, which was a reading
 worth stating — "key saved" would be a green light about a key that does not exist.
+**Revised 17 October: they are `builtin`.** The owner: the inbuilt sources where a reader
+need not provide anything were marked optional, and could be marked built-in. They could:
+`optional` promises something to add, and Open Library, Wikimedia, Fandom, Wikidata, IMDb,
+Letterboxd and the keyless Google image reading have nothing to add. `optional` stays for
+Google Books and Amazon, where a key or a cookie really does improve the answer.
 
 **"RECORDS SUPPLIED" IS THE LIBRARY'S OWN RECORD, not a tally this feature keeps.**
 `work_field_source` already stores which supplier wrote each accepted field, so the number
