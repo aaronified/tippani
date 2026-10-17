@@ -60,6 +60,8 @@ func Title(kind, subject string, total int) string {
 		t = "Look up a person's links"
 	case "lookup.person":
 		t = "Fetch a person's portrait and links"
+	case "lookup.signature":
+		t = "Fetch a person's signature"
 	case "lookup.reverify":
 		t = "Re-verify"
 	case "lookup.cast-image":

@@ -5791,6 +5791,7 @@ settings.jobs.kind.lookup-portrait = মুখের ছবি খোঁজা
 settings.jobs.kind.lookup-links = তথ্যসূত্রের পাতা খোঁজা
 # bn: names what the row's Fetch does (a photo and links) rather than "person lookup"; the row's subject is the person's name
 settings.jobs.kind.lookup-person = ছবি ও লিংক আনা
+settings.jobs.kind.lookup-signature = সই আনা
 settings.jobs.kind.lookup-reverify = একটা আবার মিলিয়ে দেখা
 settings.jobs.kind.lookup-cast-image = কাস্টের একটা ছবি
 settings.jobs.kind.lookup-cast-imdb = IMDb থেকে কাস্ট

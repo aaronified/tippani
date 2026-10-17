@@ -72,6 +72,7 @@ func TestEachJobIsKeptUnderWhatItIsAbout(t *testing.T) {
 		{"/cast/" + itoa(waller) + "/image", nil},
 		{"/movies/" + itoa(film) + "/cast/imdb", map[string]any{"imdb": "https://www.imdb.com/title/tt1386697/"}},
 		{"/people/id/" + itoa(leGuin) + "/fetch", nil},
+		{"/people/id/" + itoa(leGuin) + "/signature/fetch", nil},
 		{"/movies/" + itoa(film) + "/cast/art", map[string]any{"names": []string{"Viola Davis"}}},
 	} {
 		alice.do("POST", req.path, req.body)
@@ -111,6 +112,7 @@ func TestEachJobIsKeptUnderWhatItIsAbout(t *testing.T) {
 		{"lookup.cast-imdb", "tt1386697"},
 		{"lookup.cast-tvdb", "Suicide Squad"},
 		{"lookup.person", "Ursula K. Le Guin"},
+		{"lookup.signature", "Ursula K. Le Guin"},
 		{"lookup.cast-art", "Suicide Squad"},
 		{"fill", "Dune"},
 		{"fill", ""},

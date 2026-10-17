@@ -220,14 +220,8 @@ func (s *Server) signatureNamed(name string) bool {
 // Best-effort and logged, like the portrait beside it: a signature that would not
 // download or clean costs the signature and not the fetch.
 func (s *Server) fetchSignatureImage(ctx context.Context, rawURL, kind, name string) []byte {
-	file, err := s.fetchImage(ctx, rawURL, s.coversDir())
-	if err != nil {
-		logOutwardFailure(olog.CodeCoverFetch, err, "[people] signature kind=%s name=%q url=%q failed: %v", kind, name, rawURL, err)
-		return nil
-	}
-	defer s.removeCoverFile(file)
-	raw, err := os.ReadFile(filepath.Join(s.coversDir(), file))
-	if err != nil {
+	raw := s.downloadSignature(ctx, rawURL, kind, name)
+	if raw == nil {
 		return nil
 	}
 	cleaned, err := cleanSignature(signatureInput{data: raw, strength: signature.DefaultStrength})
@@ -263,4 +257,65 @@ func (s *Server) lockFoundSignature(f *portraitFind) (release func()) {
 		signatureFiles.Unlock()
 		s.removeSignatureFile(name)
 	}
+}
+
+// downloadSignature fetches a signature raster by its address and answers its raw
+// bytes, uncleaned, or nil. The fetcher stores what it downloads under a random
+// name in the covers dir; that file is read back and removed here, so nothing of
+// the download outlives the call.
+func (s *Server) downloadSignature(ctx context.Context, rawURL, kind, name string) []byte {
+	file, err := s.fetchImage(ctx, rawURL, s.coversDir())
+	if err != nil {
+		logOutwardFailure(olog.CodeCoverFetch, err, "[people] signature kind=%s name=%q url=%q failed: %v", kind, name, rawURL, err)
+		return nil
+	}
+	defer s.removeCoverFile(file)
+	raw, err := os.ReadFile(filepath.Join(s.coversDir(), file))
+	if err != nil {
+		return nil
+	}
+	return raw
+}
+
+// handleSignatureFetch: POST /people/id/{id}/signature/fetch, no body. The
+// signature slot's own Fetch: resolve the person the way their Fetch does, keep only
+// the signature, and answer the RAW raster it found — not cleaned, not stored.
+// The screen shows it through the same preview and ink slider an upload gets and
+// saves it through the same route, crediting wikidata, so a fetched signature is
+// cleaned at the strength the reader chose and not at a default they never saw.
+//
+// {"found": false} is an answer, not an error: a person the resolve does not reach
+// Wikidata for, or whose item has no signature, has none to offer, and the button
+// says so. A lookup that failed is a 502, as the person's Fetch gives.
+func (s *Server) handleSignatureFetch(w http.ResponseWriter, r *http.Request) {
+	uid, id, ok := s.identityTarget(w, r, "people")
+	if !ok {
+		return
+	}
+	p, err := s.personByID(uid, id)
+	if err != nil {
+		internalError(w, r, "read person", err)
+		return
+	}
+	jobSubject(r.Context(), p.Name)
+	kind := s.fetchKind(uid, id)
+	_, _, _, _, _, _, _, signatureURL, err := s.resolvePersonPortrait(r.Context(), uid, kind, p.Name)
+	if err != nil {
+		logOutwardFailure(olog.CodePeopleLookupFailed, err, "[people] signature kind=%s name=%q failed: %v", kind, p.Name, err)
+		writeErr(w, http.StatusBadGateway, errPortraitLookup)
+		return
+	}
+	if signatureURL == "" {
+		writeJSON(w, http.StatusOK, map[string]any{"found": false})
+		return
+	}
+	raw := s.downloadSignature(r.Context(), signatureURL, kind, p.Name)
+	if raw == nil {
+		writeJSON(w, http.StatusOK, map[string]any{"found": false})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"found": true,
+		"image": "data:" + http.DetectContentType(raw) + ";base64," + base64.StdEncoding.EncodeToString(raw),
+	})
 }

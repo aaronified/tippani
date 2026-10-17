@@ -53,7 +53,7 @@ export const JOB_KINDS = [
   // and wrong — the People row's Fetch was one of those for a stage.
   'lookup.book', 'lookup.movie', 'lookup.images', 'lookup.portrait', 'lookup.links',
   'lookup.person', 'lookup.reverify', 'lookup.cast-image', 'lookup.cast-imdb',
-  'lookup.cast-tvdb', 'lookup.cast-art',
+  'lookup.cast-tvdb', 'lookup.cast-art', 'lookup.signature',
   'update.check', 'update.apply', 'metadata.test', 'notify.test', 'signin.oidc',
   'work.save', 'person.save', 'character.save',
   'restore', 'reset', 'notify.daily', 'request',

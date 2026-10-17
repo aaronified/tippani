@@ -157,7 +157,7 @@ var contractKinds = []string{
 	"reset", "update.check", "update.apply", "metadata.test", "notify.test", "notify.daily", "signin.oidc",
 	"work.save", "person.save", "character.save", "request", "lookup.book", "lookup.movie", "lookup.images",
 	"lookup.portrait", "lookup.links", "lookup.person", "lookup.reverify", "lookup.cast-image",
-	"lookup.cast-imdb", "lookup.cast-tvdb", "lookup.cast-art",
+	"lookup.cast-imdb", "lookup.cast-tvdb", "lookup.cast-art", "lookup.signature",
 }
 
 func TestEveryKindTheServerKeepsAJobUnderIsOneTheScreensCanName(t *testing.T) {

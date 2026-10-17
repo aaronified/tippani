@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"net/http"
 	"os"
@@ -133,4 +134,78 @@ func TestAFetchWithNoWikidataSignatureLeavesTheSlotEmpty(t *testing.T) {
 	if got, _ := signatureOf(t, c, id); got != "" {
 		t.Errorf("a signature appeared from nowhere: %q", got)
 	}
+}
+
+// THE SLOT'S OWN FETCH OFFERS THE RAW SIGNATURE AND SAVES NOTHING. The screen
+// shows what it answers through the same preview and ink slider an upload gets, and
+// saves it, if the reader keeps it, through the ordinary save: so a fetch that
+// wrote anything would be a signature the reader had not yet agreed to.
+func TestTheSlotsFetchOffersASignatureAndSavesNothing(t *testing.T) {
+	srv := newTestServer(t)
+	stubSignatureSuppliers(t, srv, true)
+	c := signupAdmin(t, srv.Handler())
+	id := makePerson(t, c, "Jane Solo")
+	before := filesIn(t, srv.coversDir())
+
+	got := decode[struct {
+		Found bool   `json:"found"`
+		Image string `json:"image"`
+	}](t, c.mustDo("POST", "/people/id/"+itoa(id)+"/signature/fetch", nil, http.StatusOK))
+	if !got.Found || !strings.HasPrefix(got.Image, "data:image/png;base64,") {
+		t.Fatalf("the slot's fetch answered %+v, want the signature as a PNG", got)
+	}
+	if p, _ := signatureOf(t, c, id); p != "" {
+		t.Errorf("a fetch the reader has not accepted saved %q", p)
+	}
+	if n := filesIn(t, srv.coversDir()); n != before {
+		t.Errorf("a fetch left %d file(s) behind", n-before)
+	}
+
+	// Taking it is the ordinary save, which credits Wikidata and clears the memory of
+	// a removal, because that is the reader asking for a signature.
+	c.mustDo("PUT", "/people/id/"+itoa(id), map[string]any{"clear_signature": true}, http.StatusOK)
+	raw := mustDataURL(t, got.Image)
+	if rec := postSignature(c, "/people/id/"+itoa(id)+"/signature", raw, map[string]string{"source": "wikidata"}); rec.Code != 200 {
+		t.Fatalf("save = %d: %s", rec.Code, rec.Body)
+	}
+	if name, src := signatureOf(t, c, id); name == "" || src != "wikidata" {
+		t.Errorf("after taking the fetched signature: %q credited to %q, want a file credited to wikidata", name, src)
+	}
+}
+
+func TestTheSlotsFetchSaysWhenThereIsNothingToOffer(t *testing.T) {
+	srv := newTestServer(t)
+	stubSignatureSuppliers(t, srv, false)
+	c := signupAdmin(t, srv.Handler())
+	id := makePerson(t, c, "Jane Solo")
+
+	got := decode[struct {
+		Found bool `json:"found"`
+	}](t, c.mustDo("POST", "/people/id/"+itoa(id)+"/signature/fetch", nil, http.StatusOK))
+	if got.Found {
+		t.Error("the fetch claimed to find a signature for an author with none")
+	}
+}
+
+func TestTheSlotsFetchIsNotThereForAnotherReader(t *testing.T) {
+	srv := newTestServer(t)
+	stubSignatureSuppliers(t, srv, true)
+	h := srv.Handler()
+	alice := signupAdmin(t, h)
+	bob := addUser(t, h, alice, "bob")
+	id := makePerson(t, alice, "Jane Solo")
+	bob.mustDo("POST", "/people/id/"+itoa(id)+"/signature/fetch", nil, http.StatusNotFound)
+}
+
+func mustDataURL(t *testing.T, u string) []byte {
+	t.Helper()
+	_, b64, ok := strings.Cut(u, ",")
+	if !ok {
+		t.Fatalf("not a data URL: %.40q", u)
+	}
+	raw, err := base64.StdEncoding.DecodeString(b64)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return raw
 }

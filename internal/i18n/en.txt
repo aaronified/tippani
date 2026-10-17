@@ -5976,6 +5976,8 @@ settings.jobs.kind.lookup-portrait = Portrait lookup
 settings.jobs.kind.lookup-links = Reference page lookup
 # The People row's Fetch: one person's photo and reference links together.
 settings.jobs.kind.lookup-person = Person lookup
+# The signature slot's own Fetch: one person's Wikidata signature, nothing else.
+settings.jobs.kind.lookup-signature = Signature lookup
 settings.jobs.kind.lookup-reverify = Re-verify one
 settings.jobs.kind.lookup-cast-image = Cast picture
 settings.jobs.kind.lookup-cast-imdb = Cast from IMDb

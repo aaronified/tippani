@@ -33,11 +33,13 @@ var jobKinds = map[string]string{
 	"POST /people/portrait": "lookup.portrait",
 	"POST /people/lookup":   "lookup.links",
 	// One person's portrait and links together, the People row's Fetch.
-	"POST /people/id/{id}/fetch":  "lookup.person",
-	"POST /metadata/reverify":     "lookup.reverify",
-	"POST /cast/{id}/image":       "lookup.cast-image",
-	"POST /movies/{id}/cast/imdb": "lookup.cast-imdb",
-	"POST /movies/{id}/cast/tvdb": "lookup.cast-tvdb",
+	"POST /people/id/{id}/fetch": "lookup.person",
+	// One person's signature alone, the signature slot's own Fetch.
+	"POST /people/id/{id}/signature/fetch": "lookup.signature",
+	"POST /metadata/reverify":              "lookup.reverify",
+	"POST /cast/{id}/image":                "lookup.cast-image",
+	"POST /movies/{id}/cast/imdb":          "lookup.cast-imdb",
+	"POST /movies/{id}/cast/tvdb":          "lookup.cast-tvdb",
 	// A work page's pictures, its pending role pictures and headshots in one
 	// request (cast_art_handlers.go).
 	"POST /books/{id}/cast/art":  "lookup.cast-art",
