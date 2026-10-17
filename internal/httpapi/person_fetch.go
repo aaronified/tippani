@@ -150,6 +150,8 @@ func (s *Server) fetchKind(uid, id int64) string {
 // transaction: a save of the record's links between the caller's read and this
 // write would otherwise be written over.
 func (s *Server) saveFetchedPerson(uid, id int64, kind string, f portraitFind, links map[string]string, linksFrom string) error {
+	unlock := s.lockFoundSignature(&f)
+	defer unlock()
 	tx, err := s.Store.DB.Begin()
 	if err != nil {
 		s.removeCoverFile(f.image)

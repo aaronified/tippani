@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
 	"encoding/base64"
 	"errors"
@@ -208,4 +209,58 @@ func (s *Server) signatureNamed(name string) bool {
 		return true
 	}
 	return n > 0
+}
+
+// fetchSignatureImage downloads a signature raster by its address, through the
+// same gated, allowlisted fetcher a portrait uses, and answers it cleaned at the
+// default strength: PNG bytes, or nil when there is nothing usable. It is not
+// stored here: the fetch writes a temporary file under a random name only because
+// that is what the fetcher does, reads it back and removes it.
+//
+// Best-effort and logged, like the portrait beside it: a signature that would not
+// download or clean costs the signature and not the fetch.
+func (s *Server) fetchSignatureImage(ctx context.Context, rawURL, kind, name string) []byte {
+	file, err := s.fetchImage(ctx, rawURL, s.coversDir())
+	if err != nil {
+		logOutwardFailure(olog.CodeCoverFetch, err, "[people] signature kind=%s name=%q url=%q failed: %v", kind, name, rawURL, err)
+		return nil
+	}
+	defer s.removeCoverFile(file)
+	raw, err := os.ReadFile(filepath.Join(s.coversDir(), file))
+	if err != nil {
+		return nil
+	}
+	cleaned, err := cleanSignature(signatureInput{data: raw, strength: signature.DefaultStrength})
+	if err != nil {
+		olog.Warnf(olog.CodeCoverFetch, "[people] signature kind=%s name=%q could not be cleaned: %v", kind, name, err)
+		return nil
+	}
+	return cleaned
+}
+
+// lockFoundSignature stores a fetch's cleaned signature and answers the release
+// to defer. THE LOCK IS HELD FROM THE STORE UNTIL THE CALLER IS DONE WRITING, so a
+// removal cannot find the file unnamed between the two and delete it. The release
+// drops the lock and then removes the file if the write left nothing naming it: the
+// slot may already have held a signature, or been emptied on purpose, and then the
+// fetched one is not used.
+//
+// A failed store costs the signature, not the fetch.
+func (s *Server) lockFoundSignature(f *portraitFind) (release func()) {
+	if len(f.signatureData) == 0 {
+		return func() {}
+	}
+	signatureFiles.Lock()
+	name, err := metadata.StoreSignature(f.signatureData, s.coversDir())
+	if err != nil {
+		signatureFiles.Unlock()
+		olog.Warnf(olog.CodeCoverFetch, "[people] could not store a fetched signature: %v", err)
+		f.signatureData = nil
+		return func() {}
+	}
+	f.signature = name
+	return func() {
+		signatureFiles.Unlock()
+		s.removeSignatureFile(name)
+	}
 }

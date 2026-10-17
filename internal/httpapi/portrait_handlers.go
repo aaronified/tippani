@@ -146,12 +146,19 @@ type portraitFind struct {
 	// when the bytes arrived, so a failed download credits nobody.
 	imageSource string
 	links       map[string]string
+	// signatureData is the cleaned PNG of the author's Wikidata signature, in
+	// memory and not yet a file: it is stored at write time, under the signature
+	// lock, so a removal cannot delete it between being stored and being named.
+	// signature is its stored name, set by lockFoundSignature.
+	signatureData   []byte
+	signature       string
+	signatureSource string
 }
 
 // pinned is whether the resolve found anything to write on a record. Links alone
 // are not: a record's links are folded in by the caller, never written here.
 func (f portraitFind) pinned() bool {
-	return f.source != "" || f.image != "" || f.bio != "" || f.born != "" || f.died != ""
+	return f.source != "" || f.image != "" || f.bio != "" || f.born != "" || f.died != "" || len(f.signatureData) > 0
 }
 
 // findPortrait resolves kind name's portrait, identity and facts, and downloads
@@ -160,9 +167,9 @@ func (f portraitFind) pinned() bool {
 // failed lookup, already logged; the caller says errPortraitLookup.
 func (s *Server) findPortrait(ctx context.Context, uid int64, kind, name string) (portraitFind, error) {
 	var f portraitFind
-	var imageURL string
+	var imageURL, signatureURL string
 	var err error
-	f.source, f.sourceID, imageURL, f.bio, f.born, f.died, f.links, err = s.resolvePersonPortrait(ctx, uid, kind, name)
+	f.source, f.sourceID, imageURL, f.bio, f.born, f.died, f.links, signatureURL, err = s.resolvePersonPortrait(ctx, uid, kind, name)
 	if err != nil {
 		// Only the author (Open Library) path returns a hard error here — the
 		// actor/director paths degrade to best-effort. The client sees a generic
@@ -187,6 +194,12 @@ func (s *Server) findPortrait(ctx context.Context, uid int64, kind, name string)
 			f.image, f.imageSource = file, pictureSupplier(imageURL, f.source)
 		}
 	}
+	if signatureURL != "" && ctx.Err() == nil {
+		f.signatureData = s.fetchSignatureImage(ctx, signatureURL, kind, name)
+		if f.signatureData != nil {
+			f.signatureSource = "wikidata"
+		}
+	}
 	return f, nil
 }
 
@@ -195,6 +208,8 @@ func (s *Server) findPortrait(ctx context.Context, uid int64, kind, name string)
 // transaction (persistPortraitOn). On an error the downloaded file is removed,
 // since nothing points at it.
 func (s *Server) persistPortrait(uid, personID int64, kind string, f portraitFind) error {
+	unlock := s.lockFoundSignature(&f)
+	defer unlock()
 	tx, err := s.Store.DB.Begin()
 	if err != nil {
 		s.removeCoverFile(f.image)
@@ -230,12 +245,14 @@ func persistPortraitOn(tx *sql.Tx, uid, personID int64, kind string, f portraitF
 		UPDATE people SET
 			image_path = CASE WHEN ? <> '' THEN ? ELSE image_path END,
 			image_source = CASE WHEN ? <> '' THEN ? ELSE image_source END,
+			signature_path = CASE WHEN ? <> '' AND signature_path = '' AND signature_removed = 0 THEN ? ELSE signature_path END,
+			signature_source = CASE WHEN ? <> '' AND signature_path = '' AND signature_removed = 0 THEN ? ELSE signature_source END,
 			bio  = CASE WHEN bio  = '' AND ? <> '' THEN ? ELSE bio  END,
 			born = CASE WHEN born = '' AND ? <> '' THEN ? ELSE born END,
 			died = CASE WHEN died = '' AND ? <> '' THEN ? ELSE died END,
 			source = ?, source_id = ?
 		WHERE id = ? AND user_id = ?`,
-		f.image, f.image, f.image, f.imageSource, f.bio, f.bio, f.born, f.born, f.died, f.died, f.source, f.sourceID, personID, uid); err != nil {
+		f.image, f.image, f.image, f.imageSource, f.signature, f.signature, f.signature, f.signatureSource, f.bio, f.bio, f.born, f.born, f.died, f.died, f.source, f.sourceID, personID, uid); err != nil {
 		return "", err
 	}
 	// Fetching an actor's portrait for someone already saved as an author adds
@@ -253,15 +270,15 @@ func persistPortraitOn(tx *sql.Tx, uid, personID int64, kind string, f portraitF
 // source/imageURL means nothing confident was found. A non-nil err is only a
 // hard author-lookup failure (the caller surfaces it as 502); actor resolution
 // never errors. Shared by the portrait endpoint and the bulk refetch.
-func (s *Server) resolvePersonPortrait(ctx context.Context, uid int64, kind, name string) (source, sourceID, imageURL, bio, born, died string, links map[string]string, err error) {
+func (s *Server) resolvePersonPortrait(ctx context.Context, uid int64, kind, name string) (source, sourceID, imageURL, bio, born, died string, links map[string]string, signatureURL string, err error) {
 	links = map[string]string{}
 	switch kind {
 	case "actor":
 		source, sourceID, imageURL, bio, born, died = s.resolveActorMeta(ctx, uid, name)
-		return source, sourceID, imageURL, bio, born, died, links, nil
+		return source, sourceID, imageURL, bio, born, died, links, "", nil
 	case "director":
 		source, sourceID, imageURL, bio, born, died = s.resolveDirectorMeta(ctx, uid, name)
-		return source, sourceID, imageURL, bio, born, died, links, nil
+		return source, sourceID, imageURL, bio, born, died, links, "", nil
 	case "studio", "publisher":
 		// A STUDIO IS NOT A PERSON, AND THIS IS THE PATH THAT WROTE THE ROW.
 		//
@@ -287,7 +304,7 @@ func (s *Server) resolvePersonPortrait(ctx context.Context, uid int64, kind, nam
 		if igdb == nil {
 			// No key is not an error here: the caller reports resolved=false and
 			// offers the manual fields, exactly as an unfound author does.
-			return "", "", "", "", "", "", links, nil
+			return "", "", "", "", "", "", links, "", nil
 		}
 		l, logo, id, cerr := igdb.CompanyLinks(ctx, name)
 		s.recordAsk(ctx, faultAreaPeople, "igdb", one(id > 0), "", cerr)
@@ -295,7 +312,7 @@ func (s *Server) resolvePersonPortrait(ctx context.Context, uid int64, kind, nam
 			// Best-effort, like the actor and director paths. A studio whose
 			// logo could not be fetched is still a studio.
 			olog.Warnf(olog.CodePeopleLookupFailed, "[people] company %q (%s): %v", name, kind, cerr)
-			return "", "", "", "", "", "", links, nil
+			return "", "", "", "", "", "", links, "", nil
 		}
 		if l != nil {
 			links = l
@@ -306,7 +323,7 @@ func (s *Server) resolvePersonPortrait(ctx context.Context, uid int64, kind, nam
 		// No bio, no born, no died: IGDB's company records carry none, and
 		// inventing a founding date for a studio is exactly the sort of
 		// confident wrongness this app refuses elsewhere.
-		return source, sourceID, metadata.IGDBCoverURL(logo), "", "", "", links, nil
+		return source, sourceID, metadata.IGDBCoverURL(logo), "", "", "", links, "", nil
 	}
 	// Everything else falls to the Open Library author path, and WHICH COLUMN
 	// disambiguates it is the whole question. The titles are what turn a name into
@@ -322,20 +339,21 @@ func (s *Server) resolvePersonPortrait(ctx context.Context, uid int64, kind, nam
 	}
 	titles, terr := s.creditBookTitles(uid, col, name)
 	if terr != nil {
-		return "", "", "", "", "", "", links, terr
+		return "", "", "", "", "", "", links, "", terr
 	}
 	res, rerr := s.resolveAuthor(ctx, name, titles)
 	s.recordAsk(ctx, faultAreaPeople, "openlibrary", one(res.Key != ""), "", rerr)
 	if rerr != nil {
-		return "", "", "", "", "", "", links, rerr
+		return "", "", "", "", "", "", links, "", rerr
 	}
 	if res.Key != "" {
 		source, sourceID, imageURL, bio, born, died = "openlibrary", res.Key, res.ImageURL, res.Bio, res.Born, res.Died
+		signatureURL = res.SignatureURL
 		if res.Links != nil {
 			links = res.Links
 		}
 	}
-	return source, sourceID, imageURL, bio, born, died, links, nil
+	return source, sourceID, imageURL, bio, born, died, links, signatureURL, nil
 }
 
 // resolveActorMeta resolves an actor's portrait, TMDB identity, biography and

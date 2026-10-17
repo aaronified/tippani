@@ -1025,7 +1025,7 @@ func (s *Server) reverifyPerson(ctx context.Context, uid int64, kind, name strin
 	// the stored cast (no network), an author via Open Library disambiguated by
 	// their books. Links come back only for authors; actor links stay the
 	// People console's job (a by-name TMDB search could drift to a namesake).
-	source, sourceID, imageURL, bio, born, died, links, rerr := s.resolvePersonPortrait(ctx, uid, kind, name)
+	source, sourceID, imageURL, bio, born, died, links, _, rerr := s.resolvePersonPortrait(ctx, uid, kind, name)
 	if rerr != nil {
 		it.Status, it.Error = "fetch_failed", reverifyLookupError("person", rerr)
 		return it
