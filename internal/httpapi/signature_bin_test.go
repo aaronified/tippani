@@ -182,3 +182,44 @@ func TestDeletingAnAccountKeepsASignatureAnotherReaderShares(t *testing.T) {
 		t.Errorf("alice's signature is %q after bob's account went, want %q", got, name)
 	}
 }
+
+// A SIGNATURE COMES BACK WITH A RESTORED BACKUP: the row says whose it is, and the
+// archive carries the data directory, MediaCover included, so the file is in it.
+//
+// The decisive step is the restore: the signature is taken off first (its file goes
+// with it, nothing else naming it), so what is there afterwards can only have come
+// out of the archive.
+func TestASignatureSurvivesABackupAndRestore(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	admin := signupAdmin(t, h)
+	id := makePerson(t, admin, "Ursula Writer")
+	if rec := postSignature(admin, fmt.Sprintf("/people/id/%d/signature", id), aSignaturePhoto(t), nil); rec.Code != 200 {
+		t.Fatalf("save = %d: %s", rec.Code, rec.Body)
+	}
+	name, _ := signatureOf(t, admin, id)
+	backupNow(admin)
+
+	admin.mustDo("PUT", fmt.Sprintf("/people/id/%d", id), map[string]any{"clear_signature": true}, http.StatusOK)
+	if got, _ := signatureOf(t, admin, id); got != "" || inCovers(srv, name) {
+		t.Fatalf("before the restore: signature %q, file present %v; want none and gone", got, inCovers(srv, name))
+	}
+
+	safetyBackup(t, admin)
+	admin.mustDo("POST", "/admin/restore", map[string]any{"password": testPw}, http.StatusOK)
+
+	fresh := &testClient{t: t, h: h}
+	lrec := fresh.do("POST", "/auth/login", map[string]string{"username": "alice", "password": "supersecret"})
+	if lrec.Code != 200 {
+		t.Fatalf("login after restore: %d %s", lrec.Code, lrec.Body)
+	}
+	fresh.cookie = cookieOf(t, lrec)
+
+	if got, src := signatureOf(t, fresh, id); got != name || src != "manual" {
+		t.Errorf("after the restore the person's signature is %q (%s), want %q (manual)", got, src, name)
+	}
+	if !inCovers(srv, name) {
+		t.Errorf("after the restore the signature file %s is not in the cover store", name)
+	}
+	fresh.mustDo("GET", "/covers/"+name, nil, http.StatusOK)
+}
