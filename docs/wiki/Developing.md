@@ -164,6 +164,7 @@ browser ──▶ web/dist (embedded SPA)          ← everything not under /api
 | `internal/httpapi/` | Every HTTP route, the middleware chain, and the request/response shapes. The largest package by far — see its own table below. |
 | `internal/store/` | The SQLite connections — the library's pool and the log's own `synchronous=NORMAL` connection — the pragmas, the migrations, the dedupe rules, and the one lock every swap of the database files takes. **The only package that opens the database.** |
 | `internal/search/` | Building safe FTS5 `MATCH` expressions, and the typo-correction pass. |
+| `internal/signature/` | Turning a photographed signature into ink on a transparent ground: flatten onto white, divide by a wide blur, threshold, keep the ink as alpha. Standard library only, so it reads PNG, JPEG and GIF and refuses a WebP. Touches no database and no network. |
 | `internal/importer/` | One parser per source format, producing the package's shared intermediate shapes. Touches no database. |
 | `internal/metadata/` | Every outbound call to a metadata provider: Google Books, Open Library, TMDB, TheTVDB, Wikidata, Amazon, the two picture searches (`image_search.go`), plus the SSRF-guarded image fetcher. It used to be described as every outbound call in the app and was one short — `internal/updater/` asks GitHub for the latest release. |
 | `internal/auth/` | Password hashing, cookie sessions, bearer device tokens, and the login rate limiter. |

@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **A person can have a signature, and a shared picture can carry it.** On a person's record
+  (not a company's) there is a Signature slot under the portrait with three buttons: Upload
+  signature, Fetch from Wikidata, and Remove signature. An upload, or a signature fetched from
+  Wikidata, opens a window that shows it cleaned before anything is kept: only the ink, on a
+  clear ground, drawn in the text colour so it reads on every theme, with one slider, Ink
+  strength, for how much of the paper's grain counts as ink. The tick keeps it and the cross
+  throws it away. PNG, JPEG and GIF photos are cleaned; an SVG is kept as it is; a WebP is
+  refused, with a sentence saying so, because it cannot be cleaned here. Wikidata is asked
+  only about authors, so an actor, a director or a studio has none to fetch and the button
+  says so. The person's own Fetch, on the People row and in the person window's lookup, now
+  also fills an empty signature slot; it never replaces one the reader chose, and a signature
+  the reader removed is not put back by a later Fetch.
+  The image share sheet gains a Signature switch, off by default and remembered on that
+  device. On, the credited person's signature sits in the picture's bottom right corner, in the
+  row with the Tippani mark and no taller than it, in the picture's own ink. The switch is not
+  there when nobody credited has a signature, or while the picture shows the character instead
+  of the actor, because a character signed nothing. An anthology gains a Signature field beside
+  Portrait: it is drawn under the passage and carried into the EPUB, and not written to the
+  Markdown, which has no use for a file path. Two readers who hold the same signature share one
+  file; binning a person parks it, restoring brings it back, and one reader removing theirs or
+  emptying their bin never takes the other's. A backup carries it.
+
 ## [3.2.0] - 2026-10-09
 
 ### Added
