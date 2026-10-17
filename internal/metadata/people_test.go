@@ -130,10 +130,14 @@ func TestResolveAuthorWikidataPhotoFallback(t *testing.T) {
 	wikidata := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.URL.Path == "/w/api.php" && r.URL.Query().Get("action") == "wbgetclaims":
-			if p := r.URL.Query().Get("property"); p != "P18" {
-				t.Errorf("property = %q, want P18", p)
+			switch p := r.URL.Query().Get("property"); p {
+			case "P18":
+				_, _ = w.Write([]byte(`{"claims":{"P18":[{"mainsnak":{"datavalue":{"value":"Jane Solo.jpg"}}}]}}`))
+			case "P109": // the signature lookup rides the same resolve; this author has none
+				_, _ = w.Write([]byte(`{"claims":{}}`))
+			default:
+				t.Errorf("property = %q, want P18 or P109", p)
 			}
-			_, _ = w.Write([]byte(`{"claims":{"P18":[{"mainsnak":{"datavalue":{"value":"Jane Solo.jpg"}}}]}}`))
 		case r.URL.Path == "/wiki/Special:EntityData/Q9.json":
 			_, _ = w.Write([]byte(`{"entities":{"Q9":{"sitelinks":{}}}}`))
 		default:
@@ -188,6 +192,8 @@ func TestResolveAuthorBookWikidataFallback(t *testing.T) {
 			_, _ = w.Write([]byte(`{"claims":{"P50":[{"mainsnak":{"datavalue":{"value":{"id":"Q_AUTHOR"}}}}]}}`))
 		case r.URL.Path == "/w/api.php" && q.Get("action") == "wbgetclaims" && q.Get("property") == "P18":
 			_, _ = w.Write([]byte(`{"claims":{"P18":[{"mainsnak":{"datavalue":{"value":"David Reich.jpg"}}}]}}`))
+		case r.URL.Path == "/w/api.php" && q.Get("action") == "wbgetclaims" && q.Get("property") == "P109":
+			_, _ = w.Write([]byte(`{"claims":{}}`)) // the signature lookup rides the resolve
 		case r.URL.Path == "/wiki/Special:EntityData/Q_AUTHOR.json":
 			_, _ = w.Write([]byte(`{"entities":{"Q_AUTHOR":{"labels":{"en":{"value":"David E. Reich"}},"sitelinks":{"enwiki":{"title":"David Reich (geneticist)"}}}}}`))
 		default:
@@ -256,5 +262,57 @@ func TestTMDBPersonLinks(t *testing.T) {
 		if links[k] != v {
 			t.Errorf("%s = %q, want %q", k, links[k], v)
 		}
+	}
+}
+
+// ResolveAuthor reads the author's Wikidata signature (P109) in the same resolve
+// that finds the portrait, and answers the Commons URL a raster of it is served
+// from. An author whose item names none gets an empty URL, not a broken one.
+func TestResolveAuthorReadsTheWikidataSignature(t *testing.T) {
+	ol := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/search/authors.json":
+			_, _ = w.Write([]byte(`{"docs":[{"key":"OL9A","name":"Jane Solo","work_count":2}]}`))
+		case "/authors/OL9A.json":
+			_, _ = w.Write([]byte(`{"photos":[-1],"remote_ids":{"wikidata":"Q9"}}`))
+		}
+	}))
+	defer ol.Close()
+	signed := true
+	wikidata := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/w/api.php" && r.URL.Query().Get("property") == "P109":
+			if signed {
+				_, _ = w.Write([]byte(`{"claims":{"P109":[{"mainsnak":{"datavalue":{"value":"Jane Solo signature.svg"}}}]}}`))
+			} else {
+				_, _ = w.Write([]byte(`{"claims":{}}`))
+			}
+		case r.URL.Path == "/w/api.php":
+			_, _ = w.Write([]byte(`{"claims":{}}`))
+		default:
+			_, _ = w.Write([]byte(`{"entities":{"Q9":{"sitelinks":{}}}}`))
+		}
+	}))
+	defer wikidata.Close()
+	olOld, wdOld := openLibraryBase, wikidataBase
+	openLibraryBase, wikidataBase = ol.URL, wikidata.URL
+	t.Cleanup(func() { openLibraryBase, wikidataBase = olOld, wdOld })
+
+	res, err := ResolveAuthor(context.Background(), "Jane Solo", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "https://commons.wikimedia.org/wiki/Special:FilePath/Jane%20Solo%20signature.svg?width=600"
+	if res.SignatureURL != want {
+		t.Errorf("signature = %q, want %q", res.SignatureURL, want)
+	}
+
+	signed = false
+	res, err = ResolveAuthor(context.Background(), "Jane Solo", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.SignatureURL != "" {
+		t.Errorf("an author with no P109 got signature %q", res.SignatureURL)
 	}
 }

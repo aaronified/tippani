@@ -140,6 +140,10 @@ type AuthorResolution struct {
 	Born        string            // 4-digit birth year from OL birth_date; "" if none
 	Died        string            // 4-digit death year from OL death_date; "" if none
 	Links       map[string]string // openlibrary + wikipedia reference pages
+	// SignatureURL is the Wikidata P109 (signature) file, resized by Commons to a
+	// raster; "" when the author has no Wikidata item or the item has none. Read in
+	// the same resolve that finds the portrait, since that is where the QID is known.
+	SignatureURL string
 }
 
 // authorCandidate is one Open Library author-search hit, kept lean for
@@ -216,6 +220,9 @@ func ResolveAuthor(ctx context.Context, name string, bookTitles []string) (Autho
 				res.ImageURL = img
 			}
 		}
+	}
+	if res.WikidataQID != "" {
+		res.SignatureURL = WikidataSignatureURL(ctx, res.WikidataQID)
 	}
 	return res, nil
 }
@@ -623,30 +630,41 @@ func normalizeWork(s string) string {
 // point 302-redirects to the real upload.wikimedia.org bytes; both hosts are on
 // the cover allowlist. Best-effort: "" when there is no image or anything is off.
 func WikidataImageURL(ctx context.Context, qid string) string {
+	return wikidataFileURL(ctx, qid, "P18")
+}
+
+// WikidataSignatureURL is WikidataImageURL for P109 (signature): the item's
+// signature file, which Commons serves resized, so one drawn as an SVG arrives as
+// a PNG with transparency. "" when there is none or anything is off.
+func WikidataSignatureURL(ctx context.Context, qid string) string {
+	return wikidataFileURL(ctx, qid, "P109")
+}
+
+// wikidataFileURL is the Commons URL of the first file the item's property prop
+// names. prop is one of the two literals above, never input.
+func wikidataFileURL(ctx context.Context, qid, prop string) string {
 	qid = strings.TrimSpace(qid)
 	if qid == "" || !strings.HasPrefix(qid, "Q") {
 		return ""
 	}
-	q := url.Values{"action": {"wbgetclaims"}, "property": {"P18"}, "entity": {qid}, "format": {"json"}}
+	q := url.Values{"action": {"wbgetclaims"}, "property": {prop}, "entity": {qid}, "format": {"json"}}
 	body, status, err := httpGet(ctx, wikidataBase+"/w/api.php?"+q.Encode(), "")
 	if err != nil || status != 200 {
 		return ""
 	}
 	var r struct {
-		Claims struct {
-			P18 []struct {
-				Mainsnak struct {
-					DataValue struct {
-						Value string `json:"value"`
-					} `json:"datavalue"`
-				} `json:"mainsnak"`
-			} `json:"P18"`
+		Claims map[string][]struct {
+			Mainsnak struct {
+				DataValue struct {
+					Value string `json:"value"`
+				} `json:"datavalue"`
+			} `json:"mainsnak"`
 		} `json:"claims"`
 	}
-	if json.Unmarshal(body, &r) != nil || len(r.Claims.P18) == 0 {
+	if json.Unmarshal(body, &r) != nil || len(r.Claims[prop]) == 0 {
 		return ""
 	}
-	file := strings.TrimSpace(r.Claims.P18[0].Mainsnak.DataValue.Value)
+	file := strings.TrimSpace(r.Claims[prop][0].Mainsnak.DataValue.Value)
 	if file == "" {
 		return ""
 	}
