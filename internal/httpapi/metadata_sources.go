@@ -49,8 +49,8 @@ const (
 	// missing out of the middle of it. A rating caught it: the Go test asserted
 	// the wire and the journey world has no built-in key, so both halves passed
 	// while an official build would have shown a grey mark saying "TMDB — ".
-	srcStateBuiltin  = "builtin"  // running on the key built into the app
-	srcStateOptional = "optional" // answers without a key; one only improves it
+	srcStateBuiltin  = "builtin"  // nothing for the reader to provide: the app's own key, or none needed at all
+	srcStateOptional = "optional" // answers without a key, but one the reader can add improves it
 	srcStateNeeded   = "needed"   // cannot be asked at all until a key is stored
 )
 
@@ -136,11 +136,18 @@ var sourceRowExempt = map[string]bool{"manual": true, "hardcover": true}
 // sourceState answers what the console's legend is about, from the same resolvers
 // the lookups use.
 //
-// THE KEYLESS SUPPLIERS ARE `optional` AND NOT `saved`, which is a deliberate
-// reading of the pack's four words: Open Library, Wikimedia and the rest answer
-// without any credential, so "key saved" would be a green light about a key that
-// does not exist. `optional` is the honest one — nothing is stored, and nothing
-// needs to be.
+// A SUPPLIER THAT NEEDS NOTHING FROM THE READER IS `builtin`, NOT `saved` AND NOT
+// `optional`. The owner: "the inbuilt stuff like wikimedia etc where user need not
+// provide any API are also marked optional. why? they can be marked built-in".
+// They were right. `optional` promises the reader something they can add to make it
+// better, and Open Library, Wikimedia, Fandom, Wikidata, IMDb and Letterboxd have no
+// key to add: read that way, the row invites a search for a field that does not
+// exist. `saved` would be a green light about a key that does not exist. `builtin`
+// says what is true, that it works as shipped and asks nothing.
+//
+// `optional` IS KEPT FOR THE TWO THAT HAVE SOMETHING TO ADD: Google Books answers
+// without a key at a lower quota, and Amazon gives covers from an ASIN and adds
+// descriptions and genres with a cookie.
 func (s *Server) sourceState(slug string) string {
 	switch slug {
 	case "tmdb":
@@ -182,7 +189,7 @@ func (s *Server) sourceState(slug string) string {
 		}
 		return srcStateOptional
 	default:
-		return srcStateOptional
+		return srcStateBuiltin
 	}
 }
 

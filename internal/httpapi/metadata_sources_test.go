@@ -66,11 +66,20 @@ func TestEverySourceSaysWhetherItCanBeAsked(t *testing.T) {
 	if st := sourceNamed(t, got.Sources, "tmdb").State; st != srcStateNeeded {
 		t.Errorf("with no TMDB key at all the row says %q", st)
 	}
-	// A KEYLESS SUPPLIER IS NOT RED AND IS NOT GREEN. Open Library answers
-	// without a credential, so "key saved" would be a light about a key that does
-	// not exist and "needs a key" would be false.
-	if st := sourceNamed(t, got.Sources, "openlibrary").State; st != srcStateOptional {
-		t.Errorf("a keyless supplier says %q", st)
+	// A SUPPLIER THAT NEEDS NOTHING FROM THE READER IS BUILT IN: not red (it needs no
+	// key), not green ("key saved" would be a light about a key that does not exist), and
+	// not "optional", which promises a key to add. The owner asked for exactly this of
+	// Wikimedia and the rest.
+	for _, slug := range []string{"openlibrary", "wikimedia", "fandom", "wikidata", "imdb", "letterboxd", "google-images"} {
+		if st := sourceNamed(t, got.Sources, slug).State; st != srcStateBuiltin {
+			t.Errorf("%s needs nothing from the reader and says %q, want built in", slug, st)
+		}
+	}
+	// The two with something to add keep "optional": a key or a cookie improves them.
+	for _, slug := range []string{"google", "amazon"} {
+		if st := sourceNamed(t, got.Sources, slug).State; st != srcStateOptional {
+			t.Errorf("%s can be improved by a credential and says %q, want optional", slug, st)
+		}
 	}
 
 	srv.TMDBBuiltin = "builtin-key"
