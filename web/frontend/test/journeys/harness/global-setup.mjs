@@ -132,7 +132,9 @@ async function spaOverlay(binDir) {
 
 export default async function setup() {
   const binDir = await mkdtemp(join(tmpdir(), 'tippani-journey-bin-'))
-  const binary = join(binDir, 'tippani')
+  // `.exe` on Windows: `go build -o` adds it to a name that lacks one, so the file
+  // that exists is not the one spawned and the first journey dies on ENOENT.
+  const binary = join(binDir, process.platform === 'win32' ? 'tippani.exe' : 'tippani')
   const overlay = await spaOverlay(binDir)
   await run('go', ['build', ...(overlay ? ['-overlay', overlay] : []), '-o', binary, './cmd/tippani'], { cwd: REPO })
 
