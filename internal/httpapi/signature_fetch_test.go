@@ -209,3 +209,27 @@ func mustDataURL(t *testing.T, u string) []byte {
 	}
 	return raw
 }
+
+// THE DETAILS POPUP'S OWN LOOKUP FILLS THE SLOT TOO. It is a different route from
+// the People row's Fetch (POST /people/portrait, by kind and name, not by id) and
+// the owner asked for both; they share the resolve, and this holds the second one to
+// the same rules: an empty slot is filled, a signature the reader removed is not put
+// back.
+func TestThePopupsLookupFillsAnEmptySlotAndHonoursARemoval(t *testing.T) {
+	srv := newTestServer(t)
+	stubSignatureSuppliers(t, srv, true)
+	c := signupAdmin(t, srv.Handler())
+	id := makePerson(t, c, "Jane Solo")
+
+	c.mustDo("POST", "/people/portrait", map[string]any{"kind": "author", "name": "Jane Solo"}, http.StatusOK)
+	name, src := signatureOf(t, c, id)
+	if name == "" || src != "wikidata" {
+		t.Fatalf("after the popup's lookup the slot holds %q (%s), want a Wikidata signature", name, src)
+	}
+
+	c.mustDo("PUT", "/people/id/"+itoa(id), map[string]any{"clear_signature": true}, http.StatusOK)
+	c.mustDo("POST", "/people/portrait", map[string]any{"kind": "author", "name": "Jane Solo"}, http.StatusOK)
+	if got, _ := signatureOf(t, c, id); got != "" {
+		t.Errorf("the popup's lookup put back the signature the reader removed: %q", got)
+	}
+}
