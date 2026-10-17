@@ -1385,20 +1385,46 @@
   .tp-screen-body {
     flex: 1;
     min-height: 0;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    padding: var(--row) var(--edge) calc(var(--row) * 2 + env(safe-area-inset-bottom));
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: var(--row) var(--edge) calc(var(--row) + env(safe-area-inset-bottom));
   }
   /* THE SAME ROUND ON A DESK: the centred card stops at the window, less the
      scrim's own padding (py-10 above and below), and only its body scrolls. */
+  /* ONE SIZE FOR THE WHOLE ROUND. The height is fixed, not a ceiling: a ceiling let
+     the box be 342px on one question and 448px on the next, so the popup jumped under
+     the reader's eyes and the controls moved. It is the window less the scrim's
+     padding, up to a size that still reads as a card on a tall screen. */
   .tp-screen-card {
     display: flex;
     flex-direction: column;
-    max-height: calc(100dvh - 5rem);
+    height: min(calc(100dvh - 5rem), 44rem);
   }
   .tp-screen-card-body {
     flex: 1;
     min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  /* THE ROUND INSIDE IT: the question and options scroll, the foot does not. */
+  .quiz-fill,
+  .quiz-round {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .quiz-round-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .quiz-round-foot {
+    flex: none;
+    max-height: 55%;
     overflow-y: auto;
     overscroll-behavior: contain;
   }

@@ -806,6 +806,12 @@ export function useEdgeScroll(ref, { axis = "x", drag = true } = {}) {
     };
 
     el.addEventListener("scroll", schedule, { passive: true });
+    // A CHILD THAT ENTERS WITH A TRANSFORM (the quiz card rises 6px) reports that
+    // 6px as overflow while it is still moving, and nothing resizes when it lands, so
+    // the fade it caused would stay on for good over content that fits. The end of
+    // the animation is the moment the measurement becomes true. Both bubble.
+    el.addEventListener("animationend", schedule);
+    el.addEventListener("transitionend", schedule);
 
     let ro = null;
     let mo = null;
@@ -830,6 +836,8 @@ export function useEdgeScroll(ref, { axis = "x", drag = true } = {}) {
 
     return () => {
       el.removeEventListener("scroll", schedule);
+      el.removeEventListener("animationend", schedule);
+      el.removeEventListener("transitionend", schedule);
       ro?.disconnect();
       mo?.disconnect();
       el.removeAttribute("data-scroll-x");
@@ -6569,9 +6577,11 @@ export function FormModal({ open = true, onClose, title, maxWidth = 560, saveTip
           <h2 className="tp-panel-title">{title}</h2>
           <div className="tp-panel-slot tp-panel-slot-r">{save}</div>
         </div>
-        <Scroller axis="v" className="tp-screen-body">
+        {/* NOT A SCROLLER: a round's own body scrolls the question and keeps its
+            controls in place (the quiz's `.quiz-round`), so this is only the frame. */}
+        <div className="tp-screen-body">
           <FormHostContext.Provider value={host}>{children}</FormHostContext.Provider>
-        </Scroller>
+        </div>
       </div>,
       document.body,
     );
@@ -6636,9 +6646,9 @@ export function FormModal({ open = true, onClose, title, maxWidth = 560, saveTip
         {/* A ROUND ON A DESK KEEPS ITS HEAD: the card stops at the window and its
             body scrolls, so a tall answer never carries the ✕ off the top. */}
         {screen ? (
-          <Scroller axis="v" className="tp-screen-card-body">
+          <div className="tp-screen-card-body">
             <FormHostContext.Provider value={host}>{children}</FormHostContext.Provider>
-          </Scroller>
+          </div>
         ) : (
           <FormHostContext.Provider value={host}>{children}</FormHostContext.Provider>
         )}

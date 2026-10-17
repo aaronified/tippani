@@ -38,6 +38,7 @@ import {
   IconHeart, IconHeartOn,
   Kbd,
   MonoLabel,
+  Scroller,
   toast,
   Tooltip,
   useIsMobileScreen,
@@ -1047,7 +1048,13 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
   // week after the frustration that earned it.
   const leech = !dismissed && (lastResp?.leech ?? card.leech)
   return (
-    <div key={i} className="review-card-body">
+    <div key={i} className="review-card-body quiz-round">
+      {/* THE QUESTION AND ITS OPTIONS SCROLL; WHAT YOU DO ABOUT THE ANSWER DOES NOT.
+          The round's popup is one fixed size for the whole round (a desk) or the whole
+          glass (a phone), so a long card used to push Next off the bottom and a short
+          one left the box a different height from the last. The scrolling region is
+          this, and the foot below it stays where the thumb already is. */}
+      <Scroller axis="v" className="quiz-round-scroll">
       <div className="mb-2 flex items-baseline justify-between gap-3">
         <MonoLabel>{askLine(card)}</MonoLabel>
         <span className="mono-label" style={{ letterSpacing: '.06em' }}>
@@ -1247,6 +1254,12 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
           )
         })}
       </div>
+      </Scroller>
+      {/* THE FOOT: the verdict, Next, the fix-or-tag link and the leech offer once there
+          is an answer, Submit or Skip before it. Pinned under the scrolling region, so
+          "Next" is never something to scroll to. It has a ceiling of its own, because
+          the fix-or-tag form opens in it and is taller than a phone. */}
+      <div className="quiz-round-foot">
       {/* THE LEECH OFFER. A card forgotten five times over is costing a slot in
           every deck and giving nothing back, and until now the only way to stop
           being asked was to delete the quote — which is the app telling somebody
@@ -1326,6 +1339,7 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
           <button type="button" className="tp-link" onClick={advance}>{t('quiz.skip.label')}</button>
         </div>
       ) : null}
+      </div>
     </div>
   )
 }
@@ -1413,7 +1427,7 @@ export function ThemedPracticeDialog({ theme, onClose, from }) {
     // THE SAME SCREEN AS HOME'S ROUNDS: a round is a round wherever it was
     // started from, and on a phone it takes the glass.
     <FormModal open screen onClose={onClose} title={theme?.label || t('quiz.practice.label')} backTo={from} maxWidth={560}>
-      <div className="review-card-body">
+      <div className="review-card-body quiz-fill">
         {cards == null && <MonoLabel style={{ color: 'var(--faint)' }}>{t('common.action.load.busy')}</MonoLabel>}
         {/* NOT AN ERROR, and worth the sentence. A theme with nothing behind it
             is the ordinary answer for a book you have not quoted yet, or a
