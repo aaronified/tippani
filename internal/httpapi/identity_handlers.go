@@ -37,6 +37,9 @@ type personDetail struct {
 	// page tags them. Empty where nothing is recorded.
 	ImageSource string            `json:"image_source,omitempty"`
 	LinkSources map[string]string `json:"link_sources,omitempty"`
+	// The signature beside the portrait (0082): its stored file and who supplied it.
+	SignaturePath   string `json:"signature_path"`
+	SignatureSource string `json:"signature_source,omitempty"`
 	// Aliases are the other spellings that RESOLVE to this record. Not decoration:
 	// each one is why a credit string somewhere lands here instead of making a
 	// second person.
@@ -144,8 +147,8 @@ func (s *Server) handlePersonByID(w http.ResponseWriter, r *http.Request) {
 	out := personDetail{personRow: p}
 	var linkSources string
 	if err := s.Store.DB.QueryRow(
-		`SELECT sort_name, note, image_source, link_sources FROM people WHERE id = ? AND user_id = ?`, id, uid).
-		Scan(&out.SortName, &out.Note, &out.ImageSource, &linkSources); err != nil {
+		`SELECT sort_name, note, image_source, link_sources, signature_path, signature_source FROM people WHERE id = ? AND user_id = ?`, id, uid).
+		Scan(&out.SortName, &out.Note, &out.ImageSource, &linkSources, &out.SignaturePath, &out.SignatureSource); err != nil {
 		internalError(w, r, "read person identity", err)
 		return
 	}

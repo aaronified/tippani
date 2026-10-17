@@ -759,13 +759,13 @@ type MergedCredit struct {
 // mergeFillable are the survivor's columns a merge may borrow from the record it
 // folds in — only where the survivor's own is empty. Never overwritten: the
 // reader picked which record survives, and that pick includes its values.
-var mergeFillable = []string{"bio", "image_path", "born", "died", "links", "source", "source_id", "sort_name", "note"}
+var mergeFillable = []string{"bio", "image_path", "signature_path", "born", "died", "links", "source", "source_id", "sort_name", "note"}
 
 // mergeCompanions travel with a borrowed column: who supplied a picture goes
 // with the picture, and who supplied each link with the links (0081). Borrowed
 // only when their column is, so a survivor that keeps its own picture never
 // takes the other record's credit for it.
-var mergeCompanions = map[string]string{"image_path": "image_source", "links": "link_sources"}
+var mergeCompanions = map[string]string{"image_path": "image_source", "signature_path": "signature_source", "links": "link_sources"}
 
 // MergePeople folds `dropID` into `keepID` and returns how to put it back.
 //

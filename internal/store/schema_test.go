@@ -621,6 +621,11 @@ func wantShapes() []tableShape {
 				// every portrait and link saved before it.
 				{Name: "image_source", Type: "TEXT", NotNull: true, Default: "''", HasDflt: true},
 				{Name: "link_sources", Type: "TEXT", NotNull: true, Default: "''", HasDflt: true},
+				// A signature beside the portrait (0082): its file, who supplied it,
+				// and whether the reader removed it, which the person's Fetch honours.
+				{Name: "signature_path", Type: "TEXT", NotNull: true, Default: "''", HasDflt: true},
+				{Name: "signature_source", Type: "TEXT", NotNull: true, Default: "''", HasDflt: true},
+				{Name: "signature_removed", Type: "INTEGER", NotNull: true, Default: "0", HasDflt: true},
 			},
 			Indexes: []indexShape{
 				// NOT UNIQUE ANY MORE, and that is the point of 0056. Two people
