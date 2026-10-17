@@ -134,7 +134,7 @@ func (s *Server) handlePrune(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var files []string
+	var files, signatures []string
 	for _, kind := range []string{"person", "character"} {
 		list := people
 		if kind == "character" {
@@ -161,12 +161,21 @@ func (s *Server) handlePrune(w http.ResponseWriter, r *http.Request) {
 				internalError(w, r, "prune: write the undo", err)
 				return
 			}
+			signature := ""
+			if kind == "person" {
+				signature = binnedSignature(undo.Row)
+			}
 			fileJSON := "[]"
-			if image != "" {
-				if b, err := json.Marshal([]string{image}); err == nil {
+			if listed := listedNames(image, signature); len(listed) > 0 {
+				if b, err := json.Marshal(listed); err == nil {
 					fileJSON = string(b)
 				}
+			}
+			if image != "" {
 				files = append(files, image)
+			}
+			if signature != "" {
+				signatures = append(signatures, signature)
 			}
 			children := len(undo.Aliases) + len(undo.Cast) + len(undo.Screen) + len(undo.Utterance)
 			if _, err := tx.Exec(
@@ -184,6 +193,9 @@ func (s *Server) handlePrune(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(files) > 0 {
 		s.parkFiles(files)
+	}
+	for _, sig := range signatures {
+		s.parkSignature(sig)
 	}
 	olog.Printf("[identity] pruned %d people and %d characters for user %d", len(people), len(characters), uid)
 	writeJSON(w, http.StatusOK, map[string]any{

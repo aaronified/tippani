@@ -254,6 +254,10 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 	// away: the cascade frees rows, not on-disk images. They are PARKED rather than
 	// removed now, because the account goes to the bin like everything else.
 	covers := s.userCoverFiles(id)
+	// THEIR PEOPLE'S SIGNATURES TOO, parked like the covers except where another reader
+	// holds the same file (parkSignature). Listed in the entry either way, so a restore
+	// finds them and a purge knows to release them.
+	signatures := s.userSignatureFiles(id)
 	var username string
 	if err := s.Store.DB.QueryRow(`SELECT username FROM users WHERE id = ?`, id).Scan(&username); err != nil {
 		internalError(w, r, "load username", err)
@@ -269,7 +273,7 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 	// The snapshot goes in the DELETING ADMIN's bin, not the deleted user's: a row
 	// in their own bin would cascade away with them, in the same statement that
 	// made it worth keeping. See migration 0031.
-	trashID, err := s.binAccount(tx, userID(r), id, username, covers)
+	trashID, err := s.binAccount(tx, userID(r), id, username, append(append([]string{}, covers...), signatures...))
 	if err != nil {
 		olog.Warnf(olog.CodeTrashWrite, "[trash] could not bin account %d: %v", id, err)
 		internalError(w, r, "delete user: bin it first", err)
@@ -318,6 +322,9 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.parkFiles(covers)
+	for _, sig := range signatures {
+		s.parkSignature(sig)
+	}
 	// Their imports' uploads go too, now that the account is: 0079's trigger has
 	// cleared the owner of every job they had, and nobody can run those again.
 	s.sweepSpool()

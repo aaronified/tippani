@@ -604,8 +604,8 @@ func (s *Server) handleDeleteTrashEntry(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	uid := userID(r)
-	var files string
-	err := s.Store.DB.QueryRow(`SELECT files FROM trash WHERE id = ? AND user_id = ?`, id, uid).Scan(&files)
+	var files, kind, payload string
+	err := s.Store.DB.QueryRow(`SELECT files, kind, payload FROM trash WHERE id = ? AND user_id = ?`, id, uid).Scan(&files, &kind, &payload)
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
 		writeErr(w, http.StatusNotFound, "not in the bin")
@@ -619,6 +619,7 @@ func (s *Server) handleDeleteTrashEntry(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	s.removeParked(fileList(files))
+	s.releaseSignatures(binSignatures(kind, payload))
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
@@ -628,18 +629,19 @@ func (s *Server) handleDeleteTrashEntry(w http.ResponseWriter, r *http.Request) 
 func (s *Server) handleEmptyTrash(w http.ResponseWriter, r *http.Request) {
 	uid := userID(r)
 	olog.Tracef("[trash] handleEmptyTrash uid=%v", uid)
-	rows, err := s.Store.DB.Query(`SELECT files FROM trash WHERE user_id = ?`, uid)
+	rows, err := s.Store.DB.Query(`SELECT files, kind, payload FROM trash WHERE user_id = ?`, uid)
 	if err != nil {
 		internalError(w, r, "empty bin: read", err)
 		return
 	}
-	var parked []string
+	var parked, signatures []string
 	for rows.Next() {
-		var files string
-		if err := rows.Scan(&files); err != nil {
+		var files, kind, payload string
+		if err := rows.Scan(&files, &kind, &payload); err != nil {
 			continue
 		}
 		parked = append(parked, fileList(files)...)
+		signatures = append(signatures, binSignatures(kind, payload)...)
 	}
 	rows.Close()
 	res, err := s.Store.DB.Exec(`DELETE FROM trash WHERE user_id = ?`, uid)
@@ -649,6 +651,7 @@ func (s *Server) handleEmptyTrash(w http.ResponseWriter, r *http.Request) {
 	}
 	n, _ := res.RowsAffected()
 	s.removeParked(parked)
+	s.releaseSignatures(signatures)
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "removed": n})
 }
 

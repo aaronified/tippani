@@ -762,7 +762,7 @@ func (s *Server) PurgeTrash() {
 		// clock that wrote deleted_at. Comparing in Go would mean parsing that
 		// format and picking a timezone, and both are ways to be a day out.
 		rows, err := s.Store.DB.Query(
-			`SELECT id, files FROM trash
+			`SELECT id, files, kind, payload FROM trash
 			 WHERE user_id = ? AND deleted_at < datetime('now', ?)`,
 			uid, fmt.Sprintf("-%d days", days))
 		if err != nil {
@@ -770,15 +770,16 @@ func (s *Server) PurgeTrash() {
 			continue
 		}
 		var expired []int64
-		var files []string
+		var files, signatures []string
 		for rows.Next() {
 			var id int64
-			var raw string
-			if err := rows.Scan(&id, &raw); err != nil {
+			var raw, kind, payload string
+			if err := rows.Scan(&id, &raw, &kind, &payload); err != nil {
 				continue
 			}
 			expired = append(expired, id)
 			files = append(files, fileList(raw)...)
+			signatures = append(signatures, binSignatures(kind, payload)...)
 		}
 		rows.Close()
 		for _, id := range expired {
@@ -791,6 +792,7 @@ func (s *Server) PurgeTrash() {
 		// Files after the rows: a file removed for a row that then failed to delete
 		// would be a bin entry that restores without its cover.
 		s.removeParked(files)
+		s.releaseSignatures(signatures)
 	}
 	s.sweepOrphanParked()
 	if total > 0 {

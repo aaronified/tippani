@@ -1187,9 +1187,15 @@ func (s *Server) binRecord(w http.ResponseWriter, r *http.Request, kind string, 
 		internalError(w, r, "delete: write the undo", err)
 		return 0, err
 	}
+	// A PERSON'S SIGNATURE RIDES IN THE SAME LIST (see parkSignature for why it is
+	// listed even when it is not moved).
+	signature := ""
+	if kind == "person" {
+		signature = binnedSignature(undo.Row)
+	}
 	files := "[]"
-	if image != "" {
-		if b, err := json.Marshal([]string{image}); err == nil {
+	if listed := listedNames(image, signature); len(listed) > 0 {
+		if b, err := json.Marshal(listed); err == nil {
 			files = string(b)
 		}
 	}
@@ -1216,6 +1222,7 @@ func (s *Server) binRecord(w http.ResponseWriter, r *http.Request, kind string, 
 	if image != "" {
 		s.parkFiles([]string{image})
 	}
+	s.parkSignature(signature)
 	return trashID, nil
 }
 
