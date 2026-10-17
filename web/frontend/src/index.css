@@ -12116,3 +12116,32 @@ button.work-pill:hover { color: var(--ink); border-color: var(--ink-border); }
 .common-job .job-line { padding-bottom: 4px; }
 .common-job-last { padding-top: 0; }
 .common-job-now { margin: 0; padding: 0 2px 10px; }
+
+/* A PERSON'S SIGNATURE (signature.jsx). The file is black ink on transparency, so it
+   is a mask over currentColor: the text colour of whichever theme it sits in, which
+   is the whole reason it reads on all of them. The <img> inside is invisible and only
+   gives the block its shape. Sizes are em and the rail's own spacing, never px, and
+   the block is bounded by its container so a wide signature cannot slide the page. */
+.sig-slot { display: grid; gap: calc(var(--row) * 0.6); padding-block: var(--row); min-width: 0; }
+.sig-verbs { display: flex; flex-wrap: wrap; gap: 0.5em; }
+.sig-ink {
+  display: block;
+  inline-size: fit-content;
+  max-inline-size: 100%;
+  background: currentColor;
+  -webkit-mask: var(--sig) center / contain no-repeat;
+  mask: var(--sig) center / contain no-repeat;
+}
+.sig-ink img { display: block; opacity: 0; max-block-size: 5em; max-inline-size: 100%; }
+.sig-none { color: var(--faint); }
+.sig-form { display: grid; gap: var(--row); }
+.sig-stage {
+  display: grid;
+  place-items: center;
+  min-block-size: 6em;
+  padding: var(--row);
+  border: 1px solid var(--hairline);
+  border-radius: 0.5em;
+  overflow: hidden;
+}
+.sig-problem { color: var(--danger); }

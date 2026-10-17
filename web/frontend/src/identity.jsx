@@ -39,6 +39,7 @@ import { buildProviderLink, detectProviderLink, isOrganisation, linkLine, person
 // dynamically and nothing else at all, which is the reason its header gives for
 // the dynamic import. It stays a leaf; this is allowed to lean on it.
 import { useSearchDoor, useWorkDoor } from './personOpen.jsx'
+import { SignatureSlot } from './signature.jsx'
 import {
   ConfirmDialog,
   FormModal,
@@ -1274,6 +1275,17 @@ function PersonBody({ stack, id, work, onOpenWork: given = null }) {
             </>
           }
           portraitEditor={personPicture.pictureEditor}
+          // A COMPANY SIGNED NOTHING, so a studio's record has no slot.
+          signature={org ? null : (
+            <SignatureSlot
+              id={id}
+              name={data.name}
+              path={data.signature_path || ''}
+              busy={busy}
+              onChanged={load}
+              onError={setErr}
+            />
+          )}
           onNames={() => setPicker(recordNamesPicker({
             table: 'people', id, name: data.name, aliases: data.aliases,
             setPicker, setErr, load,

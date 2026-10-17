@@ -7416,6 +7416,23 @@ identity.person.portrait.none = No picture yet. Search for one, or paste an addr
 identity.person.portrait.aria = Portrait for {name}
 identity.person.portrait.url.aria = Picture address for {name}
 identity.person.portrait.clear.label = remove the picture
+# A person's signature, beside the portrait (signature.jsx). Upload and Fetch open a
+# dialog that shows it cleaned before anything is kept.
+identity.signature.label = Signature
+identity.signature.none = No signature yet
+identity.signature.aria = Signature of {name}
+identity.signature.upload.label = Upload
+identity.signature.upload.tip = A photo or scan of a signature
+identity.signature.upload.aria = Choose a signature image for {name}
+identity.signature.fetch.label = Fetch from Wikidata
+identity.signature.fetch.tip = Look for their signature on Wikidata
+identity.signature.fetch.none = Wikidata has no signature for this person
+identity.signature.clear.label = Remove
+identity.signature.dialog.title = Signature — {name}
+identity.signature.save.tip = Keep this signature
+identity.signature.save.blocked.bad = This image can't be used
+identity.signature.ink.label = Ink strength
+identity.signature.preview.failed = Couldn't clean that image
 identity.character.appearances.title.one = in {n} work
 identity.character.appearances.title.other = in {n} works
 identity.works.add.label = Add a work

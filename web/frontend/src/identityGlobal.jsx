@@ -427,6 +427,9 @@ export function CharacterGlobal({
 
 export function PersonGlobal({
   record, credits, roles, kinds, org = false, portrait, portraitActions, portraitEditor = null, onNames, onSort, onBorn,
+  // A person's signature slot, drawn under the portrait: a node, because the screen
+  // that owns the record owns its reload and its error line. Null for a company.
+  signature = null,
   // THE FACTS THE FORM UNDER THIS SCREEN USED TO CARRY. They were on screen
   // twice — once as a row, once as a field in a form below it — and the row
   // "edited" by scrolling you down to its twin. Each is a row with its own sheet
@@ -475,6 +478,7 @@ export function PersonGlobal({
         actions={portraitActions}
         editor={portraitEditor}
       />
+      {signature}
 
       {/* THE NOTE IS A DEPARTURE, and the pack is the thing being departed from:
           `char-global` carries "Edits here reach every work." over exactly these
