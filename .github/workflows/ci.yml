@@ -165,6 +165,7 @@ jobs:
           - ./internal/olog
           - ./internal/outbound
           - ./internal/search
+          - ./internal/signature
           - ./internal/store
           - ./internal/updater
           - ./web
