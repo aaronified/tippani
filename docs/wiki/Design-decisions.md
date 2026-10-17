@@ -20282,16 +20282,18 @@ one signature reads on every theme without a second drawing. It is scaled down t
 the wordmark leaves and never up. The anthology gets a `signature` switch beside `portrait`, in
 every list that names the portrait, carried as bytes by the EPUB.
 
-**Where the plan turned out to be wrong.** It named migration 0080 as the next; 0081 had landed,
-so it is 0082, which also carries a `signature_source`, because "every path records its source"
-was ruled between the plan and the build. It called `StoreImageMax` the model; that names files
-at random, which is exactly what sharing cannot have, so there is a second store function. It
-had the person's Fetch moving to the by-id route; both routes exist, and both fill the slot. It
-said the slot's Fetch clears the removal flag; the save that follows does, because a lookup that
+**Where the plan fell short.** Each of these was checked against the plan's own text.
+It expected the migration number to move, and said so ("taken at build"): 0081 landed in
+between, so it is 0082, and 0081's ruling that every path records its source is why the
+migration also carries `signature_source`, which the plan could not have listed. It said the
+slot's own Fetch clears the removal flag; the save that follows does, because a lookup that
 wrote nothing and was cancelled in the preview should not change what the person's Fetch does
-next. It said the bin parks the signature with the portrait and stopped there, which is the
-half of the bin rule that leaves a shared file undeletable or undeleted, depending on which
-reader acts first. It did not see that the share card reads people off `GET /people`, so
-`signature_path` had to be on every person row and not only the detail. And it could not see
-that a second control named "Upload" on a person's page would make an older journey refuse to
-press either: the signature's verbs are "Upload signature" and "Remove signature".
+next. It told the build to re-check whether the screens had moved onto the by-id fetch: the
+People row's Fetch had and the details popup's had not, so both routes fill the slot and both
+are tested. It said when a shared file may be deleted (when no person row and no bin row names
+it) and not who deletes it once the last claim is a bin row being emptied: without that release
+the file is named by nothing and stays for good. It did not say that the share card reads people
+off `GET /people`, so `signature_path` had to be on every person row and not only the detail.
+And it could not have seen that a second control named "Upload" on a person's page would make
+an older journey refuse to press either one: the signature's verbs are "Upload signature" and
+"Remove signature".
