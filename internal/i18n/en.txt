@@ -2792,6 +2792,7 @@ anthologies.eg.born = born 4 BC
 anthologies.eg.died = died AD 65
 anthologies.eg.links = Wikipedia
 anthologies.eg.portrait = their photograph beside the line
+anthologies.eg.signature = their signature under the line
 anthologies.eg.character-portrait = the character’s face beside the line
 anthologies.form.fields.credit.label = Who said it
 anthologies.form.fields.source.label = Where it came from
@@ -6372,6 +6373,7 @@ common.field.style.label = Style
 # above; these are the six a person carries and the three identifiers.
 common.field.cast.label = Cast
 common.field.portrait.label = Portrait
+common.field.signature.label = Signature
 common.field.bio.label = Bio
 common.field.born.label = Born
 common.field.died.label = Died

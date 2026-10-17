@@ -625,7 +625,7 @@ func (s *Server) attachPersonFields(uid int64, out []anthologyEntryRow) error {
 		args = append(args, name)
 	}
 	rows, err := s.Store.DB.Query(
-		`SELECT name, COALESCE(bio,''), COALESCE(born,''), COALESCE(died,''), COALESCE(links,''), COALESCE(image_path,'')
+		`SELECT name, COALESCE(bio,''), COALESCE(born,''), COALESCE(died,''), COALESCE(links,''), COALESCE(image_path,''), COALESCE(signature_path,'')
 		   FROM people WHERE user_id = ? AND name IN (`+
 			strings.TrimSuffix(strings.Repeat("?,", len(args)-1), ",")+`)`, args...)
 	if err != nil {
@@ -665,7 +665,7 @@ func (s *Server) attachPersonFields(uid int64, out []anthologyEntryRow) error {
 // next to nothing else on purpose: the two literals it has to agree with are three
 // lines apart, which is the only arrangement in which a column added to one and not
 // the other is visible rather than inferred.
-var personFieldOrder = []string{"bio", "born", "died", "links", "portrait"}
+var personFieldOrder = []string{"bio", "born", "died", "links", "portrait", "signature"}
 
 // attachCastFields fills each entry's Cast map from the work_cast row for this
 // entry's work and the character named on the quote (0048/0050).

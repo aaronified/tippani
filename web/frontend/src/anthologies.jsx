@@ -49,6 +49,7 @@ import { languageClass } from './fonts.js'
 import { ProseArea } from './proseField.jsx'
 import { categoryVar } from './theme.js'
 import { usePractice } from './review.jsx'
+import { SignatureInk } from './signature.jsx'
 // THE SEARCH SCREEN'S OWN BOX, imported rather than rebuilt. See RuleDialog below:
 // a second way to ask one question is how two screens get to disagree about what
 // an author is.
@@ -210,6 +211,9 @@ const PERSON_SWITCHES = [
   // standalone quote has no character column at all (0026), so it is absent there.
   { key: 'portrait', work: true, label: 'common.field.portrait.label', eg: 'anthologies.eg.portrait' },
   { key: 'character_portrait', work: true, label: 'common.field.cast.label', eg: 'anthologies.eg.character-portrait' },
+  // THE SIGNATURE is the third picture and the third file: drawn in the text colour, carried
+  // as bytes by the EPUB, absent from the Markdown for the portraits' reason.
+  { key: 'signature', work: true, label: 'common.field.signature.label', eg: 'anthologies.eg.signature' },
 ]
 
 // `work: true` ON A PERSON ROW READS ODD AND IS RIGHT: the flag means "stored in
@@ -274,7 +278,7 @@ const workLine = (entry, fields = {}) =>
 // caption with a paragraph buried in it.
 // PORTRAIT_KEYS are the rows personLine must NOT join into its sentence: a filename
 // read out beside a biography is the screen printing its own bookkeeping.
-const PORTRAIT_KEYS = new Set(['portrait', 'character_portrait'])
+const PORTRAIT_KEYS = new Set(['portrait', 'character_portrait', 'signature'])
 
 const personLine = (entry, fields = {}) =>
   PERSON_SWITCHES.filter((row) => !PORTRAIT_KEYS.has(row.key) && fields?.[row.key] && entry.person?.[row.key])
@@ -290,6 +294,10 @@ const portraitsOf = (entry, fields = {}) =>
     fields?.character_portrait && entry.cast?.character_portrait,
     fields?.portrait && entry.person?.portrait,
   ].filter(Boolean)
+
+// signatureOf is the file of the signature an entry can show, or nothing: absent for
+// most entries, like the faces, because it exists only where the person has one.
+const signatureOf = (entry, fields = {}) => (fields?.signature && entry.person?.signature) || ''
 
 // RuleDialog — choose the search that fills this anthology, see what it would take,
 // and take it.
@@ -1342,6 +1350,13 @@ function AnthologyEntry({ entry, fields = {}, first, last, onNote, onMove, onRem
               style={{ height: '4.5em', width: 'auto' }}
             />
           ))}
+          {/* THE SIGNATURE, under the faces and in the text colour: the same mask the
+              person's record draws, so it reads on every theme. */}
+          {signatureOf(entry, fields.fields) ? (
+            <div className="mt-1.5" style={{ maxWidth: '10em' }}>
+              <SignatureInk src={apiURL(`/covers/${signatureOf(entry, fields.fields)}`)} alt="" />
+            </div>
+          ) : null}
           {/* The QUOTE's own note, which is a different thing from the entry's and
               can be non-empty at the same time: one is what the reader wrote when
               they saved the line, the other is what they wrote when they placed it

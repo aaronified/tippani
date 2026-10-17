@@ -2762,6 +2762,7 @@ anthologies.eg.born = জন্ম খ্রি.পূ. ৪
 anthologies.eg.died = মৃত্যু ৬৫ খ্রি.
 anthologies.eg.links = উইকিপিডিয়া
 anthologies.eg.portrait = লাইনের পাশে তাঁর ছবি
+anthologies.eg.signature = লাইনের নিচে তাঁর সই
 anthologies.eg.character-portrait = লাইনের পাশে চরিত্রের মুখ
 anthologies.form.fields.credit.label = কে বলেছেন
 anthologies.form.fields.source.label = কোথা থেকে নেওয়া
@@ -6172,6 +6173,7 @@ common.field.style.label = স্টাইল
 # above; these are the six a person carries and the three identifiers.
 common.field.cast.label = কাস্ট
 common.field.portrait.label = মুখের ছবি
+common.field.signature.label = সই
 common.field.bio.label = জীবনী
 common.field.born.label = জন্ম
 common.field.died.label = মৃত্যু

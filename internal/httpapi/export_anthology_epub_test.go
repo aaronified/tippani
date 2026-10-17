@@ -310,3 +310,44 @@ func TestTheEPUBCarriesAPortraitAndSurvivesAMissingOne(t *testing.T) {
 		t.Errorf("mimetype = %q", got)
 	}
 }
+
+// A SIGNATURE REACHES THE BOOK THE SAME WAY A PORTRAIT DOES, AS BYTES, WHEN ITS
+// SWITCH IS ON, AND ONLY THEN. It is its own picture with its own switch: turning
+// the portrait on must not smuggle the signature in, and the reverse.
+func TestTheEPUBCarriesASignatureOnlyWhenItsSwitchIsOn(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	c.mustDo("PUT", "/people", map[string]any{"kind": "author", "name": "Italo Calvino"}, http.StatusOK)
+	const sig = "00112233445566bb.png"
+	if err := os.MkdirAll(srv.coversDir(), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(srv.coversDir(), sig), []byte("not really a signature"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := srv.Store.DB.Exec(`UPDATE people SET signature_path = ? WHERE name = 'Italo Calvino'`, sig); err != nil {
+		t.Fatal(err)
+	}
+	ann, _, _ := threeKinds(t, c)
+	a := newAnthology(t, c, "Cities")
+	addEntries(t, c, a.ID, []map[string]any{{"kind": "book", "item_id": ann}})
+
+	// Only the portrait is on: no signature in the book.
+	setFields(t, c, a.ID, "Cities", map[string]any{"fields": map[string]any{"portrait": true}})
+	z := exportEPUB(t, c, a.ID)
+	if strings.Contains(epubFile(t, z, "OEBPS/content.opf"), sig) || strings.Contains(epubFile(t, z, "OEBPS/anthology.xhtml"), sig) {
+		t.Fatal("the signature is in the book though only the portrait's switch is on")
+	}
+
+	setFields(t, c, a.ID, "Cities", map[string]any{"fields": map[string]any{"signature": true}})
+	z = exportEPUB(t, c, a.ID)
+	if got := epubFile(t, z, "OEBPS/"+sig); got != "not really a signature" {
+		t.Errorf("the signature's bytes are not in the book: %q", got)
+	}
+	if opf := epubFile(t, z, "OEBPS/content.opf"); !strings.Contains(opf, `href="`+sig+`"`) || !strings.Contains(opf, `media-type="image/png"`) {
+		t.Errorf("the manifest does not declare the signature:\n%s", opf)
+	}
+	if body := epubFile(t, z, "OEBPS/anthology.xhtml"); !strings.Contains(body, `<p class="signature"><img src="`+sig+`" alt="" /></p>`) {
+		t.Errorf("the page does not show the signature:\n%s", body)
+	}
+}

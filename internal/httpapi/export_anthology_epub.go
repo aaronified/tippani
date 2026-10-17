@@ -195,6 +195,8 @@ p.attribution { margin: .2em 0 0; font-size: .85em; }
 p.intro { margin: .4em 0; }
 p.portrait { margin: .5em 0; }
 p.portrait img { max-width: 40%; }
+p.signature { margin: .25em 0; }
+p.signature img { max-width: 25%; }
 `
 
 func epubOPF(title, bookID string, images []epubImage) string {
@@ -280,7 +282,7 @@ func epubBody(title, intro string, f anthologyFields, entries []anthologyEntryRo
 		// THE FACES UNDER THE PASSAGE, after the quote and before the attribution
 		// that names them. Absent for most entries: a portrait exists only where the
 		// reader looked somebody up AND a picture was downloaded.
-		for _, key := range []string{"character_portrait", "portrait"} {
+		for _, key := range []string{"character_portrait", "portrait", "signature"} {
 			fd, ok := anthologyFieldByKey[key]
 			if !ok || !f.shows(key) || !fd.appliesTo(e.Kind) {
 				continue
@@ -289,7 +291,12 @@ func epubBody(title, intro string, f anthologyFields, entries []anthologyEntryRo
 			if name == "" || !hasEpubImage(images, name) {
 				continue
 			}
-			sb.WriteString(`<p class="portrait"><img src="` + xmlText(name) + `" alt="" /></p>` + "\n")
+			// A signature is its own class: smaller than a face and not a circle.
+			class := "portrait"
+			if key == "signature" {
+				class = "signature"
+			}
+			sb.WriteString(`<p class="` + class + `"><img src="` + xmlText(name) + `" alt="" /></p>` + "\n")
 		}
 		if line := epubAttribution(e, f); line != "" {
 			sb.WriteString(`<p class="attribution">` + xmlText(line) + "</p>\n")
@@ -353,7 +360,7 @@ func (s *Server) epubImages(f anthologyFields, entries []anthologyEntryRow) []ep
 	seen := map[string]bool{}
 	out := []epubImage{}
 	for _, e := range entries {
-		for _, key := range []string{"portrait", "character_portrait"} {
+		for _, key := range []string{"portrait", "character_portrait", "signature"} {
 			fd, ok := anthologyFieldByKey[key]
 			if !ok || !f.shows(key) || !fd.appliesTo(e.Kind) {
 				continue

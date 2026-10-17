@@ -171,6 +171,11 @@ var anthologyRegistry = []anthologyField{
 	{Key: "died", Kinds: allKinds, Binding: "died", Label: "common.field.died.label"},
 	{Key: "links", Kinds: allKinds, Binding: "links", Label: "common.field.links.label"},
 	{Key: "portrait", Kinds: allKinds, Binding: "", Label: "common.field.portrait.label"},
+	// THE PERSON'S SIGNATURE, a picture like the portrait and for the same reasons no
+	// Markdown binding: a path means nothing outside this install. Added beside
+	// `portrait` in every list that names it (personFieldKeys, personFieldOrder, the
+	// EPUB's two) so it is read, carried and drawn wherever a portrait is.
+	{Key: "signature", Kinds: allKinds, Binding: "", Label: "common.field.signature.label"},
 
 	// THE CAST JOIN, and it is one row because there is nothing else in that table
 	// worth having: `work_cast.actor` is the VOICE actor on a game and is always ''
@@ -187,7 +192,7 @@ var anthologyRegistry = []anthologyField{
 // become a three-way guess: a key in this set is a PERSON field, a key with a
 // column is a 0045 field, and everything else is a work field.
 var personFieldKeys = map[string]bool{
-	"bio": true, "born": true, "died": true, "links": true, "portrait": true,
+	"bio": true, "born": true, "died": true, "links": true, "portrait": true, "signature": true,
 }
 
 // castFieldKeys is the same for the cast row. One key today; a map rather than a
