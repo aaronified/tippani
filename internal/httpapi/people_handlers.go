@@ -36,15 +36,17 @@ type personRow struct {
 	Links     string   `json:"links"`
 	Source    string   `json:"source"`
 	SourceID  string   `json:"source_id"`
+	// The stored signature file (0082), for a share card to draw under the quote.
+	SignaturePath string `json:"signature_path"`
 }
 
 // personCols is p.-prefixed because every read joins person_kinds now — see
 // personKindJoin. `kind` is NOT among them: it left the row in 0027.
-const personCols = `p.id, p.name, p.bio, p.image_path, p.born, p.died, p.links, p.source, p.source_id`
+const personCols = `p.id, p.name, p.bio, p.image_path, p.born, p.died, p.links, p.source, p.source_id, p.signature_path`
 
 func scanPerson(sc interface{ Scan(...any) error }) (personRow, error) {
 	var p personRow
-	err := sc.Scan(&p.ID, &p.Name, &p.Bio, &p.ImagePath, &p.Born, &p.Died, &p.Links, &p.Source, &p.SourceID)
+	err := sc.Scan(&p.ID, &p.Name, &p.Bio, &p.ImagePath, &p.Born, &p.Died, &p.Links, &p.Source, &p.SourceID, &p.SignaturePath)
 	return p, err
 }
 

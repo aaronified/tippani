@@ -646,6 +646,7 @@ const PORTRAIT_CACHE_MAX = 6 // one card draws at most five faces, plus a spare
 // performs none of them. A WeakMap cannot be cleared, so it is replaced.
 export function clearPortraitCache() {
   portraitCache = new WeakMap()
+  sigCache = new WeakMap()
 }
 
 function fadedPortrait(img, w, h, dir, tint, surface, url) {
@@ -782,6 +783,11 @@ export function buildModel(share, selected, colorHex) {
     swap: !!share.swap && faces.length > 0,
     colorHex: colorHex || null,
     portrait: !!share.portrait && faces.length > 0,
+    // A PERSON'S SIGNATURE, {name, url}, drawn in the footer's bottom right. It is
+    // the share dialog's to offer or not (share.jsx), so it arrives here already
+    // decided: present means draw it.
+    // It rides its credit toggle as the faces do: unchecking the author drops it.
+    signature: showFaces && share.signature && share.signature.url ? share.signature : null,
   }
 }
 
@@ -804,6 +810,61 @@ const MARK_INK = (229.3 - 23.37) / 256
 // pushes anything beside the words visibly high.
 const FOOT_CAP = 14 * 0.7
 const FACE_SIZE = 34, FACE_MAX = 5 // credit portraits: disc size + how many fit
+
+// THE SIGNATURE, IN THE FOOTER'S BOTTOM RIGHT CORNER — the row the Tippani mark and
+// wordmark sit in, which is drawn from the left, so the right end of it is free.
+//
+// NO TALLER THAN THE ROW UNDER THE HAIRLINE, which is the footer less the ten pixels
+// it starts into it, and no wider than the room the wordmark leaves: a signature that
+// grew past either would read as a second footer. It is scaled down to fit, never
+// up, and drawn nowhere at all where there is less than a glance of room.
+//
+// IT IS INK ON TRANSPARENCY (the server cleaned it), so it is filled with the card's
+// own ink: the same signature reads on every theme and the card still has one colour
+// of type.
+const SIG_PAD = 2
+let sigCache = new WeakMap() // image -> Map(key -> canvas); reset with the portraits
+
+function tintedSignature(img, w, h, ink) {
+  const key = Math.ceil(w) + 'x' + Math.ceil(h) + '|' + ink
+  let byShape = sigCache.get(img)
+  if (byShape) {
+    const hit = byShape.get(key)
+    if (hit) return hit
+  } else {
+    byShape = new Map()
+    sigCache.set(img, byShape)
+  }
+  const off = document.createElement('canvas')
+  off.width = Math.ceil(w)
+  off.height = Math.ceil(h)
+  const octx = off.getContext('2d')
+  if (!octx) return null
+  octx.drawImage(img, 0, 0, off.width, off.height)
+  // source-in keeps the signature's alpha and replaces its colour: Porter-Duff, so
+  // implemented wherever the canvas is, unlike the blend modes the portrait wants.
+  octx.globalCompositeOperation = 'source-in'
+  octx.fillStyle = ink
+  octx.fillRect(0, 0, off.width, off.height)
+  byShape.set(key, off)
+  return off
+}
+
+function drawSignature(ctx, img, theme, rightEdge, footTop, leftLimit) {
+  if (!img || !img.width || !img.height) return
+  const rowH = FOOTER_H - 10
+  let h = rowH - 2 * SIG_PAD
+  let w = (img.width / img.height) * h
+  const room = rightEdge - leftLimit
+  if (w > room) {
+    w = room
+    h = (img.height / img.width) * w
+  }
+  if (w < 24 || h < 6) return
+  const tinted = tintedSignature(img, w, h, hexToRgba(theme.ink, 0.88))
+  if (!tinted) return
+  ctx.drawImage(tinted, rightEdge - w, footTop + (rowH - h) / 2, w, h)
+}
 
 // fontPx pulls the size out of a CSS font shorthand, so the halo's radius is
 // derived from the FONTS table itself rather than from a second copy of the same
@@ -1299,6 +1360,9 @@ export function drawQuoteCard(canvas, model, theme) {
     fx += ctx.measureText('tippani').width + 8
     ctx.font = FONTS.bengali
     ctx.fillText('টিপ্পনী', fx, base)
+    if (model.signature) {
+      drawSignature(ctx, faceCache.get(model.signature.url), theme, innerX + innerW, footTop, fx + ctx.measureText('টিপ্পনী').width + 12)
+    }
   }
 
   // ---- the halo, then the words ----

@@ -3129,6 +3129,12 @@ share.image.sides.swap.label = Swap
 share.image.sides.info.title = Sides
 share.image.sides.info.body = Which credited person comes first. On chips it changes whose face is in front; on a backdrop it swaps the sides.
 # Whether the quote's own filing colour shows in the picture. Off by default.
+# A person's signature in the picture's bottom right corner. Shown only where somebody
+# credited has one, and never for a character.
+share.image.signature.label = signature
+share.image.signature.aria = Signature on the picture
+share.image.signature.info.title = Signature
+share.image.signature.info.body = Puts the credited person's signature in the picture's bottom right corner, beside the Tippani mark. Off by default.
 share.image.colour.aria = Quote colour
 share.image.colour.info.title = Quote colour
 share.image.colour.info.body = Adds the quote's colour to the picture — a stripe, or a tint on a backdrop. Off by default.

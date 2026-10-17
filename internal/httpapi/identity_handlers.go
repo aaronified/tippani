@@ -37,8 +37,8 @@ type personDetail struct {
 	// page tags them. Empty where nothing is recorded.
 	ImageSource string            `json:"image_source,omitempty"`
 	LinkSources map[string]string `json:"link_sources,omitempty"`
-	// The signature beside the portrait (0082): its stored file and who supplied it.
-	SignaturePath   string `json:"signature_path"`
+	// Who supplied the signature beside the portrait (0082); its file is on the
+	// embedded row, where a share card reads it.
 	SignatureSource string `json:"signature_source,omitempty"`
 	// Aliases are the other spellings that RESOLVE to this record. Not decoration:
 	// each one is why a credit string somewhere lands here instead of making a
@@ -147,8 +147,8 @@ func (s *Server) handlePersonByID(w http.ResponseWriter, r *http.Request) {
 	out := personDetail{personRow: p}
 	var linkSources string
 	if err := s.Store.DB.QueryRow(
-		`SELECT sort_name, note, image_source, link_sources, signature_path, signature_source FROM people WHERE id = ? AND user_id = ?`, id, uid).
-		Scan(&out.SortName, &out.Note, &out.ImageSource, &linkSources, &out.SignaturePath, &out.SignatureSource); err != nil {
+		`SELECT sort_name, note, image_source, link_sources, signature_source FROM people WHERE id = ? AND user_id = ?`, id, uid).
+		Scan(&out.SortName, &out.Note, &out.ImageSource, &linkSources, &out.SignatureSource); err != nil {
 		internalError(w, r, "read person identity", err)
 		return
 	}
@@ -1874,7 +1874,7 @@ func (s *Server) handlePeopleRecords(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var v personRecord
 		if err := rows.Scan(&v.ID, &v.Name, &v.Bio, &v.ImagePath, &v.Born, &v.Died,
-			&v.Links, &v.Source, &v.SourceID, &v.SortName, &v.Works, &v.Credits, &v.Quotes); err != nil {
+			&v.Links, &v.Source, &v.SourceID, &v.SignaturePath, &v.SortName, &v.Works, &v.Credits, &v.Quotes); err != nil {
 			olog.Warnf(olog.CodePeopleRowScan, "[identity] person record scan failed: %v", err)
 			continue
 		}

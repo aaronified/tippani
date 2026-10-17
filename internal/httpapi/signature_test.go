@@ -258,3 +258,39 @@ func TestASignatureThatCannotBeCleanedSaysWhy(t *testing.T) {
 		t.Errorf("strength 7 = %d, want 400", rec.Code)
 	}
 }
+
+// THE SHARE CARD READS A SIGNATURE OFF THE SAME LIST IT READS PORTRAITS FROM:
+// GET /people, as the app loads it for every screen that credits somebody. A
+// signature the person's own record shows and this list does not is one the card
+// can never draw.
+func TestAPeopleListCarriesEachPersonsSignature(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	signed := makePerson(t, c, "Ursula Writer")
+	makePerson(t, c, "Unsigned Writer")
+
+	if rec := postSignature(c, fmt.Sprintf("/people/id/%d/signature", signed), aSignaturePhoto(t), nil); rec.Code != 200 {
+		t.Fatalf("save = %d: %s", rec.Code, rec.Body)
+	}
+	want, _ := signatureOf(t, c, signed)
+
+	var list struct {
+		People []struct {
+			Name          string `json:"name"`
+			SignaturePath string `json:"signature_path"`
+		} `json:"people"`
+	}
+	if err := json.Unmarshal(c.mustDo("GET", "/people?kind=author", nil, 200).Body.Bytes(), &list); err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]string{}
+	for _, p := range list.People {
+		got[p.Name] = p.SignaturePath
+	}
+	if got["Ursula Writer"] != want || want == "" {
+		t.Errorf("the list gives Ursula Writer signature %q, want %q", got["Ursula Writer"], want)
+	}
+	if v, ok := got["Unsigned Writer"]; !ok || v != "" {
+		t.Errorf("the list gives Unsigned Writer %q (present: %v), want present and empty", v, ok)
+	}
+}

@@ -19,6 +19,18 @@ function resolveFaces(credit, people, seps) {
     .map((p) => ({ name: p.name, url: coverImgURL(p.image_path) }));
 }
 
+// resolveSignature is the first credited PERSON who has a saved signature, as
+// {name, url}, or null. One signature on a card, not one per person: it sits in the
+// footer's corner, which has room for exactly one. A character is never asked: a
+// character signed nothing, and the characters' pictures go the other way (below).
+function resolveSignature(credit, people, seps) {
+  if (!credit || !people) return null;
+  const hit = splitCredits(credit, seps || DEFAULT_CREDIT_SEPS)
+    .map((n) => people[n])
+    .find((p) => p && p.signature_path);
+  return hit ? { name: hit.name, url: coverImgURL(hit.signature_path) } : null;
+}
+
 // resolveCharacterFaces is the same job for the picture of a ROLE, and it is a
 // different function rather than a parameter because the two are shaped
 // differently at source and neither shape is convertible into the other.
@@ -184,6 +196,7 @@ export function bookShare({
     color: color || "",
     // Author face(s) for the image, gated by the "Author" toggle (facesFor).
     faces: resolveFaces(author, people, seps),
+    signature: resolveSignature(author, people, seps),
     facesFor: "author",
     // A BOOK HAS CHARACTERS TOO, and this is the half of the feature nobody
     // could see: the server has been sending `character_images` on an annotation
@@ -252,6 +265,7 @@ export function movieShare({
     // had; `characterFaces` is additional and is empty for a quote whose work has
     // no character art, which is what hides the control rather than greying it.
     faces: resolveFaces(actor, people, seps),
+    signature: resolveSignature(actor, people, seps),
     facesFor: "actor",
     characterFaces: resolveCharacterFaces(characterImages),
     attribution: [
@@ -359,6 +373,7 @@ export function quoteShare({
     translation: translation || "",
     color: color || "",
     faces: resolveFaces(speaker, people, seps),
+    signature: resolveSignature(speaker, people, seps),
     facesFor: "speaker",
     // "— **Bose**, *Burma Radio broadcast*, 1944" — speaker-first, occasion
     // italic, then when: the same epigraph order a book keeps.
@@ -834,6 +849,13 @@ function QuoteImagePanel({ share, selected, onShared, actionRef }) {
   const [faceKind, setFaceKind] = usePersistedState("tippani:shareFaceKind", "actor");
   const characterFaces = share.characterFaces || [];
   const canFaceKind = characterFaces.length > 0 && (share.faces || []).length > 0;
+  // THE SIGNATURE: an option, remembered per device beside the others and hidden
+  // where it has nothing to offer — nobody credited has one, or the card is showing a
+  // CHARACTER, who signed nothing. Off by default: a card that has always had no
+  // signature is byte-for-byte what it was.
+  const [signatureOn, setSignatureOn] = usePersistedState("tippani:shareSignature", false);
+  const canSignature = !!share.signature && !(faceKind === "character" && characterFaces.length > 0);
+  const drawnSignature = signatureOn && canSignature ? share.signature : null;
   // The array actually drawn. `faces` keeps its meaning everywhere else — the
   // swap happens here, once, so nothing downstream has to learn a second field.
   const drawnFaces = faceKind === "character" && characterFaces.length > 0 ? characterFaces : share.faces || [];
@@ -875,7 +897,7 @@ function QuoteImagePanel({ share, selected, onShared, actionRef }) {
         // this is the one consumer that needs a real value — and the one whose
         // output leaves the app, which makes it the worst place to be stale.
         const colorHex = useColor && share.color ? categoryHex(share.color) : null;
-        drawQuoteCard(canvas, buildModel({ ...share, faces: drawnFaces, portrait: portrait && canPortrait, swap }, selected, colorHex), drawTheme(imageTheme, imageMaterial));
+        drawQuoteCard(canvas, buildModel({ ...share, faces: drawnFaces, signature: drawnSignature, portrait: portrait && canPortrait, swap }, selected, colorHex), drawTheme(imageTheme, imageMaterial));
         setErr("");
       } catch {
         setErr(t("error.render.image"));
@@ -920,7 +942,7 @@ function QuoteImagePanel({ share, selected, onShared, actionRef }) {
         language: share.language,
       }),
       // Author / actor portraits, which load lazily.
-      loadFaceImages(drawnFaces.map((f) => f.url)),
+      loadFaceImages([...drawnFaces.map((f) => f.url), ...(drawnSignature ? [drawnSignature.url] : [])]),
       // The material's tile.
       loadTileImage(tileFor(imageMaterial, "card").url),
     ]).then(redraw);
@@ -933,7 +955,7 @@ function QuoteImagePanel({ share, selected, onShared, actionRef }) {
     // so listing it would re-run this effect forever. `share` already covers the
     // two arrays themselves; faceKind is the only new thing that can change which
     // of them is drawn.
-  }, [share, selected, imageTheme, imageMaterial, portrait, canPortrait, swap, useColor, faceKind]);
+  }, [share, selected, imageTheme, imageMaterial, portrait, canPortrait, swap, useColor, faceKind, signatureOn, canSignature]);
 
   async function download() {
     const canvas = canvasRef.current;
@@ -1086,6 +1108,18 @@ function QuoteImagePanel({ share, selected, onShared, actionRef }) {
             options={[["as-credited", t("share.image.sides.as-credited.label")], ["swapped", t("share.image.sides.swap.label")]]}
           />
           <InfoDot title={t("share.image.sides.info.title")} text={t("share.image.sides.info.body")} />
+        </div>
+      )}
+      {canSignature && (
+        <div className="mb-2 flex flex-wrap items-center gap-2">
+          <MonoLabel>{t("share.image.signature.label")}</MonoLabel>
+          <Toggle
+            ariaLabel={t("share.image.signature.aria")}
+            value={signatureOn ? "on" : "off"}
+            onChange={(v) => setSignatureOn(v === "on")}
+            options={[["off", t("common.toggle.off.label")], ["on", t("common.toggle.on.label")]]}
+          />
+          <InfoDot title={t("share.image.signature.info.title")} text={t("share.image.signature.info.body")} />
         </div>
       )}
       {canColor && (
