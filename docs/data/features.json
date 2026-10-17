@@ -398,7 +398,8 @@
       "railLabel": "Signatures",
       "html": [
         "<p>",
-        "  Add a person's signature to their details, and put it under their quote on a shared image.",
+        "  Add a person's signature to their details, from a photo of it or from Wikidata, and put it",
+        "  in the bottom right corner of a shared image, beside the Tippani mark.",
         "</p>"
       ],
       "id": "person-signature",
