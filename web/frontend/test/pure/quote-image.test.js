@@ -253,6 +253,7 @@ describe('buildModel selection', () => {
       colorHex: null,
       portrait: false,
       swap: false,
+      signature: null,
     })
   })
 })
