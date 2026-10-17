@@ -18,7 +18,7 @@ work-source-files: *"Leave it out too"*. One plan at a time, each its own releas
 rater:
 
 1. `jobs.md` — shipped in 3.1.0, folded into `Design-decisions.md` §18, and deleted.
-2. `person-signature.md`, next.
+2. `person-signature.md` — shipped in 3.3.0, folded into `Design-decisions.md` ("A person's signature"), and deleted.
 3. `read-aloud.md`.
 4. `tile-slots.md`.
 5. `episodes.md`.
@@ -43,8 +43,8 @@ shipped plans stayed here afterwards and reintroduced it one directory over —
 along with twenty-three entries in the log whose grey line still read *planned*
 for features that had been running for months.
 
-**Seventeen files sit here, and only some of them are plans** — the table at the foot of this
-file names the eight that get no roadmap card, leaving nine features on the roadmap.
+**Sixteen files sit here, and only some of them are plans** — the table at the foot of this
+file names the eight that get no roadmap card, leaving eight features on the roadmap.
 
 THAT COUNT HAS NOW BEEN WRONG FIVE TIMES. It said "Seven"; a change that added a file
 incremented it to "Eight" without counting the directory; a change that fixed THAT wrote
@@ -103,9 +103,9 @@ have since left by the front door**: the update shipped, the pair is folded into
 under one heading with a pass on the four places they turned out to be wrong, and neither
 file is here any more.
 
-So the plans proper are the nine the table does not name: `admin-and-profile.md`,
+So the plans proper are the eight the table does not name: `admin-and-profile.md`,
 `anthology-enhancements.md`, which picks up what the shipped anthology plans left out,
-`atrium-liquid-glass.md`, `episodes.md`, `person-signature.md`, `read-aloud.md`,
+`atrium-liquid-glass.md`, `episodes.md`, `read-aloud.md`,
 `tile-slots.md`, and `locators-from-files.md` and `work-source-files.md` — the storage,
 mount and prune spine that `locators-from-files.md` already calls "the reader of these
 files" and cites by name. (This paragraph named `access.md` and `entry-helpers.md` for two

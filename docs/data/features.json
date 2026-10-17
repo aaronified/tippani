@@ -403,7 +403,8 @@
         "</p>"
       ],
       "id": "person-signature",
-      "plan": "person-signature.md"
+      "plan": "person-signature.md",
+      "shipped_in": "3.3.0"
     }
   ],
   "overrides": {
