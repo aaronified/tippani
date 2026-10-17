@@ -374,6 +374,10 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /people/id/{id}/aliases", s.requireAuth(s.handlePersonAlias))
 	mux.Handle("PUT /people/id/{id}/names", s.requireAuth(s.handlePersonNames))
 	mux.Handle("POST /people/id/{id}/portrait", s.requireAuth(s.handlePersonImageUpload))
+	// A signature beside the portrait (signature_handlers.go): a preview that cleans
+	// and answers the image and writes nothing, and the save that stores it.
+	mux.Handle("POST /people/id/{id}/signature/preview", s.requireAuth(s.handleSignaturePreview))
+	mux.Handle("POST /people/id/{id}/signature", s.requireAuth(s.handlePersonSignatureUpload))
 	// The People row's Fetch: portrait, identity, facts and links, onto this
 	// record (person_fetch.go). No body; in its request, never queued.
 	mux.Handle("POST /people/id/{id}/fetch", s.requireAuth(s.handlePersonFetch))

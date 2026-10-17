@@ -77,3 +77,14 @@ func StoreSignature(data []byte, destDir string) (string, error) {
 	}
 	return name, nil
 }
+
+// ValidSVG is whether data is an SVG a signature may be stored as: the same test a
+// sticker passes, including the refusal of anything scripted. Answered without
+// writing, for a preview.
+func ValidSVG(data []byte) error {
+	if sniffImageType(data) != "image/svg+xml" {
+		return errors.New("not an SVG")
+	}
+	_, err := checkImage(data, maxImageBytes)
+	return err
+}

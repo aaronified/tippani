@@ -279,6 +279,9 @@ func (s *Server) handleUpdatePersonByID(w http.ResponseWriter, r *http.Request) 
 		// ImageSource is the supplier a picture taken from a strip came from; a
 		// pasted address names nobody and is the reader's.
 		ImageSource string `json:"image_source"`
+		// ClearSignature removes the signature and remembers that it was removed, so
+		// the person's Fetch does not put it back (0082).
+		ClearSignature bool `json:"clear_signature"`
 	}
 	if !decodeBody(w, r, &req) {
 		return
@@ -313,6 +316,12 @@ func (s *Server) handleUpdatePersonByID(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 
+	var oldSignature string
+	if req.ClearSignature {
+		_ = s.Store.DB.QueryRow(
+			`SELECT signature_path FROM people WHERE id = ? AND user_id = ?`, id, uid).Scan(&oldSignature)
+	}
+
 	tx, err := s.Store.DB.Begin()
 	if err != nil {
 		// The file was fetched for a write that is not going to happen.
@@ -323,6 +332,9 @@ func (s *Server) handleUpdatePersonByID(w http.ResponseWriter, r *http.Request) 
 	defer tx.Rollback()
 
 	set, args := []string{}, []any{}
+	if req.ClearSignature {
+		set = append(set, "signature_path = ''", "signature_source = ''", "signature_removed = 1")
+	}
 	put := func(col string, v *string) {
 		if v == nil {
 			return
@@ -398,6 +410,11 @@ func (s *Server) handleUpdatePersonByID(w http.ResponseWriter, r *http.Request) 
 	// is gone, which reads as a broken portrait rather than as a failed save.
 	if changeImage && oldImage != "" && oldImage != newImage {
 		s.removeCoverFile(oldImage)
+	}
+	// A signature file may be another reader's too, so it is removed only when
+	// nothing else names it.
+	if oldSignature != "" {
+		s.removeSignatureFile(oldSignature)
 	}
 	s.handlePersonByID(w, r)
 }
