@@ -137,7 +137,7 @@ function FrameForm({ src, frame, name, reframing, saving, setSaving, onChanged, 
     // NEVER LARGER THAN THE PICTURE IS. Scaling a 90-pixel thumbnail up to the frame's full width
     // stored a soft picture that every size warning (cover width, the portrait's under-400) then
     // called fine. Written at the pixels the source has, up to the frame's own width.
-    const width = Math.min(spec.width, Math.max(240, Math.round(iw / place.size)))
+    const width = Math.min(spec.width, Math.max(1, Math.round(iw / place.size)))
     renderFrame(out, img, place, frame, width, edges)
     const blob = await new Promise((resolve) => out.toBlob(resolve, 'image/jpeg', 0.92))
     if (!blob) {
@@ -257,6 +257,10 @@ export function useFraming({ frame, name, onKeep }) {
   const [open, setOpen] = useState(null) // { src, reframing } while the dialog is up
   const [previewing, setPreviewing] = useState(false)
   const latest = useRef(0)
+  // How many previews are out. `previewing` follows THIS and not the newest call: a preview
+  // superseded by a later choice still has to put the flag down, or it stays up for the life of
+  // the component and the controls it disables never come back.
+  const inflight = useRef(0)
 
   const frameFile = async (file) => {
     // A file chosen now is the newest choice: a picture still being fetched for an earlier one
@@ -273,13 +277,18 @@ export function useFraming({ frame, name, onKeep }) {
 
   const frameAddress = async (address, { always = false } = {}) => {
     const mine = ++latest.current
+    inflight.current += 1
     setPreviewing(true)
-    // Fetching can take a few seconds and the strip it was chosen from has closed.
-    toast(t('frame.preparing'))
+    // Fetching can take a few seconds and the strip it was chosen from has closed — so say so, but
+    // only if it is taking a while: most pictures come back at once and fit, and a message about
+    // opening a frame that then does not open would be wrong.
+    const slow = setTimeout(() => toast(t('frame.preparing')), 700)
     const r = await json('POST', '/images/preview', { url: address }).catch(() => ({ ok: false }))
     const m = r.ok && r.data?.image ? await measure(r.data.image) : null
+    clearTimeout(slow)
+    inflight.current -= 1
+    if (inflight.current === 0) setPreviewing(false)
     if (mine !== latest.current) return 'superseded'
-    setPreviewing(false)
     if (!m) return 'failed'
     if (always || needsFrame(m.w, m.h, frame)) {
       setOpen({ src: r.data.image, reframing: false })

@@ -9,7 +9,8 @@
 // (POST /auth/me/avatar, POST /boards/{id}/cover), and that jsdom decodes nothing, so
 // the browser's Image is stubbed to give a picture the size a case names. It reads one CSS
 // class, `form.frame-form`, to find the frame dialog's own tick among the screen's: the dialog
-// is a portal over a screen that has ticks of its own, and nothing else names the right one.
+// is a portal over a screen that has ticks of its own, and nothing else names the right one —
+// and `.tp-tick-count`, the badge that says the tick is armed, which has no other tell.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { t } from '../../src/i18n.js'
@@ -74,6 +75,23 @@ describe('the profile photo', () => {
     await screen.findByText(/^Frame — Aro/)
     expect(screen.queryByText(/dimmed part is cut off/), 'the dialog does not say what the circle cuts away').toBeTruthy()
     expect(SENT.length, 'the photo was kept before it had been framed').toBe(0)
+  })
+
+  // THE TICK LIGHTS WHEN THE SUBSTANCE DIFFERS FROM WHAT IS STORED. A picture not yet kept always
+  // does, so its tick is armed from the start; a stored one being reframed is armed only by a move.
+  it('lights the tick for a picture not yet kept, and not for one only being reframed', async () => {
+    picturesAre(1600, 701)
+    card()
+    await chooseFile()
+    await screen.findByText(/^Frame — Aro/)
+    await waitFor(() => expect(document.querySelector('.tp-tick-count'), 'a new picture’s tick is unlit').toBeTruthy())
+    cleanup()
+    card('me.jpg')
+    await act(async () => { screen.getByRole('button', { name: t('frame.reframe.label') }).click() })
+    await screen.findByText(/^Frame — Aro/)
+    // The tick itself is drawn once the dialog's form has registered; only then is its badge's absence meaningful.
+    await waitFor(() => expect(tick()).toBeTruthy())
+    expect(document.querySelector('.tp-tick-count'), 'an unmoved Reframe is armed before anything changed').toBeNull()
   })
 
   it('keeps nothing when the reader backs out', async () => {

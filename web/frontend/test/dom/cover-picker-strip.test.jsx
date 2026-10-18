@@ -18,6 +18,8 @@ let SENT
 let LOOKUP
 let IMAGES
 let PREVIEW_OK = true
+// The preview waits on this, so a case can hold one in flight.
+let PREVIEW_GATE = Promise.resolve()
 
 vi.mock('../../src/api.js', async (orig) => ({
   ...(await orig()),
@@ -26,6 +28,7 @@ vi.mock('../../src/api.js', async (orig) => ({
     if (path === '/books/lookup') return { ok: true, data: { candidates: LOOKUP } }
     if (path === '/images/search') return { ok: true, data: { images: IMAGES, sources: { google: true, amazon: true } } }
     if (path === '/images/preview') {
+      await PREVIEW_GATE
       return PREVIEW_OK ? { ok: true, data: { image: 'data:image/png;base64,AAAA' } } : { ok: false, status: 502, data: { error: 'no' } }
     }
     return { ok: true, data: {} }
@@ -80,6 +83,7 @@ beforeEach(() => {
   LOOKUP = []
   IMAGES = []
   PREVIEW_OK = true
+  PREVIEW_GATE = Promise.resolve()
   cleanup()
 })
 
@@ -253,6 +257,33 @@ describe('framing a cover as it is chosen', () => {
     const { onSetUrl } = await choose()
     await waitFor(() => expect(onSetUrl).toHaveBeenCalledWith('https://pics.test/dune-full.jpg', 'google-images'))
     expect(screen.queryByText(/^Frame — /)).toBeNull()
+  })
+
+  // A CHOICE MADE WHILE AN EARLIER ONE IS STILL BEING FETCHED SUPERSEDES IT, and the earlier one
+  // must still put `previewing` down: it stayed up for the life of the screen, and Reframe, which
+  // it disables, never came back.
+  it('gives Reframe back once a file chosen mid-fetch has superseded the address', async () => {
+    picturesAre(800, 1200)
+    let release
+    PREVIEW_GATE = new Promise((r) => { release = r })
+    IMAGES = [{ url: 'https://pics.test/dune-full.jpg', thumb: 'https://encrypted-tbn0.gstatic.com/t', source: 'google' }]
+    mount({ currentPath: 'dune.jpg' })
+    fireEvent.click(searchButton())
+    const img = await waitFor(() => {
+      const el = document.querySelector('.cover-pick img')
+      expect(el).toBeTruthy()
+      return el
+    })
+    fireEvent.click(img.closest('button'))
+    await waitFor(() => expect(SENT.some((s) => s.path === '/images/preview')).toBe(true))
+    const reframe = () => screen.getByRole('button', { name: /reframe/i })
+    await waitFor(() => expect(reframe().disabled, 'Reframe is not held while a picture is being fetched').toBe(true))
+    // The reader now chooses a file instead.
+    const input = document.querySelector('input[type="file"]')
+    fireEvent.change(input, { target: { files: [new File(['x'], 'a.png', { type: 'image/png' })] } })
+    await waitFor(() => expect(SENT.some((s) => s.method === 'UPLOAD')).toBe(true))
+    release()
+    await waitFor(() => expect(reframe().disabled, 'Reframe stayed disabled after the fetch it was waiting for ended').toBe(false))
   })
 
 })
