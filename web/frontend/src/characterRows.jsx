@@ -33,6 +33,7 @@ import { coverImgURL } from './api.js'
 import { t } from './i18n.js'
 import { Silhouette } from './silhouette.jsx'
 import { useSlowArrival } from './imageWait.js'
+import { FRAME_SLACK, lostShare } from './frames.js'
 import { FieldSourceTag, IconChevron, IconClose, IconEdit, IconPlus, Lightbox, NameScroll, ProviderMark, Scroller, Tooltip, sourceName, usePanelHead } from './ui.jsx'
 
 // ---- the header -------------------------------------------------------------
@@ -274,7 +275,9 @@ const PORTRAIT_RATIO = 1
 // 0.067 nearer 1:1 is a couple of per cent. So the question asked here is the
 // reader's — how much of this picture is not on the screen — and two per cent is
 // where it stops being worth a word.
-const CROP_SLACK = 0.02
+// ONE RULE WITH THE FRAMING EDITOR (frames.js): the caption says "cropped" under exactly the
+// condition the editor offers to open on, so the two cannot drift apart.
+const CROP_SLACK = FRAME_SLACK
 // THE SAMPLE GRID, and the floor under the contrast measurement. A picture
 // smaller than the grid is UPSCALED into it, so a 1×1 file fills all 1,024
 // samples with one colour and reports a spread of zero: arithmetically true,
@@ -324,9 +327,7 @@ function contrastOf(img) {
 // slot (the circle's). Whichever axis is long loses the overflow off both ends, so the visible
 // share is the smaller ratio over the larger and the loss is the rest.
 export function croppedShare({ w, h }) {
-  if (!w || !h) return 0
-  const r = w / h
-  return 1 - Math.min(r, PORTRAIT_RATIO) / Math.max(r, PORTRAIT_RATIO)
+  return lostShare(w, h, PORTRAIT_RATIO)
 }
 
 // The picture's shape, said as a ratio, only where enough of it is being cut to
