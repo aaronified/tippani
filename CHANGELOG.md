@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **A signature you have just given is offered on the share sheet at once.** Share on a quote
+  by someone whose signature you had just kept offered no Signature option until the page was
+  reloaded: each screen keeps the list of people it loaded when it opened, and a person's page
+  opened over it never updated that list. Anything you change on a person's page — a signature, a
+  portrait, a spelling — now reaches the lists underneath straight away.
+
 ## [3.3.2] - 2026-10-18
 
 ### Fixed
