@@ -14,15 +14,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   used to be cut to fit without a word. Now a frame opens showing exactly what the app will
   draw — the circle's cut-off part dimmed, or the rectangle — where you drag to move, zoom with a
   slider, fill the frame, or show the whole picture with the rest of the frame filled from the
-  picture's own edge colour. It runs everywhere a picture is kept: covers and posters, people,
-  characters, the profile photo and a board's picture. Search → choose → reframe is one go:
-  choosing a result, or pasting an address (Fetch, Paste URL), opens the frame at once, before
-  anything is stored or chosen and with no Save in between, so backing out keeps nothing. A
-  picture that already fits is kept as it came, with its source still credited; if it cannot be
-  fetched for the frame it is kept by its address as before. Every stored picture has a Reframe
-  button, and leaving one unmoved changes nothing. A framed picture is stored as yours, at no
-  more pixels than the picture had. Pictures the app fetches by itself (a person's lookup, adopting
-  a catalogue cover) are not framed; Reframe is there afterwards.
+  picture's own edge colour. It covers where a picture is chosen or uploaded: covers and posters,
+  people, characters (including a work's cast list), the profile photo and a board's picture.
+  Search → choose → reframe is one go: choosing a result, or pasting an address (Fetch, Paste
+  URL), opens the frame at once when the picture's shape needs it — before anything is stored,
+  and with no Save in between — so backing out keeps nothing. A picture that already fits is kept
+  as it came, with its source still credited (on the Library and Movies edit forms that means
+  staged for the form's Save, as before), and one that cannot be fetched for the frame is kept by
+  its address as it always was. Stored pictures have a Reframe button (a cast-list row has no
+  room for one; open the character instead), and leaving one unmoved changes nothing. A framed
+  picture is stored as yours, at no more pixels than the picture had. Pictures the app fetches by
+  itself (a person's lookup, adopting a catalogue cover), stickers and signatures are not framed.
 
 ### Fixed
 
