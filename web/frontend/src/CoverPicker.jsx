@@ -282,13 +282,16 @@ export function CoverControls({
 
   // FRAMING IS THE SAME FLOW EVERY PICTURE IN THE APP TAKES (`useFraming`): a poster is
   // 2:3 wherever the app draws it, so a picture of another shape is put in that frame
-  // BEFORE it is kept, and cancelling keeps nothing. Three ways in:
+  // BEFORE it is kept — before it is stored or even staged — and cancelling keeps nothing.
+  // Three ways in:
   //   a file             framed from a data: URL; a fitting one is uploaded as it came;
   //   a chosen address   (search → choose, or Paste URL) the server fetches it for the
   //                      frame, nothing stored; the framed result is uploaded, so there
-  //                      is no Save in between. Cancel leaves the choice pending, as a
-  //                      picture that already fits is left;
-  //   Reframe            the stored cover, or one just chosen and not yet saved.
+  //                      is no Save in between. A picture that fits, or that could not be
+  //                      fetched for the frame, is handed to `onSetUrl` as it always was —
+  //                      which on a form stages it for Save and on the work's own panel
+  //                      saves it — so that is the screen's business and not this flow's;
+  //   Reframe            the stored cover, or one chosen and staged but not yet saved.
   const framer = useFraming({ frame: 'work', name: label, onKeep: sendFile })
 
   // A File, not an event — FilePick reads the input and clears it.
@@ -297,9 +300,23 @@ export function CoverControls({
     if ((await framer.frameFile(f)) === 'fits') sendFile(f)
   }
 
-  async function frameChosen(address, always = false) {
+  // A CHOSEN ADDRESS is framed BEFORE `onSetUrl` is called. It was called first, and on the work's
+  // own panel `onSetUrl` is an immediate save: the unframed original was stored before the
+  // frame opened, backing out kept it, and the save raced the framed upload. Now the screen
+  // hears of the choice only once the frame has had its say.
+  async function chooseAddress(address, slug, thumb) {
     setErr('')
-    if ((await framer.frameAddress(address, { always })) === 'failed') setErr(t('frame.problem.load'))
+    const how = await framer.frameAddress(address)
+    if (how === 'framed' || how === 'superseded') return
+    onSetUrl(address, slug)
+    if (thumb) setPreviewFor({ url: address, thumb })
+  }
+
+  // Reframe a cover chosen and not yet saved. With nothing to fall back to, a picture that
+  // cannot be fetched for the frame is an error.
+  async function reframePending(address) {
+    setErr('')
+    if ((await framer.frameAddress(address, { always: true })) === 'failed') setErr(t('frame.problem.load'))
   }
 
   // THE FOUR VERBS, IN THE PACK'S ORDER — Fetch, Search, Upload, Paste URL —
@@ -382,7 +399,7 @@ export function CoverControls({
         ariaLabel={t('frame.reframe.label')}
         tooltip={t('frame.reframe.tip')}
         disabled={busy || framer.previewing}
-        onClick={() => (coverUrl ? frameChosen(coverUrl, true) : framer.reframe(coverImgURL(currentPath)))}
+        onClick={() => (coverUrl ? reframePending(coverUrl) : framer.reframe(coverImgURL(currentPath)))}
       />
     ),
     (currentPath || coverUrl) && !clearCover && (
@@ -419,10 +436,7 @@ export function CoverControls({
             icon={<IconCheck />}
             ariaLabel={t('cover.url.use.aria')}
             onClick={() => {
-                if (urlText.trim()) {
-                  onSetUrl(urlText.trim())
-                  frameChosen(urlText.trim())
-                }
+                if (urlText.trim()) chooseAddress(urlText.trim())
                 setUrlOpen(false)
                 setUrlText('')
               }}
@@ -445,10 +459,8 @@ export function CoverControls({
                 source={c.source}
                 noun={noun}
                 onPick={() => {
-                  onSetUrl(c.url, c.slug)
-                  setPreviewFor({ url: c.url, thumb: c.thumb })
                   setCovers(null)
-                  frameChosen(c.url)
+                  chooseAddress(c.url, c.slug, c.thumb)
                 }}
               />
             ))}

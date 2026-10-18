@@ -29,7 +29,7 @@ export function needsFrame(w, h, frame) {
 }
 
 // A placement is the picture's width as a share of the frame's width (`size`) and
-// where its centre sits, as shares of the frame's width and height (`x`, `y`) —
+// where its centre sits, as offsets from the frame's centre in frame WIDTHS, both axes (`x`, `y`) —
 // resolution-free, so the small preview and the full-size save place it alike.
 //
 // `cover` is the smallest size with no gap in the frame; `contain` the largest with

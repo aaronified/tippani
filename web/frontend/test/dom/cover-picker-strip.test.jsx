@@ -17,6 +17,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 let SENT
 let LOOKUP
 let IMAGES
+let PREVIEW_OK = true
 
 vi.mock('../../src/api.js', async (orig) => ({
   ...(await orig()),
@@ -24,7 +25,9 @@ vi.mock('../../src/api.js', async (orig) => ({
     SENT.push({ method, path, body })
     if (path === '/books/lookup') return { ok: true, data: { candidates: LOOKUP } }
     if (path === '/images/search') return { ok: true, data: { images: IMAGES, sources: { google: true, amazon: true } } }
-    if (path === '/images/preview') return { ok: true, data: { image: 'data:image/png;base64,AAAA' } }
+    if (path === '/images/preview') {
+      return PREVIEW_OK ? { ok: true, data: { image: 'data:image/png;base64,AAAA' } } : { ok: false, status: 502, data: { error: 'no' } }
+    }
     return { ok: true, data: {} }
   }),
   upload: vi.fn(async (path) => {
@@ -57,10 +60,26 @@ function mount(props = {}) {
 
 const searchButton = () => screen.getByLabelText(/Search covers/i)
 
+// jsdom decodes nothing, so the browser's Image is stubbed to give a picture the size a case
+// names. A chosen address is measured before the screen hears of it, so every case that
+// chooses one needs a shape.
+const picturesAre = (w, h) => {
+  vi.stubGlobal('Image', class {
+    set src(_) {
+      this.naturalWidth = w
+      this.naturalHeight = h
+      setTimeout(() => this.onload?.())
+    }
+  })
+  HTMLCanvasElement.prototype.toBlob = (done) => done(new Blob(['framed'], { type: 'image/jpeg' }))
+}
+afterEach(() => vi.unstubAllGlobals())
+
 beforeEach(() => {
   SENT = []
   LOOKUP = []
   IMAGES = []
+  PREVIEW_OK = true
   cleanup()
 })
 
@@ -77,6 +96,7 @@ describe('the candidate strip', () => {
   })
 
   it('draws the thumbnail and stages the original', async () => {
+    picturesAre(800, 1200)
     IMAGES = [{ url: 'https://pics.test/dune-full.jpg', thumb: 'https://encrypted-tbn0.gstatic.com/t', source: 'google' }]
     const onSetUrl = mount()
     fireEvent.click(searchButton())
@@ -93,12 +113,13 @@ describe('the candidate strip', () => {
     expect(pick.textContent).not.toContain('google-images')
 
     fireEvent.click(pick)
-    expect(onSetUrl).toHaveBeenCalledWith('https://pics.test/dune-full.jpg', 'google-images') // a web picture is Google Images, not Google Books
+    await waitFor(() => expect(onSetUrl).toHaveBeenCalledWith('https://pics.test/dune-full.jpg', 'google-images')) // a web picture is Google Images, not Google Books
   })
 
   // A catalogue candidate has one address and must not be changed by the
   // machinery the two-address ones need.
   it('leaves a one-address candidate alone', async () => {
+    picturesAre(800, 1200)
     LOOKUP = [{ cover_url: 'https://books.google.com/dune.jpg', source: 'google' }]
     const onSetUrl = mount()
     fireEvent.click(searchButton())
@@ -109,13 +130,14 @@ describe('the candidate strip', () => {
     })
     expect(img.getAttribute('src')).toBe('https://books.google.com/dune.jpg')
     fireEvent.click(img.closest('button'))
-    expect(onSetUrl).toHaveBeenCalledWith('https://books.google.com/dune.jpg', 'google') // credited to the supplier that offered it
+    await waitFor(() => expect(onSetUrl).toHaveBeenCalledWith('https://books.google.com/dune.jpg', 'google')) // credited to the supplier that offered it
   })
 
   // The preview above the controls shows the pending pick. For a picture whose
   // host the page cannot load, that has to be the thumbnail — otherwise choosing
   // a candidate replaces the strip with a "preview blocked" note.
   it('previews the pending pick with something it can actually draw', async () => {
+    picturesAre(800, 1200)
     IMAGES = [{ url: 'https://pics.test/dune-full.jpg', thumb: 'https://encrypted-tbn0.gstatic.com/t', source: 'google' }]
     let pending = ''
     const { rerender } = render(
@@ -132,6 +154,7 @@ describe('the candidate strip', () => {
       return el
     })
     fireEvent.click(img.closest('button'))
+    await waitFor(() => expect(pending).not.toBe(''))
     rerender(
       <CoverControls
         kind="books" id={1} currentPath="" coverUrl={pending} clearCover={false}
@@ -156,21 +179,10 @@ describe('the candidate strip', () => {
 // (POST /books/1/cover); jsdom decodes nothing, so the browser's Image is stubbed to
 // give a picture the size a case names.
 describe('framing a cover as it is chosen', () => {
-  const picturesAre = (w, h) => {
-    vi.stubGlobal('Image', class {
-      set src(_) {
-        this.naturalWidth = w
-        this.naturalHeight = h
-        setTimeout(() => this.onload?.())
-      }
-    })
-    HTMLCanvasElement.prototype.toBlob = (done) => done(new Blob(['framed'], { type: 'image/jpeg' }))
-  }
-  afterEach(() => vi.unstubAllGlobals())
   const choose = async () => {
     IMAGES = [{ url: 'https://pics.test/dune-full.jpg', thumb: 'https://encrypted-tbn0.gstatic.com/t', source: 'google' }]
     const onUploaded = vi.fn()
-    mount({ onUploaded })
+    const onSetUrl = mount({ onUploaded })
     fireEvent.click(searchButton())
     const img = await waitFor(() => {
       const el = document.querySelector('.cover-pick img')
@@ -178,7 +190,7 @@ describe('framing a cover as it is chosen', () => {
       return el
     })
     fireEvent.click(img.closest('button'))
-    return onUploaded
+    return { onUploaded, onSetUrl }
   }
   const uploads = () => SENT.filter((s) => s.method === 'UPLOAD')
 
@@ -192,7 +204,7 @@ describe('framing a cover as it is chosen', () => {
 
   it('keeps the framed picture as the cover, with no Save pressed', async () => {
     picturesAre(1600, 900)
-    const onUploaded = await choose()
+    const { onUploaded } = await choose()
     await screen.findByText(/^Frame — /)
     await screen.findByRole('slider', { name: /zoom/i })
     const tick = () => [...document.querySelectorAll('button')].find((b) => b.getAttribute('type') === 'submit')
@@ -209,4 +221,38 @@ describe('framing a cover as it is chosen', () => {
     await new Promise((r) => setTimeout(r, 30))
     expect(screen.queryByText(/^Frame — /), 'a picture the right shape was sent to the editor').toBeNull()
   })
+  // ONE RULE, AND IT IS THE SAME AS A FACE'S: the picture is framed BEFORE the screen hears of
+  // it. On the work's own panel the screen's reaction to a choice is an immediate save, so a
+  // choice announced first stored the unframed original and backing out kept it.
+  it('does not tell the screen of the choice while the frame is open, nor if the reader backs out', async () => {
+    picturesAre(1600, 900)
+    const { onSetUrl } = await choose()
+    await screen.findByText(/^Frame — /)
+    expect(onSetUrl, 'the choice was announced before it had been framed').not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: /close/i }))
+    await new Promise((r) => setTimeout(r, 30))
+    expect(onSetUrl, 'a picture the reader refused was chosen anyway').not.toHaveBeenCalled()
+    expect(uploads().length).toBe(0)
+  })
+
+  it('keeps the framed picture and never announces the unframed address', async () => {
+    picturesAre(1600, 900)
+    const { onSetUrl } = await choose()
+    await screen.findByText(/^Frame — /)
+    await screen.findByRole('slider', { name: /zoom/i })
+    const tick = () => [...document.querySelectorAll('button')].find((b) => b.getAttribute('type') === 'submit')
+    await waitFor(() => expect(tick()?.disabled).toBe(false))
+    fireEvent.click(tick())
+    await waitFor(() => expect(uploads().length).toBe(1))
+    expect(onSetUrl, 'the unframed address was chosen as well as the framed picture').not.toHaveBeenCalled()
+  })
+
+  it('falls back to the address, as a face does, when the server cannot fetch it for the frame', async () => {
+    PREVIEW_OK = false
+    picturesAre(1600, 900)
+    const { onSetUrl } = await choose()
+    await waitFor(() => expect(onSetUrl).toHaveBeenCalledWith('https://pics.test/dune-full.jpg', 'google-images'))
+    expect(screen.queryByText(/^Frame — /)).toBeNull()
+  })
+
 })

@@ -1890,6 +1890,10 @@ export function useSheetDrag({ sheet, body, handle, head, enabled = true, onDism
       const onGrip = dragSurface(e.target);
       const inBody = !!body?.current && body.current.contains(e.target);
       if (!onGrip && !inBody) return;
+      // A SURFACE THAT IS ITSELF DRAGGED opts out: a picture being moved about in its frame
+      // (FrameEditor) takes every press in it, and without this a vertical drag of the
+      // picture at the top of the sheet moved or dismissed the sheet instead.
+      if (e.target?.closest?.('[data-no-sheet-drag]')) return;
       if (inBody && !onGrip && body.current.scrollTop > 0) return;
       measure();
       if (!anchors.length) return;
@@ -9817,7 +9821,7 @@ const iconStroke = { width: ICON_SIZE, height: ICON_SIZE, viewBox: "0 0 24 24", 
 // through a locale key taking `{n}` — right for "175%" and "21 days", wrong for a
 // stop whose meaning is a word. Given a readout, that is what is drawn; without
 // one, the number formats exactly as it always did.
-export function Slider({ label, hideLabel = false, min, max, step, value, format = "", decimals = 0, readout = null, onCommit }) {
+export function Slider({ label, hideLabel = false, min, max, step, value, format = "", decimals = 0, readout = null, onCommit, onLive = null }) {
   const [v, setV] = useState(value);
   useEffect(() => setV(value), [value]);
   const num = decimals ? v.toFixed(decimals) : String(v);
@@ -9835,7 +9839,9 @@ export function Slider({ label, hideLabel = false, min, max, step, value, format
       </div>
       <input
         type="range" min={min} max={max} step={step} value={v} aria-label={label}
-        onChange={(e) => setV(Number(e.target.value))}
+        // `onLive`, when given, follows the thumb while it is dragged, for a control whose
+        // result is a picture the reader is watching; `onCommit` still fires on release.
+        onChange={(e) => { setV(Number(e.target.value)); onLive?.(Number(e.target.value)); }}
         onPointerUp={() => onCommit(Number(Number(v).toFixed(2)))}
         onKeyUp={() => onCommit(Number(Number(v).toFixed(2)))}
         style={{ width: "100%", accentColor: "var(--accent-ui)", cursor: "pointer" }}

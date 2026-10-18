@@ -497,7 +497,10 @@ export function usePicturePicker({
   const picked = async (...args) => {
     // No upload route (a cast-list row) means nowhere to keep a framed picture.
     if (!onUpload) return onPicked(...args)
-    if ((await framer.frameAddress(args[0])) !== 'framed') return onPicked(...args)
+    // 'framed': the editor keeps it. 'superseded': a newer choice has taken over. Anything else
+    // goes by its address as always.
+    const how = await framer.frameAddress(args[0])
+    if (how === 'fits' || how === 'failed') return onPicked(...args)
   }
   const [urlOpen, setUrlOpen] = useState(false)
   const [url, setUrl] = useState('')

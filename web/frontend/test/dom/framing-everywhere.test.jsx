@@ -150,6 +150,34 @@ describe('a board’s picture', () => {
     expect(screen.queryByText(/^Frame — /)).toBeNull()
   })
 
+  // KEEPING A PICTURE UNMOVED CHANGES NOTHING, so it must not be re-encoded and uploaded: that
+  // loses a little quality and replaces the picture's supplier credit with the reader's, for no
+  // change at all.
+  it('keeps nothing when a stored picture is reframed and left as it is', async () => {
+    picturesAre(900, 900)
+    form({ id: 3, name: 'Shelf', image_path: 'shelf.jpg' })
+    await act(async () => { screen.getByRole('button', { name: t('frame.reframe.label') }).click() })
+    await screen.findByText(/^Frame — Shelf/)
+    await screen.findByRole('slider', { name: t('frame.zoom.label') })
+    await waitFor(() => expect(tick()?.disabled).toBe(false))
+    await act(async () => { tick().click() })
+    await waitFor(() => expect(screen.queryByText(/^Frame — /)).toBeNull())
+    expect(SENT.length, 'an unmoved picture was re-uploaded').toBe(0)
+  })
+
+  it('keeps the picture once it has been moved in its frame', async () => {
+    picturesAre(900, 900)
+    form({ id: 3, name: 'Shelf', image_path: 'shelf.jpg' })
+    await act(async () => { screen.getByRole('button', { name: t('frame.reframe.label') }).click() })
+    await screen.findByText(/^Frame — Shelf/)
+    await screen.findByRole('slider', { name: t('frame.zoom.label') })
+    // A square in a 3:2 frame has room to move up and down.
+    await act(async () => { fireEvent.keyDown(screen.getByRole('group', { name: /Frame for/ }), { key: 'ArrowDown' }) })
+    await waitFor(() => expect(tick()?.disabled).toBe(false))
+    await act(async () => { tick().click() })
+    await waitFor(() => expect(SENT).toEqual(['/boards/3/cover']))
+  })
+
   it('can be reframed once there is one', async () => {
     picturesAre(900, 900)
     form({ id: 3, name: 'Shelf', image_path: 'shelf.jpg' })
