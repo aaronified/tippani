@@ -916,6 +916,9 @@ func securityHeaders(next http.Handler) http.Handler {
 				"https://images-na.ssl-images-amazon.com https://m.media-amazon.com "+
 				// Wikidata portraits (re-verify previews a fresh author photo by URL).
 				"https://commons.wikimedia.org https://upload.wikimedia.org "+
+				// Commons' resizer, where Special:FilePath?width= lands (the portrait strip draws such
+				// addresses directly, and CSP checks every redirect hop).
+				"https://thumb.wikimedia.org "+
 				// Fandom character art, previewed in the picture strip before it
 				// is picked and stored (metadata.coverHosts carries the same host).
 				"https://static.wikia.nocookie.net "+

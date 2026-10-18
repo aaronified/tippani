@@ -627,8 +627,9 @@ func normalizeWork(s string) string {
 // WikidataImageURL resolves a wikidata Q-id to a portrait URL via the P18
 // (image) claim, using the wbgetclaims API filtered to P18 (so every value in
 // the response is a plain filename string). The Commons Special:FilePath entry
-// point 302-redirects to the real upload.wikimedia.org bytes; both hosts are on
-// the cover allowlist. Best-effort: "" when there is no image or anything is off.
+// point 302-redirects to the real bytes — upload.wikimedia.org for the original, and
+// thumb.wikimedia.org once ?width= asks for a resize, which is what this is given; all three
+// hosts are on the cover allowlist. Best-effort: "" when there is no image or anything is off.
 func WikidataImageURL(ctx context.Context, qid string) string {
 	return wikidataFileURL(ctx, qid, "P18")
 }
