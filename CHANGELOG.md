@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **Fetch on a person's signature now offers the signature it found.** The server found
+  Rabindranath Tagore's signature and sent it back, and the page then did nothing: it turned
+  the answer into a picture with a `fetch` of a `data:` address, which the app's own
+  Content-Security-Policy refuses ("Failed to fetch"), so no dialog opened and the card kept
+  saying "No signature yet". It has done so since signatures arrived in 3.3.0, for every
+  person. The picture is now decoded in the page without a fetch, and a failure to do so says so
+  instead of staying silent.
+
 ## [3.3.1] - 2026-10-18
 
 ### Added
