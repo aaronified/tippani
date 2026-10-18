@@ -10,27 +10,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **A picture is put in its frame before it is kept.** A person or a character is drawn as a
-  circle and a cover or poster as 2:3, and a picture of another shape used to be cut to fit
-  without a word. Upload a file of the wrong shape and a frame opens showing exactly what the
-  app will draw — the circle's cut-off part dimmed, or the 2:3 poster — where you drag to move,
-  zoom with a slider, fill the frame, or show the whole picture with the rest of the frame
-  filled from the picture's own edge colour. Cancel and nothing is stored. A picture taken from
-  The same flow runs everywhere a picture is kept — covers and posters, people, characters,
-  the profile photo and a board's picture (3:2) — and from a search it is search → choose →
-  reframe in one go: choosing a result or pasting an address (Fetch, Paste URL) opens the frame
-  at once, before anything is stored and with no Save in between, so backing out keeps nothing.
-  A picture that already fits is kept as it came, with its source still credited. Every stored
-  picture has a Reframe button. A framed picture is stored as yours.
+  circle, a cover or poster as 2:3 and a board's picture as 3:2, and a picture of another shape
+  used to be cut to fit without a word. Now a frame opens showing exactly what the app will
+  draw — the circle's cut-off part dimmed, or the rectangle — where you drag to move, zoom with a
+  slider, fill the frame, or show the whole picture with the rest of the frame filled from the
+  picture's own edge colour. It runs everywhere a picture is kept: covers and posters, people,
+  characters, the profile photo and a board's picture. Search → choose → reframe is one go:
+  choosing a result, or pasting an address (Fetch, Paste URL), opens the frame at once, before
+  anything is stored or chosen and with no Save in between, so backing out keeps nothing. A
+  picture that already fits is kept as it came, with its source still credited; if it cannot be
+  fetched for the frame it is kept by its address as before. Every stored picture has a Reframe
+  button, and leaving one unmoved changes nothing. A framed picture is stored as yours.
 
 ### Fixed
 
 - **A face's caption measures against a square.** Faces are drawn as circles, but the caption
   under a portrait judged its shape against a 2:3 slot, so a square photograph was called
   "cropped" and a tall one, which loses a third to the circle, passed as the right shape.
-- **Fetching a signature from Wikidata no longer says there is none when there is.** Most
-  signatures on Wikimedia Commons are SVG, and Commons serves a resized one from its
-  thumbnail host, which the app did not allow, so the download was refused and read as "Wikidata
-  has no signature for this person" — Rabindranath Tagore's, among others.
+- **Fetching a signature from Wikidata no longer says there is none when there is.** Commons
+  serves a resized picture from its thumbnail host, which the app did not allow, so the download
+  was refused and read as "Wikidata has no signature for this person" — Rabindranath Tagore's,
+  among others. A portrait fetched through Wikidata took the same route and was refused the same
+  way, and the picture strip's Commons thumbnails were blocked by the page for the same reason;
+  all three are fixed by allowing that one host.
 
 ## [3.3.0] - 2026-10-17
 
