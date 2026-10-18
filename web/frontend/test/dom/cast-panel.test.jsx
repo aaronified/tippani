@@ -16,7 +16,7 @@
 // and the film board share it while it is out. What the page decides — whether
 // to ask at all, which names, whether to re-read — is what these cases hold.
 
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 
 let CALLS
@@ -28,6 +28,7 @@ let OK_PUT
 let IMAGES
 let IMAGE_SOURCES
 let TVDB_NEEDS_ID
+let PREVIEW = null
 let LOOKUP
 // The cast/art request waits on this, so a case can hold it in flight.
 let ART_GATE
@@ -63,8 +64,15 @@ vi.mock('../../src/api.js', async (orig) => ({
     }
     if (path === '/movies/lookup') return { ok: true, data: { candidates: LOOKUP } }
     if (path === '/images/search') return { ok: true, data: { images: IMAGES, sources: IMAGE_SOURCES } }
+    // Unless a case gives it a picture, a preview is an empty answer, which keeps a pick going by
+    // its address exactly as it did before the preview existed.
+    if (path === '/images/preview') return { ok: true, data: PREVIEW || {} }
     if (method === 'PUT' && path.startsWith('/cast/')) return OK_PUT ? { ok: true, data: {} } : { ok: false, status: 500, data: {} }
     return { ok: true, data: {} }
+  }),
+  upload: vi.fn(async (path) => {
+    CALLS.push(['UPLOAD', path, null])
+    return { ok: true, data: { character_image_path: 'framed.jpg', path: 'framed.jpg' } }
   }),
 }))
 
@@ -671,5 +679,58 @@ describe('a cast row’s face', () => {
     // A book has no performer either, so the actor rung is empty by definition —
     // and an empty slot is the state the reader is here to fix.
     expect(faceSrc()).toBeNull()
+  })
+})
+
+// A PICTURE CHOSEN ON A CAST LIST IS FRAMED LIKE EVERY OTHER. This row had no upload route in
+// the client (the identity sheet has had one for the same row all along), so what it picked went
+// by its address, unframed, while the docs said every place a picture is kept was framed. What
+// the test knows, declared: the preview address (POST /images/preview), the upload it keeps a
+// framed picture by (POST /cast/{id}/image/upload), and that jsdom decodes nothing, so Image is
+// stubbed to give a picture a size. `form.frame-form` is the one class it reads, to find the
+// frame dialog's own tick among the panel's.
+describe('a picture chosen on a cast row', () => {
+  const choose = async () => {
+    IMAGE_SOURCES = { google: true, amazon: false }
+    IMAGES = [{ url: 'https://pics.test/wide.jpg', thumb: 'https://encrypted-tbn0.gstatic.com/w', source: 'google' }]
+    PREVIEW = { image: 'data:image/png;base64,AAAA' }
+    vi.stubGlobal('Image', class {
+      set src(_) {
+        this.naturalWidth = 1600
+        this.naturalHeight = 701
+        setTimeout(() => this.onload?.())
+      }
+    })
+    HTMLCanvasElement.prototype.toBlob = (done) => done(new Blob(['framed'], { type: 'image/jpeg' }))
+    await openPanel()
+    await screen.findByText('Amanda Waller')
+    fireEvent.click(screen.getAllByRole('button', { name: /^Picture for / })[0])
+    fireEvent.click(screen.getAllByText('search images')[0])
+    const img = await waitFor(() => {
+      const el = document.querySelector('.cast-row-pics img')
+      expect(el).toBeTruthy()
+      return el
+    })
+    fireEvent.click(img.closest('button'))
+  }
+  const uploads = () => CALLS.filter(([m]) => m === 'UPLOAD')
+  afterEach(() => { vi.unstubAllGlobals(); PREVIEW = null })
+
+  it('is framed before it is kept, and nothing is saved yet', async () => {
+    await choose()
+    await screen.findByText(/^Frame — Amanda Waller/)
+    expect(posted(/^\/cast\/11\/image$/).filter(([, , b]) => b?.image_url), 'the picture was saved by address before it was framed').toHaveLength(0)
+    expect(uploads().length).toBe(0)
+  })
+
+  it('keeps the framed picture, as an upload of the reader’s own', async () => {
+    await choose()
+    await screen.findByText(/^Frame — Amanda Waller/)
+    await screen.findByRole('slider', { name: /zoom/i })
+    const tick = () => document.querySelector('button[type="submit"][form="' + document.querySelector('form.frame-form')?.id + '"]')
+    await waitFor(() => expect(tick()?.disabled).toBe(false))
+    fireEvent.click(tick())
+    await waitFor(() => expect(uploads().map((u) => u[1])).toEqual(['/cast/11/image/upload']))
+    expect(posted(/^\/cast\/11\/image$/).filter(([, , b]) => b?.image_url), 'the unframed address was saved as well').toHaveLength(0)
   })
 })

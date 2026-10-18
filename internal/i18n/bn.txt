@@ -7236,6 +7236,7 @@ frame.stage.aria = {name}-এর ছবির ফ্রেম। ছবি ট�
 frame.hint.face = বৃত্তে দেখানো হবে — ঝাপসা অংশ কেটে যাবে
 frame.hint.work = ২:৩ ছবি হিসেবে দেখানো হবে — ফ্রেমের ভেতরটুকুই থাকবে
 frame.hint.board = ৩:২ ছবি হিসেবে দেখানো হবে — ফ্রেমের ভেতরটুকুই থাকবে
+frame.preparing = ছবিটা ফ্রেম করার জন্য খোলা হচ্ছে…
 frame.zoom.label = জুম
 frame.fill.label = ফ্রেম ভরুন
 frame.fill.tip = ছবি ফ্রেম ঢাকা না পড়া পর্যন্ত জুম করুন

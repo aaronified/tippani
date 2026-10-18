@@ -7,12 +7,15 @@
 // framed; a picture that already fits went straight in; and a stored picture can be
 // reframed. What the test knows, declared: the addresses the pictures go to
 // (POST /auth/me/avatar, POST /boards/{id}/cover), and that jsdom decodes nothing, so
-// the browser's Image is stubbed to give a picture the size a case names.
+// the browser's Image is stubbed to give a picture the size a case names. It reads one CSS
+// class, `form.frame-form`, to find the frame dialog's own tick among the screen's: the dialog
+// is a portal over a screen that has ticks of its own, and nothing else names the right one.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { t } from '../../src/i18n.js'
 
 let SENT
+let WIDTHS
 
 vi.mock('../../src/api.js', async (orig) => ({
   ...(await orig()),
@@ -38,7 +41,10 @@ const picturesAre = (w, h) => {
       setTimeout(() => this.onload?.())
     }
   })
-  HTMLCanvasElement.prototype.toBlob = (done) => done(new Blob(['framed'], { type: 'image/jpeg' }))
+  HTMLCanvasElement.prototype.toBlob = function (done) {
+    WIDTHS.push(this.width)
+    done(new Blob(['framed'], { type: 'image/jpeg' }))
+  }
 }
 const chooseFile = async () => {
   const input = document.querySelector('input[type="file"]')
@@ -54,7 +60,7 @@ const keepTheFraming = async () => {
   await act(async () => { tick().click() })
 }
 
-beforeEach(() => { SENT = [] })
+beforeEach(() => { SENT = []; WIDTHS = [] })
 afterEach(() => { cleanup(); vi.unstubAllGlobals() })
 
 describe('the profile photo', () => {
@@ -163,6 +169,37 @@ describe('a board’s picture', () => {
     await act(async () => { tick().click() })
     await waitFor(() => expect(screen.queryByText(/^Frame — /)).toBeNull())
     expect(SENT.length, 'an unmoved picture was re-uploaded').toBe(0)
+  })
+
+  // FOCUSING OR TAPPING THE ZOOM IS NOT A MOVE. The slider reports its value on release, rounded
+  // to two places, and a picture's own starting size is rarely round, so treating that as a move
+  // turned an untouched Reframe into a re-encode and re-upload.
+  it('does not count tabbing to the zoom as a move', async () => {
+    // 1600x1000 in a 3:2 frame starts at 1.0667 times the frame's width, which two decimal places
+    // would turn into 1.07 — a square would start at exactly 1 and prove nothing.
+    picturesAre(1600, 1000)
+    form({ id: 3, name: 'Shelf', image_path: 'shelf.jpg' })
+    await act(async () => { screen.getByRole('button', { name: t('frame.reframe.label') }).click() })
+    const zoom = await screen.findByRole('slider', { name: t('frame.zoom.label') })
+    await act(async () => { fireEvent.keyUp(zoom, { key: 'Tab' }); fireEvent.pointerUp(zoom) })
+    await waitFor(() => expect(tick()?.disabled).toBe(false))
+    await act(async () => { tick().click() })
+    await waitFor(() => expect(screen.queryByText(/^Frame — /)).toBeNull())
+    expect(SENT.length, 'a focused slider counted as a change').toBe(0)
+  })
+
+  // NEVER LARGER THAN THE PICTURE IS: a small picture stored at the frame's full width would be
+  // soft and still pass every size warning in the app.
+  it('does not scale a small picture up to the frame’s width', async () => {
+    picturesAre(600, 600) // a square in a 3:2 frame that is drawn 900 wide
+    form({ id: 3, name: 'Shelf', image_path: '' })
+    await chooseFile()
+    await screen.findByText(/^Frame — Shelf/)
+    await keepTheFraming()
+    await waitFor(() => expect(SENT).toEqual(['/boards/3/cover']))
+    // A square fills a 3:2 frame at the frame's own width, so its 600 real pixels are 600 across —
+    // where scaling to the frame's full 900 would have invented a third of them.
+    expect(WIDTHS, 'the picture was written larger than its source').toEqual([600])
   })
 
   it('keeps the picture once it has been moved in its frame', async () => {

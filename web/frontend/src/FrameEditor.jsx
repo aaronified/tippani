@@ -17,7 +17,7 @@ import { useEffect, useRef, useState } from 'react'
 import { json } from './api.js'
 import { t } from './i18n.js'
 import { FRAMES, clampPlacement, edgeColours, needsFrame, renderFrame, sizes, startPlacement } from './frames.js'
-import { FormModal, GhostButton, MonoLabel, Slider, useFormHost } from './ui.jsx'
+import { FormModal, GhostButton, MonoLabel, Slider, toast, useFormHost } from './ui.jsx'
 
 const PREVIEW_WIDTH = 480
 const NUDGE = 0.02
@@ -37,7 +37,10 @@ export function FrameDialog({ src, frame, name, reframing = false, onSave, onClo
       onClose={() => { if (!saving) onClose() }}
       title={t('frame.dialog.title', { name })}
       maxWidth={460}
-      dirty={changed}
+      // A picture not yet kept already differs from what is stored, so its tick is lit from the
+      // start (accepting the centred crop is the commonest thing to do); one already kept is lit
+      // only by a move, since leaving it as it is keeps nothing.
+      dirty={reframing ? changed : 1}
       closeDanger
       saveTip={t('frame.save.tip')}
     >
@@ -131,7 +134,11 @@ function FrameForm({ src, frame, name, reframing, saving, setSaving, onChanged, 
     if (reframing && !moved) return onClose()
     setSaving(true)
     const out = document.createElement('canvas')
-    renderFrame(out, img, place, frame, spec.width, edges)
+    // NEVER LARGER THAN THE PICTURE IS. Scaling a 90-pixel thumbnail up to the frame's full width
+    // stored a soft picture that every size warning (cover width, the portrait's under-400) then
+    // called fine. Written at the pixels the source has, up to the frame's own width.
+    const width = Math.min(spec.width, Math.max(240, Math.round(iw / place.size)))
+    renderFrame(out, img, place, frame, width, edges)
     const blob = await new Promise((resolve) => out.toBlob(resolve, 'image/jpeg', 0.92))
     if (!blob) {
       setSaving(false)
@@ -184,7 +191,10 @@ function FrameForm({ src, frame, name, reframing, saving, setSaving, onChanged, 
             value={place.size}
             readout={`${Math.round(place.size / range.cover * 100)}%`}
             onLive={(v) => move(() => ({ size: v }))}
-            onCommit={(v) => move(() => ({ size: v }))}
+            // The thumb is followed live (`onLive`). The release commit is a no-op on purpose: the
+            // Slider rounds it to two places, which would move a picture the reader only focused
+            // or tapped, and turn an untouched Reframe into a re-upload.
+            onCommit={() => {}}
           />
           <div className="frame-presets">
             <GhostButton type="button" title={t('frame.fill.tip')} onClick={() => move(() => ({ size: range.cover, x: 0, y: 0 }))}>
@@ -249,6 +259,9 @@ export function useFraming({ frame, name, onKeep }) {
   const latest = useRef(0)
 
   const frameFile = async (file) => {
+    // A file chosen now is the newest choice: a picture still being fetched for an earlier one
+    // must not open over it, nor be chosen after it.
+    latest.current += 1
     const src = await readAsDataURL(file).catch(() => '')
     const m = src ? await measure(src) : null
     if (m && needsFrame(m.w, m.h, frame)) {
@@ -261,6 +274,8 @@ export function useFraming({ frame, name, onKeep }) {
   const frameAddress = async (address, { always = false } = {}) => {
     const mine = ++latest.current
     setPreviewing(true)
+    // Fetching can take a few seconds and the strip it was chosen from has closed.
+    toast(t('frame.preparing'))
     const r = await json('POST', '/images/preview', { url: address }).catch(() => ({ ok: false }))
     const m = r.ok && r.data?.image ? await measure(r.data.image) : null
     if (mine !== latest.current) return 'superseded'

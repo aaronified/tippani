@@ -25,7 +25,7 @@
 // quote cards already do.
 
 import { useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { coverImgURL, errText, json } from './api.js'
+import { coverImgURL, errText, json, upload } from './api.js'
 import { registerSessionCache } from './sessionCaches.js'
 import { t } from './i18n.js'
 import { Face } from './characterRows.jsx'
@@ -343,6 +343,20 @@ export function CastSection({ kind, item, onCastChanged, onOpenCharacter }) {
     setRows((cur) => (cur || []).map((x) => (x.id === id ? { ...x, ...r.data } : x)))
   }
 
+  // THE UPLOAD HALF, for a row's picture to be KEPT once it has been framed: the same route the
+  // identity sheet uses for this row (POST /cast/{id}/image/upload). The row used to have none
+  // here, so a picture chosen on a cast list went by its address, unframed.
+  async function uploadImage(id, file) {
+    setBusy('image')
+    const r = await upload(`/cast/${id}/image/upload`, file)
+    setBusy('')
+    if (!r.ok) return setErr(errText(r, t('error.upload.generic')))
+    setErr('')
+    setRows((cur) => (cur || []).map((x) => (x.id === id
+      ? { ...x, character_image_path: r.data?.character_image_path || r.data?.path || x.character_image_path, character_image_source: 'manual' }
+      : x)))
+  }
+
   if (!open) {
     return (
       <div className="flex flex-wrap items-center gap-2">
@@ -394,6 +408,7 @@ export function CastSection({ kind, item, onCastChanged, onOpenCharacter }) {
               onSave={(f) => save(c.id, f)}
               onRemove={() => remove(c.id)}
               onImage={(u, source) => setImage(c.id, u, source)}
+              onUpload={(file) => uploadImage(c.id, file)}
               onOpenPerson={c.actor ? () => openPerson({ kind: 'actor', name: c.actor, person: actorMap[c.actor] }) : null}
               // BOTH HALVES REQUIRED. `character_id` is nullable — 0056 links the
               // pair on demand and a library that has not been through the
@@ -774,7 +789,10 @@ export function usePicturePicker({
     </>
   )
 
-  return { faceButton, pictureEditor, verbs, open: urlOpen, setOpen: setUrlOpen }
+  // A NAMED caller draws the dialog inside `verbs`, which outlives the strip; an unnamed one (a
+  // cast-list row) has no verbs, and its pictureEditor closes the moment a picture is chosen,
+  // so it is handed the dialog to draw where it will not unmount under it.
+  return { faceButton, pictureEditor, verbs, frameDialog: named ? null : framer.dialog, open: urlOpen, setOpen: setUrlOpen }
 }
 
 // useCharacterPicture — the picker, wearing what a CHARACTER needs.
@@ -875,7 +893,7 @@ const rowNote = (row) => (row.origin === 'corrected' ? t('cast.source.corrected.
 // CastRow — one credit. Resting it is two names and a face; editing it is two
 // boxes; and the picture controls are always the row's own, never the panel's.
 
-function CastRow({ row, role, busy, actor, workTitle, mediaType, onSave, onRemove, onImage, onOpenPerson, onOpenCharacter }) {
+function CastRow({ row, role, busy, actor, workTitle, mediaType, onSave, onRemove, onImage, onUpload, onOpenPerson, onOpenCharacter }) {
   // A CHARACTER NAME IS NEVER CUT. It used to end in an ellipsis, which is the one
   // failure a reader cannot see: a shortened name and a short name look identical,
   // so the row destroyed the only thing it was there to show. Now the name scrolls
@@ -890,8 +908,8 @@ function CastRow({ row, role, busy, actor, workTitle, mediaType, onSave, onRemov
   const [confirming, setConfirming] = useState(false)
   // THE PICTURE EDITOR IS A HOOK, because two screens need exactly this control
   // and neither can host the other's DOM. See useCharacterPicture.
-  const { faceButton, pictureEditor, open: urlOpen, setOpen: setUrlOpen } = useCharacterPicture({
-    row, actor, workTitle, mediaType, busy, onImage,
+  const { faceButton, pictureEditor, frameDialog, open: urlOpen, setOpen: setUrlOpen } = useCharacterPicture({
+    row, actor, workTitle, mediaType, busy, onImage, onUpload,
   })
 
   // REPORTS WHETHER IT LANDED, because the panel's ✓ awaits it before closing and
@@ -975,6 +993,7 @@ function CastRow({ row, role, busy, actor, workTitle, mediaType, onSave, onRemov
           />
         </div>
         {pictureEditor}
+        {frameDialog}
       </li>
     )
   }
@@ -1070,6 +1089,7 @@ function CastRow({ row, role, busy, actor, workTitle, mediaType, onSave, onRemov
         </span>
       )}
       {pictureEditor}
+      {frameDialog}
     </li>
   )
 }

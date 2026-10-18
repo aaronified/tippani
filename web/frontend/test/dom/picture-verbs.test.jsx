@@ -38,7 +38,9 @@
 // WHAT A TEST WRITER NEEDS TO KNOW: the block quoted above. Nothing about which
 // component draws it or which hook returns it.
 //
-// DECLARED EXCEPTION: the cases that check who a picked picture is credited to
+// DECLARED EXCEPTION, TWO: the cases that frame a picture read one CSS class,
+// `form.frame-form`, to find the frame dialog's own tick among the sheet's — it is a portal
+// over a sheet with ticks of its own. And the cases that check who a picked picture is credited to
 // know the request it leaves as — `POST /cast/{id}/image` for a role and `PUT
 // /characters/{id}/image` for the record, with the body's `image_url` and
 // `image_source` — because the mocked network is the only place the credit can be

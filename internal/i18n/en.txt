@@ -7452,6 +7452,7 @@ frame.stage.aria = Frame for {name}'s picture. Drag the picture, or use the arro
 frame.hint.face = Shown as a circle — the dimmed part is cut off
 frame.hint.work = Shown as a 2:3 picture — the frame is all that is kept
 frame.hint.board = Shown as a 3:2 picture — the frame is all that is kept
+frame.preparing = Opening the picture to frame it…
 frame.zoom.label = Zoom
 frame.fill.label = Fill the frame
 frame.fill.tip = Zoom in until the picture covers the frame
