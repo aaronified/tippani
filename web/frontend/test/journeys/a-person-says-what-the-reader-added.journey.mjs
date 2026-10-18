@@ -41,6 +41,10 @@ it("a reader's own link and upload on a person's page say they are the reader's"
   expect(await app.onScreen(), "the reader's link does not say it is theirs").toMatch(/ursulakleguin\.com\s*you/)
 
   await app.upload('Upload', PORTRAIT)
+  // The portrait is not the circle's shape, so it is shown in its frame first (3.3.1); keeping it
+  // is a tick, and the picture is then the reader's own like any other upload.
+  await app.see('the dimmed part is cut off')
+  await app.press('Save')
   await app.see('remove the picture')
   // The portrait's own lines, between the person's name card and the picture verbs:
   // the link above already says "you", so a "you" anywhere on the page proves nothing.
