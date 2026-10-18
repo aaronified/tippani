@@ -34,6 +34,7 @@ import { identityScope, mediumOf } from './identityScope.js'
 import { quotePairDoors } from './quotePair.jsx'
 import { CharacterLocal, GLYPH_NAME } from './identityLocal.jsx'
 import { ChooseList, ChoosePicker, FieldPicker } from './identityPicker.jsx'
+import { peopleChanged } from './credits.jsx'
 import { buildProviderLink, detectProviderLink, isOrganisation, linkLine, personImgURL, providerLinksFor, providerRule, ProviderChips, SpeakerChips } from './people.jsx'
 // A STATIC EDGE THAT CLOSES NO CYCLE: personOpen.jsx imports THIS file
 // dynamically and nothing else at all, which is the reason its header gives for
@@ -937,10 +938,16 @@ function ProviderLinkForm({ choices, slug, onSlug, id, onId, name, onName, url, 
 function useRecord(path) {
   const [data, setData] = useState(null)
   const [err, setErr] = useState('')
+  // A load after the first is a load after a change (every edit, portrait, signature and merge on
+  // these panels ends in one), so a person's record raises the signal the lists under it listen for.
+  const loaded = useRef(false)
   const load = useCallback(async () => {
     const r = await json('GET', path)
-    if (r.ok) setData(r.data)
-    else setErr(errText(r))
+    if (r.ok) {
+      setData(r.data)
+      if (loaded.current && path.startsWith('/people/')) peopleChanged()
+      loaded.current = true
+    } else setErr(errText(r))
   }, [path])
   useEffect(() => {
     load()

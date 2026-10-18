@@ -159,6 +159,17 @@ export function splitCredits(s, seps = DEFAULT_CREDIT_SEPS) {
 // conditionally, so a caller whose kind depends on what it is rendering — a cast
 // panel that wants actors for a film and has no second column on a book — either
 // asks a question with no answer or says nothing, and this is how it says nothing.
+//
+// EVERY MAP REREADS WHEN A PERSON CHANGES (`peopleChanged`). A screen loads this list when it
+// opens and keeps it, and a person's panel opens over that screen: a signature or a portrait
+// kept there never reached the list the screen underneath was holding, so the share sheet on a
+// quote offered no signature until the page was reloaded — after the reader had just given one.
+// A window event, as the locale and the theme signal theirs (tippani:locale, tippani:theme): the
+// signal holds no state of its own, so there is no module-level memory of a response to forget.
+export function peopleChanged() {
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('tippani:people'))
+}
+
 export function usePeople(kind) {
   const [map, setMap] = useState({})
   async function reload() {
@@ -169,9 +180,11 @@ export function usePeople(kind) {
   useEffect(() => {
     if (!kind) {
       setMap({})
-      return
+      return undefined
     }
     reload()
+    window.addEventListener('tippani:people', reload)
+    return () => window.removeEventListener('tippani:people', reload)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kind])
   return { map, reload }
