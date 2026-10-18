@@ -16,7 +16,7 @@
 // them; the cleaner is deterministic, so what the preview showed is what the save
 // stores.
 import { useEffect, useRef, useState } from 'react'
-import { errText, json, upload } from './api.js'
+import { blobFromDataURL, errText, json, upload } from './api.js'
 import { t } from './i18n.js'
 import { personImgURL } from './people.jsx'
 import {
@@ -58,7 +58,14 @@ export function SignatureSlot({ id, name, path, busy, onChanged, onError }) {
     // Nothing to offer is an answer and not a fault, so it is a note and not the
     // red line a failure gets.
     if (!r.data?.found) return toast(t('identity.signature.fetch.none'))
-    const blob = await (await globalThis.fetch(r.data.image)).blob()
+    // DECODED, NOT FETCHED: the page's CSP refuses a fetch of a data: URL, which made this press
+    // do nothing at all in a browser while it passed everywhere that stubbed fetch.
+    let blob
+    try {
+      blob = blobFromDataURL(r.data.image)
+    } catch {
+      return onError(t('identity.signature.preview.failed'))
+    }
     setPending({ blob, source: 'wikidata' })
   }
 

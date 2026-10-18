@@ -61,7 +61,13 @@ beforeEach(() => {
   SAVES = []
   CALLS = []
   FETCH_ANSWER = { found: true, image: PNG }
-  globalThis.fetch = vi.fn(async () => ({ blob: async () => new Blob([new Uint8Array(600)], { type: 'image/png' }) }))
+  // THE BROWSER REFUSES A FETCH OF A data: URL: the page's CSP has no connect-src, so it is held to
+  // 'self'. This stub used to ANSWER one with a blob, which is how a Fetch that did nothing in a
+  // browser passed here. It refuses as the browser does, so only a picture decoded without fetch gets through.
+  globalThis.fetch = vi.fn(async (u) => {
+    if (String(u).startsWith('data:')) throw new TypeError('Failed to fetch')
+    return { blob: async () => new Blob([new Uint8Array(600)], { type: 'image/png' }) }
+  })
 })
 afterEach(() => cleanup())
 

@@ -83,6 +83,19 @@ export async function json(method, url, body, { timeoutMs } = {}) {
 // import target's "Read this as…" — the sniffer can be wrong in a way the
 // staging queue cannot repair, so the reader's answer has to travel with the
 // same bytes rather than as a second request.
+// blobFromDataURL turns a data: URL into a Blob WITHOUT fetch. The page's Content-Security-Policy
+// sets no connect-src, so it falls back to default-src 'self', and a fetch of a data: URL is a
+// connection that policy refuses (checked in a real browser: 'Failed to fetch'). A picture the
+// server hands back as a data: URL — a fetched signature — has to be decoded here.
+export function blobFromDataURL(dataUrl) {
+  const m = /^data:([^;,]*)(;base64)?,([\s\S]*)$/.exec(dataUrl || '')
+  if (!m) throw new globalThis.Error('not a data: URL')
+  const bytes = m[2]
+    ? Uint8Array.from(globalThis.atob(m[3]), (c) => c.charCodeAt(0))
+    : new globalThis.TextEncoder().encode(globalThis.decodeURIComponent(m[3]))
+  return new Blob([bytes], { type: m[1] || 'application/octet-stream' })
+}
+
 export async function upload(url, file, fields) {
   const form = new FormData()
   form.append('file', file)
