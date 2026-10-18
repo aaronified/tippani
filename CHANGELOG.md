@@ -20,7 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   anything is stored or chosen and with no Save in between, so backing out keeps nothing. A
   picture that already fits is kept as it came, with its source still credited; if it cannot be
   fetched for the frame it is kept by its address as before. Every stored picture has a Reframe
-  button, and leaving one unmoved changes nothing. A framed picture is stored as yours.
+  button, and leaving one unmoved changes nothing. A framed picture is stored as yours, at no
+  more pixels than the picture had. Pictures the app fetches by itself (a person's lookup, adopting
+  a catalogue cover) are not framed; Reframe is there afterwards.
 
 ### Fixed
 
