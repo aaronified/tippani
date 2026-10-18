@@ -260,10 +260,13 @@ const SOFT_FLOOR = 400
 // is "will a reader see a face", not "does this file use its range well". A dark
 // picture flagged here is not a false alarm.
 const CONTRAST_FLOOR = 0.32
-// THE SHAPE THE APP DRAWS PORTRAITS AT. The pack's slots are 2:3, and everything
-// wider or squarer is centre-cropped by `object-fit: cover` — silently, so half a
-// face can be outside the circle with nothing on the screen to say so.
-const PORTRAIT_RATIO = 2 / 3
+// THE SHAPE THE APP DRAWS PORTRAITS AT: A SQUARE, because a face is a circle (CLAUDE.md,
+// "A face is a circle and a work is a rectangle"). This said 2:3 — the pack's slot — while
+// every portrait was drawn in a circle, so a square photograph was reported as cropped
+// and a 2:3 one, which loses a third of itself to the circle, as the right shape.
+// Everything that is not square is centre-cropped by `object-fit: cover`, silently, so
+// half a face can be outside the circle with nothing on the screen to say so.
+const PORTRAIT_RATIO = 1
 // AND THE TOLERANCE IS ON WHAT IS LOST, not on the difference between two
 // ratios. Eight hundredths of raw `w/h` sounds generous and is not evenly
 // generous: 600×1000 is 0.6 against 0.667, a difference of 0.067, and passed —
@@ -317,8 +320,8 @@ function contrastOf(img) {
   }
 }
 
-// The share of the picture `object-fit: cover` will not show, filling a 2:3
-// slot. Whichever axis is long loses the overflow off both ends, so the visible
+// The share of the picture `object-fit: cover` will not show, filling a square
+// slot (the circle's). Whichever axis is long loses the overflow off both ends, so the visible
 // share is the smaller ratio over the larger and the loss is the rest.
 export function croppedShare({ w, h }) {
   if (!w || !h) return 0

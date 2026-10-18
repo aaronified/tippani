@@ -101,35 +101,41 @@ describe('a portrait’s caption', () => {
   })
 
   it('and leaves a lit picture unremarked', async () => {
-    cached({ w: 1000, h: 1500 })
+    cached({ w: 1000, h: 1000 })
     pixels('lit')
     await draw()
-    expect(screen.queryByText(/1000×1500px/), 'the size is missing').toBeTruthy()
+    expect(screen.queryByText(/1000×1000px/), 'the size is missing').toBeTruthy()
     expect(screen.queryByText(/low contrast|under 400px|cropped/), 'a good picture is being warned about')
       .toBeNull()
   })
 
-  it('and says the shape of a picture that is not 2:3, because the rest is cropped away', async () => {
-    cached({ w: 1024, h: 1024 })
+  it('and says the shape of a picture that is not square, because the circle cuts the rest away', async () => {
+    cached({ w: 1600, h: 701 }) // a wide logo, which is half outside a circle
     pixels('lit')
     await draw()
-    // Reduced, so a reader sees a ratio rather than four digits to divide.
-    expect(screen.queryByText(/1:1, cropped/), 'a square picture is cropped to a circle and says nothing').toBeTruthy()
+    expect(screen.queryByText(/1600:701, cropped/), 'a wide picture is cropped to a circle and says nothing').toBeTruthy()
   })
 
-  it('and does not remark on the shape it draws', async () => {
+  it('and says so of a tall one too, which the old 2:3 test called the right shape', async () => {
     cached({ w: 1000, h: 1500 })
     pixels('lit')
     await draw()
-    expect(screen.queryByText(/cropped/), '2:3 is the shape the app draws, and it is being flagged').toBeNull()
+    expect(screen.queryByText(/2:3, cropped/), 'a 2:3 picture loses a third to the circle and says nothing').toBeTruthy()
   })
 
-  it('and 0.66 is 2:3 as far as a reader is concerned', async () => {
-    // A tolerance, or every picture off by a pixel reads as the wrong shape.
-    cached({ w: 665, h: 1000 })
+  it('and does not remark on the shape it draws', async () => {
+    cached({ w: 1000, h: 1000 })
     pixels('lit')
     await draw()
-    expect(screen.queryByText(/cropped/), 'a picture within a pixel of 2:3 is called cropped').toBeNull()
+    expect(screen.queryByText(/cropped/), 'a square is the shape the app draws, and it is being flagged').toBeNull()
+  })
+
+  it('and a hair off square is square as far as a reader is concerned', async () => {
+    // A tolerance, or every picture off by a pixel reads as the wrong shape.
+    cached({ w: 1000, h: 1010 })
+    pixels('lit')
+    await draw()
+    expect(screen.queryByText(/cropped/), 'a picture within a pixel of square is called cropped').toBeNull()
   })
 })
 
@@ -207,12 +213,12 @@ describe('what the contrast measurement must not be fooled by', () => {
     // not the picture's. Painting the line red for it warns about the one fact in
     // it that is nobody's mistake, and the facts that ARE faults lose their
     // colour by sharing it with one that is not.
-    cached({ w: 2000, h: 2000 })
+    cached({ w: 2000, h: 1000 })
     pixels('lit')
     await draw()
-    const cap = screen.queryByText(/2000×2000px/)
+    const cap = screen.queryByText(/2000×1000px/)
     expect(cap, 'the size is missing').toBeTruthy()
-    expect(cap.textContent, 'a square picture did not say it is being cropped').toMatch(/1:1/)
+    expect(cap.textContent, 'a wide picture did not say it is being cropped').toMatch(/2:1/)
     expect(cap.className.split(/\s+/), 'a crop-only caption was marked as a fault')
       .not.toContain('is-soft')
   })
@@ -230,32 +236,31 @@ describe('what the contrast measurement must not be fooled by', () => {
   })
 
   it('and a ten-per-cent crop is worth saying', async () => {
-    // 600×1000 IS 0.6 AGAINST 0.667 — a difference of 0.067, which slipped under
-    // a tolerance written on the raw ratio, while `cover` was taking a tenth off
-    // the top and bottom of it. The reader's question is how much of the picture
+    // 900×1000 IS 0.9 AGAINST 1 — a difference of 0.1, and `cover` takes a tenth off
+    // the sides of it; a tolerance written on the raw ratio let the like of it through
+    // at 2:3 (600×1000). The reader's question is how much of the picture
     // is not on the screen, so that is the question the tolerance is on.
-    cached({ w: 600, h: 1000 })
+    cached({ w: 900, h: 1000 })
     await draw()
-    const cap = screen.queryByText(/600×1000px/)
+    const cap = screen.queryByText(/900×1000px/)
     expect(cap, 'the size is missing').toBeTruthy()
     expect(cap.textContent, 'a tenth of the picture is cropped away and the caption said nothing')
-      .toMatch(/3:5/)
+      .toMatch(/9:10/)
   })
 
   it('and the crop is measured as a share of the picture, not a gap between ratios', async () => {
     // THE ARITHMETIC ON ITS OWN, because the tolerance was the defect and a
     // rendered caption is a slow way to ask what a number is. `cover` fills the
-    // 2:3 slot and cuts the overflow off BOTH ends of whichever axis is long, so
+    // square slot and cuts the overflow off BOTH ends of whichever axis is long, so
     // the visible share is the smaller ratio over the larger.
-    expect(croppedShare({ w: 1000, h: 1500 }), 'a 2:3 picture is not cropped').toBe(0)
-    expect(croppedShare({ w: 2, h: 3 }), 'the same shape at any size').toBe(0)
-    // The one the raw-ratio tolerance let through: 0.6 against 0.667 is a
-    // difference of 0.067 and a loss of a tenth.
-    expect(croppedShare({ w: 600, h: 1000 })).toBeCloseTo(0.1, 3)
-    expect(croppedShare({ w: 1024, h: 1024 }), 'a square loses a third').toBeCloseTo(1 / 3, 3)
-    // AND IT IS SYMMETRIC. A picture twice as wide as 2:3 and one twice as tall
+    expect(croppedShare({ w: 1024, h: 1024 }), 'a square is not cropped').toBe(0)
+    expect(croppedShare({ w: 2, h: 2 }), 'the same shape at any size').toBe(0)
+    // A tenth lost to the sides: 0.9 against 1.
+    expect(croppedShare({ w: 900, h: 1000 })).toBeCloseTo(0.1, 3)
+    expect(croppedShare({ w: 1000, h: 1500 }), 'a 2:3 portrait loses a third to the circle').toBeCloseTo(1 / 3, 3)
+    // AND IT IS SYMMETRIC. A picture twice as wide as square and one twice as tall
     // lose the same share, because `cover` does the same thing to both.
-    expect(croppedShare({ w: 4, h: 3 })).toBeCloseTo(croppedShare({ w: 1, h: 3 }), 6)
+    expect(croppedShare({ w: 2, h: 1 })).toBeCloseTo(croppedShare({ w: 1, h: 2 }), 6)
     expect(croppedShare({ w: 0, h: 0 }), 'nothing measured is nothing cropped').toBe(0)
   })
 
