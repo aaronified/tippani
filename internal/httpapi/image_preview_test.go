@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -26,7 +27,11 @@ import (
 func stubUserImage(srv *Server, calls *[]string, payload []byte) {
 	srv.fetchUserImage = func(_ context.Context, rawURL, dir string) (string, error) {
 		*calls = append(*calls, rawURL)
+		// The real fetcher names a file by what it recognised the bytes as.
 		name := "00000000000000aa.png"
+		if bytes.Contains(payload, []byte("<svg")) {
+			name = "00000000000000aa.svg"
+		}
 		return name, os.WriteFile(filepath.Join(dir, name), payload, 0o600)
 	}
 }
@@ -105,7 +110,9 @@ func TestAPictureThatCannotBeFetchedIsAnAnswerNotACrash(t *testing.T) {
 func TestAnSVGComesBackAsAnSVGTheBrowserCanDecode(t *testing.T) {
 	srv := newTestServer(t)
 	var asked []string
-	stubUserImage(srv, &asked, []byte(`<svg xmlns="http://www.w3.org/2000/svg" width="600" height="300" viewBox="0 0 600 300"><rect width="600" height="300" fill="#789"/></svg>`))
+	// A licence comment ahead of the <svg> element, as a Commons file carries: the fetcher
+	// recognises it, and a sniff of the first few hundred bytes does not.
+	stubUserImage(srv, &asked, []byte(`<?xml version="1.0"?><!-- `+strings.Repeat("licence ", 100)+`--><svg xmlns="http://www.w3.org/2000/svg" width="600" height="300" viewBox="0 0 600 300"><rect width="600" height="300" fill="#789"/></svg>`))
 	c := signupAdmin(t, srv.Handler())
 
 	rec := c.mustDo("POST", "/images/preview", map[string]string{"url": "https://pics.example/logo.svg"}, http.StatusOK)
