@@ -9,6 +9,7 @@ import { t } from './i18n.js'
 // section heading was first built; it is the app's one heading for "a named group
 // of rows", and the match picker is one.
 import { SectionHead, SegHead } from './characterRows.jsx'
+import { useFraming } from './FrameEditor.jsx'
 import {
   COVER_MIN_W,
   ErrorText,
@@ -20,6 +21,7 @@ import {
   IconChevron,
   IconClose,
   IconDelete,
+  IconEdit,
   IconLink,
   IconMetadata,
   IconPlus,
@@ -262,9 +264,10 @@ export function CoverControls({
   const staged = coverUrl || (!clearCover && currentPath ? coverImgURL(currentPath) : '')
   const previewUrl = coverUrl && previewFor?.url === coverUrl && previewFor.thumb ? previewFor.thumb : staged
 
-  // A File, not an event — FilePick reads the input and clears it.
-  async function onFile(f) {
-    if (!f) return
+  // THE UPLOAD ITSELF, which is what keeping a cover means: a file as chosen, or the
+  // same picture once framed. It applies at once (its own endpoint), so no Save is
+  // needed after it.
+  async function sendFile(f) {
     setBusy(true)
     setErr('')
     const r = await upload(`/${kind}/${id}/cover`, f)
@@ -275,6 +278,28 @@ export function CoverControls({
     } else {
       setErr(errText(r, t('error.upload.failed')))
     }
+  }
+
+  // FRAMING IS THE SAME FLOW EVERY PICTURE IN THE APP TAKES (`useFraming`): a poster is
+  // 2:3 wherever the app draws it, so a picture of another shape is put in that frame
+  // BEFORE it is kept, and cancelling keeps nothing. Three ways in:
+  //   a file             framed from a data: URL; a fitting one is uploaded as it came;
+  //   a chosen address   (search → choose, or Paste URL) the server fetches it for the
+  //                      frame, nothing stored; the framed result is uploaded, so there
+  //                      is no Save in between. Cancel leaves the choice pending, as a
+  //                      picture that already fits is left;
+  //   Reframe            the stored cover, or one just chosen and not yet saved.
+  const framer = useFraming({ frame: 'work', name: label, onKeep: sendFile })
+
+  // A File, not an event — FilePick reads the input and clears it.
+  async function onFile(f) {
+    if (!f) return
+    if ((await framer.frameFile(f)) === 'fits') sendFile(f)
+  }
+
+  async function frameChosen(address, always = false) {
+    setErr('')
+    if ((await framer.frameAddress(address, { always })) === 'failed') setErr(t('frame.problem.load'))
   }
 
   // THE FOUR VERBS, IN THE PACK'S ORDER — Fetch, Search, Upload, Paste URL —
@@ -348,6 +373,18 @@ export function CoverControls({
       tooltip={t('cover.url.tip')}
       className={urlOpen ? 'is-active' : ''}
     />,
+    // REFRAME the cover that is stored, or the one just chosen and not yet saved: a
+    // stored one is drawn from its own copy, a pending one is fetched for the frame.
+    (coverUrl || (currentPath && !clearCover)) && (
+      <IconButton
+        icon={<IconEdit />}
+        label={t('frame.reframe.label')}
+        ariaLabel={t('frame.reframe.label')}
+        tooltip={t('frame.reframe.tip')}
+        disabled={busy || framer.previewing}
+        onClick={() => (coverUrl ? frameChosen(coverUrl, true) : framer.reframe(coverImgURL(currentPath)))}
+      />
+    ),
     (currentPath || coverUrl) && !clearCover && (
       <IconButton
         icon={<IconDelete />}
@@ -382,7 +419,10 @@ export function CoverControls({
             icon={<IconCheck />}
             ariaLabel={t('cover.url.use.aria')}
             onClick={() => {
-                if (urlText.trim()) onSetUrl(urlText.trim())
+                if (urlText.trim()) {
+                  onSetUrl(urlText.trim())
+                  frameChosen(urlText.trim())
+                }
                 setUrlOpen(false)
                 setUrlText('')
               }}
@@ -408,6 +448,7 @@ export function CoverControls({
                   onSetUrl(c.url, c.slug)
                   setPreviewFor({ url: c.url, thumb: c.thumb })
                   setCovers(null)
+                  frameChosen(c.url)
                 }}
               />
             ))}
@@ -419,6 +460,7 @@ export function CoverControls({
         <p className="microcopy" style={{ color: 'var(--error)' }}>{t('cover.clearing', { noun })}</p>
       )}
       <ErrorText>{err}</ErrorText>
+      {framer.dialog}
     </MediaBlock>
   )
 }

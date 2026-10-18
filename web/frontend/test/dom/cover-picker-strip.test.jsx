@@ -11,7 +11,7 @@
 // This file exists because that split had no test at all: the mutation pass
 // after it was written flipped both halves and every suite still passed.
 
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 
 let SENT
@@ -24,6 +24,11 @@ vi.mock('../../src/api.js', async (orig) => ({
     SENT.push({ method, path, body })
     if (path === '/books/lookup') return { ok: true, data: { candidates: LOOKUP } }
     if (path === '/images/search') return { ok: true, data: { images: IMAGES, sources: { google: true, amazon: true } } }
+    if (path === '/images/preview') return { ok: true, data: { image: 'data:image/png;base64,AAAA' } }
+    return { ok: true, data: {} }
+  }),
+  upload: vi.fn(async (path) => {
+    SENT.push({ method: 'UPLOAD', path })
     return { ok: true, data: {} }
   }),
   DEMO: false,
@@ -138,5 +143,70 @@ describe('the candidate strip', () => {
     expect(preview, 'the preview is drawing a host the page cannot load')
       .not.toContain('https://pics.test/dune-full.jpg')
     expect(preview).toContain('https://encrypted-tbn0.gstatic.com/t')
+  })
+})
+
+// CHOOSING A COVER, THEN FRAMING IT, WITHOUT SAVING IN BETWEEN.
+//
+// What a person would say: I searched, I picked one, and I could move it about in the
+// poster's frame right then — and when I was happy it was the cover, with no Save to
+// hunt for. What the test knows, declared: the picture is only an address until the
+// form is saved, so the page asks the server for its bytes (POST /images/preview — the
+// page may not load the address itself) and keeps the result by the ordinary upload
+// (POST /books/1/cover); jsdom decodes nothing, so the browser's Image is stubbed to
+// give a picture the size a case names.
+describe('framing a cover as it is chosen', () => {
+  const picturesAre = (w, h) => {
+    vi.stubGlobal('Image', class {
+      set src(_) {
+        this.naturalWidth = w
+        this.naturalHeight = h
+        setTimeout(() => this.onload?.())
+      }
+    })
+    HTMLCanvasElement.prototype.toBlob = (done) => done(new Blob(['framed'], { type: 'image/jpeg' }))
+  }
+  afterEach(() => vi.unstubAllGlobals())
+  const choose = async () => {
+    IMAGES = [{ url: 'https://pics.test/dune-full.jpg', thumb: 'https://encrypted-tbn0.gstatic.com/t', source: 'google' }]
+    const onUploaded = vi.fn()
+    mount({ onUploaded })
+    fireEvent.click(searchButton())
+    const img = await waitFor(() => {
+      const el = document.querySelector('.cover-pick img')
+      expect(el).toBeTruthy()
+      return el
+    })
+    fireEvent.click(img.closest('button'))
+    return onUploaded
+  }
+  const uploads = () => SENT.filter((s) => s.method === 'UPLOAD')
+
+  it('opens the frame on a picture that would be cut, asking for the original and not the thumbnail', async () => {
+    picturesAre(1600, 900) // wide, in a 2:3 poster
+    await choose()
+    await screen.findByText(/^Frame — /)
+    expect(SENT.find((s) => s.path === '/images/preview').body).toEqual({ url: 'https://pics.test/dune-full.jpg' })
+    expect(uploads().length, 'the picture was stored before it had been framed').toBe(0)
+  })
+
+  it('keeps the framed picture as the cover, with no Save pressed', async () => {
+    picturesAre(1600, 900)
+    const onUploaded = await choose()
+    await screen.findByText(/^Frame — /)
+    await screen.findByRole('slider', { name: /zoom/i })
+    const tick = () => [...document.querySelectorAll('button')].find((b) => b.getAttribute('type') === 'submit')
+    await waitFor(() => expect(tick()?.disabled).toBe(false))
+    fireEvent.click(tick())
+    await waitFor(() => expect(uploads().map((u) => u.path)).toEqual(['/books/1/cover']))
+    await waitFor(() => expect(onUploaded).toHaveBeenCalled())
+  })
+
+  it('leaves a picture that already fits the poster alone', async () => {
+    picturesAre(800, 1200)
+    await choose()
+    await waitFor(() => expect(SENT.some((s) => s.path === '/images/preview')).toBe(true))
+    await new Promise((r) => setTimeout(r, 30))
+    expect(screen.queryByText(/^Frame — /), 'a picture the right shape was sent to the editor').toBeNull()
   })
 })

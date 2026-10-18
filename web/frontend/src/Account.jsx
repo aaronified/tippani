@@ -4,6 +4,7 @@ import { Card, ErrorText, Field, FieldIconButton, FilePick, GhostButton, IconDel
 import { PASSWORD_MAX, PASSWORD_MIN, passwordProblem } from './secret.js'
 import { t, tNodes } from './i18n.js'
 import { UserAvatar } from './avatar.jsx'
+import { useFraming } from './FrameEditor.jsx'
 import { SafetyBackupStep } from './safetyBackup.jsx'
 import { queueNotice, readJobsSummary } from './jobs.js'
 import { Notifications, SingleSignOn, WidgetKey } from './connections.jsx'
@@ -44,14 +45,19 @@ function AvatarRow({ user, onUser }) {
   const has = !!user.avatar_path && !gone
   // TAKES A FILE, not an event: FilePick reads the input, clears it so the same
   // file can be picked twice, and hands over what was chosen.
-  async function onFile(f) {
-    if (!f) return
+  async function keepAvatar(f) {
     setBusy(true)
     setErr('')
     const r = await upload('/auth/me/avatar', f)
     setBusy(false)
     if (r.ok) onUser({ avatar_path: r.data.avatar_path })
     else setErr(r.data?.error || t('error.upload.failed'))
+  }
+  // The profile photo is drawn as a circle, so it takes the same framing as any face.
+  const framer = useFraming({ frame: 'face', name: user.username || '', onKeep: keepAvatar })
+  async function onFile(f) {
+    if (!f) return
+    if ((await framer.frameFile(f)) === 'fits') keepAvatar(f)
   }
   async function remove() {
     const r = await json('DELETE', '/auth/me/avatar')
@@ -74,6 +80,11 @@ function AvatarRow({ user, onUser }) {
           </FilePick>
           <InfoDot title={t('account.photo.info.title')} text={t('account.photo.info.body')} />
           {has && (
+            <GhostButton type="button" disabled={busy} onClick={() => framer.reframe(coverImgURL(user.avatar_path))}>
+              {t('frame.reframe.label')}
+            </GhostButton>
+          )}
+          {has && (
             <FieldIconButton
               icon={<IconDelete />}
               ariaLabel={t('account.photo.remove.aria')}
@@ -85,6 +96,7 @@ function AvatarRow({ user, onUser }) {
         </div>
         <ErrorText>{err}</ErrorText>
       </div>
+      {framer.dialog}
     </div>
   )
 }

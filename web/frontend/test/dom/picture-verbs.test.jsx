@@ -46,16 +46,21 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { useEffect, useState } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { t } from '../../src/i18n.js'
 
 let RECORD
 let CALLS
 let IMAGES = []
+let PREVIEW = {}
 
 vi.mock('../../src/api.js', async (orig) => ({
   ...(await orig()),
   json: vi.fn(async (method, path, body) => {
     CALLS.push([method, path, body])
     if (method === 'GET' && /^\/characters\/\d+$/.test(path)) return { ok: true, data: RECORD }
+    if (method === 'POST' && path === '/images/preview') {
+      return PREVIEW ? { ok: true, data: PREVIEW } : { ok: false, status: 502, data: { error: 'no' } }
+    }
     if (method === 'POST' && path === '/images/search') {
       return { ok: true, data: { sources: { tvdb: true }, images: IMAGES } }
     }
@@ -125,6 +130,28 @@ const strip = () => document.querySelector('.cs-face-actions')
 const verbButtons = () => [...(strip()?.querySelectorAll('button') || [])]
 const named = () => verbButtons().map((b) => b.textContent.trim()).filter(Boolean)
 const byWord = (re) => verbButtons().find((b) => re.test(b.textContent))
+
+// jsdom never decodes an image, so no `load` ever fires and a picture has no shape.
+// The browser's Image is the environment, not the app: this gives every picture the
+// size a test names, as a real decode would, and a canvas that can be asked for bytes.
+const picturesAre = (w, h) => {
+  vi.stubGlobal('Image', class {
+    set src(_) {
+      this.naturalWidth = w
+      this.naturalHeight = h
+      setTimeout(() => this.onload?.())
+    }
+  })
+  HTMLCanvasElement.prototype.toBlob = (done) => done(new Blob(['framed'], { type: 'image/jpeg' }))
+}
+afterEach(() => vi.unstubAllGlobals())
+const chooseFile = async () => {
+  const file = strip().querySelector('input[type="file"]')
+  await act(async () => {
+    fireEvent.change(file, { target: { files: [new File(['x'], 'a.png', { type: 'image/png' })] } })
+  })
+}
+const uploads = () => CALLS.filter(([m]) => m === 'UPLOAD')
 
 describe('a character seen from inside one work', () => {
   beforeEach(async () => {
@@ -203,12 +230,104 @@ describe('a character seen from inside one work', () => {
   })
 
   it('and the file the reader picks is actually sent', async () => {
-    const file = strip().querySelector('input[type="file"]')
-    await act(async () => {
-      fireEvent.change(file, { target: { files: [new File(['x'], 'a.png', { type: 'image/png' })] } })
+    picturesAre(1000, 1000) // already the shape of its frame
+    await chooseFile()
+    await waitFor(() => expect(uploads().length,
+      'a file was chosen and nothing was uploaded').toBe(1))
+  })
+
+  // FETCH AND PASTE URL FRAME A FACE EXACTLY AS A COVER IS FRAMED: before anything is
+  // kept, so backing out keeps nothing. What the test knows, declared: a picture that
+  // is only an address is fetched for the frame by POST /images/preview (the page may
+  // not load it), what is kept goes up as an upload, and a picture that already fits
+  // is saved by its address as it always was — so its supplier is still credited.
+  describe('a picture taken by address', () => {
+    const pickFromStrip = async () => {
+      IMAGES = [{ url: 'https://pics.test/wide.jpg', thumb: 'https://encrypted-tbn0.gstatic.com/b', source: 'google' }]
+      await act(async () => { byWord(/fetch/i).click() })
+      const pick = await screen.findByRole('button', { name: /^Use this picture from / })
+      await act(async () => { pick.click() })
+    }
+    const saved = () => CALLS.filter(([m, p]) => m === 'POST' && p === '/cast/9/image')
+    afterEach(() => { IMAGES = []; PREVIEW = {} })
+
+    it('is shown in its frame before it is kept, and nothing is kept yet', async () => {
+      PREVIEW = { image: 'data:image/png;base64,AAAA' }
+      picturesAre(1600, 701)
+      await pickFromStrip()
+      await screen.findByText(/^Frame — /)
+      expect(CALLS.find(([m, p]) => p === '/images/preview')[2]).toEqual({ url: 'https://pics.test/wide.jpg' })
+      expect(saved().length, 'the picture was saved before it had been framed').toBe(0)
+      expect(uploads().length).toBe(0)
     })
-    expect(CALLS.some(([m]) => m === 'UPLOAD'),
-      'a file was chosen and nothing was uploaded').toBe(true)
+
+    it('keeps nothing when the reader backs out', async () => {
+      PREVIEW = { image: 'data:image/png;base64,AAAA' }
+      picturesAre(1600, 701)
+      await pickFromStrip()
+      await screen.findByText(/^Frame — /)
+      await act(async () => { screen.getByRole('button', { name: t('common.action.close.label') }).click() })
+      expect(saved().length + uploads().length, 'a picture the reader refused was kept anyway').toBe(0)
+    })
+
+    it('keeps what the reader framed, as an upload of their own', async () => {
+      PREVIEW = { image: 'data:image/png;base64,AAAA' }
+      picturesAre(1600, 701)
+      await pickFromStrip()
+      await screen.findByText(/^Frame — /)
+      const tick = () => document.querySelector('button[type="submit"][form="' + document.querySelector('form.frame-form')?.id + '"]')
+      await screen.findByRole('slider', { name: t('frame.zoom.label') })
+      await waitFor(() => expect(tick()?.disabled).toBe(false))
+      await act(async () => { tick().click() })
+      await waitFor(() => expect(uploads().length, 'keeping the framing stored nothing').toBe(1))
+      expect(saved().length, 'the unframed original was saved as well').toBe(0)
+    })
+
+    it('is saved by its address, credited to its supplier, when it already fits', async () => {
+      PREVIEW = { image: 'data:image/png;base64,AAAA' }
+      picturesAre(1000, 1000)
+      await pickFromStrip()
+      await waitFor(() => expect(saved().length).toBe(1))
+      expect(saved()[0][2].image_source).toBe('google-images')
+    })
+
+    it('is saved by its address when the server could not fetch it for the frame', async () => {
+      PREVIEW = null // the preview route answers an error
+      picturesAre(1600, 701)
+      await pickFromStrip()
+      await waitFor(() => expect(saved().length, 'a picture that could not be previewed was dropped').toBe(1))
+    })
+  })
+
+  it('shows a picture of the wrong shape in its frame before anything is kept', async () => {
+    picturesAre(1600, 701) // a wide logo, which a circle would cut in half
+    await chooseFile()
+    await screen.findByText(/^Frame — /)
+    expect(uploads().length, 'the file was stored before the reader had framed it').toBe(0)
+    expect(screen.queryByText(/dimmed part is cut off/),
+      'the dialog does not say what the circle will cut away').toBeTruthy()
+  })
+
+  it('and keeps what the reader framed, not the file as it came', async () => {
+    picturesAre(1600, 701)
+    await chooseFile()
+    await screen.findByText(/^Frame — /)
+    // The sheet underneath has ticks of its own; this one belongs to the frame's form.
+    const tick = () => document.querySelector('button[type="submit"][form="' + document.querySelector('form.frame-form')?.id + '"]')
+    // The zoom slider is drawn once the picture has loaded; until then the tick is blocked.
+    await screen.findByRole('slider', { name: t('frame.zoom.label') })
+    await waitFor(() => expect(tick()?.disabled, 'the frame dialog tick stayed blocked').toBe(false))
+    await act(async () => { tick().click() })
+    await waitFor(() => expect(uploads().length,
+      'keeping the framing stored nothing').toBe(1))
+  })
+
+  it('leaves nothing behind when the reader backs out of the frame', async () => {
+    picturesAre(1600, 701)
+    await chooseFile()
+    await screen.findByText(/^Frame — /)
+    await act(async () => { screen.getByRole('button', { name: t('common.action.close.label') }).click() })
+    expect(uploads().length, 'a file the reader refused was stored anyway').toBe(0)
   })
 
   it('reveals somewhere to type an address when Paste URL is pressed', async () => {

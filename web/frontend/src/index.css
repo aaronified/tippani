@@ -12171,3 +12171,35 @@ button.work-pill:hover { color: var(--ink); border-color: var(--ink-border); }
   overflow: hidden;
 }
 .sig-problem { color: var(--danger); }
+
+/* THE FRAMING EDITOR (FrameEditor.jsx). The stage takes the frame's own aspect
+   ratio from an inline style, so the box a reader drags inside is the box the app
+   will draw. The circle's mask is a shadow around a clear circle: it dims exactly
+   the part the screen will cut away and leaves the picture itself undrawn over. */
+.frame-form { display: grid; gap: var(--row); }
+.frame-stage {
+  position: relative;
+  inline-size: min(100%, 22em);
+  margin-inline: auto;
+  overflow: hidden;
+  border: 1px solid var(--hairline);
+  border-radius: 0.5em;
+  touch-action: none;
+  cursor: grab;
+  display: grid;
+  place-items: center;
+}
+.frame-stage:active { cursor: grabbing; }
+.frame-canvas { position: absolute; inset: 0; inline-size: 100%; block-size: 100%; display: block; }
+.frame-mask {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  box-shadow: 0 0 0 100vmax rgb(0 0 0 / 0.55);
+  outline: 1.5px solid rgb(255 255 255 / 0.75);
+  outline-offset: -1.5px;
+  pointer-events: none;
+}
+.frame-note { position: relative; color: var(--faint); }
+.frame-note.is-problem { color: var(--danger); }
+.frame-presets { display: flex; flex-wrap: wrap; gap: var(--row); }

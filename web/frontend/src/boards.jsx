@@ -15,6 +15,7 @@ import { coverImgURL, errText, json, uploadWithProgress } from './api.js'
 import { t, tNodes } from './i18n.js'
 import { TextOrderField } from './textOrderField.jsx'
 import { Face } from './characterRows.jsx'
+import { useFraming } from './FrameEditor.jsx'
 import { categoryVar } from './theme.js'
 import { glyphFor } from './languages.jsx'
 import { cachedVocabulary, primeSearchVocabulary } from './vocabulary.js'
@@ -325,7 +326,7 @@ export function BoardForm({ initial, onSubmit, onCancel, submitLabel = t('common
   // A FILE, not an event — see FilePick. This handler never cleared the input, so
   // picking a cover, thinking better of it and picking the SAME file again did
   // nothing at all; the primitive clears it for every site at once.
-  async function pickImage(file) {
+  async function keepImage(file) {
     if (!file || !initial?.id) return
     setBusy(true)
     const form = new FormData()
@@ -335,6 +336,15 @@ export function BoardForm({ initial, onSubmit, onCancel, submitLabel = t('common
     if (!r.ok) return setError(errText(r, t('error.upload.generic')))
     setImagePath(r.data?.image_path || r.data?.path || imagePath)
     toast(t('quotes.board.toast.picture-saved'))
+  }
+
+  // THE SAME FRAMING EVERY PICTURE TAKES (`useFraming`): the board's picture is drawn 3:2, so
+  // a file of another shape is put in that frame before it is kept, and cancelling keeps
+  // nothing.
+  const framer = useFraming({ frame: 'board', name: name.trim() || t('quotes.board.form.picture.label'), onKeep: keepImage })
+  async function pickImage(file) {
+    if (!file || !initial?.id) return
+    if ((await framer.frameFile(file)) === 'fits') keepImage(file)
   }
 
   async function submit(e) {
@@ -575,6 +585,11 @@ export function BoardForm({ initial, onSubmit, onCancel, submitLabel = t('common
             <span className="btn-label">{t('quotes.board.form.picture.label')}</span>
           </FilePick>
           {imagePath && (
+            <GhostButton type="button" disabled={busy} onClick={() => framer.reframe(coverImgURL(imagePath))}>
+              {t('frame.reframe.label')}
+            </GhostButton>
+          )}
+          {imagePath && (
             <GhostButton type="button" onClick={() => setImagePath('')}>
               {t('common.action.remove.label')}
             </GhostButton>
@@ -582,6 +597,7 @@ export function BoardForm({ initial, onSubmit, onCancel, submitLabel = t('common
         </div>
       ) : null}
       <ErrorText>{error}</ErrorText>
+      {framer.dialog}
       <div className="flex items-center justify-end gap-2">
         <GhostButton type="button" onClick={onCancel}>
           {t('common.action.cancel.label')}

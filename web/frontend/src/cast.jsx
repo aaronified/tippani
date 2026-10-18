@@ -29,6 +29,7 @@ import { coverImgURL, errText, json } from './api.js'
 import { registerSessionCache } from './sessionCaches.js'
 import { t } from './i18n.js'
 import { Face } from './characterRows.jsx'
+import { useFraming } from './FrameEditor.jsx'
 import { usePersonOpener } from './personOpen.jsx'
 import { personImgURL, usePeople } from './people.jsx'
 import {
@@ -466,12 +467,38 @@ export function usePicturePicker({
   // disabled button: a control greyed out with no way to un-grey it tells the
   // reader they have done something wrong.
   onUpload = null,
+  // Whether `face` is this slot's OWN picture, which is what Reframe re-saves. A
+  // character's work-local slot can be drawing the record's or the performer's
+  // instead, and saving that through this slot's upload would copy somebody else's
+  // picture into it — so that caller turns the verb off.
+  reframeable = true,
 }) {
+  // ---- FRAMING: SHOW THE FRAME BEFORE THE PICTURE IS KEPT ------------------------
+  //
+  // A face is a circle, so a wide logo or a half-length photograph arrives with its
+  // subject off-centre or outside it, and `object-fit: cover` cut it silently. The
+  // flow is the one every picture in the app takes (`useFraming`, FrameEditor.jsx),
+  // the same as a cover's: framed BEFORE anything is stored, so cancelling keeps
+  // nothing, and keeping stores what was framed through the upload route.
+  //
+  // A picture that already fits, or one the server could not fetch for the preview,
+  // goes the way it always did — by its address, so its supplier is still credited and
+  // a real fetch failure is reported by the route that knows it. A framed one is the
+  // reader's own picture and is credited so.
+  const framer = useFraming({ frame: 'face', name: faceName, onKeep: (blob) => onUpload?.(blob) })
+  const frameFile = async (file) => {
+    if ((await framer.frameFile(file)) === 'fits') onUpload?.(file)
+  }
   const picturePick = useFilePick({
     accept: 'image/*',
     ariaLabel: t('identity.picture.upload.aria', { name: faceName }),
-    onFiles: (file) => onUpload?.(file),
+    onFiles: frameFile,
   })
+  const picked = async (...args) => {
+    // No upload route (a cast-list row) means nowhere to keep a framed picture.
+    if (!onUpload) return onPicked(...args)
+    if ((await framer.frameAddress(args[0])) !== 'framed') return onPicked(...args)
+  }
   const [urlOpen, setUrlOpen] = useState(false)
   const [url, setUrl] = useState('')
   const [pics, setPics] = useState(null) // null = never asked; [] = asked, nothing found
@@ -483,7 +510,7 @@ export function usePicturePicker({
   const [tried, setTried] = useState(null)
   const [picsBusy, setPicsBusy] = useState(false)
   const applyURL = async () => {
-    await onPicked(url.trim())
+    await picked(url.trim())
     setUrl('')
     setUrlOpen(false)
   }
@@ -633,13 +660,13 @@ export function usePicturePicker({
                 type="button"
                 className="cover-pick"
                 aria-label={t('cast.picture.pick.use', { source: im.source })}
-                disabled={busy}
+                disabled={busy || framer.previewing}
                 onClick={async () => {
                   // The full-size original is stored; the thumbnail was only ever
                   // what the page was allowed to draw.
                   setPics(null)
                   setUrlOpen(false)
-                  await onPicked(im.url, im.source === 'google' ? 'google-images' : im.source)
+                  await picked(im.url, im.source === 'google' ? 'google-images' : im.source)
                 }}
               >
                 <img src={im.thumb || im.url} alt="" loading="lazy" />
@@ -723,6 +750,24 @@ export function usePicturePicker({
       >
         {t('identity.picture.paste.label')}
       </GhostButton>
+      {/* REFRAME — the picture already kept, moved or resized inside its circle. The
+          same editor the three verbs above open when a new picture's shape needs it,
+          so a picture saved before the editor existed (or one that did not need it
+          and now does) can be fixed without finding it again. Only where there is a
+          picture of this slot's own to re-save. */}
+      {onUpload && reframeable && face ? (
+        <GhostButton
+          type="button"
+          className="cs-verb"
+          disabled={busy}
+          title={t('frame.reframe.tip')}
+          icon={<IconEdit />}
+          onClick={() => framer.reframe(face)}
+        >
+          {t('frame.reframe.label')}
+        </GhostButton>
+      ) : null}
+      {framer.dialog}
     </>
   )
 
@@ -797,6 +842,9 @@ export function useCharacterPicture({ row, actor, workTitle, mediaType, busy, on
     }),
     named,
     onUpload,
+    // Only this work's own picture can be re-saved through this slot's upload; the
+    // record's and the performer's are somebody else's to frame.
+    reframeable: from === 'work',
   })
   return { ...picker, face, from }
 }
