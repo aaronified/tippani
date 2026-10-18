@@ -101,3 +101,22 @@ func TestAPictureThatCannotBeFetchedIsAnAnswerNotACrash(t *testing.T) {
 	c := signupAdmin(t, srv.Handler())
 	c.mustDo("POST", "/images/preview", map[string]string{"url": "https://pics.example/a.png"}, http.StatusBadGateway)
 }
+
+func TestAnSVGComesBackAsAnSVGTheBrowserCanDecode(t *testing.T) {
+	srv := newTestServer(t)
+	var asked []string
+	stubUserImage(srv, &asked, []byte(`<svg xmlns="http://www.w3.org/2000/svg" width="600" height="300" viewBox="0 0 600 300"><rect width="600" height="300" fill="#789"/></svg>`))
+	c := signupAdmin(t, srv.Handler())
+
+	rec := c.mustDo("POST", "/images/preview", map[string]string{"url": "https://pics.example/logo.svg"}, http.StatusOK)
+
+	var got struct {
+		Image string `json:"image"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(got.Image, "data:image/svg+xml;base64,") {
+		t.Errorf("an SVG previews as %.40q; a page cannot decode an image under that type", got.Image)
+	}
+}

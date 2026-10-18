@@ -33,6 +33,7 @@ package httpapi
 // at all.
 
 import (
+	"bytes"
 	"cmp"
 	"context"
 	"encoding/base64"
@@ -536,6 +537,21 @@ func (s *Server) handleImagePreview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"image": "data:" + http.DetectContentType(raw) + ";base64," + base64.StdEncoding.EncodeToString(raw),
+		"image": "data:" + previewType(raw) + ";base64," + base64.StdEncoding.EncodeToString(raw),
 	})
+}
+
+// previewType is the media type a previewed picture's data: URL carries. net/http's sniffer
+// never answers image/svg+xml (it reports an SVG as text/xml), and a page cannot decode an
+// image under that type — so a fetched SVG, which the fetcher accepts, would not draw.
+func previewType(raw []byte) string {
+	ct := http.DetectContentType(raw)
+	head := raw
+	if len(head) > 512 {
+		head = head[:512]
+	}
+	if strings.HasPrefix(ct, "text/") && bytes.Contains(bytes.ToLower(head), []byte("<svg")) {
+		return "image/svg+xml"
+	}
+	return ct
 }
