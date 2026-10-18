@@ -63,6 +63,7 @@ func TestAllowedCoverHosts(t *testing.T) {
 		"m.media-amazon.com",
 		"commons.wikimedia.org",
 		"upload.wikimedia.org",
+		"thumb.wikimedia.org", // an SVG signature's resized PNG (Tagore's P109)
 		"archive.org",
 		"ia800100.us.archive.org",
 		"ia601604.us.archive.org",

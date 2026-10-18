@@ -34,7 +34,13 @@ var coverHosts = map[string]bool{
 	"m.media-amazon.com":              true, // og:image host on product pages
 	"commons.wikimedia.org":           true, // Wikidata P18 author photo (Special:FilePath entry point)
 	"upload.wikimedia.org":            true, // ^ the redirect target that serves the actual image bytes
-	"images.igdb.com":                 true, // IGDB game covers AND studio logos (one host serves both)
+	// Where Special:FilePath?width= redirects for a VECTOR file: Commons renders the
+	// SVG to a PNG on its thumbnailer, not on upload.wikimedia.org. A P18 portrait is
+	// a raster and never hits it, which is why only signatures (P109, usually SVG)
+	// died here — "Wikidata has no signature for this person", for Tagore, whose
+	// item does carry one.
+	"thumb.wikimedia.org": true,
+	"images.igdb.com":     true, // IGDB game covers AND studio logos (one host serves both)
 	// Fandom's image CDN, which serves every wiki. Needed by the character
 	// picture ladder's Fandom rung: Wikipedia has an article for a character only
 	// when the character is notable outside their story, and Fandom has one for
