@@ -435,6 +435,13 @@ const PORTRAIT_TINT = 0.55 // how far the quote's colour pulls the portrait's hu
 // a person rather than a photograph of one, and compressing what is left costs
 // far less than the reader loses to a name they cannot read.
 const PORTRAIT_WASH = 0.3
+// LIGHT MODE GETS LESS OF BOTH. The wash and the alpha were tuned against dark
+// photographs on dark paper; on paper, a pale photograph (white clothes, a pale
+// studio ground) under a 30% wash at 0.5 alpha is under a fifth of itself and
+// disappears. Dark ink beats a mid-tone easily, so the light card can afford
+// a much stronger picture.
+const PORTRAIT_ALPHA_LIGHT = 0.8
+const PORTRAIT_WASH_LIGHT = 0.08
 
 // ---- more than two people ---------------------------------------------------
 //
@@ -649,14 +656,14 @@ export function clearPortraitCache() {
   sigCache = new WeakMap()
 }
 
-function fadedPortrait(img, w, h, dir, tint, surface, url) {
+function fadedPortrait(img, w, h, dir, tint, surface, url, wash = PORTRAIT_WASH) {
   if (!img || !w || !h) return null
   // The url is in the key as well as the image, because the image alone is not
   // an identity: faceCache holds one Image per url in the app, but a caller (a
   // test's stub, a future cache that dedupes identical bytes) may hand the same
   // object for two people, and serving one person's crop for another's is the
   // one way this cache could be WRONG rather than merely stale.
-  const key = `${url || ''}|${Math.ceil(w)}x${Math.ceil(h)}|${dir}|${tint || ''}|${surface || ''}`
+  const key = `${url || ''}|${Math.ceil(w)}x${Math.ceil(h)}|${dir}|${tint || ''}|${surface || ''}|${wash}`
   let byShape = portraitCache.get(img)
   if (byShape) {
     const hit = byShape.get(key)
@@ -695,7 +702,7 @@ function fadedPortrait(img, w, h, dir, tint, surface, url) {
   // same operation — and this one is implemented everywhere.
   if (surface) {
     octx.globalCompositeOperation = 'source-over'
-    octx.globalAlpha = PORTRAIT_WASH
+    octx.globalAlpha = wash
     octx.fillStyle = surface
     octx.fillRect(0, 0, off.width, off.height)
     octx.globalAlpha = 1
@@ -835,12 +842,34 @@ function tintedSignature(img, w, h, ink) {
     byShape = new Map()
     sigCache.set(img, byShape)
   }
+  // AT THE CARD'S OWN RESOLUTION, NOT THE LOGICAL ONE. The card is drawn at DPR×, so
+  // a w×h canvas is stretched 2× when it lands and every hairline stroke of a
+  // signature turns into a stipple of dots. And a signature is a large image going
+  // into ~22px, which one drawImage step samples rather than averages — so it is
+  // halved down in steps, each of which is a true average.
   const off = document.createElement('canvas')
-  off.width = Math.ceil(w)
-  off.height = Math.ceil(h)
+  off.width = Math.ceil(w * DPR)
+  off.height = Math.ceil(h * DPR)
   const octx = off.getContext('2d')
   if (!octx) return null
-  octx.drawImage(img, 0, 0, off.width, off.height)
+  octx.imageSmoothingEnabled = true
+  octx.imageSmoothingQuality = 'high'
+  let src = img
+  let sw = img.width, sh = img.height
+  while (sw / 2 >= off.width && sh / 2 >= off.height) {
+    const step = document.createElement('canvas')
+    step.width = Math.max(1, Math.floor(sw / 2))
+    step.height = Math.max(1, Math.floor(sh / 2))
+    const sctx = step.getContext('2d')
+    if (!sctx) break
+    sctx.imageSmoothingEnabled = true
+    sctx.imageSmoothingQuality = 'high'
+    sctx.drawImage(src, 0, 0, step.width, step.height)
+    src = step
+    sw = step.width
+    sh = step.height
+  }
+  octx.drawImage(src, 0, 0, off.width, off.height)
   // source-in keeps the signature's alpha and replaces its colour: Porter-Duff, so
   // implemented wherever the canvas is, unlike the blend modes the portrait wants.
   octx.globalCompositeOperation = 'source-in'
@@ -1135,7 +1164,8 @@ export function drawQuoteCard(canvas, model, theme) {
     ctx.save()
     roundRectPath(ctx, cardX, M, cardW, cardH, radius)
     ctx.clip()
-    ctx.globalAlpha = PORTRAIT_ALPHA
+    ctx.globalAlpha = theme.dark ? PORTRAIT_ALPHA : PORTRAIT_ALPHA_LIGHT
+    const wash = theme.dark ? PORTRAIT_WASH : PORTRAIT_WASH_LIGHT
     if (order.length > 2) {
       // THE TEAM SHOT. One cell each along the bottom, every face fading upward
       // into the paper. The band is drawn full-bleed to the card's bottom edge
@@ -1152,7 +1182,7 @@ export function drawQuoteCard(canvas, model, theme) {
       list.forEach((face, i) => {
         const x = cardX + i * cw
         const w = i === list.length - 1 ? cardX + cardW - x : cw
-        const painted = fadedPortrait(faceCache.get(face.url), w, bh, 'up', model.colorHex, theme.cardTop, face.url)
+        const painted = fadedPortrait(faceCache.get(face.url), w, bh, 'up', model.colorHex, theme.cardTop, face.url, wash)
         if (painted) ctx.drawImage(painted, x, by, w, bh)
       })
     } else {
@@ -1174,7 +1204,7 @@ export function drawQuoteCard(canvas, model, theme) {
         // which is the whole of what the control promises.
         const face = model.swap ? order[SIDES.length - 1 - i] : order[i]
         if (!face) return
-        const painted = fadedPortrait(faceCache.get(face.url), pw, ph, side.fade, model.colorHex, theme.cardTop, face.url)
+        const painted = fadedPortrait(faceCache.get(face.url), pw, ph, side.fade, model.colorHex, theme.cardTop, face.url, wash)
         if (painted) ctx.drawImage(painted, side.x, M, pw, ph)
       })
     }

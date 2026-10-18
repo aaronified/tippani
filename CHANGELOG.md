@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **A signature on a shared card is legible, in the preview too.** The signature was drawn at half
+  the card's resolution and stretched up, and shrunk from the original in one step, so its thin
+  strokes broke into a stipple of dots. It is now drawn at the card's own resolution and reduced
+  in stages.
+- **In light mode the portrait behind a card is visible.** The photograph was washed with paper
+  and drawn at half strength, which left a pale photograph (white clothes, a pale studio
+  background) almost invisible on a light card. Light cards now show it at 0.8 strength under a
+  lighter wash. Dark cards are unchanged.
+
 ## [3.3.3] - 2026-10-18
 
 ### Fixed

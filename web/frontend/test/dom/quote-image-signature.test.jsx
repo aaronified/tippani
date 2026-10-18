@@ -134,7 +134,9 @@ describe('the signature on the card', () => {
     await render(model({ signature: SIGN }))
     const id = stamped()[0].args[0].__recorderId
     const own = log.filter((e) => e.canvas === id)
-    expect(own.find((e) => e.op === 'drawImage').args[0].src).toContain('0123456789abcdef.png')
+    // A large source is halved on its way down, so the file itself may be drawn onto
+    // an intermediate canvas rather than the tinted one: look anywhere in the chain.
+    expect(log.some((e) => e.op === 'drawImage' && String(e.args[0]?.src || '').includes('0123456789abcdef.png'))).toBe(true)
     // Ink keeps the signature's own shape (source-in), then fills.
     expect(own.map((e) => e.op === 'composite' ? e.args[0] : e.op)).toEqual(['drawImage', 'source-in', 'fillRect'])
   })
