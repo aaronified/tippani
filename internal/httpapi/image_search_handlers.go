@@ -35,8 +35,11 @@ package httpapi
 import (
 	"cmp"
 	"context"
+	"encoding/base64"
 	"errors"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -487,4 +490,52 @@ func faultSourceOf(rung string) string {
 	default:
 		return rung
 	}
+}
+
+// handleImagePreview: POST /images/preview  {url} -> {image: "data:<type>;base64,…"}
+//
+// THE PICTURE THE READER JUST CHOSE, HANDED BACK SO THE PAGE CAN FRAME IT. A cover
+// picked from a search is held as an address until the form is saved, and the page
+// may not load that address (its img-src is 'self' and `data:`) — and an image from
+// another origin could not be drawn to a canvas and read back if it did. So the
+// server fetches it, as it will on save, and returns the bytes as a `data:` URL,
+// which the page may draw and which does not taint a canvas.
+//
+// NOTHING IS KEPT. The fetcher writes a file under a random name because that is
+// what it does; it is read back and removed before the reply, as downloadSignature
+// does, so previewing leaves no orphan in the covers directory however many pictures
+// the reader looks at before choosing. The reader's framed result goes up by the
+// ordinary upload, which is what stores it.
+//
+// Through `fetchUserImage` — the path a pasted address has always taken — because a
+// web image search offers pictures from hosts no allowlist can name; the scheme
+// check and the private-address dial guard are what bound it, and the 10 MB cap is
+// the fetcher's own.
+func (s *Server) handleImagePreview(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		URL string `json:"url"`
+	}
+	if !decodeBody(w, r, &req) {
+		return
+	}
+	address := strings.TrimSpace(req.URL)
+	if address == "" {
+		writeErr(w, http.StatusBadRequest, "url is required")
+		return
+	}
+	file, err := s.fetchUserImage(r.Context(), address, s.coversDir())
+	if err != nil {
+		logOutwardFailure(olog.CodeCoverFetch, err, "[images] preview url=%q failed: %v", address, err)
+		writeErr(w, http.StatusBadGateway, "that picture could not be fetched")
+		return
+	}
+	defer s.removeCoverFile(file)
+	raw, err := os.ReadFile(filepath.Join(s.coversDir(), file))
+	if err != nil {
+		internalError(w, r, "read previewed image", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"image": "data:" + http.DetectContentType(raw) + ";base64," + base64.StdEncoding.EncodeToString(raw),
+	})
 }

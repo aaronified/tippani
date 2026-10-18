@@ -433,6 +433,8 @@ func (s *Server) Handler() http.Handler {
 	// One route for three pickers — a book's cover, a film's poster, a person's
 	// portrait. Not admin-only: it reads no secret back, it only spends one.
 	mux.Handle("POST /images/search", s.requireAuth(s.handleImageSearch))
+	// The picture a reader chose from that strip, as bytes the page can frame (nothing kept).
+	mux.Handle("POST /images/preview", s.requireAuth(s.handleImagePreview))
 	mux.Handle("POST /books/lookup", s.requireAuth(s.handleBookLookup))
 	mux.Handle("POST /books", s.requireAuth(s.handleCreateBook))
 	mux.Handle("GET /books", s.requireAuth(s.handleListBooks))
