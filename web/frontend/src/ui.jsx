@@ -10111,7 +10111,12 @@ export function IconTextOrder({ order, size = ICON_SIZE }) {
     </svg>
   )
 }
-export function IconClose({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M6 6l12 12M18 6 6 18"/></svg> }
+// EVERY CROSS IS RED — the owner's: "make all x buttons red as they should have been".
+// The colour is on the glyph itself (`.icon-x`), so it follows the drawing into a
+// close button, a chip's remove key and a ghost button alike, rather than each
+// site having to remember a danger class.
+export function IconClose({ size = ICON_SIZE }) { return <svg {...iconStroke} className="icon-x" width={size} height={size}><path d="M6 6l12 12M18 6 6 18"/></svg> }
+export function IconDownload({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M12 4v10.5M7.5 10.5 12 15l4.5-4.5"/><path d="M4.5 16.5v1A2.5 2.5 0 0 0 7 20h10a2.5 2.5 0 0 0 2.5-2.5v-1"/></svg> }
 // THE PAIR THAT ACTS ON A WHOLE LIST, and they are two glyphs rather than the two
 // above because one picture may not hold two jobs.
 //

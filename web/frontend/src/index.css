@@ -4030,6 +4030,7 @@
   .field-icon-btn:disabled, .field-icon-btn.is-busy { opacity: .5; cursor: default; }
   .field-icon-btn-ok { color: var(--ok); }
   .field-icon-btn-ok:hover:not(:disabled), .field-icon-btn-ok:focus-visible { color: var(--ok); }
+  .icon-x { color: var(--error); }
   .field-icon-btn-danger { color: var(--error); }
   .field-icon-btn-danger:hover:not(:disabled), .field-icon-btn-danger:focus-visible {
     color: var(--error);
