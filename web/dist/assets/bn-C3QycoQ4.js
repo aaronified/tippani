@@ -3054,30 +3054,20 @@ share.image.facekind.character.label = চরিত্র
 share.image.facekind.info.title = মুখ
 share.image.facekind.info.body = কার্ডে কার ছবি যাবে: অভিনেতার, না চরিত্রের। দুজনের ছবিই সংরক্ষিত থাকলে তবেই এই বিকল্প আসে।
 # How a credited person appears. Offered only when somebody credited has a photo.
-share.image.portrait.label = মুখের ছবি
-share.image.portrait.aria = মুখের ছবি
-share.image.portrait.chip.label = চিপ
 share.image.portrait.backdrop.label = পটভূমি
-share.image.portrait.info.title = মুখের ছবি
 share.image.portrait.info.body = চিপ: নামের পাশে ছোট গোল ছবি। পটভূমি: সেই ছবিই কিনারা থেকে আবছা হয়ে ঢোকে। যাঁর নাম আছে তাঁর ছবি থাকলে তবেই দেখা যায়।
-share.image.sides.label = দিক
-share.image.sides.aria = কে কোন দিকে
-share.image.sides.as-credited.label = নামের ক্রমে
 share.image.sides.swap.label = উল্টে দিন
-share.image.sides.info.title = দিক
 share.image.sides.info.body = যাঁদের নাম আছে, তাঁদের কে আগে থাকবেন। চিপে কার মুখ সামনে থাকবে তা বদলায়; পটভূমিতে দুই পাশ অদলবদল হয়।
 # Whether the quote's own filing colour shows in the picture. Off by default.
-share.image.signature.label = সই
-share.image.signature.aria = ছবিতে সই
 share.image.signature.info.title = সই
 share.image.signature.info.body = যাঁর নাম দেওয়া আছে তাঁর সই ছবির নিচের ডান কোণে বসে, টিপ্পনীর চিহ্নের পাশে। শুরুতে বন্ধ থাকে।
-share.image.colour.aria = উদ্ধৃতির রং
 share.image.colour.info.title = উদ্ধৃতির রং
 share.image.colour.info.body = উদ্ধৃতির রংটা ছবিতে যোগ হয় — একটা ডোরা, বা পটভূমিতে হালকা আভা। শুরুতে বন্ধ থাকে।
+share.image.options.aria = ছবির বিকল্প
 share.image.preview.aria = উদ্ধৃতির কার্ড যেমন দেখাবে
-share.image.share.aria = ছবি শেয়ার
-share.image.share.tip = এই ছবিটা শেয়ার করুন
 share.image.copy.label = ছবি কপি
+share.image.download.label = ছবি ডাউনলোড
+share.image.download.tip = এই ছবিটা ডাউনলোড বা শেয়ার করুন
 share.image.copy.unsupported.error = এখানে ছবি কপি করা যায় না — ডাউনলোড করুন
 # Drawn in the bottom-left of the picture, before the wordmark. It is what makes
 # the line a CREDIT rather than a claim on the words above it.
