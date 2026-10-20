@@ -50,7 +50,9 @@ const shareBy = (people, extra = {}) => bookShare({
   quote: 'Only in silence the word', author: 'Jane Solo', title: 'A Book', people, ...extra,
 })
 
-const option = () => screen.queryByRole('tablist', { name: t('share.image.signature.aria') })
+// One chip in the picture's row of options, pressed when on.
+const option = () => screen.queryByRole('button', { name: t('share.image.signature.info.title') })
+const pressed = (el) => el.getAttribute('aria-pressed')
 
 async function open(share) {
   render(<ShareDialog share={share} onClose={() => {}} />)
@@ -67,7 +69,7 @@ describe("the picture's signature option", () => {
 
   it('starts off, and the card carries no signature', async () => {
     await open(shareBy({ 'Jane Solo': JANE }))
-    expect(within(option()).getByRole('tab', { name: 'Off' }).getAttribute('aria-selected')).toBe('true')
+    expect(pressed(option())).toBe('false')
     // Give the card time to draw, then check nothing was stamped.
     await new Promise((r) => setTimeout(r, 50))
     expect(stamps).toHaveLength(0)
@@ -75,11 +77,11 @@ describe("the picture's signature option", () => {
 
   it('stamps the signature on the card once switched on, and takes it off again', async () => {
     await open(shareBy({ 'Jane Solo': JANE }))
-    fireEvent.click(within(option()).getByRole('tab', { name: 'On' }))
+    fireEvent.click(option())
     await waitFor(() => expect(stamps.length).toBeGreaterThan(0))
 
     const before = stamps.length
-    fireEvent.click(within(option()).getByRole('tab', { name: 'Off' }))
+    fireEvent.click(option())
     await new Promise((r) => setTimeout(r, 50))
     // Redrawn without it: nothing new stamped after the switch back.
     expect(stamps.length).toBe(before)
@@ -88,7 +90,7 @@ describe("the picture's signature option", () => {
   it('remembers being switched on', async () => {
     localStorage.setItem('tippani:shareSignature', 'true')
     await open(shareBy({ 'Jane Solo': JANE }))
-    expect(within(option()).getByRole('tab', { name: 'On' }).getAttribute('aria-selected')).toBe('true')
+    expect(pressed(option())).toBe('true')
     await waitFor(() => expect(stamps.length).toBeGreaterThan(0))
   })
 

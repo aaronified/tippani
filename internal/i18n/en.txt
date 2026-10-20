@@ -3117,32 +3117,22 @@ share.image.facekind.actor.label = Actor
 share.image.facekind.character.label = Character
 share.image.facekind.info.title = Face
 share.image.facekind.info.body = Whose picture goes on the card: the actor or the character. Offered when the work has a picture of both.
-share.image.portrait.label = portrait
-share.image.portrait.aria = Portrait
-share.image.portrait.chip.label = Chip
 share.image.portrait.backdrop.label = Backdrop
-share.image.portrait.info.title = Portrait
 share.image.portrait.info.body = Chip: a small round photo beside the name. Backdrop: the same photo faded in from the edge. Shown only when someone credited has a photo.
-share.image.sides.label = sides
-share.image.sides.aria = Which side each person takes
-share.image.sides.as-credited.label = As credited
 share.image.sides.swap.label = Swap
-share.image.sides.info.title = Sides
 share.image.sides.info.body = Which credited person comes first. On chips it changes whose face is in front; on a backdrop it swaps the sides.
 # Whether the quote's own filing colour shows in the picture. Off by default.
 # A person's signature in the picture's bottom right corner. Shown only where somebody
 # credited has one, and never for a character.
-share.image.signature.label = signature
-share.image.signature.aria = Signature on the picture
 share.image.signature.info.title = Signature
 share.image.signature.info.body = Puts the credited person's signature in the picture's bottom right corner, beside the Tippani mark. Off by default.
-share.image.colour.aria = Quote colour
 share.image.colour.info.title = Quote colour
 share.image.colour.info.body = Adds the quote's colour to the picture — a stripe, or a tint on a backdrop. Off by default.
+share.image.options.aria = Picture options
 share.image.preview.aria = Quote card image preview
-share.image.share.aria = Share picture
-share.image.share.tip = Share this picture
 share.image.copy.label = Copy image
+share.image.download.label = Download image
+share.image.download.tip = Download or share this picture
 share.image.copy.unsupported.error = image copy isn't supported here — use Download
 # Drawn in the bottom-left of the picture, before the wordmark. It is what makes
 # the line a CREDIT rather than a claim on the words above it.

@@ -51,7 +51,7 @@ const share = () =>
 describe('the share preview', () => {
   it('draws the card twice for one change, not four times', async () => {
     render(<ShareDialog share={share()} onClose={() => {}} />)
-    await screen.findByRole('tab', { name: 'Off' })
+    await screen.findByRole('button', { name: 'Quote colour' })
     await waitFor(() => expect(draws.length).toBeGreaterThan(0))
 
     // Let every already-resolved promise in the effect settle.
@@ -59,7 +59,7 @@ describe('the share preview', () => {
     const first = draws.length
     draws = []
 
-    fireEvent.click(screen.getByRole('tab', { name: 'On' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Quote colour' }))
     await waitFor(() => expect(draws.length).toBeGreaterThan(0))
     await new Promise((r) => setTimeout(r, 0))
 

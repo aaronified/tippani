@@ -61,17 +61,17 @@ const share = () =>
 // finding it is how we know the panel is up.
 async function openImage() {
   render(<ShareDialog share={share()} onClose={() => {}} />)
-  return await screen.findByRole('tab', { name: 'Off' })
+  return await screen.findByRole('button', { name: 'Quote colour' })
 }
 
 const drewTheColour = () => fills.includes(BLUE)
 const selected = (el) => el.getAttribute('aria-selected')
+const pressed = (el) => el.getAttribute('aria-pressed')
 
 describe("the picture's colour switch", () => {
   it('starts off, and the card is drawn without the colour', async () => {
-    const off = await openImage()
-    expect(selected(off)).toBe('true')
-    expect(selected(screen.getByRole('tab', { name: 'On' }))).toBe('false')
+    const chip = await openImage()
+    expect(pressed(chip)).toBe('false')
     await waitFor(() => expect(fills.length).toBeGreaterThan(0))
     expect(drewTheColour(), 'the colour edge was drawn anyway').toBe(false)
   })
@@ -80,15 +80,13 @@ describe("the picture's colour switch", () => {
     // The complement, and the reason this is a default and not a removal. A
     // change of default that quietly broke the feature would otherwise read as
     // a pass.
-    await openImage()
-    fireEvent.click(screen.getByRole('tab', { name: 'On' }))
+    fireEvent.click(await openImage())
     await waitFor(() => expect(drewTheColour()).toBe(true))
   })
 
   it('remembers being switched on', async () => {
     localStorage.setItem('tippani:shareImageTint', 'true')
-    await openImage()
-    expect(selected(screen.getByRole('tab', { name: 'On' }))).toBe('true')
+    expect(pressed(await openImage())).toBe('true')
     await waitFor(() => expect(drewTheColour()).toBe(true))
   })
 
@@ -100,8 +98,7 @@ describe("the picture's colour switch", () => {
     // "fix" passes every other test in this file and nothing at all in practice,
     // which is exactly why the retired key is named here in full.
     localStorage.setItem('tippani:shareImageColor', 'true')
-    const off = await openImage()
-    expect(selected(off)).toBe('true')
+    expect(pressed(await openImage())).toBe('false')
     await waitFor(() => expect(fills.length).toBeGreaterThan(0))
     expect(drewTheColour()).toBe(false)
   })
@@ -141,26 +138,32 @@ describe('the two things you do to this window', () => {
     expect(screen.getByRole('button', { name: 'Close' }).className).toContain('field-icon-btn')
   })
 
-  it('shares the picture from a glyph beside the close', async () => {
+  it('downloads the picture from a glyph beside the close', async () => {
     const blobbed = vi.fn((cb) => cb(new Blob(['png'], { type: 'image/png' })))
     HTMLCanvasElement.prototype.toBlob = blobbed
     render(<ShareDialog share={share()} onClose={() => {}} />)
-    const button = await screen.findByRole('button', { name: 'Share picture' })
+    const button = await screen.findByRole('button', { name: 'Download image' })
     // Left of the close, in the header: the order is the claim, since a share
     // glyph to the RIGHT of a × is a button people close the window with.
     const close = screen.getByRole('button', { name: 'Close' })
     expect(!!(button.compareDocumentPosition(close) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true)
-    // And it is wired to the picture, not decorative: the panel's own worded
-    // "Download PNG" is gone, so this glyph is the only way out with a file.
-    expect(screen.queryByRole('button', { name: /Download PNG|Share \/ save PNG/ })).toBeNull()
+    // And it is wired to the picture, not decorative.
     fireEvent.click(button)
     await waitFor(() => expect(blobbed).toHaveBeenCalled())
+  })
+
+  it('has no share glyph and no worded button under the picture, only copy and download up top', async () => {
+    render(<ShareDialog share={share()} onClose={() => {}} />)
+    await screen.findByRole('button', { name: 'Download image' })
+    expect(screen.queryByRole('button', { name: 'Share picture' })).toBeNull()
+    expect(screen.getAllByRole('button', { name: 'Download image' })).toHaveLength(1)
+    expect(screen.queryAllByRole('button', { name: 'Copy image' }).length).toBeLessThanOrEqual(1)
   })
 
   it('offers no share glyph for a text format, where copy is the way out', async () => {
     render(<ShareDialog share={share()} onClose={() => {}} />)
     fireEvent.click(screen.getByRole('tab', { name: 'Markdown' }))
-    expect(screen.queryByRole('button', { name: 'Share picture' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Download image' })).toBeNull()
     expect(screen.getByRole('button', { name: 'Copy' })).toBeTruthy()
   })
 })

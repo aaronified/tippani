@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useBodyScrollLock, ANNOTATION_HEX, CloseButton, FieldIconButton, GhostButton, IconShare, IconShareImage, IconShareMarkdown, IconSharePlain, IconShareReddit, IconShareWhatsApp, InfoDot, MonoLabel, Select, Toggle, toast, usePersistedState, useIsMobileScreen, useEscape, useBackToClose, SCRIM, backdropClose } from "./ui.jsx";
+import { useBodyScrollLock, ANNOTATION_HEX, CloseButton, ChipSwitches, FieldIconButton, GhostButton, IconCopy, IconDownload, IconShareImage, IconShareMarkdown, IconSharePlain, IconShareReddit, IconShareWhatsApp, InfoDot, MonoLabel, Select, Toggle, toast, usePersistedState, useIsMobileScreen, useEscape, useBackToClose, SCRIM, backdropClose } from "./ui.jsx";
 import { buildModel, drawQuoteCard, ensureFonts, loadFaceImages, loadTileImage, readTheme, tileImage } from "./quoteImage.js";
 import { t } from "./i18n.js";
 import { DEFAULT_CREDIT_SEPS, splitCredits } from "./people.jsx";
@@ -808,10 +808,19 @@ export function renderShareHTML(text, fmt) {
 // whole render pipeline — theme, portrait, colour, fonts, redraw-on-event — belongs
 // to this component, and moving any of it up to satisfy a button's position would
 // be the tail wagging the dog.
+// Whether this browser can put a picture on the clipboard. The header shows its copy
+// glyph only where it can.
+function canCopyPicture() {
+  return (
+    typeof window !== "undefined" &&
+    typeof window.ClipboardItem !== "undefined" &&
+    !!navigator.clipboard?.write
+  );
+}
+
 function QuoteImagePanel({ share, selected, onShared, actionRef }) {
   const canvasRef = useRef(null);
   const mobile = useIsMobileScreen();
-  const [copied, setCopied] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   // The image skin is chosen independently of the app theme and persisted per
@@ -1022,22 +1031,19 @@ function QuoteImagePanel({ share, selected, onShared, actionRef }) {
   // Published for the header's share glyph. Assigned on every render so the
   // closure the header calls is always the current one (it captures `share`,
   // `selected`, the chosen skin and the live canvas).
-  if (actionRef) actionRef.current = download;
-
-  const canCopyImage =
-    typeof window !== "undefined" &&
-    typeof window.ClipboardItem !== "undefined" &&
-    !!navigator.clipboard?.write;
+  // Published for the header's two glyphs — copy and download. Assigned on every
+  // render so the closures the header calls are always the current ones (they
+  // capture `share`, `selected`, the chosen skin and the live canvas).
+  if (actionRef) actionRef.current = { download, copy: copyImage, busy };
 
   async function copyImage() {
     const canvas = canvasRef.current;
-    if (!canvas || !canCopyImage) return;
+    if (!canvas || !canCopyPicture()) return;
     setBusy(true);
     try {
       const blob = await new Promise((res) => canvas.toBlob(res, "image/png"));
       await navigator.clipboard.write([new window.ClipboardItem({ "image/png": blob })]);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1600);
+      toast(t("common.action.copy.done.label"));
       onShared?.();
     } catch {
       setErr(t("share.image.copy.unsupported.error"));
@@ -1048,27 +1054,34 @@ function QuoteImagePanel({ share, selected, onShared, actionRef }) {
 
   return (
     <div>
-      <div className="mb-2 flex flex-wrap items-center gap-2">
-        <MonoLabel>{t("share.image.theme.label")}</MonoLabel>
-        <Select
-          ariaLabel={t("share.image.theme.aria")}
-          value={imageTheme}
-          onChange={setImageTheme}
-          options={imageThemes()}
-        />
-        <InfoDot title={t("share.image.theme.info.title")} text={t("share.image.theme.info.body")} />
-      </div>
-      <div className="mb-2 flex flex-wrap items-center gap-2">
-        <MonoLabel>{t("share.image.material.label")}</MonoLabel>
-        <Select
-          ariaLabel={t("share.image.material.aria")}
-          value={imageMaterial}
-          onChange={setImageMaterial}
-          options={imageMaterials()}
-        />
-      </div>
+      {/* THE ON/OFF CHOICES ARE ONE ROW OF CHIPS, not a labelled two-state switch each.
+          Backdrop, Swap, Signature and Colour are independent yes/no answers, and a
+          segmented Off/On spent a whole line and a 60px switch on every one (the owner:
+          "they take too large a space"). A lit chip is the same bit in a fraction of the
+          room, and the set reads at a glance. Theme and Material choose among many, so
+          they stay dropdowns; Actor/Character is either-or, so it stays a pair. */}
+      <div className="mb-2 flex flex-wrap items-center gap-x-5 gap-y-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <MonoLabel>{t("share.image.theme.label")}</MonoLabel>
+          <Select
+            ariaLabel={t("share.image.theme.aria")}
+            value={imageTheme}
+            onChange={setImageTheme}
+            options={imageThemes()}
+          />
+          <InfoDot title={t("share.image.theme.info.title")} text={t("share.image.theme.info.body")} />
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <MonoLabel>{t("share.image.material.label")}</MonoLabel>
+          <Select
+            ariaLabel={t("share.image.material.aria")}
+            value={imageMaterial}
+            onChange={setImageMaterial}
+            options={imageMaterials()}
+          />
+        </div>
       {canFaceKind && (
-        <div className="mb-2 flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <MonoLabel>{t("share.image.facekind.label")}</MonoLabel>
           <Toggle
             ariaLabel={t("share.image.facekind.aria")}
@@ -1082,57 +1095,27 @@ function QuoteImagePanel({ share, selected, onShared, actionRef }) {
           <InfoDot title={t("share.image.facekind.info.title")} text={t("share.image.facekind.info.body")} />
         </div>
       )}
-      {canPortrait && (
-        <div className="mb-2 flex flex-wrap items-center gap-2">
-          <MonoLabel>{t("share.image.portrait.label")}</MonoLabel>
-          <Toggle
-            ariaLabel={t("share.image.portrait.aria")}
-            value={portrait ? "backdrop" : "chip"}
-            onChange={(v) => setPortrait(v === "backdrop")}
-            options={[["chip", t("share.image.portrait.chip.label")], ["backdrop", t("share.image.portrait.backdrop.label")]]}
-          />
-          <InfoDot title={t("share.image.portrait.info.title")} text={t("share.image.portrait.info.body")} />
-        </div>
-      )}
-      {/* WHENEVER THERE IS SOMEBODY TO SWAP, and not only on a backdrop. It was
-          gated on `portrait`, which is off by default — so a reader on the default
-          settings never saw the control at all, and the request it answers says
-          "chip". Both layouts honour it now (drawQuoteCard). */}
-      {canPortrait && (
-        <div className="mb-2 flex flex-wrap items-center gap-2">
-          <MonoLabel>{t("share.image.sides.label")}</MonoLabel>
-          <Toggle
-            ariaLabel={t("share.image.sides.aria")}
-            value={swap ? "swapped" : "as-credited"}
-            onChange={(v) => setSwap(v === "swapped")}
-            options={[["as-credited", t("share.image.sides.as-credited.label")], ["swapped", t("share.image.sides.swap.label")]]}
-          />
-          <InfoDot title={t("share.image.sides.info.title")} text={t("share.image.sides.info.body")} />
-        </div>
-      )}
-      {canSignature && (
-        <div className="mb-2 flex flex-wrap items-center gap-2">
-          <MonoLabel>{t("share.image.signature.label")}</MonoLabel>
-          <Toggle
-            ariaLabel={t("share.image.signature.aria")}
-            value={signatureOn ? "on" : "off"}
-            onChange={(v) => setSignatureOn(v === "on")}
-            options={[["off", t("common.toggle.off.label")], ["on", t("common.toggle.on.label")]]}
-          />
-          <InfoDot title={t("share.image.signature.info.title")} text={t("share.image.signature.info.body")} />
-        </div>
-      )}
-      {canColor && (
-        <div className="mb-2 flex flex-wrap items-center gap-2">
-          <MonoLabel>{t("common.mono.colour.label")}</MonoLabel>
-          <Toggle
-            ariaLabel={t("share.image.colour.aria")}
-            value={useColor ? "on" : "off"}
-            onChange={(v) => setUseColor(v === "on")}
-            options={[["off", t("common.toggle.off.label")], ["on", t("common.toggle.on.label")]]}
-          />
-          <InfoDot title={t("share.image.colour.info.title")} text={t("share.image.colour.info.body")} />
-        </div>
+      </div>
+      {(canPortrait || canSignature || canColor) && (
+        <ChipSwitches
+          className="mb-2"
+          ariaLabel={t("share.image.options.aria")}
+          onToggle={(key, on) => {
+            if (key === "backdrop") setPortrait(on);
+            else if (key === "swap") setSwap(on);
+            else if (key === "signature") setSignatureOn(on);
+            else if (key === "colour") setUseColor(on);
+          }}
+          options={[
+            canPortrait && { key: "backdrop", on: portrait, label: t("share.image.portrait.backdrop.label"), hint: t("share.image.portrait.info.body") },
+            // WHENEVER THERE IS SOMEBODY TO SWAP, and not only on a backdrop: gated on
+            // `portrait` it was never seen on the default settings. Both layouts
+            // honour it (drawQuoteCard).
+            canPortrait && { key: "swap", on: swap, label: t("share.image.sides.swap.label"), hint: t("share.image.sides.info.body") },
+            canSignature && { key: "signature", on: signatureOn, label: t("share.image.signature.info.title"), hint: t("share.image.signature.info.body") },
+            canColor && { key: "colour", on: useColor, label: t("share.image.colour.info.title"), hint: t("share.image.colour.info.body") },
+          ].filter(Boolean)}
+        />
       )}
       <MonoLabel className="mb-1.5 block">{t("share.preview.label")}</MonoLabel>
       <div className="share-image-preview">
@@ -1142,17 +1125,6 @@ function QuoteImagePanel({ share, selected, onShared, actionRef }) {
         <p className="microcopy mt-2" style={{ color: "var(--error)" }}>
           {err}
         </p>
-      )}
-      {/* No primary button here any more: sharing the picture is the share glyph in
-          the dialog's header, next to the close. Copying it to the clipboard is a
-          different act — it goes nowhere and needs somewhere to paste — so it stays
-          a worded button, where the one-off actions in this app live. */}
-      {canCopyImage && (
-        <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
-          <GhostButton onClick={copyImage} disabled={busy}>
-            {t(copied ? "common.action.copy.done.label" : "share.image.copy.label")}
-          </GhostButton>
-        </div>
       )}
     </div>
   );
@@ -1273,12 +1245,20 @@ export function ShareDialog({ share, seen, onClose }) {
         <div className="mb-4 flex items-start justify-between gap-3">
           <h2 className="display-title text-xl">{t("share.dialog.title")}</h2>
           <span className="flex items-center gap-1">
+            {isImage && canCopyPicture() && (
+              <FieldIconButton
+                icon={<IconCopy />}
+                ariaLabel={t("share.image.copy.label")}
+                onClick={() => shareImage.current?.copy()}
+                tooltip={t("share.image.copy.label")}
+              />
+            )}
             {isImage && (
               <FieldIconButton
-                icon={<IconShare />}
-                ariaLabel={t("share.image.share.aria")}
-                onClick={() => shareImage.current?.()}
-                tooltip={t("share.image.share.tip")}
+                icon={<IconDownload />}
+                ariaLabel={t("share.image.download.label")}
+                onClick={() => shareImage.current?.download()}
+                tooltip={t("share.image.download.tip")}
               />
             )}
             <CloseButton onClick={onClose} />
