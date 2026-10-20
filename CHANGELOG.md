@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.3.5] - 2026-10-20
+
+### Changed
+
+- **Every cross (✕) button is red.** Close, remove and clear buttons across the app now share
+  one red cross, so what discards or dismisses something reads the same everywhere.
+- **The share dialog's On/Off choices are one row of chips.** Backdrop, swap, signature and quote
+  colour were four switches; they are now a single row of chips. The worded Copy button under the
+  picture is gone. The header has a copy glyph, shown only where the browser can copy images, and
+  a download glyph in place of the share glyph, so a phone has a visible way to download or share
+  the picture.
+
+### Added
+
+- **A download glyph.** The app gains a download icon, used first in the share dialog's header.
+
 ## [3.3.4] - 2026-10-18
 
 ### Fixed
