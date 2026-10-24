@@ -771,7 +771,8 @@ schedule, and by hand (`workflow_dispatch`: `gh workflow run ci.yml`). Its jobs:
 
 | Job | What it runs |
 | --- | --- |
-| `go` | `go vet`, `gofmt -l .` (it fails when the list is not empty), the full Go suite — which includes the check that `web/dist` is not stale — and a smoke test that boots the server and health-checks it. |
+| `go` | `go vet`, `gofmt -l .` (it fails when the list is not empty), every Go package except `internal/httpapi` — which includes the check that `web/dist` is not stale — and a smoke test that boots the server and health-checks it. |
+| `go-httpapi` | `internal/httpapi`, in four shards on four runners at once. The test list comes from `go test -list`, dealt round-robin, so a new test needs no list to update; each shard checks that every test it was dealt ran by name, because a `-run` pattern that matches nothing exits 0 and reads as green. |
 | `race` | The five locking tests, and three #40 tests that hold the connection pool full, under `-race`, on every push to `main`, every pull request and every run by hand. Asserts each named test actually ran. |
 | `race-nightly` | Every package but `internal/httpapi` under `-race`, on the schedule and on a run by hand, one job per package so a race or a timeout in one does not hide another. |
 | `race-nightly-httpapi` | `internal/httpapi` under `-race`, on the schedule and on a run by hand, split ten ways by test name because the package does not fit an hour raced. Each shard lists the tests from the race binary and fails unless every test it was dealt ran. |

@@ -43,7 +43,9 @@ jobs:
       # and running every migration, against about 60 ms for one bcrypt hash. So
       # the bcrypt above is not where the time goes; a fresh migrated database per
       # test is, and sharing one migrated template is the speed-up #53 is for.
-      - run: go test -timeout 30m ./...
+      # EVERY PACKAGE BUT internal/httpapi. That one is the slow one, and it is sharded in the job below so
+      # the push waits on a quarter of it and not on all of it.
+      - run: go test -timeout 30m $(go list ./... | grep -v '/internal/httpapi$')
 
       # Smoke-test the `healthcheck` subcommand against a real running server
       # (the container HEALTHCHECK depends on it). Runs on the CI runner.
@@ -65,7 +67,46 @@ jobs:
           fi
           echo "healthcheck smoke test passed"
 
-  # -race, and why it is its own job rather than a flag on the one above.
+  # internal/httpapi, SHARDED, because it is most of the wall-clock time of the job above: a fresh migrated
+  # database per test costs 0.7-0.9 s and there are thousands of tests (817-1037 s in one job on the
+  # runners). Public repositories get free 4-vCPU runners and no free larger ones, so the way to more
+  # CPUs is more jobs: four shards run on four runners at once.
+  #
+  # THE SAME DEAL AS THE NIGHTLY SWEEP BELOW: the list comes from `go test -list`, dealt round-robin, so a
+  # test added tomorrow lands in a shard with no list to update, and every shard checks that every test
+  # it was dealt actually ran by name, because a -run pattern that matches nothing exits 0 and reads
+  # as green. THE PACKAGE IS NOT A MATRIX AXIS, so that the matrix's size is the shard count and nothing else.
+  go-httpapi:
+    runs-on: ubuntu-latest
+    env:
+      PKG: ./internal/httpapi
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+      - name: shard ${{ matrix.shard }} of ${{ strategy.job-total }}
+        env:
+          SHARD: ${{ matrix.shard }}
+          OF: ${{ strategy.job-total }}
+        run: |
+          set -euo pipefail
+          go test -list '.*' "$PKG" | grep -E '^(Test|Example|Fuzz)' > /tmp/all.txt
+          awk -v k="$SHARD" -v n="$OF" '(NR - 1) % n == k - 1' /tmp/all.txt > /tmp/mine.txt
+          [ -s /tmp/mine.txt ] || { echo "::error::shard $SHARD of $OF has no tests"; exit 1; }
+          echo "shard $SHARD of $OF: $(wc -l < /tmp/mine.txt) of $(wc -l < /tmp/all.txt) tests"
+          go test -count=1 -v -timeout 30m -run "^($(paste -sd'|' /tmp/mine.txt))\$" "$PKG" 2>&1 | tee /tmp/run.log
+          fail=0
+          while read -r t; do
+            grep -qE -- "^--- (PASS|SKIP): $t " /tmp/run.log || { echo "::error::$t did not run"; fail=1; }
+          done < /tmp/mine.txt
+          exit $fail
+
+  # -race, and why it is its own job rather than a flag on the ones above.
   #
   # Two files exist for the sole purpose of catching a locking regression —
   # conflict_pool_test.go and write_lock_test.go — and until 1.7.4 neither had
