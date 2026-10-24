@@ -618,6 +618,11 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /fonts", s.requireAuth(s.handleUploadFont))
 	mux.Handle("GET /fonts/{id}/file", s.requireAuth(s.handleFontFile))
 	mux.Handle("DELETE /fonts/{id}", s.requireAuth(s.handleDeleteFont))
+	// The file a work's quotes came from (sources.go). There is deliberately no
+	// GET that returns the bytes: a source is extracted from, never served.
+	mux.Handle("GET /sources", s.requireAuth(s.handleGetSource))
+	mux.Handle("PUT /sources", s.requireAuth(s.handlePutSource))
+	mux.Handle("DELETE /sources/{id}", s.requireAuth(s.handleDeleteSource))
 	mux.Handle("POST /stickers", s.requireAuth(s.handleUploadSticker))
 	mux.Handle("PUT /stickers/{id}", s.requireAuth(s.handleUpdateSticker))
 	mux.Handle("DELETE /stickers/{id}", s.requireAuth(s.handleDeleteSticker))

@@ -254,6 +254,9 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 	// away: the cascade frees rows, not on-disk images. They are PARKED rather than
 	// removed now, because the account goes to the bin like everything else.
 	covers := s.userCoverFiles(id)
+	// Source files are not parked: the bin does not carry them (sources.go), so
+	// the row cascade frees the rows and the bytes are removed after the commit.
+	sources := s.userSourceFiles(id)
 	// THEIR PEOPLE'S SIGNATURES TOO, parked like the covers except where another reader
 	// holds the same file (parkSignature). Listed in the entry either way, so a restore
 	// finds them and a purge knows to release them.
@@ -322,6 +325,7 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.parkFiles(covers)
+	s.removeSourceFiles(sources)
 	for _, sig := range signatures {
 		s.parkSignature(sig)
 	}

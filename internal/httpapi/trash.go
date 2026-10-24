@@ -666,10 +666,19 @@ func (s *Server) binDelete(w http.ResponseWriter, r *http.Request, kind, notFoun
 			return
 		}
 	}
+	// A work's source file goes with it, row and bytes. The bin does not carry one.
+	var sourceFiles []string
+	if subject := sourceSubjectForKind(kind); subject != "" {
+		if sourceFiles, err = dropSourcesTx(tx, uid, subject, []int64{id}); err != nil {
+			internalError(w, r, "delete "+kind+": drop its source", err)
+			return
+		}
+	}
 	if err := tx.Commit(); err != nil {
 		internalError(w, r, "delete "+kind+": commit", err)
 		return
 	}
+	s.removeSourceFiles(sourceFiles)
 	s.parkFiles(got.Files)
 	if after != nil {
 		after()
@@ -1003,10 +1012,14 @@ var accountTables = []string{
 //	               put back rows that are still there, colliding on their own
 //	               ids. (Only `jobs` has a user_id; the other two are listed so
 //	               the reason sits with it.)
+//
+//	work_sources   the file a work's quotes came from. The bytes are removed when
+//	               the account is (sources.go) and the bin does not carry them,
+//	               so a restored row would name a file that is gone.
 var accountSkipTables = map[string]bool{
 	"sessions": true, "device_tokens": true, "quiz_sessions": true,
 	"widget_keys": true, "notify_settings": true,
-	"jobs": true, "job_logs": true, "system_logs": true,
+	"jobs": true, "job_logs": true, "system_logs": true, "work_sources": true,
 }
 
 // binAccount snapshots an entire account and its library into ONE bin entry,

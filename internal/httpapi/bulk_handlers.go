@@ -1009,10 +1009,19 @@ func (s *Server) handleBulkDelete(w http.ResponseWriter, r *http.Request, kind s
 		internalError(w, r, "bulk delete: bin it first", err)
 		return
 	}
+	// The same rule as a single delete: a work's source file goes with it.
+	var sourceFiles []string
+	if subject := sourceSubjectForKind(kind); subject != "" {
+		if sourceFiles, err = dropSourcesTx(tx, uid, subject, owned); err != nil {
+			internalError(w, r, "bulk delete: drop sources", err)
+			return
+		}
+	}
 	if err := tx.Commit(); err != nil {
 		internalError(w, r, "bulk delete: commit", err)
 		return
 	}
+	s.removeSourceFiles(sourceFiles)
 	writeJSON(w, http.StatusOK, map[string]any{"deleted": done, "trash_id": trashID})
 }
 
