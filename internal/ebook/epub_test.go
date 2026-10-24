@@ -169,3 +169,37 @@ func TestAnEntryThatInflatesPastTheBoundIsRefused(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 }
+
+func TestMetaReadsTitleCreatorAndIdentifiersFromThePackageAlone(t *testing.T) {
+	// The real novel's metadata shape: a long subtitle'd title, a creator, an ISBN and an
+	// ASIN each labelled differently, and a calibre uuid that is neither.
+	pkg := `<?xml version="1.0"?>
+<package xmlns="http://www.idpf.org/2007/opf" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf" version="2.0">
+ <metadata>
+  <dc:title>Dust of Dreams: The Malazan Book of the Fallen 9</dc:title>
+  <dc:creator opf:role="aut">Steven Erikson</dc:creator>
+  <dc:identifier opf:scheme="ISBN">9781409091530</dc:identifier>
+  <dc:identifier opf:scheme="MOBI-ASIN">B003QXMYUC</dc:identifier>
+  <dc:identifier opf:scheme="calibre">3f2b9c1e-0000-4000-8000-123456789abc</dc:identifier>
+  <dc:identifier>urn:isbn:978-1-4090-9153-0</dc:identifier>
+ </metadata>
+ <manifest/><spine/>
+</package>`
+	b := epubOf(t, entry{"META-INF/container.xml", container}, entry{"OEBPS/content.opf", pkg})
+	m, err := ReadMeta(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.Title != "Dust of Dreams: The Malazan Book of the Fallen 9" || m.Creator != "Steven Erikson" {
+		t.Fatalf("%+v", m)
+	}
+	if len(m.ISBNs) != 2 || m.ISBNs[0] != "9781409091530" || m.ISBNs[1] != "9781409091530" {
+		t.Fatalf("ISBNs: %+v", m.ISBNs)
+	}
+	if len(m.ASINs) != 1 || m.ASINs[0] != "B003QXMYUC" {
+		t.Fatalf("ASINs: %+v", m.ASINs)
+	}
+	if _, err := ReadMeta([]byte("not a zip")); !errors.Is(err, ErrNotEPUB) {
+		t.Fatalf("err = %v", err)
+	}
+}
