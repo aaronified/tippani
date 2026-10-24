@@ -1,0 +1,13 @@
+# Each entry says why it is accepted. The statement is published in the release notes under
+# "Known vulnerabilities", so write it for a reader of the release page. Review the list when a
+# dependency is bumped; an entry with expired_at stops applying on that date.
+vulnerabilities:
+  - id: CVE-2023-54404
+    paths:
+      - scripts/screenshots/package-lock.json
+      - scripts/perf/package-lock.json
+    statement: >-
+      zod 3.25.76, denial of service via unbounded array validation. It arrives through puppeteer-core and
+      chromium-bidi in the screenshot and performance tooling, which is developer tooling that never ships in the
+      binary or the image and validates nothing a reader sends. The fix is zod 4, which chromium-bidi does not
+      accept yet.

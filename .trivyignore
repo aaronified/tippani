@@ -1,7 +1,0 @@
-# Each entry says why it is safe to ignore. Review the list when a dependency is bumped.
-
-# zod 3.25.76: denial of service via unbounded array validation. It arrives through puppeteer-core ->
-# chromium-bidi in scripts/screenshots and scripts/perf, which are developer tooling that never ships
-# in the binary or the image and validates nothing a reader sends. The fix is zod 4, which chromium-bidi
-# does not accept yet.
-CVE-2023-54404

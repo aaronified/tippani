@@ -18,6 +18,11 @@ GitHub Release with that version's changelog section as its notes, and
 [`docker-publish.yml`](https://github.com/aaronified/tippani/blob/main/.github/workflows/docker-publish.yml) publishes the multi-arch
 image to GHCR under the version and the moving series tags. The version the binary reports comes from the tag.
 
+Pushing the tag also scans the repository and the built image with Trivy. The result is a **Known vulnerabilities** section at the bottom
+of the Release notes (open findings, and accepted ones with the statement from `.trivyignore.yaml`), with the scan reports and an SBOM
+attached. It never blocks a release and it is not in `CHANGELOG.md`: that file is hand-written and shown in the app. Pull requests and a daily
+run are the gate (`security.yml`).
+
 ## Choosing the version
 
 Semantic versioning, read from the actual diff and not from the commit subjects: a new capability or a user-visible change is a minor,

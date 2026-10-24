@@ -53,6 +53,66 @@ jobs:
             echo "See CHANGELOG.md and the commit history for details." > notes.md
           fi
 
+      # THE VULNERABILITY SCAN IS PART OF THE RELEASE PAGE, NOT A GATE ON IT. Pull requests and a daily run
+      # (security.yml) are the gate; this records what was known at the moment of release, with the reason
+      # for each accepted finding (.trivyignore.yaml), as a section at the bottom of the notes. It is not in
+      # CHANGELOG.md: that file is hand-written, shown in the app, and would pick up scanner output that
+      # changes with every database update. Every scan step is continue-on-error and the section says so
+      # when a report is missing, so a failed scan never blocks or silently clears a release.
+      - name: Trivy, repository
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@v0.36.0
+        env:
+          TRIVY_SHOW_SUPPRESSED: "true"
+        with:
+          version: latest
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          severity: HIGH,CRITICAL
+          format: json
+          output: trivy-fs.json
+          exit-code: "0"
+          skip-dirs: .claude,node_modules
+          trivyignores: .trivyignore.yaml
+
+      - name: SBOM
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          version: latest
+          scan-type: fs
+          scan-ref: .
+          format: cyclonedx
+          output: sbom.cdx.json
+          skip-dirs: .claude,node_modules
+
+      - name: Build the image for scanning
+        id: image
+        continue-on-error: true
+        run: docker build -t tippani:release .
+
+      - name: Trivy, image
+        if: steps.image.outcome == 'success'
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@v0.36.0
+        env:
+          TRIVY_SHOW_SUPPRESSED: "true"
+        with:
+          version: latest
+          scan-type: image
+          image-ref: tippani:release
+          severity: HIGH,CRITICAL
+          format: json
+          output: trivy-image.json
+          exit-code: "0"
+          trivyignores: .trivyignore.yaml
+
+      - name: Append the known vulnerabilities to the notes
+        run: |
+          printf '\n' >> notes.md
+          node scripts/trivy-notes.mjs trivy-fs.json trivy-image.json >> notes.md
+
       - name: Create or update the Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -66,3 +126,12 @@ jobs:
           else
             gh release create "$tag" --title "$tag" --notes-file notes.md --verify-tag
           fi
+
+      - name: Attach the scan reports and the SBOM
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag='${{ steps.tag.outputs.tag }}'
+          for f in trivy-fs.json trivy-image.json sbom.cdx.json; do
+            [ -s "$f" ] && gh release upload "$tag" "$f" --clobber || echo "no $f to attach"
+          done

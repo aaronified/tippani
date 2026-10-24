@@ -8,7 +8,7 @@ name: security
 # What it scans: go.mod and the three package-lock.json files (vulnerabilities), every tracked file
 # (secrets), the Dockerfile and compose file (misconfiguration), and then the image itself, so the
 # distroless base is covered too. Trivy itself runs at its latest release (the action would otherwise pin an
-# older one) and downloads a fresh vulnerability database on every run. What it ignores is in .trivyignore, each entry with its reason.
+# older one) and downloads a fresh vulnerability database on every run. What it ignores is in .trivyignore.yaml, each entry with its reason.
 
 on:
   pull_request:
@@ -35,7 +35,7 @@ jobs:
           ignore-unfixed: true
           exit-code: "1"
           skip-dirs: .claude,node_modules
-          trivyignores: .trivyignore
+          trivyignores: .trivyignore.yaml
 
   image:
     runs-on: ubuntu-latest
@@ -52,4 +52,4 @@ jobs:
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           exit-code: "1"
-          trivyignores: .trivyignore
+          trivyignores: .trivyignore.yaml

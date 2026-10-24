@@ -22,4 +22,4 @@ Only the latest release is supported.
 
 [Trivy](https://trivy.dev) scans the repository (Go and npm dependencies, committed secrets, the Dockerfile) and the built image on
 every pull request and daily, and fails the build on a fixed HIGH or CRITICAL finding (`.github/workflows/security.yml`). Anything it is
-told to ignore is in `.trivyignore` with the reason.
+told to ignore is in `.trivyignore.yaml` with the reason. Each release also records what was known at that moment: the release page ends with a **Known vulnerabilities** section, and the scan reports and an SBOM are attached to it. The scan never blocks a release.
