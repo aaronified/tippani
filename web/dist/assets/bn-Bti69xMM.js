@@ -7622,4 +7622,27 @@ context.bound.before.paragraph = এখান থেকেই অধ্যায
 context.bound.after.paragraph = এখানেই অধ্যায় শেষ।
 context.bound.before.cue = এর আগে লম্বা নীরবতা।
 context.bound.after.cue = এর পরে লম্বা নীরবতা।
+# Checks: times a work's subtitle proposes for its film lines. Nothing is written until you press.
+locators.title = সাবটাইটেল থেকে সময়
+locators.counts = {exact}টি হুবহু · {review}টি দেখার মতো
+locators.info.title = সাবটাইটেল থেকে সময়
+locators.info.body = ফিল্মের সাবটাইটেল ফাইল জানে কোন লাইন কখন বলা হয়। যে লাইনের সময় নেই বা অন্য আছে, তার জন্য এখানে সেই প্রস্তাব। আপনি মেনে না নেওয়া পর্যন্ত কিছু বদলায় না, আর যে প্রস্তাব বাতিল করেন তা বাতিলই থাকে।
+locators.exact.title = হুবহু মিল
+locators.exact.note = একবারই, কথায় কথায় মিলেছে। একসঙ্গে মেনে নিলে ক্ষতি নেই।
+locators.review.title = দেখে নিন
+locators.review.note = প্রায় মিল: ফাইলের কথা আপনার কথা থেকে একটু আলাদা।
+locators.accept.all = সব {n}টি মানুন
+locators.accept.aria = এই লাইনের জন্য {time} সময়টি নিন
+locators.accept.tip = এই সময়টি নিন
+locators.ignore.aria = এই প্রস্তাব বাদ দিন
+locators.ignore.tip = এই প্রস্তাব বাদ দিন
+locators.now = এখন
+locators.none = সময় নেই
+locators.file.says = ফাইল বলছে
+locators.applied.one = {n}টি সময় বসানো হয়েছে
+locators.applied.other = {n}টি সময় বসানো হয়েছে
+locators.stale.one = {n}টি আপনার দেখার পরে বদলে গিয়েছিল, তাই ছোঁয়া হয়নি
+locators.stale.other = {n}টি আপনার দেখার পরে বদলে গিয়েছিল, তাই ছোঁয়া হয়নি
+locators.skipped.one = {n}টি অন্য দলের, তাই বাদ গেছে
+locators.skipped.other = {n}টি অন্য দলের, তাই বাদ গেছে
 `;export{e as default};
