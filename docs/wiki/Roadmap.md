@@ -10,7 +10,7 @@ into an ADR and its page is deleted.
 
 ## Built
 
-Up to 3.4.0, see the changelog. In brief:
+Up to 3.4.1, see the changelog. In brief:
 
 - A self-hosted home for book highlights, film and show dialogue, and quotes from anywhere else, in one static Go binary with
   the app embedded. Import from Kindle, Readest, Bookcision, Hardcover, Goodreads and IMDb; export and round-trip as Markdown.
@@ -21,6 +21,8 @@ Up to 3.4.0, see the changelog. In brief:
 - Jobs and logs on the server: fetches, imports and backups run as queued jobs that survive closing the tab.
 - Backup, restore and a bin that can take a delete back; eight material sets, per-surface materials, type dials and a
   Bengali interface.
+- An author with a sparse Open Library record gets a portrait and a Wikipedia link through Wikidata, found via one of their
+  books ([#7](https://github.com/aaronified/tippani/issues/7), closed; [ADR-0154](ADR-0154-Wikidata-Was-Dropped-As-A-Metadata-Source-Then-Re-Admitted-For.md)).
 
 ## Built in 3.4.0
 
@@ -50,6 +52,11 @@ The files a work's quotes came from, which the app used to refuse to hold:
   ([ADR-0911](ADR-0911-No-Shadow-On-Text.md)). The documentation moved into the wiki
   ([ADR-0912](ADR-0912-Documentation-Lives-In-The-Wiki.md)), and the frontend test suite was cut to the tests that name behaviour
   ([ADR-0913](ADR-0913-A-Test-Names-Behaviour-Or-Is-Lint.md)).
+
+## Built in 3.4.1
+
+- One press of Scan walks a whole library folder as a resumable job, in slices that do not block other jobs, with progress,
+  findings and seen files kept in the database. See [ADR-0917](ADR-0917-A-Library-Scan-Is-One-Press-And-A-Job.md).
 
 ## Known bugs
 
@@ -357,14 +364,6 @@ Everything personal stays on Profile — your own API keys, notifications and si
 Drag entries into order, add your own section headings, or group by work, person or character. Removed entries stay removed, and a cover, epigraph and dedication open the book.
 
 A continuous reading mode, better printing, and a PDF whose text you can still select.
-
-### Richer author portraits
-
-[#7](https://github.com/aaronified/tippani/issues/7) · sits beside §12 Choose your metadata sources
-
-Resolve the author's Wikidata entry via the *book*, so a photo appears even when the Open Library record is sparse. The disambiguation already picks the right person; this only widens coverage, which is why it is small enough to say yes to.
-
-It should land after §9, not before: once sources are mine to pick, looking a person up should query Wikidata and not waste a call on TMDB. Doing it in the other order would bake in the fan-out that section exists to end.
 
 ### Quotes read aloud, in the browser only
 
