@@ -204,7 +204,7 @@ Two of the kit's rules bind work in this repo even when no kit skill is running:
   per item, never in coverage** — the list is short because each line is short, not because
   it was pruned, and an ask made this session that is not on it is the defect this rule
   exists to prevent. The reasoning still has to happen and still has to be recorded; it
-  goes in the commit body and `docs/wiki/Design-decisions.md`, where the house style already puts it and
+  goes in the commit body and `docs/wiki/ADR-Index.md`, where the house style already puts it and
   where it is read at the line it is about rather than scrolled past before work starts.
 
   AND THE PANEL IS NOT THE FILE. `/root/.claude/plans/<name>.md` can be rewritten and the
@@ -449,30 +449,21 @@ the report which fixture the run used.
 
 ## The plan queue
 
-**A separate planning agent designs new features; its plans land in `docs/plans/`, one
-file per feature.** This session does not invent the queue and does not reorder it — work
-is fetched from there **one plan at a time** and finished before the next is started. The
-directory's own rule still holds (`docs/plans/README.md`): a plan describes something that
-is **not built yet**, and when it ships it is folded into `docs/wiki/Design-decisions.md` with a pass
-recording where the plan turned out to be wrong, and the file here is deleted.
+**A separate planning agent designs new features; its plans land in the wiki as `docs/wiki/Plan-<Title>.md`, one
+page per feature, listed in `Plans-Index.md`.** This session does not invent the queue and does not reorder it: work is
+fetched from there **one plan at a time** and finished before the next is started. A plan describes something that is **not built
+yet**; when it ships it is folded into an ADR (`docs/wiki/ADR-NNNN-*.md`, listed in `ADR-Index.md`) with a pass recording where
+the plan turned out to be wrong, and the plan page is deleted.
 
-**The roadmap has to keep up with that directory, and a sonnet subagent sweeps it.** The
-sweep is periodic and its job is narrow: read every file in `docs/plans/`, and make
-`docs/roadmap.html` say what is actually coming. Concretely —
+**Documentation lives in the wiki and nowhere else** (ADR-0912): the roadmap is `docs/wiki/Roadmap.md`, the UI glossary is
+generated into `docs/wiki/UI-Glossary.md` (`make glossary`), and decisions are ADR pages. There is no HTML documentation. The
+wiki is mirrored to GitHub by `wiki.yml`. A new decision is a new ADR page, numbered after the last, added to the index; a page
+is never renumbered.
 
-- a plan with no roadmap entry gets one, as an entry in `docs/data/features.json`'s
-  `manual[]` (hand-written, no issue number needed — the same shape `bugs.json` has always
-  had for a bug nobody filed);
-- an entry whose plan file is **gone** has shipped, so it takes a `shipped_in` and stops
-  rendering;
-- an entry whose plan has changed shape gets its prose corrected.
-
-Then `node scripts/roadmap-data.mjs` re-renders the page and `--check` proves it is in
-step. Nothing else in `docs/data/` is the sweep's to touch: `tracker.json` is generated
-from the issue tracker and `overrides` answers to issue numbers.
-
-**The sweep reports; it does not decide.** Adding a plan to the roadmap is publishing a
-promise on a public page, so a sweep that is unsure says so rather than inventing a card.
+**The roadmap has to keep up with the plans, and a sonnet subagent sweeps it.** Read `Plans-Index.md` and every plan page, and
+make `Roadmap.md` say what is actually coming: a plan with no roadmap line gets one, a line whose plan page is gone has shipped
+and is moved to what is built. **The sweep reports; it does not decide.** Adding a plan to the roadmap is publishing a promise, so
+a sweep that is unsure says so rather than inventing a line.
 
 ## Commands
 
@@ -491,8 +482,8 @@ npm run lint:rules                    # the source scanners, out of npm test on 
 npm run dev                           # Vite dev server, proxies /api -> 127.0.0.1:8080
 npm run build                         # -> ../dist, a COMMITTED artefact the binary embeds
 
-cd web/frontend && npm run glossary:check # docs/ui-glossary.html is generated — `make glossary`
-node scripts/roadmap-data.mjs --check     # docs/roadmap.html vs. docs/data/*.json
+cd web/frontend && npm run glossary:check # docs/wiki/UI-Glossary.md is generated — `make glossary`
+node scripts/wiki-check.mjs               # every wiki link resolves, every page is reachable
 node scripts/doc-map-check.mjs            # the wiki's Developing page maps the tree
 ```
 
@@ -546,7 +537,7 @@ running (`dockerd &` if not already up in this environment).
   `dist`, so a commit between two rebuilds is red there; every PUSHED head is not, and that
   is the line held.
 - Docs that go stale with a change and belong in the same PR: `CHANGELOG.md` (user-visible
-  changes), `docs/ui-glossary.html` (interface renames), `docs/wiki/How-this-was-written.md` (verification changes),
+  changes), `docs/wiki/UI-Glossary.md` (interface renames; regenerate with `make glossary`), `docs/wiki/How-this-was-written.md` (verification changes),
   `docs/wiki/Design-decisions.md` (design departures).
 
 ## Standing UI rules
@@ -660,7 +651,7 @@ old work, so a screen that breaks one is a bug and not a variation.
 - **A screen's glyphs are the app's own, never an emoji.** `NavIcon`, `Icon*` in
   `ui.jsx`, and nothing hand-picked beside them. An emoji is the platform's drawing: it
   changes with the reader's font, sits off the baseline every other glyph shares, and is
-  the one picture `docs/ui-glossary.html` cannot document. A lookalike next to the real
+  the one picture `docs/wiki/UI-Glossary.md` cannot document. A lookalike next to the real
   glyph is two pictures of one thing.
 - **A COUNT WEARS THE GLYPH OF WHAT IT COUNTS, AND WHERE IT SITS DECIDES WHETHER THE
   WORD STAYS.** The owner's, asked how far "use them everywhere" reached: *"Everywhere a

@@ -5,8 +5,7 @@ name: wiki
 # WHY A WORKFLOW AND NOT A PERSON. The documentation lives in docs/wiki/ because
 # that is where CI can hold it: internal/olog's TestCodesDocumented keeps
 # Troubleshooting.md in lockstep with codes.go, doc-map-check.mjs checks
-# Developing.md's file map against the tree, ai-counts recounts
-# How-this-was-written.md, and wiki-check.mjs proves every internal link resolves.
+# Developing.md's file map against the tree, and wiki-check.mjs proves every internal link resolves.
 # None of those can see the wiki — it is a separate git repository with no CI of its
 # own. So the repository stays the source and this job publishes it across, changing
 # only link targets (wiki-publish.mjs), which is the only arrangement where the

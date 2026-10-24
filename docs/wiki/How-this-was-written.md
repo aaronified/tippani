@@ -261,57 +261,23 @@ AI-written code fails differently from hand-written code. It compiles, it reads
 well, it is plausibly commented, and it can still be wrong — so plausibility is
 worth nothing here and only execution counts. What the repo actually runs:
 
-- **2,273 Go test functions and 5,169 frontend tests, across 952 test files** — the
-  Go half over real HTTP handlers against a real SQLite database, not mocks.
-  Counted, not estimated, and every number here has a command that reproduces it:
+- **About 2,270 Go test functions and 570 frontend tests**, the Go half over real HTTP handlers against a real SQLite database,
+  not mocks. The frontend suite was cut in 3.4.0 from 3,804 tests to the ones that name behaviour ([ADR-0913](ADR-0913-A-Test-Names-Behaviour-Or-Is-Lint.md),
+  [Testing](Testing.md)). Every number here has a command that reproduces it, and none is guarded: a count in a page like this one
+  is stale the moment it is written, so recount rather than trust it.
 
   ```bash
-  grep -rhoE '^func Test[A-Za-z0-9_]+' --include='*_test.go' . | wc -l   # Go functions
-  cd web/frontend && npx vitest run                                      # 5,137 of them
-  cd web/frontend && npm run journeys                                    # + 160 in the browser
-  find . -name '*_test.go' -not -path './node_modules/*' | wc -l         # 370 Go files
-  find ./web/frontend -path '*/node_modules' -prune -o -type f \
-       \( -name '*.test.*' -o -name '*.spec.*' -o -name '*.journey.*' \) \
-       -print | wc -l                                                    # 582 frontend
+  grep -rhoE '^func Test[A-Za-z0-9_]+' --include='*_test.go' internal cmd | wc -l   # Go functions
+  cd web/frontend && npm test                                                        # pure + dom: 570 tests, 296 files
+  cd web/frontend && npm run lint:rules                                              # the source scanners, 115 files
+  cd web/frontend && npm run journeys                                                # the browser tier, real server
   ```
 
-  **`npm test` NO LONGER RUNS ALL OF THEM, AND THAT IS THE POINT.** 5,137 is what
-  `npx vitest run` reports across the three vitest projects, and the browser tier is
-  not among them — it has its own config, because it needs a globalSetup that builds
-  the binary and seeds a library. `npm test` runs two projects — 4,233 tests over 369
-  files; `npm run lint:rules` runs the third, 938 assertions over 101 files; and
-  `npm run journeys` runs 160 tests over 112 files against a real server in a real
-  browser, which is the tier that would have caught the bug all this is named after.
-  Those 100 READ THE SOURCE TEXT and assert how it is
-  spelled: never truncate a name, spacing is a constant, no emoji glyphs, the
-  typescale. They are worth keeping and they were never tests, because the app can
-  be entirely broken and all 100 of them still pass — none of them runs it. A
-  suite let a feature ship 100% dead that way. CI runs `lint:rules` as its own step,
-  so a broken design rule still fails the build; it just stops being counted as
-  evidence that anything works.
-
-  THREE OF THE FOUR ARE NOW CHECKED RATHER THAN TRUSTED. This paragraph has said
-  "recount rather than trust it" for six recounts and gone stale after five of
-  them, twice inside the session that recounted it — most recently between the
-  commit that fixed the numbers and the commit two after it, which added cases.
-  A habit that fails that reliably is a guard's job: `test/rules/ai-counts.test.js`
-  counts the Go test functions, the Go test files and the frontend test files the
-  way the commands below do, and fails when this line disagrees. The frontend
-  TEST total is the one it cannot check — `it.each` expands at run time, so the
-  only honest count is the runner's — and it is the one to distrust here.
-  A number in a file like this one is stale the moment it is written, so recount
-  rather than trust it — these three had drifted from 645 / 1,293 / 180 before
-  anyone checked them at 1.12.0, from 725 / 1,581 / 203 before they were
-  recounted at 1.14.2, from 765 / 1,672 / 217 by 1.15.0, from 807 / 1,759 /
-  233 by 2.1.1, from 924 / 1,771 / 284 by 2.2.0, from 1,085 / 1,844 / 320
-  by 2.3.0, from 1,100 / 1,853 / 323 when they were recounted for 2.2.3, and most
-  recently from 1,153 / 1,977 / 338, from 1,336 / 2,218 / 394, from
-  1,357 / 2,223 / 398, from 1,360 / 2,245 / 401, from 1,380 / 2,358 / 418, from
-  1,391 / 2,366 / 419, from 1,466 / 2,772 / 471, from 1,493 / 3,041 / 520, from 1,493 / 3,071 / 521, from 1,493 / 3,083 / 522, from 1,493 / 3,111 / 523, from 1,493 / 3,324 / 533, from 1,494 / 3,350 / 535, from 1,494 / 3,416 / 540, from 1,494 / 3,426 / 541, from 1,494 / 3,431 / 542, from 1,494 / 3,434 / 543, from 1,494 / 3,435 / 543, from 1,494 / 3,436 / 543, from 1,494 / 3,439 / 543, from 1,494 / 3,448 / 543, from 1,494 / 3,449 / 543, from 1,494 / 3,450 / 543, from 1,494 / 3,562 / 551, from 1,508 / 3,590 / 555, from 1,508 / 3,595 / 556, from 1,508 / 3,610 / 558, from 1,508 / 3,616 / 559, from 1,508 / 3,624 / 561, from 1,509 / 3,626 / 562, from 1,509 / 3,631 / 563, from 1,512 / 3,633 / 563, from 1,513 / 3,642 / 564, from 1,514 / 3,645 / 565, from 1,522 / 3,645 / 565, from 1,524 / 3,646 / 565, from 1,533 / 3,648 / 566, from 1,538 / 3,652 / 567, from 1,542 / 3,652 / 567, from 1,685 / 4,102 / 633, from 1,685 / 4,135 / 636, from 1,687 / 4,137 / 636, from 1,690 / 4,142 / 636, from 1,690 / 4,151 / 636, from 1,692 / 4,154 / 636, from 1,692 / 4,156 / 636, from 1,692 / 4,157 / 636, from 1,692 / 4,158 / 636, from 1,703 / 4,188 / 638, from 1,703 / 4,191 / 638, from 1,705 / 4,198 / 638, from 1,707 / 4,201 / 638, from 1,708 / 4,202 / 638, from 1,708 / 4,209 / 639, from 1,708 / 4,219 / 640, from 1,708 / 4,234 / 641, from 1,708 / 4,245 / 642, from 1,708 / 4,248 / 643, from 1,708 / 4,257 / 644, from 1,708 / 4,265 / 644, from 1,708 / 4,272 / 645, from 1,708 / 4,281 / 646, from 1,710 / 4,292 / 646, from 1,713 / 4,296 / 647, from 1,713 / 4,299 / 647, from 1,713 / 4,312 / 648, from 1,731 / 4,430 / 660, from 1,738 / 4,430 / 664, from 1,738 / 4,435 / 665, from
-  1,738 / 4,455 / 681, from 1,738 / 4,470 / 695, from 1,804 / 4,784 / 792, from 1,804 / 4,787 / 794, from 1,805 / 4,787 / 796, from 1,806 / 4,789 / 796, from 1,806 / 4,793 / 797, from 1,806 / 4,794 / 797, from 1,815 / 4,794 / 799, from 1,816 / 4,794 / 800, from 1,818 / 4,794 / 800, from 1,818 / 4,797 / 801, from 1,819 / 4,797 / 801, from 1,819 / 4,801 / 802, from 1,819 / 4,802 / 802, from 1,822 / 4,827 / 810, from 1,828 / 4,828 / 811, from 1,828 / 4,834 / 812, from 1,828 / 4,898 / 817, from 1,958 / 4,834 / 839, from 1,893 / 4,954 / 835, from 1,998 / 4,954 / 856, from 2,000 / 4,957 / 863, from 2,010 / 4,968 / 866, from 2,009 / 4,961 / 864, from 2,013 / 4,972 / 868, from 2,006 / 4,974 / 866, from 2,023 / 4,976 / 869, from 2,029 / 4,998 / 872, from 2,031 / 4,998 / 872, from 2,036 / 5,004 / 875, from 2,037 / 5,006 / 875, from 2,039 / 5,006 / 875, from 2,040 / 5,006 / 875, and from 2,040 / 5,006 / 877, from 2,051 / 5,016 / 887, from 2,051 / 5,016 / 888, from 2,051 / 5,016 / 889, from 2,052 / 5,015 / 889, from 2,055 / 5,015 / 890, from 2,055 / 5,015 / 891, from 2,055 / 5,018 / 892 before the
-  latest recount — which is why each one now sits beside the command that produces it.
-  The last of those drifts is worth naming because it was one work session: a number
-  recounted honestly at the start of a stretch is stale by the end of it.
+  **`npm test` does not run all of them, and that is the point.** The browser tier has its own config because it builds the
+  binary and seeds a library. `lint:rules` runs the files under `test/rules`, which read the source text and assert how it is
+  spelled: never truncate a name, spacing is a constant, no emoji glyphs, no text shadow. They are worth keeping and they were
+  never tests, because the app can be entirely broken and all of them still pass. CI runs `lint:rules` as its own step, so a
+  broken design rule still fails the build; it just is not counted as evidence that anything works.
   The 2.2.4, 2.2.5 and 2.2.6 passes added forty-four cases between them, every one
   for a defect a release review found rather than for a feature — and six of those
   defects were introduced by the pass before. That is the number worth reading
@@ -510,7 +476,7 @@ worth nothing here and only execution counts. What the repo actually runs:
   ones that did not so easy to miss: the habit existed, it was just not enforced. Measured
   by disabling the shared floor and running the suite, **seven guards stay green over an
   empty tree**: `confirm-finality`, `nested-dismiss`, `person-router`, `infodot-copy`,
-  `one-stand-in`, `pack-citations` and `typescale`. (An earlier count of four here was
+  `one-stand-in` and `typescale`. (An earlier count of four here was
   taken before the conversions and never re-measured; this one is from the run.) That is
   what the floor in `src-files.js` is for — none of the seven can be reached now without it
   throwing first. Two were caught this way — by a rater, not by a run — and the second was
