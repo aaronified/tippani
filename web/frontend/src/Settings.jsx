@@ -129,7 +129,7 @@ import { jobWaitingText, queueNotice, readJobsSummary, useKindJob } from './jobs
 // so it works whatever the Pages subpath is, and that path climbs one level:
 // the demo is published at /demo/ and the docs sit at the site root beside the
 // landing page.
-const DOCS_BASE = DEMO ? '../' : 'https://aaronified.github.io/tippani/'
+const WIKI_BASE = 'https://github.com/aaronified/tippani/wiki/'
 
 // useColumnCount tracks how many masonry columns fit: 1 (mobile) / 2 / 3 (wide).
 function useColumnCount() {
@@ -3110,7 +3110,7 @@ export function UpdatesCard({ user, update, onUpdateInfo, asking = false, onAski
         <p className="microcopy" style={{ fontSize: 'var(--type-ui-13)' }}>
           {tNodes('settings.updates.roadmap.prose', {
             roadmap: (
-              <a key="roadmap" className="tp-link" href={`${DOCS_BASE}roadmap.html`} target="_blank" rel="noreferrer">
+              <a key="roadmap" className="tp-link" href={`${WIKI_BASE}Roadmap`} target="_blank" rel="noreferrer">
                 {t('settings.updates.roadmap.link.label')}
               </a>
             ),

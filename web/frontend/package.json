@@ -9,8 +9,8 @@
     "build:demo": "vite build --base=./ --outDir ../../_site/demo",
     "test": "vitest run --project pure --project dom",
     "test:watch": "vitest",
-    "glossary": "node scripts/glossary-build.mjs",
-    "glossary:check": "node scripts/glossary-build.mjs --check",
+    "glossary": "node scripts/glossary-md.mjs",
+    "glossary:check": "node scripts/glossary-md.mjs --check",
     "journeys": "vitest run --config vitest.journeys.config.js",
     "lint:rules": "vitest run --project rules"
   },

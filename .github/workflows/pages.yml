@@ -7,9 +7,7 @@ name: pages
 # and re-date every <lastmod> the sitemap step writes. The paths below are that
 # list, so a new input is added to them. Two dispatches run it besides: by hand,
 # to re-run a deploy that went red or was cancelled when the push that fixes it
-# touches none of them; and from roadmap-bugs.yml, when its bot commit moved the
-# roadmap page, because a push made with GITHUB_TOKEN starts no workflow even
-# when it does touch them.
+# touches none of them.
 # Pages is turned on once by hand, in Settings → Pages → Source: "GitHub
 # Actions"; the configure-pages step says why this job cannot do it.
 on:
@@ -18,12 +16,6 @@ on:
     paths:
       - "web/frontend/**"
       - "docs/landing.html"
-      - "docs/roadmap.html"
-      # The glossary step also copies files out of web/dist/, which is not listed.
-      # Their names are content hashes, so a changed asset renames itself and
-      # rewrites docs/ui-glossary.html (the entry below), and the mark is built
-      # from web/frontend/public/, which is listed.
-      - "docs/ui-glossary.html"
       - "docs/img/**"
       - ".github/workflows/pages.yml"
       # The deploy's own gate. A fix to it that does not re-run the deploy leaves
@@ -41,10 +33,6 @@ on:
       # without this list learning its name. The glob above stays, because the
       # manifest only moves in a push that includes the rebuild.
       - "web/dist-inputs.json"
-  # roadmap-bugs.yml dispatches this when its own commit moved docs/roadmap.html.
-  # That push is made with GITHUB_TOKEN, which starts no workflow, so the path
-  # above never fires for it. Removing this trigger or renaming this file breaks
-  # that job.
   workflow_dispatch:
 
 permissions:
@@ -89,21 +77,6 @@ jobs:
           set -euo pipefail
           mkdir -p _site/img
           cp docs/landing.html _site/index.html
-          cp docs/roadmap.html docs/ui-glossary.html _site/
-          # THE GLOSSARY POINTS INTO THE REPO. It is generated to be opened from
-          # docs/, so its fonts, its material textures and its mark are
-          # ../web/dist/…, and from the site root that is outside the site: every
-          # one of them was a 404 on github.io. Copy exactly the files it names,
-          # at the same paths under _site, and drop the "../".
-          # The class stops where site-links.mjs's CSS_URL does, and also at ? and #
-          # and whitespace, none of which is part of a file name here; change one and
-          # change the other.
-          { grep -oE "\.\./web/dist/[^\"')&?#[:space:]]+" _site/ui-glossary.html || true; } | sort -u |
-            while read -r ref; do
-              mkdir -p "_site/$(dirname "${ref#../}")"
-              cp "${ref#../}" "_site/${ref#../}"
-            done
-          sed -i 's#\.\./web/dist/#web/dist/#g' _site/ui-glossary.html
           cp docs/img/*.jpg _site/img/
           # The social card. og:image must be absolute and must resolve from the
           # Pages origin — the README's screenshots live on raw.githubusercontent,
@@ -129,7 +102,7 @@ jobs:
           {
             echo '<?xml version="1.0" encoding="UTF-8"?>'
             echo '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
-            for path in "/" "/roadmap.html" "/ui-glossary.html" "/demo/"; do
+            for path in "/" "/demo/"; do
               echo "  <url><loc>${base}${path}</loc><lastmod>${today}</lastmod></url>"
             done
             echo '</urlset>'
@@ -158,8 +131,7 @@ jobs:
       # pieces agree. Every failure mode is silent: a copy step that stops
       # running, a screenshot renamed on one side of the move, a relative path
       # written for the old layout. Moving the demo to /demo/ makes the last one
-      # live — `href="roadmap.html"` from inside the demo used to be correct and
-      # now points at /demo/roadmap.html.
+      # live.
       - name: Every local link on the site resolves
         run: node scripts/site-links.mjs _site
 

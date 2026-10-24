@@ -1,0 +1,25 @@
+# ADR-0319: The anthology theme worked for two releases and nothing could ask for it
+
+Source of truth: this wiki page.
+
+- **Area:** [§8 The Review Loop](ADR-Index.md#area-8)
+- **Status:** Accepted
+- **Version:** 2.1.2
+
+**Decided.** The review engine has parsed `?anthology=` since migration 0043: it is the sixth theme, the first that names a *row* rather than a value, and the first whose `clause()` is a join — `x.id IN (SELECT e.item_id FROM anthology_entries e WHERE e.anthology_id = ? AND e.kind = ?)` — excluding no kind, so a mixed anthology of book highlights and film lines practises as one deck, and `handlePractice` refuses somebody else's anthology with a 404 before the clause is ever built. What shipped in 2.1.2 is the two halves that were missing: `anthology` in the key list `themeQuery` loops over, and a **Practise** button on the anthology page.
+
+**Why this is an entry about reachability rather than about a theme.** Both halves were absent and either one alone was enough to sink it. `themeQuery` copied `['book', 'movie', 'tag', 'color', 'person']` out of the theme object, so even a caller that set `anthology` had the parameter silently dropped on the way out; and no screen set it, because no screen had a control. The handler was correct the whole time and the Go tests passed the whole time — they build their own query strings and therefore never touch `themeQuery` — and the roadmap and the plan document both counted the theme as built, because the backend was. **A feature the reader cannot reach is not shipped**, and the specific shape of this failure is that no test on either side of the language boundary could see it: the Go suite exercised the endpoint the app was not calling, and the JS suite did not know the parameter existed.
+
+**So the regression test crosses the boundary.** `theme-reachable.test.js` reads `internal/httpapi/review_theme.go` from a Vitest file, slices out the body of `parseReviewTheme` — only that function, because `reviewTheme`'s fields and the SQL underneath mention the same words and matching those would prove nothing about what the endpoint *reads* — collects every `q.Get("…")` in it and asserts the set equals `themeKeys`. It then asserts `themeQuery` actually writes each key, because a key listed and not written is the same unreachable feature with a passing list, and that `anthologies.jsx` contains both the `practise({ anthology: …})` call and `{practiceDialog}`, because a parameter that works with nothing setting it is no better than one that does not work. The test guards itself first: if `parseReviewTheme` is renamed or rewritten past what the regex can read, the opening assertion fails loudly rather than quietly measuring nothing. It is the same shape as the CSS/JS agreement checks in `palette.test.jsx`, and the same justification — the drift being measured is between two languages, so a test written in either one alone is blind to it.
+
+**`themeKeys` is exported and read twice, which is the structural half of the fix.** The list builds the query string and it also builds `ThemedPracticeDialog`'s effect dependencies, spread as `[round, ...themeKeys.map((k) => theme?.[k])]` rather than six names typed out. A seventh theme added to one and forgotten in the other is not a missing feature but a wrong one: the round would open on the previous theme's cards, which looks like a caching bug and is a dependency list. The array's length is a module constant, which is React's only requirement of a dependency list, and the lint rule is suppressed on that line deliberately.
+
+**Where the button goes, and when it is off.** Practise sits before Edit in the anthology page header, because reading an anthology back is what you do *with* one and editing is what you do *to* one; it is disabled while the anthology is empty, since a round over nothing is the single case the dialog can only answer with "nothing here". The dialog comes from `usePractice`, a hook rather than anything global, so the round unmounts with the page — a round left running behind a screen the reader has navigated away from would go on posting grades against a schedule they believed they had stopped touching, and that is a data consequence rather than a cosmetic one.
+
+**Instead of.** A theme picker screen, which the earlier themed-review decision already rejected on the grounds that you are always already looking at the thing you want to be asked about — an anthology most of all, since you got there by opening it.
+
+**Approved.** Mine, as a defect rather than a design: nothing about the theme changed, only what could reach it, and the honest version of the record is that the log and the roadmap both called it built for two releases on the strength of a passing server test.
+
+<sub>2.1.2 — `internal/httpapi/review_theme.go` · `web/frontend/src/review.jsx` · `web/frontend/src/anthologies.jsx` · `web/frontend/test/rules/theme-reachable.test.js`</sub>
+
+See also: [ADR Index](ADR-Index.md) · [Design decisions](Design-decisions.md) · [Home](Home.md)

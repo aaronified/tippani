@@ -18,8 +18,7 @@
 //   they name nothing: every one was a 404.
 //
 // So, outside code spans and fences: a link to a wiki page loses its `.md`; a link to
-// one of the pages the Pages site publishes (the landing page, the roadmap, the
-// glossary) goes to the site; any other path in the repository
+// the one page the Pages site publishes (the landing page) goes to the site; any other path in the repository
 // goes to github.com at the ref being published, under blob/ for a file and tree/ for
 // a directory (a target ending in `/`). Anchors are kept. Nothing else is touched.
 // It resolves paths as strings and reads no file but the pages, so what exists is
@@ -42,8 +41,6 @@ const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 // breaking.
 const ON_THE_SITE = {
   'docs/landing.html': '',
-  'docs/roadmap.html': 'roadmap.html',
-  'docs/ui-glossary.html': 'ui-glossary.html',
 }
 
 function args(argv) {

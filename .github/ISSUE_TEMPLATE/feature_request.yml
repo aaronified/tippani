@@ -15,10 +15,10 @@ body:
 
         - **This will not appear on the roadmap by filing it.** Bugs publish themselves;
           features do not. I add one to the
-          [roadmap](https://aaronified.github.io/tippani/roadmap.html) by hand once I have
+          [roadmap](https://github.com/aaronified/tippani/wiki/Roadmap) by hand once I have
           decided it belongs, so an open request is a request, not a promise.
         - **Some things are refused on purpose.** The roadmap has a
-          [Considered and set aside](https://aaronified.github.io/tippani/roadmap.html#aside)
+          [Considered and set aside](https://github.com/aaronified/tippani/wiki/Roadmap#considered-and-set-aside)
           section — server-side OCR and speech, a built-in reader or file sync to an
           e-reader, social features and federation, and the read log feeding anything
           else. A request from that list is still welcome, but make the argument. I will
@@ -29,9 +29,9 @@ body:
     attributes:
       label: Before filing
       options:
-        - label: I searched the [open issues](https://github.com/aaronified/tippani/issues) and read the [roadmap](https://aaronified.github.io/tippani/roadmap.html), and this is not already planned.
+        - label: I searched the [open issues](https://github.com/aaronified/tippani/issues) and read the [roadmap](https://github.com/aaronified/tippani/wiki/Roadmap), and this is not already planned.
           required: true
-        - label: I checked [Considered and set aside](https://aaronified.github.io/tippani/roadmap.html#aside) — either it is not there, or I have argued the case below.
+        - label: I checked [Considered and set aside](https://github.com/aaronified/tippani/wiki/Roadmap#considered-and-set-aside) — either it is not there, or I have argued the case below.
           required: true
 
   - type: textarea

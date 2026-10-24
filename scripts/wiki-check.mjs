@@ -43,6 +43,7 @@ let linksChecked = 0
 const LINK = /\]\(([^)\s#][^)\s]*?)\)/g
 
 const linkedTo = new Set()
+const outgoing = new Map() // page -> the pages it links to, for reachability
 
 for (const page of pages) {
   const body = readFileSync(join(WIKI, page), 'utf8')
@@ -54,17 +55,30 @@ for (const page of pages) {
       failures.push(`${page}: link to "${path}" resolves to nothing`)
       continue
     }
-    // Reachability is counted from the navigation and from Home, because those are
-    // the two surfaces a reader actually arrives on. A page linked only from a
-    // third page nobody can reach is still unreachable.
-    if (page === HOME || FURNITURE.has(page)) linkedTo.add(path)
+    if (!outgoing.has(page)) outgoing.set(page, new Set())
+    outgoing.get(page).add(path)
   }
 }
 
+// REACHABLE FROM THE NAVIGATION, BY ANY NUMBER OF LINKS. A reader arrives on Home or in the sidebar
+// and follows links; a page that no chain of links from either reaches is unreachable. It used to
+// have to be linked from them directly, which a set of nine hundred decision records (one page each,
+// listed in ADR-Index) cannot be.
+const queue = [HOME, ...FURNITURE]
+for (const start of queue) linkedTo.add(start)
+while (queue.length) {
+  const here = queue.pop()
+  for (const next of outgoing.get(here) || []) {
+    if (!linkedTo.has(next)) {
+      linkedTo.add(next)
+      queue.push(next)
+    }
+  }
+}
 for (const page of pages) {
   if (page === HOME || FURNITURE.has(page)) continue
   if (!linkedTo.has(page)) {
-    failures.push(`${page}: no link from ${HOME} or _Sidebar.md — the wiki would publish a page nobody can reach`)
+    failures.push(`${page}: no chain of links from ${HOME} or _Sidebar.md reaches it — the wiki would publish a page nobody can find`)
   }
 }
 

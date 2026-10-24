@@ -1,0 +1,24 @@
+# ADR-0786: Where the plan turned out to be wrong
+
+Source of truth: this wiki page.
+
+- **Area:** [§18 Jobs and Logs](ADR-Index.md#area-18)
+- **Status:** Accepted
+
+| The plan | What was true |
+|---|---|
+| "Make a job of every time the app looks outward: bulk fetches and re-verify, imports and backups…", which read as one list of things to queue | Not all of it queues. A single manual lookup runs in its request, on my answer, and so does a screen's own lookup (F2). Imports were first built that way too, each one request that had already finished whether or not the tab stayed open; on 28 September I ruled that imports and every backup queue (F1), and an import and its approval became queued jobs (*An import and its approval are queued jobs*). A restore and a reset could not be queued at all — they replace the database the queue lives in — so they hold the queue rather than join it. |
+| The system log holds "every level, including the request lines for inbound reads and writes" | Every request, at two levels rather than one: the files a page loads are most of the log and the least of what anybody opens it for, so they are kept at `file` and hidden until asked. And the Jobs tab's own reads are not kept at all, since the tab open on a phone would otherwise fill the log with its own polls. |
+| "Two hooks feed the logs" | Two hooks write every job's lines and every request line. The app's own lines, which the System logs card is mostly for, come from neither: they reach the log through olog's sink and a tee on the standard logger, which every one of them was already written through. |
+| "offer a one-press rerun" | Only to the job's owner, even when an admin is looking (F3), and only for the queued kinds, since an in-request job's request is gone. A succeeded apply is not offered one — it would only find every field changed since the check — and nor is a former admin's admin job, nor an import whose upload is no longer kept, nor any job a restore carried over from the server it replaced. A backup's rerun asks for the password again, because it was never stored. |
+| "each job showing its live log" | Only the running job has a live log. A waiting job has logged nothing yet, so it is one line saying where it stands. |
+| "what was searched" in each job's log | Kept as the job's subject, as data. The words a reader sees — the title, the summary, "Waiting — 2 jobs ahead" — are composed in the app, in the reader's language (*The server stores data, not prose*). |
+| The backup, one queued job like the others | Its password is checked twice: in the request, so a wrong one is a 401 before anything waits, and again by the job against the owner's password as it is by then, because the job can wait behind others for minutes while the password changes. |
+| "pruned when a job or log line is written" | Not per line — that would be a delete for every line kept — but on the first write after start, an hour after the last prune, and a chunk every four batches, because under a flood the buffer never empties. |
+| "A Stop button on a running job: it stops after the item in hand" (my answer of 27 September) | A Stop that waited for the item in hand waited for whatever the item was waiting on: a supplier slow to answer, or one that never does. My asks of 28 September made it a kill switch that breaks nothing, and that took more than a cancel: the covers pass and a People fetch wrote between their lookups, and a person's apply wrote in three pieces, so each became one transaction after its last lookup (*Stop is at once, and it breaks nothing*). |
+| "Mark a job still running at boot as interrupted" | Waiting jobs too, since nothing resumes by itself. And a job the shutdown gave up on is interrupted, not stopped: stopped says a person pressed Stop. |
+| "a count of queued jobs" on the phone's tile | Two counts: how many are running and how many wait. As first built it counted the waiting ones alone, and I ruled on 28 September that the running one is counted too (F11). |
+| Automatic lookups, as jobs like any other | A work page's faces became one request per page, which the server does whole — the portraits and the character art together, serially, under the old caps of twenty and twenty, shared while it is out — in place of up to forty requests from the browser, one per picture (F2). |
+| Nothing about the People row's Fetch | It became one request by record id, and the server folds the fetched links into the stored ones. The fold had lived only in the browser, and the only fold in Go split the stored text on whitespace, erasing the names readers give their links; re-verify's person links went through that fold and were erasing names on apply, and are fixed with it. |
+
+See also: [ADR Index](ADR-Index.md) · [Design decisions](Design-decisions.md) · [Home](Home.md)

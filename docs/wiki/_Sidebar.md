@@ -1,21 +1,26 @@
-### Tippani
-
 **[Home](Home.md)**
 
-**The code**
-- [Developing](Developing.md)
-- [Design decisions](Design-decisions.md)
-- [How this was written](How-this-was-written.md)
-
-**Running it**
+**1. Using Tippani**
+- [Source files and context](Source-Files-And-Context.md)
+- [Library folders](Library-Folders.md)
+- [Spaced repetition](Spaced-repetition.md)
 - [Troubleshooting](Troubleshooting.md)
 
-**The parts**
-- [Spaced repetition](Spaced-repetition.md)
+**2. Roadmap**
+- [Roadmap](Roadmap.md)
+- [Plans index](Plans-Index.md)
+- [UI glossary](UI-Glossary.md)
+
+**3. Decisions**
+- [ADR index](ADR-Index.md)
+- [Design decisions](Design-decisions.md)
+
+**4. Building on it**
+- [Developing](Developing.md)
+- [Testing](Testing.md)
+- [Releasing](Releasing.md)
+- [How this was written](How-this-was-written.md)
 - [Bengali style](Bengali-style.md)
 - [Provider marks](Provider-marks.md)
 
-**Generated — not wiki pages**
-- [Roadmap ↗](https://aaronified.github.io/tippani/roadmap.html)
-- [UI glossary ↗](https://aaronified.github.io/tippani/ui-glossary.html)
-- [Demo ↗](https://aaronified.github.io/tippani/demo/)
+[Demo ↗](https://aaronified.github.io/tippani/demo/)

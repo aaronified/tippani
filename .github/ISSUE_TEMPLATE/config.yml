@@ -3,10 +3,10 @@
 blank_issues_enabled: false
 contact_links:
   - name: The roadmap
-    url: https://aaronified.github.io/tippani/roadmap.html
+    url: https://github.com/aaronified/tippani/wiki/Roadmap
     about: What is planned, what is already known to be broken, and what I have set aside on purpose. Worth a look before filing.
   - name: UI glossary
-    url: https://aaronified.github.io/tippani/ui-glossary.html
+    url: https://github.com/aaronified/tippani/wiki/UI-Glossary
     about: Every control in the interface, named and explained. If you are unsure whether something is a bug or a misunderstanding, start here.
   - name: Release notes
     url: https://github.com/aaronified/tippani/releases

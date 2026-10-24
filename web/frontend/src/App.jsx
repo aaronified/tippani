@@ -336,12 +336,9 @@ export default function App() {
             link: <a href="https://github.com/aaronified/tippani">{t('shell.demo.ribbon.link.label')}</a>,
           })}
           {' · '}
-          {/* Relative, and deliberately not routed through the SPA, so it
-              resolves under the Pages subpath without knowing what that subpath
-              is. `../` because the demo now lives one level down at /demo/ —
-              the site root is the landing page, which is the only page a search
-              engine can read (this one is an empty div until JS runs). */}
-          <a href="../roadmap.html">{t('shell.demo.roadmap.link.label')}</a>
+          {/* The roadmap is a wiki page (docs/wiki/Roadmap.md), so this is the wiki's address and
+              not a path under the Pages site. */}
+          <a href="https://github.com/aaronified/tippani/wiki/Roadmap">{t('shell.demo.roadmap.link.label')}</a>
         </div>
       )}
       {/* A render error in any screen unmounts to a visible fallback, never a

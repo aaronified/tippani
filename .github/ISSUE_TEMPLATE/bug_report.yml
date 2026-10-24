@@ -13,7 +13,7 @@ body:
         Thanks for taking the trouble.
 
         **Once I have confirmed it, your issue title becomes the heading of an entry on the
-        [roadmap's Known bugs list](https://aaronified.github.io/tippani/roadmap.html#bugs)** —
+        [roadmap's Known bugs list](https://github.com/aaronified/tippani/wiki/Roadmap#known-bugs)** —
         so write it as a description of the fault ("Editing a dialogue's timestamp clears
         the character name") rather than "it's broken".
 
@@ -28,7 +28,7 @@ body:
     attributes:
       label: Before filing
       options:
-        - label: I searched the [open issues](https://github.com/aaronified/tippani/issues) and the roadmap's [Known bugs](https://aaronified.github.io/tippani/roadmap.html#bugs), and this is not already there.
+        - label: I searched the [open issues](https://github.com/aaronified/tippani/issues) and the roadmap's [Known bugs](https://github.com/aaronified/tippani/wiki/Roadmap#known-bugs), and this is not already there.
           required: true
         - label: I checked the [release notes](https://github.com/aaronified/tippani/releases) in case it is already fixed in a newer version.
           required: true

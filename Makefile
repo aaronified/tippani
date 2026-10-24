@@ -25,8 +25,7 @@ build:
 frontend:
 	cd web/frontend && npm ci && npm run build
 
-## glossary: regenerate docs/ui-glossary.html from the components and tokens that
-## define the interface. Needs a built web/dist (it inlines the shipped stylesheet)
+## glossary: regenerate docs/wiki/UI-Glossary.md from the glossary catalogue. Needs a built web/dist (it inlines the shipped stylesheet)
 ## and web/frontend's node_modules (it renders the real components through Vite), so
 ## it runs after `make frontend`, not instead of it.
 glossary:

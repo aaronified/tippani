@@ -49,7 +49,7 @@ Tippani, so it comes first.
   data directory — nothing holds a copy but you.
 
 There is one AI *feature* under consideration, and it is in
-[the roadmap](../roadmap.html) under **Later / maybe** — not built, not started:
+[the roadmap](Roadmap.md) under **Later / maybe** — not built, not started:
 opt-in digest summaries against an **OpenAI-compatible endpoint you configure
 with your own key**, off unless you turn it on. If it is ever built it will be
 off by default and will say plainly what leaves the machine. Until then, the
@@ -923,7 +923,7 @@ What that honestly does not cover:
   which is the ratchet working as intended rather than a number being relaxed. **Those two numbers are the honest
   measure of what is still undone here**, and they are asserted rather than described.
   Feeding the *prose* from `web/frontend/src/help.jsx` remains
-  [the roadmap's help &amp; density section](../roadmap.html#help-density).
+  [the roadmap's help &amp; density section](Roadmap.md#help-density).
   What 1.6.0 added is the cheaper
   half of that: `web/frontend/test/rules/help.test.jsx` asserts that every screen a
   nav list can reach has an entry, and that a control the app labels is a control

@@ -1,0 +1,17 @@
+# ADR-0766: Stop is at once, and it breaks nothing
+
+Source of truth: this wiki page.
+
+- **Area:** [§18 Jobs and Logs](ADR-Index.md#area-18)
+- **Status:** Accepted
+- **Version:** 3.1.0
+
+**Decided.** My two asks of 28 September, one after the other: *"the job cancel button must also be the most responsive kill switch. No dillydallying after it has been pressed"*, and *"Stop cancels instantly: but it still shall not break anything. That's important."* The first is the queue's: each running job has a context of its own, a child of the queue's, and Stop, Stop all and an account's delete cancel it the moment they land, so a lookup or a picture on the wire aborts there and then. The press is logged with who made it, and a stopped job's end waits at most 100 ms for its last lines, where a finished one waits up to 2 s, so the row reads stopped a moment after the press. The second is every kind's, kept the same way in each (`internal/httpapi/job_stop.go`). A work's lookups and its download all come first, and its write after the last of them, in one transaction begun only once the context has been asked and is still live. No database call here carries a context (§16, *`/healthz` asks the pool for a connection*), so a write that has begun finishes or rolls back whole and a Stop never lands inside one. An item a Stop reached before its write is abandoned whole: no field from the one supplier that answered, no cover without its row, no person half-updated, no finding from half a check. A picture arrives under a temporary name and is renamed into place only once all of it is there and it has passed its checks, so a cancelled download leaves nothing; `serve()` sweeps what a crash left. A stopped backup removes its partial archive, and the one kept before is as it was. What was finished before the Stop stays finished and counted, the item abandoned is neither, and the queue starts the next job at once. The screen that pressed says "Stopping…" at the press, before the server has answered, and asks every 200 ms, for three seconds at most, until the job reads stopped.
+
+**Why.** A Stop that waited for the item in hand waited for whatever that item was waiting on: a supplier slow to answer, or one that never does. Cancelling alone would have been instant and would have left works half written, because some kinds wrote in pieces. The covers pass wrote a book's details, then its genres, then its cover, each on its own and between its lookups, so a Stop on the cover's download left a book with its details and no cover. A People fetch wrote the portrait before it asked for the links. A person's re-verify apply made the record, wrote its fields and filed its role in three separate writes. So each of those became one transaction after its last lookup, in the same change.
+
+**Instead of.** Handing the job's context to its database calls as well, which would turn a Stop landing in a write into a failed write, and would break that rule. Aborting the call on the wire and then writing whatever had already arrived, which is the half-written work the second ask rules out. The Stop that finished the item in hand, which is what shipped first (the row above).
+
+<sub>3.1.0 — `internal/jobs/runner.go` · `internal/httpapi/job_stop.go` · `internal/metadata/covers.go` · `internal/httpapi/metadata_handlers.go` · `internal/httpapi/person_fetch.go` · `web/frontend/src/jobs.js`</sub>
+
+See also: [ADR Index](ADR-Index.md) · [Design decisions](Design-decisions.md) · [Home](Home.md)
