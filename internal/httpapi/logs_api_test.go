@@ -363,7 +363,7 @@ func stalledDownload(t *testing.T, ts *httptest.Server, c *testClient, path stri
 	d := net.Dialer{Control: func(_, _ string, raw syscall.RawConn) error {
 		var serr error
 		if err := raw.Control(func(fd uintptr) {
-			serr = syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_RCVBUF, 4096)
+			serr = setReceiveBuffer(fd, 4096)
 		}); err != nil {
 			return err
 		}
