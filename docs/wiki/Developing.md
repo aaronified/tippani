@@ -395,7 +395,7 @@ why Amazon's is the letterform alone.
 | `workflows/ci.yml` | The push and PR gate. What each of its jobs runs is under [Maintainer: CI](#maintainer-ci). |
 | `workflows/pages.yml` | Builds the demo and assembles the published site around it. |
 | `workflows/wiki.yml` | Writes `docs/wiki/*.md` to this repository's GitHub wiki through `wiki-publish.mjs`, with links rewritten for the wiki and the text otherwise unchanged. The repository is the source; an edit made in the wiki is overwritten by the next run. |
-| `workflows/security.yml` | Trivy on the repository (dependencies, secrets, Dockerfile) and on the built image; weekly as well as on every push. Fails on a fixed HIGH or CRITICAL finding. What it ignores, and why, is in `.trivyignore`. |
+| `workflows/security.yml` | Trivy on the repository (dependencies, secrets, Dockerfile) and on the built image, on every pull request and daily. Fails on a fixed HIGH or CRITICAL finding. What it ignores, and why, is in `.trivyignore`. |
 | `workflows/release.yml` | Cuts the GitHub Release on a `v*` tag from that version's changelog section. |
 | `workflows/docker-publish.yml` | Builds the multi-arch image and pushes to GHCR. Decides which image tags may move. |
 | `ISSUE_TEMPLATE/` | The two issue forms and the no-blank-issues config that feed the roadmap pipeline. |

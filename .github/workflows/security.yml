@@ -1,19 +1,18 @@
 name: security
 
 # Trivy, on the repository and on the image it builds. It fails the build on a fixed HIGH or CRITICAL
-# vulnerability, a committed secret, or a Dockerfile misconfiguration. A weekly run catches what is
-# disclosed after the last push (a base image or a dependency), which a push-only gate never sees.
+# vulnerability, a committed secret, or a Dockerfile misconfiguration. It runs on pull requests and once a day, not on
+# pushes: the daily run catches what is disclosed after the last change (a base image or a dependency),
+# which a gate that only runs on change never sees.
 #
 # What it scans: go.mod and the three package-lock.json files (vulnerabilities), every tracked file
 # (secrets), the Dockerfile and compose file (misconfiguration), and then the image itself, so the
 # distroless base is covered too. What it ignores is in .trivyignore, each entry with its reason.
 
 on:
-  push:
-    branches: [main]
   pull_request:
   schedule:
-    - cron: "0 4 * * 1"
+    - cron: "0 4 * * *"
   workflow_dispatch:
 
 permissions:

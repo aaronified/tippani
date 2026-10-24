@@ -21,5 +21,5 @@ Only the latest release is supported.
 ## How it is checked
 
 [Trivy](https://trivy.dev) scans the repository (Go and npm dependencies, committed secrets, the Dockerfile) and the built image on
-every push and weekly, and fails the build on a fixed HIGH or CRITICAL finding (`.github/workflows/security.yml`). Anything it is
+every pull request and daily, and fails the build on a fixed HIGH or CRITICAL finding (`.github/workflows/security.yml`). Anything it is
 told to ignore is in `.trivyignore` with the reason.
