@@ -5,6 +5,67 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.4.0] - 2026-10-24
+
+### Added
+
+- **A work can keep the file its quotes came from, and "In context" opens what surrounds a quote.**
+  A quote on its own can read as nonsense, and the app had no way to show the lines around it.
+  A subtitle track for a film or an episode, an ebook or a text file for a book or an essay, or
+  lyrics for a song can now be attached from the work's card menu, its details panel, the Import
+  screen (which asks which work a dropped file belongs to), or a read-only library folder the
+  administrator mounts (Scan on Checks proposes which file belongs to which work; nothing is
+  attached until you accept). The file is read once and the surrounding lines are stored, so
+  "In context" works after the file is gone. Matching is fuzzy, and a file for a different
+  edition is told apart by its checksum. The app still never shows the file or hands it back;
+  it is not a reader, and a library of books is what it keeps refusing to become.
+- **How much context shows is a rule you can set.** The number of lines or paragraphs around a
+  quote follows the quote's own adjustment, then its work's or board's rule, then your own pair in
+  Settings next to the quote dials, then the default, and the panel says once where it came from
+  ("2 before, 5 after · from this work"). Changing a work or board rule asks whether to apply it
+  to the quotes already there, and that only lowers what is wider than the rule. It never widens
+  one, because a quote at a chapter start has less before it than any rule asks for and no rule
+  can add what the file lacks. There is a "clear per-quote adjustments" option and a Reset to
+  inherited. A quote you never adjusted follows a rule when the rule is raised. No screen sets
+  the span on many quotes at once yet; only the endpoint exists.
+- **Checks proposes corrections from the file.** Where the file's own words differ from a saved
+  quote, a new Corrections section offers the file's version, in buckets (spacing, punctuation,
+  capitalisation, accents, several marks, extend, trim, one word, a few words, wording), applied
+  per bucket or per row. Nothing is written until you accept; a dismissal is remembered when the
+  file is scanned again, and a quote you edited since it arrived is skipped and counted. The app
+  names each difference and you decide which side is right, so no class of difference is hidden.
+  Ambiguous matches get none, because they have no stored context, and an accepted correction
+  has no undo, as Cleanup has none.
+- **A book's highlights can be placed from its EPUB.** The Locators section, now titled "Times
+  and places from files", proposes the chapter and a percent-through ("42%") beside the film
+  times. The percent is of that file's text and is never a page or a Kindle location, which are
+  counted differently and would not agree. Exact one-place matches are accepted together, fuzzy
+  ones one at a time, and a highlight that already has a location is never overwritten in bulk.
+  MOBI, AZW3 and the publisher's page list are not read.
+- **A book's own EPUB is a metadata source, "Book file".** Fill gaps and the field picker can use
+  its publisher, year, series, subjects, description and ISBN, and never overwrite a value you have.
+- **Prune and an orphan sweep.** Checks lists attached files biggest first; Prune deletes a file
+  and keeps everything read from it, so every quote keeps its context. A sweep tidies files no
+  work names, leaving anything under ten minutes old.
+
+### Changed
+
+- **The bin covers everything a delete takes.** Deleting a work now carries its attached file and
+  its stored context to the bin, and Undo brings them back; emptying the bin removes the file for
+  good. Backups always carry what was read from your files and carry the files only if the
+  administrator turns that on, since they can be attached again.
+- **No shadow on text, and the same on its icon.** A label and the icon beside it now read the
+  same on every surface.
+- **Documentation lives in the wiki.** The roadmap and glossary HTML pages are retired, and every
+  decision is a numbered page there.
+- **The frontend test suite went from 3,804 tests to about 570.** Most asserted wording and
+  markup, so an edit failed ten of them without a real mistake; the kept tests each name something a
+  person sees happen. The cut by coverage figure was rejected, because it rewards tests that run
+  lines and say nothing.
+- **Security scans and contributor files.** Trivy scans run on pull requests and daily, and
+  release notes carry a Known vulnerabilities section; the Go CI job is sharded; AGENTS.md,
+  CONTRIBUTING.md and SECURITY.md are new at the root.
+
 ## [3.3.5] - 2026-10-20
 
 ### Changed

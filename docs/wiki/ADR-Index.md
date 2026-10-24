@@ -1112,5 +1112,8 @@ My asks of 28 September, as the build was being merged, and my answers to the tw
 - [ADR-0911](ADR-0911-No-Shadow-On-Text.md): No shadow on text, and the same on its icon
 - [ADR-0912](ADR-0912-Documentation-Lives-In-The-Wiki.md): Documentation lives in the wiki, and nothing else is HTML
 - [ADR-0913](ADR-0913-A-Test-Names-Behaviour-Or-Is-Lint.md): A test names behaviour, or it is lint, or it is deleted
+- [ADR-0914](ADR-0914-Context-Size-Is-A-Cascade-That-Only-Clamps-Down.md): Context size is a cascade, and a rule only ever clamps down
+- [ADR-0915](ADR-0915-Corrections-Come-From-The-File-As-Proposals.md): Corrections come from the file, as proposals
+- [ADR-0916](ADR-0916-A-Books-Location-Is-A-Percent-Of-This-File.md): A book's location is a percent of this file, never a page
 
 See also: [Design decisions](Design-decisions.md) · [Home](Home.md)

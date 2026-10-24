@@ -27,11 +27,11 @@ builds.
 
 ## Partly built
 
-- [Work source files](Plan-Work-Source-Files.md): a work keeps the file its quotes came from. The store, the backup, the doors, the
-  stored context, the mounted library, the prune and the bin shipped in 3.4.0; this page now holds what remains: the per-work
-  and per-board context window, and correcting a quote from its file.
-- [Locators from files](Plan-Locators-From-Files.md): a position for a quote, from the file. Times for film lines shipped in
-  3.4.0; this page now holds what remains: locations for book quotes.
+- [Work source files](Plan-Work-Source-Files.md): a work keeps the file its quotes came from. All of it shipped in 3.4.0 except a
+  bulk-editor screen for the context span fields, corrections for ambiguous matches, an undo for an accepted correction, a per-file
+  "skip the mark buckets" and a note about the file itself; this page holds only those.
+- [Locators from files](Plan-Locators-From-Files.md): a position for a quote, from the file. Times for film lines and chapter
+  and percent for book quotes shipped in 3.4.0; this page holds only what remains: MOBI/AZW3 and EPUB page-list publisher pages.
 
 ## Left out of the queue by the owner
 

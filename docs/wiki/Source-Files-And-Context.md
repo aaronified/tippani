@@ -4,7 +4,7 @@ Source of truth: this wiki page.
 
 A quote out of context can read as nonsense, and the file it came from is the context. A work can keep **one source file** for
 the quotes you kept from it: a subtitle track for a film or an episode, an ebook or a text file for a book or an essay, lyrics for
-a song. Four things follow from that, and this page is all of them.
+a song. What follows from that is on this page.
 
 **The line this does not cross.** Tippani never renders a source file, never hands it back and never offers a reader, an OPDS
 catalogue or a sync to a device. It is not a library of books. What leaves the server is extracted text: the lines around a quote,
@@ -48,7 +48,36 @@ row and never opens a file.
 For a film or episode with a subtitle, **Checks** proposes a time for each line that has none or a different one, with the file's own
 words beside it as evidence. **Nothing is written until you accept.** Lines found once, word for word, are grouped: accept them
 together. Anything fuzzy is one press each. A refusal is remembered; a changed line is not overwritten (it is reported as having
-changed). Book locations are on the [roadmap](Roadmap.md).
+changed).
+
+## Places in a book
+
+For a book with an attached EPUB, the section of **Checks** now titled **Times and places from files** also proposes where each
+highlight sits: the **chapter** (from the EPUB's own contents list) and a **percent through**, such as "42%". The percent is of
+this file's text. It is never a page number and never a Kindle location, because those are counted differently and would not match.
+Highlights found in exactly one place are grouped and accepted together; a fuzzy match is one press each; a highlight that already
+has a location goes to the one-press group, so it is never overwritten in bulk. Only EPUB is read; MOBI and AZW3 are not. See
+[ADR-0916](ADR-0916-A-Books-Location-Is-A-Percent-Of-This-File.md).
+
+## How much context shows
+
+The number of lines or paragraphs around a quote is the first of these that is set: the quote's own adjustment, then the rule for
+its work or board, then your own pair in Settings next to the quote dials, then the default. The panel says once which one it
+came from, for example "2 before, 5 after · from this work". Changing a work or board rule asks whether to apply it to the quotes
+already there. If you say yes it only **lowers** values that are wider than the rule and never widens one, because a quote at the
+start of a chapter has less before it than the rule asks for, and no rule can add what the file does not have. **Clear per-quote
+adjustments** and **Reset to inherited** undo what was set. A quote you never adjusted follows a rule when the rule is raised.
+There is no screen for setting these on many quotes at once yet. See
+[ADR-0914](ADR-0914-Context-Size-Is-A-Cascade-That-Only-Clamps-Down.md).
+
+## Corrections from the file
+
+Where the file's own words differ from a saved quote, **Checks** has a **Corrections** section that proposes the file's version.
+The differences come in buckets: spacing, punctuation, capitalisation, accents, several marks, extend, trim, one word, a few words,
+and wording. Apply a whole bucket or a single row. **Nothing is written until you accept**, and a dismissal is remembered when the
+file is scanned again. A quote you edited after it arrived is skipped and counted, so a bucket press never undoes your own edit.
+Ambiguous matches get no proposal, because they have no stored context to compare, and an accepted correction has no undo. See
+[ADR-0915](ADR-0915-Corrections-Come-From-The-File-As-Proposals.md).
 
 ## A book's own metadata
 
@@ -70,4 +99,4 @@ the parked file for good. A backup always carries what was read from your files;
 administrator turns that on (Settings > Server > Library), because they are the bulky half and can be attached again. A restore lists
 the works whose files the archive did not carry.
 
-See also: [Library folders](Library-Folders.md) · [Roadmap](Roadmap.md) · [Home](Home.md)
+See also: [Library folders](Library-Folders.md) · [Work source files plan](Plan-Work-Source-Files.md) · [Locators plan](Plan-Locators-From-Files.md) · [Roadmap](Roadmap.md) · [Home](Home.md)

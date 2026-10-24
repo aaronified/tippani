@@ -10,7 +10,7 @@ into an ADR and its page is deleted.
 
 ## Built
 
-Up to 3.3.5, see the changelog. In brief:
+Up to 3.4.0, see the changelog. In brief:
 
 - A self-hosted home for book highlights, film and show dialogue, and quotes from anywhere else, in one static Go binary with
   the app embedded. Import from Kindle, Readest, Bookcision, Hardcover, Goodreads and IMDb; export and round-trip as Markdown.
@@ -22,7 +22,7 @@ Up to 3.3.5, see the changelog. In brief:
 - Backup, restore and a bin that can take a delete back; eight material sets, per-surface materials, type dials and a
   Bengali interface.
 
-## Built since 3.3.5, in the next release
+## Built in 3.4.0
 
 The files a work's quotes came from, which the app used to refuse to hold:
 
@@ -36,9 +36,20 @@ The files a work's quotes came from, which the app used to refuse to hold:
   file belongs to which work (by a folder's id or an ebook's ISBN, or by name) and nothing is attached until you accept.
 - **Times from subtitles**: proposed for film lines, shown with the file's own words, accepted singly or together when the
   match is exact.
+- **Context size rules**: how much shows around a quote follows the quote, then its work or board, then your own setting, then the
+  default, and the panel says which. A rule can only lower what is wider than it, never widen
+  ([ADR-0914](ADR-0914-Context-Size-Is-A-Cascade-That-Only-Clamps-Down.md)).
+- **Corrections from the file**: Checks proposes the file's own wording where it differs from a saved quote, in named buckets,
+  applied per bucket or per row and never written until accepted
+  ([ADR-0915](ADR-0915-Corrections-Come-From-The-File-As-Proposals.md)).
+- **Book locations**: for a book with an attached EPUB, Checks proposes the chapter and a percent-through of that file, never a page
+  or a Kindle location ([ADR-0916](ADR-0916-A-Books-Location-Is-A-Percent-Of-This-File.md)).
 - **The book's own EPUB as a metadata source**: fills gaps, and can be chosen for any field at any time.
 - **The prune**: keep what was read from a file and delete the file; **the bin covers it all**, including the file.
-- No text shadow anywhere: a label and its icon read the same.
+- No text shadow anywhere: a label and its icon read the same
+  ([ADR-0911](ADR-0911-No-Shadow-On-Text.md)). The documentation moved into the wiki
+  ([ADR-0912](ADR-0912-Documentation-Lives-In-The-Wiki.md)), and the frontend test suite was cut to the tests that name behaviour
+  ([ADR-0913](ADR-0913-A-Test-Names-Behaviour-Or-Is-Lint.md)).
 
 ## Known bugs
 
@@ -61,11 +72,10 @@ These are the open [bug issues](https://github.com/aaronified/tippani/issues?q=i
 
 ## Still to build from the source-file work
 
-Designed in [Plan: work source files](Plan-Work-Source-Files.md) and [Plan: locators from files](Plan-Locators-From-Files.md):
-the per-work and per-board context window with a clamp-only "enforce" (a rule can never widen a quote that sits against a
-chapter start), correcting a quote from the file in Checks (named buckets, both verbs on every one), and locations for book
-quotes from an ebook (position, chapter, percent).
-
+What is left of [Plan: work source files](Plan-Work-Source-Files.md) and [Plan: locators from files](Plan-Locators-From-Files.md):
+a bulk-editor screen for the per-quote context span fields (the endpoint exists), corrections for ambiguous matches, an undo for an
+accepted correction, a per-file "skip the mark buckets" and a note about the file itself, and book locations from MOBI/AZW3 files
+and from an EPUB's page list of publisher pages.
 
 ## The backlog
 
