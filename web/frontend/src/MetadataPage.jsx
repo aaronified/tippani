@@ -9,10 +9,8 @@ import { t } from './i18n.js'
 import { BookLookupPicker, MovieLookupPicker } from './CoverPicker.jsx'
 import { bookState, EditBook } from './Library.jsx'
 import { EditMovie } from './Movies.jsx'
-import { BulkBar, EmptyState, ErrorText, FieldIconButton, GhostButton, HandCard, Card, SectionTitle, IconBooks, IconButton, IconChecks, IconDelete, IconEdit, IconKey, IconLanguages, IconMerge, IconMetadata, IconOpen, IconPerson, IconFetch, IconSearch, IconUsers, InfoDot, MonoLabel, NameInput, NameScroll, normName, MobileSheet, ProgressBar, IconQuote, IconReel, Scroller, Select, splitCommas, toast, Tooltip, PanelHost, usePanelStack, useConfirm, useIsMobileScreen, usePersistedState, useScreenBar, useScreenSearch, IconArrow, IconHighlight, Lightbox, IconRoleActor, IconRoleAuthor, IconRoleDirector, IconRolePublisher, IconRoleSpeaker, IconRoleStudio, IconRoleTranslator, IconNavCatalogue, IconNavMasks, IconNavSources, IconNavTags, IconNavUsers, IconNavWorks, IconNavQuotes, IconNavLibrary, IconRefresh, IconSourceFile, Tally } from './ui.jsx'
-import SourceFilesConsole from './SourceFilesConsole.jsx'
-import { takeArrival } from './history.js'
-import { goTo } from './sources.jsx'
+import { BulkBar, EmptyState, ErrorText, FieldIconButton, GhostButton, HandCard, Card, SectionTitle, IconBooks, IconButton, IconChecks, IconDelete, IconEdit, IconKey, IconLanguages, IconMerge, IconMetadata, IconOpen, IconPerson, IconFetch, IconSearch, IconUsers, InfoDot, MonoLabel, NameInput, NameScroll, normName, MobileSheet, ProgressBar, IconQuote, IconReel, Scroller, Select, splitCommas, toast, Tooltip, PanelHost, usePanelStack, useConfirm, useIsMobileScreen, usePersistedState, useScreenBar, useScreenSearch, IconArrow, IconHighlight, Lightbox, IconRoleActor, IconRoleAuthor, IconRoleDirector, IconRolePublisher, IconRoleSpeaker, IconRoleStudio, IconRoleTranslator, IconNavCatalogue, IconNavMasks, IconNavSources, IconNavTags, IconNavUsers, IconNavWorks, IconNavQuotes, IconNavLibrary, IconSourceFile, Tally } from './ui.jsx'
+import SourceFilesConsole, { ScanShortcuts } from './SourceFilesConsole.jsx'
 import { personImgURL, ProviderChips, parseCreditSeps, parseLinks, splitCredits } from './people.jsx'
 import { characterPanel, MergeSheet, personPanel } from './identity.jsx'
 import { ColourCategoriesCard } from './Settings.jsx'
@@ -302,8 +300,6 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
   // Categories now, so an old /metadata/tags goes there rather than to Works.
   const aliased = (id) => SECTION_ALIASES[id] || id
   const sect = known(aliased(routed)) ? aliased(routed) : known(aliased(remembered)) ? aliased(remembered) : 'works'
-  // The phone's Scan shortcut lands on /metadata/files?scan=1: one scan, once.
-  const [scanOnArrival, setScanOnArrival] = useState(() => sect === 'files' && takeArrival('scan'))
   // AN ADDRESS FOR A SECTION THAT NO LONGER EXISTS IS REPLACED, not pushed over —
   // a bookmarked /metadata/overview lands on the section it resolves to, and Back
   // from there leaves Metadata instead of walking into a dead address.
@@ -457,20 +453,8 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
         </Scroller>
       </div>
     ),
-    // THE TWO THINGS A READER COMES HERE FOR on a phone: scan the folders, or look at
-    // what a scan found on Checks.
-    files: (
-      <div className="section-index-body">
-        <div className="section-index-verbs">
-          <GhostButton icon={<IconRefresh />} keepLabel onClick={() => enter('files', 'scanfiles')}>
-            {t('found.scan')}
-          </GhostButton>
-          <GhostButton icon={<IconChecks />} keepLabel onClick={() => goTo('/checks')}>
-            {t('files.folders.checks')}
-          </GhostButton>
-        </div>
-      </div>
-    ),
+    // THE LIBRARY FOLDERS' TWO SHORTCUTS on a phone: Scan, and the findings on Checks.
+    files: <div className="section-index-body"><ScanShortcuts /></div>,
   } : {}
   return (
     <section className="space-y-6">
@@ -616,8 +600,6 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
               lib={lib}
               onOpenBook={onOpenBook}
               onOpenMovie={onOpenMovie}
-              scanOnArrival={scanOnArrival || intent === 'scanfiles'}
-              onArrived={() => { setScanOnArrival(false); setIntent(null) }}
             />
           ) : sect === 'people' ? (
             <PeopleConsole

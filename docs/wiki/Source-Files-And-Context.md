@@ -19,8 +19,8 @@ Three ways, all the same result:
 - **Drop it on Import.** The import screen reads the bytes, and a subtitle or an ebook is neither highlights nor an error: it asks
   which work the file belongs to and attaches it. Nothing is staged.
 - **From a mounted library.** The administrator mounts your folders ([Library folders](Library-Folders.md)); you press **Scan** once on
-  Metadata > Source files or on Checks (it runs as a job and walks the whole folder) and accept what it finds, even while it is still
-  running.
+  Metadata > Source files (it runs as a job and walks the whole folder) and accept what it finds, there or on Checks, even while it
+  is still running.
 
 The type of file is decided by its bytes, never its name, so a subtitle saved as `film.ass.txt` still works. A file the app cannot
 read (including an ebook that is DRM-protected) is refused with the reason, and nothing is kept. A second file for the same work
@@ -43,11 +43,13 @@ Limits: 25 MB per file. A work with a mounted file keeps no copy: the row points
 - **In context** is on every quote card that has stored context: Library, Catalogue, Quotes boards, search results, Home's
   favourites and shuffle, and anthologies. The quiz card does not offer it, because the lines around a quote would give away the
   answer.
-- **Checks > Found files** is where scan findings are reviewed in bulk, and **Checks > Attached files** lists uploaded files for
-  pruning.
+- **Checks > Found files** shows only what the last scan left to decide: files found for works, to accept or refuse (Accept all for
+  exact matches), a scan that failed or was cut short with its reason, and how many files matched no work. While a scan runs it shows
+  one line with its progress. It has no Scan of its own; it links to Metadata > Source files, and it draws nothing when there is
+  nothing to decide. **Checks > Attached files** lists uploaded files for pruning.
 - **Settings > Jobs** shows a running scan as "Library scan" with the folder's name, the files read and the files found, and a Stop.
-- **Phone shortcuts.** A long press on the installed app offers **Scan** (opens Metadata > Source files and scans every folder once)
-  and **Files** (opens the same section).
+- **On a phone**, the index of Metadata and of Settings carries two shortcuts under Source files and under Server: **Scan**,
+  with its progress, and **Found files**, which opens Checks and says how many findings wait.
 
 **Errors are shown.** Every request here has a time limit. A request that fails or gets no answer says so in a message with
 **Try again**, and a read that fails says so where its answer would have been. A scan that ended in failure shows its reason on

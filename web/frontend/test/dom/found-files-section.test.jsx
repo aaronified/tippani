@@ -1,10 +1,12 @@
-// FILES FOUND IN A MOUNTED LIBRARY, a section of Checks.
+// WHAT THE LAST LIBRARY SCAN LEFT TO DECIDE, a section of Checks.
+//
+// The owner: "Checks should have it after the scan, for issues found in the scan." The
+// scan starts on Metadata > Source files; Checks shows its findings, live while it runs,
+// and draws nothing when there is nothing to decide. Accepting sends only the tokens the
+// server issued.
 //
 // WHAT THIS KNOWS: the addresses it reads and presses, the words on screen and what a
-// person can do. It checks three things: nothing happens until the reader presses Scan,
-// one press is enough however large the folder is (the screen shows progress, then the
-// list, and never asks for a second press), and accepting sends only the tokens the
-// server issued.
+// person can do.
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -64,25 +66,26 @@ beforeEach(() => {
 })
 
 describe('files found in a mounted library', () => {
-  it('shows progress after one press, then the list, and never asks for another press', async () => {
+  it('shows a running scan and its findings, then the finished list, with no Scan of its own', async () => {
+    fulls = fulls.slice(1)
     render(<FoundFilesPage embedded />)
-    expect(calls.filter((c) => c.path === '/sources/scan')).toHaveLength(0)
-    fireEvent.click(await screen.findByRole('button', { name: 'Scan' }))
-
-    // Progress and the first finding appear while the scan is still running.
-    await screen.findByText(/400 scanned · 1 found · 5 not matched/)
+    // One quiet line while it runs, and the first finding already offered.
+    await screen.findByText(/A scan is running: 400 files read, 1 found/)
     expect(screen.getByText('V for Vendetta')).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Stop scanning' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Scan' })).toBeNull()
 
-    // Then the finished list.
+    // Then the finished list, and the files that matched no work, as one line.
     await waitFor(() => expect(screen.getByText('Dust of Dreams')).toBeTruthy(), { timeout: 6000 })
-    expect(screen.getByText(/1412 scanned · 2 found · 6 not matched/)).toBeTruthy()
-    expect(screen.queryByRole('button', { name: /continue/i })).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Stop scanning' })).toBeNull()
+    expect(screen.getByText('6 files in your folders matched no work.')).toBeTruthy()
+    expect(calls.filter((c) => c.path === '/sources/scan')).toHaveLength(0)
+  })
 
-    const scans = calls.filter((c) => c.path === '/sources/scan')
-    expect(scans).toHaveLength(1)
-    expect(scans[0].body).toEqual({ mount_id: 'library' })
+  it('draws nothing when the last scan left nothing to decide', async () => {
+    fulls = [{ scan: scan({ scanned: 1412, found: 0, unclaimed: 0 }), candidates: [] }]
+    const { container } = render(<FoundFilesPage embedded />)
+    await waitFor(() => expect(calls.some((c) => c.path.startsWith('/sources/found'))).toBe(true))
+    await new Promise((r) => setTimeout(r, 50))
+    expect(container.textContent).toBe('')
   })
 
   it('accepts one finding and keeps the rest', async () => {
@@ -100,7 +103,7 @@ describe('files found in a mounted library', () => {
     fulls = [{ scan: scan({ state: 'running', job_id: 7, scanned: 300, found: 1, unclaimed: 2 }), candidates: [C({})] }]
     statuses = [scan({ state: 'running', job_id: 7, scanned: 300, found: 1, unclaimed: 2 })]
     render(<FoundFilesPage embedded />)
-    await screen.findByText(/300 scanned · 1 found · 2 not matched/)
+    await screen.findByText(/A scan is running: 300 files read, 1 found/)
     expect(screen.getByText('V for Vendetta')).toBeTruthy()
     expect(calls.filter((c) => c.path === '/sources/scan')).toHaveLength(0)
   })

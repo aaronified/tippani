@@ -28,18 +28,15 @@ describe('the manifest', () => {
 })
 
 describe('icon shortcuts', () => {
-  it('offers the four a long press should offer', () => {
-    // ANDROID SHOWS FOUR AT MOST. Quiz went when Scan and Files came: its address is
-    // "/", which is what opening the app does anyway.
-    expect(manifest.shortcuts.map((s) => s.short_name)).toEqual(['Capture', 'Pending', 'Scan', 'Files'])
+  it('offers the three a long press should offer', () => {
+    expect(manifest.shortcuts.map((s) => s.short_name)).toEqual(['Capture', 'Quiz', 'Pending'])
   })
 
   it('names only URLs the app actually routes', () => {
     // A shortcut to a path parsePath falls through on lands on Home, silently — the
     // menu item exists, does nothing recognisable, and nothing in the app is wrong.
-    // The router reads the path; a query (?scan=1) is read by the screen it lands on.
     for (const s of manifest.shortcuts) {
-      const route = parsePath(new URL(s.url, 'http://app').pathname)
+      const route = parsePath(s.url)
       expect(route, s.url).toBeTruthy()
       expect(route.tab, `${s.url} routes somewhere deliberate`).not.toBe('home__unknown')
     }
@@ -47,7 +44,6 @@ describe('icon shortcuts', () => {
     expect(parsePath('/capture').tab).toBe('capture')
     expect(parsePath('/pending').tab).toBe('staging')
     expect(parsePath('/').tab).toBe('home')
-    expect(parsePath('/metadata/files')).toEqual({ tab: 'metadata', detail: { type: 'section', id: 'files' } })
   })
 
   it('gives every shortcut an icon, since a menu without one is a blank row', () => {

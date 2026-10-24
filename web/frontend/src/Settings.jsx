@@ -1,4 +1,5 @@
 import LibraryFoldersGroup from './libraryFolders.jsx'
+import { ScanShortcuts } from './SourceFilesConsole.jsx'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { RuleSlider } from './sources.jsx'
 import { coverImgURL, DEMO, json, errText, copyText, apiURL, upload as uploadFile, uploadWithProgress } from './api.js'
@@ -751,6 +752,9 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, se
           <p className="microcopy">
             {t('settings.updates.version.now', { v: user?.version || t('settings.updates.version.dev') })}
           </p>
+          {/* THE LIBRARY GROUP'S TWO SHORTCUTS, the same component Metadata's index draws:
+              Scan the folders, and the findings waiting on Checks. */}
+          <ScanShortcuts />
         </>
       ),
     } : {}),

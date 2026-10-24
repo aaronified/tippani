@@ -1,12 +1,12 @@
-// A SCAN THAT FAILS SAYS SO. On the owner's NAS a Scan press sent a request that never
-// came back and the screen showed nothing at all: "It should also handle errors and tell
-// me that some error has occurred." A press whose request fails says what happened and
-// gives the button back; a scan that ended in failure says why, in the section.
+// A SCAN THAT FAILED SAYS WHY, ON CHECKS. "It should also handle errors and tell me that
+// some error has occurred." The last scan of a folder that ended in failure is one of the
+// things Checks shows after a scan, with its reason. (A Scan press that fails is tested on
+// Metadata > Source files, where the press is: source-files-console.test.jsx.)
 //
 // WHAT THIS KNOWS: the addresses the section reads and presses (the folders, what a scan
 // found, the scan start, the past scans on the jobs list), the words on screen, and what
 // a person can press. The network is the only fake.
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 let scanAnswer
@@ -41,17 +41,7 @@ const section = () =>
     </>,
   )
 
-describe('a scan that fails', () => {
-  it('says the server did not answer, and gives the Scan button back', async () => {
-    // What a request that never settles turns into once its timeout passes.
-    scanAnswer = () => ({ ok: false, status: 0, data: null })
-    section()
-    fireEvent.click(await screen.findByRole('button', { name: 'Scan again' }))
-    expect(await screen.findByText(/did not answer the scan request/)).toBeTruthy()
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Scan again' }).disabled).toBe(false))
-    expect(screen.queryByText('Scanning…')).toBeNull()
-  })
-
+describe('a scan that failed', () => {
   it('shows why the last scan of a folder failed', async () => {
     pastJobs = [{ id: 4, kind: 'library.scan', state: 'failed', own: true, error: 'the folder is not readable', params: { mount_id: 'books' } }]
     section()

@@ -1,22 +1,21 @@
 import { t } from './i18n.js'
-import { Card, GhostButton, IconArrow, IconButton, IconCheck, IconClose, IconRefresh, IconStop, InfoDot, SectionHead } from './ui.jsx'
+import { Card, GhostButton, IconArrow, IconButton, IconCheck, IconClose, InfoDot, SectionHead } from './ui.jsx'
 import { LoadFailed, goTo } from './sources.jsx'
 import { useLibraryScan } from './libraryScan.js'
 
-// Files found in a mounted library, a section of Checks.
+// What the last library scan left to decide, a section of Checks.
 //
-// The operator mounts the folders the library already lives in, read-only. One press of Scan
-// starts a background job per folder that walks the whole folder, however large. Nothing is
-// copied and nothing is attached on its own: findings are listed as "this file for this work",
-// exact where an identifier matched and for a look where only a name did, and the reader accepts
-// or refuses. A refusal is remembered.
+// The scan itself lives on Metadata > Source files, with the folders and the coverage. This
+// section shows what came out of it: files found for works, to accept or refuse (exact where
+// an identifier matched, by name where only a name did), a scan that failed or was cut short,
+// and how many files matched no work. A refusal is remembered. While a scan runs it says so in
+// one line. When there is nothing to decide it draws nothing.
 //
 // The reads, the polling and the presses are useLibraryScan's (libraryScan.js), shared with
-// Metadata > Source files. No press, no scan, and the section draws nothing for a box with no
-// folders mounted.
+// Metadata > Source files.
 
 export default function FoundFilesPage({ embedded = false }) {
-  const { mounts, found, scans, scanning, starting, busy, loadError, badLines, sum, scan, stop, attach, refuse, retry, reload } = useLibraryScan()
+  const { mounts, found, scanning, busy, loadError, badLines, sum, attach, refuse, retry, reload } = useLibraryScan()
   if (!mounts) return null
   // No folders and nothing failed: the section draws nothing, as before.
   if (mounts.length === 0) return loadError ? <LoadFailed text={loadError} onRetry={retry} /> : null
@@ -24,6 +23,15 @@ export default function FoundFilesPage({ embedded = false }) {
     ['exact', (found || []).filter((c) => c.bucket === 'exact')],
     ['review', (found || []).filter((c) => c.bucket === 'review')],
   ].filter(([, list]) => list.length > 0)
+  const unclaimed = scanning ? 0 : sum('unclaimed')
+  // ONLY WHAT THE SCAN LEFT TO DECIDE. The scan itself, the folders and the coverage are
+  // Metadata > Source files; this section draws nothing when there is nothing to decide.
+  if (!scanning && !loadError && groups.length === 0 && badLines.length === 0 && unclaimed === 0) return null
+  const toFiles = (
+    <button type="button" className="tp-link" onClick={() => goTo('/metadata/files')}>
+      {t('found.to.metadata')}
+    </button>
+  )
 
   return (
     <>
@@ -32,35 +40,27 @@ export default function FoundFilesPage({ embedded = false }) {
         <SectionHead
           embedded={embedded}
           title={t('found.title')}
-          counts={found ? t('found.counts', { files: sum('scanned'), found: sum('found'), unclaimed: sum('unclaimed') }) : ''}
-          right={
-            <>
-              <InfoDot title={t('found.info.title')} text={t('found.info.body')} />
-              {scanning && (
-                <GhostButton type="button" icon={<IconStop />} keepLabel className="tp-btn-danger" aria-label={t('found.stop.aria')} onClick={stop}>
-                  <span>{t('found.stop')}</span>
-                </GhostButton>
-              )}
-              <GhostButton type="button" disabled={scanning || starting} onClick={scan}>
-                <IconRefresh />
-                <span>{scanning ? t('found.scanning') : found ? t('found.rescan') : t('found.scan')}</span>
-              </GhostButton>
-            </>
-          }
+          counts={groups.length ? t('found.waiting', { n: (found || []).length, count: (found || []).length }) : ''}
+          right={<InfoDot title={t('found.info.title')} text={t('found.info.body')} />}
         />
         {loadError && <LoadFailed text={loadError} onRetry={reload} />}
-        <p className="microcopy">
-          <button type="button" className="tp-link" onClick={() => goTo('/metadata/files')}>
-            {t('found.to.metadata')}
-          </button>
-        </p>
+        {scanning && (
+          <p className="microcopy">
+            {t('found.running', { files: sum('scanned'), found: sum('found') })} {toFiles}
+          </p>
+        )}
         {badLines.map((line) => (
           <p key={line} className="microcopy" role="alert" style={{ color: 'var(--error)' }}>{line}</p>
         ))}
-        {found && (
+        {unclaimed > 0 && (
+          <p className="microcopy">
+            {t('found.unclaimed', { n: unclaimed, count: unclaimed })} {toFiles}
+          </p>
+        )}
+        {!scanning && unclaimed === 0 && <p className="microcopy">{toFiles}</p>}
+        {groups.length > 0 && (
           <Card>
             <div className="flex flex-col gap-6">
-              {groups.length === 0 && !scanning && <p className="microcopy">{t('found.nothing')}</p>}
               {groups.map(([bucket, list]) => (
                 <div key={bucket} className="flex flex-col gap-3" data-testid={`found-${bucket}`}>
                   <div className="flex flex-wrap items-center gap-2">

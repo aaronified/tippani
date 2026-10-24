@@ -3,7 +3,8 @@
 Source of truth: this wiki page.
 
 For the administrator. A reader with three hundred books does not upload three hundred files. Mount the folders your books and films
-already live in, **read-only**, and readers can scan them from Checks for the subtitle and ebook files of works they have quotes from.
+already live in, **read-only**, and readers can scan them from Metadata > Source files for the subtitle and ebook files of works they
+have quotes from. What a scan finds is reviewed there and on Checks.
 Nothing is copied: an attached file stays where it is, and the app reads it through the folder.
 
 ## Setting it up
@@ -17,8 +18,9 @@ Nothing is copied: an attached file stays where it is, and the app reads it thro
 
 2. In **Settings > Server > Library**, add each folder by its path **inside the container** (`/library/books`) and a name. The folder
    must be readable; a typo is refused with the reason. Readers see a folder by its name and never see a path.
-3. Readers press **Scan** on Metadata > Source files or on Checks. One press is enough, however large the library is: the scan runs as a job and walks the whole
-   folder. Settings > Jobs shows it, with a Stop.
+3. Readers press **Scan** on Metadata > Source files (or its shortcut on a phone's Metadata or Settings index). One press is enough,
+   however large the library is: the scan runs as a job and walks the whole folder. Settings > Jobs shows it, with a Stop. What it
+   finds goes to Checks > Found files.
 
 ## What a scan does, and does not
 
@@ -34,7 +36,7 @@ Nothing is copied: an attached file stays where it is, and the app reads it thro
   your guarantee on top of ours.
 - **One press, and a job.** A scan starts only when a reader presses Scan (none on boot, none on a timer). It then runs in the
   background as a job, one per reader and folder, and the reader can leave the screen. It has no file limit and needs no second press.
-- **Review while it runs.** Findings are saved as they are found. Checks lists them while the scan is still going, and they are still
+- **Review while it runs.** Findings are saved as they are found. Checks and Metadata > Source files list them while the scan is still going, and they are still
   there after a restart. Accepting or refusing one removes it.
 - **Resumable.** The scan saves where it has got to. After a Stop, a crash or a restart, pressing Scan continues from there instead of
   starting over.

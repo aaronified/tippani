@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { json } from './api.js'
 import { t } from './i18n.js'
-import { Card, GhostButton, IconRefresh, IconStop, InfoDot, MonoLabel } from './ui.jsx'
+import { Card, GhostButton, IconChecks, IconRefresh, IconSourceFile, IconStop, InfoDot, MonoLabel, Tally } from './ui.jsx'
 import { actionsFor } from './actions.jsx'
 import {
   FoundFileRow,
@@ -26,7 +26,6 @@ import { useLibraryScan } from './libraryScan.js'
 // same progress and the same failures), and how many works have a file.
 //
 // A SHOW'S FILES ARE PER EPISODE, so a show lists each episode's file under it.
-// `scanOnArrival` is the phone's Scan shortcut: one scan of every folder, once.
 
 const FILTERS = ['all', 'none', 'has', 'found']
 
@@ -43,7 +42,7 @@ function worksOf(lib) {
   return out
 }
 
-export default function SourceFilesConsole({ lib, onOpenBook, onOpenMovie, scanOnArrival = false, onArrived }) {
+export default function SourceFilesConsole({ lib, onOpenBook, onOpenMovie }) {
   const scan = useLibraryScan()
   const [files, setFiles] = useState(null)
   const [loadError, setLoadError] = useState('')
@@ -65,17 +64,6 @@ export default function SourceFilesConsole({ lib, onOpenBook, onOpenMovie, scanO
       live = false
     }
   }, [tick])
-
-  // THE SHORTCUT'S SCAN, ONCE, when the folder list is known: with no folders the scan
-  // says so itself (useLibraryScan), and a reload of the page does not scan again because
-  // the address has already lost its ?scan=1.
-  const arrived = useRef(false)
-  useEffect(() => {
-    if (!scanOnArrival || arrived.current || scan.mounts === null) return
-    arrived.current = true
-    scan.scan()
-    onArrived?.()
-  }, [scanOnArrival, scan.mounts]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const works = worksOf(lib).map((w) => {
     const subject = sourceSubject(w.kind)
@@ -214,5 +202,35 @@ function WorkFiles({ w, acts, scan, onAdd, onOpen }) {
         ))}
       </div>
     </Card>
+  )
+}
+
+// ScanShortcuts — the two shortcuts a phone's index draws for the library folders, on
+// Metadata > Source files and on Settings > Server: Scan (the same scan as the section's
+// own button, with its progress and any failure) and Found files (Checks, with how many
+// findings wait there). Nothing is drawn while no folder is set up.
+export function ScanShortcuts() {
+  const scan = useLibraryScan()
+  if (!scan.mounts || scan.mounts.length === 0) return null
+  const waiting = (scan.found || []).length
+  return (
+    <>
+      <div className="section-index-verbs">
+        <GhostButton icon={<IconRefresh />} keepLabel disabled={scan.scanning || scan.starting} onClick={scan.scan}>
+          {scan.scanning ? t('found.scanning') : t('found.scan')}
+        </GhostButton>
+        <GhostButton icon={<IconChecks />} keepLabel onClick={() => goTo('/checks')}>
+          {t('files.found.label')}
+          {waiting > 0 && <Tally n={waiting} icon={<IconSourceFile />} word={t('files.found.word')} />}
+        </GhostButton>
+      </div>
+      {scan.scanning && (
+        <p className="microcopy">{t('found.counts', { files: scan.sum('scanned'), found: scan.sum('found'), unclaimed: scan.sum('unclaimed') })}</p>
+      )}
+      {scan.loadError && <LoadFailed text={scan.loadError} onRetry={scan.reload} />}
+      {scan.badLines.map((line) => (
+        <p key={line} className="microcopy" role="alert" style={{ color: 'var(--error)' }}>{line}</p>
+      ))}
+    </>
   )
 }
