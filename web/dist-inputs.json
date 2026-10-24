@@ -13,8 +13,8 @@
     "web/frontend/vite.config.js"
   ],
   "sha256": {
-    "internal/i18n/bn.txt": "bcd3f824215da192893abf3bdcb5ad79e76a03eece11dfe2dd2b1e7c35503b16",
-    "internal/i18n/en.txt": "719935d9c7775ccd67a7453819dd315b25f620b4d33e2e1ea57f4686e22d32e8",
+    "internal/i18n/bn.txt": "7797ef83dd8bc0850849bf5aff1ea748fea26a30da8d1f1d019250251e8baebc",
+    "internal/i18n/en.txt": "dab9b4dce809e6d9aaa530f508013ed1a51a09c9e14e3d6daaa5d2c64b843604",
     "web/frontend/index.html": "e117a908fb6f5d08da419313d66fb54ff988f6eb838679d2e73e4fa0fb7eefff",
     "web/frontend/package-lock.json": "bb11669a318d0aef1ad6a2c77c07ee7a608a94cd5ef5e5972c77e25e62161028",
     "web/frontend/package.json": "65aff2f062a2002df4af3a02b9c85dd02b937b14c33624c0f49898245fddf404",
@@ -138,7 +138,7 @@
     "web/frontend/src/sheetAnchors.js": "631d8954e79fa2845f992f7f05ec7404f0d0fcf54618feb9587d9031147c9a47",
     "web/frontend/src/signature.jsx": "11fec56c7836cfb926151becdf77274cc571739c6f5bff19dd0f9035a84bb61f",
     "web/frontend/src/silhouette.jsx": "1d74be254e8e4a71fe6a14101d79426a972139f84e2452a9fcb3ee2df89345a0",
-    "web/frontend/src/sources.jsx": "490503ada30c110bc182a46aa47101af3d22e2530f4bc2fa2ebe36500c8dfaf2",
+    "web/frontend/src/sources.jsx": "e2d8839608ff1ac45dd3d5f2a5e6146bc32c6043ddd11c70a9755296137a0fa7",
     "web/frontend/src/stickers.jsx": "09fc58c377bf4dcc5455d2acb70f7122115289f9d62a503d4395dec9c4c85379",
     "web/frontend/src/stuck.js": "1f7d8449a4889a88444f5d05fd90dbcba22a294edfc98253f31de38a5b9092f1",
     "web/frontend/src/suggest.jsx": "ac42410ff8f465a70e9140d50e905b95b1213b06f86ee35ef3c66f2d5529b157",
