@@ -8050,3 +8050,26 @@ settings.library.add.name = Name
 settings.library.add.button = Add
 settings.library.backup.label = Include attached files in backups
 settings.library.backup.sub = Off by default: what was read from them is always kept, and the files can be attached again.
+# Settings, Server, Library: stored source files that nothing names, and rows whose file is gone.
+settings.library.tidy.label = Tidy attached files
+settings.library.tidy.info = Removes stored files that no work names any more. A work whose file is missing is only reported: what was read from it is kept, and the file can be added again.
+settings.library.tidy.orphans.one = {n} stored file belongs to no work.
+settings.library.tidy.orphans.other = {n} stored files belong to no work.
+settings.library.tidy.missing.one = {n} work is missing its file.
+settings.library.tidy.missing.other = {n} works are missing their files.
+settings.library.tidy.button = Remove them
+settings.library.tidy.done.one = Removed {n} file
+settings.library.tidy.done.other = Removed {n} files
+# The files attached to your works, and the prune: keep what was read, throw the file away.
+attached.title = Attached files
+attached.counts = {n} files · pruning frees about {frees}
+attached.info.title = Attached files
+attached.info.body = The files you attached, biggest first. Pruning keeps what was read from a file, so quotes keep their context, and deletes the file itself. Nothing new can be read from it until you add it again.
+attached.row = {size} on disk · {quotes} quotes keep context ({kept})
+attached.last = last quote added {when}
+attached.prune = Prune
+attached.confirm.title = Prune the file for {title}?
+attached.confirm.body = {name} ({size}) is deleted. {kept} quotes keep their context; {none} have none to keep. Quotes you add later get no context until you add the file again.
+attached.confirm.button = Prune
+attached.done = Pruned the file for {title}
+common.source.holds.pruned = Source file {name} was pruned: its context is kept. Add the file again to add more.

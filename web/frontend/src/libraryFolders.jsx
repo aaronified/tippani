@@ -29,11 +29,14 @@ export default function LibraryFoldersGroup() {
   const [label, setLabel] = useState('')
   const [busy, setBusy] = useState(false)
   const [withSources, setWithSources] = useState(false)
+  // What a tidy would remove, and what is missing: counts only, nothing touched until pressed.
+  const [tidy, setTidy] = useState(null)
 
   const load = useCallback(async () => {
-    const [m, b] = await Promise.all([json('GET', '/admin/mounts'), json('GET', '/admin/backup/sources')])
+    const [m, b, o] = await Promise.all([json('GET', '/admin/mounts'), json('GET', '/admin/backup/sources'), json('GET', '/admin/maintenance/sources')])
     setMounts(m.ok ? m.data.mounts || [] : [])
     if (b.ok) setWithSources(!!b.data.include)
+    if (o.ok) setTidy(o.data)
   }, [])
   useEffect(() => {
     load()
@@ -62,6 +65,16 @@ export default function LibraryFoldersGroup() {
       setPath('')
       setLabel('')
     }
+  }
+
+  async function sweep() {
+    setBusy(true)
+    const r = await json('POST', '/admin/maintenance/sources/sweep')
+    setBusy(false)
+    if (r.ok) {
+      toast(t('settings.library.tidy.done', { n: r.data.removed, count: r.data.removed }))
+      load()
+    } else toast(r.data?.error || t('common.source.error'))
   }
 
   async function setBackup(include) {
@@ -131,6 +144,29 @@ export default function LibraryFoldersGroup() {
           />
         }
       />
+      {tidy && (tidy.orphan_files > 0 || tidy.missing_files > 0) && (
+        <PrefRow
+          label={t('settings.library.tidy.label')}
+          info={t('settings.library.tidy.info')}
+          said={
+            <>
+              {tidy.orphan_files > 0 && (
+                <p className="microcopy">{t('settings.library.tidy.orphans', { n: tidy.orphan_files, count: tidy.orphan_files })}</p>
+              )}
+              {tidy.missing_files > 0 && (
+                <p className="microcopy">{t('settings.library.tidy.missing', { n: tidy.missing_files, count: tidy.missing_files })}</p>
+              )}
+            </>
+          }
+          control={
+            tidy.orphan_files > 0 ? (
+              <GhostButton type="button" disabled={busy} onClick={sweep}>
+                <span>{t('settings.library.tidy.button')}</span>
+              </GhostButton>
+            ) : null
+          }
+        />
+      )}
     </PrefGroup>
   )
 }

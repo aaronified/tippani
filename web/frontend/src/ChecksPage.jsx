@@ -27,6 +27,7 @@ const StagingPage = lazy(() => import('./StagingPage.jsx'))
 const CleanupPage = lazy(() => import('./CleanupPage.jsx'))
 const LocatorsPage = lazy(() => import('./LocatorsPage.jsx'))
 const FoundFilesPage = lazy(() => import('./FoundFilesPage.jsx'))
+const AttachedFilesPage = lazy(() => import('./AttachedFilesPage.jsx'))
 
 export default function ChecksPage({ onPending, onOpenBook, onOpenMovie, onApproved, onOpenQuotes }) {
   return (
@@ -63,6 +64,11 @@ export default function ChecksPage({ onPending, onOpenBook, onOpenMovie, onAppro
           included, for a box with no folders mounted. */}
       <Suspense fallback={null}>
         <FoundFilesPage embedded />
+      </Suspense>
+      {/* The files attached to your works, biggest first, and the prune. Draws nothing for a
+          reader with no uploaded file. */}
+      <Suspense fallback={null}>
+        <AttachedFilesPage embedded />
       </Suspense>
       {/* Times a work's subtitle proposes for its lines. Draws nothing, rule included,
           when there is nothing to propose. */}

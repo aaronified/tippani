@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const calls = []
 let mounts
+let tidyFiles = 0
 vi.mock('../../src/api.js', () => ({
   json: async (method, path, body) => {
     calls.push({ method, path, body })
@@ -13,6 +14,8 @@ vi.mock('../../src/api.js', () => ({
       mounts = body.mounts.map((m) => ({ ...m, ok: true }))
       return { ok: true, data: { mounts } }
     }
+    if (path === '/admin/maintenance/sources' && method === 'GET') return { ok: true, data: { orphan_files: tidyFiles, orphan_bytes: 100, missing_files: 0 } }
+    if (path === '/admin/maintenance/sources/sweep') return { ok: true, data: { removed: tidyFiles } }
     if (path === '/admin/backup/sources' && method === 'GET') return { ok: true, data: { include: false } }
     if (path === '/admin/backup/sources' && method === 'PUT') return { ok: true, data: { include: body.include } }
     return { ok: true, data: {} }
@@ -26,6 +29,7 @@ const { default: LibraryFoldersGroup } = await import('../../src/libraryFolders.
 beforeEach(() => {
   cleanup()
   calls.length = 0
+  tidyFiles = 0
   mounts = [{ id: 'books', label: 'Books', path: '/library/books', ok: true }]
 })
 
@@ -54,5 +58,17 @@ describe('library folders', () => {
     await screen.findByText('/library/books')
     fireEvent.click(screen.getByText('On'))
     await waitFor(() => expect(calls.find((c) => c.path === '/admin/backup/sources' && c.method === 'PUT')?.body).toEqual({ include: true }))
+  })
+
+  it('offers a tidy only when files belong to no work, and says nothing otherwise', async () => {
+    const { unmount } = render(<LibraryFoldersGroup />)
+    await screen.findByText('/library/books')
+    expect(screen.queryByText('Tidy attached files')).toBeNull()
+    unmount()
+    tidyFiles = 2
+    render(<LibraryFoldersGroup />)
+    expect(await screen.findByText('2 stored files belong to no work.')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Remove them' }))
+    await waitFor(() => expect(calls.some((c) => c.path === '/admin/maintenance/sources/sweep' && c.method === 'POST')).toBe(true))
   })
 })

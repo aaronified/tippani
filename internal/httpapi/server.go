@@ -634,6 +634,9 @@ func (s *Server) Handler() http.Handler {
 	// Proposals only: nothing is written until the reader accepts (locators.go).
 	// A mounted library, read-only (mounts.go). Folders are the administrator's; a scan only
 	// PROPOSES, and a candidate is a token the server signed, never a path from the client.
+	// Stored source files no row names, and rows whose file is gone (sources_sweep.go).
+	mux.Handle("GET /admin/maintenance/sources", s.requireAdmin(s.handleSourceOrphans))
+	mux.Handle("POST /admin/maintenance/sources/sweep", s.requireAdmin(s.handleSweepSources))
 	mux.Handle("GET /admin/mounts", s.requireAdmin(s.handleGetMounts))
 	mux.Handle("PUT /admin/mounts", s.requireAdmin(s.handlePutMounts))
 	mux.Handle("GET /sources/mounts", s.requireAuth(s.handleListMounts))
@@ -644,6 +647,10 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /locators/accept", s.requireAuth(s.handleLocatorAccept))
 	mux.Handle("POST /locators/ignore", s.requireAuth(s.handleLocatorIgnore))
 	mux.Handle("GET /sources/context-ids", s.requireAuth(s.handleContextIDs))
+	// Keep the context, throw the file away (sources_prune.go): previewed by GET, done by POST.
+	mux.Handle("GET /sources/stack", s.requireAuth(s.handleSourceStack))
+	mux.Handle("GET /sources/{id}/prune", s.requireAuth(s.handlePruneSource))
+	mux.Handle("POST /sources/{id}/prune", s.requireAuth(s.handlePruneSource))
 	mux.Handle("POST /sources/{id}/rescan", s.requireAuth(s.handleRescanSource))
 	// One stored row, read: the context of a quote opens no file (source_context.go).
 	mux.Handle("GET /quotes/{kind}/{id}/context", s.requireAuth(s.handleGetContext))

@@ -136,7 +136,11 @@ export function SourceLine({ kind, item, version, onRemoved }) {
     <div className="flex flex-wrap items-center gap-2" data-testid="source-line">
       {rows.map((s) => (
         <span key={s.id} className="flex items-center gap-2">
-          <span>{t('common.source.holds', { name: s.name, size: sizeOf(s.bytes) })}</span>
+          <span>
+            {s.state === 'pruned'
+              ? t('common.source.holds.pruned', { name: s.name })
+              : t('common.source.holds', { name: s.name, size: sizeOf(s.bytes) })}
+          </span>
           <GhostButton
             type="button"
             aria-label={t('common.source.remove.aria', { name: s.name })}

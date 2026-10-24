@@ -7687,4 +7687,27 @@ settings.library.add.name = নাম
 settings.library.add.button = যোগ করুন
 settings.library.backup.label = ব্যাকআপে জোড়া ফাইল রাখুন
 settings.library.backup.sub = ডিফল্টে বন্ধ: ফাইল থেকে যা পড়া হয়েছে তা সবসময় থাকে, আর ফাইল আবার জোড়া যায়।
+# Settings, Server, Library: stored source files that nothing names, and rows whose file is gone.
+settings.library.tidy.label = জোড়া ফাইল গোছান
+settings.library.tidy.info = যে সংরক্ষিত ফাইল আর কোনো কাজের নয় তা সরায়। যে কাজের ফাইল নেই তা শুধু জানানো হয়: ফাইল থেকে যা পড়া হয়েছিল তা থাকে, আর ফাইল আবার জোড়া যায়।
+settings.library.tidy.orphans.one = {n}টি সংরক্ষিত ফাইল কোনো কাজের নয়।
+settings.library.tidy.orphans.other = {n}টি সংরক্ষিত ফাইল কোনো কাজের নয়।
+settings.library.tidy.missing.one = {n}টি কাজের ফাইল নেই।
+settings.library.tidy.missing.other = {n}টি কাজের ফাইল নেই।
+settings.library.tidy.button = সরিয়ে দিন
+settings.library.tidy.done.one = {n}টি ফাইল সরানো হয়েছে
+settings.library.tidy.done.other = {n}টি ফাইল সরানো হয়েছে
+# The files attached to your works, and the prune: keep what was read, throw the file away.
+attached.title = জোড়া ফাইল
+attached.counts = {n}টি ফাইল · ছাঁটলে প্রায় {frees} খালি হবে
+attached.info.title = জোড়া ফাইল
+attached.info.body = আপনার জোড়া ফাইলগুলো, বড়গুলো আগে। ছাঁটলে ফাইল থেকে যা পড়া হয়েছে তা থাকে, তাই উদ্ধৃতির প্রসঙ্গ থাকে, আর ফাইলটি মুছে যায়। আবার না জোড়া পর্যন্ত নতুন কিছু পড়া যাবে না।
+attached.row = ডিস্কে {size} · {quotes}টি উদ্ধৃতির প্রসঙ্গ থাকবে ({kept})
+attached.last = শেষ উদ্ধৃতি যোগ হয়েছে {when}
+attached.prune = ছাঁটুন
+attached.confirm.title = {title}-এর ফাইল ছাঁটবেন?
+attached.confirm.body = {name} ({size}) মুছে যাবে। {kept}টি উদ্ধৃতির প্রসঙ্গ থাকবে; {none}টির রাখার মতো কিছু নেই। পরে যোগ করা উদ্ধৃতির প্রসঙ্গ পাবেন না, যতক্ষণ না ফাইল আবার জোড়েন।
+attached.confirm.button = ছাঁটুন
+attached.done = {title}-এর ফাইল ছাঁটা হয়েছে
+common.source.holds.pruned = সূত্র ফাইল {name} ছাঁটা হয়েছে: প্রসঙ্গ রাখা আছে। আরও যোগ করতে ফাইলটি আবার জুড়ুন।
 `;export{e as default};

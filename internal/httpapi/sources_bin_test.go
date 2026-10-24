@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
 
 func parkedSourceFiles(t *testing.T, srv *Server) int {
@@ -198,4 +199,83 @@ func TestADeletedAccountIsRestoredWithItsFiles(t *testing.T) {
 	if err := srv.Store.DB.QueryRow(`SELECT count(*) FROM work_sources`).Scan(&n); err != nil || n != 1 {
 		t.Fatalf("rows = %d (%v)", n, err)
 	}
+}
+
+// ---- the orphan sweep ----------------------------------------------------------
+
+func TestTheSweepRemovesAFileNoRowNamesAndLeavesTheOnesThatAreNamedOrParkedOrYoung(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	book := c.newBook("B")
+	c.putSource(sourceFields("book", book), "b.txt", []byte(prose))
+	named := sourceFilesOnDisk(t, srv)[0]
+
+	old := time.Now().Add(-time.Hour)
+	stray := filepath.Join(srv.sourcesDir(), "0123456789abcdef")
+	young := filepath.Join(srv.sourcesDir(), "fedcba9876543210")
+	for _, p := range []string{stray, young} {
+		if err := os.WriteFile(p, []byte("x"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.Chtimes(stray, old, old); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(srv.sourceTrashDir(), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	parked := filepath.Join(srv.sourceTrashDir(), "aaaaaaaaaaaaaaaa")
+	if err := os.WriteFile(parked, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chtimes(parked, old, old); err != nil {
+		t.Fatal(err)
+	}
+
+	report := decode[map[string]int](t, c.mustDo("GET", "/admin/maintenance/sources", nil, 200))
+	if report["orphan_files"] != 1 || report["missing_files"] != 0 {
+		t.Fatalf("report before: %+v", report)
+	}
+	res := decode[map[string]int](t, c.mustDo("POST", "/admin/maintenance/sources/sweep", nil, 200))
+	if res["removed"] != 1 {
+		t.Fatalf("%+v", res)
+	}
+	if _, err := os.Stat(stray); !os.IsNotExist(err) {
+		t.Fatal("the orphan should be removed")
+	}
+	for name, p := range map[string]string{"the named file": filepath.Join(srv.sourcesDir(), named), "a young file (an upload may be in flight)": young, "a parked file (the bin owns it)": parked} {
+		if _, err := os.Stat(p); err != nil {
+			t.Fatalf("%s must be left alone: %v", name, err)
+		}
+	}
+}
+
+func TestARowWithNoFileIsReportedNotDeleted(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	book := c.newBook("B")
+	hl := c.newHighlight(book, "It was a bright cold day in April, and the clocks were striking thirteen.")
+	c.putSource(sourceFields("book", book), "b.txt", []byte(prose))
+	if err := os.Remove(filepath.Join(srv.sourcesDir(), sourceFilesOnDisk(t, srv)[0])); err != nil {
+		t.Fatal(err)
+	}
+	if got := decode[map[string]int](t, c.mustDo("GET", "/admin/maintenance/sources", nil, 200)); got["missing_files"] != 1 {
+		t.Fatalf("%+v", got)
+	}
+	c.mustDo("POST", "/admin/maintenance/sources/sweep", nil, 200)
+	var n int
+	if err := srv.Store.DB.QueryRow(`SELECT count(*) FROM work_sources`).Scan(&n); err != nil || n != 1 {
+		t.Fatalf("the row is the only record the work had a source, and stays: %d %v", n, err)
+	}
+	if got := c.contextOf("annotation", hl); got.Body == "" {
+		t.Fatal("and its stored context still opens")
+	}
+}
+
+func TestOnlyTheAdminMaySweep(t *testing.T) {
+	srv := newTestServer(t)
+	admin := signupAdmin(t, srv.Handler())
+	cara := addUser(t, srv.Handler(), admin, "cara")
+	cara.mustDo("GET", "/admin/maintenance/sources", nil, http.StatusForbidden)
+	cara.mustDo("POST", "/admin/maintenance/sources/sweep", nil, http.StatusForbidden)
 }
