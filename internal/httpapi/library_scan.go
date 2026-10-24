@@ -31,6 +31,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
 	"path"
 	"runtime/debug"
 	"strconv"
@@ -40,6 +41,7 @@ import (
 	"tippani/internal/jobs"
 	"tippani/internal/mount"
 	"tippani/internal/olog"
+	"tippani/internal/store"
 )
 
 // libraryScanKind is the queue's kind for a scan.
@@ -73,11 +75,17 @@ const (
 )
 
 // scanParams is the job's params: the folder id only, never a path.
+//
+// EVERY SLICE OF A SCAN HAS THE SAME PARAMS. The queue refuses a job whose owner,
+// kind and params match one that is queued or running (jobs.ErrDuplicate), and it
+// checks and inserts in one transaction that holds SQLite's write lock. So a press
+// while any slice of the folder's scan is live is refused as that job, and two
+// presses at once start one scan. This is the "one scan per user and folder" rule.
+// Until 3.4.1 a slice number made the params differ, and a mutex (scanStart) held
+// across the check and the insert kept the rule instead. That mutex made every
+// press wait behind a press that was waiting for the database.
 type scanParams struct {
 	MountID string `json:"mount_id"`
-	// Slice numbers the continuations of one scan (0 for the first job). It makes a
-	// continuation's params differ from a new press's.
-	Slice int `json:"slice,omitempty"`
 }
 
 // sliceTime is the length of a slice; a test sets Server.scanSlice to shorten it.
@@ -112,24 +120,57 @@ func (s *Server) handleScanMount(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusConflict, "that folder cannot be read right now: "+err.Error())
 		return
 	}
-	// The check and the enqueue are one step, so two presses cannot start two chains.
-	s.scanStart.Lock()
-	defer s.scanStart.Unlock()
-	if live, _ := s.liveScanJob(userID(r), cfg.ID); live != 0 {
-		writeJSON(w, http.StatusOK, map[string]any{"job_id": live, "running": true})
-		return
+	// The press answers within scanPressWait, whatever the database does. The work runs
+	// in its own goroutine because a write that the storage does not finish is not
+	// bounded by a context or by busy_timeout. If the wait runs out, the goroutine ends
+	// on its own later; it holds no lock of this handler's.
+	type queued struct {
+		id   int64
+		live bool
+		err  error
 	}
-	id, err := s.Jobs.Enqueue(viewer(r), libraryScanKind, cfg.Label, scanParams{MountID: cfg.ID}, 0, nil)
+	ctx, cancel := context.WithTimeout(context.Background(), scanPressWait)
+	defer cancel()
+	done := make(chan queued, 1)
+	uid, who := userID(r), viewer(r)
+	go func() {
+		// A read first, which does not wait for the write lock: a press on a live scan
+		// is answered without a write. The rule itself is kept by Enqueue (scanParams).
+		if live, _ := s.liveScanJob(uid, cfg.ID); live != 0 {
+			done <- queued{id: live, live: true}
+			return
+		}
+		id, err := s.Jobs.EnqueueContext(ctx, who, libraryScanKind, cfg.Label, scanParams{MountID: cfg.ID}, 0, nil)
+		done <- queued{id: id, err: err}
+	}()
+	var res queued
+	select {
+	case res = <-done:
+	case <-ctx.Done():
+		res.err = ctx.Err()
+	}
 	var dup *jobs.ErrDuplicate
 	switch {
-	case errors.As(err, &dup):
+	case res.live:
+		writeJSON(w, http.StatusOK, map[string]any{"job_id": res.id, "running": true})
+	case errors.As(res.err, &dup):
 		writeJSON(w, http.StatusOK, map[string]any{"job_id": dup.ID, "running": true})
-	case err != nil:
-		s.writeJobRefusal(w, r, err)
+	case store.IsBusy(res.err), errors.Is(res.err, context.DeadlineExceeded), errors.Is(res.err, store.ErrNoConnection):
+		olog.Warnf(olog.CodeJobQueueBusy, "[sources] scan of folder %s for %s not queued: the database was busy: %v", cfg.ID, who.Username, res.err)
+		writeErrDetail(w, http.StatusServiceUnavailable, scanBusyMessage, map[string]any{"code": string(olog.CodeJobQueueBusy)})
+	case res.err != nil:
+		s.writeJobRefusal(w, r, res.err)
 	default:
-		writeJSON(w, http.StatusAccepted, map[string]any{"job_id": id, "running": false})
+		writeJSON(w, http.StatusAccepted, map[string]any{"job_id": res.id, "running": false})
 	}
 }
+
+// scanPressWait is the longest a Scan press waits before it answers. It is longer than
+// busy_timeout (5 s), so an ordinary wait for the write lock still ends in a scan.
+const scanPressWait = 10 * time.Second
+
+// scanBusyMessage is what a press is told when the scan could not be queued in time.
+const scanBusyMessage = "The server is busy and could not start the scan. Try again in a minute."
 
 // ---- the job ----
 
@@ -160,7 +201,6 @@ type libraryScan struct {
 	mountID string
 	uid     int64
 	st      scanState
-	slice   int
 	// deadline ends the slice; sliceOver is set when it did.
 	deadline  time.Time
 	sliceOver bool
@@ -194,7 +234,7 @@ func runLibraryScan(s *Server, ctx context.Context, j *jobs.Job) error {
 		return fmt.Errorf("that folder cannot be read right now: %w", err)
 	}
 	sc := &libraryScan{s: s, j: j, ctx: ctx, root: root, mountID: cfg.ID, uid: j.Owner().UserID,
-		slice: p.Slice, deadline: time.Now().Add(s.sliceTime())}
+		deadline: time.Now().Add(s.sliceTime())}
 	return sc.run()
 }
 
@@ -218,6 +258,12 @@ func (sc *libraryScan) run() error {
 		return err
 	}
 	if !res.Stopped {
+		// A folder that cannot be listed at all (unmounted, or removed after the
+		// press) looks like an empty folder to the walk. Finishing the pass would
+		// then delete every finding, so the job fails instead and keeps them.
+		if _, err := os.ReadDir(sc.root.Path()); err != nil {
+			return fmt.Errorf("the folder could not be read, so the scan stopped and kept what it had found: %w", err)
+		}
 		if err := sc.finish(); err != nil {
 			return err
 		}
@@ -227,7 +273,7 @@ func (sc *libraryScan) run() error {
 	switch {
 	case res.Stopped && sc.sliceOver && !sc.j.Stopping():
 		// The walk is not finished and nobody pressed Stop: queue the next slice.
-		if _, err := sc.j.Continue(scanParams{MountID: sc.mountID, Slice: sc.slice + 1}); err != nil {
+		if _, err := sc.j.Continue(scanParams{MountID: sc.mountID}); err != nil {
 			sc.j.Log(jobs.LevelWarn, "could not queue the next part of the scan (%v); press Scan to carry on", err)
 		} else {
 			continued = true
@@ -510,8 +556,11 @@ const findingsShown = `f.user_id = ? AND f.mount_id = ?
 
 // scanStatus is what the screen reads of a folder's scan.
 type scanStatus struct {
-	// State is none, queued, running, partial (stopped; Scan resumes it) or done.
-	State     string `json:"state"`
+	// State is none, queued, running, partial (stopped; Scan resumes it), done, or
+	// failed or interrupted when the folder's last scan job ended that way.
+	State string `json:"state"`
+	// Error is the last scan job's error when State is failed or interrupted.
+	Error     string `json:"error,omitempty"`
 	JobID     int64  `json:"job_id,omitempty"`
 	Scanned   int    `json:"scanned"`
 	Found     int    `json:"found"`
@@ -532,6 +581,18 @@ func (s *Server) liveScanJob(uid int64, mountID string) (id int64, state string)
 	return id, state
 }
 
+// lastScanJob is this reader's newest scan job of the folder, whatever its state, with
+// its error. A read error answers no job.
+func (s *Server) lastScanJob(uid int64, mountID string) (id int64, state, msg string) {
+	err := s.Store.DB.QueryRow(`SELECT id, state, COALESCE(error, '') FROM jobs
+		WHERE kind = ? AND user_id = ? AND queued = 1 AND json_valid(params) AND json_extract(params, '$.mount_id') = ?
+		ORDER BY id DESC LIMIT 1`, libraryScanKind, uid, mountID).Scan(&id, &state, &msg)
+	if err != nil {
+		return 0, "", ""
+	}
+	return id, state, msg
+}
+
 func (s *Server) scanStatusOf(uid int64, mountID string) (scanStatus, error) {
 	st := scanStatus{State: "none"}
 	var done bool
@@ -548,6 +609,12 @@ func (s *Server) scanStatusOf(uid int64, mountID string) (scanStatus, error) {
 	}
 	if id, state := s.liveScanJob(uid, mountID); id != 0 {
 		st.JobID, st.State = id, state
+	} else if id, state, msg := s.lastScanJob(uid, mountID); state == jobs.StateFailed || state == jobs.StateInterrupted {
+		// The last scan job did not finish: the screen shows why.
+		st.JobID, st.State, st.Error = id, state, msg
+		if msg == "" {
+			st.Error = "the scan was cut off before it finished (the server stopped or restarted); press Scan to carry on"
+		}
 	}
 	n, err := countFindingsOf(s.Store.DB, uid, mountID)
 	st.Found = n

@@ -171,9 +171,7 @@ type Server struct {
 	// job is not in the table yet (import_queue.go).
 	spoolMu sync.Mutex
 
-	// scanStart makes "is a scan of this folder live?" and "queue one" a single step
-	// (library_scan.go). scanSlice shortens a scan's slice in a test; 0 is the default.
-	scanStart sync.Mutex
+	// scanSlice shortens a scan's slice in a test; 0 is the default (library_scan.go).
 	scanSlice time.Duration
 }
 
@@ -658,6 +656,8 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /sources/context-ids", s.requireAuth(s.handleContextIDs))
 	// Keep the context, throw the file away (sources_prune.go): previewed by GET, done by POST.
 	mux.Handle("GET /sources/stack", s.requireAuth(s.handleSourceStack))
+	// Every attached file at once, for Metadata > Source files (sources_list.go).
+	mux.Handle("GET /sources/all", s.requireAuth(s.handleListSources))
 	mux.Handle("GET /sources/{id}/prune", s.requireAuth(s.handlePruneSource))
 	mux.Handle("POST /sources/{id}/prune", s.requireAuth(s.handlePruneSource))
 	mux.Handle("POST /sources/{id}/rescan", s.requireAuth(s.handleRescanSource))

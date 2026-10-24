@@ -20,6 +20,7 @@ type foundList struct {
 	Candidates []foundCandidate `json:"candidates"`
 	Scan       struct {
 		State     string `json:"state"`
+		Error     string `json:"error"`
 		JobID     int64  `json:"job_id"`
 		Scanned   int    `json:"scanned"`
 		Found     int    `json:"found"`

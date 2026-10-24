@@ -12,6 +12,7 @@ package httpapi
 import (
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -332,5 +333,129 @@ func TestAContinuationIsNotRefusedByTheJobLimit(t *testing.T) {
 	c.startScan()
 	if got := waitScanDone(t, c); len(got.Candidates) != 120 {
 		t.Fatalf("every slice should have been queued: %d findings", len(got.Candidates))
+	}
+}
+
+// On the owner's NAS (3.4.1) the first press's write did not finish and kept SQLite's write
+// lock. The other presses waited for it behind a mutex and the queue's lock, and never
+// answered. Here another writer holds the lock for longer than busy_timeout. Each press must
+// answer on its own within scanPressWait, with a busy error the screen can show, and not
+// wait behind another press. Stop all must answer at once: it does not need the write lock.
+func TestAScanPressAnswersBusyWhileTheDatabaseIsLocked(t *testing.T) {
+	srv, c, _ := bigLibrary(t, 3)
+	// _txlock=immediate: this BEGIN takes the write lock and keeps it until Rollback.
+	tx, err := srv.Store.DB.Begin()
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Two presses: with the transaction above they use three of the pool's four
+	// connections, which leaves one for Stop all.
+	const presses = 2
+	took := make([]time.Duration, presses)
+	answers := make([]*httptest.ResponseRecorder, presses)
+	var wg sync.WaitGroup
+	for i := range presses {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			start := time.Now()
+			answers[i] = c.do("POST", "/sources/scan", map[string]any{"mount_id": "library"})
+			took[i] = time.Since(start)
+		}()
+	}
+	time.Sleep(300 * time.Millisecond)
+	start := time.Now()
+	stop := c.do("POST", "/jobs/stop-all", nil)
+	stopTook := time.Since(start)
+	wg.Wait()
+	_ = tx.Rollback()
+
+	for i, d := range took {
+		if d > scanPressWait+time.Second {
+			t.Errorf("press %d took %s, longer than the press's bound", i, d.Round(time.Millisecond))
+		}
+		rec := answers[i]
+		if rec.Code != http.StatusServiceUnavailable || !strings.Contains(rec.Body.String(), "busy") ||
+			!strings.Contains(rec.Body.String(), "TIP-JOBS-004") {
+			t.Errorf("press %d answered %d %s, want 503 with the busy message and its code", i, rec.Code, rec.Body)
+		}
+	}
+	if stopTook > 2*time.Second {
+		t.Errorf("Stop all took %s (answered %d) while presses waited for the database", stopTook.Round(time.Millisecond), stop.Code)
+	}
+	// Nothing is left holding a lock: a press now starts the scan and it finishes.
+	c.startScan()
+	if got := waitScanDone(t, c); len(got.Candidates) != 3 {
+		t.Fatalf("the scan after the lock was freed found %d files, want 3", len(got.Candidates))
+	}
+}
+
+// A folder that disappears during a scan fails the job with a plain message, which the
+// folder's scan status shows, and the findings already stored are kept.
+func TestAScanOfAFolderThatDisappearsFailsAndSaysWhy(t *testing.T) {
+	srv, c, root := bigLibrary(t, 3)
+	if got := c.scan(); len(got.Candidates) != 3 {
+		t.Fatalf("first scan found %d files, want 3", len(got.Candidates))
+	}
+	srv.itemSeam = func(j *jobs.Job, i int) {
+		if i == 0 {
+			if err := os.RemoveAll(root); err != nil {
+				t.Error(err)
+			}
+		}
+	}
+	id := c.startScan()
+	c.waitJob(id, "failed")
+	got := c.found()
+	if got.Scan.State != "failed" || !strings.Contains(got.Scan.Error, "could not be read") {
+		t.Fatalf("the scan status should say the scan failed and why: %+v", got.Scan)
+	}
+	if len(got.Candidates) != 3 {
+		t.Fatalf("a failed scan should keep the findings it had: %d", len(got.Candidates))
+	}
+}
+
+// Presses at the same moment start one scan. The others are told it is running.
+func TestPressesAtOnceStartOneScan(t *testing.T) {
+	srv, c, _ := bigLibrary(t, 3)
+	const presses = 8
+	codes := make([]int, presses)
+	ids := make([]int64, presses)
+	var wg sync.WaitGroup
+	for i := range presses {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			rec := c.do("POST", "/sources/scan", map[string]any{"mount_id": "library"})
+			codes[i] = rec.Code
+			ids[i] = decode[struct {
+				JobID int64 `json:"job_id"`
+			}](t, rec).JobID
+		}()
+	}
+	wg.Wait()
+	started := 0
+	for i, code := range codes {
+		switch code {
+		case http.StatusAccepted:
+			started++
+		case http.StatusOK:
+		default:
+			t.Fatalf("press %d answered %d", i, code)
+		}
+		if ids[i] == 0 {
+			t.Fatalf("press %d named no job", i)
+		}
+	}
+	if started > 1 {
+		t.Fatalf("%d presses started a scan, want at most 1", started)
+	}
+	waitScanDone(t, c)
+	var n int
+	if err := srv.Store.DB.QueryRow(`SELECT count(*) FROM jobs WHERE kind = 'library.scan'`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 {
+		t.Fatalf("%d scan jobs were queued, want 1", n)
 	}
 }

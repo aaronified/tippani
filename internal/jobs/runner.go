@@ -177,6 +177,11 @@ type Runner struct {
 	alive     bool
 	pending   bool
 	claiming  bool
+	// inserts counts the Enqueue calls whose insert is in progress. Enqueue does
+	// not hold r.mu across the insert, which waits for SQLite's write lock.
+	// insertsDone is closed when the count drops to zero (waitInsertsLocked).
+	inserts     int
+	insertsDone chan struct{}
 	// claimStop is every job a Stop asked for while the worker was claiming, with
 	// the line naming who pressed it. The worker applies it to the job it took,
 	// before running a step of it, and logs the line there, so the line is in
@@ -286,13 +291,22 @@ func (r *Runner) kind(name string) (Kind, bool) {
 // from_job column: a re-verify's apply names the check it came from that way, and
 // it is the one member of params the runner reads.
 func (r *Runner) Enqueue(owner Owner, kind, subject string, params any, total int, secret any) (int64, error) {
-	return r.enqueue(owner, kind, subject, params, total, secret, 0, 0)
+	return r.enqueue(context.Background(), owner, kind, subject, params, total, secret, 0, 0)
+}
+
+// EnqueueContext is Enqueue with a bound on the wait for a database connection:
+// when ctx ends first, the insert gives up and returns ctx's error. The wait for
+// SQLite's write lock is bounded by busy_timeout as before. A caller that must
+// answer within a set time still needs its own timer, since a write the storage
+// does not finish is not bounded by either (handleScanMount has one).
+func (r *Runner) EnqueueContext(ctx context.Context, owner Owner, kind, subject string, params any, total int, secret any) (int64, error) {
+	return r.enqueue(ctx, owner, kind, subject, params, total, secret, 0, 0)
 }
 
 // enqueue queues a job. self is the id of a running job that is queueing its own
 // continuation (0 otherwise): that job is not counted against the duplicate check or the
 // owner's limit, because it ends as soon as the new job is in the table.
-func (r *Runner) enqueue(owner Owner, kind, subject string, params any, total int, secret any, rerunOf, self int64) (int64, error) {
+func (r *Runner) enqueue(ctx context.Context, owner Owner, kind, subject string, params any, total int, secret any, rerunOf, self int64) (int64, error) {
 	k, ok := r.kind(kind)
 	if !ok {
 		return 0, ErrUnknownKind
@@ -308,26 +322,39 @@ func (r *Runner) enqueue(owner Owner, kind, subject string, params any, total in
 		return 0, fmt.Errorf("jobs: params: %w", err)
 	}
 
-	// Held across the insert, so a Close or an Exclusive that starts now waits
-	// for this job to be in the table (where it will interrupt or hold it)
-	// rather than racing it.
+	// r.mu IS NOT HELD ACROSS THE INSERT. The insert waits for SQLite's write lock,
+	// and on the owner's NAS (3.4.1) a write that did not finish kept that lock. With
+	// r.mu held, every Stop, Close and other Enqueue then waited too, with no end.
+	// The insert is counted instead (inserts), and Close, Exclusive and StopOwner
+	// wait for the count to reach zero, so a job being inserted is in the table
+	// before they look at the table.
 	r.mu.Lock()
-	defer r.mu.Unlock()
 	switch {
 	case r.closed, r.retiringLocked():
+		r.mu.Unlock()
 		return 0, ErrClosed
 	case r.exclusive > 0:
+		r.mu.Unlock()
 		return 0, ErrBusy
 	case r.leaving[owner.UserID] > 0:
+		r.mu.Unlock()
 		return 0, ErrNoOwner
 	case owner.Gen != r.st.Generation():
+		r.mu.Unlock()
 		return 0, ErrStale
 	}
-	id, err := r.insert(owner, kind, cleanSubject(subject), p, total, rerunOf, self)
-	if err == nil && secret != nil {
-		r.smu.Lock()
-		r.secrets[id] = secret
-		r.smu.Unlock()
+	if r.inserts == 0 {
+		r.insertsDone = make(chan struct{})
+	}
+	r.inserts++
+	r.mu.Unlock()
+
+	id, err := r.insert(ctx, owner, kind, cleanSubject(subject), p, total, rerunOf, self, secret)
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.inserts--; r.inserts == 0 {
+		close(r.insertsDone)
 	}
 	// Kicked when the insert refuses, too. A press refused as a duplicate or as
 	// one too many is a press on jobs that are already waiting, and if a claim
@@ -350,8 +377,11 @@ func (r *Runner) enqueue(owner Owner, kind, subject string, params any, total in
 // insert, and the trigger covers every delete after it: a user_id on a queued
 // row always names the account that queued it, which is what lets the claim
 // (execute) and Rerun check the id alone.
-func (r *Runner) insert(owner Owner, kind, subject, params string, total int, rerunOf, self int64) (int64, error) {
-	tx, err := r.st.DB.Begin()
+//
+// The secret, if any, is stored before the commit. A worker can claim the row as
+// soon as it is committed, and the run must find its secret then.
+func (r *Runner) insert(ctx context.Context, owner Owner, kind, subject, params string, total int, rerunOf, self int64, secret any) (int64, error) {
+	tx, err := r.st.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return 0, err
 	}
@@ -396,7 +426,27 @@ func (r *Runner) insert(owner Owner, kind, subject, params string, total int, re
 	if err != nil {
 		return 0, err
 	}
-	return id, tx.Commit()
+	if secret != nil {
+		r.smu.Lock()
+		r.secrets[id] = secret
+		r.smu.Unlock()
+	}
+	if err := tx.Commit(); err != nil {
+		r.forget(id)
+		return 0, err
+	}
+	return id, nil
+}
+
+// waitInsertsLocked waits until no Enqueue is inserting a job. It is called with
+// r.mu held and returns with it held; it lets go of r.mu while it waits.
+func (r *Runner) waitInsertsLocked() {
+	for r.inserts > 0 {
+		done := r.insertsDone
+		r.mu.Unlock()
+		<-done
+		r.mu.Lock()
+	}
 }
 
 // canonicalParams is params as JSON with its keys sorted and no spaces, so two
@@ -971,12 +1021,15 @@ func (r *Runner) StopAll(viewer Owner) (stopping, stoppedWaiting int, err error)
 // exists, so a session of theirs still signed in could queue a job, the worker
 // could claim it, and it would run on under an id that users.id hands to the
 // next account made. Enqueue refuses them (ErrNoOwner) from the moment this is
-// called: it takes r.mu for the whole of its insert, so a job queued an instant
-// before is in the table by the time the statements below look, and is stopped
-// with the rest. release is never nil, and a second call does nothing.
+// called, and this waits for the inserts already in progress, so a job queued an
+// instant before is in the table by the time the statements below look, and is
+// stopped with the rest. release is never nil, and a second call does nothing.
 func (r *Runner) StopOwner(uid int64) (release func(), err error) {
 	r.mu.Lock()
 	r.leaving[uid]++
+	// An insert that passed the check before leaving was raised finishes first,
+	// so the statements below find its job.
+	r.waitInsertsLocked()
 	r.mu.Unlock()
 	release = sync.OnceFunc(func() {
 		r.mu.Lock()
@@ -1174,7 +1227,7 @@ func (r *Runner) Rerun(id int64, viewer Owner, secret any) (int64, error) {
 	if k, ok := r.kind(kind); !ok || !k.Rerunnable || queued == 0 || carried {
 		return 0, ErrNotRerunnable
 	}
-	return r.enqueue(viewer, kind, subject, json.RawMessage(params), total, secret, id, 0)
+	return r.enqueue(context.Background(), viewer, kind, subject, json.RawMessage(params), total, secret, id, 0)
 }
 
 // Boot settles what the previous run of the server left: every job still waiting
@@ -1225,6 +1278,12 @@ func (r *Runner) Close(ctx context.Context) error {
 		j.shutdown.Store(true)
 	}
 	idle := r.idle
+	// No insert starts after closed is set, so this channel covers every insert
+	// still in progress.
+	inserted := closedChan()
+	if r.inserts > 0 {
+		inserted = r.insertsDone
+	}
 	r.mu.Unlock()
 
 	var errs []error
@@ -1241,6 +1300,13 @@ func (r *Runner) Close(ctx context.Context) error {
 		t.Stop()
 	}
 	r.cancel()
+	// An insert still in progress is waited for until ctx ends, so its job is
+	// marked interrupted below. One that lands later stays waiting, and the next
+	// start's Boot marks it interrupted.
+	select {
+	case <-inserted:
+	case <-ctx.Done():
+	}
 
 	gen := r.st.Generation()
 	var waiting []int64
@@ -1300,11 +1366,17 @@ func (r *Runner) abandon() error {
 // ErrBusy, nothing means fn runs.
 func (r *Runner) Exclusive(fn func() error) error {
 	r.mu.Lock()
-	for r.claiming {
-		ended := r.claimEnded
-		r.mu.Unlock()
-		<-ended
-		r.mu.Lock()
+	// An insert in progress is waited out too, so its job is in the table before
+	// fn swaps or rewrites the file.
+	for r.claiming || r.inserts > 0 {
+		if r.claiming {
+			ended := r.claimEnded
+			r.mu.Unlock()
+			<-ended
+			r.mu.Lock()
+			continue
+		}
+		r.waitInsertsLocked()
 	}
 	switch {
 	case r.closed, r.retiringLocked():

@@ -1,8 +1,12 @@
 package httpapi
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"net/http"
+	"os"
+	"runtime/pprof"
 	"sort"
 	"strings"
 	"sync"
@@ -37,6 +41,43 @@ type flight struct {
 type flightTable struct {
 	mu   sync.Mutex
 	reqs map[string]*flight
+}
+
+// stuckDump is where the goroutine stacks go when a request is found stuck. It is the
+// process's own output, not the log database: a stuck request is often a locked database,
+// and the stacks are what show who holds the lock.
+var stuckDump io.Writer = os.Stderr
+
+// stuckDumpEvery is the least time between two dumps, so a stuck server does not fill the log.
+const stuckDumpEvery = 10 * time.Minute
+
+// stuckDumpMax caps one dump, so a server with thousands of goroutines writes a bounded amount.
+const stuckDumpMax = 256 << 10
+
+var (
+	stuckDumpMu   sync.Mutex
+	stuckDumpLast time.Time
+)
+
+// dumpStacks writes every goroutine's stack to stuckDump, at most once per stuckDumpEvery.
+func dumpStacks(now time.Time) {
+	stuckDumpMu.Lock()
+	if !stuckDumpLast.IsZero() && now.Sub(stuckDumpLast) < stuckDumpEvery {
+		stuckDumpMu.Unlock()
+		return
+	}
+	stuckDumpLast = now
+	stuckDumpMu.Unlock()
+	var buf bytes.Buffer
+	if p := pprof.Lookup("goroutine"); p != nil {
+		_ = p.WriteTo(&buf, 2)
+	}
+	out := buf.Bytes()
+	cut := ""
+	if len(out) > stuckDumpMax {
+		out, cut = out[:stuckDumpMax], "\n... cut\n"
+	}
+	fmt.Fprintf(stuckDump, "[stuck] goroutine stacks, written because a request is stuck:\n%s%s\n[stuck] end of stacks\n", out, cut)
 }
 
 // track records the request for as long as it runs. It sits inside logRequests,
@@ -90,6 +131,9 @@ func (f *flightTable) reportOverdue(now time.Time) {
 	for _, d := range due {
 		olog.Warnf(olog.CodeHTTPStillRunning, "%s %s still running after %s (from %s, req %s)",
 			d.fl.method, d.fl.path, now.Sub(d.fl.since).Round(time.Second), d.fl.remote, d.rid)
+	}
+	if len(due) > 0 {
+		dumpStacks(now)
 	}
 }
 

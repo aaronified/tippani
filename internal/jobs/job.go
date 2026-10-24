@@ -98,7 +98,7 @@ func (j *Job) stopAsked() bool { return j.stop.Load() || j.shutdown.Load() }
 // queued meanwhile run first. This job is not counted against the duplicate check or the
 // owner's job limit, so the continuation is not refused for either.
 func (j *Job) Continue(params any) (int64, error) {
-	return j.r.enqueue(j.owner, j.kind, j.subject, params, 0, nil, 0, j.id)
+	return j.r.enqueue(context.Background(), j.owner, j.kind, j.subject, params, 0, nil, 0, j.id)
 }
 
 // Params decodes the job's params into v.

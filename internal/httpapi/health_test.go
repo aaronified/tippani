@@ -18,6 +18,7 @@ package httpapi
 // Every duration is the real one: no knob exists to shorten them.
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -247,5 +248,31 @@ func TestAHungRequestIsNamedInTheLogWhileItHangs(t *testing.T) {
 	}
 	if rec := healthz(h); rec.Code != http.StatusOK {
 		t.Fatalf("/healthz after the release: got %d, want 200", rec.Code)
+	}
+}
+
+func TestAStuckRequestWritesTheGoroutineStacks(t *testing.T) {
+	var out bytes.Buffer
+	old := stuckDump
+	stuckDump = &out
+	t.Cleanup(func() { stuckDump = old })
+	stuckDumpMu.Lock()
+	stuckDumpLast = time.Time{}
+	stuckDumpMu.Unlock()
+
+	f := &flightTable{reqs: map[string]*flight{
+		"r1": {method: "POST", path: "/api/sources/scan", since: time.Now().Add(-2 * stuckAfter)},
+	}}
+	f.reportOverdue(time.Now())
+	if !strings.Contains(out.String(), "[stuck] goroutine stacks") || !strings.Contains(out.String(), "goroutine ") {
+		t.Fatalf("a stuck request wrote no stacks:\n%.300s", out.String())
+	}
+
+	// A second stuck request soon after does not write a second dump.
+	out.Reset()
+	f.reqs["r2"] = &flight{method: "POST", path: "/api/sources/scan", since: time.Now().Add(-2 * stuckAfter)}
+	f.reportOverdue(time.Now())
+	if out.Len() != 0 {
+		t.Fatalf("a second dump was written within the interval:\n%.300s", out.String())
 	}
 }
