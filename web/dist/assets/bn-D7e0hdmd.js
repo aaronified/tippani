@@ -7589,4 +7589,17 @@ metadata.prune.toast.other = {n}টা রেকর্ড সরানো হল
 error.prune = সরানো গেল না
 
 # ---- a bin entry's works, and the face an identity entry took ------------
+
+# The file a work's quotes came from: a subtitle for a title, an ebook for a book.
+common.action.source.add.label = সূত্র ফাইল যোগ করুন
+common.action.source.add.tip = এই {subject} যে ফাইল থেকে এসেছে সেটি জুড়ুন
+common.source.holds = সূত্র ফাইল: {name} ({size})
+common.source.added = {name} যোগ হয়েছে
+common.source.removed = সূত্র ফাইল সরানো হয়েছে
+common.source.error = ফাইলটি যোগ করা গেল না
+common.source.remove.aria = সূত্র ফাইল {name} সরান
+common.source.episode.title = কোন পর্ব?
+common.source.episode.label = পর্ব
+common.source.episode.choose = ফাইল বাছুন
+common.source.pick.aria = সূত্র ফাইল বাছুন
 `;export{e as default};
