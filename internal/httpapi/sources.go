@@ -469,6 +469,14 @@ func (s *Server) handleGetSource(w http.ResponseWriter, r *http.Request) {
 		}
 		out = append(out, row)
 	}
+	// A mounted source is `mounted` while its file is where it was and `missing` when the
+	// disk is not: a stored file is there or the app has a bug, a mounted one is there or
+	// the mount is not, and the remedy differs.
+	for i := range out {
+		if out[i].Origin == "mount" && out[i].State == "file" {
+			out[i].State = s.mountedState(uid, out[i].ID)
+		}
+	}
 	state := "none"
 	if len(out) > 0 {
 		state = out[0].State
@@ -487,7 +495,7 @@ func (s *Server) handleDeleteSource(w http.ResponseWriter, r *http.Request) {
 	uid := userID(r)
 	var path string
 	err := s.Store.DB.QueryRow(
-		`DELETE FROM work_sources WHERE id = ? AND user_id = ? RETURNING path`, id, uid).Scan(&path)
+		`DELETE FROM work_sources WHERE id = ? AND user_id = ? RETURNING CASE WHEN origin = 'upload' THEN path ELSE '' END`, id, uid).Scan(&path)
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
 		writeErr(w, http.StatusNotFound, "source not found")
@@ -512,7 +520,7 @@ func dropSourcesTx(tx *sql.Tx, uid int64, subject string, ids []int64) ([]string
 	var names []string
 	for _, id := range ids {
 		rows, err := tx.Query(
-			`DELETE FROM work_sources WHERE user_id = ? AND subject = ? AND subject_id = ? RETURNING path`,
+			`DELETE FROM work_sources WHERE user_id = ? AND subject = ? AND subject_id = ? RETURNING CASE WHEN origin = 'upload' THEN path ELSE '' END`,
 			uid, subject, id)
 		if err != nil {
 			return nil, err
@@ -551,7 +559,7 @@ func sourceSubjectForKind(kind string) string {
 // userSourceFiles lists a user's stored source names, for removal when the
 // account is deleted: the row cascade frees the rows, not the bytes.
 func (s *Server) userSourceFiles(id int64) []string {
-	rows, err := s.Store.DB.Query(`SELECT path FROM work_sources WHERE user_id = ? AND path != ''`, id)
+	rows, err := s.Store.DB.Query(`SELECT path FROM work_sources WHERE user_id = ? AND path != '' AND origin = 'upload'`, id)
 	if err != nil {
 		return nil
 	}

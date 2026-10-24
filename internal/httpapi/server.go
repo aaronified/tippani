@@ -27,6 +27,11 @@ import (
 )
 
 type Server struct {
+	// mountKey signs the candidates a library scan offers, so a client hands back a token
+	// the server issued and never a path it chose (mounts.go). Random per process.
+	mountKey     []byte
+	mountKeyOnce sync.Once
+
 	Store        *store.Store
 	Sessions     auth.Sessions
 	CookieSecure bool // set true when your reverse proxy terminates TLS
@@ -627,6 +632,14 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("DELETE /sources/{id}", s.requireAuth(s.handleDeleteSource))
 	// Proposed times for film lines, from the context stored when a subtitle was added.
 	// Proposals only: nothing is written until the reader accepts (locators.go).
+	// A mounted library, read-only (mounts.go). Folders are the administrator's; a scan only
+	// PROPOSES, and a candidate is a token the server signed, never a path from the client.
+	mux.Handle("GET /admin/mounts", s.requireAdmin(s.handleGetMounts))
+	mux.Handle("PUT /admin/mounts", s.requireAdmin(s.handlePutMounts))
+	mux.Handle("GET /sources/mounts", s.requireAuth(s.handleListMounts))
+	mux.Handle("POST /sources/scan", s.requireAuth(s.handleScanMount))
+	mux.Handle("POST /sources/attach-found", s.requireAuth(s.handleAttachFound))
+	mux.Handle("POST /sources/ignore-found", s.requireAuth(s.handleIgnoreFound))
 	mux.Handle("GET /locators/proposals", s.requireAuth(s.handleLocatorProposals))
 	mux.Handle("POST /locators/accept", s.requireAuth(s.handleLocatorAccept))
 	mux.Handle("POST /locators/ignore", s.requireAuth(s.handleLocatorIgnore))

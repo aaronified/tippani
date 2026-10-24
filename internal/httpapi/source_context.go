@@ -448,10 +448,10 @@ func (s *Server) handleRescanSource(w http.ResponseWriter, r *http.Request) {
 	}
 	uid := userID(r)
 	var src sourceKey
-	var pruned string
+	var pruned, origin, mountID string
 	err := s.Store.DB.QueryRow(
-		`SELECT id, subject, subject_id, subject_key, format, path, pruned_at FROM work_sources WHERE id = ? AND user_id = ?`,
-		id, uid).Scan(&src.id, &src.subject, &src.subjectID, &src.key, &src.format, &src.path, &pruned)
+		`SELECT id, subject, subject_id, subject_key, format, path, pruned_at, origin, mount_id FROM work_sources WHERE id = ? AND user_id = ?`,
+		id, uid).Scan(&src.id, &src.subject, &src.subjectID, &src.key, &src.format, &src.path, &pruned, &origin, &mountID)
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
 		writeErr(w, http.StatusNotFound, "source not found")
@@ -465,7 +465,16 @@ func (s *Server) handleRescanSource(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusConflict, "the file was pruned: add it again to find context for new quotes")
 		return
 	}
-	data, err := s.readSourceFile(src.path)
+	// A MOUNTED FILE IS READ THROUGH ITS MOUNT, and its absence is the mount's: "the file is
+	// not where it was" names the remedy, where "no source" would not.
+	var data []byte
+	var err2 error
+	if origin == "mount" {
+		data, err2 = s.readMountedSource(mountID, src.path)
+	} else {
+		data, err2 = s.readSourceFile(src.path)
+	}
+	err = err2
 	if err != nil {
 		writeErr(w, http.StatusConflict, "the file is not where it was: add it again")
 		return
