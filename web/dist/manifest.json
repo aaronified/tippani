@@ -38,31 +38,20 @@
       ]
     },
     {
+      "name": "Daily quiz",
+      "short_name": "Quiz",
+      "url": "/",
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
       "name": "Pending imports",
       "short_name": "Pending",
       "url": "/pending",
-      "icons": [
-        {
-          "src": "/icons/icon-192.png",
-          "sizes": "192x192"
-        }
-      ]
-    },
-    {
-      "name": "Scan library",
-      "short_name": "Scan",
-      "url": "/metadata/files?scan=1",
-      "icons": [
-        {
-          "src": "/icons/icon-192.png",
-          "sizes": "192x192"
-        }
-      ]
-    },
-    {
-      "name": "Source files",
-      "short_name": "Files",
-      "url": "/metadata/files",
       "icons": [
         {
           "src": "/icons/icon-192.png",
