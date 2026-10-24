@@ -1,0 +1,53 @@
+name: security
+
+# Trivy, on the repository and on the image it builds. It fails the build on a fixed HIGH or CRITICAL
+# vulnerability, a committed secret, or a Dockerfile misconfiguration. A weekly run catches what is
+# disclosed after the last push (a base image or a dependency), which a push-only gate never sees.
+#
+# What it scans: go.mod and the three package-lock.json files (vulnerabilities), every tracked file
+# (secrets), the Dockerfile and compose file (misconfiguration), and then the image itself, so the
+# distroless base is covered too. What it ignores is in .trivyignore, each entry with its reason.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "0 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  repo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          skip-dirs: .claude,node_modules
+          trivyignores: .trivyignore
+
+  image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      # One architecture, loaded into the local daemon: the scan needs the layers, not the manifest list.
+      - run: docker build -t tippani:scan .
+      - uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: image
+          image-ref: tippani:scan
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          trivyignores: .trivyignore

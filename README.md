@@ -437,6 +437,11 @@ and eighteen open font families via [Fontsource](https://fontsource.org/) (SIL O
 fetched. Thanks to [Bookcision](https://bookcision.readwise.io/) and [Readest](https://github.com/readest/readest)
 for making highlights portable.
 
+## Contributing and security
+
+[CONTRIBUTING.md](CONTRIBUTING.md) says how to build, test and propose a change. [SECURITY.md](SECURITY.md) says how to report a
+vulnerability privately. [AGENTS.md](AGENTS.md) points coding agents at the repository rules.
+
 ## License
 
 MIT. See [`LICENSE`](LICENSE).
