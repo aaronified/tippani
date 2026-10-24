@@ -21,9 +21,9 @@ link to it by name, because a summary is a copy that drifts more quietly than it
 | `README.md` | Should I run this, and how do I run it? |
 | **`Developing.md`** (this file) | I want to change the code — where does it go, and how do I know it worked? |
 | `docs/wiki/Design-decisions.md` | Why is it built this way, what was rejected, and what did I get wrong? |
-| `docs/plans/*.md` | How will one specific unbuilt feature work? (Folded into `Design-decisions.md` and deleted once it ships — or once it is dropped.) |
-| `docs/ui-glossary.html` | What is this bit of the interface called? |
-| [`docs/roadmap.html`](https://aaronified.github.io/tippani/roadmap.html) | What is coming next? (generated — never hand-edited) |
+| `Plan-*.md` | How will one specific unbuilt feature work? (Listed in `Plans-Index.md`; folded into `Design-decisions.md` once it ships — or dropped.) |
+| `UI-Glossary.md` | What is this bit of the interface called? (generated — never hand-edited) |
+| `Roadmap.md` | What is coming next? |
 | `How-this-was-written.md` | How was this written, and what does that mean for trusting it? |
 | `docs/wiki/Troubleshooting.md` | The app logged a `TIP-*` code at me — what now? |
 
@@ -47,7 +47,6 @@ carries the commands, and neither should carry the other.
 - [Sending a pull request](#sending-a-pull-request)
 - [When your own build fails](#when-your-own-build-fails)
 - [Maintainer: CI](#maintainer-ci)
-- [Maintainer: the roadmap pipeline](#maintainer-the-roadmap-pipeline)
 - [Maintainer: cutting a release](#maintainer-cutting-a-release)
 - [Appendix: forking it as your own](#appendix-forking-it-as-your-own)
 
@@ -56,9 +55,9 @@ carries the commands, and neither should carry the other.
 This section is first because it is the one that can save you a weekend.
 
 **Open an issue before writing anything beyond a fix**, and read
-[the roadmap](https://aaronified.github.io/tippani/roadmap.html) before you file — in
+[the roadmap](Roadmap.md) before you file — in
 particular
-[Considered and set aside](https://aaronified.github.io/tippani/roadmap.html#aside),
+[Considered and set aside](Roadmap.md),
 which lists what has been refused deliberately and why. A request from that list is still
 welcome; it just needs the argument rather than the vote.
 
@@ -77,7 +76,7 @@ Refused on sight, with the reasoning on the roadmap or in `docs/wiki/Design-deci
 - **A frontend state library.** `fetch` and `useState`, and a refetch signal passed down
   from `App.jsx`. This is a small app and it should keep reading like one.
 - **Server-side OCR or speech, serving book files, and social features.** All four have
-  entries under [Considered and set aside](https://aaronified.github.io/tippani/roadmap.html#aside).
+  entries under [Considered and set aside](Roadmap.md).
 
 And one that catches people out: **some of what looks like a bug is a decision**, written
 up in `docs/wiki/Design-decisions.md`. The backup archive is keyed on your own credentials rather than a
@@ -354,12 +353,9 @@ The shared modules do:
 
 | File | What it does |
 | --- | --- |
-| `roadmap-data.mjs` | Renders `docs/data/*.json` into the marked regions of `docs/roadmap.html`. Backs up first, and refuses to write a page that fails verification. |
-| `roadmap-tracker.mjs` | Reads the issue tracker through `gh` into `docs/data/tracker.json`, so the renderer needs no network. `--audit` writes nothing and fails if the page and the tracker disagree. |
 | `changelog-entry.mjs` | Adds one entry to the newest release's section of `CHANGELOG.md`. Exists because three hand-edits in one afternoon damaged `CHANGELOG.md` the same way — an offset computed rather than found (`index('### Fixed') + len('### Fixed\n\n')`, and this file has no blank line after a heading), which lands one character inside the bullet below and produces `-- **New entry` while stripping the `-` off the entry underneath. Both notes then vanish from the app's Changelog screen, because `changelog.go` matches `"- "` only. It finds the position instead of computing it, and re-parses the result before writing — refusing if the entry does not come back out as it went in, or if any existing entry changed. `internal/changelog`'s `TestEveryBulletSurvivesTheParse` is the other half, and is what caught the third one. |
 | `iso6393-data.mjs` | Writes `web/frontend/src/iso6393.data.js` (the ISO 639-3 registry, loaded lazily by the language search) and `iso6393.pairs.js` (639-1 → 639-3) from the `iso-639-3` package pinned in `web/frontend`'s devDependencies — the one script here that reads that package's `node_modules`, because the registry is data, not a runtime dependency. `--check` fails when the committed files differ from what the pinned package produces. |
-| `site-links.mjs` | Walks an assembled `_site/` and fails on any local `href` or `src` in its pages' markup, or CSS `url()` in its pages or its stylesheets, that does not resolve inside the site. CI's `roadmap` job also runs it on `scripts/testdata/site-links/`: one site that must pass, and two that must each fail with exit 1 naming their broken link, one per place a `url()` is read (a page's `<style>`, a stylesheet). |
-| `seed-issues.mjs` | Backfills a GitHub issue per roadmap item that predates the automation. |
+| `site-links.mjs` | Walks an assembled `_site/` and fails on any local `href` or `src` in its pages' markup, or CSS `url()` in its pages or its stylesheets, that does not resolve inside the site. CI's `docs` job also runs it on `scripts/testdata/site-links/`: one site that must pass, and two that must each fail with exit 1 naming their broken link, one per place a `url()` is read (a page's `<style>`, a stylesheet). |
 | `doc-map-check.mjs` | Checks this document against the tree: every path it names must exist, every package, script and workflow must be named somewhere in it, and the CI table must have a row for every job in `ci.yml` and no other. |
 | `claude-kit-setup.sh` | Puts claude-kit back in a fresh cloud container, for the environment's setup script: the marketplace and the plugin, the digest's three off-thresholds in user settings, the kit's commit guard and the exclude line for visual-verify's working screenshots, and `npm ci` for the two packages the test and capture skills drive. Bash because it is a run of shell commands — the `claude` CLI, git, npm — with one inline Python edit for the JSON. Ends with the kit's own audit, `kit_guard.py --tracked`, so a kit file tracked in the clone counts as a failed step. Needs `aaronified/claude-kit` picked when the session that builds the environment's cache starts, since later sessions start from that snapshot and skip the script. A session whose guard does not run can run it itself, after an `add_repo` of the kit if the plugin cache has no copy of the guard, to add the hook and the exclude line to its own clone — every cloud session is a fresh VM, so that covers only it. CLAUDE.md's claude-kit section says how a session checks both. Idempotent. Always exits 0, because a setup script that exits non-zero stops the session from starting; a step that failed, or that it could not verify, is printed as it happens and counted on the last line. It writes the kit's hook where there is none and rewrites one that is exactly the kit's; any other pre-commit hook is left alone and reported on every run with the line to add, because whether a hook runs the guard cannot be read from its text. |
 | `claude-kit-setup-check.sh` | Runs `claude-kit-setup.sh` in a sandbox — its own `HOME`, a real `git init`, the installed kit's own `kit_guard.py`, stubs only for `claude` and `npm` that log their arguments — through the cases its history broke on, asserts the last line of each run, drives the written hook through real `git commit`s (a kit file refused, an ordinary one let through), and exits 1 if any case fails. By hand after changing the setup script; not in CI, which cannot fetch the private kit the guard comes from. |
@@ -399,26 +395,21 @@ why Amazon's is the letterform alone.
 | `workflows/security.yml` | Trivy on the repository (dependencies, secrets, Dockerfile) and on the built image, on every pull request and daily. Fails on a fixed HIGH or CRITICAL finding. What it ignores, and why, is in `.trivyignore.yaml`. |
 | `workflows/release.yml` | Cuts the GitHub Release on a `v*` tag from that version's changelog section. |
 | `workflows/docker-publish.yml` | Builds the multi-arch image and pushes to GHCR. Decides which image tags may move. |
-| `ISSUE_TEMPLATE/` | The two issue forms and the no-blank-issues config that feed the roadmap pipeline. |
+| `ISSUE_TEMPLATE/` | The two issue forms and the no-blank-issues config that feed the issue tracker. |
 
 ### `docs/` and the root
 
 | Path | What it is |
 | --- | --- |
 | `docs/wiki/Design-decisions.md` | The decision log — every design decision, its reasoning, and the reversals. |
-| `docs/plans/*.md` | One file per designed-but-unbuilt feature, and nothing else — see its README. A shipped plan is folded into `docs/wiki/Design-decisions.md`, with a pass on what it got wrong, and deleted here; the directory is a list of what is coming, never an archive. The first three (the bin, context menus and multiselect, search facets) retired at 1.14.2, three more at 1.15.0, and speaker discovery at 1.16.0. Three more retired the other way in 1.16.0 — half shipped, the rest dropped with their roadmap sections — which is the directory’s second exit and is recorded in its README. |
-| `docs/roadmap.html` · `docs/roadmap.backup.html` | The published roadmap, and its last known-good copy. Generated regions — do not hand-edit between the markers. |
-| `docs/ui-glossary.html` | Every part of the interface, named and rendered live in all four theme combinations. |
 | `docs/landing.html` | The published site's front page. Carries absolute canonical and social URLs. |
 | `docs/wiki/Troubleshooting.md` | One row per `TIP-*` code. |
-| `docs/data/` | The roadmap's four JSON files. `tracker.json` is generated; `bugs.json` and `features.json` are hand-written prose; `issue-map.json` maps a section slug to its issue. |
 | `docs/img/` | The README screenshots. |
 | `Makefile` · `Dockerfile` · `docker-compose.yml` | Build, image, and the shipped self-hosting default. |
 | `deploy/` | A systemd unit and a Caddy example, for running the binary without Docker. |
 | `.gitattributes` | **Normalises every text file to LF.** Read its comments before overriding `core.eol` on Windows — see [When your own build fails](#when-your-own-build-fails). |
 
-Committed that you might not expect: `web/dist/`, `docs/roadmap.html`,
-`docs/ui-glossary.html`. Ignored: `bin/`, `node_modules/`, `data/`, `_site/`.
+Committed that you might not expect: `web/dist/`. Ignored: `bin/`, `node_modules/`, `data/`, `_site/`.
 
 ## Rules the code enforces that are easy to break
 
@@ -703,7 +694,7 @@ The demo build (`VITE_DEMO=1`) swaps in the dummy-data fetch shim and disables w
 is what GitHub Pages publishes.
 
 For what a piece of the interface is *called* before you rename it,
-[`docs/ui-glossary.html`](https://aaronified.github.io/tippani/ui-glossary.html) is the
+[`UI-Glossary.md`](UI-Glossary.md) is the
 canonical list. It is not repeated here.
 
 ## Conventions
@@ -724,7 +715,7 @@ house rule rather than a coincidence: a bubble that needs a paragraph is an info
 maintainer".
 
 **Documents that go stale with a change**, and are expected in the same pull request:
-`CHANGELOG.md` for anything user-visible, `docs/ui-glossary.html` for anything the
+`CHANGELOG.md` for anything user-visible, `UI-Glossary.md` for anything the
 interface is named by, `How-this-was-written.md` if you change how the repo is checked, and `docs/wiki/Design-decisions.md`
 if you depart from the design — recorded as a departure, with the reasoning, rather than
 silently.
@@ -755,14 +746,10 @@ Five failures that are self-inflicted rather than real, in the order they catch 
   like one. Run `make frontend` and commit `web/dist/` and `web/dist-inputs.json` with it.
 - **A Go test passes suspiciously fast.** Check the `-run` filter matched something. A
   filter that matches nothing exits 0 and prints `ok`.
-- **`npm run glossary:check` fails.** `docs/ui-glossary.html` is generated. Run
-  `make frontend` (it inlines the built stylesheet, which every build renames), then
-  `make glossary`. Do not hand-edit the page: an entry is changed in
+- **`npm run glossary:check` fails.** `docs/wiki/UI-Glossary.md` is generated. Run
+  `npm run glossary` to regenerate it (or `make glossary`). Do not hand-edit the page: an entry is changed in
   `web/frontend/scripts/glossary/catalogue.js`, a sample by adding a `glossary`
   declaration beside its component in `ui.jsx`, and a constant in `src/tokens.js`.
-- **`node scripts/roadmap-data.mjs --check` fails.** The page has drifted from
-  `docs/data/*.json`. Run the script without `--check`. Never edit the page between the
-  `ROADMAP:*` markers.
 - **The app logged a `TIP-*` code.** `docs/wiki/Troubleshooting.md` has a row per code.
 
 ## Maintainer: CI
@@ -782,91 +769,6 @@ schedule, and by hand (`workflow_dispatch`: `gh workflow run ci.yml`). Its jobs:
 | `docs` | `doc-map-check.mjs`, `site-links.mjs` on its three fixture sites under `scripts/testdata/site-links/`, and `wiki-check.mjs`. (The glossary check moved into the `frontend` job, which is where a fresh `web/dist` and `node_modules` exist.) |
 
 The other five workflows are described in [`.github/`](#github) above.
-
-## Maintainer: the roadmap pipeline
-
-Worth understanding even if you never touch it, because it explains why editing
-`docs/roadmap.html` between the marker comments does not stick.
-
-The roadmap is a single self-contained HTML file with **no script in it**, so anything
-dynamic has to be baked in at commit time rather than fetched at view time. Six marked
-regions are generated; everything outside them is hand-written prose.
-
-```mermaid
-flowchart LR
-  A[Issue filed<br/>via a form] --> B[Workflow recovers<br/>bug / enhancement]
-  B --> C{Maintainer adds<br/>accepted or considered}
-  C -- no --> D[Nowhere.<br/>Filing publishes nothing]
-  C -- yes --> E[roadmap-tracker.mjs<br/>reads the labels]
-  E --> F[roadmap-data.mjs<br/>renders the regions]
-  F --> G[Commit + Pages deploy]
-```
-
-The rule in one sentence: **the labels decide what is on the page, and the repo only
-decides how it reads.**
-
-| File | Owner | Contains |
-| --- | --- | --- |
-| `docs/data/tracker.json` | Generated | The tracker's state. Never edit it |
-| `docs/data/bugs.json` | You | Per-issue prose `overrides` for bugs |
-| `docs/data/features.json` | You | Per-issue prose `overrides` for requests |
-| `docs/data/issue-map.json` | Tooling | Section slug to issue number |
-
-```bash
-node scripts/roadmap-tracker.mjs   # read the tracker (needs gh, and auth)
-node scripts/roadmap-tracker.mjs --audit  # does the page still match the tracker?
-node scripts/roadmap-data.mjs      # render the page
-node scripts/roadmap-data.mjs --check     # CI: fail if the page is stale
-node scripts/roadmap-data.mjs --restore   # put docs/roadmap.backup.html back
-node scripts/seed-issues.mjs       # file an issue per existing roadmap item (dry run)
-```
-
-### Taking something off the roadmap
-
-**Culling a section and closing its issue are one job, not two.** Every item on the page
-carries an issue number, and the page's own promise is that closing the issue is the only
-bookkeeping there is — so an item removed from the page with its issue left open turns
-that promise into a lie, in the one direction nobody notices. It has happened four times:
-§§1–3 and §18 came off the page across 1.15.3 and 1.16.0 and their issues sat open
-afterwards.
-
-So, in the same pass:
-
-```bash
-node scripts/roadmap-tracker.mjs --audit          # lists what is out of step, both ways
-gh issue comment <n> --body-file <what happened>  # what shipped, or what was dropped and why
-gh issue close <n> --reason completed             # or --reason "not planned"
-```
-
-`--audit` reports two kinds of drift and exits non-zero on either: an **orphan** is open,
-labelled for the page, and no longer on it; a **ghost** is closed and still listed.
-`roadmap-data.mjs --check` cannot catch either — it validates the *generated* regions
-against `docs/data/*.json` and never reads the hand-written backlog, which is where every
-culled section lived.
-
-It is **not** in CI, deliberately. It needs a live tracker read, so it would put a
-contributor's pull request at the mercy of what is happening on the issue tracker, and go
-red for maintainer bookkeeping that has nothing to do with their diff. It is a step in the
-cull, not a gate on the tree.
-
-The comment is the part that cannot be automated. A closed issue with no explanation reads
-as a shrug to whoever subscribed to it, and `--reason "not planned"` on something half
-delivered reads as a refusal — so the comment says what shipped, what was dropped, and
-whether a request would reopen it.
-
-Three things keep it from going wrong: every write keeps the previous page in
-`docs/roadmap.backup.html`; a render that loses a marker, unbalances `<details>` or
-shrinks the page implausibly is refused rather than published; and CI fails if the
-committed page has drifted from its data files.
-
-Issue text is escaped before it goes anywhere near the page, fenced code blocks are
-dropped rather than rendered, and only paragraphs, list items and `code` spans are
-emitted. An issue cannot inject markup. That is also why the `accepted` gate exists —
-escaping stops markup, and does nothing about a report that is simply wrong.
-
-One rule for editing the page by hand: **a section's § number is its position and moves
-whenever the order does.** Cite the issue number, never the §. Anchors are content slugs
-(`#mobile-pwa`) for the same reason, and `issue-map.json` is keyed on them.
 
 ## Maintainer: cutting a release
 
@@ -932,34 +834,18 @@ they matter:
    set `TIPPANI_REPO` and `TIPPANI_IMAGE`. Do set them, or your fork's in-app updater will
    offer people my releases.
 3. **Published docs base.** `DOCS_BASE` in `web/frontend/src/Settings.jsx` points at
-   `https://aaronified.github.io/tippani/`. The roadmap and UI glossary are not embedded in
+   `https://aaronified.github.io/tippani/`. The published docs are not embedded in
    the binary, so a self-hosted instance links out to a published copy.
 4. **The published site's own URLs.** `docs/landing.html` carries an absolute `canonical`,
    `og:url` and `og:image`, and `web/frontend/index.html` carries an absolute `og:image` —
    all four must be absolute or they are ignored, so none of them can be made relative. The
    `base` in `.github/workflows/pages.yml` builds `robots.txt` and `sitemap.xml` from the
    same value. Point them at your fork's Pages URL, or your social previews advertise mine.
-5. **Roadmap tooling.** `REPO` in `scripts/roadmap-data.mjs`, and the `GITHUB_REPOSITORY`
-   fallback in `scripts/roadmap-tracker.mjs` and `scripts/seed-issues.mjs`. In Actions the
-   environment supplies it; locally the fallback is used.
-6. **Issue forms and links.** `.github/ISSUE_TEMPLATE/*.yml` and the URLs in
-   `docs/roadmap.html` and `README.md`.
-7. **Metadata user agent.** `internal/metadata/metadata.go` identifies itself to the
+5. **Issue forms and links.** `.github/ISSUE_TEMPLATE/*.yml` and the URLs in
+   `README.md`.
+6. **Metadata user agent.** `internal/metadata/metadata.go` identifies itself to the
    metadata providers. Change it — it is how they contact you about your traffic, not mine.
-8. **`docker-compose.yml`** references the image name.
-
-To get the roadmap automation working on a fork you also need the labels it depends on,
-because a label that does not exist is silently not applied:
-
-```bash
-gh label create roadmap    --color B4482D --description "Planned work, written up on the roadmap"
-gh label create considered --color BE8A4E --description "Being considered, not committed"
-gh label create accepted   --color 3E8E5A --description "Accepted; appears on the roadmap"
-```
-
-`bug`, `enhancement`, `duplicate` and `wontfix` already exist in a new GitHub repository.
+7. **`docker-compose.yml`** references the image name.
 
 Then enable Pages (Settings → Pages → Source: GitHub Actions). `pages.yml` cannot do it for
-you: configure-pages' `enablement` needs a token other than `GITHUB_TOKEN`. `roadmap-bugs.yml`
-asks for the write access it needs in its own `permissions:` block, so the repository's
-default workflow permissions can stay read-only.
+you: configure-pages' `enablement` needs a token other than `GITHUB_TOKEN`.

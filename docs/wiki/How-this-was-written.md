@@ -900,7 +900,7 @@ What that honestly does not cover:
   labels, not the help file, for the reason above: a doc test that only reads the
   docs agrees with itself forever.
 - **Known bugs are recorded, not hidden** — see *Known bugs, not yet fixed* on
-  [the roadmap](https://aaronified.github.io/tippani/roadmap.html#bugs). That list is
+  [the roadmap](Roadmap.md). That list is
   **generated from the issues I have accepted**, so it cannot quietly go stale in either
   direction: an accepted report lists itself without me writing it up, and a fix removes
   it only by the issue actually being closed. Accepting is a human step on purpose —

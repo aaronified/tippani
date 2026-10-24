@@ -48,7 +48,7 @@ const WARN = process.argv.includes('--warn')
 // the map may still name them; only their contents are skipped. BY NAME for the ones that
 // recur at any depth, BY PATH for the rest — `data` names both the runtime directory at
 // the root, which is ignored, and docs/data, which is four files the map talks about.
-const SKIP_NAME = new Set(['.git', 'node_modules'])
+const SKIP_NAME = new Set(['.git', '.claude', 'node_modules'])
 const SKIP_PATH = new Set(['bin', '_site', 'data', 'web/dist'])
 
 // Build output and runtime state. The map names these because a contributor needs to know
