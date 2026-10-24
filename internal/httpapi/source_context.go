@@ -71,7 +71,7 @@ func sourceUnits(format string, data []byte) (units []srcmatch.Unit, unit string
 			return nil, "", err
 		}
 		for _, p := range ps {
-			units = append(units, srcmatch.Unit{Text: p.Text, Doc: p.Doc})
+			units = append(units, srcmatch.Unit{Text: p.Text, Doc: p.Doc, Chapter: p.Chapter, Pct: p.Percent, Located: true})
 		}
 		return units, unitParagraph, nil
 	case importer.SourceFormatTXT:
@@ -224,16 +224,19 @@ func (s *Server) extractContextUnits(uid int64, src sourceKey, units []srcmatch.
 	if err != nil {
 		return st, err
 	}
-	have := map[string]bool{}
-	rows, err := s.Store.DB.Query(`SELECT subject, item_id FROM source_context WHERE user_id = ? AND source_id = ?`, uid, src.id)
+	// have maps a quote to its stored position (-1: none), so a row stored before 0086
+	// can be given one without its context being touched.
+	have := map[string]int{}
+	rows, err := s.Store.DB.Query(`SELECT subject, item_id, loc_pct FROM source_context WHERE user_id = ? AND source_id = ?`, uid, src.id)
 	if err != nil {
 		return st, err
 	}
 	for rows.Next() {
 		var sub string
 		var id int64
-		if err := rows.Scan(&sub, &id); err == nil {
-			have[sub+":"+strconv.FormatInt(id, 10)] = true
+		var pct int
+		if err := rows.Scan(&sub, &id, &pct); err == nil {
+			have[sub+":"+strconv.FormatInt(id, 10)] = pct
 		}
 	}
 	rows.Close()
@@ -252,8 +255,22 @@ func (s *Server) extractContextUnits(uid int64, src sourceKey, units []srcmatch.
 	}
 	defer tx.Rollback()
 	for _, q := range quotes {
-		if have[q.subject+":"+strconv.FormatInt(q.id, 10)] {
+		if pct, ok := have[q.subject+":"+strconv.FormatInt(q.id, 10)]; ok {
 			st.Skipped++
+			if pct < 0 && unit == unitParagraph {
+				// A book highlight stored before positions existed: add the position and
+				// nothing else. The context row is the reader's to have adjusted.
+				if res := ix.Find(q.text); res.Found && !res.Ambiguous {
+					if u := ix.Units()[res.Match.First]; u.Located {
+						if _, err := tx.Exec(
+							`UPDATE source_context SET loc_pct = ?, chapter_title = ?
+							 WHERE user_id = ? AND subject = ? AND item_id = ? AND loc_pct < 0`,
+							u.Pct, u.Chapter, uid, q.subject, q.id); err != nil {
+							return st, err
+						}
+					}
+				}
+			}
 			continue
 		}
 		res := ix.Find(q.text)
@@ -266,16 +283,21 @@ func (s *Server) extractContextUnits(uid int64, src sourceKey, units []srcmatch.
 			continue
 		}
 		c := ix.Context(res.Match, ceilBefore, ceilAfter, opt)
+		pct, chapter := -1, ""
+		if u := ix.Units()[res.Match.First]; u.Located {
+			pct, chapter = u.Pct, u.Chapter
+		}
 		startAt, endAt := "", ""
 		if unit == unitCue {
 			startAt, endAt = clockText(c.Start), clockText(c.End)
 		}
 		if _, err := tx.Exec(
 			`INSERT INTO source_context (user_id, source_id, subject, item_id, before, body, after, unit,
-			        stored_before, stored_after, match_dist, bound_before, bound_after, start_at, end_at)
-			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			        stored_before, stored_after, match_dist, bound_before, bound_after, start_at, end_at,
+			        loc_pct, chapter_title)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			uid, src.id, q.subject, q.id, c.Before, c.Body, c.After, unit,
-			c.TookBefore, c.TookAfter, res.Match.Dist, b2i(c.BoundBefore), b2i(c.BoundAfter), startAt, endAt); err != nil {
+			c.TookBefore, c.TookAfter, res.Match.Dist, b2i(c.BoundBefore), b2i(c.BoundAfter), startAt, endAt, pct, chapter); err != nil {
 			return st, err
 		}
 		st.Matched++
@@ -340,6 +362,8 @@ type contextAnswer struct {
 	BoundAfter  bool   `json:"bound_after"`
 	Start       string `json:"start,omitempty"`
 	End         string `json:"end,omitempty"`
+	// From names the tier the window came from: quote, work, board, global or default.
+	From string `json:"from"`
 }
 
 type window struct {
@@ -382,15 +406,10 @@ func (s *Server) handleGetContext(w http.ResponseWriter, r *http.Request) {
 	if a.Unit == unitCue {
 		sep, def = "\n", defaultCues
 	}
-	// The effective pair: the quote's own adjustment where it has one, else the global
-	// default, and never more than what is stored.
-	span := window{Before: def, After: def}
-	if wantB.Valid {
-		span.Before = int(wantB.Int64)
-	}
-	if wantA.Valid {
-		span.After = int(wantA.Int64)
-	}
+	// The effective pair, by the cascade: the quote's own adjustment, then its work's or
+	// board's rule, then the reader's global pair, then the default (context_rules.go).
+	span, from := s.effectiveSpan(uid, kind, id, wantB, wantA, def)
+	a.From = from
 	// "Show more", for this read only: the panel may ask for a wider window than the
 	// setting, up to what is stored. It changes nothing and is forgotten on close.
 	if v, err := strconv.Atoi(r.URL.Query().Get("before")); err == nil && v >= 0 {

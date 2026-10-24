@@ -14,6 +14,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { coverImgURL, errText, json, uploadWithProgress } from './api.js'
 import { t, tNodes } from './i18n.js'
 import { TextOrderField } from './textOrderField.jsx'
+import { ContextRule } from './sources.jsx'
 import { Face } from './characterRows.jsx'
 import { useFraming } from './FrameEditor.jsx'
 import { categoryVar } from './theme.js'
@@ -445,6 +446,9 @@ export function BoardForm({ initial, onSubmit, onCancel, submitLabel = t('common
           as true of a board of speeches as of a board of proverbs. The languages
           block below is the proverb-only one. */}
       <TextOrderField value={textOrder} onChange={setTextOrder} />
+      {/* How much of a source file shows around this board's quotes: its own rule, asked about
+          on change, so it lives on a board that exists. */}
+      {initial?.id ? <ContextRule scope="board" id={initial.id} /> : null}
       {kind === 'proverb' && (
         <div>
           <MonoLabel className="mb-1.5 block">{t('quotes.board.form.languages.label')}</MonoLabel>

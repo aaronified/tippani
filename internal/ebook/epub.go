@@ -30,6 +30,7 @@ import (
 	"net/url"
 	"path"
 	"strings"
+	"unicode/utf8"
 )
 
 // Paragraph is one block of the book's text. Doc is the index of the spine document
@@ -38,6 +39,21 @@ import (
 type Paragraph struct {
 	Text string
 	Doc  int
+	// Chapter is the title the book's own table of contents gives the spine document
+	// this paragraph sits in (EPUB 3 nav, or EPUB 2 NCX), or the nearest titled one
+	// before it when a chapter is split across files. Empty when the book names none.
+	Chapter string
+	// Percent is how far into the book's text the paragraph STARTS, 0 to 99.
+	//
+	// THE EXTRACTION RULE IS PART OF THE CONTRACT. Position is counted in runes of the
+	// paragraph texts exactly as Read yields them (inline markup stripped, whitespace
+	// collapsed to single spaces, script/style/head/title/nav dropped, a <br> a space),
+	// laid end to end with NO separator between paragraphs, in spine order. Percent is
+	// floor(100 * runes before this paragraph / total runes). Changing any of that
+	// renumbers every location this app ever proposed, which is why a golden test pins
+	// it. It is a percent of THIS file's text: not a page, not a Kindle location, and
+	// not comparable to either.
+	Percent int
 }
 
 var (
@@ -132,11 +148,16 @@ func Read(data []byte) ([]Paragraph, error) {
 	}
 	dir := path.Dir(opfPath)
 
+	titles := tocTitles(opf, dir, read)
 	var out []Paragraph
+	chapter := ""
 	for doc, href := range hrefs {
 		name := href
 		if dir != "." {
 			name = path.Join(dir, href)
+		}
+		if t, ok := titles[name]; ok {
+			chapter = t
 		}
 		b, err := read(name)
 		if err != nil {
@@ -145,11 +166,20 @@ func Read(data []byte) ([]Paragraph, error) {
 			continue
 		}
 		for _, p := range paragraphs(b) {
-			out = append(out, Paragraph{Text: p, Doc: doc})
+			out = append(out, Paragraph{Text: p, Doc: doc, Chapter: chapter})
 		}
 	}
 	if len(out) == 0 {
 		return nil, ErrNoText
+	}
+	runes := 0
+	for _, p := range out {
+		runes += utf8.RuneCountInString(p.Text)
+	}
+	before := 0
+	for i := range out {
+		out[i].Percent = before * 100 / runes
+		before += utf8.RuneCountInString(out[i].Text)
 	}
 	return out, nil
 }

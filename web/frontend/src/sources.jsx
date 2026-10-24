@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
-import { FormModal, Field, GhostButton, IconDelete, toast, useFilePick } from './ui.jsx'
+import { FormModal, Field, GhostButton, IconDelete, InfoDot, MonoLabel, Slider, toast, useFilePick } from './ui.jsx'
 import { json, putUpload } from './api.js'
 import { registerSessionCache } from './sessionCaches.js'
 import { t } from './i18n.js'
@@ -133,6 +133,7 @@ export function SourceLine({ kind, item, version, onRemoved }) {
   }, [kind, item?.id, item?.media_type, version])
   if (rows.length === 0) return null
   return (
+    <>
     <div className="flex flex-wrap items-center gap-2" data-testid="source-line">
       {rows.map((s) => (
         <span key={s.id} className="flex items-center gap-2">
@@ -158,6 +159,8 @@ export function SourceLine({ kind, item, version, onRemoved }) {
         </span>
       ))}
     </div>
+    <ContextRule scope={kind === 'book' ? 'book' : 'movie'} id={item.id} />
+    </>
   )
 }
 
@@ -238,6 +241,8 @@ export function ContextDialog({ kind, id, onClose }) {
   const [ctx, setCtx] = useState(null)
   const [error, setError] = useState('')
   const [more, setMore] = useState(null) // { before, after } or null for the default
+  const [tick, setTick] = useState(0)
+  const [adjusting, setAdjusting] = useState(false)
   useEffect(() => {
     let live = true
     const q = more ? `?before=${more.before}&after=${more.after}` : ''
@@ -249,7 +254,18 @@ export function ContextDialog({ kind, id, onClose }) {
     return () => {
       live = false
     }
-  }, [kind, id, more])
+  }, [kind, id, more, tick])
+  // The quote's own adjustment, one half or both; "" puts a half back to inherited. The panel
+  // then asks again, so what it shows is what the cascade now says.
+  const adjust = async (body) => {
+    const r = await json('POST', '/quotes/context-span', { kind, ids: [id], ...body })
+    if (!r.ok) {
+      toast(r.data?.error || t('common.source.error'))
+      return
+    }
+    setMore(null)
+    setTick((n) => n + 1)
+  }
   const unit = ctx?.unit === 'cue' ? 'cue' : 'paragraph'
   const canWiden = ctx && (ctx.span.before < ctx.stored.before || ctx.span.after < ctx.stored.after)
   const step = unit === 'cue' ? 5 : 2
@@ -276,8 +292,9 @@ export function ContextDialog({ kind, id, onClose }) {
             <p key={`a${i}`} style={{ color: 'var(--soft)' }}>{p}</p>
           ))}
           {ctx.bound_after && <p className="microcopy">{t(unit === 'cue' ? 'context.bound.after.cue' : 'context.bound.after.paragraph')}</p>}
+          {/* SAYS WHERE THE NUMBER CAME FROM, ONCE. The default needs no attribution. */}
           <p className="microcopy">
-            {t('context.window', { before: ctx.span.before, after: ctx.span.after })}
+            {t(WINDOW_FROM[ctx.from] || 'context.window', { before: ctx.span.before, after: ctx.span.after })}
           </p>
           {canWiden && (
             <GhostButton
@@ -292,8 +309,135 @@ export function ContextDialog({ kind, id, onClose }) {
               <span>{t('context.more')}</span>
             </GhostButton>
           )}
+          <GhostButton type="button" onClick={() => setAdjusting((v) => !v)}>
+            <span>{t('context.adjust.open')}</span>
+          </GhostButton>
+          {adjusting && (
+            <div className="flex flex-col gap-3" data-testid="context-adjust">
+              <Slider
+                label={t('context.adjust.before.label')}
+                min={0}
+                max={RULE_MAX}
+                step={1}
+                value={ctx.span.before}
+                onCommit={(v) => v !== ctx.span.before && adjust({ before: String(v) })}
+              />
+              <Slider
+                label={t('context.adjust.after.label')}
+                min={0}
+                max={RULE_MAX}
+                step={1}
+                value={ctx.span.after}
+                onCommit={(v) => v !== ctx.span.after && adjust({ after: String(v) })}
+              />
+              {ctx.from === 'quote' && (
+                <GhostButton type="button" onClick={() => adjust({ before: '', after: '' })}>
+                  <span>{t('context.adjust.reset')}</span>
+                </GhostButton>
+              )}
+            </div>
+          )}
         </div>
       )}
     </FormModal>
+  )
+}
+
+const RULE_MAX = 15
+const WINDOW_FROM = {
+  quote: 'context.window.from.quote',
+  work: 'context.window.from.work',
+  board: 'context.window.from.board',
+  global: 'context.window.from.global',
+}
+
+// RuleSlider — one half of a rule. The leftmost stop is NOT 0: it is "inherited", because
+// NULL and 0 are different facts (0 is "nothing, deliberately") and a control that offered
+// only numbers could not say "nobody has said". `value` is null for inherited.
+export function RuleSlider({ label, value, onCommit }) {
+  const [live, setLive] = useState(null)
+  const shown = live ?? (value == null ? -1 : value)
+  return (
+    <Slider
+      label={label}
+      min={-1}
+      max={RULE_MAX}
+      step={1}
+      value={value == null ? -1 : value}
+      readout={shown < 0 ? t('context.rule.inherit') : String(shown)}
+      onLive={setLive}
+      onCommit={(v) => {
+        setLive(null)
+        onCommit(v < 0 ? null : v)
+      }}
+    />
+  )
+}
+
+// ContextRule — a work's or a board's own rule for how much context its quotes show, with
+// a way back to inherited. CHANGING IT ASKS what to do with the quotes already here, and
+// the answers are a clamp (narrow the ones that show more, never widen) or a clear (drop
+// their own adjustments, the only way a raise reaches them) — or leave them be. `scope` is
+// book | movie | board.
+export function ContextRule({ scope, id }) {
+  const [rule, setRule] = useState(null)
+  const [asking, setAsking] = useState(null) // the rule awaiting an answer
+  useEffect(() => {
+    let live = true
+    json('GET', `/context-rules/${scope}/${id}`).then((r) => {
+      if (live && r.ok) setRule({ before: r.data?.before ?? null, after: r.data?.after ?? null })
+    })
+    return () => {
+      live = false
+    }
+  }, [scope, id])
+  if (!rule) return null
+  const noun = scope === 'board' ? 'board' : 'work'
+  const apply = async (enforce) => {
+    const next = asking
+    setAsking(null)
+    const r = await json('PUT', `/context-rules/${scope}/${id}`, { ...next, enforce })
+    if (r.ok) {
+      setRule(next)
+      invalidateContext()
+    } else toast(r.data?.error || t('common.source.error'))
+  }
+  const change = (half, v) => {
+    if (v === rule[half]) return
+    setAsking({ ...rule, [half]: v })
+  }
+  return (
+    <div className="flex flex-col gap-3" data-testid="context-rule">
+      <div className="flex items-center gap-2">
+        <MonoLabel>{t('context.rule.title')}</MonoLabel>
+        <InfoDot title={t('context.rule.title')} text={t(noun === 'board' ? 'context.rule.board.info' : 'context.rule.work.info')} />
+      </div>
+      <RuleSlider label={t('context.rule.before.label')} value={rule.before} onCommit={(v) => change('before', v)} />
+      <RuleSlider label={t('context.rule.after.label')} value={rule.after} onCommit={(v) => change('after', v)} />
+      {(rule.before != null || rule.after != null) && (
+        <GhostButton type="button" onClick={() => setAsking({ before: null, after: null })}>
+          <span>{t('context.rule.reset')}</span>
+        </GhostButton>
+      )}
+      {asking && (
+        <FormModal open onClose={() => setAsking(null)} title={t('context.rule.ask.title')} maxWidth={460}>
+          <div className="flex flex-col gap-3">
+            <p className="microcopy">{t('context.rule.ask.body')}</p>
+            <GhostButton type="button" onClick={() => apply('clamp')}>
+              <span>{t('context.rule.ask.clamp')}</span>
+            </GhostButton>
+            <GhostButton type="button" onClick={() => apply('')}>
+              <span>{t('context.rule.ask.leave')}</span>
+            </GhostButton>
+            <GhostButton type="button" onClick={() => apply('clear')}>
+              <span>{t(noun === 'board' ? 'context.rule.ask.clear.board' : 'context.rule.ask.clear.work')}</span>
+            </GhostButton>
+            <GhostButton type="button" onClick={() => setAsking(null)}>
+              <span>{t('context.rule.ask.cancel')}</span>
+            </GhostButton>
+          </div>
+        </FormModal>
+      )}
+    </div>
   )
 }

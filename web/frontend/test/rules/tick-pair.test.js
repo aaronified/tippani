@@ -124,11 +124,16 @@ describe('a dialog tells its tick what is at stake', () => {
   // the reader has not asked for yet, or unarmed until they do, is worse than no
   // tick — the second would make the primary action unreachable without a preview,
   // which is a worse product to satisfy a guard.
+  // `ContextRule`'S QUESTION IS THE SAME SHAPE: changing a work's context size asks what to do
+  // with the quotes already there, and the answer IS one of three buttons. There is no draft
+  // (the slider already moved and the rule is not saved until an answer), so a count would
+  // have nothing to count and a tick would be a fourth way to answer.
   const NO_FORM = [
     ['identityPicker.jsx', 'ChoosePicker'],
     ['identity.jsx', 'MergeSheet'],
     ['identity.jsx', 'AddWork'],
     ['anthologies.jsx', 'RuleDialog'],
+    ['sources.jsx', 'ContextRule'],
   ]
   const exempt = (f, src, at) => NO_FORM.some(([file, comp]) => {
     if (file !== f) return false

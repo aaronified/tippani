@@ -4,7 +4,8 @@ import { t } from './i18n.js'
 import { useSourcesChanged } from './sources.jsx'
 import { Card, GhostButton, IconArrow, IconButton, IconCheck, IconClose, InfoDot, SectionHead, toast } from './ui.jsx'
 
-// Times the subtitles propose for film lines — a section of Checks.
+// Times the subtitles propose for film lines, and places an EPUB proposes for a book's
+// highlights (its chapter and a percent of the file's text) — a section of Checks.
 //
 // A line you kept has words and often no time. The subtitle the work keeps knows it,
 // and the server has already placed each line in it (source_context), so everything
@@ -29,7 +30,7 @@ const stack = { display: 'flex', flexDirection: 'column', gap: 'var(--row)' }
 
 const range = (a, b) => (b && b !== a ? `${a} – ${b}` : a)
 
-export default function LocatorsPage({ embedded = false, onOpenMovie }) {
+export default function LocatorsPage({ embedded = false, onOpenBook, onOpenMovie }) {
   const [data, setData] = useState(null)
   const [busy, setBusy] = useState(false)
 
@@ -63,7 +64,10 @@ export default function LocatorsPage({ embedded = false, onOpenMovie }) {
   }
 
   const wire = (p) => ({
+    kind: p.kind,
     id: p.id,
+    current_chapter: p.current_chapter,
+    proposed_chapter: p.proposed_chapter,
     proposed: p.proposed,
     proposed_end: p.proposed_end,
     current: p.current,
@@ -106,42 +110,51 @@ export default function LocatorsPage({ embedded = false, onOpenMovie }) {
                     </span>
                   )}
                 </div>
-                {list.map((p) => (
-                  <div key={`${p.kind}:${p.id}`} className="flex flex-wrap items-start gap-3" data-testid="locator-row">
-                    <div className="min-w-0 flex-1 flex flex-col gap-1">
-                      <p>{p.quote}</p>
-                      <p className="microcopy">
-                        <button type="button" className="tp-link" onClick={() => onOpenMovie?.(p.work_id)}>
-                          {p.work_title}
-                        </button>
-                        {p.season || p.episode ? ` · S${p.season}E${p.episode}` : ''}
-                      </p>
-                      <p className="microcopy">
-                        {t('locators.now')}: {p.current ? range(p.current, p.current_end) : t('locators.none')}
-                        <span className="import-arrow"><IconArrow size={12} /></span>
-                        {t('locators.file.says')}: <b>{range(p.proposed, p.proposed_end)}</b>
-                      </p>
-                      <p className="microcopy" style={{ color: 'var(--soft)' }}>{p.evidence}</p>
+                {list.map((p) => {
+                  // A book's highlight is proposed a place, a film's line a time: same row,
+                  // same two presses, different words for what is being set.
+                  const place = p.kind === 'annotation'
+                  const open = place ? onOpenBook : onOpenMovie
+                  const proposed = place
+                    ? [p.proposed, p.proposed_chapter !== p.current_chapter && p.proposed_chapter].filter(Boolean).join(' · ')
+                    : range(p.proposed, p.proposed_end)
+                  return (
+                    <div key={`${p.kind}:${p.id}`} className="flex flex-wrap items-start gap-3" data-testid="locator-row">
+                      <div className="min-w-0 flex-1 flex flex-col gap-1">
+                        <p>{p.quote}</p>
+                        <p className="microcopy">
+                          <button type="button" className="tp-link" onClick={() => open?.(p.work_id)}>
+                            {p.work_title}
+                          </button>
+                          {p.season || p.episode ? ` · S${p.season}E${p.episode}` : ''}
+                        </p>
+                        <p className="microcopy">
+                          {t('locators.now')}: {p.current ? range(p.current, p.current_end) : t(place ? 'locators.none.place' : 'locators.none')}
+                          <span className="import-arrow"><IconArrow size={12} /></span>
+                          {t('locators.file.says')}: <b>{proposed}</b>
+                        </p>
+                        <p className="microcopy" style={{ color: 'var(--soft)' }}>{p.evidence}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <IconButton
+                          icon={<IconCheck />}
+                          ariaLabel={place ? t('locators.accept.aria.place', { place: p.proposed }) : t('locators.accept.aria', { time: p.proposed })}
+                          tooltip={t(place ? 'locators.accept.tip.place' : 'locators.accept.tip')}
+                          disabled={busy}
+                          onClick={() => press('/locators/accept', p.bucket, [wire(p)])}
+                        />
+                        <IconButton
+                          icon={<IconClose />}
+                          ariaLabel={t('locators.ignore.aria')}
+                          tooltip={t('locators.ignore.tip')}
+                          danger
+                          disabled={busy}
+                          onClick={() => press('/locators/ignore', null, [wire(p)])}
+                        />
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <IconButton
-                        icon={<IconCheck />}
-                        ariaLabel={t('locators.accept.aria', { time: p.proposed })}
-                        tooltip={t('locators.accept.tip')}
-                        disabled={busy}
-                        onClick={() => press('/locators/accept', p.bucket, [wire(p)])}
-                      />
-                      <IconButton
-                        icon={<IconClose />}
-                        ariaLabel={t('locators.ignore.aria')}
-                        tooltip={t('locators.ignore.tip')}
-                        danger
-                        disabled={busy}
-                        onClick={() => press('/locators/ignore', null, [wire(p)])}
-                      />
-                    </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             ))}
           </div>

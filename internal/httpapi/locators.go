@@ -23,6 +23,14 @@ package httpapi
 //   - review: anything fuzzy. One press each, with the evidence shown.
 //
 // Bulk never acts across buckets, and the route refuses a mixed set.
+//
+// A BOOK'S HIGHLIGHT IS PROPOSED A PLACE THE SAME WAY (the EPUB half of the plan): the
+// match stored beside its context also holds the percent of the book's text before it
+// and the chapter its table of contents names. The proposal is that percent as the
+// highlight's `location` ("42%") and, only where the highlight has no chapter yet, the
+// chapter's name. It is a location in THIS file's text, not a page and not a Kindle
+// location, and says so on screen. A highlight that already has a location is never
+// exact: its proposal is a replacement, one press each, with the old value shown.
 
 import (
 	"database/sql"
@@ -38,13 +46,21 @@ const (
 	locatorIgnoreField = "timestamp"
 	locatorIgnoreRule  = "locator-time"
 
+	// The same table's words for a book highlight's place (0052's `book` kind).
+	placeIgnoreKind  = "book"
+	placeIgnoreField = "location"
+	placeIgnoreRule  = "locator-position"
+
+	kindDialogue   = "dialogue"
+	kindAnnotation = "annotation"
+
 	bucketExact  = "exact"
 	bucketReview = "review"
 )
 
 // locatorProposal is one proposed change to one film line's time.
 type locatorProposal struct {
-	Kind      string `json:"kind"` // dialogue
+	Kind      string `json:"kind"` // dialogue | annotation
 	ID        int64  `json:"id"`
 	Quote     string `json:"quote"`
 	WorkID    int64  `json:"work_id"`
@@ -61,6 +77,24 @@ type locatorProposal struct {
 	Evidence string `json:"evidence"`
 	Bucket   string `json:"bucket"`
 	Distance int    `json:"distance"`
+	// A book highlight's chapter, now and proposed (the file's own table of contents), and
+	// whether the proposal REPLACES a location the reader already has.
+	CurrentChapter  string `json:"current_chapter,omitempty"`
+	ProposedChapter string `json:"proposed_chapter,omitempty"`
+	Replaces        bool   `json:"replaces,omitempty"`
+}
+
+// locKey names one proposal: a dialogue's id and an annotation's id are two sequences.
+type locKey struct {
+	kind string
+	id   int64
+}
+
+func kindOr(k string) string {
+	if k == "" {
+		return kindDialogue
+	}
+	return k
 }
 
 // clockSeconds reads H:MM:SS or HH:MM:SS (or MM:SS) into seconds, -1 for anything else.
@@ -95,26 +129,41 @@ func sameTime(a, b string) bool {
 	return x >= 0 && x == y
 }
 
-func locatorHash(p locatorProposal) string { return p.Proposed + "|" + p.ProposedEnd }
+func locatorHash(p locatorProposal) string {
+	if p.Kind == kindAnnotation {
+		return p.Proposed + "|" + p.ProposedChapter
+	}
+	return p.Proposed + "|" + p.ProposedEnd
+}
+
+// ignoreKey is how a refusal is looked up: kind, item and what was proposed.
+func ignoreKey(kind string, id int64, hash string) string {
+	return kind + "|" + strconv.FormatInt(id, 10) + "|" + hash
+}
 
 // loadLocatorProposals reads the reader's proposals, optionally narrowed to some ids.
 // Everything is scoped to the owner in the same statement that reads it.
-func (s *Server) loadLocatorProposals(uid int64, only map[int64]bool) ([]locatorProposal, error) {
+func (s *Server) loadLocatorProposals(uid int64, only map[locKey]bool) ([]locatorProposal, error) {
 	ignored := map[string]bool{}
-	irows, err := s.Store.DB.Query(
-		`SELECT item_id, match_hash FROM cleanup_ignores WHERE user_id = ? AND kind = ? AND field = ? AND rule = ?`,
-		uid, locatorIgnoreKind, locatorIgnoreField, locatorIgnoreRule)
-	if err != nil {
-		return nil, err
-	}
-	for irows.Next() {
-		var id int64
-		var h string
-		if irows.Scan(&id, &h) == nil {
-			ignored[strconv.FormatInt(id, 10)+"\x00"+h] = true
+	for _, ig := range [][4]string{
+		{kindDialogue, locatorIgnoreKind, locatorIgnoreField, locatorIgnoreRule},
+		{kindAnnotation, placeIgnoreKind, placeIgnoreField, placeIgnoreRule},
+	} {
+		irows, err := s.Store.DB.Query(
+			`SELECT item_id, match_hash FROM cleanup_ignores WHERE user_id = ? AND kind = ? AND field = ? AND rule = ?`,
+			uid, ig[1], ig[2], ig[3])
+		if err != nil {
+			return nil, err
 		}
+		for irows.Next() {
+			var id int64
+			var h string
+			if irows.Scan(&id, &h) == nil {
+				ignored[ignoreKey(ig[0], id, h)] = true
+			}
+		}
+		irows.Close()
 	}
-	irows.Close()
 
 	rows, err := s.Store.DB.Query(`
 		SELECT d.id, d.quote, COALESCE(d.timestamp, ''), d.timestamp_end, COALESCE(d.season, 0), COALESCE(d.episode, 0),
@@ -130,23 +179,79 @@ func (s *Server) loadLocatorProposals(uid int64, only map[int64]bool) ([]locator
 	defer rows.Close()
 	out := []locatorProposal{}
 	for rows.Next() {
-		p := locatorProposal{Kind: "dialogue"}
+		p := locatorProposal{Kind: kindDialogue}
 		if err := rows.Scan(&p.ID, &p.Quote, &p.Current, &p.CurrentEnd, &p.Season, &p.Episode,
 			&p.WorkID, &p.WorkTitle, &p.Proposed, &p.ProposedEnd, &p.Distance, &p.Evidence); err != nil {
 			return nil, err
 		}
-		if only != nil && !only[p.ID] {
+		if only != nil && !only[locKey{kindDialogue, p.ID}] {
 			continue
 		}
 		// A proposal that changes nothing is not one, and neither is one already refused.
 		if sameTime(p.Current, p.Proposed) && sameTime(p.CurrentEnd, p.ProposedEnd) {
 			continue
 		}
-		if ignored[strconv.FormatInt(p.ID, 10)+"\x00"+locatorHash(p)] {
+		if ignored[ignoreKey(kindDialogue, p.ID, locatorHash(p))] {
 			continue
 		}
 		p.Bucket = bucketReview
 		if p.Distance == 0 {
+			p.Bucket = bucketExact
+		}
+		out = append(out, p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	places, err := s.loadPlaceProposals(uid, only, ignored)
+	if err != nil {
+		return nil, err
+	}
+	return append(out, places...), nil
+}
+
+// loadPlaceProposals reads the book half: a highlight's stored position, set against
+// what the highlight carries now.
+func (s *Server) loadPlaceProposals(uid int64, only map[locKey]bool, ignored map[string]bool) ([]locatorProposal, error) {
+	rows, err := s.Store.DB.Query(`
+		SELECT a.id, COALESCE(a.quote, ''), COALESCE(a.location, ''), COALESCE(a.chapter, ''),
+		       b.id, b.title, sc.loc_pct, sc.chapter_title, sc.match_dist, sc.body
+		FROM source_context sc
+		JOIN annotations a ON sc.subject = 'annotation' AND a.id = sc.item_id
+		JOIN books b ON b.id = a.book_id AND b.user_id = ?
+		WHERE sc.user_id = ? AND sc.loc_pct >= 0
+		ORDER BY b.title COLLATE NOCASE, sc.loc_pct, a.id`, uid, uid)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []locatorProposal{}
+	for rows.Next() {
+		p := locatorProposal{Kind: kindAnnotation}
+		var pct int
+		var chapter string
+		if err := rows.Scan(&p.ID, &p.Quote, &p.Current, &p.CurrentChapter, &p.WorkID, &p.WorkTitle,
+			&pct, &chapter, &p.Distance, &p.Evidence); err != nil {
+			return nil, err
+		}
+		if only != nil && !only[locKey{kindAnnotation, p.ID}] {
+			continue
+		}
+		p.Proposed = strconv.Itoa(pct) + "%"
+		// The reader's own chapter is theirs: the file names one only where there is none.
+		p.ProposedChapter = p.CurrentChapter
+		if p.CurrentChapter == "" {
+			p.ProposedChapter = chapter
+		}
+		if strings.TrimSpace(p.Current) == p.Proposed && p.ProposedChapter == p.CurrentChapter {
+			continue // already says what the file says
+		}
+		if ignored[ignoreKey(kindAnnotation, p.ID, locatorHash(p))] {
+			continue
+		}
+		p.Replaces = strings.TrimSpace(p.Current) != "" && strings.TrimSpace(p.Current) != p.Proposed
+		p.Bucket = bucketReview
+		if p.Distance == 0 && !p.Replaces {
 			p.Bucket = bucketExact
 		}
 		out = append(out, p)
@@ -176,11 +281,16 @@ func (s *Server) handleLocatorProposals(w http.ResponseWriter, r *http.Request) 
 // locatorItem is one row of an accept or ignore press: what the reader SAW, so the
 // server can tell whether it is still true.
 type locatorItem struct {
-	ID          int64  `json:"id"`
-	Proposed    string `json:"proposed"`
-	ProposedEnd string `json:"proposed_end"`
-	Current     string `json:"current"`
-	CurrentEnd  string `json:"current_end"`
+	// Kind is dialogue (the default, so a press that never said is a film line's) or
+	// annotation; the two have separate id sequences.
+	Kind            string `json:"kind,omitempty"`
+	CurrentChapter  string `json:"current_chapter,omitempty"`
+	ProposedChapter string `json:"proposed_chapter,omitempty"`
+	ID              int64  `json:"id"`
+	Proposed        string `json:"proposed"`
+	ProposedEnd     string `json:"proposed_end"`
+	Current         string `json:"current"`
+	CurrentEnd      string `json:"current_end"`
 }
 
 // handleLocatorAccept: POST /locators/accept {bucket, items}. It applies ONLY what the
@@ -204,18 +314,18 @@ func (s *Server) handleLocatorAccept(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	uid := userID(r)
-	want := map[int64]bool{}
+	want := map[locKey]bool{}
 	for _, it := range req.Items {
-		want[it.ID] = true
+		want[locKey{kindOr(it.Kind), it.ID}] = true
 	}
 	ps, err := s.loadLocatorProposals(uid, want)
 	if err != nil {
 		internalError(w, r, "locator accept", err)
 		return
 	}
-	byID := map[int64]locatorProposal{}
+	byID := map[locKey]locatorProposal{}
 	for _, p := range ps {
-		byID[p.ID] = p
+		byID[locKey{p.Kind, p.ID}] = p
 	}
 	tx, err := s.Store.DB.Begin()
 	if err != nil {
@@ -225,7 +335,7 @@ func (s *Server) handleLocatorAccept(w http.ResponseWriter, r *http.Request) {
 	defer tx.Rollback()
 	applied, stale, skipped := 0, 0, 0
 	for _, it := range req.Items {
-		p, ok := byID[it.ID]
+		p, ok := byID[locKey{kindOr(it.Kind), it.ID}]
 		switch {
 		case !ok:
 			// No proposal any more (refused, applied, or the context changed): stale.
@@ -237,15 +347,27 @@ func (s *Server) handleLocatorAccept(w http.ResponseWriter, r *http.Request) {
 			skipped++
 			continue
 		case it.Proposed != p.Proposed || it.ProposedEnd != p.ProposedEnd ||
-			it.Current != p.Current || it.CurrentEnd != p.CurrentEnd:
+			it.Current != p.Current || it.CurrentEnd != p.CurrentEnd ||
+			it.ProposedChapter != p.ProposedChapter || it.CurrentChapter != p.CurrentChapter:
 			stale++
 			continue
 		}
-		res, err := tx.Exec(
-			`UPDATE dialogues SET timestamp = ?, timestamp_end = ?, updated_at = datetime('now')
-			 WHERE id = ? AND COALESCE(timestamp, '') = ? AND timestamp_end = ?
-			   AND movie_id IN (SELECT id FROM movies WHERE user_id = ?)`,
-			nullable(p.Proposed), p.ProposedEnd, p.ID, p.Current, p.CurrentEnd, uid)
+		var res sql.Result
+		var err error
+		if p.Kind == kindAnnotation {
+			// The place a highlight sits: its location, and its chapter where it had none.
+			res, err = tx.Exec(
+				`UPDATE annotations SET location = ?, chapter = ?, updated_at = datetime('now')
+				 WHERE id = ? AND COALESCE(location, '') = ? AND COALESCE(chapter, '') = ?
+				   AND book_id IN (SELECT id FROM books WHERE user_id = ?)`,
+				nullable(p.Proposed), nullable(p.ProposedChapter), p.ID, p.Current, p.CurrentChapter, uid)
+		} else {
+			res, err = tx.Exec(
+				`UPDATE dialogues SET timestamp = ?, timestamp_end = ?, updated_at = datetime('now')
+				 WHERE id = ? AND COALESCE(timestamp, '') = ? AND timestamp_end = ?
+				   AND movie_id IN (SELECT id FROM movies WHERE user_id = ?)`,
+				nullable(p.Proposed), p.ProposedEnd, p.ID, p.Current, p.CurrentEnd, uid)
+		}
 		if err != nil {
 			internalError(w, r, "locator accept: write", err)
 			return
@@ -278,9 +400,9 @@ func (s *Server) handleLocatorIgnore(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	uid := userID(r)
-	want := map[int64]bool{}
+	want := map[locKey]bool{}
 	for _, it := range req.Items {
-		want[it.ID] = true
+		want[locKey{kindOr(it.Kind), it.ID}] = true
 	}
 	ps, err := s.loadLocatorProposals(uid, want)
 	if err != nil {
@@ -296,11 +418,15 @@ func (s *Server) handleLocatorIgnore(w http.ResponseWriter, r *http.Request) {
 	ignored := 0
 	for _, p := range ps {
 		var res sql.Result
+		kind, field, rule := locatorIgnoreKind, locatorIgnoreField, locatorIgnoreRule
+		if p.Kind == kindAnnotation {
+			kind, field, rule = placeIgnoreKind, placeIgnoreField, placeIgnoreRule
+		}
 		res, err = tx.Exec(
 			`INSERT INTO cleanup_ignores (user_id, kind, item_id, field, rule, match_hash)
 			 VALUES (?, ?, ?, ?, ?, ?)
 			 ON CONFLICT (user_id, kind, item_id, field, rule, match_hash) DO NOTHING`,
-			uid, locatorIgnoreKind, p.ID, locatorIgnoreField, locatorIgnoreRule, locatorHash(p))
+			uid, kind, p.ID, field, rule, locatorHash(p))
 		if err != nil {
 			internalError(w, r, "locator ignore: write", err)
 			return

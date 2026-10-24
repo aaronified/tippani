@@ -646,6 +646,9 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /locators/proposals", s.requireAuth(s.handleLocatorProposals))
 	mux.Handle("POST /locators/accept", s.requireAuth(s.handleLocatorAccept))
 	mux.Handle("POST /locators/ignore", s.requireAuth(s.handleLocatorIgnore))
+	mux.Handle("GET /corrections", s.requireAuth(s.handleCorrections))
+	mux.Handle("POST /corrections/accept", s.requireAuth(s.handleCorrectionAccept))
+	mux.Handle("POST /corrections/ignore", s.requireAuth(s.handleCorrectionIgnore))
 	mux.Handle("GET /sources/context-ids", s.requireAuth(s.handleContextIDs))
 	// Keep the context, throw the file away (sources_prune.go): previewed by GET, done by POST.
 	mux.Handle("GET /sources/stack", s.requireAuth(s.handleSourceStack))
@@ -654,6 +657,13 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /sources/{id}/rescan", s.requireAuth(s.handleRescanSource))
 	// One stored row, read: the context of a quote opens no file (source_context.go).
 	mux.Handle("GET /quotes/{kind}/{id}/context", s.requireAuth(s.handleGetContext))
+	// The middle and global tiers of how much of it shows, and the per-quote adjustment
+	// (context_rules.go): a rule on a work or board, the reader's own pair, one or many quotes.
+	mux.Handle("GET /context-rules/global", s.requireAuth(s.handleGetContextRule))
+	mux.Handle("PUT /context-rules/global", s.requireAuth(s.handlePutContextRule))
+	mux.Handle("GET /context-rules/{scope}/{id}", s.requireAuth(s.handleGetContextRule))
+	mux.Handle("PUT /context-rules/{scope}/{id}", s.requireAuth(s.handlePutContextRule))
+	mux.Handle("POST /quotes/context-span", s.requireAuth(s.handleContextSpan))
 	mux.Handle("POST /stickers", s.requireAuth(s.handleUploadSticker))
 	mux.Handle("PUT /stickers/{id}", s.requireAuth(s.handleUpdateSticker))
 	mux.Handle("DELETE /stickers/{id}", s.requireAuth(s.handleDeleteSticker))

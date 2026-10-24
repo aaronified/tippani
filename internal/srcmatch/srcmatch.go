@@ -41,6 +41,12 @@ type Unit struct {
 	Doc   int
 	Start int64
 	End   int64
+	// Chapter and Pct are where an ebook paragraph sits: the book's own chapter title
+	// and the percent of its text before it (internal/ebook's pinned rule). Located is
+	// false for a cue or a plain text file, which have neither.
+	Chapter string
+	Pct     int
+	Located bool
 }
 
 // Fold is the lossy comparison form: both sides pass through it before anything is

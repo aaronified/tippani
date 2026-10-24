@@ -29,6 +29,7 @@ type ctxAnswer struct {
 	BoundBefore bool   `json:"bound_before"`
 	BoundAfter  bool   `json:"bound_after"`
 	Start       string `json:"start"`
+	From        string `json:"from"`
 }
 
 func (c *testClient) newHighlight(book int64, quote string) int64 {

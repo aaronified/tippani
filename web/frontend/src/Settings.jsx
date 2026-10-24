@@ -1,5 +1,6 @@
 import LibraryFoldersGroup from './libraryFolders.jsx'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { RuleSlider } from './sources.jsx'
 import { coverImgURL, DEMO, json, errText, copyText, apiURL, upload as uploadFile, uploadWithProgress } from './api.js'
 import { coversThatFit } from './coverFit.js'
 import { useRowReorder } from './reorder.js'
@@ -5880,6 +5881,7 @@ function Appearance({ prefs, onPreferences, part = 'all', onGo = null, compact =
           <PrefGroup title={t('settings.group.access.title')}>
             <TextSizeField prefs={prefs} onPreferences={onPreferences} />
             <QuoteReadingFields prefs={prefs} onPreferences={onPreferences} />
+            <ContextGlobalFields />
           </PrefGroup>
         </PrefColumns>
       )}
@@ -5937,6 +5939,42 @@ function TextSizeField({ prefs, onPreferences }) {
 // So one control shows five names and the other shows the number, because that is
 // which half of each is legible.
 const LEADING_NAMES = ['tight', 'snug', 'normal', 'relaxed', 'loose']
+
+// ContextGlobalFields — the reader's own pair for how much of a work's file shows around a
+// quote opened in context: the outermost tier, under a work's or board's rule and a quote's
+// own. The leftmost stop is "inherited", i.e. the built-in default, not 0.
+export function ContextGlobalFields() {
+  const [rule, setRule] = useState(null)
+  useEffect(() => {
+    let live = true
+    json('GET', '/context-rules/global').then((r) => {
+      if (live && r.ok) setRule({ before: r.data?.before ?? null, after: r.data?.after ?? null })
+    })
+    return () => {
+      live = false
+    }
+  }, [])
+  if (!rule) return null
+  const set = async (half, v) => {
+    if (v === rule[half]) return
+    const next = { ...rule, [half]: v }
+    const r = await json('PUT', '/context-rules/global', next)
+    if (r.ok) setRule(next)
+  }
+  return (
+    <>
+      {['before', 'after'].map((half) => (
+        <PrefRow
+          key={half}
+          label={t(`settings.context.${half}.label`)}
+          info={t(`settings.context.${half}.info.body`)}
+          changed={rule[half] != null}
+          control={<RuleSlider label={t(`settings.context.${half}.label`)} value={rule[half]} onCommit={(v) => set(half, v)} />}
+        />
+      ))}
+    </>
+  )
+}
 
 // QuoteReadingFields — the quote's leading and measure, in the shape of the
 // fields around them.

@@ -26,6 +26,7 @@ import { PageHeader } from './ui.jsx'
 const StagingPage = lazy(() => import('./StagingPage.jsx'))
 const CleanupPage = lazy(() => import('./CleanupPage.jsx'))
 const LocatorsPage = lazy(() => import('./LocatorsPage.jsx'))
+const CorrectionsPage = lazy(() => import('./CorrectionsPage.jsx'))
 const FoundFilesPage = lazy(() => import('./FoundFilesPage.jsx'))
 const AttachedFilesPage = lazy(() => import('./AttachedFilesPage.jsx'))
 
@@ -73,7 +74,12 @@ export default function ChecksPage({ onPending, onOpenBook, onOpenMovie, onAppro
       {/* Times a work's subtitle proposes for its lines. Draws nothing, rule included,
           when there is nothing to propose. */}
       <Suspense fallback={null}>
-        <LocatorsPage embedded onOpenMovie={onOpenMovie} />
+        <LocatorsPage embedded onOpenBook={onOpenBook} onOpenMovie={onOpenMovie} />
+      </Suspense>
+      {/* Where a quote differs from the file's own words, in buckets. Draws nothing, rule
+          included, when nothing differs. */}
+      <Suspense fallback={null}>
+        <CorrectionsPage embedded onOpenBook={onOpenBook} onOpenMovie={onOpenMovie} />
       </Suspense>
     </section>
   )
