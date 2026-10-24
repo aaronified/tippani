@@ -25,12 +25,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **The source and context screens are complete.** Metadata has a Source files section: each
-  library folder with Scan, live progress and Stop, and every work with its file, how many of its
-  quotes have context, and filters for works with no file, with a file, or with a file found in a
-  folder. Work details shows the attached file (name, kind, size, uploaded or mounted), "context
-  for N of M quotes", Add or Replace, Rescan, Prune and Remove, and a found file to attach, with a
-  link to the Metadata section.
+- **The source and context screens are complete.** Metadata > Source files is where you scan and
+  see coverage: each library folder with Scan, live progress and Stop, every work with its file and
+  how many quotes have context, and filters (no file, has file, found in a folder). Work details
+  shows the attached file (name, kind, size, uploaded or mounted), "context for N of M quotes", Add
+  or Replace, Rescan, Prune and Remove, and a found file to attach, with a link to the Metadata
+  section.
 - **The quote edit forms show the stored context** under the quote (annotation, dialogue line and
   quote), with Show more and the per-quote size adjustment. "In context" is also on the home
   favourites, the shuffle card and anthologies. It is not on the quiz card, where it would give
@@ -38,13 +38,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The jobs card shows a running scan's progress**, for example "1,240 files scanned · 17 found".
 - **Every source and context request has a timeout.** It shows an error when it fails or does not
   answer, with a way to try again.
-- **The installed phone app's launcher shortcuts gain Scan and Files.** Scan starts a scan of all
-  folders once. Files opens Source files.
+- **On a phone, the new Source files section in Metadata and the Library section in Settings
+  have their own section shortcuts:** Scan, and Found files (opens Checks, with a count of findings
+  waiting).
 
 ### Changed
 
-- **The launcher shortcut for Daily quiz is removed.** Android shows at most four shortcuts, and
-  its link is the same as opening the app.
+- **Checks > Found files now shows only what the scan found that needs a decision:** files to
+  accept or refuse, a failed or interrupted scan with its reason, and files that matched no work.
+  It has no Scan button; scanning is in Metadata > Source files. It is empty, and draws nothing,
+  when there is nothing to decide.
 - **The test suites are smaller.** httpapi tests went from 1,702 to 1,226 and frontend tests from
   570 to 468, with test files merged to 179 and 155. The Go CI shards finish about 30% faster.
 
