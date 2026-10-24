@@ -203,3 +203,58 @@ func TestThePackageContainsNoCallThatWrites(t *testing.T) {
 		}
 	}
 }
+
+// A directory and a file whose names differ only by what follows the common prefix: "a.srt"
+// sorts before the directory "a/" by full path, because '.' sorts before '/'. A walk that
+// ordered entries by bare name visited "a/" first, and on resume skipped "a.srt" as done.
+func TestAResumedWalkLosesNoFileBesideADirectoryWhoseNameItPrefixes(t *testing.T) {
+	r := tree(t, "a/x.srt", "a/y.srt", "a.srt", "a-b.srt", "a b.srt", "b.srt")
+	full := rels(r.Walk("", srtOnly, 1000, time.Minute))
+	var seen []string
+	cursor := ""
+	for pass := 0; pass < 20; pass++ {
+		res := r.Walk(cursor, srtOnly, 1, time.Minute)
+		seen = append(seen, rels(res)...)
+		if !res.Truncated {
+			break
+		}
+		cursor = res.Cursor
+	}
+	sort.Strings(seen)
+	sort.Strings(full)
+	if strings.Join(seen, "|") != strings.Join(full, "|") || len(seen) != 6 {
+		t.Fatalf("resuming skipped or repeated files:\n got %q\nwant %q", seen, full)
+	}
+}
+
+// THE BUDGET MEETS A TREE THAT MATCHES NOTHING. A walk was only timed when a file was
+// reported, so a mount of millions of non-matching files was bounded by nothing.
+func TestTheBudgetStopsAWalkThatFindsNothingAndItStillResumes(t *testing.T) {
+	var files []string
+	for i := 0; i < 30; i++ {
+		files = append(files, "d/"+string(rune('a'+i%26))+string(rune('a'+i/26))+".mkv")
+	}
+	files = append(files, "z.srt")
+	r := tree(t, files...)
+	res := r.Walk("", srtOnly, 1000, -time.Second)
+	if !res.Truncated || res.Cursor == "" || len(res.Files) != 0 {
+		t.Fatalf("an expired budget should stop a walk that has reported nothing: %+v", res)
+	}
+	// Resuming with a fresh budget finds the one file.
+	got := rels(r.Walk(res.Cursor, srtOnly, 1000, time.Minute))
+	if len(got) != 1 || got[0] != "z.srt" {
+		t.Fatalf("%q", got)
+	}
+}
+
+func TestOpenReaderIsContainedAndReadOnly(t *testing.T) {
+	r := tree(t, "ok.srt")
+	f, size, err := r.OpenReader("ok.srt")
+	if err != nil || size == 0 {
+		t.Fatalf("%v %d", err, size)
+	}
+	f.Close()
+	if _, _, err := r.OpenReader("../x"); err == nil {
+		t.Fatal("a path out of the mount must be refused")
+	}
+}

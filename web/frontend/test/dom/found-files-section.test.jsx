@@ -11,6 +11,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const calls = []
 let mounts = [{ id: 'library', label: 'Library' }]
 let passes
+const failing = new Set()
 
 vi.mock('../../src/api.js', () => ({
   json: async (method, path, body) => {
@@ -20,7 +21,10 @@ vi.mock('../../src/api.js', () => ({
       const n = passes.shift()
       return { ok: true, data: n }
     }
-    if (path === '/sources/attach-found') return { ok: true, data: { attached: body.tokens.length, skipped: 0, failed: 0, context: { matched: 3, ambiguous: 1, unmatched: 0, skipped: 0 } } }
+    if (path === '/sources/attach-found') {
+      const ok = body.tokens.filter((tok) => !failing.has(tok))
+      return { ok: true, data: { attached: ok.length, skipped: 0, failed: body.tokens.length - ok.length, done: ok, context: { matched: 3, ambiguous: 1, unmatched: 0, skipped: 0 } } }
+    }
     if (path === '/sources/ignore-found') return { ok: true, data: { ignored: body.tokens.length } }
     return { ok: true, data: {} }
   },
@@ -46,6 +50,7 @@ const C = (over) => ({
 beforeEach(() => {
   cleanup()
   calls.length = 0
+  failing.clear()
   mounts = [{ id: 'library', label: 'Library' }]
   passes = [
     { candidates: [C({})], scanned: 400, unclaimed: 5, truncated: true, cursor: 'movies/Z' },
@@ -92,6 +97,29 @@ describe('files found in a mounted library', () => {
     // The fuzzy group has no Accept all: those are one press each.
     const review = screen.getByTestId('found-review')
     expect(within(review).queryByRole('button', { name: /Accept all/ })).toBeNull()
+  })
+
+  it('keeps the rows that failed to attach, and drops only those that did', async () => {
+    passes = [{ candidates: [C({ token: 'ok1' }), C({ token: 'bad', title: 'Andor', work_id: 2, rel: 'shows/a.srt' })], scanned: 2, unclaimed: 0, truncated: false, cursor: '' }]
+    failing.add('bad')
+    render(<FoundFilesPage embedded />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Scan' }))
+    const exact = await screen.findByTestId('found-exact')
+    fireEvent.click(within(exact).getByRole('button', { name: 'Accept all 2' }))
+    await waitFor(() => expect(screen.queryByText('V for Vendetta')).toBeNull())
+    // The one that failed is still there to retry or refuse.
+    expect(screen.getByText('Andor')).toBeTruthy()
+  })
+
+  it('shows one row per work however many passes found a file for it', async () => {
+    passes = [
+      { candidates: [C({ token: 'first', rel: 'a/Dune.epub' })], scanned: 1, unclaimed: 0, truncated: true, cursor: 'a/Dune.epub' },
+      { candidates: [C({ token: 'copy', rel: 'z/Dune (copy).epub' })], scanned: 1, unclaimed: 0, truncated: false, cursor: '' },
+    ]
+    render(<FoundFilesPage embedded />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Scan' }))
+    await waitFor(() => expect(calls.filter((c) => c.path === '/sources/scan')).toHaveLength(2))
+    expect(await screen.findAllByTestId('found-row')).toHaveLength(1)
   })
 
   it('refuses a file with a cross and the row goes', async () => {

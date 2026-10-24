@@ -45,10 +45,18 @@ var (
 	yearDigits = regexp.MustCompile(`^\s*(-?\d{4})`)
 )
 
-// ReadMeta reads an EPUB's metadata.
+// ReadMeta reads an EPUB's metadata from bytes already in memory.
 func ReadMeta(data []byte) (Meta, error) {
+	return ReadMetaAt(bytes.NewReader(data), int64(len(data)))
+}
+
+// ReadMetaAt reads an EPUB's metadata through a ReaderAt, which is what a scan of a mounted
+// library wants: a zip's central directory and the package document are a few kilobytes at the
+// end of a file that may be tens of megabytes, and the scan touches hundreds of them, so loading
+// each whole would read gigabytes to learn a title.
+func ReadMetaAt(ra io.ReaderAt, size int64) (Meta, error) {
 	var m Meta
-	zr, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	zr, err := zip.NewReader(ra, size)
 	if err != nil {
 		return m, fmt.Errorf("%w: %v", ErrNotEPUB, err)
 	}
@@ -87,6 +95,10 @@ func ReadMeta(data []byte) (Meta, error) {
 	dec.Entity = xml.HTMLEntity
 	var field, property string
 	var seriesPos string
+	// A field's text can sit inside child elements (a description that is markup), so a start
+	// tag inside a captured field is part of it and only ITS OWN end tag closes it.
+	var desc strings.Builder
+	depth := 0
 	for {
 		tok, err := dec.Token()
 		if err != nil {
@@ -94,6 +106,10 @@ func ReadMeta(data []byte) (Meta, error) {
 		}
 		switch t := tok.(type) {
 		case xml.StartElement:
+			if field != "" {
+				depth++ // nested inside a captured field
+				continue
+			}
 			field, property = "", ""
 			switch t.Name.Local {
 			case "title", "creator", "identifier", "publisher", "language", "description", "date", "subject":
@@ -144,9 +160,8 @@ func ReadMeta(data []byte) (Meta, error) {
 					m.Language = text
 				}
 			case "description":
-				if m.Description == "" {
-					m.Description = tidyText(text)
-				}
+				desc.WriteString(text)
+				desc.WriteByte(' ')
 			case "date":
 				if m.Year == 0 {
 					if y := yearDigits.FindStringSubmatch(text); y != nil {
@@ -165,8 +180,15 @@ func ReadMeta(data []byte) (Meta, error) {
 				seriesPos = text
 			}
 		case xml.EndElement:
+			if depth > 0 {
+				depth--
+				continue
+			}
 			field = ""
 		}
+	}
+	if m.Description == "" {
+		m.Description = tidyText(desc.String())
 	}
 	if seriesPos != "" {
 		m.SeriesIndex, _ = strconv.ParseFloat(seriesPos, 64)

@@ -128,6 +128,27 @@ func (r *Root) ReadFile(rel string, max int64) ([]byte, error) {
 	return b, nil
 }
 
+// OpenReader opens a regular file under the root for reading and returns it with its size, for a
+// caller that needs random access without loading the whole file: an EPUB's package document
+// is a few kilobytes at the end of a zip that may be tens of megabytes. The caller closes it.
+// Still os.Open, so still read-only.
+func (r *Root) OpenReader(rel string) (*os.File, int64, error) {
+	real, err := r.resolve(rel)
+	if err != nil {
+		return nil, 0, err
+	}
+	f, err := os.Open(real) // O_RDONLY
+	if err != nil {
+		return nil, 0, err
+	}
+	st, err := f.Stat()
+	if err != nil {
+		f.Close()
+		return nil, 0, err
+	}
+	return f, st.Size(), nil
+}
+
 // Exists reports whether rel is still a readable regular file under the root, without
 // reading it: the "is the file where it was" question.
 func (r *Root) Exists(rel string) bool {
@@ -166,6 +187,9 @@ func (r *Root) Walk(cursor string, exts map[string]bool, maxFiles int, budget ti
 	var res WalkResult
 	deadline := time.Now().Add(budget)
 	stopped := false
+	// lastVisited is the last file the walk looked at, reported or not: where a walk that ran
+	// out of time resumes from. visited guarantees every pass makes progress.
+	lastVisited, visited := "", 0
 
 	var walk func(dirAbs, dirRel string)
 	walk = func(dirAbs, dirRel string) {
@@ -177,9 +201,27 @@ func (r *Root) Walk(cursor string, exts map[string]bool, maxFiles int, budget ti
 			res.Skipped.Unreadable++
 			return
 		}
-		sort.Slice(ents, func(i, j int) bool { return ents[i].Name() < ents[j].Name() })
+		// THE ORDER IS THE ORDER OF THE FULL PATHS, which is what a cursor compares. A directory
+		// is keyed with its trailing slash, so `a.srt` comes before the directory `a/` ('.' sorts
+		// before '/'), exactly as the strings "a.srt" and "a/x.srt" do. Sorting by bare name
+		// walked `a/` first and then, on resume, skipped `a.srt` as already done.
+		key := func(e fs.DirEntry) string {
+			if e.IsDir() {
+				return e.Name() + "/"
+			}
+			return e.Name()
+		}
+		sort.Slice(ents, func(i, j int) bool { return key(ents[i]) < key(ents[j]) })
 		for _, e := range ents {
 			if stopped {
+				return
+			}
+			// THE BUDGET IS CHECKED PER ENTRY, not only when a file is reported: a tree of millions
+			// of files that match nothing would otherwise never meet it. At least one entry is
+			// always visited, so a resumed pass cannot stall on an expired budget.
+			if visited > 0 && time.Now().After(deadline) {
+				res.Truncated, res.Cursor = true, lastVisited
+				stopped = true
 				return
 			}
 			rel := e.Name()
@@ -206,7 +248,7 @@ func (r *Root) Walk(cursor string, exts map[string]bool, maxFiles int, budget ti
 			}
 			if typ.IsDir() {
 				// A directory wholly before the cursor has been done.
-				if cursor != "" && cursor > rel && !strings.HasPrefix(cursor, rel+"/") {
+				if cursor != "" && cursor > rel+"/" && !strings.HasPrefix(cursor, rel+"/") {
 					continue
 				}
 				walk(abs, rel)
@@ -219,6 +261,8 @@ func (r *Root) Walk(cursor string, exts map[string]bool, maxFiles int, budget ti
 			if cursor != "" && rel <= cursor {
 				continue
 			}
+			visited++
+			lastVisited = rel
 			if !exts[strings.ToLower(filepath.Ext(e.Name()))] {
 				continue
 			}
@@ -228,7 +272,7 @@ func (r *Root) Walk(cursor string, exts map[string]bool, maxFiles int, budget ti
 				continue
 			}
 			res.Files = append(res.Files, Found{Rel: rel, Size: st.Size()})
-			if len(res.Files) >= maxFiles || time.Now().After(deadline) {
+			if len(res.Files) >= maxFiles {
 				res.Truncated, res.Cursor = true, rel
 				stopped = true
 			}

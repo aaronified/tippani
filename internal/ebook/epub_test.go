@@ -249,3 +249,31 @@ func TestMetaReadsAnEPUB3Collection(t *testing.T) {
 		t.Fatalf("%+v %v", m, err)
 	}
 }
+
+// A description is often markup INSIDE the element, not escaped text. A start tag inside a
+// captured field used to clear it, so only the text outside the children survived.
+func TestMetaKeepsADescriptionThatIsNestedMarkup(t *testing.T) {
+	pkg := `<package xmlns="http://www.idpf.org/2007/opf" xmlns:dc="http://purl.org/dc/elements/1.1/" version="2.0"><metadata>
+  <dc:title>Nested</dc:title>
+  <dc:description><p>The first paragraph.</p><p>And the <b>second</b>.</p></dc:description>
+  <dc:publisher>After The Description</dc:publisher>
+ </metadata><manifest/><spine/></package>`
+	m, err := ReadMeta(epubOf(t, entry{"META-INF/container.xml", container}, entry{"OEBPS/content.opf", pkg}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.Description != "The first paragraph. And the second ." && m.Description != "The first paragraph. And the second." {
+		t.Fatalf("description = %q", m.Description)
+	}
+	if m.Publisher != "After The Description" {
+		t.Fatalf("a field after the nested one must still be read: %q", m.Publisher)
+	}
+}
+
+func TestMetaAtReadsThroughAReaderAtWithoutTheWholeFileInHand(t *testing.T) {
+	b := epubOf(t, entry{"META-INF/container.xml", container}, entry{"OEBPS/content.opf", `<package xmlns="http://www.idpf.org/2007/opf" xmlns:dc="http://purl.org/dc/elements/1.1/"><metadata><dc:title>Via ReaderAt</dc:title></metadata><manifest/><spine/></package>`})
+	m, err := ReadMetaAt(bytes.NewReader(b), int64(len(b)))
+	if err != nil || m.Title != "Via ReaderAt" {
+		t.Fatalf("%+v %v", m, err)
+	}
+}

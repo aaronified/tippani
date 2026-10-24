@@ -34,15 +34,22 @@ const epubSourceSlug = "epub"
 // Any failure is quietly "no candidate": the file is an extra source and its absence
 // must never make a re-verify fail.
 func (s *Server) epubCandidate(uid, bookID int64) *metadata.BookCandidate {
-	var path, format string
+	var path, format, origin, mountID string
 	err := s.Store.DB.QueryRow(
-		`SELECT path, format FROM work_sources
+		`SELECT path, format, origin, mount_id FROM work_sources
 		 WHERE user_id = ? AND subject = 'book' AND subject_id = ? AND role = 'text'
-		   AND origin = 'upload' AND pruned_at = '' AND path != ''`, uid, bookID).Scan(&path, &format)
+		   AND pruned_at = '' AND path != ''`, uid, bookID).Scan(&path, &format, &origin, &mountID)
 	if errors.Is(err, sql.ErrNoRows) || err != nil || format != "epub" {
 		return nil
 	}
-	data, err := s.readSourceFile(path)
+	// A book attached from a mounted library is the common case, and its file is read through
+	// the mount: an upload only is a feature that works for the files nobody uses.
+	var data []byte
+	if origin == "mount" {
+		data, err = s.readMountedSource(mountID, path)
+	} else {
+		data, err = s.readSourceFile(path)
+	}
 	if err != nil {
 		return nil
 	}

@@ -8,12 +8,15 @@ package httpapi
 // that nothing under a mount was ever removed or written.
 
 import (
+	"context"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
+
+	"tippani/internal/metadata"
 )
 
 type foundList struct {
@@ -311,4 +314,84 @@ func TestDeletingAMountedWorkOrSourceNeverTouchesTheFileOnTheMount(t *testing.T)
 	if after := list(); after != before {
 		t.Fatalf("the mount lost files: %d -> %d", before, after)
 	}
+}
+
+func TestAttachSaysWhichTokensAttachedSoAScreenKeepsTheRest(t *testing.T) {
+	_, c, _, film, _, _ := mountFixture(t)
+	var good string
+	for _, cand := range c.scan("").Candidates {
+		if cand.WorkID == film && cand.Subject == "screen" {
+			good = cand.Token
+		}
+	}
+	res := decode[struct {
+		Attached int      `json:"attached"`
+		Failed   int      `json:"failed"`
+		Done     []string `json:"done"`
+	}](t, c.mustDo("POST", "/sources/attach-found", map[string]any{"bucket": "exact", "tokens": []string{good, "not-a-token"}}, 200))
+	if res.Attached != 1 || res.Failed != 1 || len(res.Done) != 1 || res.Done[0] != good {
+		t.Fatalf("the answer must name exactly the token that attached: %+v", res)
+	}
+}
+
+// A book attached from a mounted library is how most books get attached, and its file must
+// supply metadata like an uploaded one: a feature that only worked for uploads would work for
+// the files nobody uses.
+func TestAnEPUBAttachedFromTheMountSuppliesMetadataToo(t *testing.T) {
+	srv, c, _, _, _, book := mountFixture(t)
+	// NO TEST MAY REACH THE NETWORK: the book carries an ISBN, so a re-verify would ask Open Library.
+	// Nothing online answers, which is exactly the case where the file is the only source.
+	srv.searchBooks = func(context.Context, string, string, string, string) ([]metadata.BookCandidate, error) {
+		return nil, nil
+	}
+	for _, cand := range c.scan("").Candidates {
+		if cand.Subject == "book" && cand.WorkID == book {
+			c.mustDo("POST", "/sources/attach-found", map[string]any{"bucket": cand.Bucket, "tokens": []string{cand.Token}}, 200)
+		}
+	}
+	res := decode[offersResp](t, c.mustDo("POST", "/metadata/reverify", map[string]any{"book_ids": []int64{book}, "offers": true}, 200))
+	if res.Items[0].Status != "ok" || res.Items[0].Source != "epub" {
+		t.Fatalf("a mounted EPUB should answer as a supplier: %+v", res.Items[0])
+	}
+}
+
+func TestARefusalIsForgottenWithTheWorkSoAReusedIdInheritsNone(t *testing.T) {
+	srv, c, _, film, _, _ := mountFixture(t)
+	for _, cand := range c.scan("").Candidates {
+		if cand.WorkID == film && cand.Subject == "screen" {
+			c.mustDo("POST", "/sources/ignore-found", map[string]any{"tokens": []string{cand.Token}}, 200)
+		}
+	}
+	count := func() int {
+		var n int
+		_ = srv.Store.DB.QueryRow(`SELECT count(*) FROM cleanup_ignores WHERE kind = 'work-screen' AND item_id = ?`, film).Scan(&n)
+		return n
+	}
+	if count() == 0 {
+		t.Fatal("setup: the refusal should be stored")
+	}
+	c.mustDo("DELETE", "/movies/"+strconv.FormatInt(film, 10), nil, 200)
+	if count() != 0 {
+		t.Fatal("a deleted work's refusals must go with it: ids are reused, and the next work given this one would inherit them")
+	}
+}
+
+// Files attached from a folder carry its id and a path relative to it. A DIFFERENT folder
+// given the same id would silently take over their rows.
+func TestARemovedFoldersIdCannotBeGivenToAnotherFolderWhileFilesPointAtIt(t *testing.T) {
+	_, c, root, film, _, _ := mountFixture(t)
+	for _, cand := range c.scan("").Candidates {
+		if cand.WorkID == film && cand.Subject == "screen" {
+			c.mustDo("POST", "/sources/attach-found", map[string]any{"bucket": cand.Bucket, "tokens": []string{cand.Token}}, 200)
+		}
+	}
+	c.mustDo("PUT", "/admin/mounts", map[string]any{"mounts": []mountCfg{}}, 200)
+	other := t.TempDir()
+	rec := c.do("PUT", "/admin/mounts", map[string]any{"mounts": []mountCfg{{ID: "library", Label: "Library", Path: other}}})
+	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "choose another name") {
+		t.Fatalf("a new folder must not take over a removed folder's id: %d %s", rec.Code, rec.Body)
+	}
+	// The same folder under a new id is fine, and the old rows read as missing, not as someone
+	// else's files.
+	c.mustDo("PUT", "/admin/mounts", map[string]any{"mounts": []mountCfg{{ID: "library-2", Label: "Library", Path: root}}}, 200)
 }

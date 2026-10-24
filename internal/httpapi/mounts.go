@@ -133,6 +133,23 @@ func (s *Server) handlePutMounts(w http.ResponseWriter, r *http.Request) {
 	}
 	seen := map[string]bool{}
 	clean := make([]mountCfg, 0, len(req.Mounts))
+	current := map[string]bool{}
+	for _, m := range s.loadMounts() {
+		current[m.ID] = true
+	}
+	// A REMOVED FOLDER'S ID IS SPOKEN FOR. Files attached from it still carry that id and a path
+	// relative to it, so a different folder given the same id would silently take over their
+	// rows: a rescan would read an unrelated file at the same relative path as the old source.
+	orphaned := map[string]bool{}
+	if rows, err := s.Store.DB.Query(`SELECT DISTINCT mount_id FROM work_sources WHERE origin = 'mount'`); err == nil {
+		for rows.Next() {
+			var id string
+			if rows.Scan(&id) == nil && !current[id] {
+				orphaned[id] = true
+			}
+		}
+		rows.Close()
+	}
 	for _, m := range req.Mounts {
 		m.ID, m.Label, m.Path = strings.TrimSpace(m.ID), strings.TrimSpace(m.Label), strings.TrimSpace(m.Path)
 		if !mountID.MatchString(m.ID) {
@@ -144,6 +161,10 @@ func (s *Server) handlePutMounts(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		seen[m.ID] = true
+		if orphaned[m.ID] && !current[m.ID] {
+			writeErr(w, http.StatusBadRequest, "the id "+m.ID+" belonged to a folder that was removed and files attached from it still point at it: choose another name")
+			return
+		}
 		if m.Label == "" {
 			m.Label = m.ID
 		}
@@ -279,6 +300,7 @@ func (s *Server) handleScanMount(w http.ResponseWriter, r *http.Request) {
 	}
 	ignored := s.ignoredFound(uid)
 
+	started := time.Now()
 	walk := root.Walk(req.Cursor, map[string]bool{".srt": true, ".vtt": true, ".ass": true, ".epub": true}, scanFiles, scanBudget)
 
 	type pick struct {
@@ -293,7 +315,17 @@ func (s *Server) handleScanMount(w http.ResponseWriter, r *http.Request) {
 			best[key] = p
 		}
 	}
+	truncated, cursor := walk.Truncated, walk.Cursor
+	processed := ""
 	for _, f := range walk.Files {
+		// THE WHOLE REQUEST IS BOUNDED, not only the walk: identifying files costs a read each, and a
+		// slow mount would otherwise carry one request far past any proxy's patience. Stopping here
+		// answers truncated with the last file handled as the cursor, so Continue picks up after it.
+		if processed != "" && time.Since(started) > 2*scanBudget {
+			truncated, cursor = true, processed
+			break
+		}
+		processed = f.Rel
 		if f.Size > scanMaxBytes || f.Size == 0 {
 			continue
 		}
@@ -329,8 +361,8 @@ func (s *Server) handleScanMount(w http.ResponseWriter, r *http.Request) {
 		"candidates": out,
 		"scanned":    len(walk.Files),
 		"unclaimed":  unclaimed,
-		"truncated":  walk.Truncated,
-		"cursor":     walk.Cursor,
+		"truncated":  truncated,
+		"cursor":     cursor,
 		"skipped": map[string]int{
 			"irregular": walk.Skipped.Irregular, "outside": walk.Skipped.Outside, "unreadable": walk.Skipped.Unreadable,
 		},
@@ -508,11 +540,14 @@ func (s *Server) matchSubtitle(mountID, rel string, movies []scanWork, have map[
 // exact, and otherwise the folded title (the file's often carries a subtitle the library's
 // lacks) with the author agreeing is a proposal.
 func (s *Server) matchEPUB(root *mount.Root, mountID, rel string, books []scanWork, have map[int64]bool, quoted, ignored map[string]bool) (foundCandidate, bool) {
-	data, err := root.ReadFile(rel, scanMaxBytes)
+	// THROUGH A HANDLE, NOT THE WHOLE FILE: a zip's central directory and the package document are
+	// a few kilobytes at the end of a file that may be tens of megabytes, and a scan touches hundreds.
+	f, size, err := root.OpenReader(rel)
 	if err != nil {
 		return foundCandidate{}, false
 	}
-	meta, err := ebook.ReadMeta(data)
+	defer f.Close()
+	meta, err := ebook.ReadMetaAt(f, size)
 	if err != nil {
 		return foundCandidate{}, false
 	}
@@ -615,6 +650,7 @@ func (s *Server) handleAttachFound(w http.ResponseWriter, r *http.Request) {
 	uid := userID(r)
 	attached, skipped, failed := 0, 0, 0
 	var total contextStats
+	done := []string{}
 	for _, tok := range req.Tokens {
 		t, ok := s.verifyFound(tok)
 		if !ok {
@@ -631,12 +667,15 @@ func (s *Server) handleAttachFound(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		attached++
+		done = append(done, tok)
 		total.Matched += st.Matched
 		total.Ambiguous += st.Ambiguous
 		total.Unmatched += st.Unmatched
 		total.Skipped += st.Skipped
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"attached": attached, "skipped": skipped, "failed": failed, "context": total})
+	// `done` names the tokens that attached, so a screen drops exactly those and keeps the ones
+	// that failed, to be retried or refused, instead of making them vanish with a count.
+	writeJSON(w, http.StatusOK, map[string]any{"attached": attached, "skipped": skipped, "failed": failed, "done": done, "context": total})
 }
 
 // attachFound stores one mounted source and cuts its context. false is any refusal: the

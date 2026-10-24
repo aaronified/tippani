@@ -63,3 +63,12 @@ CREATE TRIGGER source_context_screen_del AFTER DELETE ON dialogues
 BEGIN DELETE FROM source_context WHERE subject = 'dialogue' AND item_id = OLD.id; END;
 CREATE TRIGGER source_context_utterance_del AFTER DELETE ON utterances
 BEGIN DELETE FROM source_context WHERE subject = 'utterance' AND item_id = OLD.id; END;
+
+-- A REFUSED ATTACH PROPOSAL IS KEYED ON A WORK, and a work's id is reused once the highest row
+-- is deleted (INTEGER PRIMARY KEY without AUTOINCREMENT, the hazard 0026 is written about). The
+-- ignores live in cleanup_ignores under kinds the quote triggers of 0052 cannot reach ('work-book',
+-- 'work-screen'), so without these a new book given a deleted book's id would inherit its refusals.
+CREATE TRIGGER cleanup_ignores_work_book_del AFTER DELETE ON books
+BEGIN DELETE FROM cleanup_ignores WHERE kind = 'work-book' AND item_id = OLD.id; END;
+CREATE TRIGGER cleanup_ignores_work_screen_del AFTER DELETE ON movies
+BEGIN DELETE FROM cleanup_ignores WHERE kind = 'work-screen' AND item_id = OLD.id; END;

@@ -19,6 +19,20 @@ import { invalidateContext } from './sources.jsx'
 
 const MAX_PASSES = 60
 
+// ONE PROPOSAL PER WORK ACROSS THE WHOLE SCAN. The server keeps the best file per work within one
+// pass, but a large library is several passes, and a second copy of a book found in a later pass
+// must not become a second row for it (accepting both would fail the second). Exact beats review;
+// otherwise the first found stays.
+function oneEach(list) {
+  const seen = new Map()
+  for (const c of list) {
+    const key = `${c.subject}:${c.work_id}:${c.episode || ''}`
+    const cur = seen.get(key)
+    if (!cur || (cur.bucket !== 'exact' && c.bucket === 'exact')) seen.set(key, c)
+  }
+  return [...seen.values()]
+}
+
 export default function FoundFilesPage({ embedded = false }) {
   const [mounts, setMounts] = useState(null)
   const [found, setFound] = useState(null) // null: not scanned yet
@@ -52,7 +66,7 @@ export default function FoundFilesPage({ embedded = false }) {
           toast(r.data?.error || t('common.source.error'))
           break
         }
-        all = all.concat(r.data.candidates || [])
+        all = oneEach(all.concat(r.data.candidates || []))
         files += r.data.scanned || 0
         lost += r.data.unclaimed || 0
         if (alive.current) {
@@ -83,10 +97,11 @@ export default function FoundFilesPage({ embedded = false }) {
     if (failed) parts.push(t('found.failed', { n: failed, count: failed }))
     if (skipped) parts.push(t('found.skipped', { n: skipped, count: skipped }))
     if (parts.length) toast(parts.join(' · '))
-    // The attached ones are done; the rest stay. Times proposed from the new files are
-    // now waiting in the section below, and every card may now have context.
-    const done = new Set(list.map((c) => c.token))
-    setFound((cur) => (cur || []).filter((c) => !done.has(c.token) || attached === 0))
+    // ONLY THE ONES THAT ATTACHED GO. The server names them; the rest stay, to be retried or
+    // refused, rather than vanishing with a count. Times proposed from the new files are now
+    // waiting in the section below, and every card may now have context.
+    const done = new Set(r.data.done || [])
+    setFound((cur) => (cur || []).filter((c) => !done.has(c.token)))
     invalidateContext()
   }
 
