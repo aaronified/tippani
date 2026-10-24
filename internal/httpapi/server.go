@@ -625,6 +625,9 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /sources", s.requireAuth(s.handleGetSource))
 	mux.Handle("PUT /sources", s.requireAuth(s.handlePutSource))
 	mux.Handle("DELETE /sources/{id}", s.requireAuth(s.handleDeleteSource))
+	mux.Handle("POST /sources/{id}/rescan", s.requireAuth(s.handleRescanSource))
+	// One stored row, read: the context of a quote opens no file (source_context.go).
+	mux.Handle("GET /quotes/{kind}/{id}/context", s.requireAuth(s.handleGetContext))
 	mux.Handle("POST /stickers", s.requireAuth(s.handleUploadSticker))
 	mux.Handle("PUT /stickers/{id}", s.requireAuth(s.handleUpdateSticker))
 	mux.Handle("DELETE /stickers/{id}", s.requireAuth(s.handleDeleteSticker))

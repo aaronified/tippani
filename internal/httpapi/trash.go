@@ -1016,10 +1016,13 @@ var accountTables = []string{
 //	work_sources   the file a work's quotes came from. The bytes are removed when
 //	               the account is (sources.go) and the bin does not carry them,
 //	               so a restored row would name a file that is gone.
+//	source_context what a work's file says around each quote: derived from the file,
+//	               and the quote's own delete clears it, so a restored quote
+//	               gets it back from a rescan and not from the bin.
 var accountSkipTables = map[string]bool{
 	"sessions": true, "device_tokens": true, "quiz_sessions": true,
 	"widget_keys": true, "notify_settings": true,
-	"jobs": true, "job_logs": true, "system_logs": true, "work_sources": true,
+	"jobs": true, "job_logs": true, "system_logs": true, "work_sources": true, "source_context": true,
 }
 
 // binAccount snapshots an entire account and its library into ONE bin entry,

@@ -36,6 +36,7 @@ import (
 	"strconv"
 	"strings"
 
+	"tippani/internal/ebook"
 	"tippani/internal/importer"
 	"tippani/internal/olog"
 )
@@ -194,6 +195,11 @@ type workSourceRow struct {
 	// State is the one word the screens branch on, not a pair of booleans that
 	// can disagree: file (bytes are held) or pruned (the row is all that is left).
 	State string `json:"state"`
+	// Context is what reading the file found, answered by an upload: how many of the
+	// work's quotes were placed in it, and how many could not be (ambiguous or not
+	// found). Absent on a lookup.
+	Context      *contextStats `json:"context,omitempty"`
+	ContextError string        `json:"context_error,omitempty"`
 }
 
 const sourceCols = `id, subject, subject_id, subject_key, role, format, name, bytes, sha256, origin, pruned_at, created_at, path`
@@ -315,6 +321,18 @@ func (s *Server) handlePutSource(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "a "+sourceSubjectNoun(subj.Subject)+" cannot take a "+format+" file")
 		return
 	}
+	// READ BEFORE KEPT. A file this app cannot read — a DRM'd ebook (refused by name),
+	// a subtitle track with no lines — is refused here rather than stored and found
+	// dead later. The lines are used again below to cut the context.
+	units, unit, perr := sourceUnits(format, data)
+	if perr != nil {
+		msg := "that file could not be read: " + perr.Error()
+		if errors.Is(perr, ebook.ErrDRM) {
+			msg = "that ebook is DRM-protected, and its text cannot be read"
+		}
+		writeErr(w, http.StatusUnprocessableEntity, msg)
+		return
+	}
 	role := importer.SourceRole(format)
 	sum := sha256.Sum256(data)
 	hash := hex.EncodeToString(sum[:])
@@ -332,11 +350,11 @@ func (s *Server) handlePutSource(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 
-	var oldPath string
+	var oldPath, oldSHA string
 	err = tx.QueryRow(
-		`SELECT path FROM work_sources
+		`SELECT path, sha256 FROM work_sources
 		 WHERE user_id = ? AND subject = ? AND subject_id = ? AND subject_key = ? AND role = ?`,
-		uid, subj.Subject, subj.ID, subj.Key, role).Scan(&oldPath)
+		uid, subj.Subject, subj.ID, subj.Key, role).Scan(&oldPath, &oldSHA)
 	replaced := err == nil
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		s.removeSourceFiles([]string{stored})
@@ -366,6 +384,12 @@ func (s *Server) handlePutSource(w http.ResponseWriter, r *http.Request) {
 			id, err = res.LastInsertId()
 		}
 	}
+	// A DIFFERENT FILE IS A DIFFERENT EDITION: one work's context never comes from two
+	// of them, so the old file's rows go and the new file derives its own. The SAME
+	// file (same sha256) keeps its rows, and extraction below only fills the gaps.
+	if err == nil && replaced && oldSHA != hash {
+		_, err = tx.Exec(`DELETE FROM source_context WHERE source_id = ?`, id)
+	}
 	if err == nil {
 		err = tx.Commit()
 	}
@@ -382,6 +406,18 @@ func (s *Server) handlePutSource(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		internalError(w, r, "put source: read back", err)
 		return
+	}
+	// THE FILE IS READ NOW, ONCE: every quote this work already has gets its
+	// surroundings stored, and the file is never a read path afterwards. The upload
+	// itself has succeeded either way; a context that could not be cut says why.
+	st, xerr := s.extractContextUnits(uid, sourceKey{
+		id: id, subject: subj.Subject, subjectID: subj.ID, key: subj.Key, format: format, path: stored,
+	}, units, unit)
+	if xerr != nil {
+		olog.Printf("[sources] context for source %d: %v", id, xerr)
+		row.ContextError = "the file was kept, but its context could not be cut"
+	} else {
+		row.Context = &st
 	}
 	status := http.StatusCreated
 	if replaced {

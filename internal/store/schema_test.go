@@ -777,6 +777,8 @@ func wantShapes() []tableShape {
 			},
 			Triggers: []string{
 				"annotations_ad", "annotations_ai", "annotations_au",
+				// 0084's: the surroundings of a deleted highlight go with it.
+				"source_context_book_del",
 				// 0015's polymorphic FK stand-in. A deleted highlight must take its
 				// review row with it or the deck serves a card for a quote that no
 				// longer exists.
@@ -905,6 +907,7 @@ func wantShapes() []tableShape {
 			},
 			Triggers: []string{
 				"dialogues_ad", "dialogues_ai", "dialogues_au",
+				"source_context_screen_del",
 				"item_reviews_screen_del",
 				// 0064's, beside it: the log a deleted line takes with it.
 				"item_recalls_screen_del",
@@ -1382,6 +1385,11 @@ func TestSchemaInvariants(t *testing.T) {
 		{"annotations", "cleanup_ignores_book_del"},
 		{"dialogues", "cleanup_ignores_screen_del"},
 		{"utterances", "cleanup_ignores_quote_del"},
+		// 0084's three: what a work's source file says around a quote, polymorphic like
+		// item_reviews and so cleared by trigger, not by a foreign key.
+		{"annotations", "source_context_book_del"},
+		{"dialogues", "source_context_screen_del"},
+		{"utterances", "source_context_utterance_del"},
 	} {
 		found := false
 		for _, tr := range shapes[tc.table].Triggers {
