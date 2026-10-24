@@ -7602,3 +7602,11 @@ common.source.episode.title = কোন পর্ব?
 common.source.episode.label = পর্ব
 common.source.episode.choose = ফাইল বাছুন
 common.source.pick.aria = সূত্র ফাইল বাছুন
+# A dropped file that is not highlights: a subtitle track or an ebook. The row asks which work it is the file of.
+import.row.source.subtitle = এটি সাবটাইটেল ফাইল, হাইলাইট নয়। কোন ফিল্ম বা সিরিজের?
+import.row.source.ebook = এটি ই-বুক, হাইলাইট নয়। কোন বইয়ের?
+import.row.source.lyrics = এটি গানের কথার ফাইল, হাইলাইট নয়। গানটির নিজের পাতা থেকে জুড়ুন।
+import.row.source.attach = {title}-এর সঙ্গে জুড়ুন
+import.row.source.attach.none = জুড়ুন
+import.row.source.attached = {title}-এর সঙ্গে জুড়ে দেওয়া হয়েছে
+import.row.source.episode = পর্ব

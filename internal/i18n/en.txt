@@ -7965,3 +7965,11 @@ common.source.episode.title = Which episode?
 common.source.episode.label = Episode
 common.source.episode.choose = Choose file
 common.source.pick.aria = Choose a source file
+# A dropped file that is not highlights: a subtitle track or an ebook. The row asks which work it is the file of.
+import.row.source.subtitle = A subtitle file, not highlights. Which film or show is it for?
+import.row.source.ebook = An ebook, not highlights. Which book is it from?
+import.row.source.lyrics = A lyrics file, not highlights. Attach it from the song's own page.
+import.row.source.attach = Attach to {title}
+import.row.source.attach.none = Attach
+import.row.source.attached = Attached to {title}
+import.row.source.episode = Episode

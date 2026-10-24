@@ -146,6 +146,23 @@ func (s *Server) stageAuto(ctx context.Context, uid int64, as string, data []byt
 		noteJob(ctx, jobs.LevelInfo, "read as %s, the format the file says it is", source)
 		return importSources[source](s, ctx, uid, data, filename)
 	}
+	// A FILE THAT IS NOT AN IMPORT AT ALL: a subtitle track or an ebook. It is the
+	// file a work's quotes came FROM, and the one case where its content cannot say
+	// where it belongs — a subtitle names no film inside itself — so the answer is a
+	// third outcome beside staged and unrecognised, and the screen asks which work.
+	// Nothing is staged and nothing is stored here: the reader's file is still in
+	// their browser, and goes up through PUT /sources once they have chosen
+	// (sources.go). A source is not an import and never touches the staging queue.
+	//
+	// Plain .txt is left out on purpose: prose is what a Readest export or a
+	// clippings file also looks like to this function, and a text file nothing
+	// claimed has always been "pick a format with Read this as…".
+	if f := importer.SourceFormat(data); f != "" && f != importer.SourceFormatTXT {
+		noteJob(ctx, jobs.LevelInfo, "not imported: the file is a %s source file, kept per work rather than staged", f)
+		return importAnswer{Status: http.StatusOK, Body: map[string]any{
+			"source_file": f, "staged": 0,
+		}}
+	}
 	// Nothing signed itself. Name the file if it is something else entirely —
 	// answering "unrecognised" to a backup archive, or to the app's own export
 	// (which is a zip), is a worse failure than the wall of cards was.

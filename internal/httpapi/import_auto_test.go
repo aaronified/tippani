@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"bytes"
+	"encoding/json"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -307,5 +308,59 @@ func TestEveryPerSourceRouteStillExists(t *testing.T) {
 		if rec := c.doRaw("POST", route, bytes.NewReader(nil), "multipart/form-data; boundary=x"); rec.Code == http.StatusNotFound {
 			t.Errorf("%s is not routed", route)
 		}
+	}
+}
+
+// A SUBTITLE OR AN EBOOK IS NOT AN IMPORT, AND IS NOT AN ERROR. It is the file a
+// work's quotes came from, and its content cannot say which work, so the drop
+// target answers with a third outcome and the screen asks. Nothing is staged and
+// nothing is stored by this route: the file goes up through PUT /sources once the
+// reader has chosen a work.
+func TestAutoImportRecognisesASourceFileAndStagesNothing(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	epub := append([]byte("PK\x03\x04\x14\x00\x00\x00\x00\x00mimetypeapplication/epub+zip"), make([]byte, 32)...)
+	cases := []struct {
+		name, file string
+		data       []byte
+		want       string
+	}{
+		{"a subtitle", "film.srt", []byte(srtSample), "srt"},
+		// The owner's own file arrived as `.ass.txt`; the name is never read.
+		{"a subtitle with the wrong name", "film.ass.txt", []byte("[Script Info]\nTitle: x\n[Events]\nDialogue: 0,0:00:01.00,0:00:03.00,D,,0,0,0,,Hi\n"), "ass"},
+		{"a renamed subtitle", "film.mp4", []byte(srtSample), "srt"},
+		{"an ebook", "book.epub", epub, "epub"},
+	}
+	for _, tc := range cases {
+		rec := c.importAs(tc.file, tc.data, "")
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%s: got %d, want 200: %s", tc.name, rec.Code, rec.Body)
+		}
+		var got struct {
+			SourceFile string `json:"source_file"`
+			Staged     int    `json:"staged"`
+		}
+		if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+			t.Fatal(err)
+		}
+		if got.SourceFile != tc.want || got.Staged != 0 {
+			t.Fatalf("%s: %+v, want source_file %q and nothing staged", tc.name, got, tc.want)
+		}
+	}
+	if q := queue(t, c, ""); len(q.Batches) != 0 {
+		t.Fatalf("a source file staged something: %+v", q.Batches)
+	}
+	if n := len(sourceFilesOnDisk(t, srv)); n != 0 {
+		t.Fatalf("the import route must not store the file, found %d", n)
+	}
+}
+
+// Plain prose is NOT claimed: a text file nothing recognised is still the admitted
+// unknown that offers "Read this as…", exactly as before.
+func TestAutoImportStillAdmitsPlainTextItCannotReadAfterSourceFilesWereAdded(t *testing.T) {
+	c := signupAdmin(t, newTestServer(t).Handler())
+	rec := c.importAs("notes.txt", []byte("Just some prose, with no marks at all.\n"), "")
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("got %d: %s", rec.Code, rec.Body)
 	}
 }

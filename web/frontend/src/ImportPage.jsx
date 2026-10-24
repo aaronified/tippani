@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { errText, uploadWithProgress } from './api.js'
+import { errText, json, putUpload, uploadWithProgress } from './api.js'
+import { WorkPicker, workFromBook, workFromMovie } from './AddSurface.jsx'
 import { t, tNodes } from './i18n.js'
 import { jobAnswer, jobStateLabel, jobWaitingText } from './jobs.js'
 import { FilePick, IconArrow, IconImport, IconWarning, ProgressBar, Select } from './ui.jsx'
-import { IMPORT_ACCEPT, sourceTitle } from './importSources.js'
+import { sourceTitle } from './importSources.js'
 
 // ONE TARGET, AND THE BYTES SAY WHAT THE FILE IS.
 //
@@ -142,6 +143,11 @@ export default function ImportPage({ onReviewImport, onStaged }) {
     // some — and spread over the row it overwrote the row's own "still waiting for
     // its answer", so a file that had staged two quotes went on saying "…" under a
     // summary that said "2 quotes staged". The row is answered, so it says so last.
+    // A SUBTITLE OR AN EBOOK: not highlights, so nothing was staged. It is the file
+    // a work's quotes came from, and the row asks which work (SourceAsk).
+    if (r.ok && r.data?.source_file) {
+      return { name: file.name, file, as, ok: true, staged: 0, pending: false, sourceFile: r.data.source_file }
+    }
     if (r.ok) return { name: file.name, file, as, ...r.data, ok: true, pending: false }
     // A JOB THAT ENDED WITH NO ANSWER was stopped, or cut off by a restart,
     // before it staged anything. Where it kept the upload, it is Settings → Jobs'
@@ -266,10 +272,16 @@ export default function ImportPage({ onReviewImport, onStaged }) {
     settledAll()
   }
 
+  // The reader chose a work and the file went up: the row stops asking and says so.
+  function attached(i, title) {
+    list.current[i] = { ...list.current[i], sourceFile: null, attachedTo: title }
+    draw()
+  }
+
   return (
     <section className="flex flex-col gap-4">
       <DropTarget busy={sending} pct={pct} onFiles={runBatch} />
-      {rows && <BatchResults rows={rows} summary={summary} staged={staged} busy={sending} onReviewImport={onReviewImport} onReread={reread} />}
+      {rows && <BatchResults rows={rows} summary={summary} staged={staged} busy={sending} onReviewImport={onReviewImport} onReread={reread} onAttached={attached} />}
       <NothingLandsYetNote />
       <SaveDontPasteNote />
     </section>
@@ -277,6 +289,11 @@ export default function ImportPage({ onReviewImport, onStaged }) {
 }
 
 // DropTarget — the one upload, and the one thing a file can be dropped on.
+//
+// NO `accept` FILTER, which this file's own header already claimed ("no file input,
+// no accept filter") while the code built one from the source list. The sniffer
+// reads the bytes, so the operating system hiding `.srt`, `.epub` or the owner's
+// own `.ass.txt` helps nobody and silently turns away files the screen can take.
 //
 // A LABEL WRAPPING THE INPUT is the whole control: the well IS the button, so
 // there is no "press this, or alternatively drop there" to read. `tp-btn` inside
@@ -287,7 +304,6 @@ function DropTarget({ busy, pct, onFiles }) {
   return (
     <FilePick
       className={'import-drop' + (over ? ' is-over' : '') + (busy ? ' is-busy' : '')}
-      accept={IMPORT_ACCEPT}
       multiple
       disabled={busy}
       onFiles={onFiles}
@@ -350,7 +366,7 @@ function SaveDontPasteNote() {
 // the hand-over to the pending queue. Rows report what was STAGED and where each
 // work will land if approved; the added/skipped/enriched counters now belong to
 // the approval, so they are reported there.
-function BatchResults({ rows, summary, staged, busy, onReviewImport, onReread }) {
+function BatchResults({ rows, summary, staged, busy, onReviewImport, onReread, onAttached }) {
   return (
     <div className="hand-card hc-r2 space-y-1.5 p-4" style={{ borderInlineStart: '4px solid var(--accent)' }}>
       {summary && (
@@ -370,6 +386,10 @@ function BatchResults({ rows, summary, staged, busy, onReviewImport, onReread })
             {r.name}{' '}<span className="import-arrow"><IconArrow size={12} /></span>{' '}
             {r.pending ? (
               r.unsent ? t('import.row.unsent') : r.job ? pendingJobText(r.job) : '…'
+            ) : r.sourceFile ? (
+              t(sourceAskKey(r.sourceFile))
+            ) : r.attachedTo ? (
+              t('import.row.source.attached', { title: r.attachedTo })
             ) : r.ok ? (
               t('import.row.staged', { count: r.staged, n: r.staged })
             ) : (
@@ -410,6 +430,9 @@ function BatchResults({ rows, summary, staged, busy, onReviewImport, onReread })
             <p className="microcopy" style={{ color: 'var(--faint)' }}>
               {t('import.read-as.unqueued')}
             </p>
+          )}
+          {r.sourceFile && sourceKinds(r.sourceFile).length > 0 && (
+            <SourceAsk row={r} onAttached={(title) => onAttached(i, title)} />
           )}
           {r.ok && <ClippingsNotice row={r} />}
           {r.ok && (r.works || []).map((w) => <StagedWorkNotice key={w.id} work={w} />)}
@@ -500,5 +523,76 @@ function ClippingsNotice({ row }) {
       {row.blocks_malformed ? ' ' : ''}
       {parts.join(' · ')}
     </p>
+  )
+}
+
+// ---- a file that is not an import ------------------------------------------------
+
+// What the row says about a source file, by what it is. A lyrics file is a song's
+// text, and a song is a standalone quote with no work row, so it is attached from
+// the song's own page rather than chosen here.
+const sourceAskKey = (format) =>
+  format === 'epub' ? 'import.row.source.ebook' : format === 'lrc' ? 'import.row.source.lyrics' : 'import.row.source.subtitle'
+
+// The kinds of work this file can be attached to from here: a subtitle to a film or
+// show (never a game: "games have no equivalent"), an ebook to a book.
+const sourceKinds = (format) => (format === 'epub' ? ['book'] : format === 'lrc' ? [] : ['screen'])
+
+// SourceAsk — "which work is this the file of?" It is the one case where the content
+// cannot decide: a subtitle names no film inside itself, so the reader is asked
+// rather than the filename being guessed. The file is still in this page, and goes up
+// through the same PUT /sources every other door uses; nothing is staged.
+function SourceAsk({ row, onAttached }) {
+  const [works, setWorks] = useState([])
+  const [picked, setPicked] = useState(null)
+  const [episode, setEpisode] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const kinds = sourceKinds(row.sourceFile)
+  useEffect(() => {
+    let live = true
+    Promise.all([
+      kinds.includes('book') ? json('GET', '/books') : null,
+      kinds.includes('screen') ? json('GET', '/movies') : null,
+    ]).then(([b, m]) => {
+      if (!live) return
+      const list = []
+      if (b?.ok) list.push(...(b.data.books || []).map(workFromBook))
+      if (m?.ok) list.push(...(m.data.movies || []).filter((x) => x.media_type !== 'game').map(workFromMovie))
+      setWorks(list)
+    })
+    return () => {
+      live = false
+    }
+  }, [row.sourceFile])
+  const isShow = picked?.media_type === 'show'
+  return (
+    <div className="flex flex-col gap-2">
+      <WorkPicker works={works} value={picked} onChange={setPicked} />
+      {isShow && (
+        <label className="tp-field">
+          <span className="mono-label">{t('import.row.source.episode')}</span>
+          <input className="tp-input" value={episode} placeholder="s01e04" onChange={(e) => setEpisode(e.target.value)} />
+        </label>
+      )}
+      <button
+        type="button"
+        className="tp-btn tp-btn-primary"
+        disabled={!picked || busy || (isShow && !episode.trim())}
+        onClick={async () => {
+          setBusy(true)
+          setError('')
+          const fields = { subject: picked.kind === 'book' ? 'book' : 'screen', subject_id: String(picked.id) }
+          if (isShow) fields.episode = episode.trim()
+          const r = await putUpload('/sources', row.file, fields)
+          setBusy(false)
+          if (r.ok) onAttached(picked.title)
+          else setError(r.data?.error || t('common.source.error'))
+        }}
+      >
+        {picked ? t('import.row.source.attach', { title: picked.title }) : t('import.row.source.attach.none')}
+      </button>
+      {error && <p className="microcopy" style={{ color: 'var(--error)' }}>{error}</p>}
+    </div>
   )
 }

@@ -31,6 +31,8 @@ const uploads = []
 // whole upload with toEqual — a fourth key there fails them against correct
 // code, which is a test reporting its own bookkeeping as a defect.
 const progressed = []
+// What the screen sent to PUT /sources, for a file that is not an import at all.
+const puts = []
 // `reply` is what the next file's import answers once its job has run — the
 // status and body the route answered before imports queued — set per test.
 let reply = { status: 200, body: { staged: 3, works: [] } }
@@ -73,7 +75,25 @@ vi.mock('../../src/api.js', () => ({
       const ran = states[states.length - 1] === 'succeeded' || states[states.length - 1] === 'failed'
       return { ok: true, data: { kind: 'import', result: ran ? reply : null } }
     }
+    // The library the "which work?" row offers: a book, a film, a show and a game.
+    if (path === '/books') return { ok: true, data: { books: [{ id: 3, title: 'Dust of Dreams', author: 'Steven Erikson' }] } }
+    if (path === '/movies') {
+      return {
+        ok: true,
+        data: {
+          movies: [
+            { id: 7, title: 'V for Vendetta', media_type: 'movie', release_year: 2005 },
+            { id: 8, title: 'Andor', media_type: 'show', release_year: 2022 },
+            { id: 9, title: 'Hades', media_type: 'game', release_year: 2020 },
+          ],
+        },
+      }
+    }
     return { ok: true, data: {} }
+  },
+  putUpload: async (path, file, fields) => {
+    puts.push({ path, name: file.name, fields })
+    return { ok: true, status: 201, data: { id: 1, name: file.name } }
   },
   uploadWithProgress: async (path, form, onProgress) => {
     const file = form.get('file')
@@ -105,6 +125,7 @@ const well = () => document.querySelector('.import-drop')
 
 beforeEach(() => {
   uploads.length = 0
+  puts.length = 0
   progressed.length = 0
   gate = null
   reply = { status: 200, body: { staged: 3, works: [] } }
@@ -380,5 +401,69 @@ describe('the upload reports how far it has got', () => {
     // is the "pending" row's failure in a new shape: something on screen that
     // stopped meaning anything.
     await waitFor(() => expect(document.querySelector('[role="progressbar"]')).toBeNull())
+  })
+})
+
+// A SUBTITLE OR AN EBOOK IS NOT AN IMPORT AND IS NOT AN ERROR. Its content cannot say
+// which work it belongs to (a subtitle names no film inside itself), so the row asks,
+// and the file goes up through the same route every other door uses. Nothing is
+// staged: the summary still says so.
+describe('a file that is the source of a work and not highlights', () => {
+  const asSource = (format) => { reply = { status: 200, body: { source_file: format, staged: 0 } } }
+
+  it('asks which work, never offers a game, and sends the file for the one chosen', async () => {
+    asSource('srt')
+    render(<ImportPage />)
+    drop(well(), textFile('film.ass.txt'))
+    expect(await screen.findByText(/A subtitle file, not highlights/)).toBeTruthy()
+    // The picker is the library's own list: the film and the show are there, the game is not.
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'V for' } })
+    fireEvent.click(await screen.findByText('V for Vendetta'))
+    fireEvent.click(screen.getByRole('button', { name: 'Attach to V for Vendetta' }))
+    await waitFor(() => expect(puts).toHaveLength(1))
+    expect(puts[0]).toEqual({ path: '/sources', name: 'film.ass.txt', fields: { subject: 'screen', subject_id: '7' } })
+    expect(await screen.findByText(/Attached to V for Vendetta/)).toBeTruthy()
+  })
+
+  it('does not list a game as somewhere a subtitle can go', async () => {
+    asSource('srt')
+    render(<ImportPage />)
+    drop(well(), textFile('film.srt'))
+    await screen.findByText(/A subtitle file, not highlights/)
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Hades' } })
+    await waitFor(() => expect(screen.queryByText('Hades')).toBeNull())
+  })
+
+  it('asks which episode when the work is a show', async () => {
+    asSource('srt')
+    render(<ImportPage />)
+    drop(well(), textFile('andor.srt'))
+    await screen.findByText(/A subtitle file, not highlights/)
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Andor' } })
+    fireEvent.click(await screen.findByText('Andor'))
+    const attach = screen.getByRole('button', { name: 'Attach to Andor' })
+    expect(attach.disabled).toBe(true)
+    fireEvent.change(screen.getByLabelText('Episode'), { target: { value: 's01e04' } })
+    expect(attach.disabled).toBe(false)
+    fireEvent.click(attach)
+    await waitFor(() => expect(puts).toHaveLength(1))
+    expect(puts[0].fields).toEqual({ subject: 'screen', subject_id: '8', episode: 's01e04' })
+  })
+
+  it('offers an ebook only the books', async () => {
+    asSource('epub')
+    render(<ImportPage />)
+    drop(well(), textFile('dust.epub'))
+    expect(await screen.findByText(/An ebook, not highlights/)).toBeTruthy()
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Dust' } })
+    fireEvent.click(await screen.findByText('Dust of Dreams'))
+    fireEvent.click(screen.getByRole('button', { name: 'Attach to Dust of Dreams' }))
+    await waitFor(() => expect(puts).toHaveLength(1))
+    expect(puts[0].fields).toEqual({ subject: 'book', subject_id: '3' })
+  })
+
+  it('takes any file the operating system will offer: the picker has no extension filter', () => {
+    render(<ImportPage />)
+    expect(document.querySelector('input[type="file"]').getAttribute('accept')).toBeNull()
   })
 })

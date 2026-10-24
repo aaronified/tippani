@@ -34,10 +34,6 @@ export const SOURCES = [
   { kind: 'kindle-clippings', ext: '.txt', steps: 3, caveat: true },
 ]
 
-// Every extension any of them arrives as, for the input's `accept`. Derived
-// rather than typed, so a source added above cannot be left out of it.
-export const IMPORT_ACCEPT = [...new Set(SOURCES.map((s) => s.ext))].join(',') + ',.markdown,.htm,.text'
-
 // The reader's words for one source, resolved at render — never at module load,
 // because that is before applyLocale() has run.
 export const sourceTitle = (kind) => t(`import.source.${kind}.title`)
