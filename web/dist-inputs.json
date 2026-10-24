@@ -13,8 +13,8 @@
     "web/frontend/vite.config.js"
   ],
   "sha256": {
-    "internal/i18n/bn.txt": "d82dff28d88a33db8ce75488ebd5a970b8d906563aca5ce60394521d7947041a",
-    "internal/i18n/en.txt": "8986cdedee752fb00ea5a03b44a8ff9a8ef3d222515f160207c02e1aaeb180c0",
+    "internal/i18n/bn.txt": "daa952d426192a3f5644e6723ae50af06495f798f454714ecad80128ac56e95c",
+    "internal/i18n/en.txt": "1c20cd54b5a0d3dfcb64773efefc8d0dd81090736deb191f8f618cda6e96c25d",
     "web/frontend/index.html": "e117a908fb6f5d08da419313d66fb54ff988f6eb838679d2e73e4fa0fb7eefff",
     "web/frontend/package-lock.json": "bb11669a318d0aef1ad6a2c77c07ee7a608a94cd5ef5e5972c77e25e62161028",
     "web/frontend/package.json": "79431a751199f0313734def387b8951ab3918262adfa8597138f238812dd47a6",
@@ -34,7 +34,7 @@
     "web/frontend/src/CoverPicker.jsx": "527f19a08d790ac36ff3983fb3c28108b4eda12164215b00ef35d93606ccc4b5",
     "web/frontend/src/FrameEditor.jsx": "ca827ceb7b36cb31f3ea6c93b1d09c2cd2c28c57f6153da8f1476b91e83baa63",
     "web/frontend/src/Home.jsx": "ea443d2de8c582f7624deb183d9585548cc4458e662c5c910d99010f00891403",
-    "web/frontend/src/ImportPage.jsx": "5487858da0615a7219fa302403356e8a4e33deb7b3ceb2f41fdf000268f80847",
+    "web/frontend/src/ImportPage.jsx": "e205b3644e7f2badc31bce40323dac0ac907cbfa263a3f09c01e1830c937d769",
     "web/frontend/src/Library.jsx": "9832501e84f5d0a437036b641867f34f4f1b30d66da8daa653f937976b6e2efd",
     "web/frontend/src/MetadataPage.jsx": "bc8d47cc2d10c03bf253acd3148ca7badcffd229bd5d867bcdfa0b1d52ec29e3",
     "web/frontend/src/MetadataSources.jsx": "ff7fb901bc706995ffbf6fc7c0f37cc5eb98bdb9d86454231b85fbf519347150",
@@ -91,7 +91,7 @@
     "web/frontend/src/identityPicker.jsx": "a076dbe42064ed9a518b6d76e67f30f666ee5b6b93ca631ca5b70f3e1c8f073c",
     "web/frontend/src/identityScope.js": "f4f5c4cd0ea02ba000abfba48e0c2405dc9cc0c4bb90f3ed0d2e4c1b4941c3ca",
     "web/frontend/src/imageWait.js": "2711f9d98423daf1842f29351e663493914f078d7e942e4619d33262f42b6c54",
-    "web/frontend/src/importSources.js": "05bb471aafd26fccf9ec77530338104f1eb035bf215a0964136f4d614842774b",
+    "web/frontend/src/importSources.js": "f57d13f298a3f1ca555fe6a8379908ac4bb65fc9694f125e4f1b071da8532c7d",
     "web/frontend/src/index.css": "8e94a35e1ca2b8550d78feddc773205eb7a4dedad93d7301ca9cb66e4276660e",
     "web/frontend/src/iso639.js": "e0cd6c06ea999e9f63ddb27ffb1ac0cda4174f2f7a23df9b186545be091a5a34",
     "web/frontend/src/iso6393.data.js": "e5987d7f116731210200f045e6f73e73966459fe183a97788dcbd2918a2cdb6d",
