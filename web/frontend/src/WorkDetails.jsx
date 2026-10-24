@@ -34,6 +34,8 @@ import { LanguageCombo } from './suggest.jsx'
 import { DEFAULT_CREDIT_SEPS, splitCredits, personImgURL, usePeople } from './credits.jsx'
 import { PasteLink, WorkLinks, linkRows, providerURL } from './workLinks.jsx'
 import { t } from './i18n.js'
+import { actionsFor } from './actions.jsx'
+import { SourceLine, useSourceDoor } from './sources.jsx'
 import { KINDS } from './workKinds.js'
 import { BookLookupPicker, CoverControls, CoverPreview, MovieLookupPicker, hiResPoster, idNum } from './CoverPicker.jsx'
 import {
@@ -1357,6 +1359,12 @@ export function workDetailsPanel(stack, { kind, item, onChanged, onDelete, onGoT
 // ---- the resting view ------------------------------------------------------
 
 function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, genreSuggestions, onSaveField, onSaveAll, onCover, onChanged, onFetch, onDelete, onClose }) {
+  // THE FILE THESE QUOTES CAME FROM. The verb is the registry's, the same entry the
+  // work card's menu renders, so the two doors cannot drift; this panel only adds
+  // the line that says which file is held.
+  const [sourceVersion, setSourceVersion] = useState(0)
+  const source = useSourceDoor(() => setSourceVersion((v) => v + 1))
+  const sourceAct = actionsFor(kind, item, { addSource: () => source.add(kind, item) }).find((a) => a.id === 'sourceAdd')
   // THE SEARCH DOOR IS READ FROM THE SHELL, not threaded through the seven
   // callers that open this sheet — the same lesson `onOpenWork` and `onSearch`
   // both taught on the identity panels: "a capability that has to be re-threaded
@@ -1592,6 +1600,13 @@ function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, gen
           title={t('common.work.lookup.info.title')}
           text={t(kind === 'book' ? 'book.fetch.info.body' : 'film.fetch.info.body')}
         />
+        {sourceAct && (
+          <GhostButton type="button" onClick={sourceAct.run} title={sourceAct.tooltip}>
+            {sourceAct.icon}
+            <span>{sourceAct.label}</span>
+          </GhostButton>
+        )}
+        {source.node}
         <span className="flex-1" />
         {onDelete && (
           <FieldIconButton
@@ -1602,6 +1617,8 @@ function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, gen
           />
         )}
       </div>
+
+      <SourceLine kind={kind} item={item} version={sourceVersion} />
 
       {/* A FLEX WRAP, so a spec marked `half` can share its line with the row after
           it. Every row is full width in here unless it asks otherwise, which is

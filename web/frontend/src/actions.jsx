@@ -15,11 +15,13 @@ import {
   IconSeal,
   IconShare,
   IconTag,
+  IconUpload,
   QuoteActions,
   QuoteTools,
   ReviewDot,
 } from './ui.jsx'
 import { t } from './i18n.js'
+import { canTakeSource } from './sources.jsx'
 
 // One list of the things you can do to a quote.
 //
@@ -128,6 +130,21 @@ export function actionsFor(kind, item, ctx = {}) {
       // rather than a console with a diff table.
       available: isWork && !!ctx.fillGaps,
       run: () => ctx.fillGaps(item),
+    },
+    {
+      id: 'sourceAdd',
+      label: t('common.action.source.add.label'),
+      where: ROW,
+      icon: <IconUpload />,
+      tooltip: t('common.action.source.add.tip', { subject }),
+      // THE FILE THESE QUOTES CAME FROM: a subtitle for a title, an ebook for a
+      // book. Absent, not disabled, where it would do nothing — a game has no
+      // equivalent, and a surface that cannot take a file passes no callback.
+      // `single` because one file belongs to one work; "attach this to forty" has
+      // no meaning.
+      single: true,
+      available: isWork && !!ctx.addSource && canTakeSource(kind, item),
+      run: () => ctx.addSource(item),
     },
     {
       id: 'practise',

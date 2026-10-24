@@ -7952,3 +7952,16 @@ error.prune = could not prune
 # ---- a bin entry's works, and the face an identity entry took ------------
 # One row per book or film inside an entry — a bulk delete is one entry, and the
 # title with its own count is the only thing in it a reader can recognise.
+
+# The file a work's quotes came from: a subtitle for a title, an ebook for a book.
+common.action.source.add.label = Add source file
+common.action.source.add.tip = Attach the file this {subject} came from
+common.source.holds = Source file: {name} ({size})
+common.source.added = Added {name}
+common.source.removed = Source file removed
+common.source.error = That file could not be added
+common.source.remove.aria = Remove the source file {name}
+common.source.episode.title = Which episode?
+common.source.episode.label = Episode
+common.source.episode.choose = Choose file
+common.source.pick.aria = Choose a source file

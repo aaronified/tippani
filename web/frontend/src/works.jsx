@@ -54,6 +54,7 @@ import {
 } from './ui.jsx'
 import { actionsFor } from './actions.jsx'
 import { ANTHOLOGY_KIND, useGatherDoor, workRule } from './anthologyGather.jsx'
+import { useSourceDoor } from './sources.jsx'
 import { usePractice } from './review.jsx'
 import { deletePhrase, useBulkOps } from './bulkOps.jsx'
 import { selectionClick, selectionMenuItems } from './selection.jsx'
@@ -1131,7 +1132,11 @@ export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps, sel
   // closes with the board rather than outliving it.
   const { practise, practiceDialog } = usePractice(t(kind === 'book' ? 'nav.tab.library.label' : 'nav.tab.movies.label'))
   const gather = useGatherDoor()
+  const source = useSourceDoor()
   const acts = actionsFor(kind, item, {
+    // NOT gated on onChanged: a source file is stored beside the work and this tile
+    // draws nothing of it, so there is nothing for a reload to catch up with.
+    addSource: () => source.add(kind, item),
     // Absent unless the board passes a reload — a surface that cannot refresh
     // after a write should not offer the write. That is the registry's rule and
     // it is what keeps this menu empty in a read-only context rather than
@@ -1296,6 +1301,7 @@ export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps, sel
         {confirm}
         {practiceDialog}
         {gather.node}
+        {source.node}
       </>
     )
   }
@@ -1311,6 +1317,7 @@ export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps, sel
       {confirm}
       {practiceDialog}
       {gather.node}
+      {source.node}
     </div>
   )
 }

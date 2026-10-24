@@ -77,7 +77,7 @@ describe('the menu a cover opens', () => {
     for (const write of ['Fill gaps', 'Skip in quiz', 'Add to quiz', 'Edit', 'Delete']) {
       expect(labels()).not.toContain(write)
     }
-    expect(labels()).toEqual(['Practise', 'Add to anthology'])
+    expect(labels()).toEqual(['Add source file', 'Practise', 'Add to anthology'])
   })
 
   it('offers a themed round over the book itself', () => {
@@ -186,5 +186,68 @@ describe('the card and the bar cannot drift', () => {
       if (a.id === 'set-fields' || a.id === 'shelf') continue
       expect(onCard.has(a.id), `${kind}: the bar can ${a.id} and the card cannot`).toBe(true)
     }
+  })
+})
+
+// THE FILE THESE QUOTES CAME FROM. The card offers to attach one, a game never does
+// (the owner's: "games have no equivalent"), and a show asks which episode first
+// because a subtitle covers one. What is pressed and what the server is sent is
+// what a person does; no function or module is named.
+describe('adding the file a work came from', () => {
+  const FILM = { id: 9, title: 'Star Wars', media_type: 'movie', dialogue_count: 3 }
+  const SHOW = { id: 10, title: 'Andor', media_type: 'show', dialogue_count: 3 }
+  const GAME = { id: 11, title: 'Hades', media_type: 'game', dialogue_count: 3 }
+
+  function openFor(kind, item) {
+    render(<WorkCard kind={kind} item={item} onOpen={() => {}} onChanged={() => {}} />)
+    fireEvent.contextMenu(screen.getByTitle(item.title))
+  }
+
+  it('is offered on a book and a film and never on a game', () => {
+    openFor('book', BOOK)
+    expect(labels()).toContain('Add source file')
+    cleanup()
+    openFor('movie', FILM)
+    expect(labels()).toContain('Add source file')
+    cleanup()
+    openFor('movie', GAME)
+    expect(labels()).not.toContain('Add source file')
+  })
+
+  it('sends the chosen file for the work it was chosen on, whatever the file is called', async () => {
+    const calls = []
+    const real = globalThis.fetch
+    globalThis.fetch = vi.fn(async (url, init) => {
+      calls.push({ url: String(url), method: init?.method, body: init?.body })
+      return new Response(JSON.stringify({ id: 1, name: 'vendetta.ass.txt', format: 'ass' }), {
+        status: 201,
+        headers: { 'content-type': 'application/json' },
+      })
+    })
+    try {
+      openFor('movie', FILM)
+      fireEvent.click(screen.getByText('Add source file'))
+      const picker = screen.getByLabelText('Choose a source file')
+      // No extension filter: the owner's own file was `.ass.txt`.
+      expect(picker.getAttribute('accept')).toBeNull()
+      const file = new File(['[Script Info]'], 'vendetta.ass.txt', { type: 'text/plain' })
+      fireEvent.change(picker, { target: { files: [file] } })
+      await vi.waitFor(() => expect(calls.length).toBe(1))
+      expect(calls[0].method).toBe('PUT')
+      expect(calls[0].url.endsWith('/sources')).toBe(true)
+      expect(calls[0].body.get('subject')).toBe('screen')
+      expect(calls[0].body.get('subject_id')).toBe('9')
+      expect(calls[0].body.get('episode')).toBeNull()
+    } finally {
+      globalThis.fetch = real
+    }
+  })
+
+  it('asks a show which episode before it opens the file picker', async () => {
+    openFor('movie', SHOW)
+    fireEvent.click(screen.getByText('Add source file'))
+    const ep = await screen.findByLabelText('Episode')
+    fireEvent.change(ep, { target: { value: 's01e04' } })
+    expect(within(document.body).getByText('Choose file')).toBeTruthy()
   })
 })

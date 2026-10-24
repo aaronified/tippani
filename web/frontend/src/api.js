@@ -196,3 +196,12 @@ export async function copyText(text) {
     return false
   }
 }
+
+// putUpload is `upload` for a route that replaces rather than creates: a work's
+// source file is PUT, because a second one takes the first's place.
+export async function putUpload(url, file, fields) {
+  const form = new FormData()
+  form.append('file', file)
+  for (const [k, v] of Object.entries(fields || {})) form.append(k, v)
+  return send(url, { method: 'PUT', body: form })
+}
