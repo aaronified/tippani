@@ -722,7 +722,7 @@
   }
   /* Selected label always rides light over the textured accent thumb — a dark
      label muddies against the grain (esp. in dark mode over --accent-dark). */
-  .tp-toggle-opt.is-on { color: var(--on-accent); text-shadow: 0 1px 1px rgba(0,0,0,.28); }
+  .tp-toggle-opt.is-on { color: var(--on-accent); }
   @media (prefers-reduced-motion: reduce) {
     .tp-toggle-thumb { transition: none; }
     .tactile::after { display: none; }
@@ -808,7 +808,6 @@
      report rather than a patch over an uncalibrated one. */
   .nav-toggle .tp-toggle-opt.is-on {
     color: var(--on-accent);
-    text-shadow: 0 0 2px rgba(0,0,0,.34), 0 1px 2px rgba(0,0,0,.45);
   }
   /* THE NAV THUMB KEEPS ITS OWN SCALE, NOT ITS OWN MATERIAL. It used to be wood
      against the filter toggles' leather so the shell nav read apart, which was a
@@ -980,7 +979,7 @@
     white-space: nowrap;
     transition: color .2s ease;
   }
-  .tp-select-opt.is-hi { color: var(--on-accent); text-shadow: 0 1px 1px rgba(0,0,0,.28); }
+  .tp-select-opt.is-hi { color: var(--on-accent); }
   @media (prefers-reduced-motion: reduce) {
     .tp-select-panel, .tp-select-thumb { animation: none; transition: none; }
   }
@@ -5009,7 +5008,6 @@
     color: var(--on-accent);
     font-weight: 600;
     background: color-mix(in oklab, var(--accent), black 6%);
-    text-shadow: 0 1px 1px rgba(0,0,0,.28);
   }
   .rail-row[aria-current="page"]:hover { color: var(--on-accent); }
   html[data-theme="dark"] .rail-row[aria-current="page"] {
@@ -5323,7 +5321,6 @@
     font-size: var(--type-ui-15);
     font-weight: 600;
     letter-spacing: .01em;
-    text-shadow: 0 1px 1px rgba(0,0,0,.28);
     background: linear-gradient(180deg, color-mix(in oklab, var(--accent), white 14%), var(--accent));
     box-shadow: var(--lift), inset 0 1px 0 rgba(255,255,255,.28);
   }
@@ -5526,7 +5523,6 @@
     border: 1.4px solid var(--ink-border);
     background: linear-gradient(180deg, color-mix(in oklab, var(--accent), white 14%), var(--accent));
     color: var(--on-accent);
-    text-shadow: 0 1px 1px rgba(0,0,0,.28);
   }  /* film runs more geometric */
   html[data-theme="dark"] .user-chip {
     background: linear-gradient(180deg, color-mix(in oklab, var(--accent-dark), white 12%), var(--accent-dark));
@@ -6723,7 +6719,6 @@
      the genre bar and search-scope filters read identically to Toggle/Select. */
   .tp-filter-chip.active {
     color: var(--on-accent);
-    text-shadow: 0 1px 1px rgba(0,0,0,.28);
     border-color: transparent;
     background: linear-gradient(180deg, color-mix(in oklab, var(--accent), white 14%), var(--accent));
     box-shadow: 0 1px 2px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.3);
@@ -7458,7 +7453,6 @@ html .mobile-sheet-footer::before { background-image: var(--tile-shell); }
 .drawer-item:hover { background: color-mix(in oklab, var(--ink) 6%, transparent); }
 .drawer-item.active {
   color: var(--on-accent);
-  text-shadow: 0 1px 1px rgba(0,0,0,.28);
   background: linear-gradient(180deg, color-mix(in oklab, var(--accent), white 14%), var(--accent));
   box-shadow: 0 1px 2px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.3);
 }
@@ -7741,7 +7735,6 @@ html[data-theme="dark"] .to-top { box-shadow: 0 12px 26px -14px rgba(0, 0, 0, .7
    every other selected thing in the app. */
 .mobile-dock-btn.active {
   color: var(--on-accent);
-  text-shadow: 0 1px 1px rgba(0,0,0,.28);
   background: linear-gradient(180deg, color-mix(in oklab, var(--accent), white 14%), var(--accent));
   box-shadow: 0 1px 2px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.3);
 }
