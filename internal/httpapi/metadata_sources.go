@@ -131,7 +131,10 @@ var sourceAreas = []struct {
 // have drawn its own slug in lower case besides, because there is no
 // `vocab.source.hardcover.label` — the app has never had to name it on a screen.
 // Its records are visible where they belong: on the work whose field it filled.
-var sourceRowExempt = map[string]bool{"manual": true, "hardcover": true}
+//
+// `epub` IS THE BOOK'S OWN FILE (epub_supplier.go): read from disk, with no network, no
+// key and nothing to configure or to fault, so there is no health row to show for it.
+var sourceRowExempt = map[string]bool{"manual": true, "hardcover": true, "epub": true}
 
 // sourceState answers what the console's legend is about, from the same resolvers
 // the lookups use.

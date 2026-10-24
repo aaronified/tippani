@@ -203,3 +203,49 @@ func TestMetaReadsTitleCreatorAndIdentifiersFromThePackageAlone(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 }
+
+func TestMetaAlsoReadsThePublisherYearSeriesSubjectsAndPlainTextDescription(t *testing.T) {
+	pkg := `<?xml version="1.0"?>
+<package xmlns="http://www.idpf.org/2007/opf" xmlns:dc="http://purl.org/dc/elements/1.1/" version="2.0">
+ <metadata>
+  <dc:title>Dust of Dreams</dc:title>
+  <dc:publisher>Bantam Press</dc:publisher>
+  <dc:language>en</dc:language>
+  <dc:date>2009-09-22T00:00:00+00:00</dc:date>
+  <dc:subject>Fantasy</dc:subject>
+  <dc:subject>Epic</dc:subject>
+  <dc:description>&lt;p&gt;The &lt;b&gt;ninth&lt;/b&gt; book&amp;nbsp;of the series.&lt;/p&gt;</dc:description>
+  <meta name="calibre:series" content="The Malazan Book of the Fallen"/>
+  <meta name="calibre:series_index" content="9.0"/>
+ </metadata>
+ <manifest/><spine/>
+</package>`
+	m, err := ReadMeta(epubOf(t, entry{"META-INF/container.xml", container}, entry{"OEBPS/content.opf", pkg}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.Publisher != "Bantam Press" || m.Language != "en" || m.Year != 2009 {
+		t.Fatalf("%+v", m)
+	}
+	if len(m.Subjects) != 2 || m.Subjects[0] != "Fantasy" || m.Subjects[1] != "Epic" {
+		t.Fatalf("subjects %+v", m.Subjects)
+	}
+	if m.Description != "The ninth book of the series." {
+		t.Fatalf("a description arrives as markup and must be text: %q", m.Description)
+	}
+	if m.Series != "The Malazan Book of the Fallen" || m.SeriesIndex != 9 {
+		t.Fatalf("series %q #%v", m.Series, m.SeriesIndex)
+	}
+}
+
+func TestMetaReadsAnEPUB3Collection(t *testing.T) {
+	pkg := `<package xmlns="http://www.idpf.org/2007/opf" xmlns:dc="http://purl.org/dc/elements/1.1/" version="3.0"><metadata>
+  <dc:title>Book Three</dc:title>
+  <meta property="belongs-to-collection" id="c1">Discworld</meta>
+  <meta refines="#c1" property="group-position">3</meta>
+ </metadata><manifest/><spine/></package>`
+	m, err := ReadMeta(epubOf(t, entry{"META-INF/container.xml", container}, entry{"OEBPS/content.opf", pkg}))
+	if err != nil || m.Series != "Discworld" || m.SeriesIndex != 3 {
+		t.Fatalf("%+v %v", m, err)
+	}
+}

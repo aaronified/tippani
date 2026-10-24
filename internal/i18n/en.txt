@@ -717,6 +717,8 @@ vocab.source.tvdb.label = TheTVDB
 vocab.source.manual.label = You
 # Not a supplier: the field came in a file the reader imported.
 vocab.source.import.label = Imported
+# The book's own EPUB, when one is attached: what the file says about its edition.
+vocab.source.epub.label = Book file
 vocab.source.unknown.label = unknown source
 
 # ---------------------------------------------------------------------------

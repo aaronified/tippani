@@ -10785,6 +10785,12 @@ function IconSrcTVDB() { return <svg {...srcStroke}><rect x="3" y="7.5" width="1
 // so the one supplier whose matches are always games was the one the picker could
 // not name. A pad, because that is what the medium is played on.
 function IconSrcIGDB() { return <svg {...srcStroke}><rect x="2.5" y="7.5" width="19" height="11" rx="4.5"/><path d="M7 11v4"/><path d="M5 13h4"/><path d="M15.5 12.5v.01"/><path d="M18 14.5v.01"/></svg> }
+// The book's own file: Phosphor `book-open-text`, fill (MIT, github.com/phosphor-icons/core),
+// an open book with lines of text, which is what an EPUB is. Drawn on the pack's 256 box and
+// cropped to its ink like every other Phosphor glyph here, so it sits at the same size as the
+// rest of the rail. A fill, where its neighbours are strokes: the app's one set of marks for a
+// supplier is hand-drawn, and a book file is not a supplier, so it takes the pack's own drawing.
+function IconSrcEpub() { return <svg {...iconFill} viewBox="-8.6 7.4 273.2 273.2" width={16} height={16}><path d="M232,48H168a32,32,0,0,0-32,32v87.73a8.17,8.17,0,0,1-7.47,8.25,8,8,0,0,1-8.53-8V80A32,32,0,0,0,88,48H24a8,8,0,0,0-8,8V200a8,8,0,0,0,8,8H96a24,24,0,0,1,24,23.94,7.9,7.9,0,0,0,5.12,7.55A8,8,0,0,0,136,232a24,24,0,0,1,24-24h72a8,8,0,0,0,8-8V56A8,8,0,0,0,232,48ZM208,168H168.27a8.17,8.17,0,0,1-8.25-7.47,8,8,0,0,1,8-8.53h39.73a8.17,8.17,0,0,1,8.25,7.47A8,8,0,0,1,208,168Zm0-32H168.27a8.17,8.17,0,0,1-8.25-7.47,8,8,0,0,1,8-8.53h39.73a8.17,8.17,0,0,1,8.25,7.47A8,8,0,0,1,208,136Zm0-32H168.27A8.17,8.17,0,0,1,160,96.53,8,8,0,0,1,168,88h39.73A8.17,8.17,0,0,1,216,95.47,8,8,0,0,1,208,104Z"/></svg> }
 function IconSrcUnknown() { return <svg {...srcStroke}><circle cx="12" cy="12" r="8.5"/><path d="M12 16.5v.01"/><path d="M12 13.5v-1a2.5 2.5 0 1 0-2.5-2.5"/></svg> }
 
 // SOURCE_META — slug → {name, Icon}. Slugs mirror the Go side exactly:
@@ -10801,6 +10807,8 @@ export const SOURCE_META = {
   tmdb: { name: "vocab.source.tmdb.label", Icon: IconSrcTMDB },
   tvdb: { name: "vocab.source.tvdb.label", Icon: IconSrcTVDB },
   igdb: { name: "vocab.source.igdb.label", Icon: IconSrcIGDB },
+  // The book's own EPUB, once the reader has attached one (epub_supplier.go).
+  epub: { name: "vocab.source.epub.label", Icon: IconSrcEpub },
 };
 
 if (import.meta.env.DEV) {
@@ -10856,6 +10864,8 @@ const SOURCE_KEYS = {
   manual: "vocab.source.manual.label",
   // Not a supplier: the field came in a file the reader imported.
   import: "vocab.source.import.label",
+  // The book's own EPUB: what the attached file says about the edition the reader holds.
+  epub: "vocab.source.epub.label",
 };
 
 // An unknown slug falls through to itself rather than to a missing key.

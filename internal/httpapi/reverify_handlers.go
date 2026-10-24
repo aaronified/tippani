@@ -517,15 +517,16 @@ func (s *Server) reverifyBook(ctx context.Context, uid, id int64, gkey, cookie, 
 	// had multi-source data available for as long as it has had a lookup, and no
 	// way to see or use it.
 	var alt []metadata.BookCandidate
+	// WHY THE LADDER MAY FAIL WITHOUT ENDING THE CHECK: the book's own file can still
+	// answer (below), so a failure is held here and reported only if nothing does.
+	var failStatus, failMsg string
 	switch {
 	case isbnN != "":
 		cs, lerr := s.searchBooks(ctx, isbnN, "", "", gkey)
 		s.recordBooksLookup(ctx, cs, lerr)
 		if lerr != nil {
-			it.Status, it.Error = "fetch_failed", reverifyLookupError("book isbn", lerr)
-			return it
-		}
-		if len(cs) > 0 {
+			failStatus, failMsg = "fetch_failed", reverifyLookupError("book isbn", lerr)
+		} else if len(cs) > 0 {
 			cand = &cs[0]
 			alt = cs
 		}
@@ -533,34 +534,49 @@ func (s *Server) reverifyBook(ctx context.Context, uid, id int64, gkey, cookie, 
 		a, lerr := metadata.FetchAmazonBook(ctx, asin, cookie, domain)
 		s.recordAsk(ctx, faultAreaBooks, "amazon", one(a != nil), "", lerr)
 		if lerr != nil {
-			it.Status, it.Error = "fetch_failed", reverifyLookupError("book asin", lerr)
-			return it
+			failStatus, failMsg = "fetch_failed", reverifyLookupError("book asin", lerr)
+		} else if a != nil {
+			cand = a
+			alt = []metadata.BookCandidate{*a}
 		}
-		cand = a
-		alt = []metadata.BookCandidate{*a}
 	case googleID != "":
 		g, lerr := s.googleVolume(ctx, googleID, gkey)
 		s.recordAsk(ctx, faultAreaBooks, "google", one(g != nil), "", lerr)
 		if lerr != nil {
-			it.Status, it.Error = "fetch_failed", reverifyLookupError("book google_id", lerr)
-			return it
+			failStatus, failMsg = "fetch_failed", reverifyLookupError("book google_id", lerr)
+		} else if g != nil {
+			cand = g
+			alt = []metadata.BookCandidate{*g}
 		}
-		cand = g
-		alt = []metadata.BookCandidate{*g}
 	case asin != "":
 		// Pinned by ASIN, but the Amazon source needs its cookie — say so
 		// instead of the misleading "no pinned identity".
-		it.Status = "fetch_failed"
-		it.Error = "this book is pinned by ASIN — Amazon lookups need the cookie in Metadata › Sources"
-		return it
+		failStatus = "fetch_failed"
+		failMsg = "this book is pinned by ASIN — Amazon lookups need the cookie in Metadata › Sources"
 	default:
-		it.Status = "unpinned"
-		it.Error = "no re-checkable identity (isbn, asin or google id) — use Look up to re-pin this book first"
-		return it
+		failStatus = "unpinned"
+		failMsg = "no re-checkable identity (isbn, asin or google id) — use Look up to re-pin this book first"
+	}
+	// THE BOOK'S OWN FILE IS A SUPPLIER TOO. An EPUB the reader attached says what its
+	// publisher, year, series and subjects are, from the edition they actually hold. It
+	// answers with no network and no identity, so a book that is not pinned anywhere can
+	// still be filled from it; where an online source did answer, the file fills what
+	// that source left empty and is offered as one more choice, to be picked at any time
+	// like any other (epub_supplier.go).
+	if ep := s.epubCandidate(uid, id); ep != nil {
+		if cand == nil {
+			cand, alt = ep, []metadata.BookCandidate{*ep}
+			failStatus, failMsg = "", ""
+		} else {
+			fillFromEPUB(cand, ep)
+			alt = append(alt, *ep)
+		}
 	}
 	if cand == nil {
-		it.Status = "fetch_failed"
-		it.Error = "the source no longer returns this identity"
+		if failStatus == "" {
+			failStatus, failMsg = "fetch_failed", "the source no longer returns this identity"
+		}
+		it.Status, it.Error = failStatus, failMsg
 		return it
 	}
 	it.Source = cand.Source
@@ -2004,7 +2020,7 @@ func (s *Server) movieFetchPlanFor(tx *sql.Tx, uid, id int64) (source, sourceID 
 // failure is to record nothing rather than to record whatever arrived.
 func knownBookSource(source string) string {
 	switch strings.TrimSpace(source) {
-	case "google", "openlibrary", "amazon", "hardcover", store.SourceManual:
+	case "google", "openlibrary", "amazon", "hardcover", "epub", store.SourceManual:
 		return strings.TrimSpace(source)
 	}
 	return ""
