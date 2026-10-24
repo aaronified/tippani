@@ -5,6 +5,49 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.4.2] - 2026-10-25
+
+### Fixed
+
+- **Pressing Scan could hang for good on a slow disk.** The scan job was queued, then the request
+  never returned, every other write failed with "database is locked", and Tippani could not save
+  anything until it was restarted. The scan and the job queue each held a lock while the job was
+  written, so one stalled write blocked every press, Stop and shutdown. Neither lock is held across
+  the write now, and a press answers within 10 seconds with a "server is busy, try again" message
+  (log code TIP-JOBS-004) instead of hanging. A stalled write itself is a storage problem the app
+  cannot cancel.
+- **A scan that fails or is interrupted now says why**, on Checks > Found files, on the jobs card
+  and in Metadata > Source files. Before, pressing Scan after a failure showed nothing.
+- **A folder that disappears while it is being scanned fails the scan.** It no longer removes that
+  folder's saved findings.
+- **A stuck request is now traceable.** When any request is stuck for over a minute, the server
+  writes all goroutine stacks to its log, at most once every ten minutes.
+
+### Added
+
+- **The source and context screens are complete.** Metadata has a Source files section: each
+  library folder with Scan, live progress and Stop, and every work with its file, how many of its
+  quotes have context, and filters for works with no file, with a file, or with a file found in a
+  folder. Work details shows the attached file (name, kind, size, uploaded or mounted), "context
+  for N of M quotes", Add or Replace, Rescan, Prune and Remove, and a found file to attach, with a
+  link to the Metadata section.
+- **The quote edit forms show the stored context** under the quote (annotation, dialogue line and
+  quote), with Show more and the per-quote size adjustment. "In context" is also on the home
+  favourites, the shuffle card and anthologies. It is not on the quiz card, where it would give
+  the answer away.
+- **The jobs card shows a running scan's progress**, for example "1,240 files scanned · 17 found".
+- **Every source and context request has a timeout.** It shows an error when it fails or does not
+  answer, with a way to try again.
+- **The installed phone app's launcher shortcuts gain Scan and Files.** Scan starts a scan of all
+  folders once. Files opens Source files.
+
+### Changed
+
+- **The launcher shortcut for Daily quiz is removed.** Android shows at most four shortcuts, and
+  its link is the same as opening the app.
+- **The test suites are smaller.** httpapi tests went from 1,702 to 1,226 and frontend tests from
+  570 to 468, with test files merged to 179 and 155. The Go CI shards finish about 30% faster.
+
 ## [3.4.1] - 2026-10-24
 
 ### Changed
