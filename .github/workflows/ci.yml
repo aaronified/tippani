@@ -158,15 +158,19 @@ jobs:
           - ./cmd/tippani
           - ./internal/auth
           - ./internal/changelog
+          - ./internal/ebook
           - ./internal/i18n
           - ./internal/importer
           - ./internal/jobs
           - ./internal/metadata
+          - ./internal/mount
           - ./internal/olog
           - ./internal/outbound
           - ./internal/search
           - ./internal/signature
+          - ./internal/srcmatch
           - ./internal/store
+          - ./internal/subs
           - ./internal/updater
           - ./web
     steps:

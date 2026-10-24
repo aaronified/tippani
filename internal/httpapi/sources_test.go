@@ -228,7 +228,7 @@ func TestAnEssayTakesAnEbookAndASongTakesLyrics(t *testing.T) {
 	}
 	essay, song, speech := mk("essay", "On Liberty"), mk("song", "Jana Gana Mana"), mk("speech", "A Speech")
 
-	if rec := c.putSource(sourceFields("utterance", essay), "e.epub", epubSample()); rec.Code != http.StatusCreated {
+	if rec := c.putSource(sourceFields("utterance", essay), "e.epub", testEPUB(t, "")); rec.Code != http.StatusCreated {
 		t.Fatalf("essay + epub: %d %s", rec.Code, rec.Body)
 	}
 	lrc := "[00:01.00]first line\n[00:05.50]second line\n"
