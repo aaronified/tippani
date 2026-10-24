@@ -282,6 +282,8 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /admin/backup", s.requireAdmin(s.handleBackupStatus))
 	mux.Handle("POST /admin/backup", s.requireAdmin(s.handleBackupCreate))
 	mux.Handle("GET /admin/backup/download", s.requireAdmin(s.handleBackupDownload))
+	mux.Handle("GET /admin/backup/sources", s.requireAdmin(s.handleGetBackupSources))
+	mux.Handle("PUT /admin/backup/sources", s.requireAdmin(s.handlePutBackupSources))
 	mux.Handle("POST /admin/backup/safety", s.requireAdmin(s.handleSafetyBackup))
 	// The copy's one download, admin and owner only; requireAuth rather than
 	// requireAdmin so that a reader is answered 404 as everybody but its owner is

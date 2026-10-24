@@ -742,12 +742,18 @@ func (s *Server) writeBackupArchive(ctx context.Context, dest, snap string, mode
 		if err := addFile(snap, "tippani.db"); err != nil {
 			return fmt.Errorf("snapshot: %w", err)
 		}
+		includeSources := s.backupIncludesSources()
 		tops, err := os.ReadDir(s.DataDir)
 		if err != nil {
 			return err
 		}
 		for _, top := range tops {
 			if s.controlEntry(top.Name()) || s.liveDBEntry(top.Name()) {
+				continue
+			}
+			// Source files are the bulky, recoverable half: the rows ride in the
+			// snapshot regardless, the bytes only when asked (sources_backup.go).
+			if top.Name() == sourcesDirName && !includeSources {
 				continue
 			}
 			base := filepath.Join(s.DataDir, top.Name())
@@ -1209,7 +1215,14 @@ func (s *Server) restoreArchive(w http.ResponseWriter, archive, label, requested
 	olog.Alertf("[backup] RESTORE applied from %s — previous data kept in %s", label, preDir)
 	// The caller's session may not exist in the restored database.
 	http.SetCookie(w, s.sessionCookie("", -1))
-	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "message": "Restore complete — log in again."})
+	resp := map[string]any{"ok": true, "message": "Restore complete — log in again."}
+	// What the archive did not carry, by work, so a dead control is never how the
+	// loss is found. Only when there is something to say.
+	if n, listed := s.missingSources(); n > 0 {
+		resp["sources_missing"] = n
+		resp["sources_missing_list"] = listed
+	}
+	writeJSON(w, http.StatusOK, resp)
 }
 
 // uploadIdle is how long a restore upload may send nothing before it is given
