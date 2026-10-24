@@ -77,6 +77,11 @@ func sourceFilesOnDisk(t *testing.T, srv *Server) []string {
 	}
 	var out []string
 	for _, e := range ents {
+		// LIVE files only: what the bin has parked under Sources/.trash is not live, and is
+		// counted by parkedSourceFiles (sources_bin_test.go).
+		if e.Name() == ".trash" {
+			continue
+		}
 		out = append(out, e.Name())
 	}
 	return out

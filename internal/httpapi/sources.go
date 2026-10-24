@@ -509,13 +509,14 @@ func (s *Server) handleDeleteSource(w http.ResponseWriter, r *http.Request) {
 }
 
 // dropSourcesTx deletes the source rows of the given works inside the caller's
-// transaction and returns the stored names to remove once it commits. THIS IS
+// transaction and returns the stored names of the uploaded files, which the caller PARKS in
+// the bin once it commits (they are restored with the work). THIS IS
 // THE THING COVERS DO NOT DO: a deleted work leaving a 100 KB cover behind is
 // invisible, and one leaving a 1.5 MB ebook behind is the same bug with a
 // hundred times the bill.
 //
-// The bin does not carry a source. A restored work comes back without its file,
-// as it always did without one it never had; the reader adds it again.
+// THE BIN CARRIES A SOURCE (collectWork): the rows travel in the snapshot and the bytes are
+// parked, so Undo returns the work with its file and the context read from it.
 func dropSourcesTx(tx *sql.Tx, uid int64, subject string, ids []int64) ([]string, error) {
 	var names []string
 	for _, id := range ids {

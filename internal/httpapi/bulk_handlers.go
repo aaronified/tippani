@@ -1021,7 +1021,7 @@ func (s *Server) handleBulkDelete(w http.ResponseWriter, r *http.Request, kind s
 		internalError(w, r, "bulk delete: commit", err)
 		return
 	}
-	s.removeSourceFiles(sourceFiles)
+	s.parkSourceFiles(sourceFiles)
 	writeJSON(w, http.StatusOK, map[string]any{"deleted": done, "trash_id": trashID})
 }
 

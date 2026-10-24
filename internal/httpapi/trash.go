@@ -269,6 +269,38 @@ func collectWork(tx *sql.Tx, uid int64, kind string, id int64) (*collected, erro
 		}
 	}
 
+	// THE FILE THE WORK'S QUOTES CAME FROM, and what was read from it. A delete the bin can take
+	// back must take back EVERYTHING: Undo returning the work and its quotes but not the file
+	// (and so not the context cut from it) would be a restore that quietly lost something. The
+	// rows travel in the snapshot; an uploaded file's bytes are parked beside them (the tag in
+	// Files is how every park, restore, purge and sweep finds them); a mounted source has no
+	// bytes of ours and travels as its row alone.
+	srcSubject := "book"
+	if kind == "movie" {
+		srcSubject = "screen"
+	}
+	srcs, err := queryMaps(tx, `SELECT * FROM work_sources WHERE user_id = ? AND subject = ? AND subject_id = ?`, uid, srcSubject, id)
+	if err != nil {
+		return nil, err
+	}
+	if len(srcs) > 0 {
+		out.Payload["work_sources"] = srcs
+		for _, r := range srcs {
+			if stringOf(r["origin"]) == "upload" && stringOf(r["path"]) != "" {
+				out.Files = append(out.Files, sourceFilePrefix+stringOf(r["path"]))
+			}
+		}
+		if ph, args, ok := inList(ids(srcs, "id")); ok {
+			ctxRows, err := queryMaps(tx, `SELECT * FROM source_context WHERE source_id IN (`+ph+`)`, args...)
+			if err != nil {
+				return nil, err
+			}
+			if len(ctxRows) > 0 {
+				out.Payload["source_context"] = ctxRows
+			}
+		}
+	}
+
 	// The read log, which has no foreign key and is cleared by a trigger (0024).
 	reads, err := queryMaps(tx,
 		`SELECT * FROM work_reads WHERE user_id = ? AND kind = ? AND work_id = ?`, uid, kind, id)
@@ -581,6 +613,7 @@ func (s *Server) parkFiles(names []string) {
 // and for the same reason: a file that will not come back is a missing cover on a
 // restored row, not a missing row.
 func (s *Server) unparkFiles(names []string) {
+	s.unparkSourceFiles(names)
 	for _, n := range names {
 		if !coverFile.MatchString(n) {
 			continue
@@ -596,6 +629,7 @@ func (s *Server) unparkFiles(names []string) {
 // removeParked deletes parked images for good — called by the purge, never by a
 // delete.
 func (s *Server) removeParked(names []string) {
+	s.removeParkedSources(names)
 	for _, n := range names {
 		if coverFile.MatchString(n) {
 			_ = os.Remove(filepath.Join(s.trashDir(), n))
@@ -678,7 +712,8 @@ func (s *Server) binDelete(w http.ResponseWriter, r *http.Request, kind, notFoun
 		internalError(w, r, "delete "+kind+": commit", err)
 		return
 	}
-	s.removeSourceFiles(sourceFiles)
+	// Parked, not removed: the bin takes it all back on Undo (parkSourceFiles).
+	s.parkSourceFiles(sourceFiles)
 	s.parkFiles(got.Files)
 	if after != nil {
 		after()
@@ -850,6 +885,8 @@ func (s *Server) sweepOrphanParked() {
 		}
 		_ = os.Remove(filepath.Join(s.trashDir(), e.Name()))
 	}
+	// And the parked source files, on the same rule: kept while some entry names them.
+	s.sweepOrphanParkedSources(referenced)
 }
 
 // purgeIfNewDay runs the sweep at most once a calendar day, from whichever request
@@ -943,6 +980,11 @@ var accountTables = []string{
 	// exists nowhere else in the library: a quote can be re-highlighted, and a
 	// sentence somebody wrote about why it sits third cannot.
 	"anthologies", "anthology_entries",
+	// The file a work's quotes came from, and what was read from it (0083, 0084). After the
+	// works and the three quote tables, before nothing that references them by key: the rows
+	// point at a work by a polymorphic pair, and source_context points at its source by a
+	// real foreign key, so the source goes first. The bytes are parked with the entry.
+	"work_sources", "source_context",
 	"book_genres", "movie_genres",
 	"annotation_tags", "dialogue_tags", "utterance_tags",
 	// work_reads hangs off a work by a polymorphic (kind, work_id) pair with no
@@ -1012,17 +1054,10 @@ var accountTables = []string{
 //	               put back rows that are still there, colliding on their own
 //	               ids. (Only `jobs` has a user_id; the other two are listed so
 //	               the reason sits with it.)
-//
-//	work_sources   the file a work's quotes came from. The bytes are removed when
-//	               the account is (sources.go) and the bin does not carry them,
-//	               so a restored row would name a file that is gone.
-//	source_context what a work's file says around each quote: derived from the file,
-//	               and the quote's own delete clears it, so a restored quote
-//	               gets it back from a rescan and not from the bin.
 var accountSkipTables = map[string]bool{
 	"sessions": true, "device_tokens": true, "quiz_sessions": true,
 	"widget_keys": true, "notify_settings": true,
-	"jobs": true, "job_logs": true, "system_logs": true, "work_sources": true, "source_context": true,
+	"jobs": true, "job_logs": true, "system_logs": true,
 }
 
 // binAccount snapshots an entire account and its library into ONE bin entry,
