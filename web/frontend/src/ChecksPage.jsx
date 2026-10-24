@@ -25,6 +25,7 @@ import { PageHeader } from './ui.jsx'
 
 const StagingPage = lazy(() => import('./StagingPage.jsx'))
 const CleanupPage = lazy(() => import('./CleanupPage.jsx'))
+const LocatorsPage = lazy(() => import('./LocatorsPage.jsx'))
 
 export default function ChecksPage({ onPending, onOpenBook, onOpenMovie, onApproved, onOpenQuotes }) {
   return (
@@ -56,6 +57,11 @@ export default function ChecksPage({ onPending, onOpenBook, onOpenMovie, onAppro
           onOpenMovie={onOpenMovie}
           onOpenQuotes={onOpenQuotes}
         />
+      </Suspense>
+      {/* Times a work's subtitle proposes for its lines. Draws nothing, rule included,
+          when there is nothing to propose. */}
+      <Suspense fallback={null}>
+        <LocatorsPage embedded onOpenMovie={onOpenMovie} />
       </Suspense>
     </section>
   )
