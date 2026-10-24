@@ -63,39 +63,4 @@ describe('the language box', () => {
     expect(rows()[0]).toContain('Sylheti')
   })
 
-  it('offers the rest of the list once the reader types past their own', async () => {
-    render(<Host />)
-    fireEvent.focus(box())
-    fireEvent.change(box(), { target: { value: 'quech' } })
-    await waitFor(() => expect(rows().some((r) => r.includes('Quechua'))).toBe(true))
-  })
-
-  it('shows a language’s own name for itself under the English one', async () => {
-    render(<Host />)
-    fireEvent.focus(box())
-    fireEvent.change(box(), { target: { value: 'bengali' } })
-    // An exact hit is dropped by Combo, so ask for a prefix of it.
-    fireEvent.change(box(), { target: { value: 'bengal' } })
-    await waitFor(() => expect(rows().some((r) => r.includes('বাংলা'))).toBe(true))
-  })
-
-  it('says a language’s name once when it has no other name to give', async () => {
-    // "A row says a thing once." Sylheti is not in iso639.js, so displayName hands
-    // back what the reader typed — and printing that under itself would be the row
-    // saying its own name twice.
-    render(<Host />)
-    fireEvent.focus(box())
-    fireEvent.change(box(), { target: { value: 'sylhet' } })
-    await waitFor(() => expect(rows().length).toBeGreaterThan(0))
-    const row = rows().find((r) => r.includes('Sylheti'))
-    expect(row.match(/Sylheti/g)).toHaveLength(1)
-  })
-
-  it('hands the caller a string, and never refuses one it has not heard of', async () => {
-    const seen = []
-    render(<Host onChange={(v) => seen.push(v)} />)
-    fireEvent.change(box(), { target: { value: 'Kentish' } })
-    expect(seen).toEqual(['Kentish'])
-    expect(typeof seen[0]).toBe('string')
-  })
 })

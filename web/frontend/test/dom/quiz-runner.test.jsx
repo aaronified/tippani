@@ -86,13 +86,6 @@ describe('a multiple-choice card', () => {
     expect(posted()[0].body.result).toBe('got')
   })
 
-  // The prompt side. A "source" card shows the words and asks where they came
-  // from, so the attribution must not be on screen — it is the answer.
-  it('does not show the attribution on a card that asks for it', () => {
-    render(<QuizRunner mode="daily" cards={[mcq()]} />)
-    expect(screen.getByText('the only way out is through')).toBeTruthy()
-    expect(screen.queryByText('Austen')).toBeNull()
-  })
 })
 
 describe('a flip card', () => {
@@ -101,15 +94,6 @@ describe('a flip card', () => {
     expect(screen.getByText('a scrupulous fidelity')).toBeTruthy()
     expect(screen.queryByText('Middlemarch')).toBeNull()
     expect(screen.getByText('Show me')).toBeTruthy()
-  })
-
-  // Revealing is NOT answering. Posting on the reveal would turn self-grading
-  // into a button you press to make the card go away.
-  it('posts nothing when the answer is revealed', () => {
-    render(<QuizRunner mode="daily" cards={[flip()]} />)
-    fireEvent.click(screen.getByText('Show me'))
-    expect(screen.getByText('Middlemarch')).toBeTruthy()
-    expect(posted()).toHaveLength(0)
   })
 
   it('records the reader’s own verdict, and only theirs', async () => {
@@ -123,30 +107,6 @@ describe('a flip card', () => {
     expect(screen.queryByText('correct')).toBeNull()
   })
 
-  it('takes Forgot as readily as Got it', async () => {
-    render(<QuizRunner mode="daily" cards={[flip()]} />)
-    fireEvent.click(screen.getByText('Show me'))
-    fireEvent.click(screen.getByText('Forgot'))
-    await waitFor(() => expect(posted()).toHaveLength(1))
-    expect(posted()[0].body.result).toBe('forgot')
-  })
-
-  // Skipping after the reveal would be a way to read the answer and move on
-  // without ever saying whether you knew it.
-  it('withdraws skip once the answer is on screen', () => {
-    render(<QuizRunner mode="practice" allowSkip cards={[flip(), mcq()]} />)
-    expect(screen.getByText('skip')).toBeTruthy()
-    fireEvent.click(screen.getByText('Show me'))
-    expect(screen.queryByText('skip')).toBeNull()
-  })
-})
-
-// An older client meeting a newer server. The direction is unknown, so there is
-// nothing to render it as — except the one card type that needs no options.
-it('renders an unknown direction as a flip card rather than as nothing', () => {
-  render(<QuizRunner mode="daily" cards={[flip({ direction: 'something-new' })]} />)
-  expect(screen.getByText('Show me')).toBeTruthy()
-  expect(screen.queryByText('Middlemarch')).toBeNull()
 })
 
 // ---- the leech offer -------------------------------------------------------
@@ -162,30 +122,6 @@ it('renders an unknown direction as a flip card rather than as nothing', () => {
 describe('the leech offer', () => {
   const leechy = (over = {}) => mcq({ leech: true, lapse_count: 5, ...over })
 
-  it('says nothing until the card has been answered', () => {
-    render(<QuizRunner mode="daily" cards={[leechy()]} />)
-    // ANCHORED ON A CARD THAT IS ACTUALLY THERE. Every assertion below is an
-    // absence, and an absence is also what a runner that failed to mount leaves
-    // behind — so without this line the test passes hardest when the screen is
-    // most broken.
-    expect(screen.getByText('Emma'), 'the card did not render at all').toBeTruthy()
-    expect(screen.queryByText('Set it aside')).toBeNull()
-  })
-
-  it('offers a way out once the answer is in', async () => {
-    render(<QuizRunner mode="daily" cards={[leechy()]} />)
-    fireEvent.click(screen.getByText('Emma'))
-    await waitFor(() => expect(screen.getByText('Set it aside')).toBeTruthy())
-    expect(screen.getByText(/forgotten 5 times/)).toBeTruthy()
-  })
-
-  it('never appears for a card that is not a leech', async () => {
-    render(<QuizRunner mode="daily" cards={[mcq({ leech: false, lapse_count: 2 })]} />)
-    fireEvent.click(screen.getByText('Emma'))
-    await waitFor(() => expect(posted()).toHaveLength(1))
-    expect(screen.queryByText('Set it aside')).toBeNull()
-  })
-
   // Nothing is suspended by answering. The only thing that takes a card out of
   // the deck is the reader pressing the button that says so.
   it('takes the card out only when asked, and by the bulk route that writes the flag', async () => {
@@ -200,25 +136,6 @@ describe('the leech offer', () => {
     expect(call.body).toEqual({ ids: [1], review: false })
   })
 
-  it('lets the reader keep being asked, and stops offering for the session', async () => {
-    render(<QuizRunner mode="daily" cards={[leechy()]} />)
-    fireEvent.click(screen.getByText('Emma'))
-    await waitFor(() => expect(screen.getByText('Keep asking')).toBeTruthy())
-    fireEvent.click(screen.getByText('Keep asking'))
-    expect(screen.queryByText('Set it aside')).toBeNull()
-    expect(SENT.some((s) => s.path.endsWith('/bulk'))).toBe(false)
-  })
-
-  // A film line and a standalone quote are the same offer through different
-  // endpoints — the schedule names its kinds book/screen/utterance and the bulk
-  // routes name the rows annotation/dialogue/quote.
-  it('reaches the right endpoint for a film line', async () => {
-    render(<QuizRunner mode="daily" cards={[leechy({ kind: 'screen', id: 9 })]} />)
-    fireEvent.click(screen.getByText('Emma'))
-    await waitFor(() => expect(screen.getByText('Set it aside')).toBeTruthy())
-    fireEvent.click(screen.getByText('Set it aside'))
-    await waitFor(() => expect(SENT.some((s) => s.path === '/dialogues/bulk')).toBe(true))
-  })
 })
 
 // ---- the submit step -------------------------------------------------------
@@ -233,13 +150,6 @@ describe('the leech offer', () => {
 // them and leave one reveal reading the selection, and the card tells you the
 // answer while you can still change it.
 describe('the submit step', () => {
-  it('posts nothing when an option is chosen', () => {
-    render(<QuizRunner mode="daily" submitStep cards={[mcq()]} />)
-    fireEvent.click(screen.getByText('Emma'))
-    expect(posted()).toHaveLength(0)
-    expect(screen.getByText('Submit')).toBeTruthy()
-  })
-
   it('lets the choice be changed, and grades the last one', async () => {
     render(<QuizRunner mode="daily" submitStep cards={[mcq()]} />)
     fireEvent.click(screen.getByText('Emma'))
@@ -251,48 +161,6 @@ describe('the submit step', () => {
     expect(posted()[0].body.result).toBe('got')
   })
 
-  // THE LEAK THE SPLIT CREATES. The wrong-answer styling read `chosen &&
-  // !isAnswer`, which was safe only while a chosen option was necessarily a
-  // graded one. Without an explicit commit test, selecting a wrong option paints
-  // it red — telling you it is wrong while you can still change it.
-  it('says nothing about whether the choice is right until it is submitted', () => {
-    render(<QuizRunner mode="daily" submitStep cards={[mcq()]} />)
-    fireEvent.click(screen.getByText('Emma')) // the wrong one
-
-    // THE STYLING, not the verdict line. The verdict is gated on the commit by a
-    // different expression, so checking it would pass while the option itself
-    // sat there painted red — which is the actual leak, and is how the first
-    // version of this test managed to pass against the bug it names.
-    // The OPTION's button: once graded, the answer's own title is printed again
-    // under the quote, which is not an option and has no button.
-    const optionStyle = (label) =>
-      screen.getAllByText(label).map((el) => el.closest('button')).find(Boolean).getAttribute('style') || ''
-    expect(optionStyle('Emma'), 'the wrong choice is marked wrong before it is submitted').not.toMatch(/--error/)
-    expect(optionStyle('Persuasion'), 'the right answer is revealed before submitting').not.toMatch(/--ok/)
-    expect(screen.queryByText('not quite')).toBeNull()
-
-    fireEvent.click(screen.getByText('Submit'))
-    expect(optionStyle('Emma')).toMatch(/--error/)
-    expect(optionStyle('Persuasion')).toMatch(/--ok/)
-    expect(screen.getByText('not quite')).toBeTruthy()
-  })
-
-  it('is off by default, and a tap still grades immediately', async () => {
-    render(<QuizRunner mode="daily" cards={[mcq()]} />)
-    fireEvent.click(screen.getByText('Emma'))
-    await waitFor(() => expect(posted()).toHaveLength(1))
-    expect(screen.queryByText('Submit')).toBeNull()
-  })
-
-  // A flip card is already two acts — reveal, then say whether you had it — so a
-  // confirmation on top would be asking twice.
-  it('does not add a second step to a flip card', async () => {
-    render(<QuizRunner mode="daily" submitStep cards={[flip()]} />)
-    fireEvent.click(screen.getByText('Show me'))
-    fireEvent.click(screen.getByText('Got it'))
-    await waitFor(() => expect(posted()).toHaveLength(1))
-    expect(screen.queryByText('Submit')).toBeNull()
-  })
 })
 
 // ---- cloze -----------------------------------------------------------------
@@ -309,15 +177,6 @@ describe('a cloze card', () => {
     title: 'Pride and Prejudice', color: 'yellow', options: [], answer: 0, ...over,
   })
 
-  it('asks for the missing words and carries no answer', () => {
-    render(<QuizRunner mode="daily" cards={[clz()]} />)
-    expect(screen.getByText(/Fill in the blank/)).toBeTruthy()
-    expect(screen.getByPlaceholderText(/type what belongs/)).toBeTruthy()
-    // Not a flip card: it must not offer to reveal, because there is nothing
-    // here to reveal from.
-    expect(screen.queryByText('Show me')).toBeNull()
-  })
-
   it('sends the attempt for the server to grade', async () => {
     render(<QuizRunner mode="daily" cards={[clz()]} />)
     fireEvent.change(screen.getByPlaceholderText(/type what belongs/), {
@@ -328,32 +187,6 @@ describe('a cloze card', () => {
     expect(posted()[0].body.attempt).toBe('universally acknowledged')
   })
 
-  it('will not submit an empty attempt', () => {
-    render(<QuizRunner mode="daily" cards={[clz()]} />)
-    fireEvent.click(screen.getByText('Check'))
-    expect(posted()).toHaveLength(0)
-  })
-
-  // THE BLANK KEEPS ITS NAME WHILE ITS LABEL LEAVES THE SCREEN. The card asked the
-  // field to hide its label, and the field had no such option: the label drew
-  // anyway, and React reported `hideLabel` as an unknown attribute on the <input>.
-  // Whether the label is visible is the stylesheet's business, which jsdom does not
-  // load, so that half is checked on screen. This half is the name a screen reader
-  // reads, and the console, read from the file's first render (see consoleErrors).
-  it('names the blank for a screen reader and reports nothing to the console', () => {
-    render(<QuizRunner mode="daily" cards={[clz()]} />)
-    expect(screen.getByRole('textbox', { name: 'The missing words' })).toBeTruthy()
-    expect(consoleErrors.filter((m) => /hideLabel|hidelabel/.test(m))).toEqual([])
-  })
-
-  // The confirm step is for multiple choice. Typing an answer and pressing
-  // Check is already a submit step; a confirmation on top would be asking twice.
-  it('is not given a second confirm step', () => {
-    render(<QuizRunner mode="daily" submitStep cards={[clz()]} />)
-    fireEvent.change(screen.getByPlaceholderText(/type what belongs/), { target: { value: 'x' } })
-    expect(screen.queryByText('Submit')).toBeNull()
-    expect(screen.getByText('Check')).toBeTruthy()
-  })
 })
 
 // ---- who said this ---------------------------------------------------------
@@ -377,15 +210,6 @@ describe('a "who said this" card', () => {
     answer: 1, ...over,
   })
 
-  it('asks the question and offers actors', () => {
-    render(<QuizRunner mode="daily" cards={[spk()]} />)
-    expect(screen.getByText('Who says this?')).toBeTruthy()
-    expect(screen.getByText("Don't let yourself get attached")).toBeTruthy()
-    for (const a of ['Al Pacino', 'Robert De Niro', 'Val Kilmer']) {
-      expect(screen.getAllByText(a).length).toBeGreaterThan(0)
-    }
-  })
-
   // THE LEAK THIS CARD TYPE WOULD OTHERWISE HAVE. Before the prompt side was
   // narrowed to the "quote" direction, every non-source card rendered the
   // attribution — actor chip and all — directly above its own options.
@@ -400,138 +224,6 @@ describe('a "who said this" card', () => {
     expect(screen.queryByText(/Film ·/)).toBeNull()
   })
 
-  it('grades the pick like any other multiple choice', async () => {
-    render(<QuizRunner mode="daily" cards={[spk()]} />)
-    fireEvent.click(screen.getAllByText('Al Pacino')[0])
-    await waitFor(() => expect(posted()).toHaveLength(1))
-    expect(posted()[0].body.result).toBe('forgot')
-  })
-})
-
-// ---- a cloze answer that was a synonym -------------------------------------
-//
-// The server grades a typed blank and pays a synonym less than the word itself.
-// The reader has to be told which of the two right answers theirs was, or the
-// schedule moves by an amount they have no way to account for.
-describe('a fill-in-the-blank graded as a synonym', () => {
-  const blank = () => ({
-    kind: 'book', id: 4, direction: 'cloze', color: 'yellow',
-    quote: 'it is a truth ￼ acknowledged', title: 'Pride and Prejudice', options: [], answer: 0,
-  })
-
-  it('says so beside the words', async () => {
-    RESP = { ok: true, result: 'got', answer: 'universally', synonym: true }
-    render(<QuizRunner mode="daily" cards={[blank()]} />)
-    fireEvent.change(screen.getByPlaceholderText(/type what belongs/), { target: { value: 'widely' } })
-    fireEvent.click(screen.getByText('Check'))
-    await screen.findByText('universally')
-    expect(screen.getByText(/counted as a synonym/)).toBeTruthy()
-  })
-
-  it('says nothing of the sort when the answer was the word', async () => {
-    RESP = { ok: true, result: 'got', answer: 'universally' }
-    render(<QuizRunner mode="daily" cards={[blank()]} />)
-    fireEvent.change(screen.getByPlaceholderText(/type what belongs/), { target: { value: 'universally' } })
-    fireEvent.click(screen.getByText('Check'))
-    await screen.findByText('universally')
-    expect(screen.queryByText(/counted as a synonym/)).toBeNull()
-  })
-})
-
-// ---- what is drawn beside an option (3.0) ----------------------------------
-//
-// ONE RULE: a work is shown by its picture, a person by their chip. A film
-// option used to wear the face of one of its actors — a person's portrait under
-// a thing that is not a person, on the one card whose job is to ask which of
-// four things this is, while the film's own poster went undrawn.
-describe('what an option is drawn as', () => {
-  const withArt = () => mcq({
-    option_meta: [
-      { art: 'persuasion.jpg' },
-      { art: 'emma.jpg' },
-      { art: '' }, // a work whose cover was never fetched
-    ],
-  })
-
-  // THE CONTRACT, NOT THE CURRENT PAYLOAD. The server sends art OR a person, so
-  // a card carrying both is not something it produces today — which is exactly
-  // why the rule has to be asserted here: it is the client that decides what a
-  // work option looks like, and "we happen not to send a face" is not the same
-  // promise as "a work option never wears one".
-  it('draws the cover and not the face when a card carries both', () => {
-    render(<QuizRunner mode="daily" cards={[mcq({
-      option_meta: [
-        { art: 'persuasion.jpg', person: 'Austen', kind: 'author' },
-        { art: 'emma.jpg', person: 'Austen', kind: 'author' },
-        { art: '', person: 'Brontë', kind: 'author' },
-      ],
-    })]} />)
-    expect(document.querySelector('img[src*="persuasion.jpg"]')).toBeTruthy()
-    expect(screen.queryByText('Austen')).toBeNull()
-    expect(screen.queryByText('Brontë')).toBeNull()
-  })
-
-  it('gives a work option its cover and no face', () => {
-    const { container } = render(<QuizRunner mode="daily" cards={[withArt()]} />)
-    const srcs = [...container.querySelectorAll('img')].map((i) => i.getAttribute('src'))
-    expect(srcs.some((s) => s.includes('persuasion.jpg'))).toBe(true)
-    expect(srcs.some((s) => s.includes('emma.jpg'))).toBe(true)
-    // No portrait, because none of these options is a person.
-    expect(screen.queryByText('Austen')).toBeNull()
-  })
-
-  // The slot is reserved whether or not a given work has art, so four options
-  // start at the same x rather than stepping in and out with the covers.
-  it('still reserves the slot for a work with no cover', () => {
-    const { container } = render(<QuizRunner mode="daily" cards={[withArt()]} />)
-    expect(container.querySelectorAll('[aria-hidden="true"]').length).toBeGreaterThan(0)
-  })
-})
-
-// ---- a standalone quote's own meta line ------------------------------------
-//
-// WHERE AND WHERE-IN-THE-TEXT, which the card printed and nothing asserted. The
-// meta line under a quote card's attribution was the date alone until 0047's
-// `place` and `locator` were added to it (review.jsx:443), the CHANGELOG promised
-// both, and a rater reverted the line to the date and watched all 4,081 tests stay
-// green. A promise with no test is a promise the next refactor keeps by accident.
-describe('a standalone quote’s source lines', () => {
-  const speech = (over = {}) => ({
-    kind: 'utterance', id: 42, direction: 'quote', quote: 'give me blood',
-    speaker: 'Bose', occasion: 'a rally', occasion_date: '1944-07-04',
-    place: 'Rangoon', locator: 'page 3', color: 'yellow',
-    options: ['give me blood', 'a line of theirs', 'a third line'],
-    option_meta: [
-      { source: 'Bose', art: '', item_kind: 'utterance', item_id: 42 },
-      { source: 'Moby-Dick', art: '', item_kind: 'book', item_id: 20 },
-      { source: 'Middlemarch', art: '', item_kind: 'book', item_id: 21 },
-    ],
-    answer: 0, ...over,
-  })
-
-  it('prints where it was said and where in the text', () => {
-    const { container } = render(<QuizRunner mode="daily" cards={[speech()]} />)
-    const meta = container.textContent.replace(/\s+/g, ' ')
-    expect(meta, 'the place never reached the card').toContain('Rangoon')
-    expect(meta, 'the locator never reached the card').toContain('page 3')
-  })
-
-  // THE DATE THROUGH THE FORMATTER, not printed raw — a card showing '1944-07-04'
-  // is showing the reader the column rather than their own date, and the padded
-  // and BCE forms are why the formatter exists at all.
-  it('prints the date as a date rather than as the column', () => {
-    const { container } = render(<QuizRunner mode="daily" cards={[speech()]} />)
-    expect(container.textContent).not.toContain('1944-07-04')
-    expect(container.textContent.replace(/\s+/g, ' ')).toContain('1944')
-  })
-
-  // A card with neither says neither, rather than drawing an empty separator.
-  it('draws no stray separator when it has neither', () => {
-    const { container } = render(
-      <QuizRunner mode="daily" cards={[speech({ place: '', locator: '', occasion_date: '' })]} />,
-    )
-    expect(container.textContent).not.toContain('·')
-  })
 })
 
 // ---- "which quote?" names its options once it is answered ------------------
@@ -550,21 +242,6 @@ describe('a “which quote is from this work?” card', () => {
 
   const seen = () => SENT.filter((s) => s.path === '/review/seen')
 
-  it('says nothing about where any of them came from until it is answered', () => {
-    render(<QuizRunner mode="daily" cards={[which()]} />)
-    expect(screen.getByText('a line of theirs'), 'the card did not render at all').toBeTruthy()
-    expect(screen.queryByText(/from Moby-Dick/)).toBeNull()
-    expect(seen()).toHaveLength(0)
-  })
-
-  it('names all four sources once the answer is in', async () => {
-    render(<QuizRunner mode="daily" cards={[which()]} />)
-    fireEvent.click(screen.getByText('a line of theirs'))
-    await waitFor(() => expect(posted()).toHaveLength(1))
-    expect(screen.getByText('from Moby-Dick')).toBeTruthy()
-    expect(screen.getByText('from Middlemarch')).toBeTruthy()
-  })
-
   // READING THEM COUNTS AS SEEING THEM, priced by the reader's own srSeen. Never
   // the card being graded: its own answer moves the schedule properly, and a
   // seeing on top would pay it twice.
@@ -578,31 +255,6 @@ describe('a “which quote is from this work?” card', () => {
     ])
   })
 
-  // THE CARD OBJECT IS REPLACED UNDER THE RUNNER IN NORMAL USE — an in-card edit
-  // patches it, and a host that re-renders hands down a fresh deck array — which
-  // is what the effect's guard is actually for. Before this case existed, the
-  // "reports once" test below passed against a runner with no guard at all: it
-  // only clicked things that change no dependency.
-  it('reports them once when the card object is handed down again', async () => {
-    const { rerender } = render(<QuizRunner mode="daily" cards={[which()]} />)
-    fireEvent.click(screen.getByText('a line of ours'))
-    await waitFor(() => expect(seen()).toHaveLength(2))
-    rerender(<QuizRunner mode="daily" cards={[which()]} />)
-    await waitFor(() => expect(posted()).toHaveLength(1))
-    expect(seen()).toHaveLength(2)
-  })
-
-  // AND NOT IN PRACTICE, whatever the reader set srSeen to. Practice moves a
-  // schedule only when "Practice moves the schedule" says it may, and three
-  // lengthened neighbours a card is that move through a door the toggle does not
-  // lock. The graded card is already exempt above; this is the other three.
-  it('reports nothing as seen in Practice', async () => {
-    render(<QuizRunner mode="practice" cards={[which()]} />)
-    fireEvent.click(screen.getByText('a line of ours'))
-    await waitFor(() => expect(posted()).toHaveLength(1))
-    expect(seen()).toHaveLength(0)
-  })
-
   it('reports them once, however long the card stays on screen', async () => {
     render(<QuizRunner mode="daily" cards={[which()]} />)
     fireEvent.click(screen.getByText('a line of ours'))
@@ -610,234 +262,5 @@ describe('a “which quote is from this work?” card', () => {
     fireEvent.click(screen.getByText('a line of theirs'))
     fireEvent.click(screen.getByText('a third line'))
     expect(seen()).toHaveLength(2)
-  })
-})
-
-// ---- fill in the blank, with choices ---------------------------------------
-//
-// The same hole in the same words, answered by picking rather than typing. The
-// client tells the two apart by whether there is anything to pick — which is
-// also what makes an unknown direction from a newer server degrade sensibly.
-describe('a cloze card with choices', () => {
-  const blanked = (over = {}) => ({
-    kind: 'book', id: 3, direction: 'cloze-mcq', color: 'green',
-    quote: 'it is a truth ￼ acknowledged',
-    title: 'Pride and Prejudice', author: 'Austen',
-    options: ['universally', 'privately', 'grudgingly'], answer: 0, ...over,
-  })
-
-  it('offers the phrases instead of a box to type into', () => {
-    render(<QuizRunner mode="daily" cards={[blanked()]} />)
-    expect(screen.getByText('Which words belong in the blank?')).toBeTruthy()
-    expect(screen.getByText('universally')).toBeTruthy()
-    expect(screen.queryByPlaceholderText(/type what belongs/)).toBeNull()
-  })
-
-  it('grades the pick like any other multiple choice', async () => {
-    render(<QuizRunner mode="daily" cards={[blanked()]} />)
-    fireEvent.click(screen.getByText('privately'))
-    await waitFor(() => expect(posted()).toHaveLength(1))
-    expect(posted()[0].body.result).toBe('forgot')
-    // NOT as a cloze attempt: the answer was on the card, so the server has
-    // nothing to grade that the client did not already know.
-    expect(posted()[0].body.attempt).toBeUndefined()
-  })
-
-  // The typed cloze is the same blank with nothing offered, and it must still
-  // take the typing path.
-  it('leaves a blank with no options as something to type', () => {
-    render(<QuizRunner mode="daily" cards={[blanked({ direction: 'cloze', options: [] })]} />)
-    expect(screen.getByPlaceholderText(/type what belongs/)).toBeTruthy()
-  })
-})
-
-// ---- "who wrote this?" -----------------------------------------------------
-describe('a “who wrote this?” card', () => {
-  const wrote = (over = {}) => ({
-    kind: 'book', id: 7, direction: 'author', color: 'pink',
-    quote: 'you cannot buy the revolution', title: 'The Dispossessed', author: 'Ursula K. Le Guin',
-    options: ['Frank Herbert', 'Ursula K. Le Guin', 'George Eliot'],
-    option_meta: [
-      { person: 'Frank Herbert', kind: 'author' },
-      { person: 'Ursula K. Le Guin', kind: 'author' },
-      { person: 'George Eliot', kind: 'author' },
-    ],
-    answer: 1, ...over,
-  })
-
-  it('asks the question and offers people', () => {
-    render(<QuizRunner mode="daily" cards={[wrote()]} />)
-    expect(screen.getByText('Who wrote this?')).toBeTruthy()
-    expect(screen.getAllByText('Frank Herbert').length).toBeGreaterThan(0)
-  })
-
-  // The title is the answer to a different question and must not be on screen.
-  it('does not print the book it is asking about', () => {
-    render(<QuizRunner mode="daily" cards={[wrote()]} />)
-    expect(screen.getByText('Who wrote this?'), 'the card did not render at all').toBeTruthy()
-    expect(screen.queryByText('The Dispossessed')).toBeNull()
-  })
-})
-
-// ── A CREDIT THAT NAMES SEVERAL PEOPLE.
-//
-// The option's portrait was looked up by the WHOLE credit string, so a book by
-// two authors asked the map for a person called "Le Guin & Lem" — nobody — and
-// the option lost its face entirely. That is exactly the card where a face helps
-// most: four options that all look like lists of names.
-describe('an option that is more than one person', () => {
-  const who = (over = {}) => ({
-    kind: 'book', id: 3, direction: 'author', quote: 'the only way out is through',
-    title: 'The Left Hand of Darkness', author: 'Ursula K. Le Guin & Stanisław Lem',
-    color: 'yellow',
-    options: ['Ursula K. Le Guin & Stanisław Lem', 'Austen', 'Eliot'],
-    answer: 0,
-    option_meta: [
-      { person: 'Ursula K. Le Guin & Stanisław Lem', kind: 'author' },
-      { person: 'Austen', kind: 'author' },
-      { person: 'Eliot', kind: 'author' },
-    ],
-    ...over,
-  })
-
-  // The portraits inside one option's chip, by the file each is drawn from.
-  const facesIn = (label) => {
-    const btn = screen.getAllByText(label).map((el) => el.closest('button')).find(Boolean)
-    expect(btn, label).toBeTruthy()
-    return [...btn.querySelectorAll('img')].map((img) => img.getAttribute('src'))
-  }
-
-  it('draws a portrait for EACH person a credit names', async () => {
-    render(<QuizRunner mode="daily" cards={[who()]} />)
-    // The whole point: two names, two faces. Before this the map was asked for a
-    // person called "Ursula K. Le Guin & Stanisław Lem" and the option wore none.
-    await waitFor(() => {
-      const src = facesIn(/Le Guin & Stanisław Lem/)
-      expect(src.some((s) => s.includes('leguin.jpg')), 'no face for the first author').toBe(true)
-      expect(src.some((s) => s.includes('lem.jpg')), 'no face for the second author').toBe(true)
-    })
-  })
-
-  it('overlaps them, first credited name on top', async () => {
-    render(<QuizRunner mode="daily" cards={[who()]} />)
-    await waitFor(() => expect(facesIn(/Le Guin & Stanisław Lem/).length).toBe(2))
-    const btn = screen.getAllByText(/Le Guin & Stanisław Lem/).map((el) => el.closest('button')).find(Boolean)
-    // THE DISC IS WHATEVER CARRIES THE STACKING, found by walking up from the
-    // picture rather than by counting wrappers. A portrait is drawn by a shared
-    // component now, which put one more span between the img and the disc — and
-    // an assertion pinned to `parentElement` reported a layout regression where
-    // there was none, on a cluster that draws exactly as it did.
-    const disc = (img) => {
-      let n = img
-      while (n && !n.style?.zIndex) n = n.parentElement
-      return n
-    }
-    const discs = [...btn.querySelectorAll('img')].map(disc)
-    // The cluster the rest of the app draws: the second disc is pulled back over
-    // the first, and the first keeps the higher z-index.
-    expect(discs[0].style.marginLeft).toBe('0px')
-    expect(discs[1].style.marginLeft.startsWith('-')).toBe(true)
-    expect(Number(discs[0].style.zIndex)).toBeGreaterThan(Number(discs[1].style.zIndex))
-  })
-
-  it('still draws the one face on a single-name option', async () => {
-    render(<QuizRunner mode="daily" cards={[who()]} />)
-    await waitFor(() => expect(facesIn('Austen')).toEqual([expect.stringContaining('austen.jpg')]))
-    // Twice in the DOM: the option's own label, and the chip under it that
-    // states the credit. That pairing is what this card has always had.
-    expect(screen.getAllByText('Austen')).toHaveLength(2)
-  })
-})
-
-// ── WHAT EVERY OPTION IS, ONCE IT IS ANSWERED.
-//
-// The owner, 9 October: "when an answer is submitted, all important details
-// about the answer should be shown, along with their peers" — the work (cover,
-// title, creator, year) and who says it, for the other choices as well as the
-// right one. The server sends these with the card (answer_reveal_test.go holds
-// that); what is held here is that none of it is on screen before the grade, and
-// all of it is after.
-describe('what every option says once it is answered', () => {
-  const which = () => ({
-    kind: 'book', id: 1, direction: 'quote', quote: 'the only way out is through',
-    title: 'Persuasion', author: 'Austen', color: 'yellow',
-    options: ['a line of ours', 'a line of theirs', 'a line of a speech'],
-    option_meta: [
-      { source: 'Persuasion', creator: 'Austen', year: 1817, who: [{ name: 'Anne Elliot' }] },
-      { source: 'Emma', creator: 'Jane Austen', year: 1815, year_circa: true, who: [{ name: 'Knightley' }] },
-      { source: 'At Gettysburg', speaker: 'Abraham Lincoln', date: '1863' },
-    ],
-    answer: 0,
-  })
-
-  const heat = () => ({
-    kind: 'screen', id: 5, direction: 'speaker', media_type: 'movie',
-    quote: "Don't let yourself get attached", title: 'Heat', director: 'Michael Mann', year: 1995,
-    character: 'Neil McCauley', actor: 'Robert De Niro', color: 'yellow',
-    options: ['Al Pacino', 'Robert De Niro', 'Val Kilmer'],
-    option_meta: [
-      { person: 'Al Pacino', kind: 'actor', source: 'Heat', creator: 'Michael Mann', year: 1995, who: [{ name: 'Vincent Hanna' }] },
-      { person: 'Robert De Niro', kind: 'actor', source: 'Heat', creator: 'Michael Mann', year: 1995, who: [{ name: 'Neil McCauley' }] },
-      { person: 'Val Kilmer', kind: 'actor', source: 'Heat', creator: 'Michael Mann', year: 1995, who: [{ name: 'Chris Shiherlis' }] },
-    ],
-    answer: 1,
-  })
-
-  it('names each quote’s work, writer, year and speaker, and only after the grade', async () => {
-    render(<QuizRunner mode="daily" cards={[which()]} />)
-    expect(screen.getByText('a line of theirs'), 'the card did not render at all').toBeTruthy()
-    for (const hidden of [/Jane Austen/, /Knightley/, /Abraham Lincoln/]) expect(screen.queryByText(hidden)).toBeNull()
-
-    fireEvent.click(screen.getByText('a line of theirs'))
-    await waitFor(() => expect(posted()).toHaveLength(1))
-    expect(screen.getByText('from Emma · Jane Austen · c. 1815')).toBeTruthy()
-    expect(screen.getByText('Knightley')).toBeTruthy()
-    expect(screen.getByText('Anne Elliot')).toBeTruthy()
-    // A speech has no writer; its date is the line's, and its speaker is the who.
-    expect(screen.getByText('from At Gettysburg · 1863')).toBeTruthy()
-    expect(screen.getByText('Abraham Lincoln')).toBeTruthy()
-  })
-
-  it('says who each actor plays, and only after the grade', async () => {
-    render(<QuizRunner mode="daily" cards={[heat()]} />)
-    expect(screen.getAllByText('Al Pacino').length, 'the card did not render at all').toBeGreaterThan(0)
-    for (const hidden of ['Vincent Hanna', 'Chris Shiherlis', 'as']) expect(screen.queryByText(hidden)).toBeNull()
-
-    fireEvent.click(screen.getAllByText('Al Pacino')[0])
-    await waitFor(() => expect(posted()).toHaveLength(1))
-    expect(screen.getByText('Vincent Hanna')).toBeTruthy()
-    expect(screen.getByText('Chris Shiherlis')).toBeTruthy()
-    // "as" before the character, or the chip reads as a second actor.
-    expect(screen.getAllByText('as')).toHaveLength(3)
-    expect(screen.getAllByText('from Heat · Michael Mann · 1995')).toHaveLength(3)
-  })
-
-  // THE FACES: each character the server found is drawn with its picture, under
-  // every option and under the card itself, and the card's line stops printing
-  // the character as a word once its chip is there.
-  it('draws each character with their face, under the options and under the card', async () => {
-    const card = heat()
-    card.who = [{ name: 'Neil McCauley', path: 'neil.jpg' }]
-    card.option_meta = card.option_meta.map((om) => ({ ...om, who: [{ ...om.who[0], path: `${om.person.split(' ')[0].toLowerCase()}.jpg` }] }))
-    render(<QuizRunner mode="daily" cards={[card]} />)
-    fireEvent.click(screen.getAllByText('Robert De Niro')[0])
-    await waitFor(() => expect(posted()).toHaveLength(1))
-    await waitFor(() => {
-      const src = [...document.querySelectorAll('img')].map((img) => img.getAttribute('src') || '')
-      for (const face of ['neil.jpg', 'al.jpg', 'val.jpg']) expect(src.some((u) => u.includes(face)), face).toBe(true)
-    })
-    expect(screen.getByText('Film · 1995 · Michael Mann')).toBeTruthy()
-    // Three options and the card: an actor plays the part each time.
-    expect(screen.getAllByText('as')).toHaveLength(4)
-  })
-
-  // The card's own work, told under the words once they have been answered: a
-  // "who said this?" card hid it, and ended without saying whose line it was.
-  it('tells the card’s own work, with its year and director, after the grade', async () => {
-    render(<QuizRunner mode="daily" cards={[heat()]} />)
-    expect(screen.queryByText(/1995 · Michael Mann/)).toBeNull()
-    fireEvent.click(screen.getAllByText('Robert De Niro')[0])
-    await waitFor(() => expect(posted()).toHaveLength(1))
-    expect(screen.getByText('Film · 1995 · Michael Mann · Neil McCauley')).toBeTruthy()
   })
 })

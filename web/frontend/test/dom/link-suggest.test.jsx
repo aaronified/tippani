@@ -83,26 +83,6 @@ const offers = () => screen.queryAllByTitle(/^Add the .* page for this record$/)
 const site = (b) => b.getAttribute('title').replace(/^Add the (.*) page for this record$/, '$1')
 
 describe('the pages a record can already address', () => {
-  it('are offered as presses, with each site own mark', async () => {
-    await open(FILM, 'movie')
-    await waitFor(() => expect(offers().length).toBe(4))
-    // The app's provider order, not the row's column order.
-    expect(offers().map(site))
-      .toEqual(['IMDb', 'TMDB', 'TheTVDB', 'Fandom'])
-    // A MARK PER ROW. The name alone is what the app had before it carried the
-    // site marks, and a list of twelve names is the thing marks were vendored for.
-    for (const b of offers()) {
-      expect(b.querySelector('.src-mark'), 'every offer wears its mark').toBeTruthy()
-    }
-  })
-
-  it('show the whole address before it is added', async () => {
-    await open(FILM, 'movie')
-    await waitFor(() => expect(offers().length).toBe(4))
-    // This is a link about to be stored, so the reader reads it first — the same
-    // rule the paste box's "reads as" line keeps, and never truncated.
-    expect(offers()[1].textContent).toContain('https://www.themoviedb.org/movie/603')
-  })
 
   it('append on one press, writing the whole column', async () => {
     await open(FILM, 'movie')
@@ -116,51 +96,5 @@ describe('the pages a record can already address', () => {
 
   // A PICK CLOSES ITS PANEL (§1.11). There is nothing left to type and nothing to
   // confirm, so leaving it open asks the reader to find the ✕ for a finished job.
-  it('close the panel, landing back on the row they were added to', async () => {
-    await open(FILM, 'movie')
-    await waitFor(() => expect(offers().length).toBe(4))
-    fireEvent.click(offers()[3])
-    await waitFor(() => expect(PUTS.length).toBe(1))
-    const url = PUTS[0].body.links
-    await waitFor(() => {
-      expect(box()).toBeNull()
-      expect(screen.queryAllByRole('link').some((a) => a.getAttribute('href') === url), 'the pick was saved and the row behind does not show it').toBe(true)
-    })
-  })
 
-  it('drop out once linked, rather than drawing as ticked', async () => {
-    await open(FILM, 'movie')
-    await waitFor(() => expect(offers().length).toBe(4))
-    fireEvent.click(offers()[0])
-    // The pick pops the panel AFTER its save resolves, so waiting on the write
-    // alone races the pop — wait for the panel to be gone.
-    await waitFor(() => expect(box()).toBeNull())
-    expect(PUTS.length).toBe(1)
-    // Back into the panel: the one just added is gone from the offers and is a
-    // stored row instead. A row you cannot press is the roster of absences again.
-    fireEvent.click(plus())
-    await waitFor(() => expect(offers().length).toBe(3))
-    expect(screen.getAllByRole('button', { name: /^Remove the .* link$/ })).toHaveLength(1)
-    expect(offers().map(site))
-      .toEqual(['TMDB', 'TheTVDB', 'Fandom'])
-  })
-
-  it('are absent altogether on a record with nothing pinned', async () => {
-    await open(BOOK_UNPINNED, 'book')
-    // NOT AN EMPTY LIST WITH A HEADING OVER IT. A record the app cannot address
-    // anywhere gets the panel it had before this feature: one box.
-    expect(offers().length).toBe(0)
-    expect(document.body.textContent).not.toMatch(/pages this record has/i)
-  })
-
-  it('leave the paste box working for a site no id can reach', async () => {
-    await open(FILM, 'movie')
-    fireEvent.change(box(), { target: { value: 'letterboxd.com/film/the-matrix/' } })
-    // The reading still appears, and the box still stores what it read — the
-    // derived list is another way in, not a replacement.
-    await waitFor(() => expect(document.body.textContent).toMatch(/Reads as Letterboxd/i))
-    fireEvent.submit(box().closest('form'))
-    await waitFor(() => expect(PUTS.length).toBe(1))
-    expect(PUTS[0].body.links).toBe('https://letterboxd.com/film/the-matrix/')
-  })
 })

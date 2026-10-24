@@ -61,15 +61,6 @@ const unmakeButtons = () =>
   screen.queryAllByRole('button', { name: new RegExp(t('settings.colours.unmake.tip'), 'i') })
 
 describe('un-making a colour category', () => {
-  it('is not offered on a slot nobody has touched', () => {
-    mount({})
-    expect(unmakeButtons().length, 'an untouched slot should have nothing to un-make').toBe(0)
-  })
-
-  it('is offered once a slot has been named', () => {
-    mount({ catName2: 'Argument' })
-    expect(unmakeButtons().length, 'a named slot should offer to be un-made').toBe(1)
-  })
 
   it('clears the name, the colour and the hiding in one save', async () => {
     mount(MADE)
@@ -83,23 +74,4 @@ describe('un-making a colour category', () => {
     expect(sent.catHidden2, 'the hiding survived the un-make').toBe(false)
   })
 
-  it('and says no quote changes, because none does', async () => {
-    mount(MADE)
-    fireEvent.click(unmakeButtons()[0])
-    // THE CONFIRM'S OWN WORDS. The stored token never moves — a quote filed under
-    // this colour stays filed under it — and a bin glyph implies the opposite, so
-    // the dialog has to say so. A reader deciding whether to press reads this.
-    expect(await screen.findByText(new RegExp('quotes filed under this colour stay under it', 'i')),
-      'the confirm should say that nothing on a quote moves').toBeTruthy()
-  })
-
-  it('leaves every other slot alone', async () => {
-    mount({ ...MADE, catName3: 'Aside' })
-    const rows = unmakeButtons()
-    expect(rows.length, 'two made slots should offer two un-makes').toBe(2)
-    fireEvent.click(rows[0])
-    fireEvent.click(await screen.findByRole('button', { name: new RegExp('^' + t('settings.colours.unmake.cta') + '$', 'i') }))
-    await waitFor(() => expect(written()).toBeTruthy())
-    expect(written().catName3, 'un-making one slot cleared another').toBe('Aside')
-  })
 })

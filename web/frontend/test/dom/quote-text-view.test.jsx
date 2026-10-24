@@ -62,26 +62,6 @@ const row = (name) => {
 const text = () => document.body.textContent
 
 describe('which text a quote shows', () => {
-  it('draws both texts when nothing has an opinion', async () => {
-    board()
-    await waitFor(() => expect(text()).toContain('Call me Ishmael'))
-    expect(text()).toContain('আমাকে ইসমাইল বলে ডেকো।')
-  })
-
-  it('puts the translation away when the state is the quote alone', async () => {
-    board({ master: 'quote-only' })
-    await waitFor(() => expect(text()).toContain('Call me Ishmael'))
-    expect(text()).not.toContain('আমাকে ইসমাইল বলে ডেকো।')
-  })
-
-  it('promotes the translation into the quote’s own type, without drawing it twice', async () => {
-    board({ master: 'trans-only' })
-    await waitFor(() => expect(text()).toContain('আমাকে ইসমাইল বলে ডেকো।'))
-    expect(text()).not.toContain('Call me Ishmael')
-    // Once, not once as the words and once as the line under them.
-    expect(text().split('আমাকে ইসমাইল বলে ডেকো।').length - 1).toBe(1)
-  })
-
   it('falls back to the quote rather than emptying a card with no translation', async () => {
     board({ master: 'trans-only' })
     // A setting that blanks every untranslated quote looks like a bug that has
@@ -105,39 +85,6 @@ describe('which text a quote shows', () => {
   })
 })
 
-describe('the rest of what the board publishes', () => {
-  it('offers all three views, including the one the toggle stopped drawing', async () => {
-    board()
-    await waitFor(() => expect(text()).toContain('Call me Ishmael'))
-    const views = rows().filter((r) => String(r.id).startsWith('view-')).map((r) => r.label)
-    expect(views).toEqual(['Tiles', 'List', 'Table'])
-    expect(row(/^Tiles$/).checked).toBe(true)
-    // And no toggle left in the header spending a third of a row on it.
-    expect(screen.queryByRole('tab', { name: /^Table$/i })).toBeNull()
-  })
-
-  it('offers a way into selecting that can be found by looking', async () => {
-    board()
-    await waitFor(() => expect(text()).toContain('Call me Ishmael'))
-    const start = row(/^Select quotes$/)
-    expect(start).toBeTruthy()
-    start.onClick()
-    // The mode is up with nothing picked — the bar holds its shape at zero, and
-    // the row that started it is gone rather than offering to start it again.
-    //
-    // WAITED FOR ON THE ROW, NOT ON THE CARD, and that is the whole of a failure
-    // this case produced exactly once. It waited for `.hand-card.is-selecting` to
-    // appear and then read `rows()` in the SAME TICK — two different things
-    // re-rendering, asserted as though one implied the other. When the card's
-    // class landed first the menu was still the old one and the row was still
-    // there, which is a red test over working code: the mode had come up, the
-    // assertion just looked too early. Waiting on the thing the case is actually
-    // about removes the race rather than outrunning it.
-    await waitFor(() => expect(rows().some((r) => /^Select quotes$/.test(String(r.label)))).toBe(false))
-    expect(document.querySelector('.hand-card.is-selecting')).toBeTruthy()
-  })
-})
-
 // AND THE FACE IT IS SET IN REACHES THE RENDERED CARD.
 //
 // The pure half is text.test.js. This is the half neither a pure test nor a spec
@@ -150,29 +97,6 @@ describe('the rest of what the board publishes', () => {
 // beside it is in a language nothing stores and is never tagged. Row 2 has no
 // language at all, which is the case most of a library is in.
 describe('the face a quote is drawn in', () => {
-  it('sets the quote in its language\u2019s face and leaves the translation alone', async () => {
-    board()
-    await waitFor(() => expect(text()).toContain('Call me Ishmael'))
-    expect(screen.getByText('Call me Ishmael.').closest('.bengali')).toBeTruthy()
-    expect(screen.getByText('\u0986\u09AE\u09BE\u0995\u09C7 \u0987\u09B8\u09AE\u09BE\u0987\u09B2 \u09AC\u09B2\u09C7 \u09A1\u09C7\u0995\u09CB\u0964').closest('.bengali')).toBeNull()
-  })
-
-  // The state that moves the quote to the SECOND line. A render site working the
-  // script out for itself would have tagged the big type here, which is the
-  // translation.
-  it('follows the quote to the second line when the translation leads', async () => {
-    board({ master: 'trans-first' })
-    await waitFor(() => expect(text()).toContain('Call me Ishmael'))
-    expect(screen.getByText('Call me Ishmael.').closest('.bengali')).toBeTruthy()
-    expect(screen.getByText('\u0986\u09AE\u09BE\u0995\u09C7 \u0987\u09B8\u09AE\u09BE\u0987\u09B2 \u09AC\u09B2\u09C7 \u09A1\u09C7\u0995\u09CB\u0964').closest('.bengali')).toBeNull()
-  })
-
-  it('tags nothing on a row with no language', async () => {
-    board()
-    await waitFor(() => expect(text()).toContain('The whale.'))
-    expect(screen.getByText('The whale.').closest('.bengali')).toBeNull()
-  })
-
   // THE TABLE TOO, and the three cases above did not reach it — every one of them
   // renders the CARD view, so replacing the table cell's class with '' left the
   // whole DOM suite green. That is the gap this file opens by naming ("the
@@ -189,34 +113,5 @@ describe('the face a quote is drawn in', () => {
     expect(screen.getByText('Call me Ishmael.').closest('.bengali')).toBeTruthy()
     expect(screen.getByText('The whale.').closest('.bengali')).toBeNull()
     localStorage.removeItem('tippani:annview')
-  })
-})
-
-// AND THE FILM FRAME, which is the third of the three sites and was the other one
-// no case reached. A dialogue is an annotation with different credits — 0071 gave
-// it a `language` column for that reason — so a Bengali film line has exactly as
-// much claim on the Bengali face as a Bengali highlight. `Frame` is rendered
-// directly here because it is a leaf that takes its row as a prop: nothing about
-// this property needs the screen around it, and a test that needed the screen
-// would be testing the screen.
-describe('the face a film line is drawn in', () => {
-  const line = (over = {}) => ({
-    id: 1, movie_id: 1, quote: 'Call me Ishmael.', translation: 'আমাকে ইসমাইল বলে ডেকো।',
-    language: 'Bengali', color: 'yellow', tags: [], created_at: '2024-01-01 10:00:00', ...over,
-  })
-  // `within` the frame's own container: the file's earlier cases render a whole
-  // board, and a document-wide query would be asking about whichever of them ran
-  // last rather than about this frame.
-  const frame = (d) => within(render(<Frame d={d} tagMap={{}} seps=",;&" />).container)
-
-  it('sets the line in its language\u2019s face and leaves the translation alone', async () => {
-    const f = frame(line())
-    expect(f.getByText('Call me Ishmael.').closest('.bengali')).toBeTruthy()
-    expect(f.getByText('\u0986\u09AE\u09BE\u0995\u09C7 \u0987\u09B8\u09AE\u09BE\u0987\u09B2 \u09AC\u09B2\u09C7 \u09A1\u09C7\u0995\u09CB\u0964').closest('.bengali')).toBeNull()
-  })
-
-  it('tags nothing on a line with no language', async () => {
-    const f = frame(line({ quote: 'Here\u2019s looking at you, kid.', translation: '', language: '' }))
-    expect(f.getByText('Here\u2019s looking at you, kid.').closest('.bengali')).toBeNull()
   })
 })

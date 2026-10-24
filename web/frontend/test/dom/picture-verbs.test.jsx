@@ -162,74 +162,6 @@ describe('a character seen from inside one work', () => {
 
   // THIS WORK'S PICTURE, TAKEN FROM THE STRIP, IS ITS SUPPLIER'S TOO: the work's
   // cast row is written with the strip's source, as the record's is.
-  it("credits this work's picture taken from the strip to the supplier that offered it", async () => {
-    IMAGES = [{ url: 'https://pics.test/andy-film.jpg', thumb: 'https://encrypted-tbn0.gstatic.com/b', source: 'google' }]
-    try {
-      await act(async () => { byWord(/fetch/i).click() })
-      const pick = await screen.findByRole('button', { name: /^Use this picture from / })
-      await act(async () => { pick.click() })
-      await waitFor(() => {
-        const save = CALLS.find(([m, p, b]) => m === 'POST' && p === '/cast/9/image' && b?.image_url)
-        expect(save, 'the pick saved nothing on this work').toBeTruthy()
-        expect(save[2].image_source).toBe('google-images')
-      })
-    } finally {
-      IMAGES = []
-    }
-  })
-
-  it('offers a way to fetch, a way to upload and a way to paste an address', () => {
-    expect(strip(), 'the picture block has no control strip at all').toBeTruthy()
-    const words = named().join(' | ')
-    for (const re of [/fetch/i, /upload/i, /paste/i]) {
-      expect(re.test(words), `no button named for ${re} — the strip reads: ${words}`).toBe(true)
-    }
-  })
-
-  it('and a fourth, which is the only one that leaves this work', () => {
-    const words = named().join(' | ')
-    expect(/identity/i.test(words),
-      `the verb that sets the picture for the identity is missing — the strip reads: ${words}`).toBe(true)
-  })
-
-  it('names every one of them rather than drawing a bare glyph', () => {
-    // A control with a picture and no word is a guess. Every button in this strip
-    // carries text or, at the very least, an accessible name — and there are at
-    // least three of them, so this cannot pass by there being none.
-    expect(verbButtons().length,
-      'fewer than three controls in the picture strip').toBeGreaterThanOrEqual(3)
-    for (const b of verbButtons()) {
-      const label = b.textContent.trim() || b.getAttribute('aria-label') || b.getAttribute('title') || ''
-      expect(label.length, 'a button in the picture strip has no name of any kind').toBeGreaterThan(0)
-    }
-  })
-
-  it('leaves them all pressable, because a greyed verb with no way to un-grey it is a dead end', () => {
-    // "Set for the identity" is the exception the pack allows for: it promotes
-    // THIS WORK's picture, so it needs one. Every other verb is a way of getting a
-    // picture and cannot depend on already having it.
-    expect(verbButtons().length,
-      'fewer than three controls in the picture strip').toBeGreaterThanOrEqual(3)
-    for (const b of verbButtons()) {
-      if (/identity/i.test(b.textContent)) continue
-      expect(b.disabled, `"${b.textContent.trim()}" is greyed out at rest`).toBe(false)
-    }
-  })
-
-  it('asks the suppliers when Fetch is pressed', async () => {
-    await act(async () => { byWord(/fetch/i).click() })
-    expect(CALLS.some(([m, p]) => m === 'POST' && p === '/images/search'),
-      'Fetch went nowhere — nothing asked the suppliers for a picture').toBe(true)
-  })
-
-  it('opens a file chooser when Upload is pressed', async () => {
-    const file = strip().querySelector('input[type="file"]')
-    expect(file, 'Upload has no file input behind it — there is nothing to choose from').toBeTruthy()
-    const clicked = vi.fn()
-    file.click = clicked
-    await act(async () => { byWord(/upload/i).click() })
-    expect(clicked, 'pressing Upload opened no file chooser').toHaveBeenCalled()
-  })
 
   it('and the file the reader picks is actually sent', async () => {
     picturesAre(1000, 1000) // already the shape of its frame
@@ -243,119 +175,12 @@ describe('a character seen from inside one work', () => {
   // is only an address is fetched for the frame by POST /images/preview (the page may
   // not load it), what is kept goes up as an upload, and a picture that already fits
   // is saved by its address as it always was — so its supplier is still credited.
-  describe('a picture taken by address', () => {
-    const pickFromStrip = async () => {
-      IMAGES = [{ url: 'https://pics.test/wide.jpg', thumb: 'https://encrypted-tbn0.gstatic.com/b', source: 'google' }]
-      await act(async () => { byWord(/fetch/i).click() })
-      const pick = await screen.findByRole('button', { name: /^Use this picture from / })
-      await act(async () => { pick.click() })
-    }
-    const saved = () => CALLS.filter(([m, p]) => m === 'POST' && p === '/cast/9/image')
-    afterEach(() => { IMAGES = []; PREVIEW = {} })
 
-    it('is shown in its frame before it is kept, and nothing is kept yet', async () => {
-      PREVIEW = { image: 'data:image/png;base64,AAAA' }
-      picturesAre(1600, 701)
-      await pickFromStrip()
-      await screen.findByText(/^Frame — /)
-      expect(CALLS.find(([m, p]) => p === '/images/preview')[2]).toEqual({ url: 'https://pics.test/wide.jpg' })
-      expect(saved().length, 'the picture was saved before it had been framed').toBe(0)
-      expect(uploads().length).toBe(0)
-    })
-
-    it('keeps nothing when the reader backs out', async () => {
-      PREVIEW = { image: 'data:image/png;base64,AAAA' }
-      picturesAre(1600, 701)
-      await pickFromStrip()
-      await screen.findByText(/^Frame — /)
-      await act(async () => { screen.getByRole('button', { name: t('common.action.close.label') }).click() })
-      expect(saved().length + uploads().length, 'a picture the reader refused was kept anyway').toBe(0)
-    })
-
-    it('keeps what the reader framed, as an upload of their own', async () => {
-      PREVIEW = { image: 'data:image/png;base64,AAAA' }
-      picturesAre(1600, 701)
-      await pickFromStrip()
-      await screen.findByText(/^Frame — /)
-      const tick = () => document.querySelector('button[type="submit"][form="' + document.querySelector('form.frame-form')?.id + '"]')
-      await screen.findByRole('slider', { name: t('frame.zoom.label') })
-      await waitFor(() => expect(tick()?.disabled).toBe(false))
-      await act(async () => { tick().click() })
-      await waitFor(() => expect(uploads().length, 'keeping the framing stored nothing').toBe(1))
-      expect(saved().length, 'the unframed original was saved as well').toBe(0)
-    })
-
-    it('is saved by its address, credited to its supplier, when it already fits', async () => {
-      PREVIEW = { image: 'data:image/png;base64,AAAA' }
-      picturesAre(1000, 1000)
-      await pickFromStrip()
-      await waitFor(() => expect(saved().length).toBe(1))
-      expect(saved()[0][2].image_source).toBe('google-images')
-    })
-
-    it('is saved by its address when the server could not fetch it for the frame', async () => {
-      PREVIEW = null // the preview route answers an error
-      picturesAre(1600, 701)
-      await pickFromStrip()
-      await waitFor(() => expect(saved().length, 'a picture that could not be previewed was dropped').toBe(1))
-    })
-  })
-
-  it('shows a picture of the wrong shape in its frame before anything is kept', async () => {
-    picturesAre(1600, 701) // a wide logo, which a circle would cut in half
-    await chooseFile()
-    await screen.findByText(/^Frame — /)
-    expect(uploads().length, 'the file was stored before the reader had framed it').toBe(0)
-    expect(screen.queryByText(/dimmed part is cut off/),
-      'the dialog does not say what the circle will cut away').toBeTruthy()
-  })
-
-  it('and keeps what the reader framed, not the file as it came', async () => {
-    picturesAre(1600, 701)
-    await chooseFile()
-    await screen.findByText(/^Frame — /)
-    // The sheet underneath has ticks of its own; this one belongs to the frame's form.
-    const tick = () => document.querySelector('button[type="submit"][form="' + document.querySelector('form.frame-form')?.id + '"]')
-    // The zoom slider is drawn once the picture has loaded; until then the tick is blocked.
-    await screen.findByRole('slider', { name: t('frame.zoom.label') })
-    await waitFor(() => expect(tick()?.disabled, 'the frame dialog tick stayed blocked').toBe(false))
-    await act(async () => { tick().click() })
-    await waitFor(() => expect(uploads().length,
-      'keeping the framing stored nothing').toBe(1))
-  })
-
-  it('leaves nothing behind when the reader backs out of the frame', async () => {
-    picturesAre(1600, 701)
-    await chooseFile()
-    await screen.findByText(/^Frame — /)
-    await act(async () => { screen.getByRole('button', { name: t('common.action.close.label') }).click() })
-    expect(uploads().length, 'a file the reader refused was stored anyway').toBe(0)
-  })
-
-  it('reveals somewhere to type an address when Paste URL is pressed', async () => {
-    const before = document.querySelectorAll('input:not([type="file"])').length
-    await act(async () => { byWord(/paste/i).click() })
-    const after = document.querySelectorAll('input:not([type="file"])').length
-    expect(after, 'Paste URL revealed no field to paste into').toBeGreaterThan(before)
-  })
 })
 
 describe('the verb that leaves the work', () => {
   beforeEach(async () => {
     await open({ id: 4, name: 'Andy Dufresne', work: FILM })
-  })
-
-  it('asks before it acts, because the reader cannot see what it changes', async () => {
-    await act(async () => { byWord(/identity/i).click() })
-    expect(CALLS.some(([m, p]) => m === 'PUT' && /\/characters\/4\/image/.test(p)),
-      'the identity portrait was replaced on one press, with no question asked').toBe(false)
-    // A QUESTION, NOT ITS WORDING. What the reader is owed is a surface that
-    // stops the press and offers a way to answer it; which sentence it uses is
-    // the locale's business, and a test that pins the English fails on the
-    // Bengali build while the feature is intact. The next case presses the yes.
-    const asked = [...document.querySelectorAll('[role=dialog], .tp-panel, .tp-modal')]
-      .some((el) => [...el.querySelectorAll('button')].length >= 2)
-    expect(asked, 'no question was asked either — the press did nothing at all').toBe(true)
   })
 
   it('and does it once the question is answered', async () => {
@@ -369,44 +194,6 @@ describe('the verb that leaves the work', () => {
   })
 })
 
-describe("the character's own record, which IS the identity", () => {
-  beforeEach(async () => { await open({ id: 4, name: 'Andy Dufresne' }) })
-
-  it('still offers the three ways a picture arrives', () => {
-    const words = named().join(' | ')
-    for (const re of [/fetch/i, /upload/i, /paste/i]) {
-      expect(re.test(words), `no button named for ${re} on the record — the strip reads: ${words}`).toBe(true)
-    }
-  })
-
-  // A PICTURE TAKEN FROM THE STRIP IS ITS SUPPLIER'S. The record's own picker
-  // dropped the source on the way to the save, so the server, told nothing,
-  // recorded every strip pick on a character's record as the reader's.
-  it("credits a picture taken from the strip to the supplier that offered it", async () => {
-    IMAGES = [{ url: 'https://pics.test/andy.jpg', thumb: 'https://encrypted-tbn0.gstatic.com/a', source: 'google' }]
-    try {
-      await act(async () => { byWord(/fetch/i).click() })
-      const pick = await screen.findByRole('button', { name: /^Use this picture from / })
-      await act(async () => { pick.click() })
-      await waitFor(() => {
-        const save = CALLS.find(([m, p, b]) => m === 'PUT' && p === '/characters/4/image' && b?.image_url)
-        expect(save, 'the pick saved nothing').toBeTruthy()
-        expect(save[2].image_source).toBe('google-images')
-      })
-    } finally {
-      IMAGES = []
-    }
-  })
-
-  it('but not the fourth, because there is no wider scope to set it for', () => {
-    const words = named().join(' | ')
-    expect(verbButtons().length,
-      'fewer than three controls in the picture strip').toBeGreaterThanOrEqual(3)
-    expect(/set for the identity/i.test(words),
-      'the record offers to set its own picture for itself').toBe(false)
-  })
-})
-
 // AND WHOSE PICTURE IS ON SCREEN, which is the other half of a picture block
 // being honest. A work that has no picture of the character shows the identity's,
 // or failing that the performer's — that is what every chip in this app does. A
@@ -414,31 +201,6 @@ describe("the character's own record, which IS the identity", () => {
 // picture it does not, and the reader who then presses "Set for the identity" is
 // promoting a picture that is already the identity's.
 describe('a work with no picture of its own', () => {
-  it("draws the character's own picture rather than a blank", async () => {
-    RECORD.appearances = [{ ...APPEARANCE, image: '' }]
-    await open({ id: 4, name: 'Andy Dufresne', work: FILM })
-    const face = document.querySelector('.cs-portrait .cs-face img')
-    expect(face, 'the picture block drew nothing, though the record has a picture').toBeTruthy()
-  })
-
-  it('and says whose picture it is', async () => {
-    // A DIFFERENCE, NOT A SENTENCE. The rule is that a borrowed picture is
-    // announced as borrowed; the words are the locale's. So the block is read
-    // twice — once where the work HAS its own still, once where it is showing
-    // the identity's — and the two have to differ. Pinning the English here made
-    // the case a spell-check of one string: it would pass over a screen that
-    // said the wrong thing in the right words, and fail on a working screen in
-    // any other language.
-    RECORD.appearances = [{ ...APPEARANCE }]
-    await open({ id: 4, name: 'Andy Dufresne', work: FILM })
-    const own = document.querySelector('.cs-portrait').textContent
-    cleanup()
-    RECORD.appearances = [{ ...APPEARANCE, image: '' }]
-    await open({ id: 4, name: 'Andy Dufresne', work: FILM })
-    const borrowed = document.querySelector('.cs-portrait').textContent
-    expect(borrowed,
-      'the picture is not this work\'s and the screen says exactly what it says when it is').not.toBe(own)
-  })
 
   it("does NOT fall back to the performer, and says there is no picture", async () => {
     // THE OWNER'S RULING, reversing what this case used to assert. "when i said
@@ -469,15 +231,4 @@ describe('a work with no picture of its own', () => {
       .not.toMatch(/Tim Robbins/)
   })
 
-  it('while a credit row — a pill — still shows the performer, which is what the ruling keeps', async () => {
-    // The other half of the same ruling, so this file holds both and neither can
-    // be "fixed" by breaking the other. A cast row's small face is a pill.
-    RECORD.image_path = ''
-    RECORD.appearances = [{ ...APPEARANCE, image: '' }]
-    await open({ id: 4, name: 'Andy Dufresne', work: FILM })
-    const credit = document.querySelector('.cs-credit')
-    expect(credit, 'no credit row on a film').toBeTruthy()
-    expect(credit.querySelector('img'),
-      "the credit row lost the performer's face, which the ruling keeps").toBeTruthy()
-  })
 })

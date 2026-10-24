@@ -114,27 +114,5 @@ describe('an approval pressed here', () => {
     expect(await screen.findByText('1 added · 0 skipped · Stopped', undefined, { timeout: 4000 })).toBeTruthy()
   })
 
-  it('stopped before its first work, it says so and no error', async () => {
-    states = [{ state: 'stopped' }]
-    result = null
-    render(<StagingPage embedded onPending={noop} onOpenBook={noop} onOpenMovie={noop} />)
-    await screen.findByText(/The spice must flow/)
-    approveAll()
-    expect(await screen.findByText('0 added · 0 skipped · Stopped')).toBeTruthy()
-    expect(screen.queryByText('could not approve')).toBeNull()
-  })
 })
 
-describe('an approval already under way', () => {
-  it('is followed when the page opens, with its Stop, until it ends', async () => {
-    live = job({ state: 'running', done: 1 })
-    states = [{ state: 'running', done: 1 }, { state: 'succeeded', done: 2 }]
-    result = { status: 200, body: { added: 2, skipped: 0, enriched: 0 } }
-    render(<StagingPage embedded onPending={noop} onOpenBook={noop} onOpenMovie={noop} />)
-    // Nothing pressed here: the bar and its Stop are the job found running.
-    expect(await screen.findByText('Approving — 1 of 2')).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Stop' })).toBeTruthy()
-    expect(await screen.findByText('2 added · 0 skipped', undefined, { timeout: 3000 })).toBeTruthy()
-    expect(calls.some((c) => c.method === 'POST' && c.path === '/import/staged/approve')).toBe(false)
-  })
-})

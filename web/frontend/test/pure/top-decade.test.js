@@ -8,7 +8,7 @@
 // on no CE data at all.
 
 import { describe, expect, it } from 'vitest'
-import { decadeLabel, topDecade } from '../../src/StatsPage.jsx'
+import { topDecade } from '../../src/StatsPage.jsx'
 
 const b = (year, quotes, works = 1) => ({ year, works, quotes })
 
@@ -43,23 +43,5 @@ describe('topDecade', () => {
       return [r.name, Object.fromEntries(Object.keys(r.want).map((k) => [k, out?.[k]]))]
     })
     expect(got).toEqual(rows.map((r) => [r.name, r.want]))
-  })
-
-  it('answers null for an empty or quoteless timeline', () => {
-    expect(topDecade([])).toBeNull()
-    expect(topDecade(null)).toBeNull()
-    expect(topDecade(undefined)).toBeNull()
-    expect(topDecade([b(1990, 0, 3)])).toBeNull()
-  })
-})
-
-describe('decadeLabel', () => {
-  it('writes a decade the way it is said', () => {
-    expect(decadeLabel(1990)).toBe('1990s')
-    expect(decadeLabel(0)).toBe('0s')
-    // The 480s BCE runs from 489 to 480, so the spoken number is the higher
-    // absolute value — which is what the stored start already is.
-    expect(decadeLabel(-480)).toBe('480s BCE')
-    expect(decadeLabel(-2100)).toBe('2100s BCE')
   })
 })

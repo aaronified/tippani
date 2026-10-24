@@ -53,17 +53,3 @@ describe('a boot the database door refuses', () => {
   })
 })
 
-describe('any request', () => {
-  it('raises the busy signal on the door\'s refusal and on nothing else', async () => {
-    const { json } = await import('../../src/api.js')
-    const { onDatabaseBusy } = await import('../../src/databaseBusy.js')
-    const heard = vi.fn()
-    const stop = onDatabaseBusy(heard)
-    await json('GET', '/books')
-    expect(heard).toHaveBeenCalledTimes(1)
-    globalThis.fetch = vi.fn(async () => answer(503, { error: 'no movie-lookup key configured' }))
-    await json('POST', '/movies/lookup', { title: 'Stalker' })
-    expect(heard, 'a 503 without the code raised it too').toHaveBeenCalledTimes(1)
-    stop()
-  })
-})

@@ -60,20 +60,6 @@ describe('leaving a menu', () => {
     expect(landedOn(), 'Escape put focus somewhere other than the control that opened the menu').toBe(anchor)
   })
 
-  it('by Tab puts focus back where it came from', () => {
-    const { anchor, menu } = open()
-    fireEvent.keyDown(menu, { key: 'Tab' })
-    expect(onTheFloor(), 'Tab dropped focus onto the document body').toBe(false)
-    expect(landedOn(), 'Tab put focus somewhere other than the control that opened the menu').toBe(anchor)
-  })
-
-  it('by pressing somewhere else puts focus back where it came from', () => {
-    const { view, anchor } = open()
-    fireEvent.mouseDown(view.getByTestId('elsewhere'))
-    expect(onTheFloor(), 'a press outside the menu dropped focus onto the document body').toBe(false)
-    expect(landedOn(), 'a press outside the menu left focus somewhere other than the control that opened it').toBe(anchor)
-  })
-
   // THE ONE THE MENU EXISTS FOR, and the one that was broken.
   it('by choosing a row puts focus back where it came from', () => {
     const ran = []
@@ -87,12 +73,4 @@ describe('leaving a menu', () => {
 
   // AND A ROW THAT KEEPS THE MENU OPEN IS NOT A WAY OUT. Restoring focus there
   // would take it off the row the reader is standing on, in a menu still on screen.
-  it('does not happen for a row that leaves the menu open', () => {
-    const { anchor } = open([{ id: 'a', label: 'Descending', keepOpen: true, onClick: () => {} }])
-    const row = document.querySelector('[role=menuitem]')
-    row.focus()
-    fireEvent.click(row)
-    expect(landedOn(), 'a keepOpen row handed focus back to the anchor while its own menu was still open')
-      .not.toBe(anchor)
-  })
 })

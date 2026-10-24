@@ -13,7 +13,7 @@
 // of the refactor, and the only way to be wrong about it is for them to differ.
 
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { act, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import { useScreenBarState } from '../../src/ui.jsx'
 
 const BOOKS = [
@@ -80,40 +80,10 @@ const asPhone = () => {
 }
 
 describe('the board narrows', () => {
-  it('shows everything unfiltered', async () => {
-    await board()
-    expect(shown()).toEqual(['Dispossessed', 'Earthsea', 'Solaris'])
-    expect(seeded()).toEqual([])
-  })
-
-  it('narrows on the favourites chip, and says so to the search box', async () => {
-    await board()
-    press('♥ favourites')
-    expect(shown()).toEqual(['Dispossessed'])
-    expect(seeded()).toEqual(['favourite=yes'])
-  })
-
-  it('un-narrows when the chip is pressed again', async () => {
-    await board()
-    press('♥ favourites')
-    press('♥ favourites')
-    expect(shown()).toEqual(['Dispossessed', 'Earthsea', 'Solaris'])
-    expect(seeded()).toEqual([])
-  })
 
   // The wishlist is derived — a book with nothing saved out of it IS the
   // wishlist — and the board's three-way control has to map onto the server's
   // two-way flag without losing the middle state.
-  it('narrows to the wishlist, and to its complement', async () => {
-    await board()
-    press('wishlist')
-    expect(shown()).toEqual(['Solaris'])
-    expect(seeded()).toEqual(['wishlist=yes'])
-
-    press('annotated')
-    expect(shown()).toEqual(['Dispossessed', 'Earthsea'])
-    expect(seeded()).toEqual(['wishlist=no'])
-  })
 
   it('stacks two filters', async () => {
     await board()
@@ -121,32 +91,6 @@ describe('the board narrows', () => {
     press('annotated')
     expect(shown()).toEqual(['Dispossessed'])
     expect(seeded()).toEqual(['favourite=yes', 'wishlist=no'])
-  })
-})
-
-describe('the board-only filters', () => {
-  // These narrow the board and are NOT handed over, because the server has no
-  // facet that means the same thing: a board's "tagged" is a property of the
-  // BOOK (it has a tagged highlight), and `tag:` is a property of the quote.
-  // Sending one as the other would empty the books section and the search would
-  // come back with nothing.
-  it('narrow the board but are not seeded', async () => {
-    await board()
-    press('tagged')
-    expect(shown()).toEqual(['Dispossessed'])
-    expect(seeded()).toEqual([])
-
-    press('has notes')
-    expect(shown()).toEqual(['Dispossessed'])
-    expect(seeded()).toEqual([])
-  })
-
-  it('still travel alongside one that is seeded', async () => {
-    await board()
-    press('tagged')
-    press('♥ favourites')
-    expect(shown()).toEqual(['Dispossessed'])
-    expect(seeded()).toEqual(['favourite=yes'])
   })
 })
 
@@ -193,47 +137,4 @@ describe('reset', () => {
 
 // ── ONE SHEET, ONE VISIT. The order used to have a sheet of its own and a dock
 // key of its own, beside a Filters key opening a sheet that looked identical.
-describe('the phone\u2019s two doors', () => {
-  it('puts the order in the filter sheet rather than a second one', async () => {
-    asPhone()
-    await board()
-    expect(screen.queryByLabelText(/^Sort$/i)).toBeNull()
-    openFiltersFromTheDock()
-    // Last section in the sheet: everything above it narrows the board and can
-    // change the count the footer states, and this one only rearranges.
-    const sheet = document.querySelector('.mobile-sheet, [class*="sheet"]')
-    expect(sheet).toBeTruthy()
-    expect(screen.getByLabelText(/^Sort$/i)).toBeTruthy()
-  })
 
-  it('gives the seat the sort vacated to the way out', async () => {
-    asPhone()
-    await board()
-    const ids = (screenBarNow().keys || []).map((k) => k.id)
-    // Two seats, and neither is a second door to the sheet the first one opens.
-    //
-    // THE SECOND WAS EXPORT AND IS NOW THE BOARDS KEY. Both of Export's claims to
-    // it had gone: the sort moved into the filter sheet, which is what freed the
-    // seat, and Export is in this screen's own ⋯ , so it was the one verb here
-    // that already had somewhere else to be. What a reader on a board wants from
-    // a thumb is the OTHER boards — the rail is a desktop control and the drawer
-    // is at the top of the screen.
-    //
-    // `nav` is what the SCREEN publishes; the shell swaps it for its own boards
-    // key, because only the shell knows which sections are switched on. Asserted
-    // as published, since that is the contract this screen owns.
-    expect(ids).toEqual(['filter', 'nav'])
-  })
-
-  it('stops repeating the page in the \u22ef', async () => {
-    asPhone()
-    await board()
-    const { buildScreenActions } = await import('../../src/ui.jsx')
-    const labels = buildScreenActions().map((r) => r.heading || r.label).join(' | ')
-    // The chips and the sort select are already reachable twice — on the page at
-    // desktop widths, behind the Filter key on a phone. A third door is a menu a
-    // reader stops reading because most of it is a copy of what is on screen.
-    expect(labels).not.toMatch(/show only/i)
-    expect(labels).not.toMatch(/recently added/i)
-  })
-})

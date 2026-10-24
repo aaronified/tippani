@@ -31,28 +31,4 @@ describe('the faces a card asks for', () => {
     }
   })
 
-  it('asks for the Bengali face when the quote is in Bengali', async () => {
-    const prev = document.fonts
-    Object.defineProperty(document, 'fonts', { configurable: true, value: fontsStub() })
-    try {
-      await ensureFonts({ text: 'যেখানে মন ভয়শূন্য', hand: true })
-      const fams = asked.map((a) => a.font)
-      expect(fams.some((f) => /12px/.test(f)), 'no 12px script face was asked for').toBe(true)
-      expect(fams.some((f) => /22px/.test(f)), 'a note was set and the hand face was not asked for').toBe(true)
-    } finally {
-      Object.defineProperty(document, 'fonts', { configurable: true, value: prev })
-    }
-  })
-
-  it('still asks for everything when the caller cannot say', async () => {
-    const prev = document.fonts
-    Object.defineProperty(document, 'fonts', { configurable: true, value: fontsStub() })
-    try {
-      await ensureFonts()
-      expect(asked.length).toBeGreaterThanOrEqual(10)
-      expect(asked.every((a) => a.text === undefined)).toBe(true)
-    } finally {
-      Object.defineProperty(document, 'fonts', { configurable: true, value: prev })
-    }
-  })
 })

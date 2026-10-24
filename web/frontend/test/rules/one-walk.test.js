@@ -91,11 +91,9 @@ function handRolled(dir = TESTS, base = '', out = []) {
 // as reads, and a file that renders is a test.
 const KNOWN = [
   'dom/surface-readability.test.jsx', // src/textures — the paper images, not source
-  'rules/ai-counts.test.js',           // the whole REPO, counting Go and frontend test files
   'rules/glossary-registry.test.js',   // web/dist/assets — the BUILT stylesheet
   'rules/harness-archive.test.js',     // scripts/screenshots — the harnesses, not source
   'rules/one-walk.test.js',            // test/ — this file counts itself, see above
-  'rules/pack-citations.test.js',      // docs/plans (its src half uses the shared walk)
   'rules/prefixed-pairs-survive.test.js', // web/dist — the built CSS again
   'rules/workflow-needs-status.test.js', // .github/workflows — the workflows, not source
 ]

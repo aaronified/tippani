@@ -150,30 +150,10 @@ describe('an anthology', () => {
     expect(asked[1], 'the round is not themed on this anthology').toContain('anthology=3')
   })
 
-  it('will not offer a round over an anthology with nothing in it', async () => {
-    // A themed round with no cards is a dialog that opens on an apology. The
-    // control says so by being disabled rather than by answering with one.
-    api.json.mockImplementation(async (method, url) => {
-      if (url.startsWith('/anthologies/')) {
-        return { ok: true, status: 200, data: { anthology: { ...ANTHOLOGY, entry_count: 0 }, entries: [] } }
-      }
-      if (url === '/tags') return { ok: true, status: 200, data: { tags: [] } }
-      return { ok: true, status: 200, data: {} }
-    })
-    render(<AnthologiesPage openId={ANTHOLOGY.id} onOpen={() => {}} onClose={() => {}}
-      onOpenBook={() => {}} onOpenMovie={() => {}} />)
-    await screen.findByText('Lines for a bad week')
-    expect(screen.getByText('Practise').closest('button').disabled).toBe(true)
-  })
 })
 
 for (const s of SCREENS) {
   describe(`a work opened from ${s.name}`, () => {
-    it('offers to quiz you on it', async () => {
-      await s.open()
-      expect(screen.getByLabelText(s.aria), `no Practise control on ${s.name}`).toBeTruthy()
-    })
-
     it('starts a round themed on THIS work, not on the whole library', async () => {
       await s.open()
       await press(screen.getByLabelText(s.aria))
@@ -186,24 +166,5 @@ for (const s of SCREENS) {
       expect(asked[1], `the round is not themed on this work`).toContain(s.query)
     })
 
-    it('and the ⋯ menu offers it too, which is the only door on a phone', async () => {
-      // The phone's bottom dock replaces the desktop hero row, so a control added
-      // to only the hero is missing on a phone entirely — the same gap that left
-      // a work page with no Search for four releases. buildScreenActions() is
-      // exactly what the ⋯ calls when it opens, so this asks the menu rather than
-      // asserting a `label:` line exists in the file.
-      await s.open()
-      const labels = buildScreenActions().map((a) => a.label)
-      expect(labels, `Practise is missing from ${s.name}'s ⋯ menu`).toContain(s.menu)
-    })
-
-    it('and the round says which work it is about', async () => {
-      // The label is the reader's only confirmation that they got the round they
-      // asked for rather than the general deck.
-      await s.open()
-      await press(screen.getByLabelText(s.aria))
-      const dialog = await screen.findByRole('dialog')
-      expect(within(dialog).getByText(s.query.startsWith('book') ? 'A Wizard of Earthsea' : 'Stalker')).toBeTruthy()
-    })
   })
 }

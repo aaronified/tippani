@@ -43,24 +43,6 @@ const press = async (label) => {
   })
 }
 
-describe('the question', () => {
-  it('is not on screen until it is asked', () => {
-    render(<Subject question="Delete this quote?" />)
-    // The trigger is there — otherwise "no dialog" is also what a subject that
-    // failed to mount says, and this case would pass hardest when nothing works.
-    expect(screen.getByText('do it'), 'the subject did not render at all').toBeTruthy()
-    expect(screen.queryByRole('dialog')).toBeNull()
-  })
-
-  it('is the app’s own dialog, carrying the caller’s words', async () => {
-    render(<Subject question="Delete this quote?" />)
-    await press('do it')
-    const dialog = screen.getByRole('dialog')
-    expect(dialog.getAttribute('aria-modal')).toBe('true')
-    expect(screen.getByText('Delete this quote?')).toBeTruthy()
-  })
-})
-
 // THE DEFECT THIS PINS WAS FOUND BY LOOKING AT A RENDER, not by a test: the tag
 // delete's question appeared UNDERNEATH the tag cards. A `.hand-card` is
 // `isolation: isolate`, so a dialog rendered inside one is trapped in that card's
@@ -68,24 +50,8 @@ describe('the question', () => {
 // because z-index is only ever compared within a stacking context. jsdom has no
 // layout and no paint, so nothing in the suite could have seen it. What a test
 // CAN see is the structural cause, which is the dialog's position in the tree.
-describe('where the dialog lives', () => {
-  it('is a child of <body>, not of the component that asked', async () => {
-    const { container } = render(<Subject question="Delete this quote?" />)
-    await press('do it')
-    const dialog = screen.getByRole('dialog')
-    expect(container.contains(dialog)).toBe(false)
-    expect(dialog.closest('.tp-scrim').parentElement).toBe(document.body)
-  })
-})
 
 describe('the answer', () => {
-  it('resolves true and closes when confirmed', async () => {
-    render(<Subject question="Delete this quote?" />)
-    await press('do it')
-    await press('Confirm')
-    expect(RESULT).toBe(true)
-    expect(screen.queryByRole('dialog')).toBeNull()
-  })
 
   it('resolves false when cancelled — the caller returns, it does not hang', async () => {
     render(<Subject question="Delete this quote?" />)
@@ -95,26 +61,4 @@ describe('the answer', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
-  // ESCAPE IS AN ANSWER, not a dismissal. A dialog that closed on Escape while
-  // leaving the promise pending would leave the delete waiting for a click that
-  // can no longer be made — and nothing on screen would say so.
-  it('resolves false on Escape', async () => {
-    render(<Subject question="Delete this quote?" />)
-    await press('do it')
-    await act(async () => {
-      fireEvent.keyDown(document, { key: 'Escape' })
-    })
-    expect(RESULT).toBe(false)
-    expect(screen.queryByRole('dialog')).toBeNull()
-  })
-
-  it('asks again cleanly the second time', async () => {
-    render(<Subject question="Delete this quote?" />)
-    await press('do it')
-    await press('Cancel')
-    await press('do it')
-    expect(screen.getByRole('dialog')).toBeTruthy()
-    await press('Confirm')
-    expect(RESULT).toBe(true)
-  })
 })

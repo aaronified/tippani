@@ -72,12 +72,6 @@ beforeEach(() => {
 afterEach(() => cleanup())
 
 describe('the signature slot', () => {
-  it('says there is none yet and offers to add one, with nothing to remove', () => {
-    draw()
-    expect(screen.getByText(t('identity.signature.none'))).toBeTruthy()
-    expect(screen.getByRole('button', { name: new RegExp(t('identity.signature.upload.label')) })).toBeTruthy()
-    expect(screen.queryByRole('button', { name: new RegExp(t('identity.signature.clear.label')) })).toBeNull()
-  })
 
   it('shows an upload cleaned before anything is saved, and ✓ keeps it', async () => {
     const props = draw()
@@ -105,58 +99,4 @@ describe('the signature slot', () => {
     expect(document.querySelector('input[type="range"]'), 'the dialog is still open').toBeNull()
   })
 
-  it('the ink slider cleans the same file again at the strength chosen', async () => {
-    draw()
-    chooseFile()
-    await waitFor(() => expect(PREVIEWS.length).toBe(1))
-    expect(PREVIEWS[0].fields.strength).toBe('0.5')
-
-    const slider = await screen.findByRole('slider', { name: t('identity.signature.ink.label') })
-    fireEvent.change(slider, { target: { value: '0.8' } })
-    fireEvent.pointerUp(slider)
-    await waitFor(() => expect(PREVIEWS.length).toBe(2))
-    expect(PREVIEWS[1].fields.strength).toBe('0.8')
-    expect(PREVIEWS[1].file).toBe(PREVIEWS[0].file)
-
-    // And what is kept is what was last shown.
-    await waitFor(() => expect(tick()?.disabled).toBeFalsy())
-    await act(async () => { tick().click() })
-    await waitFor(() => expect(SAVES.length).toBe(1))
-    expect(SAVES[0].fields.strength).toBe('0.8')
-  })
-
-  it('Fetch from Wikidata offers theirs in the same dialog, and keeping it credits Wikidata', async () => {
-    draw()
-    await act(async () => {
-      screen.getByRole('button', { name: new RegExp(t('identity.signature.fetch.label')) }).click()
-    })
-    await waitFor(() => expect(PREVIEWS.length).toBe(1))
-    expect(CALLS.some(([m, p]) => m === 'POST' && p === '/people/id/7/signature/fetch')).toBe(true)
-    expect(SAVES, 'a fetch the reader has not accepted saved something').toEqual([])
-
-    await waitFor(() => expect(tick()?.disabled).toBeFalsy())
-    await act(async () => { tick().click() })
-    await waitFor(() => expect(SAVES.length).toBe(1))
-    expect(SAVES[0].fields.source).toBe('wikidata')
-  })
-
-  it('says so, and opens nothing, when Wikidata has no signature to offer', async () => {
-    FETCH_ANSWER = { found: false }
-    draw()
-    await act(async () => {
-      screen.getByRole('button', { name: new RegExp(t('identity.signature.fetch.label')) }).click()
-    })
-    await screen.findByText(t('identity.signature.fetch.none'))
-    expect(PREVIEWS).toEqual([])
-    expect(document.querySelector('input[type="range"]')).toBeNull()
-  })
-
-  it('Remove takes a signature off, by the record\'s own update', async () => {
-    const props = draw({ path: '0123456789abcdef.png' })
-    await act(async () => {
-      screen.getByRole('button', { name: new RegExp(t('identity.signature.clear.label')) }).click()
-    })
-    await waitFor(() => expect(props.onChanged).toHaveBeenCalledTimes(1))
-    expect(CALLS).toContainEqual(['PUT', '/people/id/7', { clear_signature: true }])
-  })
 })

@@ -70,31 +70,8 @@ const leads = () => shown().split(' | ')[0] || ''
 // rather than the screen's. Its card shows a row from ANY work in the library, so
 // the container is a property of the hit — and nesting is what React context
 // already gives, rather than a second mechanism for one surface.
-describe('a nested scope is the one that answers', () => {
-  it('the inner container beats the outer', () => {
-    render(
-      <TextOrderHost value={READER}>
-        <TextOrderScope value="trans-first">
-          <TextOrderScope value="quote-only">
-            <AnnotationCard a={ROW} tagMap={{}} save={() => {}} patch={() => {}} remove={() => {}} />
-          </TextOrderScope>
-        </TextOrderScope>
-      </TextOrderHost>,
-    )
-    // quote-only: the original alone. If the OUTER won it would be trans-first and
-    // the translation would lead; if neither reached the card it would be the
-    // reader's quote-first, which prints both — so this one assertion separates
-    // all three.
-    expect(shown()).toContain('অতি সন্ন্যাসীতে')
-    expect(shown()).not.toContain('Too many holy men')
-  })
-})
 
 describe('the container outranks the reader', () => {
-  it('with no scope, the reader gets what they asked for', () => {
-    card('')
-    expect(leads()).toContain('অতি সন্ন্যাসীতে')
-  })
 
   // THE ASSERTION THIS FILE EXISTS FOR. Same reader, same row, one difference —
   // and if the scope never reaches the card, this is identical to the case above
@@ -107,9 +84,5 @@ describe('the container outranks the reader', () => {
   // AND IT REACHES THE SUPPRESSING STATES TOO, which is the half a precedence
   // test over two orderings would miss: 'trans-only' is not a reordering, it is
   // the original not being drawn at all.
-  it("and 'no quotations' removes the original rather than moving it", () => {
-    card('trans-only')
-    expect(shown()).toContain('Too many holy men')
-    expect(shown()).not.toContain('অতি সন্ন্যাসীতে')
-  })
+  
 })

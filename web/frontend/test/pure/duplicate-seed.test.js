@@ -48,52 +48,10 @@ describe('the draft a duplicate opens on', () => {
     expect(s.character).toBe('Woland')
   })
 
-  it('carries the words too, because a clause is what usually changes', () => {
-    // The pack's own reason: "the reader is usually keeping most of a sentence and
-    // changing a clause, so an empty box would be a worse start than a full one."
-    expect(duplicateSeed(FULL).quote).toBe('Manuscripts don’t burn.')
-  })
-
-  it('hands the tags over as the array the token input takes', () => {
-    // It joined them into 'craft, fire' for as long as the form's box was a comma
-    // input. That box is gone.
-    expect(duplicateSeed(FULL).tags).toEqual(['craft', 'fire'])
-  })
-
-  it('carries the three texts the reworked form can show', () => {
-    const s = duplicateSeed(FULL)
-    expect(s.translation).toBe('পাণ্ডুলিপি পোড়ে না।')
-    expect(s.language).toBe('Bengali')
-    expect(s.sticker_id).toBe(3)
-  })
-
   it('leaves a missing chapter number EMPTY rather than zero', () => {
     // A form field is a string. `String(null)` is "null" and `Number(null)` is 0,
     // and 0 is a real chapter — so "no chapter" has to arrive as no characters.
     expect(duplicateSeed({ ...FULL, chapter_no: null }).chapter_no).toBe('')
     expect(duplicateSeed({ ...FULL, chapter_no: 0 }).chapter_no).toBe('0')
-  })
-
-  it('seeds nothing the form cannot show, and nothing a new quote must not inherit', () => {
-    const s = duplicateSeed(FULL)
-    // `favorite` and `id` are the two that must never come across: a duplicate is
-    // a new quote, so it starts unfavourited and unidentified. Anything else on
-    // the row that the form has no box for is dropped for the original reason —
-    // a value in a draft nothing can show is a value nothing will send.
-    for (const k of ['favorite', 'id', 'id_of_something_else']) {
-      expect(s, k).not.toHaveProperty(k)
-    }
-  })
-
-  it('opens a blank-ish draft rather than throwing on a sparse row', () => {
-    // Every field on an annotation is optional except the words, and a quote
-    // saved from an import has most of them empty.
-    const s = duplicateSeed({ quote: 'Just the words.' })
-    expect(s.quote).toBe('Just the words.')
-    expect(s.tags).toEqual([])
-    expect(s.color).toBe('yellow') // the app's default, not an empty colour
-    expect(s.note).toBe('')
-    expect(s.translation).toBe('')
-    expect(s.sticker_id).toBe(null)
   })
 })

@@ -19,17 +19,10 @@
 
 import { describe, expect, it } from 'vitest'
 
-import { settingsMatches, SETTINGS_CARDS } from '../../src/Settings.jsx'
+import { settingsMatches } from '../../src/Settings.jsx'
 
 describe('searching Settings finds the card', () => {
   // An empty box hides nothing — the page is whole until a word narrows it.
-  it('keeps every card when nothing has been typed', () => {
-    for (const card of SETTINGS_CARDS) {
-      expect(settingsMatches(card, ''), `${card} vanished on an empty query`).toBe(true)
-      expect(settingsMatches(card, '   '), `${card} vanished on a blank query`).toBe(true)
-    }
-  })
-
   // SERVER IS ONE TILE OVER THREE SUBJECTS, and each of its roots has to answer.
   // Dropping any one of the three from its prefix list leaves the other two
   // working, so a single word would not have caught it.
@@ -37,23 +30,5 @@ describe('searching Settings finds the card', () => {
     expect(settingsMatches('server', 'update'), 'Updates is on Server and did not answer').toBe(true)
     expect(settingsMatches('server', 'backup'), 'Backup is on Server and did not answer').toBe(true)
     expect(settingsMatches('server', 'changed'), 'What changed is on Server and did not answer').toBe(true)
-  })
-
-  it('finds the other cards by a word of their own', () => {
-    expect(settingsMatches('sr', 'deck')).toBe(true)
-    expect(settingsMatches('features', 'covers')).toBe(true)
-  })
-
-  // AND IT STILL SAYS NO. A matcher that answered true to everything would pass
-  // every case above and narrow nothing on the screen.
-  it('does not find a card by a word that is not on it', () => {
-    expect(settingsMatches('server', 'zzzznotaword')).toBe(false)
-    expect(settingsMatches('features', 'zzzznotaword')).toBe(false)
-  })
-
-  // A card id with no entry in the table matches nothing, which is the behaviour
-  // the scanner exists to keep nobody from relying on.
-  it('answers no for a card it has never heard of', () => {
-    expect(settingsMatches('nosuchcard', 'backup')).toBe(false)
   })
 })

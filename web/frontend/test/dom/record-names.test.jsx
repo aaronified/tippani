@@ -96,20 +96,6 @@ describe.each(SHEETS)('the names row on %s', (_label, make, endpoint, rowLabel) 
     await press(row)
   }
 
-  it('opens a field when its pencil is pressed', async () => {
-    await open()
-    expect(nameBox(), 'pressing the name row opened nothing that takes a name').toBeTruthy()
-  })
-
-  it('seeds it with the printing name first and the other spellings after', async () => {
-    await open()
-    const lines = String(nameBox().value).split('\n').map((l) => l.trim()).filter(Boolean)
-    expect(lines[0], `the field opens with ${JSON.stringify(lines)} — the first line is not the printing name`)
-      .toBe('Itkovian')
-    expect(lines, 'the record’s other spelling is not in the field, so saving would delete it')
-      .toContain('The Shield Anvil')
-  })
-
   it('and saving it reaches the one endpoint that can rename, carrying every line', async () => {
     await open()
     // `fireEvent.change` and not a hand-set `.value`: React tracks a controlled

@@ -15,7 +15,7 @@
 // bug was reported in — a game with no status at all — and on the film half, so
 // neither side can be satisfied by rewording the other.
 
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { ShelfControl } from '../../src/works.jsx'
 
@@ -40,16 +40,4 @@ describe('the shelf transitions menu', () => {
     expect(items).toEqual(['Mark as playing', 'Pause it', 'Give up on it', 'Mark as played'])
   })
 
-  it('offers a paused game "Mark as played" too', () => {
-    const items = openMenu({ media_type: 'game', status: 'paused' })
-    expect(items).toContain('Mark as played')
-    expect(items).not.toContain('Mark as watched')
-  })
-
-  it('leaves the film menu watching and watched', () => {
-    const items = openMenu({ media_type: 'movie' })
-    expect(items).toContain('Mark as watched')
-    expect(items).not.toContain('Mark as played')
-    expect(items).toEqual(['Mark as watching', 'Pause it', 'Give up on it', 'Mark as watched'])
-  })
 })

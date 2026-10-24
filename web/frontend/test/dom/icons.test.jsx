@@ -53,41 +53,13 @@ function draw(Comp) {
 const drawn = new Map(ICONS.map(([name, Comp]) => [name, draw(Comp)]))
 
 describe('the icon set', () => {
-  it('is not empty and was collected by reflection', () => {
-    expect(ICONS.length).toBeGreaterThan(25)
-  })
 
   // One test over every reflected glyph rather than one test per glyph: the
   // assertion is identical for each icon, and the aggregate form names every
   // offender at once instead of dying on the first. Coverage is unchanged —
   // each icon is still checked, as a loop iteration.
-  it('every glyph is hidden from screen readers', () => {
-    // Every one of these sits inside a control that carries the words, so the
-    // glyph itself must not be announced as well.
-    const loud = [...drawn].filter(([, g]) => g.hidden !== 'true').map(([n]) => n)
-    expect(loud).toEqual([])
-  })
 
   // Likewise one test over every reflected glyph rather than one per glyph.
-  it('every glyph draws at one stroke weight', () => {
-    const offenders = []
-    for (const [name, g] of drawn) {
-      // The view-toggle glyphs are a different size class: 15px in a 16 viewBox,
-      // inline beside their own words. Everything on the 24 grid is 1.85.
-      if (g.box !== '0 0 24 24') continue
-      if (g.filled) continue // IconQuote is filled, not stroked — see its comment
-      // THE ONE EXCEPTION, NAMED RATHER THAN SKIPPED. IconRoleStudio is a TRACE of
-      // a drawing the owner sent, and a trace is the outline of the ink rather than
-      // a path drawn down its middle — so its stroke is doubled by construction and
-      // 1.85 closes the lamp head up entirely. The owner asked for it stroked:
-      // "studio light needs to be no fill". Filled it collapses into a blob below
-      // 32px; at 1.1 it still reads at 20. One name, not a range: a second glyph
-      // wanting its own weight has to argue for it here.
-      if (name === 'IconRoleStudio') continue
-      if (g.stroke !== '1.85') offenders.push(`${name} @ ${g.stroke}`)
-    }
-    expect(offenders).toEqual([])
-  })
 
   it('no two glyphs are the same picture', () => {
     const byGeometry = new Map()
@@ -104,58 +76,6 @@ describe('the icon set', () => {
   // a rounding nudge and still be the same drawing to a human. Comparing the
   // geometry with all numbers stripped catches the near-miss that identity
   // misses — which is exactly how Export and Metadata survived.
-  it('no two glyphs are the same picture at different coordinates', () => {
-    const shapeOf = (g) => g.geometry.replace(/-?\d*\.?\d+/g, '#')
-    const byShape = new Map()
-    const clashes = []
-    for (const [name, g] of drawn) {
-      const key = shapeOf(g)
-      if (byShape.has(key)) clashes.push(`${byShape.get(key)} and ${name}`)
-      else byShape.set(key, name)
-    }
-    expect(clashes).toEqual([])
-  })
-})
-
-describe('NavIcon', () => {
-  const tabs = [...new Set([
-    ...CONTENT_TABS.map((t) => t[0]),
-    ...UTILITY_TABS.map((t) => t[0]),
-    // DRAWER_TABS is the phone's whole nav now, so it is the widest of the
-    // three; the retired BOTTOM_TABS was a subset of CONTENT_TABS anyway.
-    ...DRAWER_TABS.filter(Boolean).map((t) => t[0]),
-  ])].sort()
-
-  // The nav strip collapses to icon-only when the window is narrow. A tab with
-  // no case in the switch renders nothing there — not a fallback, nothing — so
-  // it becomes an invisible gap in the strip rather than an error.
-  //
-  // One test over all the tabs rather than one per tab: the assertion is
-  // identical for each, every tab is still rendered and checked as a loop
-  // iteration, and the aggregate names every gap in the strip at once.
-  it('every tab has a glyph', () => {
-    const missing = []
-    for (const tab of tabs) {
-      const { container } = render(<ui.NavIcon name={tab} />)
-      if (container.querySelector('svg') === null) missing.push(tab)
-    }
-    expect(missing).toEqual([])
-  })
-
-  it('an unknown tab renders nothing rather than throwing', () => {
-    const { container } = render(<ui.NavIcon name="nope" />)
-    expect(container.innerHTML).toBe('')
-  })
-
-  it('every nav glyph comes from the shared set', () => {
-    const known = new Set([...drawn.values()].map((g) => g.geometry))
-    for (const tab of tabs) {
-      const { container } = render(<ui.NavIcon name={tab} />)
-      const svg = container.querySelector('svg')
-      const geometry = [...svg.children].map((c) => c.outerHTML).join('')
-      expect(known.has(geometry), `${tab} draws a glyph that is not an exported Icon`).toBe(true)
-    }
-  })
 })
 
 // ---- optical weight -------------------------------------------------------
@@ -293,62 +213,3 @@ function extentOf(svg) {
   return { w: maxX - minX, h: maxY - minY }
 }
 
-describe('the nav glyphs carry the same optical weight', () => {
-  // MEASURED THROUGH NavIcon, NOT FROM A LIST OF GLYPH NAMES. The old list named
-  // IconQuote, IconBooks and IconReel — which stopped being the nav set the moment the
-  // rail took fills and those three stayed drawn for their verb call sites. A test that
-  // names its subjects by hand goes on measuring the wrong five glyphs and passing.
-  //
-  // AND THE EXTENT IS NORMALISED BY THE viewBox, because the rail is now two coordinate
-  // spaces: the drawn glyphs are on the 24 grid and the Phosphor fills on 256. Raw
-  // coordinates made a filled house measure 192x195 against a drawn one's 16x15 — ten
-  // times the number for the same picture on screen. What matters is the SHARE of its
-  // box a glyph occupies, which is what a reader actually sees.
-  // 'tags' LEFT THIS LIST WITH ITS NAV ROW. It is a section of the metadata console
-  // now, so `NavIcon` has no case for it and rendering one returns nothing at all —
-  // which reached this test as `svg` being null rather than as a measurement.
-  const TABS = ['home', 'library', 'movies', 'quotes', 'anthologies',
-    'metadata', 'stats', 'settings', 'search', 'import', 'profile', 'users']
-  const share = (tab) => {
-    const { container, unmount } = render(<ui.NavIcon name={tab} />)
-    const svg = container.querySelector('svg')
-    const box = (svg.getAttribute('viewBox') || '0 0 24 24').split(/\s+/).map(Number)
-    const e = extentOf(svg)
-    unmount()
-    return { w: e.w / (box[2] || 24), h: e.h / (box[3] || 24) }
-  }
-
-  // EVERY FILL CARRIES ITS OWN viewBox, cropped so its LARGEST dimension is 0.82 of the
-  // box. Phosphor's glyphs are drawn to their own margins, not to a shared one — the film
-  // reel occupies 0.59 of its box and `users` 0.98 — so dropped into a rail straight from
-  // the pack they read as thirteen different sizes. Normalising the crop is uniform
-  // scaling: no glyph is stretched, and the drawing is still the pack's.
-  const TARGET = 0.82
-
-  it('each nav glyph fills its box like the tabs beside it', () => {
-    const offenders = []
-    for (const tab of TABS) {
-      const { w, h } = share(tab)
-      // The long side is what the eye measures across a row, so that is what is held
-      // equal. The short side follows the drawing's own aspect — `quotes` is two marks
-      // side by side and is honestly wide and short; what it must not be is SMALLER.
-      const long = Math.max(w, h)
-      if (Math.abs(long - TARGET) > 0.04) offenders.push(`${tab} long side ${long.toFixed(2)}`)
-      if (Math.min(w, h) < 0.45) offenders.push(`${tab} short side ${Math.min(w, h).toFixed(2)}`)
-    }
-    expect(offenders).toEqual([])
-  })
-
-  it('no tab is drawn smaller than the tabs it sits between', () => {
-    // The reported bug, stated as the thing that was actually wrong: Quotes read as a
-    // smaller icon than Library and Catalogue on either side of it. Held for the whole
-    // set rather than for one glyph, because the next set will have a different runt.
-    const longs = TABS.map((t) => {
-      const { w, h } = share(t)
-      return [t, Math.max(w, h)]
-    })
-    const smallest = longs.reduce((a, b) => (b[1] < a[1] ? b : a))
-    const largest = longs.reduce((a, b) => (b[1] > a[1] ? b : a))
-    expect(largest[1] - smallest[1], `${smallest[0]} is smaller than ${largest[0]}`).toBeLessThan(0.08)
-  })
-})

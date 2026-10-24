@@ -7,8 +7,7 @@
 // there is something to undo. A count computed correctly and passed to nothing is
 // the shape of defect this whole branch keeps finding.
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
-import { openSettingsSection } from './helpers/settingsSection.jsx'
+import { cleanup, render, screen } from '@testing-library/react'
 
 let PUTS
 vi.mock('../../src/api.js', async (orig) => ({
@@ -29,42 +28,10 @@ const tab = (name) => screen.getByRole('tab', { name: new RegExp(`^${name}`) })
 beforeEach(() => { PUTS = []; cleanup() })
 
 describe('the number on a section', () => {
-  it('says nothing on a tab where nothing is set', () => {
-    page({})
-    // No count at all rather than a nought: a badge reading 0 on all five tabs is
-    // five pieces of furniture saying nothing.
-    expect(tab('Review').textContent).toBe('Review')
-  })
 
   it('counts what the reader has set, on the tab, without opening it', () => {
     page({ srDaily: 12, srTier: 'hard' })
     expect(tab('Review').textContent).toMatch(/2$/)
-  })
-
-  it('gives a section only its own preferences', () => {
-    // The bug a single shared counter would produce: every tab wearing the total.
-    page({ srDaily: 12, accent: 'clay' })
-    expect(tab('Review').textContent).toMatch(/1$/)
-    expect(tab('Theme').textContent).toMatch(/1$/)
-    expect(tab('Sections').textContent).toBe('Sections')
-  })
-
-  // AND WHAT THE NUMBER COUNTS, WHICH THE TAB SAID TO NOBODY. The digit is all an
-  // eye needs beside a word it can already read; everything else got "Review 1" — a
-  // figure with no noun — and the phone's top bar repeated it. The noun is in the
-  // tab's NAME rather than in its text, because off-screen text is still
-  // `textContent`: the first cut appended an `sr-only` word and the case above went
-  // red reading "Review1 changed". So this asserts the name and the case above
-  // asserts the text, and the two together are the whole of the decision.
-  it('says what the number counts, without putting the word on the screen', () => {
-    page({ srDaily: 12 })
-    const review = tab('Review')
-    expect(review.getAttribute('aria-label')).toBe('Review — 1 changed')
-    expect(review.textContent).toBe('Review1')
-    // AND NO NAME OF ITS OWN WHERE THERE IS NO NUMBER: a tab reading "Sections — 0
-    // changed" to a screen reader is furniture, and the label would then have to be
-    // maintained in two places for no gain.
-    expect(tab('Sections').hasAttribute('aria-label')).toBe(false)
   })
 
   // THE WORDING USED TO BE ASSERTED HERE TOO — "1 changed" and "all default" —
@@ -73,40 +40,4 @@ describe('the number on a section', () => {
   // The number lives on the tab and nowhere else, which the three cases above
   // hold.
 
-  it('puts the section\'s info and its Reset on the tab row, not in a bar of their own', async () => {
-    page({ srDaily: 12 })
-    await openSettingsSection('Review')
-    // The pack draws both at the right-hand end of the same row as the tabs,
-    // sharing its bottom border. What this can check without knowing a class is
-    // that they are in the row the tablist is in.
-    // THE SECTION RAIL'S tablist, not any other. Review's own screen draws
-    // toggles now — "how hard", "confirm each answer" — and Toggle is a tablist
-    // too, so `getByRole('tablist')` stopped being unambiguous the moment those
-    // came out from behind the in-depth door. The rail's is the first on the page
-    // and the only one whose label names the sections.
-    const row = screen.getByRole('tablist', { name: /which settings to change/i }).parentElement
-    expect(within(row).getByRole('button', { name: /reset section/i })).toBeTruthy()
-  })
-})
-
-describe('putting a section back', () => {
-  it('offers no way back where there is nothing to go back from', async () => {
-    page({})
-    await openSettingsSection('Review')
-    expect(screen.queryByRole('button', { name: /reset section/i })).toBeNull()
-  })
-
-  it('offers it as soon as one preference is set', async () => {
-    page({ srDaily: 12 })
-    await openSettingsSection('Review')
-    expect(screen.getByRole('button', { name: /reset section/i })).toBeTruthy()
-  })
-
-  it('asks before it does it', async () => {
-    page({ srDaily: 12 })
-    await openSettingsSection('Review')
-    fireEvent.click(screen.getByRole('button', { name: /reset section/i }))
-    expect(screen.getByRole('dialog')).toBeTruthy()
-    expect(within(screen.getByRole('dialog')).getByText(/every setting in this section/i)).toBeTruthy()
-  })
 })

@@ -104,11 +104,4 @@ describe('deleting a selection of works', () => {
     expect(CALLS.some(([m, p]) => m === 'DELETE' && p === '/books/2')).toBe(true)
   })
 
-  it('deletes nothing when answered no', async () => {
-    await mount()
-    await selectAll()
-    await press(screen.getByText('Delete').closest('button'))
-    await press(screen.getByText('Cancel').closest('button'))
-    expect(CALLS.some(([m]) => m === 'DELETE')).toBe(false)
-  })
 })

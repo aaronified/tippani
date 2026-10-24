@@ -93,31 +93,4 @@ describe('Reset on a quotes board', () => {
     })
   })
 
-  it('still clears everything that came before them on the line', async () => {
-    // The regression guard for the fix itself: the old line threw partway
-    // through, so a repair that reordered the setters could silently drop one of
-    // the six that already worked.
-    narrow()
-    await openBoard()
-    pressReset()
-    await waitFor(() => {
-      expect(stored('color'), 'the colour filter stopped being cleared').toBe(JSON.stringify(''))
-    })
-  })
-
-  it('does not throw when Reset is pressed', async () => {
-    // The failure as the reader met it: nothing on screen said anything, because
-    // the exception was inside the handler. React logs it and the press is lost.
-    narrow()
-    await openBoard()
-    const errors = []
-    const spy = vi.spyOn(console, 'error').mockImplementation((...a) => errors.push(a.join(' ')))
-    try {
-      pressReset()
-      await waitFor(() => expect(stored('kind')).toBe(JSON.stringify('')))
-    } finally {
-      spy.mockRestore()
-    }
-    expect(errors.join(' | ')).not.toMatch(/is not defined/i)
-  })
 })

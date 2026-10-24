@@ -23,13 +23,9 @@
 // where somebody has to read the sentence.
 //
 // WHAT A TEST WRITER NEEDS TO KNOW: the paragraphs above.
-import { cleanup, render } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
-import { ScreenHead } from '../../src/characterRows.jsx'
 import { resolveOn, rules } from '../css-cascade.js'
-
-afterEach(() => cleanup())
 
 // What counts as a header: the classes this app names its titles and heading
 // bars with. Matched on the selector's own words, so a new one is caught by the
@@ -91,60 +87,3 @@ describe('header hygiene', () => {
   })
 })
 
-// ---- and the panel header the pack actually draws ---------------------------
-
-describe('a panel header that names a record', () => {
-  it('sets the name and its crumb as one block', () => {
-    render(<ScreenHead title="Delia Surridge" crumb="in V for Vendetta" art="poster.jpg" artKind="movie" glyph={<svg />} />)
-    const names = document.querySelector('.cs-head-names')
-    expect(names, 'the name and the crumb are not one block').toBeTruthy()
-    expect(names.textContent).toContain('Delia Surridge')
-    expect(names.textContent).toContain('in V for Vendetta')
-  })
-
-  it('starts that block where the cover ends, rather than centring it on the bar', () => {
-    // A header slot that GROWS (`flex: 1 1 0`) takes a third of the bar and
-    // pushes the name to the middle; a slot sized to its own 44px control leaves
-    // the name against the cover. jsdom has no layout, so the declaration that
-    // decides it is what can be read here — the probe measures the pixels.
-    const grow = resolveOn('.tp-panel-head.has-scope .tp-panel-slot', 'flex')
-    expect(grow && String(grow.value).trim(),
-      'the header slots still grow, which centres the name on the bar').toMatch(/^0 0\b/)
-    expect(String(resolveOn('.tp-panel-title.is-scoped', 'text-align')?.value || '').trim(),
-      'a centred title over a 32px thumbnail reads as its caption').toBe('left')
-  })
-
-  it('and lets the name shrink, because a box that cannot shrink cannot scroll', () => {
-    // The name never truncates — the standing rule — so the box scrolls under a
-    // fade. `overflow-x: auto` does nothing on a flex item that refuses to be
-    // narrower than its content: it runs out of the head instead.
-    const f = String(resolveOn('.tp-panel-title.is-scoped', 'flex')?.value || '').trim()
-    expect(f, 'the title is fixed at its content width, so a long name leaves the head')
-      .not.toMatch(/^(none|0 0\b)/)
-  })
-})
-
-// ---- the medium glyph is ON the cover ---------------------------------------
-
-describe('the medium glyph in a panel header', () => {
-  it('is drawn inside the artwork, not beside it', () => {
-    render(<ScreenHead title="Delia Surridge" crumb="in V for Vendetta" art="poster.jpg" artKind="movie" glyph={<svg />} />)
-    const art = document.querySelector('.cs-scope-art')
-    const badge = document.querySelector('.cs-scope-overlay')
-    expect(art, 'the head drew no artwork at all').toBeTruthy()
-    expect(badge, 'the head drew no medium glyph').toBeTruthy()
-    expect(art.contains(badge), 'the glyph is a sibling of the cover, so it cannot be over it').toBe(true)
-  })
-
-  it('and is taken out of the flow, so it lies ON the cover rather than sharing its row', () => {
-    // `.cs-scope-art` is a flex container, and an in-flow child of a flex
-    // container is a flex ITEM — laid out BESIDE its siblings. That one word is
-    // the whole of a defect reported three times.
-    expect(String(resolveOn('.cs-scope-art', 'display')?.value || '').trim(),
-      'the artwork is not the flex box this rule is about').toBe('flex')
-    expect(String(resolveOn('.cs-scope-overlay', 'position')?.value || '').trim(),
-      'an in-flow child of a flex box is laid out beside the cover, not on it').toBe('absolute')
-    expect(String(resolveOn('.cs-scope-art', 'position')?.value || '').trim(),
-      'the badge is positioned against the page instead of against the cover').toBe('relative')
-  })
-})

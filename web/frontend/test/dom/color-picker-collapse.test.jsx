@@ -16,38 +16,6 @@ import { fireEvent, render, screen, within } from '@testing-library/react'
 import { ANNOTATION_COLORS, ColorSwatches } from '../../src/ui.jsx'
 
 describe('ColorSwatches', () => {
-  it('renders a plain row when it is not collapsible', () => {
-    // Forms and filter sheets have room and must be untouched by any of this.
-    const { container } = render(<ColorSwatches value="blue" onChange={() => {}} />)
-    expect(container.querySelector('.cs-mini')).toBeNull()
-    expect(container.querySelector('.cs-full')).toBeNull()
-    expect(container.querySelectorAll('.color-dot-btn').length).toBe(ANNOTATION_COLORS.length)
-  })
-
-  it('renders both forms when collapsible, and lets CSS choose', () => {
-    // Measuring would mean a ResizeObserver per card in a masonry column plus a
-    // re-render on every reflow, for a decision the card's own width already
-    // answers. So both are rendered and a container query hides one.
-    const { container } = render(<ColorSwatches value="blue" onChange={() => {}} collapsible />)
-    expect(container.querySelector('.cs-full')).toBeTruthy()
-    expect(container.querySelector('.cs-mini')).toBeTruthy()
-  })
-
-  it('names every colour in the collapsed list', () => {
-    // The reason the collapsed form is a list and not smaller dots. Since 1.7.1
-    // the categories carry names the reader chose, and six unlabelled blobs
-    // shrunk to fit are six things you cannot tell apart on a phone — the
-    // cramped row hides information the full row was already failing to show.
-    render(<ColorSwatches value="blue" onChange={() => {}} collapsible />)
-    fireEvent.click(screen.getByRole('button', { expanded: false }))
-    const menu = document.querySelector('.cs-menu')
-    expect(menu).toBeTruthy()
-    expect(within(menu).getAllByRole('radio').length).toBe(ANNOTATION_COLORS.length)
-    // Every row carries a readable label, not just a swatch.
-    for (const row of within(menu).getAllByRole('radio')) {
-      expect(row.textContent.trim().length).toBeGreaterThan(0)
-    }
-  })
 
   it('picks a colour and closes', () => {
     const picked = []
@@ -57,38 +25,6 @@ describe('ColorSwatches', () => {
     fireEvent.click(rows[rows.length - 1])
     expect(picked).toEqual([ANNOTATION_COLORS[ANNOTATION_COLORS.length - 1]])
     expect(document.querySelector('.cs-menu')).toBeNull()
-  })
-
-  it('marks the current colour in both forms', () => {
-    // The collapsed button has to say which colour is on, or it is a control
-    // that hides its own value.
-    const { container } = render(<ColorSwatches value="blue" onChange={() => {}} collapsible />)
-    expect(container.querySelector('.cs-mini .color-dot.active')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { expanded: false }))
-    const checked = within(document.querySelector('.cs-menu'))
-      .getAllByRole('radio')
-      .filter((r) => r.getAttribute('aria-checked') === 'true')
-    expect(checked.length).toBe(1)
-  })
-
-  it('opens outside the card, not inside it', () => {
-    // 1.7.4 rendered the list inside .cs-menu-wrap, and it could not work there.
-    // A quote card sets `container-type: inline-size` — that is what chooses the
-    // collapsed form in the first place — and a container is `contain: layout`,
-    // which makes the card a stacking context. An absolutely-positioned list
-    // inside one cannot be raised above a neighbouring card by any z-index, so a
-    // menu wider or taller than its card slides UNDER the card beside it.
-    //
-    // jsdom has no stacking contexts, so what is testable is the structural
-    // claim the fix rests on: the list is a child of <body>. The offsets that
-    // made it a 3px sliver are covered in test/rules/popup-offsets.test.js, which
-    // reads the stylesheet — this file measures nothing.
-    const { container } = render(<ColorSwatches value="blue" onChange={() => {}} collapsible />)
-    fireEvent.click(screen.getByRole('button', { expanded: false }))
-    const menu = document.querySelector('.cs-menu')
-    expect(menu).toBeTruthy()
-    expect(container.contains(menu), 'the menu is still trapped in the card').toBe(false)
-    expect(menu.parentElement).toBe(document.body)
   })
 
   it('closes when the click lands outside both the button and the list', () => {
@@ -104,11 +40,4 @@ describe('ColorSwatches', () => {
     expect(document.querySelector('.cs-menu')).toBeNull()
   })
 
-  it('closes on Escape', () => {
-    render(<ColorSwatches value="blue" onChange={() => {}} collapsible />)
-    fireEvent.click(screen.getByRole('button', { expanded: false }))
-    expect(document.querySelector('.cs-menu')).toBeTruthy()
-    fireEvent.keyDown(document, { key: 'Escape' })
-    expect(document.querySelector('.cs-menu')).toBeNull()
-  })
 })

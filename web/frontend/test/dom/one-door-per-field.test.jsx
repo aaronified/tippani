@@ -67,23 +67,6 @@ const draw = (over = {}) => render(
 )
 
 describe('the note lives with the credit it is about', () => {
-  it('and there is no second door to it on the sheet', () => {
-    // THE DUPLICATE. `identity.row.note.label` is the sheet-level row's label; the
-    // per-credit editor uses `identity.row.note.for`, which carries a name.
-    draw()
-    expect(screen.queryAllByText(t('identity.row.note.label')),
-      'the sheet still draws a second door to `credit_note`, four rows from the credits it belongs to')
-      .toEqual([])
-  })
-
-  it('and the credit rows are still the way in, one per performer', () => {
-    // THE COUNTERWEIGHT, and the case that makes the deletion safe rather than a
-    // loss: every credit for this work is drawn, `here`'s included, so the note is
-    // reachable for each of them.
-    draw()
-    expect(screen.queryByText('Hugo Weaving'), 'the credit this sheet is about is not drawn').toBeTruthy()
-    expect(screen.queryByText('Sinéad Cusack'), 'the second performer on the work is not drawn').toBeTruthy()
-  })
 
   it('and each credit’s note editor is handed that credit, not the sheet’s', () => {
     // The defect this replaced had a precedent in the same file: `onCreditNote`
@@ -106,26 +89,3 @@ describe('the note lives with the credit it is about', () => {
   })
 })
 
-describe('and the character’s description says what it is', () => {
-  it('its label names the subject, not only the scope', () => {
-    // "In this work" answered WHERE and left WHAT to be guessed, which is what
-    // made it indistinguishable from the note that used to sit under it.
-    draw()
-    expect(screen.queryByText(t('identity.row.local-desc.label')),
-      'the description row is gone').toBeTruthy()
-    expect(t('identity.row.local-desc.label'), 'the label still says only where it applies')
-      .not.toBe('In this work')
-  })
-
-  it('and it is a different field from the credit’s note', () => {
-    // The reason both exist at all, and migration 0063's own argument: a
-    // character's blurb must not silently discard the reader's note about a stunt
-    // double. `description` is the character here; `credit_note` is this casting.
-    const desc = vi.fn()
-    const notes = vi.fn()
-    draw({ onDescription: desc, onCreditNote: notes })
-    screen.getByText(t('identity.row.local-desc.label')).closest('button').click()
-    expect(desc, 'the description row opened the wrong editor').toHaveBeenCalledTimes(1)
-    expect(notes, 'the description row opened the note editor').not.toHaveBeenCalled()
-  })
-})

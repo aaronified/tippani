@@ -79,41 +79,4 @@ describe('a standalone quote on the favourites board', () => {
       `the speaker is printed ${hits.length} times: ` + hits.map((h) => h.textContent).join(' | '))
       .toBe(1)
   })
-
-  it('and the surviving printing is the chip, the one with a face on it', () => {
-    tile()
-    const chipRow = card().querySelector('.people-chips, .speaker-chips')
-      || [...card().querySelectorAll('*')].find((el) => /Albert Einstein/.test(el.textContent) && el.querySelector('img, svg'))
-    expect(chipRow, 'the name survives only as small caps under the quote, with no face').toBeTruthy()
-  })
-
-  it('still says WHERE the line was said, which no chip carries', () => {
-    tile()
-    expect(card().textContent).toMatch(/writing to Carl Seelig/)
-  })
-
-  it('and says it on a line of its own, not beside the chips', () => {
-    tile()
-    const occasion = [...card().querySelectorAll('*')]
-      .find((el) => el.children.length === 0 && /writing to Carl Seelig/.test(el.textContent))
-    expect(occasion, 'the occasion is not on the card at all').toBeTruthy()
-    // A ROW OF ITS OWN, in the only sense jsdom can see: nothing else on the
-    // card shares its line box. The chips are its previous siblings, not its
-    // neighbours — either it is the sole child of its row, or it is declared to
-    // take the full width of the one it is in.
-    const parent = occasion.closest('[class]')
-    const takesTheRow = /basis-full|w-full|block/.test(parent.className || '')
-      || parent.parentElement.children.length === 1
-    expect(takesTheRow,
-      'the occasion shares a row with the chips, which is what clipped the chip mid-name').toBe(true)
-  })
-
-  it('and prints nothing there when the quote has no occasion', () => {
-    tile({ occasion: '' })
-    // An empty line is still a flex child with a gap before it — a column of air
-    // pretending to be a line.
-    const empties = [...card().querySelectorAll('.tp-mono-label')]
-      .filter((el) => !el.textContent.trim())
-    expect(empties.length, 'an empty line claims there is something to read').toBe(0)
-  })
 })

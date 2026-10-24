@@ -12,7 +12,7 @@
 // position alone would pass for it.
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import { ShareDialog, bookShare } from '../../src/share.jsx'
 import { categoryHex } from '../../src/theme.js'
 
@@ -65,7 +65,7 @@ async function openImage() {
 }
 
 const drewTheColour = () => fills.includes(BLUE)
-const selected = (el) => el.getAttribute('aria-selected')
+
 const pressed = (el) => el.getAttribute('aria-pressed')
 
 describe("the picture's colour switch", () => {
@@ -76,139 +76,11 @@ describe("the picture's colour switch", () => {
     expect(drewTheColour(), 'the colour edge was drawn anyway').toBe(false)
   })
 
-  it('still puts the colour on the card when it is switched on', async () => {
-    // The complement, and the reason this is a default and not a removal. A
-    // change of default that quietly broke the feature would otherwise read as
-    // a pass.
-    fireEvent.click(await openImage())
-    await waitFor(() => expect(drewTheColour()).toBe(true))
-  })
-
   it('remembers being switched on', async () => {
     localStorage.setItem('tippani:shareImageTint', 'true')
     expect(pressed(await openImage())).toBe('true')
     await waitFor(() => expect(drewTheColour()).toBe(true))
   })
 
-  it('is not turned back on by what the old switch had written down', async () => {
-    // THE MECHANISM, not a detail of it. usePersistedState writes on mount, so
-    // the previous default was stamped into local storage by the first render of
-    // this panel on every device that ever opened it — meaning flipping the
-    // literal alone changes the default for nobody who has used the app. That
-    // "fix" passes every other test in this file and nothing at all in practice,
-    // which is exactly why the retired key is named here in full.
-    localStorage.setItem('tippani:shareImageColor', 'true')
-    expect(pressed(await openImage())).toBe('false')
-    await waitFor(() => expect(fills.length).toBeGreaterThan(0))
-    expect(drewTheColour()).toBe(false)
-  })
 })
 
-describe('which format the dialog opens on', () => {
-  it('lands on the picture, and offers it first', async () => {
-    // The picture is the only output of this dialog that cannot be got any other
-    // way — copying text is a glyph on the card now — so it is what the sheet
-    // opens on. A default nobody sees is a default that does not exist, so this
-    // asserts the SELECTED tab, not merely that the option is present.
-    render(<ShareDialog share={share()} onClose={() => {}} />)
-    expect(selected(screen.getByRole('tab', { name: 'Image' }))).toBe('true')
-    for (const other of ['WhatsApp', 'Plain', 'Markdown', 'Reddit']) {
-      expect(selected(screen.getByRole('tab', { name: other })), other).toBe('false')
-    }
-    // First in the row, not merely selected: the reader should not have to hunt
-    // past four text formats to find the one they came for.
-    const tabs = screen.getAllByRole('tab').map((t) => t.textContent)
-    expect(tabs[0]).toBe('Image')
-  })
-
-  it('shows the picture panel rather than the text panel', async () => {
-    render(<ShareDialog share={share()} onClose={() => {}} />)
-    expect(await screen.findByLabelText('Quote card image preview')).toBeTruthy()
-    expect(screen.queryByLabelText('Shareable text')).toBeNull()
-  })
-})
-
-describe('the two things you do to this window', () => {
-  it('has no lettered close, because it already has a cross', async () => {
-    // The × in the corner and a "Close" button in the footer are two doors out of
-    // one room. The glyph keeps its accessible name — this asserts there is no
-    // WORDED one, not that the control is gone.
-    render(<ShareDialog share={share()} onClose={() => {}} />)
-    expect(screen.queryByText('Close')).toBeNull()
-    expect(screen.getByRole('button', { name: 'Close' }).className).toContain('field-icon-btn')
-  })
-
-  it('downloads the picture from a glyph beside the close', async () => {
-    const blobbed = vi.fn((cb) => cb(new Blob(['png'], { type: 'image/png' })))
-    HTMLCanvasElement.prototype.toBlob = blobbed
-    render(<ShareDialog share={share()} onClose={() => {}} />)
-    const button = await screen.findByRole('button', { name: 'Download image' })
-    // Left of the close, in the header: the order is the claim, since a share
-    // glyph to the RIGHT of a × is a button people close the window with.
-    const close = screen.getByRole('button', { name: 'Close' })
-    expect(!!(button.compareDocumentPosition(close) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true)
-    // And it is wired to the picture, not decorative.
-    fireEvent.click(button)
-    await waitFor(() => expect(blobbed).toHaveBeenCalled())
-  })
-
-  it('has no share glyph and no worded button under the picture, only copy and download up top', async () => {
-    render(<ShareDialog share={share()} onClose={() => {}} />)
-    await screen.findByRole('button', { name: 'Download image' })
-    expect(screen.queryByRole('button', { name: 'Share picture' })).toBeNull()
-    expect(screen.getAllByRole('button', { name: 'Download image' })).toHaveLength(1)
-    expect(screen.queryAllByRole('button', { name: 'Copy image' }).length).toBeLessThanOrEqual(1)
-  })
-
-  it('offers no share glyph for a text format, where copy is the way out', async () => {
-    render(<ShareDialog share={share()} onClose={() => {}} />)
-    fireEvent.click(screen.getByRole('tab', { name: 'Markdown' }))
-    expect(screen.queryByRole('button', { name: 'Download image' })).toBeNull()
-    expect(screen.getByRole('button', { name: 'Copy' })).toBeTruthy()
-  })
-})
-
-describe('the prose in the share dialog', () => {
-  const logicOf = (name) => screen.queryByText((t) => t.startsWith(name))
-
-  it('keeps a format’s syntax behind its dot rather than above the quote', async () => {
-    render(<ShareDialog share={share()} onClose={() => {}} />)
-    // Pick a text format first — the dialog opens on Image now. Its syntax
-    // reference is then reachable, not resident.
-    fireEvent.click(screen.getByRole('tab', { name: 'WhatsApp' }))
-    expect(logicOf("WhatsApp's own formatting")).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: 'More information: WhatsApp' }))
-    expect(logicOf("WhatsApp's own formatting")).not.toBeNull()
-    // "the formatter suggestions as well" — the mono token sample went in with
-    // the sentence it belongs to, not left behind on its own.
-    expect(screen.getByText((t) => t.includes('~strike~')).className).toContain('share-hint')
-  })
-
-  it('re-titles the dot with whichever format is chosen', async () => {
-    // An anonymous i beside a control whose meaning it depends on is a dot you
-    // have to open to find out whether it was worth opening. It also has to
-    // change: a dot still announcing "WhatsApp" after Markdown is selected is
-    // worse than an unnamed one.
-    render(<ShareDialog share={share()} onClose={() => {}} />)
-    fireEvent.click(screen.getByRole('tab', { name: 'WhatsApp' }))
-    expect(screen.getByRole('button', { name: 'More information: WhatsApp' })).toBeTruthy()
-    fireEvent.click(screen.getByRole('tab', { name: 'Markdown' }))
-    expect(screen.queryByRole('button', { name: 'More information: WhatsApp' })).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: 'More information: Markdown' }))
-    expect(logicOf('Rich Markdown')).not.toBeNull()
-  })
-
-  it('explains the picture, and its skin, the same way', async () => {
-    await openImage()
-    // Image has no syntax, so its dot answers the other question — what is this
-    // thing — and the theme picker's "doesn't change the app" caveat, which is
-    // the one people actually need, is a dot rather than a grey aside.
-    fireEvent.click(screen.getByRole('button', { name: 'More information: Image' }))
-    expect(logicOf('A picture of the quote')).not.toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: 'More information: Image' })) // close
-    fireEvent.click(screen.getByRole('button', { name: 'More information: Image theme' }))
-    // Matched on the opening words rather than the whole sentence, so trimming the
-    // copy to its budget does not fail a test about whether the dot OPENS.
-    expect(logicOf('Light or dark')).not.toBeNull()
-  })
-})

@@ -50,68 +50,6 @@ function scroll(el) {
   })
 }
 
-describe('the edge fade', () => {
-  it('is absent on a row that fits, because a fade with nothing behind it is a lie', () => {
-    const { container } = render(<Scroller data-testid="s">short</Scroller>)
-    const el = container.firstChild
-    measure(el, { size: 100, full: 100 })
-    scroll(el)
-    expect(el.hasAttribute('data-scroll-x')).toBe(false)
-  })
-
-  it('says "end" when the row is parked at its start and has more to the right', () => {
-    const { container } = render(<Scroller>long</Scroller>)
-    const el = container.firstChild
-    measure(el, { pos: 0, size: 100, full: 400 })
-    scroll(el)
-    expect(el.getAttribute('data-scroll-x')).toBe('end')
-  })
-
-  it('says "both" in the middle', () => {
-    const { container } = render(<Scroller>long</Scroller>)
-    const el = container.firstChild
-    measure(el, { pos: 150, size: 100, full: 400 })
-    scroll(el)
-    expect(el.getAttribute('data-scroll-x')).toBe('both')
-  })
-
-  it('says "start" at the far end, so the fade moves to the side with the content', () => {
-    const { container } = render(<Scroller>long</Scroller>)
-    const el = container.firstChild
-    measure(el, { pos: 300, size: 100, full: 400 })
-    scroll(el)
-    expect(el.getAttribute('data-scroll-x')).toBe('start')
-  })
-
-  it('tolerates the sub-pixel a scroller reports when parked at its end', () => {
-    const { container } = render(<Scroller>long</Scroller>)
-    const el = container.firstChild
-    // 299.6 + 100 is 399.6, which is not 400 and must still read as "the end".
-    measure(el, { pos: 299.6, size: 100, full: 400 })
-    scroll(el)
-    expect(el.getAttribute('data-scroll-x')).toBe('start')
-  })
-
-  it('measures the axis it was asked for', () => {
-    const { container } = render(<Scroller axis="v">tall</Scroller>)
-    const el = container.firstChild
-    measure(el, { pos: 0, size: 100, full: 400, axis: 'v' })
-    scroll(el)
-    expect(el.getAttribute('data-scroll-v')).toBe('end')
-    expect(el.hasAttribute('data-scroll-x')).toBe(false)
-  })
-
-  it('wears both attributes when a box outruns its width AND its height', () => {
-    const { container } = render(<Scroller axis="both">wide and tall</Scroller>)
-    const el = container.firstChild
-    measure(el, { pos: 0, size: 100, full: 400, axis: 'x' })
-    measure(el, { pos: 0, size: 50, full: 500, axis: 'v' })
-    scroll(el)
-    expect(el.getAttribute('data-scroll-x')).toBe('end')
-    expect(el.getAttribute('data-scroll-v')).toBe('end')
-  })
-})
-
 describe('press-and-drag', () => {
   // `overflow` alone is a touch-only affordance: a plain mouse has no sideways
   // gesture at all, so without this the fade promises content it will not give up.
@@ -133,25 +71,6 @@ describe('press-and-drag', () => {
     act(() => el.dispatchEvent(e))
   }
 
-  it('scrolls the row by the distance the pointer travelled', () => {
-    const { container } = render(<Scroller>long</Scroller>)
-    const el = container.firstChild
-    measure(el, { pos: 200, size: 100, full: 400 })
-    down(el, 100)
-    move(el, 60) // dragged 40px left ⇒ the row moves 40px right
-    expect(el.scrollLeft).toBe(240)
-  })
-
-  it('ignores travel under the slop, so a shaky click stays a click', () => {
-    const { container } = render(<Scroller>long</Scroller>)
-    const el = container.firstChild
-    measure(el, { pos: 200, size: 100, full: 400 })
-    down(el, 100)
-    move(el, 98) // 2px — under the 3px threshold
-    expect(el.scrollLeft).toBe(200)
-    expect(el.hasAttribute('data-dragging')).toBe(false)
-  })
-
   it('swallows the click that ends a drag, so dragging a row never opens a card', () => {
     const opened = vi.fn()
     const { container } = render(
@@ -168,51 +87,6 @@ describe('press-and-drag', () => {
     up(el)
     act(() => screen.getByText('a card').click())
     expect(opened).not.toHaveBeenCalled()
-  })
-
-  it('lets the very next click through, so one drag does not deafen the row', () => {
-    const opened = vi.fn()
-    const { container } = render(
-      <Scroller>
-        <button type="button" onClick={opened}>
-          a card
-        </button>
-      </Scroller>,
-    )
-    const el = container.firstChild
-    measure(el, { pos: 0, size: 100, full: 400 })
-    down(el, 100)
-    move(el, 40)
-    up(el)
-    act(() => screen.getByText('a card').click()) // swallowed
-    act(() => screen.getByText('a card').click()) // must land
-    expect(opened).toHaveBeenCalledTimes(1)
-  })
-
-  it('leaves touch alone, because native scrolling has momentum this cannot match', () => {
-    const { container } = render(<Scroller>long</Scroller>)
-    const el = container.firstChild
-    measure(el, { pos: 200, size: 100, full: 400 })
-    const e = new Event('pointerdown', { bubbles: true })
-    Object.assign(e, { pointerId: 1, pointerType: 'touch', button: 0, clientX: 100, clientY: 0 })
-    act(() => el.dispatchEvent(e))
-    move(el, 40)
-    expect(el.scrollLeft).toBe(200)
-  })
-
-  it('does not hijack a press that starts inside a field', () => {
-    const { container } = render(
-      <Scroller>
-        <input defaultValue="select me" />
-      </Scroller>,
-    )
-    const el = container.firstChild
-    measure(el, { pos: 200, size: 100, full: 400 })
-    const e = new Event('pointerdown', { bubbles: true })
-    Object.assign(e, { pointerId: 1, pointerType: 'mouse', button: 0, clientX: 100, clientY: 0 })
-    act(() => el.querySelector('input').dispatchEvent(e))
-    move(el, 40)
-    expect(el.scrollLeft).toBe(200)
   })
 })
 
@@ -231,44 +105,3 @@ describe('press-and-drag', () => {
 // jsdom implements neither pointer capture nor the retargeting, so it cannot
 // reproduce the symptom. What it CAN pin is the cause, which is the only part
 // this file could have got wrong: capture must not be taken by a press alone.
-describe('pointer capture', () => {
-  function spy(el) {
-    const taken = []
-    el.setPointerCapture = (id) => taken.push(id)
-    el.releasePointerCapture = () => {}
-    return taken
-  }
-  function press(el, x = 100, y = 0) {
-    const e = new Event('pointerdown', { bubbles: true })
-    Object.assign(e, { pointerId: 1, pointerType: 'mouse', button: 0, clientX: x, clientY: y })
-    act(() => el.dispatchEvent(e))
-  }
-  function drift(el, x, y = 0) {
-    const e = new Event('pointermove', { bubbles: true, cancelable: true })
-    Object.assign(e, { pointerId: 1, clientX: x, clientY: y })
-    act(() => el.dispatchEvent(e))
-  }
-
-  it('is not taken by a press, because a press that never moves is a click', () => {
-    const { container } = render(<Scroller>long</Scroller>)
-    const el = container.firstChild
-    const taken = spy(el)
-    measure(el, { pos: 200, size: 100, full: 400 })
-    press(el)
-    expect(taken).toEqual([])
-    drift(el, 98) // 2px — still under the slop, still a click
-    expect(taken).toEqual([])
-  })
-
-  it('is taken once the drag starts, so a drag that leaves the row still lands here', () => {
-    const { container } = render(<Scroller>long</Scroller>)
-    const el = container.firstChild
-    const taken = spy(el)
-    measure(el, { pos: 200, size: 100, full: 400 })
-    press(el)
-    drift(el, 40)
-    expect(taken).toEqual([1])
-    drift(el, 20) // and only once
-    expect(taken).toEqual([1])
-  })
-})

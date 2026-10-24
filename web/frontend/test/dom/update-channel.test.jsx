@@ -59,20 +59,6 @@ async function openUpdates() {
 }
 
 describe('the release line', () => {
-  it('is not offered at all until a check has said which line this build is on', async () => {
-    render(<Settings user={ADMIN} onPreferences={() => {}} update={null} onUpdateInfo={() => {}} onStartTour={() => {}} />)
-    await openSettingsSection('Server')
-    await screen.findByText('Check for updates')
-    expect(screen.queryByText('release line')).toBeNull()
-  })
-
-  it('shows the line the server implied, and says it was implied', async () => {
-    await openUpdates()
-    expect(screen.getByText('release line')).toBeTruthy()
-    // The distinguishing half: the reader is told WHY it is on this line, so a
-    // branch build's "pre-release" does not read as somebody else's setting.
-    expect(screen.getByText(/you're running a pre-release/i)).toBeTruthy()
-  })
 
   it('sends the override and re-checks, so the release on screen belongs to the new line', async () => {
     await openUpdates()

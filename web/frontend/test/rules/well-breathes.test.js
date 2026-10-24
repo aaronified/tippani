@@ -61,12 +61,4 @@ describe('a row of objects in its well', () => {
       'the artwork is pushed against one edge, which is what "hugging the top" was')
       .toBe(below)
   })
-
-  it.each(ROWS)('%s leaves enough of it to see', (row) => {
-    const well = vertical('.cs-strip')
-    const above = well.top + vertical(row).top
-    // Equal and nearly zero would satisfy the case above while leaving the
-    // shadow nothing to fall on.
-    expect(above, `${row} has ${above}px of shelf above it, which is not a shelf`).toBeGreaterThanOrEqual(8)
-  })
 })

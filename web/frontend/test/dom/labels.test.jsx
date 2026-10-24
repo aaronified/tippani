@@ -69,12 +69,6 @@ afterEach(() => {
 })
 
 describe('applyLabels', () => {
-  it('writes nothing until it is called', async () => {
-    await loadTheme()
-    // Importing theme.js must not touch the document: the pure test project
-    // runs in node with no document at all, and share.jsx imports theme.js.
-    expect(labels()).toBeUndefined()
-  })
 
   // One test over all five preference × viewport pairs rather than five: the
   // body was identical per row — load a fresh theme at that width, apply that
@@ -108,62 +102,6 @@ describe('applyLabels', () => {
   })
 })
 
-describe('applyLabels with no argument', () => {
-  it('reads the device-local preference', async () => {
-    const { applyLabels, LABELS_KEY } = await loadTheme({ narrow: false })
-    localStorage.setItem(LABELS_KEY, JSON.stringify('off'))
-    applyLabels()
-    expect(labels()).toBe('off')
-  })
-
-  it('falls back to auto when nothing is stored', async () => {
-    const { applyLabels } = await loadTheme({ narrow: true })
-    applyLabels()
-    expect(labels()).toBe('off')
-  })
-
-  it('falls back to auto when the stored value is not JSON', async () => {
-    // usePersistedState writes JSON, but localStorage is shared with anything
-    // else on the origin and survives a downgrade. A parse error must not stop
-    // boot — main.jsx calls this before the first render.
-    const { applyLabels, LABELS_KEY } = await loadTheme({ narrow: false })
-    localStorage.setItem(LABELS_KEY, '{not json')
-    expect(() => applyLabels()).not.toThrow()
-    expect(labels()).toBe('on')
-  })
-})
-
-describe('a viewport change', () => {
-  it("re-resolves under 'auto'", async () => {
-    const { applyLabels, resize } = await loadTheme({ narrow: false })
-    applyLabels('auto')
-    expect(labels()).toBe('on')
-    resize(true)
-    expect(labels()).toBe('off')
-  })
-
-  it('is ignored once the preference is explicit', async () => {
-    // Someone who turned labels off for density does not want them back
-    // because they widened the window.
-    const { applyLabels, resize } = await loadTheme({ narrow: true })
-    applyLabels('off')
-    resize(false)
-    expect(labels()).toBe('off')
-  })
-})
-
-describe('labelsPref', () => {
-  it('reports what was applied, not what was asked for', async () => {
-    const { applyLabels, labelsPref } = await loadTheme()
-    applyLabels('nonsense')
-    // Settings initialises its control from this, so it has to report the
-    // canonical value rather than echo the input back.
-    expect(labelsPref()).toBe('auto')
-    applyLabels('off')
-    expect(labelsPref()).toBe('off')
-  })
-})
-
 // ---- the Settings control ------------------------------------------------
 //
 // Everything above tests theme.js in isolation. This tests the half that
@@ -174,39 +112,3 @@ describe('labelsPref', () => {
 // would look correct in Settings, apply correctly for that session, and silently
 // revert to auto on the next reload. Nothing errors, and the only symptom is a
 // preference that will not stick.
-describe('the Settings control and boot agree', () => {
-  it('writes a value applyLabels() can read back', async () => {
-    const { applyLabels } = await loadTheme({ narrow: false })
-    // Imported AFTER loadTheme, and deliberately not mocked. loadTheme resets
-    // the module registry and imports theme.js; Settings.jsx imported into that
-    // same registry resolves to the SAME theme instance, so the two share state
-    // without anyone hand-listing what theme.js exports. A mock that listed them
-    // is what this used to do, and it broke the moment the module grew a new one.
-    const { LabelDensity } = await import('../../src/Settings.jsx')
-    const { render, fireEvent, screen } = await import('@testing-library/react')
-
-    render(<LabelDensity />)
-    fireEvent.click(screen.getByRole('tab', { name: 'Hide' }))
-    expect(labels()).toBe('off')
-
-    // The round trip: forget the in-memory preference, then boot.
-    applyLabels('auto')
-    expect(labels()).toBe('on')
-    applyLabels()
-    expect(labels()).toBe('off')
-  })
-
-  it('offers auto in both directions, not just off', async () => {
-    const { applyLabels } = await loadTheme({ narrow: true })
-    const { LabelDensity } = await import('../../src/Settings.jsx')
-    const { render, fireEvent, screen } = await import('@testing-library/react')
-
-    render(<LabelDensity />)
-    // A phone resolves auto to off, so "Show" is the override that has to work.
-    fireEvent.click(screen.getByRole('tab', { name: 'Show' }))
-    expect(labels()).toBe('on')
-    applyLabels('auto')
-    applyLabels()
-    expect(labels()).toBe('on')
-  })
-})

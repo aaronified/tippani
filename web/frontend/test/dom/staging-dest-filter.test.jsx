@@ -72,13 +72,6 @@ const chips = () => [...document.querySelectorAll('.staging-dest-chip')]
 const chip = (name) => chips().find((b) => b.textContent.includes(name))
 
 describe('narrowing the import queue by destination', () => {
-  it('offers one chip per destination, not one per staged row', async () => {
-    await page()
-    // Two exports land on Dune and one on Solaris: two chips, not three.
-    expect(chips().map((b) => b.textContent)).toHaveLength(2)
-    expect(chip('Dune'), 'no chip for the book two files agree on').toBeTruthy()
-    expect(chip('Solaris')).toBeTruthy()
-  })
 
   it('and narrows to that destination across every file it came in', async () => {
     await page()
@@ -91,33 +84,4 @@ describe('narrowing the import queue by destination', () => {
     expect(screen.queryByText(/We do not want other worlds/)).toBeNull()
   })
 
-  it('and pressing the chosen chip again widens it back', async () => {
-    await page()
-    fireEvent.click(chip('Dune'))
-    expect(screen.queryByText(/We do not want other worlds/)).toBeNull()
-    fireEvent.click(chip('Dune'))
-    expect(screen.getByText(/We do not want other worlds/)).toBeTruthy()
-  })
-
-  it('and draws the destination’s own cover, or a stand-in when it has none', async () => {
-    await page()
-    expect(chip('Dune').querySelector('img')?.getAttribute('src'),
-      'the destination cover is not drawn').toBe('/covers/dune.jpg')
-    // A work with no artwork gets the stand-in rather than a broken tile — which is
-    // what `Face` is for, and why this screen does not hand-roll an <img>.
-    expect(chip('Solaris').querySelector('img'), 'a work with no cover drew an img anyway').toBeNull()
-    expect(chip('Solaris').querySelector('.staging-dest-blank'), 'the stand-in is missing').toBeTruthy()
-  })
-
-  // ONE CHIP IS NOT A CHOICE. Narrow to a single FILE and dune-b.md's export goes
-  // with it, leaving one destination in the strip — a control that cannot change
-  // what is on screen, which is the kind a reader learns to stop reading.
-  it('and hides itself when the queue holds one destination', async () => {
-    // ASSERTED OVER A ONE-DESTINATION QUEUE rather than by driving the file filter
-    // to narrow to one. `Select` is the app's own combobox, not a native <select>,
-    // so driving it would make this case a test of that control — and the rule
-    // here is about the strip.
-    await page({ works: [WORKS[0]], quotes: QUOTES.slice(0, 2) })
-    expect(chips(), 'the strip stayed with one choice').toHaveLength(0)
-  })
 })

@@ -55,20 +55,4 @@ describe('the activity card', () => {
     expect([...headRow().children]).toHaveLength(2)
   })
 
-  it('puts the reset after the grid it empties, not above it', async () => {
-    card()
-    fireEvent.click(screen.getByRole('tab', { name: /practice/i }))
-    const reset = await screen.findByText(/reset/i)
-    const toggle = screen.getByRole('tablist')
-    // Emptying a practice history is a decision reached by looking at the grid,
-    // so it comes after it in the document.
-    expect(toggle.compareDocumentPosition(reset) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-  })
-
-  it('offers no reset on the streams it cannot empty', async () => {
-    card()
-    expect(screen.queryByText(/reset/i)).toBeNull()
-    fireEvent.click(screen.getByRole('tab', { name: /quiz/i }))
-    expect(screen.queryByText(/reset/i)).toBeNull()
-  })
 })

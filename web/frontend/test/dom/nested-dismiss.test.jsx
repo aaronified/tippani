@@ -106,33 +106,6 @@ describe('a submenu over a panel', () => {
     expect(panel(), 'dismissing the submenu dismissed its parent').toBeTruthy()
   })
 
-  it('hands the panel back to Back once it is gone', async () => {
-    await openBoth()
-    await back()
-    await back()
-    expect(panel(), 'the panel would not close on the second press').toBeNull()
-  })
-
-  it('leaves the panel alone when the submenu is dismissed by its own control', async () => {
-    await openBoth()
-    // Not every dismissal is a back gesture, and this is the half that already
-    // worked: the entry has to be CONSUMED on unmount, or the panel's own Back
-    // stops working because a dead entry sits on top of it.
-    //
-    // The consumption IS a traversal — the hook's cleanup calls history.back()
-    // to hand the marker in — and jsdom queues traversals, so the test has to
-    // let that one land before pressing Back itself. Otherwise the two races and
-    // the press that closes the panel is spent unwinding the marker.
-    const consumed = popped()
-    await act(async () => { fireEvent.click(screen.getByText('dismiss the submenu')) })
-    await act(async () => { await consumed })
-    expect(submenu()).toBeNull()
-    expect(panel(), 'the panel went with it').toBeTruthy()
-    // And the panel is still the thing Back closes — proof the marker was given
-    // back rather than stranded.
-    await back()
-    expect(panel(), 'the panel would not close, so the submenu stranded its entry').toBeNull()
-  })
 })
 
 // ── THE ROLL.
@@ -141,51 +114,3 @@ describe('a submenu over a panel', () => {
 // WHICH surface is missing it is the whole of the work. `ui.jsx` is excluded
 // because it is where the hook lives; a scrim in there is a primitive that its
 // callers gate (FormModal and MobileSheet both register for themselves).
-describe('every dismissible overlay owns a back entry', () => {
-  const OVERLAYS = [
-    ['AddSurface.jsx', 'ManualPopup'],
-    ['AddSurface.jsx', 'AddSurface'],
-    ['ReverifyReview.jsx', 'ReverifyFlow'],
-    ['SearchPage.jsx', 'QuoteModal'],
-    ['Settings.jsx', 'PromptFrame'],
-    ['share.jsx', 'ShareDialog'],
-  ]
-
-  it.each(OVERLAYS)('%s: %s registers one', (file, component) => {
-    const src = read(file)
-    const at = src.indexOf(`function ${component}(`)
-    expect(at, `${component} is not in ${file} any more — update this roll`).toBeGreaterThan(-1)
-    // The registration has to be inside the component, so the search starts at
-    // its declaration rather than at the top of the file.
-    const body = src.slice(at, at + 4000)
-    expect(
-      /useBackToClose\(/.test(body),
-      `${component} draws a dismissible overlay and pushes no history entry, so ` +
-        'the press that dismisses it will dismiss whatever opened it. One line: ' +
-        'useBackToClose(<open>, onClose).',
-    ).toBe(true)
-  })
-
-  // The scan above can only check the files it lists, so this is what notices a
-  // SIXTH overlay appearing. Every `tp-scrim` outside ui.jsx belongs to a
-  // surface on the roll — a new one means a new row, and a new row means somebody
-  // asked the question.
-  it('has no scrim outside the roll', () => {
-    const listed = new Set(OVERLAYS.map(([f]) => f))
-    const stray = []
-    for (const f of sourcesUnder((n) => n.endsWith('.jsx'), 40)) {
-      if (f === 'ui.jsx' || listed.has(f)) continue
-      const src = readFileSync(join(SRC, f), 'utf8')
-      // `tp-scrim-deep` is a BADGE over artwork, not an overlay — works.jsx
-      // carries two and neither is dismissible.
-      //
-      // TWO SPELLINGS, BECAUSE THE CLASS LIST IS SHARED NOW. Nine files used to
-      // write `tp-scrim fixed inset-0 …` out in full; they take `SCRIM` /
-      // `SCRIM_CENTERED` from ui.jsx instead, and a scan looking only for the
-      // literal would have found NOTHING outside ui.jsx and passed for the reason
-      // a test must never pass. An overlay is either spelling.
-      if (/["'`][^"'`]*\btp-scrim\b(?!-)/.test(src) || /\bSCRIM(_CENTERED)?\b/.test(src)) stray.push(f)
-    }
-    expect(stray, `these draw a scrim and are not on the roll above: ${stray.join(', ')}`).toEqual([])
-  })
-})

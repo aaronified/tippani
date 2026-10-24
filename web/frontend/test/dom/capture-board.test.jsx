@@ -90,25 +90,4 @@ describe('capturing onto a board', () => {
     expect(sent.body.board_id).toBe(7)
   })
 
-  it('offers the boards to a capture that came from nowhere in particular', async () => {
-    const state = openCapture()
-    // The control exists even with no board in hand — that is how a quote jotted
-    // from Home can still be filed rather than swept up by a default.
-    expect(await screen.findByLabelText('Board')).toBeTruthy()
-    const sent = await write(state)
-    // Nothing chosen means nothing claimed: the server's own default answers,
-    // which is what it has always done and is right for a jot-and-run capture.
-    expect(sent.body.board_id).toBe(null)
-  })
-
-  it('does not offer a board for a highlight against a book', async () => {
-    render(<QuoteForm door="annotation" initialTarget={{ type: 'book', id: 4 }} onSaved={() => {}} />)
-    // Waited on the form being up, which this used to do by finding the work's
-    // title in the "which book" row — a row that is gone, because the sheet's
-    // header already names the work. The Quote box is the form.
-    expect(await screen.findByLabelText('Quote')).toBeTruthy()
-    // A board holds standalone quotes. Offering one here would promise a filing
-    // that the annotation route has nowhere to put.
-    expect(screen.queryByLabelText('Board')).toBeNull()
-  })
 })

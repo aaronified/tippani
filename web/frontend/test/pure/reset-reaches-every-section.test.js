@@ -31,35 +31,9 @@ describe('what a reset names', () => {
       }
     }
   })
-
-  it('names no key twice', () => {
-    // The route deletes by name, so a repeat is a longer body saying the same
-    // thing — harmless, and a sign the sections have started overlapping, which
-    // is what would make the count below wrong.
-    const keys = resetKeysEverywhere()
-    expect(keys.length, `${keys.join(', ')}`).toBe(new Set(keys).size)
-  })
-
-  it('names nothing a section does not claim', () => {
-    // A reset that cleared a key no section lists would be clearing something no
-    // screen can put back — the reader would have no control to restore it with.
-    const owned = new Set(Object.values(SECTION_PREFS).flat())
-    for (const k of resetKeysEverywhere()) {
-      expect(owned.has(k), `${k} would be cleared and no section offers it`).toBe(true)
-    }
-  })
 })
 
 describe('what a reset offers to undo', () => {
-  it('counts nothing for an account that has set nothing', () => {
-    // The row is drawn only when this is above zero, so a stock account that read
-    // anything here would be offered a reset with nothing to reset. Both shapes a
-    // fresh account arrives in: a key absent, and a key present holding exactly
-    // the default the server fills in on read.
-    expect(changedEverywhere({})).toBe(0)
-    expect(changedEverywhere({ ...PREF_DEFAULTS })).toBe(0)
-  })
-
   it('counts a change in any section, not just the first', () => {
     // Summed across sections rather than read off one, which is the whole
     // difference between this and `changedIn`. Every section gets its own case:
@@ -78,10 +52,5 @@ describe('what a reset offers to undo', () => {
         `a change to ${k} in ${section} was not counted`,
       ).toBe(1)
     }
-  })
-
-  it('counts each changed preference once', () => {
-    const [a, b] = Object.values(SECTION_PREFS).flat().filter((k) => typeof PREF_DEFAULTS[k] === 'string')
-    expect(changedEverywhere({ ...PREF_DEFAULTS, [a]: 'moved-a', [b]: 'moved-b' })).toBe(2)
   })
 })

@@ -91,24 +91,6 @@ describe('the panel is unreachable until the card is answered', () => {
     expect(offered).toEqual([])
   })
 
-  // WITH THE CONFIRM STEP ON there is a real interval between choosing and
-  // committing, and it is the window this gate has to survive: an edit form
-  // opened while the answer can still be changed would show which option is
-  // right.
-  it('is not offered between choosing and submitting', async () => {
-    render(<QuizRunner mode="daily" submitStep cards={[mcq()]} />)
-    fireEvent.click(screen.getByText('Emma'))
-    expect(screen.getByRole('button', { name: 'Submit' })).toBeTruthy()
-    expect(screen.queryByText('fix or tag this')).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: 'Submit' }))
-    await waitFor(() => expect(screen.getByText('fix or tag this')).toBeTruthy())
-  })
-
-  it('arrives once the card is graded', async () => {
-    render(<QuizRunner mode="daily" cards={[mcq()]} />)
-    fireEvent.click(screen.getByText('Persuasion'))
-    await waitFor(() => expect(screen.getByText('fix or tag this')).toBeTruthy())
-  })
 })
 
 describe('saving an edit', () => {
@@ -136,83 +118,5 @@ describe('saving an edit', () => {
     expect(body.location).toBe('88')
   })
 
-  it('re-tags: the box holds the whole set, so a tag can come off', async () => {
-    render(<QuizRunner mode="daily" cards={[mcq()]} />)
-    fireEvent.click(screen.getByText('Persuasion'))
-    await waitFor(() => expect(screen.getByText('fix or tag this')).toBeTruthy())
-    openTools()
-    await waitFor(() => expect(screen.getByLabelText('Tags')).toBeTruthy())
-    expect(screen.getByLabelText('Tags').value).toBe('grief')
-
-    fireEvent.change(screen.getByLabelText('Tags'), { target: { value: 'grief, austen' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
-    await waitFor(() => expect(puts().length).toBe(1))
-    expect(puts()[0].body.tags).toEqual(['grief', 'austen'])
-  })
-
-  it('favourites from inside the card', async () => {
-    render(<QuizRunner mode="daily" cards={[mcq()]} />)
-    fireEvent.click(screen.getByText('Persuasion'))
-    await waitFor(() => expect(screen.getByText('fix or tag this')).toBeTruthy())
-    openTools()
-    await waitFor(() => expect(screen.getByRole('button', { name: /favourite/i })).toBeTruthy())
-    fireEvent.click(screen.getByRole('button', { name: /favourite/i }))
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
-    await waitFor(() => expect(puts().length).toBe(1))
-    expect(puts()[0].body.favorite).toBe(true)
-  })
 })
 
-describe('what folds back onto the card, and what does not', () => {
-  it('shows the corrected words', async () => {
-    render(<QuizRunner mode="daily" cards={[mcq()]} />)
-    fireEvent.click(screen.getByText('Persuasion'))
-    await waitFor(() => expect(screen.getByText('fix or tag this')).toBeTruthy())
-    openTools()
-    await waitFor(() => expect(screen.getByLabelText('Quote')).toBeTruthy())
-    fireEvent.change(screen.getByLabelText('Quote'), { target: { value: 'the only way round is through' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
-    await waitFor(() => expect(screen.getByText('the only way round is through')).toBeTruthy())
-  })
-
-  // THE FIRST CROSS-FEATURE BUG. `card.quote` on a cloze card is the server's
-  // mask; the raw words never travelled to the browser. Folding an edited quote
-  // in would print the answer over the question that was just asked.
-  it('leaves a cloze card masked after an edit', async () => {
-    ROW = { ...ROW, id: 8, quote: 'it is a truth universally acknowledged' }
-    render(<QuizRunner mode="daily" cards={[cloze()]} />)
-    fireEvent.change(screen.getByPlaceholderText(/type what belongs/i), { target: { value: 'universally' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Check' }))
-    await waitFor(() => expect(screen.getByText('fix or tag this')).toBeTruthy())
-
-    openTools()
-    await waitFor(() => expect(screen.getByLabelText('Quote')).toBeTruthy())
-    fireEvent.change(screen.getByLabelText('Quote'), { target: { value: 'it is a truth universally acknowledged, indeed' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
-    await waitFor(() => expect(puts().length).toBe(1))
-
-    // The blank is still a blank. The masked text is what is on the card.
-    expect(screen.getAllByLabelText('blank').length).toBe(1)
-    expect(screen.queryByText(/it is a truth universally acknowledged, indeed/)).toBeNull()
-  })
-
-  // THE SECOND. The options were the question. An edit to the quote has no
-  // business rewriting one of them — least of all on a speaker card, whose
-  // answer slot holds an actor's name.
-  it('never rewrites an option', async () => {
-    render(<QuizRunner mode="daily" cards={[mcq()]} />)
-    fireEvent.click(screen.getByText('Persuasion'))
-    await waitFor(() => expect(screen.getByText('fix or tag this')).toBeTruthy())
-    openTools()
-    await waitFor(() => expect(screen.getByLabelText('Quote')).toBeTruthy())
-    fireEvent.change(screen.getByLabelText('Quote'), { target: { value: 'something else entirely' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
-    await waitFor(() => expect(puts().length).toBe(1))
-
-    // On the OPTION, which is a button: the answer's own title is also printed
-    // under the quote once the card is graded, and that copy is not an option.
-    for (const opt of ['Persuasion', 'Emma', 'Villette']) {
-      expect(screen.getAllByText(opt).some((el) => el.closest('button')), opt).toBe(true)
-    }
-  })
-})

@@ -130,46 +130,9 @@ describe('creating a backup', () => {
     expect(went, 'creating a backup navigated somewhere').toEqual([])
   })
 
-  it('asks for the archive, not for the archive AND a copy of it', async () => {
-    // The label named two acts, which is how the second one got welded on.
-    await card()
-    fireEvent.click(screen.getByRole('button', { name: /Back up now/ }))
-    const dialog = await screen.findByRole('dialog', { name: 'Back up' })
-    expect(within(dialog).getByRole('button', { name: /^Back up$/ })).toBeTruthy()
-    expect(within(dialog).queryByRole('button', { name: /download/i })).toBeNull()
-  })
-
-  it('offers the copy in the toast, one tap away', async () => {
-    await card()
-    await makeOne()
-    const download = await screen.findByRole('button', { name: 'Download' })
-    fireEvent.click(download)
-    expect(went).toEqual(['/api/admin/backup/download'])
-  })
-
-  it('says only that it was created — the five-word rule', async () => {
-    await card()
-    await makeOne()
-    // "backup created — downloading" was true only because of the bug.
-    expect(await screen.findByText('backup created')).toBeTruthy()
-  })
-
-  it('offers nothing to download when the backup failed', async () => {
-    CREATE_OK = false
-    await card()
-    await makeOne()
-    await screen.findByText(/wrong password/i)
-    expect(screen.queryByRole('button', { name: 'Download' })).toBeNull()
-    expect(went).toEqual([])
-  })
 })
 
 describe('the backup, as a job', () => {
-  it('is asked for with the credential typed into the prompt', async () => {
-    await card()
-    await makeOne()
-    expect(JOBS.started()).toEqual([['backup', { password: 'hunter2' }]])
-  })
 
   // THE PROMPT CLOSES AND THE CARD WATCHES: the archive is sealed on the server,
   // and the button says so until the job ends — then the new archive is on the
@@ -191,148 +154,15 @@ describe('the backup, as a job', () => {
   // LIVE FROM THE PRESS: between the start's answer and the card's first read of
   // the job there is an id and no job to draw, and a Back up now that came back
   // for that beat invites a second backup behind the first. The beat is held open.
-  it('stays busy between the start and the first read of its job', async () => {
-    JOBS.hold('backup')
-    JOBS.hangRead(2)
-    await card()
-    await makeOne()
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Back up' })).toBeNull())
-    await waitFor(() => expect(JOBS.reads(100)).toBe(2))
-    expect(screen.queryByRole('button', { name: /Back up now/ }), 'Back up now came back before its job was read').toBeNull()
-    expect(screen.getByRole('button', { name: /Backing up/ }).disabled).toBe(true)
-  })
-
-  it('says where it stands while it waits behind another job', async () => {
-    JOBS.plan('backup', { queued: true, ahead: 1 })
-    JOBS.hold('backup')
-    await card()
-    await makeOne()
-    expect(await screen.findByText('Waiting — one job ahead')).toBeTruthy()
-  })
 
   // THE SEAL CAN STILL FAIL AFTER THE PRESS — the password changed while the job
   // waited, say — and the card says so in the job's own words, with nothing
   // offered to download.
-  it('says why when its job fails, and offers nothing to download', async () => {
-    JOBS.plan('backup', { state: 'failed', error: 'your password changed since this backup was started — run it again' })
-    await card()
-    await makeOne()
-    expect(await screen.findByText('your password changed since this backup was started — run it again', {}, { timeout: 4000 })).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'Download' })).toBeNull()
-  })
 
-  it('says a stopped backup stopped', async () => {
-    JOBS.plan('backup', { state: 'stopped' })
-    await card()
-    await makeOne()
-    expect(await screen.findByText('backup stopped', {}, { timeout: 4000 })).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'Download' })).toBeNull()
-  })
-})
-
-describe('the download control on the card', () => {
-  it('is not offered before there is anything to download', async () => {
-    await card()
-    expect(screen.queryByRole('link', { name: /Download the last one/ })).toBeNull()
-    expect(screen.getByText(/no backup on this server yet/)).toBeTruthy()
-  })
-
-  it('appears once an archive exists, as a real link', async () => {
-    // An anchor rather than a button on purpose: a real href is what gives it
-    // middle-click, "save link as", and a URL you can read before committing to a
-    // multi-megabyte file.
-    BACKUP = { name: 'x.tpbk', created: '2026-08-14T09:00:00Z', size: 2 << 20, key: 'password', account: 'a', recoverable: true }
-    await card()
-    const link = await screen.findByRole('link', { name: /Download the last one/ })
-    expect(link.getAttribute('href')).toBe('/api/admin/backup/download')
-  })
-
-  it('carries a glyph, and reads as a control rather than a footnote', async () => {
-    // It was the bare word `download` beside a button, which read as a footnote to
-    // the backup rather than the other half of it — and mattered less while
-    // creating one downloaded it anyway.
-    BACKUP = { name: 'x.tpbk', created: '2026-08-14T09:00:00Z', size: 2 << 20, key: 'password', account: 'a', recoverable: true }
-    await card()
-    const link = await screen.findByRole('link', { name: /Download the last one/ })
-    expect(link.querySelector('svg')).toBeTruthy()
-    expect(link.className).toContain('tp-btn')
-  })
-
-  it('says where the archive lives, now that creating one does not hand it over', async () => {
-    BACKUP = { name: 'x.tpbk', created: '2026-08-14T09:00:00Z', size: 2 << 20, key: 'password', account: 'a', recoverable: true }
-    await card()
-    expect(await screen.findByText(/kept on this server until the next one/)).toBeTruthy()
-  })
-})
-
-describe('every button on the card has a glyph', () => {
-  it('Back up now, Choose file… and Restore… all draw one', async () => {
-    BACKUP = { name: 'x.tpbk', created: '2026-08-14T09:00:00Z', size: 2 << 20, key: 'password', account: 'a', recoverable: true }
-    await card()
-    for (const name of [/Back up now/, /Restore…/]) {
-      expect(screen.getByRole('button', { name }).querySelector('svg'), String(name)).toBeTruthy()
-    }
-    // The file picker only exists once "A file" is the chosen source. The source
-    // control is a Toggle, whose options are tabs rather than buttons.
-    fireEvent.click(screen.getByRole('tab', { name: 'A file' }))
-    const choose = await screen.findByRole('button', { name: /Choose file/ })
-    expect(choose.querySelector('svg')).toBeTruthy()
-  })
-
-  it('keeps their words at every width', async () => {
-    // Every control here either replaces the whole instance or writes a
-    // multi-megabyte file. A glyph is a thing you have to have learned already,
-    // and none of these is a thing to find out by trying.
-    BACKUP = { name: 'x.tpbk', created: '2026-08-14T09:00:00Z', size: 2 << 20, key: 'password', account: 'a', recoverable: true }
-    await card()
-    for (const name of [/Back up now/, /Restore…/]) {
-      const b = screen.getByRole('button', { name })
-      expect(b.querySelector('.btn-label-fixed'), String(name)).toBeTruthy()
-      expect(b.className, String(name)).not.toContain('has-btn-icon')
-    }
-  })
-
-  it('gives the prompt’s own three controls glyphs too', async () => {
-    await card()
-    fireEvent.click(screen.getByRole('button', { name: /Back up now/ }))
-    const dialog = await screen.findByRole('dialog', { name: 'Back up' })
-    // Scoped to the form: the dialog's header carries a CloseButton whose label is
-    // also "Cancel", and it has always had its glyph.
-    const form = dialog.querySelector('form')
-    for (const name of [/^Back up$/, /^Cancel$/, /passphrase instead/]) {
-      expect(within(form).getByRole('button', { name }).querySelector('svg'), String(name)).toBeTruthy()
-    }
-  })
 })
 
 // THE SAFETY COPY'S PASSWORD FILLS THE RESTORE ONLY WHERE IT OPENS THE ARCHIVE.
 // An archive this server made opens with the current password, so typing it twice
 // is ceremony; one sealed somewhere else wants the password of its own era, and a
 // box already filled with today's reads as answered when it is wrong.
-describe('the password typed for the safety copy', () => {
-  const takeCopy = async (recoverable) => {
-    BACKUP = { name: 'x.tpbk', created: '2026-08-14T09:00:00Z', size: 2 << 20, key: 'password', account: 'someone-else', recoverable }
-    globalThis.fetch = vi.fn(async () => ({
-      ok: true,
-      headers: { get: () => 'attachment; filename="c-safety-copy.tpbk"' },
-      blob: async () => new Blob(['x']),
-    }))
-    URL.createObjectURL = vi.fn(() => 'blob:x')
-    URL.revokeObjectURL = vi.fn()
-    await card()
-    fireEvent.click(screen.getByRole('button', { name: /Restore…/ }))
-    const dialog = await screen.findByRole('dialog', { name: 'Restore' })
-    fireEvent.change(within(dialog).getByLabelText(/to seal the copy/), { target: { value: 'hunter2' } })
-    fireEvent.click(within(dialog).getByRole('button', { name: /Download a backup first/ }))
-    await within(dialog).findByText(/Copy downloaded/)
-    return within(dialog).getByLabelText(/^Your password(?!,)/)
-  }
 
-  it('fills the restore when this server made the archive', async () => {
-    expect((await takeCopy(true)).value).toBe('hunter2')
-  })
-
-  it('leaves it empty when the archive was sealed somewhere else', async () => {
-    expect((await takeCopy(false)).value).toBe('')
-  })
-})

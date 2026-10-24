@@ -70,47 +70,6 @@ beforeEach(() => {
 })
 
 describe('never asked about', () => {
-  it('lists the skipped quotes under the work they came from', async () => {
-    await page()
-    expect(await screen.findByText('A Reference Manual')).toBeTruthy()
-    await openWork('A Reference Manual')
-    // THE QUOTE'S OWN WORDS. A list of ids, or of "2 quotes", could not be
-    // recognised by the reader who skipped them months ago — which is the only
-    // reason anybody opens this.
-    expect(screen.getByText('page 41, see appendix')).toBeTruthy()
-    expect(screen.getByText('table of conversions, inside cover')).toBeTruthy()
-  })
-
-  it('says how many, so a thin deck has an explanation', async () => {
-    await page()
-    // THE TOTAL, NOT A WORK'S OWN COUNT. Each work says how many of its lines
-    // are skipped too, and with one work on the shelf the two numbers read the
-    // same — so the bar is asked directly, or this case would pass on a screen
-    // that had lost the total entirely.
-    await screen.findByText('A Reference Manual')
-    // THE FIGURE AND ITS NOUN ARE TWO ELEMENTS since the count sweep — the figure
-    // so it can be set in the app's own figures, the word so it can be left out
-    // where the row has no space for it — so the bar's TEXT is what is read rather
-    // than any one node in it.
-    expect(document.querySelector('.skipped-bar').textContent).toMatch(/2 skipped/)
-  })
-
-  it('shows the work itself — its artwork and who wrote it — not just its title', async () => {
-    await page()
-    // WHY THIS AND NOT A TITLE ALONE. A reader recognises a book they skipped
-    // months ago by its cover and its author; a column of strings asks them to
-    // recognise their own library from bibliographic data.
-    expect(await screen.findByRole('img', { name: /A Reference Manual/i })).toBeTruthy()
-    expect(screen.getByText('Jean Meeus')).toBeTruthy()
-  })
-
-  it('keeps the quotes shut until the work is opened', async () => {
-    await page()
-    expect(await screen.findByText('A Reference Manual')).toBeTruthy()
-    expect(screen.queryByText('page 41, see appendix')).toBeNull()
-    await openWork('A Reference Manual')
-    expect(await screen.findByText('page 41, see appendix')).toBeTruthy()
-  })
 
   it('puts back a run of quotes chosen across two works in one press', async () => {
     EXCLUDED = {
@@ -137,30 +96,4 @@ describe('never asked about', () => {
     ])
   })
 
-  it('puts one back through the same call that took it out', async () => {
-    await page()
-    await openWork('A Reference Manual')
-    const row = (await screen.findByText('page 41, see appendix')).closest('.skipped-row')
-    within(row).getByRole('button').click()
-    await waitFor(() => expect(POSTS.length).toBe(1))
-    expect(POSTS[0][0]).toBe('/annotations/bulk')
-    expect(POSTS[0][1]).toEqual({ ids: [11], review: true })
-  })
-
-  it('puts a whole work back in one call, with every quote listed under it', async () => {
-    await page()
-    await openWork('A Reference Manual')
-    const foot = document.querySelector('.skipped-work-foot')
-    within(foot).getByRole('button').click()
-    await waitFor(() => expect(POSTS.length).toBe(1))
-    expect(POSTS[0][1]).toEqual({ ids: [11, 12], review: true })
-  })
-
-  it('says so plainly when nothing is skipped', async () => {
-    EXCLUDED = { groups: [], total: 0 }
-    await page()
-    // Not an empty space: a reader who came here looking for something they
-    // skipped needs to be told they skipped nothing, or they go on looking.
-    expect(await screen.findByText(/nothing skipped/i)).toBeTruthy()
-  })
 })

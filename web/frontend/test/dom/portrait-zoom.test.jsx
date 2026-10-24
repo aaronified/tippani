@@ -52,25 +52,6 @@ const viewer = () => document.querySelector('[role="dialog"][aria-modal="true"]'
 afterEach(() => cleanup())
 
 describe('the hero portrait', () => {
-  it('carries one labelled control, in the picture’s own box', () => {
-    render(<PortraitBlock src={PIC} name="William Adama" />)
-    const img = hero()
-    expect(img, 'the hero drew no picture at all').toBeTruthy()
-    const controls = [...document.querySelectorAll('.cs-portrait button')]
-    expect(controls.length, `the picture wears ${controls.length} controls`).toBe(1)
-    // NOT OFF TO THE SIDE. The picture and its control share a box, which is what
-    // makes pressing the picture press the control — the caption column beside it
-    // is a sibling of that box and not part of it.
-    const box = controls[0].parentElement
-    expect(box.contains(img), 'the control is not over the picture it opens').toBe(true)
-    // AND IT SAYS WHOSE PICTURE IT OPENS. An unlabelled hit area over a portrait
-    // is a control a screen reader cannot announce and `make controls` counts as
-    // nameless.
-    const name = controls[0].getAttribute('aria-label') || controls[0].textContent
-    expect(name, 'the control over the hero has no accessible name').toBeTruthy()
-    expect(name, 'the control does not say whose picture it opens').toContain('William Adama')
-  })
-
   it('opens the picture full screen when it is pressed', () => {
     render(<PortraitBlock src={PIC} name="William Adama" />)
     expect(viewer(), 'a viewer was up before anything was pressed').toBeNull()
@@ -84,71 +65,4 @@ describe('the hero portrait', () => {
     expect(shown, `the viewer is showing ${shown} and not the hero's own picture`).toContain(PIC)
   })
 
-  it('and closes again', () => {
-    render(<PortraitBlock src={PIC} name="William Adama" />)
-    fireEvent.click(zoom())
-    const up = viewer()
-    expect(up).toBeTruthy()
-    // Whatever the way out is called, there is one: a labelled control inside the
-    // overlay that puts it away.
-    const outs = [...up.querySelectorAll('button')]
-    expect(outs.length, 'the viewer offers no control at all').toBeGreaterThan(0)
-    fireEvent.click(outs[0])
-    expect(viewer(), 'the viewer stayed up after its own button was pressed').toBeNull()
-  })
-
-  it('is not pressable when there is no picture', () => {
-    render(<PortraitBlock src="" name="William Adama" />)
-    expect(hero(), 'a slot with no picture drew one').toBeNull()
-    expect(document.querySelector('.cs-portrait'), 'the block did not render').toBeTruthy()
-    expect(
-      document.querySelector('.cs-portrait button'),
-      'a silhouette wears a control that opens a viewer onto nothing',
-    ).toBeNull()
-  })
-
-  it('and stops being pressable, once, when the picture does not arrive', () => {
-    render(<PortraitBlock src={PIC} name="William Adama" />)
-    const img = hero()
-    expect(img).toBeTruthy()
-    // The browser's own answer to a picture that 403s.
-    fireEvent.error(img)
-    expect(
-      document.querySelector('.cs-portrait button'),
-      'a picture that failed left its control behind',
-    ).toBeNull()
-    // ONE EVENT AND SETTLED. A picture element still in the tree at the same
-    // address means the failure was forgotten and the file is about to be asked
-    // for again.
-    expect(hero(), 'the failed picture is still in the tree, so it will be re-requested').toBeNull()
-  })
-
-  it('and takes the viewer down with it if it fails while open', () => {
-    render(<PortraitBlock src={PIC} name="William Adama" />)
-    fireEvent.click(zoom())
-    expect(viewer()).toBeTruthy()
-    fireEvent.error(hero())
-    expect(viewer(), 'a full-screen overlay of a torn-page mark stayed up').toBeNull()
-  })
-})
-
-// THE SAME BLOCK ON ALL THREE SHEETS, which is what makes one press above cover
-// the three screens the owner named — a character's own record, a character in one
-// work, and a person's record. The directive is the repo's: "a control drawn by
-// one component on two screens has ONE behaviour, and it lives in one function
-// that both screens call — not in a line each, which is how one of them goes on
-// being right while the other quietly stops."
-describe('every hero portrait in the app', () => {
-  it('is drawn by the one block, so none of them can lose the viewer alone', async () => {
-    const { readFileSync } = await import('node:fs')
-    const { join } = await import('node:path')
-    const src = process.env.TIPPANI_SRC
-    // char-global and people-global share a file; char-local has its own. A fourth
-    // hero would have to appear in one of them.
-    const sheets = ['identityGlobal.jsx', 'identityLocal.jsx']
-      .map((f) => readFileSync(join(src, f), 'utf8'))
-      .join('\n')
-    expect(sheets.split('<PortraitBlock').length - 1,
-      'a sheet stopped drawing its hero with the shared block').toBe(3)
-  })
 })

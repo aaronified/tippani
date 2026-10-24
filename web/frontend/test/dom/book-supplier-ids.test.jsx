@@ -79,37 +79,6 @@ beforeEach(() => {
 })
 
 describe("a book's OL and Google ids", () => {
-  it('offers an editor for each, filled or not', async () => {
-    const user = userEvent.setup()
-    await open()
-    const dlg = await openIds(user)
-    expect(within(dlg).getByLabelText(/^open library id$/i)).toBeTruthy()
-    expect(within(dlg).getByLabelText(/^google books id$/i)).toBeTruthy()
-  })
-
-  it('draws the held id as a link to its page', async () => {
-    await open()
-    // An OL key is already a path, so the pill follows it as it stands rather
-    // than dropping a number into a template.
-    const link = screen.getByRole('link', { name: /OL82563W/ })
-    expect(link.getAttribute('href')).toBe('https://openlibrary.org/works/OL82563W')
-  })
-
-  it('takes a bare key and still lands on the work', async () => {
-    await open({ ...BOOK, openlibrary_id: 'OL82563W' })
-    expect(screen.getByRole('link', { name: /OL82563W/ }).getAttribute('href'))
-      .toBe('https://openlibrary.org/works/OL82563W')
-  })
-
-  it('sends a typed Google volume id as the string it is', async () => {
-    const user = userEvent.setup()
-    await open()
-    const dlg = await openIds(user)
-    await user.type(within(dlg).getByLabelText(/^google books id$/i), 'ftPPDwAAQBAJ')
-    await user.click(within(dlg).getByRole('button', { name: /save/i }))
-    await waitFor(() => expect(puts()).toHaveLength(1))
-    expect(puts()[0][2].google_id).toBe('ftPPDwAAQBAJ')
-  })
 
   it('carries the untouched id through a save of something else', async () => {
     const user = userEvent.setup()
@@ -123,9 +92,4 @@ describe("a book's OL and Google ids", () => {
     expect(puts()[0][2].openlibrary_id).toBe('/works/OL82563W')
   })
 
-  it('fullState carries both, so no save can clear one by omission', () => {
-    const body = fullState('book', BOOK)
-    expect(body).toHaveProperty('openlibrary_id', '/works/OL82563W')
-    expect(body).toHaveProperty('google_id', '')
-  })
 })

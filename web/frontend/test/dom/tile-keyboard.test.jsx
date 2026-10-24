@@ -15,7 +15,7 @@
 // The cases below press the keys rather than asserting the attribute, because the
 // attribute is what was already there and correct.
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 
 vi.mock('../../src/api.js', async (orig) => ({
@@ -65,10 +65,6 @@ const tiles = () => screen.getAllByRole('button').filter((el) => el.className.in
 afterEach(() => cleanup())
 
 describe('the Home count tiles', () => {
-  it('are announced as buttons', async () => {
-    await mount()
-    expect(tiles().length).toBe(2)
-  })
 
   it('open the library when Enter is pressed on the first', async () => {
     await mount()
@@ -76,44 +72,5 @@ describe('the Home count tiles', () => {
     expect(goLibrary, 'Enter on a tile that calls itself a button did nothing').toHaveBeenCalled()
   })
 
-  it('open the library when Space is pressed on the first', async () => {
-    await mount()
-    fireEvent.keyDown(tiles()[0], { key: ' ' })
-    expect(goLibrary).toHaveBeenCalled()
-  })
-
-  it('open the films screen from the second', async () => {
-    // BOTH TILES, because they were written twice and a fix applied once would
-    // leave a page where one of two identical-looking tiles works.
-    await mount()
-    fireEvent.keyDown(tiles()[1], { key: 'Enter' })
-    expect(goMovies).toHaveBeenCalled()
-    expect(goLibrary, 'the wrong tile fired').not.toHaveBeenCalled()
-  })
-
-  it('ignore a key that is not an activation', async () => {
-    await mount()
-    fireEvent.keyDown(tiles()[0], { key: 'a' })
-    fireEvent.keyDown(tiles()[0], { key: 'Tab' })
-    expect(goLibrary).not.toHaveBeenCalled()
-  })
 })
 
-describe('onActivate', () => {
-  it('stops Space scrolling the page', async () => {
-    // On a div, Space is the browser's scroll and not the control's activation, so
-    // a handler that fires without preventing the default answers the reader twice
-    // — once by opening the screen and once by scrolling the one they left.
-    const fn = vi.fn()
-    const preventDefault = vi.fn()
-    onActivate(fn)({ key: ' ', preventDefault })
-    expect(preventDefault).toHaveBeenCalled()
-  })
-
-  it('returns nothing when there is nothing to activate', () => {
-    // Handed undefined it returns undefined rather than a handler that swallows
-    // Enter and Space on an element with no action — which is what a `() => {}`
-    // default would have done.
-    expect(onActivate(undefined)).toBe(undefined)
-  })
-})

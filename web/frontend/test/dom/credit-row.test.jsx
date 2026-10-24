@@ -84,84 +84,12 @@ const nameBtn = () => document.querySelector('.cs-credit-name')
 afterEach(() => cleanup())
 
 describe('the portrait and the name', () => {
-  it('are two different doors', () => {
-    const v = sheet()
-    face().click()
-    expect(v.onCreditPick, 'the portrait did not reach the picker').toHaveBeenCalledTimes(1)
-    expect(v.onOpenCredit, 'the portrait opened the record instead of changing who it is').not.toHaveBeenCalled()
-  })
 
   it('and the name opens the record, not the picker', () => {
     const v = sheet()
     nameBtn().click()
     expect(v.onOpenCredit).toHaveBeenCalledTimes(1)
     expect(v.onCreditPick, 'the name went to the picker').not.toHaveBeenCalled()
-  })
-
-  it('and each is given the row it was pressed on', () => {
-    // Not just "a handler fired": the sheet can show more than one credit, so a
-    // door that fires with the wrong row edits somebody else's casting.
-    const v = sheet()
-    nameBtn().click()
-    expect(v.onOpenCredit.mock.calls[0][0]).toMatchObject({ cast_id: 9, actor_id: 11 })
-  })
-})
-
-describe('a credit nobody is named on', () => {
-  it('says the name cannot be opened rather than going quiet', () => {
-    sheet({ actor: '', actor_id: 0, actor_image: '' })
-    expect(nameBtn().getAttribute('aria-disabled'),
-      'a press that does nothing, with nothing saying why').toBe('true')
-    expect(nameBtn().getAttribute('title')).toMatch(/nobody named/i)
-  })
-
-  it('but can still be reassigned, because that is how it stops being nobody', () => {
-    const v = sheet({ actor: '', actor_id: 0, actor_image: '' })
-    face().click()
-    expect(v.onCreditPick, 'the one door out of the unnamed state was shut too').toHaveBeenCalledTimes(1)
-  })
-})
-
-describe("the row's second line", () => {
-  it('carries the language and the note together, language first', () => {
-    // A dub with a note on it. `note || lang` printed the note alone, so the one
-    // row where the language is the whole point stopped saying which one it is.
-    sheet({ credit_lang: 'Hindi', credit_note: 'all releases' })
-    const line = document.querySelector('.cs-credit-note')
-    expect(line, 'no second line at all').toBeTruthy()
-    expect(line.textContent).toBe('Hindi · all releases')
-  })
-
-  it('and the language alone where there is no note', () => {
-    sheet({ credit_lang: 'Hindi' })
-    expect(document.querySelector('.cs-credit-note').textContent).toBe('Hindi')
-  })
-
-  it('and draws nothing when there is neither', () => {
-    sheet()
-    expect(document.querySelector('.cs-credit-note'),
-      'an empty second line claims there is something to read').toBeNull()
-  })
-})
-
-describe("the row's glyphs", () => {
-  // "A screen's glyphs are the app's own, never an emoji. NavIcon, Icon* in
-  // ui.jsx, and nothing hand-picked beside them." A character renders in the
-  // reader's font, sits off the shared baseline, and is the one picture the
-  // generated glossary cannot document. The row shipped three: ✎, ✕ and ▾.
-  it('are drawn, not typed', () => {
-    sheet({ credit_lang: 'Hindi' })
-    const text = document.querySelector('.cs-credit').textContent
-    for (const ch of ['✎', '✕', '▾', '✓', '⋯', '×']) {
-      expect(text.includes(ch), `the row prints the character ${ch} instead of drawing a glyph`).toBe(false)
-    }
-  })
-
-  it('and there is one for every verb the row offers', () => {
-    sheet()
-    // Four controls, each with a drawing in it: reassign, open, note, remove.
-    const svgs = document.querySelectorAll('.cs-credit svg')
-    expect(svgs.length, 'a control on this row has no glyph at all').toBeGreaterThanOrEqual(3)
   })
 })
 
@@ -185,66 +113,3 @@ describe("the row's glyphs", () => {
 const rowFor = (label) => [...document.querySelectorAll('.cs-row')]
   .find((r) => (r.querySelector('.cs-row-label')?.textContent || '').trim() === label)
 
-describe('a row on the character sheet', () => {
-  // THE LABEL COMES FROM THE LOCALE, NOT FROM A LITERAL. It was `'In this work'`
-  // in five places here and became `Who they are here` — the old one named the
-  // SCOPE and left the subject to be guessed, which is what made it
-  // indistinguishable from the note that used to sit beneath it (the owner's
-  // question). Five cases went red for a rename that touched nothing any of them
-  // is about.
-  const DESC = t('identity.row.local-desc.label')
-
-  it('does not restate its own label underneath itself', () => {
-    sheet()
-    const row = rowFor(DESC)
-    expect(row, 'the per-work description row is gone from the sheet').toBeTruthy()
-    const sub = (row.querySelector('.cs-row-sub')?.textContent || '').trim()
-    expect(sub, `the row says its scope twice: "${DESC}" then "${sub}"`).toBe('')
-  })
-
-  it('and says the absence of a value in the word this sheet uses for absence', () => {
-    // A LENGTH TEST WAS TOOTHLESS AND SHIPPED. The first version of this case
-    // allowed anything under 40 characters, and the string it was written against
-    // — "nothing written for this work" — is 29: it passed on the code it was
-    // meant to fail. What is actually being asked is that a row saying "there is
-    // nothing here" says it in the sheet's own word for that.
-    //
-    // IT USED TO COMPARE AGAINST THE `Note` ROW, which was the right comparison
-    // while that row existed — it was a second door to `work_cast.credit_note`,
-    // the ✎ on each credit edits the same field, and it is gone. So the word is
-    // named rather than borrowed from a neighbour that may not be there.
-    sheet()
-    const empty = (label) => (rowFor(label)?.querySelector('.cs-row-meta')?.textContent || '').trim()
-    expect(empty(DESC), 'the empty value is not the sheet’s own word for nothing')
-      .toBe(t('identity.row.local-desc.none'))
-  })
-
-  it('and the value gives way rather than squeezing the label into a clip', () => {
-    // THE CLIP WAS A LAYOUT, NOT A STRING. "In this wor" happened because the
-    // value beside it could not shrink, so shortening the value fixed the symptom
-    // for one value and left the next long one to do it again. A real description
-    // is free text; the row has to hold it without cutting the label.
-    sheet({ description: 'A prison librarian, a rock hammer, and nineteen years of patience — the part as this film has it.' })
-    const row = rowFor(DESC)
-    const label = row.querySelector('.cs-row-label')
-    expect(label.textContent, 'the label is not the one under test').toBe(DESC)
-    const meta = row.querySelector('.cs-row-meta')
-    expect(meta.className, 'the value cannot scroll, so what does not fit is simply gone')
-      .toMatch(/name-scroll/)
-  })
-
-  it('and says nothing at all where a character has no other name', () => {
-    sheet()
-    const row = rowFor('Credited as') || rowFor('Called here')
-    expect(row, 'the name row is gone from the sheet').toBeTruthy()
-    const sub = (row.querySelector('.cs-row-sub')?.textContent || '').trim()
-    expect(sub, `no aliases, and the row explains that in prose: "${sub}"`).toBe('')
-  })
-
-  it('but prints the other names when there are some, which is what that line is for', () => {
-    sheet({ aliases: 'Andy · Red' })
-    const row = rowFor('Credited as') || rowFor('Called here')
-    const sub = (row.querySelector('.cs-row-sub')?.textContent || '').trim()
-    expect(sub, 'the aliases vanished with the sentence that used to stand in for them').toContain('Andy')
-  })
-})

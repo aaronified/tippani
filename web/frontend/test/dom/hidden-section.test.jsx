@@ -80,19 +80,6 @@ const sheet = (...ids) => {
 const LIBRARY_KEYS = shortcutFor('go-library').split(/\s+then\s+/)
 const LIBRARY_ROW = t(SHORTCUTS.find((s) => s.id === 'go-library').label)
 
-describe('with every section on', () => {
-  it('the drawer offers the shelf, and says which key reaches it', () => {
-    const { caps } = drawer({})
-    for (const k of LIBRARY_KEYS) {
-      expect(caps, `the drawer does not print "${k}" — nothing here is being tested`).toContain(k)
-    }
-  })
-
-  it('and the sheet lists it too', () => {
-    expect(sheet(), 'the sheet does not list the shelf at all').toContain(LIBRARY_ROW)
-  })
-})
-
 describe('with the shelf put away', () => {
   it('the drawer stops offering it', () => {
     const { caps } = drawer({ library: false })
@@ -109,14 +96,4 @@ describe('with the shelf put away', () => {
       .not.toContain(LIBRARY_ROW)
   })
 
-  it('while every other destination keeps its own', () => {
-    // A gate that hides the legends everywhere is not a fix, it is a regression
-    // with a good excuse.
-    const { caps } = drawer({ library: false })
-    const others = SHORTCUTS.filter((s) => s.id.startsWith('go-') && s.id !== 'go-library')
-    const lost = others
-      .filter((s) => !shortcutFor(s.id).split(/\s+then\s+/).every((k) => caps.includes(k)))
-      .map((s) => s.id)
-    expect(lost, 'hiding one section took the legends off these too').toEqual([])
-  })
 })

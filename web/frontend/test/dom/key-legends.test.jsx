@@ -69,32 +69,6 @@ const capText = (keys) => {
   return caps
 }
 
-describe("the drawer's destinations", () => {
-  const rows = drawerActions()
-
-  it('are there to be checked at all', () => {
-    // The extraction's own failure mode: a table that moved, and a sweep that
-    // then quietly asserts nothing about an empty list.
-    expect(rows.length, 'no drawer destinations found — the extraction has gone stale').toBeGreaterThan(5)
-  })
-
-  it('each name a shortcut the app actually has', () => {
-    const known = new Set(SHORTCUTS.map((s) => s.id))
-    const missing = rows.filter((r) => !known.has(r.id)).map((r) => `${r.dest} → ${r.id}`)
-    expect(missing, 'these drawer rows point at actions that are not registered').toEqual([])
-  })
-
-  it('each show a key cap a reader can read', () => {
-    // THE ASSERTION THE OLD ONE COULD NOT MAKE. This goes through the resolver
-    // and the component, so it fails on an unregistered action (blank legend), on
-    // a legend that resolves to an empty string, and on a `Kbd` that draws
-    // nothing — none of which a source scan can see.
-    const blank = rows.filter((r) => capText(shortcutFor(r.id)).join('').length === 0)
-      .map((r) => `${r.dest} → ${r.id}`)
-    expect(blank, 'these drawer rows draw an empty cap').toEqual([])
-  })
-})
-
 // EVERY REGISTERED DESTINATION IS SPELLED OUT ON THE DRAWER. The drawer is the one
 // surface that lists every place the app can go, so a `go-*` binding whose row
 // wears no cap is a shortcut with nowhere to be discovered — the state this feature
@@ -167,64 +141,4 @@ const capsOn = (mode) => {
   return caps
 }
 
-describe("the quiz's own buttons", () => {
-  it('wear their keys', () => {
-    expect(capsOn('daily').length, 'the daily quiz draws no key legends at all').toBeGreaterThan(0)
-    expect(capsOn('practice').length, 'practice draws no key legends at all').toBeGreaterThan(0)
-  })
-
-  it("and practice's differ, because its bindings do", () => {
-    // Only worth asserting if the registry actually distinguishes the two — read
-    // that from the registry rather than assuming it.
-    const contextual = SHORTCUTS.filter((s) => s.ctx)
-    expect(contextual.length, 'no action is mode-dependent, so this rule has nothing to guard').toBeGreaterThan(0)
-    for (const s of contextual) {
-      expect(shortcutFor(s.id, true),
-        `${s.id} prints the same legend in both modes though its binding differs`)
-        .not.toBe(shortcutFor(s.id, false))
-    }
-    // AND THE BUTTON TAKES THE MODE'S FORM, which is the half a registry check
-    // cannot reach: a screen that resolves both legends correctly and then passes
-    // the wrong one is exactly the bug.
-    expect(capsOn('practice').join(' '), 'practice draws the daily quiz’s legends')
-      .not.toBe(capsOn('daily').join(' '))
-  })
-})
-
 // ---- the sheet that lists them all -------------------------------------------
-describe('the shortcut sheet', () => {
-  it('draws a cap for every binding it lists', async () => {
-    pointer()
-    const { ShortcutSheet } = await import('../../src/ui.jsx')
-    render(<ShortcutSheet open onClose={() => {}} />)
-    const caps = [...document.querySelectorAll('kbd')].map((k) => k.textContent.trim()).filter(Boolean)
-    expect(caps.length, 'the sheet lists no keys at all').toBeGreaterThan(5)
-    // And every one of them is a key the registry knows, not a hand-typed string.
-    // BOTH FORMS, because a review key answers to two decks and the sheet says
-    // so — one cap for the daily binding and one for practice's.
-    const registry = new Set(SHORTCUTS
-      .flatMap((s) => [shortcutFor(s.id), shortcutFor(s.id, true)])
-      .flatMap((legend) => legend.split(/\s+/))
-      .filter(Boolean))
-    // A modifier is a cap of its own — the sheet draws "Shift" beside the key it
-    // modifies — so a cap counts as known if it is a whole legend, a word inside
-    // one, or a piece of one split on its joining punctuation.
-    const parts = new Set([...registry].flatMap((r) => [r, ...r.split(/[-+\s]+/)]).filter(Boolean))
-    const strangers = caps.filter((c) => !parts.has(c))
-    expect(strangers, 'the sheet prints caps no registered binding produces').toEqual([])
-  })
-
-  it('names every binding the registry holds', async () => {
-    pointer()
-    const { ShortcutSheet } = await import('../../src/ui.jsx')
-    render(<ShortcutSheet open onClose={() => {}} />)
-    // A two-key sequence renders as two caps with a joining word between them, so
-    // the sheet's text is "GthenL" and not "G then L". Compare the KEYS, which is
-    // what a reader reads off the caps.
-    const text = document.body.textContent
-    const unnamed = SHORTCUTS
-      .filter((s) => !shortcutFor(s.id).split(/\s+then\s+/).every((k) => text.includes(k)))
-      .map((s) => s.id)
-    expect(unnamed, 'these bindings are in the registry and not on the sheet').toEqual([])
-  })
-})

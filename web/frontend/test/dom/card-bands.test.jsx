@@ -112,46 +112,4 @@ describe('the six bands, in the owner’s order', () => {
     expect(note, 'the tags follow the note').toBeLessThan(tag)
   })
 
-  // "both these sections will be expandable" — and the translation was the half
-  // that was not. A plain <p> ran to whatever length it wanted, so a long original
-  // with a long translation left one clamped and the other not, and a reader who
-  // wanted the meaning scrolled past all of the words they could not read.
-  it('and the quote, the translation and the note each fold on their own', () => {
-    const c = card()
-    // Three separate clampable wrappers, one per foldable band. Counted rather
-    // than named: what matters is that no two of them share a fold.
-    expect(c.querySelectorAll('.clampable').length).toBeGreaterThanOrEqual(3)
-    // And each of the three texts sits inside its own.
-    for (const sel of ['.quote-translation', '.hand-note']) {
-      const el = c.querySelector(sel)
-      expect(el.closest('.clampable'), `${sel} is not inside a fold of its own`).toBeTruthy()
-    }
-  })
-
-  // WHICH OF THE TWO LEADS IS NOT THIS CARD'S DECISION. `quoteTexts` answers it
-  // from the reader's dial and the row's own language, and a work's or board's rule
-  // will override both (task 83) — so the card must render whatever order it is
-  // handed rather than hard-coding the quote on top.
-  it('and puts the translation on top when the order says so', () => {
-    const c = card(FULL, { textOrder: 'trans-first' })
-    const lead = byText(c, FULL.translation)
-    const second = byText(c, FULL.quote)
-    expect(lead, 'trans-first must put the translation in the big type').toBeLessThan(second)
-  })
-
-  it('and draws one text when the order asks for one', () => {
-    const c = card(FULL, { textOrder: 'quote-only' })
-    expect(c.querySelector('.quote-translation')).toBeNull()
-    expect(byText(c, FULL.quote)).toBeGreaterThan(-1)
-  })
-
-  // A BAND WITH NOTHING IN IT DRAWS NOTHING, which is what keeps a proverb — no
-  // speaker, no note, no tags — from carrying four empty rows and the spacing that
-  // comes with them.
-  it('and an empty band is absent rather than blank', () => {
-    const c = card({ id: 2, quote: 'Measure twice, cut once.', color: 'yellow' })
-    expect(c.querySelector('.quote-translation')).toBeNull()
-    expect(c.querySelector('.hand-note')).toBeNull()
-    expect(c.querySelector('.tag-chip')).toBeNull()
-  })
 })

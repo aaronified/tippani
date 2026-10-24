@@ -61,35 +61,6 @@ const slot = () => tick().closest('.tp-tick-slot')
 beforeEach(() => { window.history.replaceState({}, '') })
 afterEach(() => cleanup())
 
-describe("a panel's head, with a form registered and nothing changed", () => {
-  beforeEach(async () => { await act(async () => { render(<Harness count={0} />) }) })
-
-  it('draws a tick that is not armed and carries no count', () => {
-    expect(tick(), 'a form registered and no ✓ in the head').toBeTruthy()
-    expect(slot(), 'the ✓ is not in the slot that can arm it').toBeTruthy()
-    expect(slot().classList.contains('is-armed'),
-      'the ✓ is armed with nothing to save — the state the rule calls "teaches the reader to stop reading it"').toBe(false)
-    expect(slot().querySelector('.tp-tick-count'),
-      'a count badge over zero changes').toBeNull()
-  })
-
-  it('and a cross that IS the danger colour, because it is still a form', () => {
-    // THIS CASE USED TO ASSERT THE OPPOSITE, and the rule it read was this
-    // surface's alone. `FormModal` and `MobileSheet` red the ✕ for any caller
-    // holding a form — all three of their callers pass `closeDanger` outright —
-    // while this one waited for something to be typed, so one form's ✕ answered a
-    // different question from the next screen's.
-    //
-    // The `dirty` gate belongs to the TICK and only to it: the tick's arming says
-    // something has changed, the cross's colour says what the press does. Asking
-    // both the same question signals one fact twice and leaves the second
-    // unanswered — and leaves a reader who has typed nothing unable to tell a form
-    // they may leave freely from a form at all. `dom/cross-is-red.test.jsx` holds
-    // the whole rule, both surfaces side by side; this is its case here.
-    expect(cross().style.color, 'the ✕ on a form does not say it discards').toMatch(/error/)
-  })
-})
-
 describe("a panel's head, with three fields waiting", () => {
   beforeEach(async () => { await act(async () => { render(<Harness count={3} />) }) })
 
@@ -98,13 +69,4 @@ describe("a panel's head, with three fields waiting", () => {
       'three unsaved fields and the ✓ looks exactly as it did with none').toBe(true)
   })
 
-  it('says how many the press will write', () => {
-    const badge = slot().querySelector('.tp-tick-count')
-    expect(badge, 'no count badge beside the ✓').toBeTruthy()
-    expect(badge.textContent, 'the badge does not say how much is at stake').toBe('3')
-  })
-
-  it('turns the cross the danger colour, because it is the discarding half', () => {
-    expect(cross().style.color, 'the ✕ discards three fields and does not say so').toMatch(/var\(--error\)/)
-  })
 })

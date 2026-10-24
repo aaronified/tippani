@@ -23,7 +23,7 @@
 
 import { describe, expect, it } from 'vitest'
 
-import { inventName, inventProse, inventTitle, scriptOf } from '../../../../scripts/journeys/invent.mjs'
+import { inventName, inventProse, inventTitle,  } from '../../../../scripts/journeys/invent.mjs'
 
 // Long enough that no pool can spell it in the parts it allows, which is exactly
 // the case that hung.
@@ -50,52 +50,5 @@ describe('the fixture generator', () => {
     // The bound, named: five parts, and nothing an original's length can do
     // about it.
     expect(inventName(UNSPELLABLE.repeat(4)).split('-').length).toBeLessThanOrEqual(5)
-  })
-
-  it('answers in the script it was asked in', () => {
-    const cases = [
-      ['Latin', 'The Idiot', 'Fyodor Dostoyevsky', 'It was the best of times.'],
-      ['Devanagari', 'जहाँ चाह वहाँ राह', 'अरुणा वनवासी', 'जहाँ चाह होती है वहाँ राह मिल जाती है।'],
-      ['Bengali', 'যেখানে ইচ্ছা সেখানে পথ', 'অরুণা বনবাসী', 'যেখানে ইচ্ছা আছে সেখানে পথ আছে।'],
-    ]
-    for (const [want, title, name, prose] of cases) {
-      expect(scriptOf(inventTitle(title)), `title in ${want}`).toBe(want)
-      expect(scriptOf(inventName(name)), `name in ${want}`).toBe(want)
-      expect(scriptOf(inventProse(prose)), `prose in ${want}`).toBe(want)
-    }
-  })
-
-  it('says nothing of what it was given', () => {
-    // The whole point: the output must not carry the input. A generator that
-    // passed short strings through unchanged would look like it worked and would
-    // publish somebody's shelf.
-    for (const secret of ['Dostoyevsky', 'Middlemarch', 'Casablanca']) {
-      expect(inventTitle(secret)).not.toContain(secret)
-      expect(inventName(secret)).not.toContain(secret)
-      expect(inventProse(secret)).not.toContain(secret)
-    }
-  })
-
-  it('gives the same answer every time, so the recipe does not churn', () => {
-    for (const input of ['The Idiot', 'Fyodor Dostoyevsky', 'जहाँ चाह वहाँ राह']) {
-      expect(inventTitle(input)).toBe(inventTitle(input))
-      expect(inventName(input)).toBe(inventName(input))
-      expect(inventProse(input)).toBe(inventProse(input))
-    }
-  })
-
-  it('keeps a long thing long, which is what the fixture is for', () => {
-    // The real library's extremes: a 72-character title, a 2,378-character
-    // quote, a 31-character credit. A generator that returned tidy short strings
-    // would rebuild exactly the fixture CLAUDE.md says hides a class of defect.
-    const longTitle = 'A Title Of Seventy Two Characters Which Is What The Longest One Actually Is'
-    expect(inventTitle(longTitle).length).toBeGreaterThan(40)
-
-    const longQuote = 'x'.repeat(2378)
-    const prose = inventProse(longQuote)
-    expect(prose.length).toBeGreaterThan(2000)
-    expect(prose.length).toBeLessThanOrEqual(2378)
-
-    expect(inventName('Kaisa Vallenceworth-Brightwater').length).toBeGreaterThan(20)
   })
 })

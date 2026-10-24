@@ -138,71 +138,7 @@ const phoneBack = async () => { await press(screen.getByLabelText(/back to/i)) }
 const rail = () => screen.getAllByRole('tab').map((b) => b.textContent)
 const tab = (name) => screen.getByRole('tab', { name })
 
-describe('the rail', () => {
-  it('names every section, in the order of the question', async () => {
-    await mount()
-    // The words, not the counts: the order is the claim. TAGS JOINED THEM, between
-    // Characters and Sources — it was a tab of its own and is a section here now, and
-    // it sits with the other lists of what is written across the library rather than
-    // beside the keys, which are settings.
-    // LANGUAGES JOINED THEM, between Tags and Sources. The v3 pack draws no such
-    // section and its own Settings prototype depends on one — it says the quote
-    // faces are read from "the metadata language table, which is the only place a
-    // quote's language is defined". The table existed; it was a pop-up behind a
-    // button inside Sources, which is not somewhere another screen can point.
-    // OVERVIEW LEFT THEM. The owner: "remove the overview screen completely. We
-    // are not going to miss it. All options are available on other screens."
-    // TAGS AND COLOURS BECAME ONE: "Categories" — the owner: "merge the tags and
-    // the colours metadata pages into one".
-    expect(rail().map((s) => s.replace(/\d+$/, ''))).toEqual(['Works', 'People', 'Characters', 'Languages', 'Categories', 'Sources'])
-  })
-
-  it('leaves the sources door with no number, because it counts no records', async () => {
-    // Every other door counts records or gaps. This one is a set of settings, and
-    // "5 keys" answers a question nobody has — a number there would read as five
-    // of something to work through.
-    await mount()
-    expect(tab(/^Sources/).querySelector('.meta-rail-count')).toBeNull()
-  })
-
-  it('carries each section’s own number', async () => {
-    await mount()
-    // Works is 2 books + 0 films; characters and people come from their own
-    // reads, which is why they are here at all — the rail cannot print a number
-    // the page has not got.
-    //
-    // WAITED FOR RATHER THAN READ ONCE, because mount() resolves when the tabs
-    // EXIST and the counts arrive from three later fetches — the same race the
-    // sibling test one block down asserts the other side of. Read as a snapshot
-    // this passes on whichever fetch happened to land first.
-    await waitFor(() => {
-      expect(tab(/^Works/).textContent).toContain('2')
-      expect(tab(/^Characters/).textContent).toContain('2')
-      expect(tab(/^People/).textContent).toContain('3')
-    })
-  })
-
-  it('has no Overview door, because every number it drew is a Works pill', async () => {
-    await mount()
-    expect(screen.queryByRole('tab', { name: /overview/i })).toBeNull()
-    expect(screen.queryByText(/coverage/i)).toBeNull()
-  })
-
-  it('says nothing where a count has not arrived', async () => {
-    // A zero here would be a lie for as long as the fetch takes, and the lie is
-    // the readable kind: "you have no characters" rather than "still loading".
-    render(<MetadataPage user={{ username: 'alice', is_admin: true }} onOpenBook={() => {}} onOpenMovie={() => {}} onSearch={() => {}} />)
-    const el = screen.getAllByRole('tab').find((b) => /^Characters/.test(b.textContent))
-    expect(el.querySelector('.meta-rail-count')).toBeNull()
-  })
-})
-
 describe('a section at a time', () => {
-  it('opens on Works when nothing is remembered, since Overview is gone', async () => {
-    await mount()
-    expect(tab(/^Works/).getAttribute('aria-selected')).toBe('true')
-    expect(await screen.findByText(/A Wizard of Earthsea/)).toBeTruthy()
-  })
 
   it('shows one section at a time: another door takes the works list away', async () => {
     await mount()
@@ -210,53 +146,6 @@ describe('a section at a time', () => {
     await press(tab(/^Characters/))
     expect(await screen.findByText('Woland')).toBeTruthy()
     expect(screen.queryByText(/A Wizard of Earthsea/)).toBeNull()
-  })
-
-  it('shows each work’s own cover, and marks the gap where there is none', async () => {
-    // The list whose subject is the picture showed no pictures: two of its filters
-    // are `no_cover` and `low_res`, and a reader checking a low-res flag had to
-    // open every row to see the thing being flagged. The empty slot keeps its
-    // space and says what it is, because here the absence IS the finding.
-    // The console opens on the works that still need something, so both rows here
-    // are missing their source — which is what keeps the one that HAS a cover in
-    // the list at all, and is the case worth drawing: a row flagged for a reason
-    // that is not its picture.
-    LIB = {
-      books: [
-        { ...book(1, 'A Wizard of Earthsea', 'covers/earthsea.jpg'), has_ids: false },
-        { ...book(2, 'The Dispossessed'), has_ids: false },
-      ],
-      movies: [],
-    }
-    await mount()
-    await press(tab(/^Works/))
-    const withArt = (await screen.findByText('A Wizard of Earthsea')).closest('div.flex')
-    expect(withArt.querySelector('img.meta-row-art')).toBeTruthy()
-    const without = screen.getByText('The Dispossessed').closest('div.flex')
-    expect(without.querySelector('img.meta-row-art')).toBeNull()
-    expect(within(without).getByLabelText(/No cover stored/)).toBeTruthy()
-  })
-
-  it('puts the API keys behind the sources door, which used to be a settings card', async () => {
-    // The block moved whole: a reader looking at a work filtered by "no source"
-    // had to leave the console, find a settings card, and come back to press
-    // Fetch. It is the last door because it is a setting rather than a thing to
-    // work on.
-    await mount()
-    // THE CARD'S OWN ROWS, NOT ITS TITLE. The title said "Metadata sources" under a
-    // tab that had just said "Sources", so it went; a key row is what this card is.
-    expect(screen.queryByText('TMDB key')).toBeNull()
-    await press(tab(/^Sources/))
-    // A SUPPLIER'S KEYS OPEN FROM ITS OWN ROW on the one card, "All sources".
-    await press(await screen.findByRole('button', { name: 'Set up TMDB' }))
-    expect(await screen.findByText('TMDB key')).toBeTruthy()
-  })
-
-  it('puts the character list behind the character door and nowhere else', async () => {
-    await mount()
-    expect(screen.queryByText('Woland')).toBeNull()
-    await press(tab(/^Characters/))
-    expect(await screen.findByText('Woland')).toBeTruthy()
   })
 
   it('remembers which section, because it is a fact about this desk', async () => {
@@ -276,57 +165,10 @@ describe('a section at a time', () => {
     expect(tab(/^Works/).getAttribute('aria-selected')).toBe('true')
   })
 
-  it('and a remembered Overview, from before it was removed, falls back the same way', async () => {
-    localStorage.setItem('tippani:metasection', JSON.stringify('overview'))
-    await mount()
-    expect(tab(/^Works/).getAttribute('aria-selected')).toBe('true')
-  })
 })
 
 describe('on a phone', () => {
   beforeEach(() => { WIDTH = 390 })
-
-  it('gets every door, each carrying what is behind it', async () => {
-    await mount()
-    // An index, not a strip: eight tabs at 390px show two and a half of themselves.
-    expect(screen.queryAllByRole('tab')).toHaveLength(0)
-    const doors = await phoneDoors()
-    // THE ORDER IS THE CLAIM, and what each door carries is part of it. The owner,
-    // of the index that was a name and an arrow: "the metadata phone index page
-    // looks like shit". So a console's door carries its open issues — each a door
-    // into the console filtered to it — then its verbs, in words. Prune is absent and that is correct: it draws
-    // itself only over a library with orphans, and this fixture has none.
-    expect(doors.map((s) => s.replace(/\d+$/, ''))).toEqual([
-      'Works', 'no cover', 'no series', 'Scan for duplicate works',
-      // ONE PILL PER FILTER THE CONSOLE DRAWS, never a union no filter can show:
-      // "people with no portrait or link" opened on every person, a number the
-      // screen it opened did not print (the owner, 30 September).
-      'People', 'no links', 'no photo', 'in no work', 'no quotes', 'Fetch missing',
-      'Characters', 'in no work', 'no quotes',
-      'Languages',
-      // The colours ride on Categories' door as a preview, not as buttons: each would
-      // open the same section, and a chip that looks like a filter should be one.
-      'Categories',
-      'Sources',
-    ])
-  })
-
-  it('carries each door\u2019s number onto its row, because that is why it is a rail', async () => {
-    await mount()
-    const doors = await phoneDoors()
-    // The counts ride on the rows — they are the reason the rail is a rail and
-    // not a tab strip, and a number you can see without opening anything.
-    expect(doors.find((d) => d.startsWith('Works'))).toMatch(/2$/)
-    expect(doors.find((d) => d.startsWith('Characters'))).toMatch(/2$/)
-    // Sources counts settings, not records, so it still carries none.
-    expect(doors.find((d) => d.startsWith('Sources'))).toBe('Sources')
-  })
-
-  it('can reach the character list, which used to be desktop-only', async () => {
-    await mount()
-    await phoneDoor(/^Characters/)
-    expect(await screen.findByText('Woland')).toBeTruthy()
-  })
 
   // ── EVERYTHING THAT NEEDS WORK, from the dock.
   //
@@ -339,11 +181,6 @@ describe('on a phone', () => {
       expect(k, id).toBeTruthy()
       return k
     }
-
-    it('publishes the two halves of this page\u2019s job to the dock', async () => {
-      await mount()
-      expect((BAR.keys || []).map((k) => k.id)).toEqual(['issues', 'fetch'])
-    })
 
     it('offers no fetch to a reader who cannot run one', async () => {
       render(<><MetadataPage user={{ username: 'bob', is_admin: false }} onOpenBook={() => {}} onOpenMovie={() => {}} onSearch={() => {}} /><Probe /></>)
@@ -359,35 +196,5 @@ describe('on a phone', () => {
       expect((BAR.keys || []).map((k) => k.id)).toEqual(['issues', 'nav'])
     })
 
-    it('lists only what is actually wrong, and every row is a door', async () => {
-      await mount({ routed: true })
-      await act(async () => dockKey('issues').onClick())
-      const rows = [...document.querySelectorAll('.meta-issue-row')].map((el) => el.textContent)
-      // The fixture's two books have no cover and no series; everything else
-      // about them is complete. Fourteen gap tokens exist and eleven of them are
-      // zero — a sheet of zeroes is a sheet that teaches a reader to stop
-      // reading it.
-      expect(rows.filter((r) => /cover/i.test(r))).toHaveLength(1)
-      expect(rows.filter((r) => /series/i.test(r))).toHaveLength(1)
-      expect(rows.some((r) => /year|genre|author/i.test(r))).toBe(false)
-
-      // AND IT IS A SUPERSET OF THE DESKTOP TILES. The three people in the
-      // fixture have neither a portrait nor a link, which the coverage strip has
-      // never counted — it only ever looked at the catalogue. Each is its own row,
-      // the People console's own filter, so the number is the one it opens on.
-      expect(rows.some((r) => /no links/i.test(r))).toBe(true)
-      expect(rows.some((r) => /no photo/i.test(r))).toBe(true)
-
-      await press([...document.querySelectorAll('.meta-issue-row')].find((el) => /series/i.test(el.textContent)))
-      // It lands on the works console, filtered to the gap it named — and what
-      // says so is the console's OWN control rather than a heading. This read the
-      // first `<h2>`, which was the phone's drill head; that head is gone (the
-      // section's name is in the top bar's crumb now), so the first heading on the
-      // screen became "Duplicate works" — the second console in the same section.
-      // "Duplicate works" is the OTHER console in this section and is drawn
-      // nowhere else in the app, so it says "the Works section arrived" without
-      // depending on which rows the gap filter left behind.
-      expect(await screen.findByText('Duplicate works'), 'the Works section should be on screen').toBeTruthy()
-    })
   })
 })

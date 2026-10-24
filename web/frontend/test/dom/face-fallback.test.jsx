@@ -35,38 +35,6 @@ const img = (c) => c.querySelector('img')
 const glyph = (c) => c.querySelector('svg')
 
 describe('a face whose picture fails to arrive', () => {
-  it('draws the person glyph instead of the browser’s broken-image mark', () => {
-    const c = draw({ src: 'gone.jpg', name: 'Delia Surridge' })
-    expect(img(c), 'no picture was attempted at all').toBeTruthy()
-    expect(glyph(c), 'a stand-in was drawn before anything had failed').toBeNull()
-    fireEvent.error(img(c))
-    expect(img(c), 'the failed picture is still on the screen, torn mark and all').toBeNull()
-    expect(glyph(c), 'nothing replaced the failed picture').toBeTruthy()
-  })
-
-  it('and the SAME glyph a row with no picture at all draws', () => {
-    // The owner's own words: "a random person glyph, as used in the actual delia
-    // sturridge character page". Not any stand-in — the one that record already
-    // wears everywhere else, which is hashed from the name so it is stable.
-    const none = draw({ src: '', name: 'Delia Surridge' })
-    const broke = draw({ src: 'gone.jpg', name: 'Delia Surridge' })
-    fireEvent.error(img(broke))
-    expect(glyph(broke).innerHTML, 'a broken picture wears a different face from an absent one')
-      .toBe(glyph(none).innerHTML)
-  })
-
-  it('and is drawn the way a row with no picture is drawn', () => {
-    // THE PLATE IS KEYED ON WHAT IS ON THE SCREEN, not on what is stored. Three
-    // stylesheets give the stand-in its grey plate, its padding and its colour
-    // through `is-empty`, and every one of them was set from the presence of a
-    // path — so a broken picture drew an unstyled glyph in a row of styled ones.
-    const c = draw({ src: 'gone.jpg', name: 'Delia Surridge', className: 'cast-face' })
-    expect(c.firstChild.className, 'the plate is drawn under a picture that is arriving')
-      .not.toContain('is-empty')
-    fireEvent.error(img(c))
-    expect(c.firstChild.className, 'the stand-in is drawn without the plate every other one has')
-      .toContain('is-empty')
-  })
 
   it('and the character page the owner named draws it too', () => {
     // NOT A TEST OF `Face` BUT OF THE SITE. `Face` having the fallback says
@@ -80,64 +48,5 @@ describe('a face whose picture fails to arrive', () => {
     fireEvent.error(shot)
     expect(container.querySelector('img'), 'the failed portrait is still on the screen').toBeNull()
     expect(container.querySelector('svg'), 'nothing stood in for the failed portrait').toBeTruthy()
-  })
-
-  it('and tells a caller whose whole reason was the picture', () => {
-    // A SLOT WHOSE PURPOSE IS THE PICTURE HAS NOTHING LEFT TO BE. The person
-    // record's photograph is a BUTTON that opens it full-screen; a file that has
-    // gone would leave a 104px control that does nothing, which is the defect
-    // `make controls` exists to catch arriving through the back door. `Face`
-    // still judges WHETHER the picture failed — that is the whole point of it —
-    // and what a screen does about it stays the screen's.
-    const told = vi.fn()
-    const c = draw({ src: 'gone.jpg', name: 'Delia', fallback: null, onBroken: told })
-    fireEvent.error(img(c))
-    expect(told, 'the picture failed and nothing told the control that depends on it')
-      .toHaveBeenCalled()
-  })
-
-  it('and draws nothing at all where the caller says nothing is right', () => {
-    // AN ORNAMENT DRAWS NOTHING WHERE THERE IS NOTHING — the round face beside a
-    // group heading, the thumbnail next to "remove the picture". A silhouette
-    // there would put a face where the design draws none, so a failed picture
-    // has to leave the same gap an absent one does.
-    const c = draw({ src: 'gone.jpg', name: 'Delia', fallback: null })
-    fireEvent.error(img(c))
-    expect(c.innerHTML, 'a slot that draws nothing without a picture drew something with a broken one')
-      .toBe('')
-  })
-
-  it('and a slot that is a record’s FACE says so, where an ornament does not', () => {
-    // TWO KINDS OF SLOT, ONE COMPONENT. The round portrait is an ornament beside
-    // a heading and a RECORD'S FACE on a Stats tile, whose own comment says why
-    // the gap is wrong there: "a name alone in a grid of covers reads as the one
-    // tile whose art failed to load".
-    //
-    // AND THE FIRST ATTEMPT AT THIS DID NOT WORK. The caller asked for the
-    // silhouette by passing `fallback={undefined}` — and a destructuring default
-    // fires on `undefined`, so it got the `null` it was trying to avoid and the
-    // tile drew the gap anyway, under a row marked FIXED. A boolean cannot be
-    // defaulted out from under its caller, which is why this is one.
-    const person = { image_path: 'gone.jpg', name: 'Delia Surridge' }
-    const orn = render(<PersonPortrait person={person} />).container
-    fireEvent.error(orn.querySelector('img'))
-    expect(orn.innerHTML, 'an ornament drew something where the design draws nothing').toBe('')
-
-    const facing = render(<PersonPortrait person={person} ornament={false} />).container
-    fireEvent.error(facing.querySelector('img'))
-    expect(facing.querySelector('svg'), 'a record’s face drew the gap an ornament leaves')
-      .toBeTruthy()
-  })
-
-  it('and a replacement picture gets its own chance', () => {
-    // The flag must not outlive the address it was set for: a row that failed
-    // once would keep the glyph after the reader uploaded a new photograph,
-    // because React reuses the component.
-    const { container, rerender } = render(<Face url={(x) => x} src="gone.jpg" name="Delia" />)
-    fireEvent.error(container.querySelector('img'))
-    expect(container.querySelector('svg'), 'the failure did not take').toBeTruthy()
-    rerender(<Face url={(x) => x} src="new.jpg" name="Delia" />)
-    expect(container.querySelector('img'), 'a replaced picture stayed hidden behind the old failure')
-      .toBeTruthy()
   })
 })

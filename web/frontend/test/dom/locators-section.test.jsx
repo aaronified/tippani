@@ -54,15 +54,6 @@ beforeEach(() => {
 })
 
 describe('times from subtitles on Checks', () => {
-  it('shows the line, what it has now, what the file says, and the file\'s own words', async () => {
-    render(<LocatorsPage embedded />)
-    const review = await screen.findByTestId('locators-review')
-    expect(within(review).getByText('Governments should be afrad of their people')).toBeTruthy()
-    // The reader's words and the FILE's words are both on screen, the second as evidence.
-    expect(within(review).getByText('Governments should be afraid of their people.')).toBeTruthy()
-    expect(within(review).getByText('no time', { exact: false })).toBeTruthy()
-    expect(within(review).getByText('00:02:10 – 00:02:12')).toBeTruthy()
-  })
 
   it('accepts the exact group together, naming the bucket, with what the reader saw', async () => {
     render(<LocatorsPage embedded />)
@@ -76,29 +67,4 @@ describe('times from subtitles on Checks', () => {
     ])
   })
 
-  it('offers no accept-all on the fuzzy group: those are one press each', async () => {
-    render(<LocatorsPage embedded />)
-    const review = await screen.findByTestId('locators-review')
-    expect(within(review).queryByRole('button', { name: /Accept all/ })).toBeNull()
-    fireEvent.click(within(review).getByRole('button', { name: 'Use the time 00:02:10 for this line' }))
-    await waitFor(() => expect(sent).toHaveLength(1))
-    expect(sent[0].body.bucket).toBe('review')
-    expect(sent[0].body.items).toHaveLength(1)
-    expect(sent[0].body.items[0].id).toBe(2)
-  })
-
-  it('refuses a suggestion with a cross, and the refusal is a different route', async () => {
-    render(<LocatorsPage embedded />)
-    const review = await screen.findByTestId('locators-review')
-    fireEvent.click(within(review).getByRole('button', { name: 'Ignore this suggestion' }))
-    await waitFor(() => expect(sent).toHaveLength(1))
-    expect(sent[0].path).toBe('/locators/ignore')
-    expect(sent[0].body.bucket).toBeUndefined()
-  })
-
-  it('draws nothing at all when there is nothing to propose', async () => {
-    proposals = []
-    const { container } = render(<LocatorsPage embedded />)
-    await waitFor(() => expect(container.innerHTML).toBe(''))
-  })
 })

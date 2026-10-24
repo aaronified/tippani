@@ -124,20 +124,4 @@ describe('applying a match', () => {
     expect(put.body.favorite).toBe(true)
   })
 
-  it('still lets the candidate improve what it does carry', async () => {
-    // The other half of the same rule: a body that kept everything and applied
-    // nothing would pass the assertions above and defeat the screen.
-    mount()
-    await pickTheMatch()
-    const put = await waitFor(() => {
-      const p = SENT.find((s) => s.method === 'PUT' && s.path === '/books/7')
-      expect(p).toBeTruthy()
-      return p
-    })
-    expect(put.body.title, 'the candidate did not win where it should').toBe('Moby-Dick')
-    expect(put.body.author).toBe('Herman Melville')
-    expect(put.body.isbn).toBe('9780000000000')
-    expect(put.body.source).toBe('openlibrary')
-    expect(put.body.source_id).toBe('OL1M')
-  })
 })

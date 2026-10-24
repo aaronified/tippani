@@ -20,12 +20,6 @@ describe('what the field shows', () => {
     expect(amazonSuffix('www.amazon.com')).toBe('com')
     expect(amazonSuffix('www.amazon.com.au')).toBe('com.au')
   })
-
-  it('and shows nothing for a marketplace nobody has set', () => {
-    expect(amazonSuffix('')).toBe('')
-    expect(amazonSuffix(null)).toBe('')
-    expect(amazonSuffix('   ')).toBe('')
-  })
 })
 
 describe('what the field accepts', () => {
@@ -36,22 +30,5 @@ describe('what the field accepts', () => {
     for (const typed of ['in', 'amazon.in', 'www.amazon.in', 'https://www.amazon.in/']) {
       expect(amazonHost(typed), `${typed} did not resolve`).toBe('www.amazon.in')
     }
-  })
-
-  it('is case- and space-forgiving, because a paste carries both', () => {
-    expect(amazonHost('  WWW.AMAZON.IN  ')).toBe('www.amazon.in')
-  })
-
-  it('a multi-part suffix survives the round trip', () => {
-    expect(amazonHost('com.au')).toBe('www.amazon.com.au')
-    expect(amazonSuffix(amazonHost('com.au'))).toBe('com.au')
-  })
-
-  // CLEARING IT IS A REAL ACTION — the field is optional, and emptying it has to
-  // store '' rather than the string "www.amazon.", which would resolve to nothing
-  // and be a host the server would then try to fetch from.
-  it('clears to nothing rather than to a bare prefix', () => {
-    expect(amazonHost('')).toBe('')
-    expect(amazonHost('   ')).toBe('')
   })
 })

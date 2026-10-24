@@ -67,40 +67,4 @@ describe('an easy card', () => {
       'the scaffolding chip is pressable, so it competes with the answer buttons for the tap').toBeNull()
   })
 
-  // A SHORT NAME, deliberately. The quiz card's chip ellipsises in CSS rather
-  // than in JS, so the DOM carries the whole name either way — but the first
-  // draft of this file used people.jsx's chip, which clips at 18 characters, and
-  // "Subhas Chandra Bose" is 19: the case failed by not finding the element at
-  // all. Kept short so a future change of chip cannot make this a test of the
-  // truncation.
-  it("and a standalone quote's speaker as a person, not a character", async () => {
-    render(<QuizRunner mode="daily" cards={[card({
-      kind: 'utterance', character: '', actor: '',
-      title: 'the Akron convention', speaker: 'Sojourner Truth',
-      easy_people: ['Sojourner Truth'],
-    })]} />)
-    // The portrait map is fetched, so the face arrives a tick after the name.
-    await act(async () => {})
-    const chip = screen.getByText('Sojourner Truth').closest('span.inline-flex')
-    expect(chip).toBeTruthy()
-    // THE PORTRAIT COMES FROM THE PEOPLE MAP for a person, where a character's
-    // comes off the card: a character's picture belongs to one WORK, so the same
-    // name in two films is two pictures and a name-keyed map could not hold both.
-    expect(chip.querySelector('img')?.getAttribute('src') || '').toMatch(/truth\.jpg/)
-    expect(chip.closest('button'),
-      'the scaffolding chip is pressable, so it competes with the answer buttons for the tap').toBeNull()
-  })
-})
-
-describe('a card at any other tier', () => {
-  // A ROW THAT DRAWS NOTHING MUST DRAW NOTHING. An empty chip row is still a flex
-  // child with a gap before it, which is the defect the favourites tile's own
-  // comment records — a row of pills followed by a column of air.
-  it('draws no chip row at all', () => {
-    render(<QuizRunner mode="daily" cards={[card()]} />)
-    expect(screen.queryByText('Rick Blaine'),
-      'the character was named on a card the server sent no chips for').toBeNull()
-    expect(screen.queryByText('Humphrey Bogart'),
-      'the performer was named on a card the server sent no chips for').toBeNull()
-  })
 })

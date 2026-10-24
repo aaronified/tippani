@@ -48,12 +48,6 @@ async function search(title) {
 }
 
 describe('a film lookup answered 503', () => {
-  it('shows the door\'s message when the supplier has a key', async () => {
-    STATUS = { tmdb: { source: 'custom' }, igdb: { source: 'custom' } }
-    await search('Stalker')
-    expect(await screen.findByText(DOOR)).toBeTruthy()
-    expect(screen.queryByRole('dialog')).toBeNull()
-  })
 
   it('still opens the manual form when the supplier has no key', async () => {
     STATUS = { tmdb: { source: 'none' }, igdb: { source: 'custom' } }

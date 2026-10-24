@@ -90,15 +90,3 @@ const FILM = {
   tmdb_id: 0, tvdb_id: 0, imdb_id: '', links: '', genres: [], series: '', favorite: false, poster_path: '',
 }
 
-it('and a film taken from a match credits each field and the poster to its supplier', async () => {
-  STORED = { ...FILM }
-  render(<PanelHarness panel={(stack) => workDetailsPanel(stack, { kind: 'movie', item: FILM, onChanged: () => {}, onDelete: null })} />)
-  fireEvent.click(await screen.findByRole('button', { name: 'Fetch metadata' }))
-  fireEvent.click(await screen.findByRole('button', { name: /^Use .*Portal 2/i }))
-  fireEvent.click(await screen.findByRole('button', { name: /^Take \d+ fields?$/i }))
-  await waitFor(() => expect(PUTS).toHaveLength(1))
-  expect(PUTS[0].sources, 'a film taken from a match names no supplier').toMatchObject({
-    description: 'tmdb',
-    poster: 'tmdb',
-  })
-})

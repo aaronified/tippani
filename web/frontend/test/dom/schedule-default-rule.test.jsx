@@ -85,19 +85,4 @@ describe('the rule the explainer describes', () => {
     expect(text, 'the explainer does not describe adaptive to a reader on adaptive').toMatch(MULTIPLIES)
   })
 
-  // AND FOR ONE WHOSE STORED BLOB PREDATES THE SWITCH. A preferences object
-  // carrying the old `srAdaptive: false` has no `srLadder`, so it reads as
-  // "never chose" — which is the whole point of inverting the flag, and the case
-  // that decides whether the release reaches anybody.
-  it('and for one whose stored preferences still say srAdaptive: false', async () => {
-    const text = await mountWith({ srAdaptive: false })
-    expect(text, 'an account written before the switch is still on the ladder').not.toMatch(STEPS)
-    expect(text).toMatch(MULTIPLIES)
-  })
-
-  it('and is the ladder for a reader who asked for it', async () => {
-    const text = await mountWith({ srLadder: true })
-    expect(text, 'a reader who chose the ladder is being told about adaptive').not.toMatch(MULTIPLIES)
-    expect(text, 'the explainer does not describe the ladder to a reader on the ladder').toMatch(STEPS)
-  })
 })

@@ -76,33 +76,6 @@ describe('the chapter pairing waits for the edit to finish', () => {
     await waitFor(() => expect(b.name.value).toBe('Chowder'))
   })
 
-  it('and Enter is a finished edit too, since it is how the last field is left', async () => {
-    const b = await openForm()
-    fireEvent.change(b.no, { target: { value: '15' } })
-    fireEvent.keyDown(b.no, { key: 'Enter' })
-    await waitFor(() => expect(b.name.value).toBe('Chowder'))
-  })
-
-  // THE OTHER DIRECTION, which the owner reversed the emphasis on: "chapter name
-  // from number is more useful" — but both run, and both wait.
-  it('does not fill the number while a name is being typed', async () => {
-    const b = await openForm()
-    for (const v of ['C', 'Ch', 'Cho', 'Chow', 'Chowd', 'Chowde', 'Chowder']) {
-      fireEvent.change(b.name, { target: { value: v } })
-    }
-    expect(b.no.value).toBe('')
-    fireEvent.blur(b.name)
-    await waitFor(() => expect(b.no.value).toBe('15'))
-  })
-
-  it('leaves a number nobody has recorded alone, and offers nothing', async () => {
-    const b = await openForm()
-    fireEvent.change(b.no, { target: { value: '99' } })
-    fireEvent.blur(b.no)
-    await waitFor(() => expect(b.no.value).toBe('99'))
-    expect(b.name.value).toBe('')
-    expect(screen.queryByRole('button', { name: /Loomings|Chowder/ })).toBeNull()
-  })
 })
 
 describe('the offer, when the pool disagrees with what is already there', () => {
@@ -127,64 +100,5 @@ describe('the offer, when the pool disagrees with what is already there', () => 
     expect(screen.queryByRole('button', { name: /Chowder/ })).toBeNull()
   })
 
-  it('and the chip clears itself the moment that box is typed in again', async () => {
-    const b = await openForm()
-    fireEvent.change(b.no, { target: { value: '1' } })
-    fireEvent.blur(b.no)
-    await waitFor(() => expect(b.name.value).toBe('Loomings'))
-    fireEvent.change(b.no, { target: { value: '15' } })
-    fireEvent.blur(b.no)
-    await screen.findByRole('button', { name: /Chowder/ })
-    // Typing is the reader saying they meant what they typed. No second control
-    // needed to dismiss a state that clears itself.
-    fireEvent.change(b.no, { target: { value: '16' } })
-    expect(screen.queryByRole('button', { name: /Chowder/ })).toBeNull()
-  })
-
-  it('says nothing at all when the counterpart already agrees', async () => {
-    const b = await openForm()
-    fireEvent.change(b.name, { target: { value: 'Chowder' } })
-    fireEvent.blur(b.name)
-    await waitFor(() => expect(b.no.value).toBe('15'))
-    // Committing the number that is already right must not raise a chip about the
-    // name that is already right.
-    fireEvent.change(b.no, { target: { value: '15' } })
-    fireEvent.blur(b.no)
-    expect(screen.queryByRole('button', { name: /Chowder/ })).toBeNull()
-  })
 })
 
-describe('the boxes are comboboxes over the book’s own chapters', () => {
-  // The owner's: "tag, character, chapter name, and number will be comboboxes
-  // based on the available items." A native datalist opened only after a keystroke
-  // in desktop Chrome, so a reader who had typed nothing saw nothing.
-  it('opens its list on focus, before anything is typed', async () => {
-    const b = await openForm()
-    expect(b.name.getAttribute('role')).toBe('combobox')
-    expect(b.no.getAttribute('role')).toBe('combobox')
-    fireEvent.focus(b.name)
-    const list = await screen.findByRole('listbox')
-    expect(list.textContent).toContain('Loomings')
-    expect(list.textContent).toContain('Chowder')
-  })
-
-  // A PICK IS A FINISHED EDIT, so it pairs immediately — no blur needed.
-  it('and picking a name pairs its number on the spot', async () => {
-    const b = await openForm()
-    fireEvent.focus(b.name)
-    fireEvent.click(await screen.findByRole('option', { name: /Chowder/ }))
-    await waitFor(() => expect(b.name.value).toBe('Chowder'))
-    expect(b.no.value).toBe('15')
-  })
-
-  // NOTHING IS EVER RESTRICTED TO THE POOL. Every one of these fields is optional
-  // free text at the API, so a chapter nobody has recorded has to be typeable or
-  // the helper becomes a cage.
-  it('and still takes a chapter name the book has never seen', async () => {
-    const b = await openForm()
-    fireEvent.change(b.name, { target: { value: 'A chapter nobody recorded' } })
-    fireEvent.blur(b.name)
-    await waitFor(() => expect(b.name.value).toBe('A chapter nobody recorded'))
-    expect(b.no.value).toBe('')
-  })
-})

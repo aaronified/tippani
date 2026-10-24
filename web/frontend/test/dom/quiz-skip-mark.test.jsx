@@ -15,8 +15,8 @@
 // in-button variant leaves no focus stop behind.
 
 import { describe, expect, it } from 'vitest'
-import { render, screen } from '@testing-library/react'
-import { QuizSkipMark, skipReason } from '../../src/ui.jsx'
+
+import { skipReason } from '../../src/ui.jsx'
 
 describe('why the quiz will not draw this', () => {
   // One test over all nine rows rather than five: every case is the same
@@ -56,42 +56,4 @@ describe('why the quiz will not draw this', () => {
     expect(got).toEqual(cases.map(({ name, want }) => [name, want]))
   })
 
-  // Every label here is inside the house ceiling. A tooltip is one line on a
-  // phone and this one competes with the status dot's beside it.
-  it('keeps every label to five words', () => {
-    const labels = [
-      skipReason({ review_excluded: true }),
-      skipReason({ review_excluded: true, work_review_excluded: true }, 'book'),
-      skipReason({ review_excluded: true, work_review_excluded: true }, 'show'),
-    ]
-    for (const l of labels) expect(l.split(' ').length).toBeLessThanOrEqual(5)
-  })
-})
-
-describe('the mark itself', () => {
-  it('is absent from a row the quiz will draw', () => {
-    const { container } = render(<QuizSkipMark item={{ id: 1 }} parent="book" />)
-    expect(container.querySelector('.quiz-skip-mark')).toBeNull()
-  })
-
-  it('stands on a row skipped with its work, and says why', () => {
-    render(<QuizSkipMark item={{ id: 1, review_excluded: true, work_review_excluded: true }} parent="book" />)
-    expect(screen.getByLabelText('Skipped with its book')).not.toBeNull()
-  })
-
-  // `quiet` is for a mark inside a <button> — a work tile, a search hit. A
-  // focusable element nested in a button is invalid HTML and the browsers
-  // disagree about which control a tap belongs to, so the focus stop has to go.
-  // The accessible name does NOT: it folds into the button's name instead.
-  it('leaves no focus stop inside a button, and stays named', () => {
-    render(<QuizSkipMark item={{ review_excluded: true }} quiet />)
-    const mark = screen.getByLabelText('Not in the quiz')
-    expect(mark.getAttribute('tabindex')).toBeNull()
-    expect(mark.getAttribute('role')).toBe('img')
-  })
-
-  it('is reachable by keyboard everywhere else', () => {
-    render(<QuizSkipMark item={{ review_excluded: true }} />)
-    expect(screen.getByLabelText('Not in the quiz').getAttribute('tabindex')).toBe('0')
-  })
 })

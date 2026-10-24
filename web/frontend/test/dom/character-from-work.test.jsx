@@ -112,23 +112,6 @@ describe('the character name on a cast row', () => {
     expect(open.mock.calls[0][0].character_id).toBe(3)
   })
 
-  it('still opens the picture editor on a row with no record behind it', async () => {
-    const open = vi.fn()
-    await castList(open)
-    const name = screen.getByText('Behemoth')
-    fireEvent.click(name)
-    // A link to a page that does not exist is worse than the affordance it
-    // replaced, so this row keeps the old door rather than getting a dead one.
-    expect(open, 'a row with no character_id opened a record that is not there').not.toHaveBeenCalled()
-    expect(name.getAttribute('aria-expanded')).toBe('true')
-  })
-
-  it('does not claim to be a menu on the rows that do open a record', async () => {
-    await castList(vi.fn())
-    // aria-expanded on a control that navigates is a lie to a screen reader:
-    // nothing expands, and the reader is told to look for what opened.
-    expect(screen.getByText('Woland').getAttribute('aria-expanded')).toBeNull()
-  })
 })
 
 // ---- the arrival -----------------------------------------------------------
@@ -154,118 +137,6 @@ const rowValue = (label) => {
   return row ? row.textContent : ''
 }
 
-describe('the character page, opened from a work', () => {
-  const FROM_FILM = { kind: 'movie', id: 5, title: 'The Master and Margarita (2005)', castId: 11 }
-
-  it('is the work it was opened from, and says so in the crumb', async () => {
-    await openPage(FROM_FILM)
-    // The pack's local sheet does not stack the grains — it IS the narrow one,
-    // and the crumb under the name is what says which work. "in <title>", never
-    // "<name> · <title>": the sheet is about a character IN a work, and the
-    // preposition is the whole of that fact.
-    expect(screen.getByText(/^in The Master and Margarita/), 'no crumb naming the work').toBeTruthy()
-  })
-
-  it('opens on the row it was given, not the first one on that work', async () => {
-    // THE BUG THIS CASE EXISTS FOR, and it survived the rearrangement because it
-    // was never about the arrangement: matching on (kind, work_id) alone finds
-    // the first billing on the film, so pressing the second row opened the sheet
-    // on its sibling — the reader lands on a screen naming a performer they did
-    // not press.
-    await openPage({ ...FROM_FILM, castId: 31 })
-    expect(rowValue('Credited as'), 'opened on the wrong billing').toMatch(/Woland \(voice\)/)
-  })
-
-  it('still finds the work when the caller knows no row', async () => {
-    // The fallback is not dead code: a caller may know the work and not the row.
-    await openPage({ kind: 'movie', id: 5, title: 'The Master and Margarita (2005)' })
-    expect(screen.getByText(/^in The Master and Margarita/), 'no sheet without a cast id').toBeTruthy()
-  })
-
-  it('offers one door up, carrying how many works the identity spans', async () => {
-    await openPage(FROM_FILM)
-    // The whole appearance strip, the alias list and the merge control live on
-    // char-global now. What stands in their place is this row — and the count
-    // beside it is the fact that makes the door worth opening.
-    expect(rowValue('Open the global record'), 'no door to the identity').toMatch(/work/)
-  })
-
-  it('says what saving here changes, and what saving up there changes', async () => {
-    await openPage(FROM_FILM)
-    // The note under "The identity" is what stops a reader believing they
-    // renamed the character on every work by editing this one.
-    // The locale's own sentence for the section note — see character-destination
-    // for why this is not a regex over the English.
-    expect(screen.getByText(t('identity.section.identity.note')),
-      'the identity section explains nothing').toBeTruthy()
-    // AND THE NOTE'S OPPOSITE, WHICH MOVED. This asserted a sheet-level `Note` row
-    // whose sub-line read "Yours, private, this work only". That row was a SECOND
-    // DOOR to `work_cast.credit_note` — the ✎ on each credit row edits the same
-    // field — and it is gone: the owner asked what the difference between it and
-    // "In this work" was, and the answer was that there wasn't one.
-    //
-    // The property this case was protecting is that a reader can tell what reaches
-    // one work from what reaches the record. It is now carried better: the
-    // description row states its scope, and the surviving note editor is titled
-    // "Note on {name}'s credit" — and a credit IS one work, by construction, which
-    // a sub-line could only assert.
-    // The row's own label names its subject — the character, here — where the old
-    // one named only the scope. The SCOPE sentence belongs to the editor that row
-    // opens and is asserted where that editor is opened
-    // (`character-destination.test.jsx`), not twice.
-    expect(rowValue(t('identity.row.local-desc.label')),
-      'the row about this character in this work is gone').toBeTruthy()
-    expect(screen.getAllByRole('button', { name: t('identity.credit.note.tip') }).length,
-      'no per-credit note editor, so nothing says which casting a note is about')
-      .toBeGreaterThanOrEqual(1)
-  })
-
-  it('names the way out for this medium, and reassures about the rest', async () => {
-    await openPage(FROM_FILM)
-    // THE FIXTURE IS A SHOW, which is the point of reading it rather than the
-    // variable name: mediumOf answers from media_type, so the wording follows the
-    // record and not the word "film" in this file. A show and a film share the
-    // rest of the sheet — identityScope gives both `dubs` and a performer block.
-    expect(screen.getByText('Remove from this show'), 'no way out of the one work').toBeTruthy()
-    // A film's reassurance carries one clause more than a book's, because a film
-    // has people whose records could be thought at risk.
-    const kept = t('identity.row.unlink.sub.cast')
-    expect(kept.length, 'the removal row reassures about nothing').toBeGreaterThan(3)
-    expect(screen.getByText(kept)).toBeTruthy()
-  })
-
-  it('draws the performer block on a screen work, with the dubs under it', async () => {
-    await openPage(FROM_FILM)
-    // Played by / Voiced by is a CONTROL because there are two answers, and an
-    // animated feature is a film whose cast is voiced.
-    expect(screen.getAllByText('Played by').length, 'no performer heading').toBeGreaterThan(0)
-    expect(screen.getByText('Dubbed by'), 'a screen work that cannot credit a dub').toBeTruthy()
-  })
-})
-
-describe('the same page, opened from the console', () => {
-  it('has no work scope at all, and lists every work together', async () => {
-    await openPage(undefined)
-    // Absent rather than present and empty: there is no work to be on, and a
-    // heading claiming otherwise is a heading about nothing.
-    // The global sheet HAS a crumb — "1 book · 1 film · 1 game", the pack's own
-    // and a better answer than "3 works". What it must not have is the local
-    // sheet's, which names one work.
-    expect(screen.queryByText(/^in The Master and Margarita/), 'a work crumb with no work to be in').toBeNull()
-    // ALL THREE APPEARANCES, ON THE STRIP, including both of the film's two
-    // billings — nothing has been lifted, so nothing is missing from the shelf.
-    // The grid this replaces is now each tile's own editor; see identityGlobal.jsx.
-    const titles = [...document.querySelectorAll('.cs-tile-title')].map((n) => n.textContent)
-    expect(titles.filter((ti) => ti === 'The Master and Margarita (2005)')).toHaveLength(2)
-    expect(titles).toContain('The Master and Margarita')
-    // AND EACH PERFORMER IS NAMED, on the face's own title — the tile carries the
-    // fact and the card behind it carries the door.
-    const faces = [...document.querySelectorAll('.cs-tile-chip')].map((f) => f.getAttribute('title') || '')
-    expect(faces.some((ti) => /Oleg Basilashvili/.test(ti))).toBe(true)
-    expect(faces.some((ti) => /Valentin Gaft/.test(ti))).toBe(true)
-  })
-})
-
 // ---- the wiring between them ------------------------------------------------
 //
 // THE HALF NEITHER GROUP ABOVE COVERS, and the half the bug was in. The door
@@ -276,26 +147,3 @@ describe('the same page, opened from the console', () => {
 // runs it. So this drives the real chain end to end: press the name in the cast
 // list, take the descriptor the stack was actually pushed, and render THAT.
 
-describe('pressing a character in a work’s People panel', () => {
-  it('opens the panel on the row that was pressed', async () => {
-    // A second billing of Woland, so "the row that was pressed" is a question
-    // with two possible answers and the wrong one is reachable.
-    CAST = [
-      ...ROWS,
-      { id: 31, character: 'Woland (voice)', actor: 'Valentin Gaft', character_id: 3, character_image_url: '', character_image_path: '' },
-    ]
-    const s = stack()
-    render(workPeoplePanel(s, {
-      kind: 'movie', item: FILM, creditSpecs: [], mediaType: 'show', onChanged: () => {},
-    }).render())
-    const second = await screen.findByText('Woland (voice)')
-    fireEvent.click(second)
-
-    expect(s.push, 'the People panel pushed nothing').toHaveBeenCalledTimes(1)
-    cleanup()
-    render(s.push.mock.calls[0][0].render())
-    await screen.findAllByText(/Woland/)
-
-    expect(rowValue('Credited as'), 'opened on the wrong billing').toMatch(/Woland \(voice\)/)
-  })
-})

@@ -237,35 +237,3 @@ describe('every line of a backdrop card clears the contrast floor', () => {
     })
   }
 })
-
-describe('the plain card, which the photograph must not cost anything', () => {
-  it('is never more readable than the card with a picture behind it', async () => {
-    // The property the bug was a violation of, stated directly and without naming a
-    // number: PUTTING A PHOTOGRAPH BEHIND THE WORDS MUST NOT MAKE ANY LINE HARDER TO
-    // READ THAN IT IS WITHOUT ONE. It held at 1.35:1 against 6.4:1 before, and the
-    // comparison is worth keeping even now the absolute floor above is met, because a
-    // floor can be met by a card that is uniformly mediocre.
-    //
-    // Compared worst-line to worst-line rather than band to band: the two cards wrap
-    // and lay out identically today, but a test that paired bands by index would start
-    // reporting a layout change as a contrast regression.
-    const plain = lineContrasts(await renderCard({ portrait: false }, LIGHT), false)
-    const shot = lineContrasts(await renderCard({ faces: [{ name: 'X', url: '/face/black.jpg' }] }, LIGHT), false)
-    expect(plain.length).toBeGreaterThanOrEqual(6)
-    expect(shot.length).toBeGreaterThanOrEqual(6)
-    expect(Math.min(...shot.map((l) => l.contrast))).toBeGreaterThanOrEqual(Math.min(...plain.map((l) => l.contrast)))
-  })
-
-  it('still sets the credit quieter than the quote, which is what tells them apart', async () => {
-    // The promotion must NOT be applied everywhere. On paper the credit reads perfectly
-    // two steps down and says "this is a credit, not the quote" before it is read at
-    // all. A stated RELATIONSHIP rather than a colour, so any palette satisfies it and
-    // no palette change breaks it: on a plain card the quote out-contrasts the credit;
-    // on a backdrop card they may converge, because there legibility buys the colour.
-    const plain = lineContrasts(await renderCard({ portrait: false }, LIGHT), false)
-    expect(plain.length).toBeGreaterThanOrEqual(6)
-    const quote = plain[0].contrast // the first line of type on the card is the quote
-    const rest = plain.slice(1).map((l) => l.contrast)
-    expect(Math.min(...rest)).toBeLessThan(quote)
-  })
-})

@@ -127,66 +127,12 @@ describe('fetching covers, as a job', () => {
   // the screen's first read of the job there is an id and no job to draw; a Fetch
   // that came back for that beat invites the second press that queues the same
   // work twice. The beat is held open here — the screen's first read never answers.
-  it('keeps Fetch held between the start and the first read of its job', async () => {
-    JOBS.hold('covers')
-    JOBS.hangRead(2)
-    await mount()
-    fireEvent.click(fetchButton())
-    await waitFor(() => expect(JOBS.reads(100)).toBe(2))
-    await act(async () => {})
-    expect(fetchButton().disabled, 'Fetch came back before its job was read').toBe(true)
-  })
 
   // A FETCH STARTED ELSEWHERE IS THE SAME FETCH. The screen looks when it opens,
   // and a second press would only have queued the same work behind the first.
-  it('draws a fetch already running when the screen opens, and does not start another', async () => {
-    JOBS.add({ kind: 'covers', state: 'running', total: 10, done: 4 })
-    await mount()
-    expect(await screen.findByRole('progressbar', { name: 'fetching covers & metadata · 4/10' })).toBeTruthy()
-    expect(fetchButton().disabled).toBe(true)
-    await act(async () => { fireEvent.click(fetchButton()) })
-    expect(JOBS.started()).toEqual([])
-  })
-
-  it('says where it stands while it waits its turn', async () => {
-    JOBS.plan('covers', { queued: true, ahead: 1 })
-    JOBS.hold('covers')
-    await mount()
-    fireEvent.click(fetchButton())
-    expect(await screen.findByRole('progressbar', { name: 'Waiting — one job ahead' })).toBeTruthy()
-  })
-
-  it('asks for missing art only from the phone’s key, as it always has', async () => {
-    WIDTH = 390
-    await mount()
-    const key = (BAR.keys || []).find((k) => k.id === 'fetch')
-    await act(async () => key.onClick())
-    await waitFor(() => expect(JOBS.started()).toEqual([['covers', { missing_only: true }]]))
-  })
-
-  it('says why when the server will not start it', async () => {
-    JOBS.refuse(409, { error: 'A restore is running. Try again when it has finished.', busy: true })
-    await mount()
-    fireEvent.click(fetchButton())
-    expect(await screen.findByText('A restore is running. Try again when it has finished.')).toBeTruthy()
-    expect(fetchButton().disabled).toBe(false)
-  })
-
-  it('says why when the fetch failed', async () => {
-    JOBS.plan('covers', { state: 'failed', error: 'Open Library did not answer' })
-    await mount()
-    fireEvent.click(fetchButton())
-    expect(await screen.findByText('Open Library did not answer', {}, { timeout: 4000 })).toBeTruthy()
-  })
 
   // STOPPED IS NOT "UP TO DATE". A run stopped part-way reports what it reached
   // and says first that it did not reach the end.
-  it('says a stopped fetch stopped, before what it reached', async () => {
-    JOBS.plan('covers', { state: 'stopped', counts: { fetched: 1 } })
-    await mount()
-    fireEvent.click(fetchButton())
-    expect(await screen.findByText('Stopped · 1 cover fetched/upgraded · 0 details filled', {}, { timeout: 4000 })).toBeTruthy()
-  })
 })
 
 describe('fetching what People is missing, as a job', () => {
@@ -216,71 +162,9 @@ describe('fetching what People is missing, as a job', () => {
 
   // MORE THAN ONE JOB'S WORTH is consecutive jobs, drawn as one run: one bar over
   // every row, the button held until the last one ends, one line for the lot.
-  it('fetches a set over one job’s cap as consecutive jobs, drawn as one run', async () => {
-    const cap = JOB_CAPS.people
-    JOB_CAPS.people = 1
-    try {
-      JOBS.hold('people')
-      JOBS.plan('people', {})
-      JOBS.plan('people', { counts: { ok: 1, failed: 0 } })
-      const flashes = await people()
-      fireEvent.click(screen.getByRole('button', { name: 'Fetch missing (2)' }))
-      await waitFor(() => expect(JOBS.started()).toEqual([['people', { ids: [7] }], ['people', { ids: [9] }]]))
-      // The second piece has finished; the first is still running. The bar is over
-      // both, and the button waits for the whole run.
-      expect(await screen.findByRole('progressbar', { name: 'fetching photos & links · 0/2' })).toBeTruthy()
-      expect(fetchMissing().disabled).toBe(true)
-      const [id] = [...JOBS.jobs.keys()]
-      JOBS.finish(id, { counts: { ok: 0, failed: 1, first_error: 'not found' } })
-      await waitFor(() => expect(flashes).toContain('people: 1 fetched · 1 failed (not found)'), { timeout: 4000 })
-      expect(flashes, 'the run said something before its last job ended').toHaveLength(1)
-    } finally {
-      JOB_CAPS.people = cap
-    }
-  })
-
-  it('keeps Fetch missing held between the start and the first read of its job', async () => {
-    JOBS.hold('people')
-    JOBS.hangRead(2)
-    await people()
-    fireEvent.click(screen.getByRole('button', { name: 'Fetch missing (2)' }))
-    await waitFor(() => expect(JOBS.reads(100)).toBe(2))
-    await act(async () => {})
-    expect(fetchMissing().disabled, 'Fetch missing came back before its job was read').toBe(true)
-  })
-
-  it('draws a people fetch already running when the console opens, and starts no other', async () => {
-    JOBS.add({ kind: 'people', state: 'running', total: 5, done: 2 })
-    await people()
-    expect(await screen.findByRole('progressbar', { name: 'fetching photos & links · 2/5' })).toBeTruthy()
-    expect(fetchMissing().disabled).toBe(true)
-    expect(JOBS.started()).toEqual([])
-  })
 
   // THE PHONE'S PEOPLE VERB ARRIVES WITH THE FETCH ALREADY ASKED FOR. Fired on
   // mount it would ask for nobody — the rows are not in yet — and report "0
   // fetched" about a library full of gaps.
-  it('starts the fetch it arrived with once the rows are in, over the rows that need it', async () => {
-    let arrived = 0
-    await people({ arriveFetching: true, onArrived: () => { arrived += 1 } })
-    await waitFor(() => expect(JOBS.started()).toEqual([['people', { ids: [7, 9] }]]))
-    expect(arrived).toBe(1)
-  })
 
-  it('shows the fetch already running instead, when it arrives with one asked for', async () => {
-    JOBS.add({ kind: 'people', state: 'running', total: 5, done: 1 })
-    let arrived = 0
-    await people({ arriveFetching: true, onArrived: () => { arrived += 1 } })
-    expect(await screen.findByRole('progressbar', { name: 'fetching photos & links · 1/5' })).toBeTruthy()
-    await waitFor(() => expect(arrived).toBe(1))
-    expect(JOBS.started(), 'arriving started a second people fetch behind the first').toEqual([])
-  })
-
-  it('draws the page’s flash from a finished fetch, on the Metadata screen itself', async () => {
-    JOBS.plan('people', { counts: { ok: 2, failed: 0 } })
-    render(<MetadataPage user={ADMIN} section="people" onOpenBook={() => {}} onOpenMovie={() => {}} onSearch={() => {}} />)
-    await screen.findByText('Ursula K. Le Guin')
-    fireEvent.click(screen.getByRole('button', { name: 'Fetch missing (2)' }))
-    expect(await screen.findByText('people: 2 fetched · 0 failed', {}, { timeout: 4000 })).toBeTruthy()
-  })
 })

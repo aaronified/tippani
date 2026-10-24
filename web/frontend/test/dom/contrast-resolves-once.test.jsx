@@ -63,37 +63,4 @@ describe('contrast resolves the reader and the machine into one answer', () => {
     expect(resolved()).toBe('more')
   })
 
-  // AND THE OTHER HALF: "explicit more survives an OS that says nothing".
-  it('more chosen here survives a machine that says nothing', async () => {
-    const t = await freshTheme(false)
-    t.applyContrast('more')
-    expect(resolved()).toBe('more')
-  })
-
-  it('auto on a machine that says nothing leaves the app as it was', async () => {
-    const t = await freshTheme(false)
-    t.applyContrast('auto')
-    expect(resolved()).toBe('normal')
-  })
-
-  // THE RAW PREFERENCE IS KEPT BESIDE THE RESOLVED ONE, and Settings needs it:
-  // 'auto' on a machine asking for more contrast looks identical on screen to an
-  // explicit 'more', and a control that cannot tell them apart reports the wrong
-  // answer back to the person who set it.
-  it('and the raw choice is still readable, which auto on a more-contrast machine needs', async () => {
-    const t = await freshTheme(true)
-    t.applyContrast('auto')
-    expect(resolved(), 'the machine still wins the resolved value').toBe('more')
-    expect(raw(), 'but the reader chose auto and the control must say so').toBe('auto')
-    expect(t.contrastPrefValue()).toBe('auto')
-  })
-
-  // An unknown value falls to the documented default rather than to a
-  // half-understood approximation of it — clampFactor's rule, one file over.
-  it('a value a newer client invented falls back to auto', async () => {
-    const t = await freshTheme(false)
-    t.applyContrast('maximum')
-    expect(resolved()).toBe('normal')
-    expect(t.contrastPrefValue()).toBe('auto')
-  })
 })

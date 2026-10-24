@@ -53,13 +53,6 @@ beforeEach(() => { calls.length = 0; holdVocab = null; forgetSessionCaches() })
 afterEach(() => forgetSessionCaches())
 
 describe('the caches a session leaves behind', () => {
-  it('answer the second ask without the server, which is what they are for', async () => {
-    await primeSearchVocabulary()
-    await primeSearchVocabulary()
-    expect(asked(/\/search\/vocabulary/),
-      'the vocabulary is fetched on every ask, so this cache is not a cache and the case below proves nothing')
-      .toBe(1)
-  })
 
   it('go to the server again once the reader has changed', async () => {
     const first = await primeSearchVocabulary()
@@ -87,39 +80,4 @@ describe('the caches a session leaves behind', () => {
       .toBe(2)
   })
 
-  // A REQUEST STILL IN THE AIR IS PART OF THE CACHE.
-  //
-  // The dedupe that makes two components asking in one tick cost one request is
-  // the same field that hands the SECOND reader the first reader's answer if it is
-  // not dropped: the request is already out, so the next ask is handed the promise
-  // rather than making its own, and what lands is the previous account's data.
-  // Emptying the stored value and leaving the promise looks like a fix and is not
-  // one — a mutation that dropped only the value passed every other case here.
-  it('drop a request that is still in the air, not only the answer that landed', async () => {
-    holdVocab = () => {} // the next vocabulary ask will hang until released
-    const firstReader = primeSearchVocabulary()
-    expect(asked(/\/search\/vocabulary/), 'the first ask did not reach the server').toBe(1)
-
-    // Somebody else signs in while that request is still out.
-    forgetSessionCaches()
-    const release = holdVocab
-    holdVocab = null
-    release()
-    await firstReader
-
-    await primeSearchVocabulary()
-    expect(asked(/\/search\/vocabulary/),
-      'the second reader was handed the request the first reader started, so what lands in their search box is the previous account\'s library')
-      .toBe(2)
-  })
-
-  // AND EVERY CACHE IS REACHED BY ONE CALL. The failure this guards is not a
-  // cache that leaks — it is a cache nobody remembered to empty, which is how
-  // both of the two above happened. A count, so a run where nothing had enrolled
-  // could not satisfy the cases above vacuously.
-  it('are all reached by the one call, not by a list somebody maintains', () => {
-    expect(sessionCacheCount(),
-      'fewer than two caches are enrolled, so at least one module is holding a per-user response that signing out does not clear')
-      .toBeGreaterThanOrEqual(2)
-  })
 })

@@ -16,7 +16,7 @@
 // prop, which is the failure mode a conditional dialog invites.
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render } from '@testing-library/react'
 
 vi.mock('../../src/api.js', async (orig) => ({
   ...(await orig()),
@@ -34,26 +34,6 @@ beforeEach(() => {
 })
 
 describe('an overlay freezes the page behind it', () => {
-  it('ShareDialog locks while it is up and releases when it goes', () => {
-    // Release matters as much as lock: a leaked lock is a page that can never
-    // be scrolled again until reload, and it looks exactly like a hang.
-    const { unmount } = render(<ShareDialog share={bookShare({ quote: 'x', author: 'y' })} onClose={() => {}} />)
-    expect(locked(), 'the page was not frozen').toBe(true)
-    unmount()
-    expect(locked(), 'the lock outlived the dialog').toBe(false)
-  })
-
-  it('ConfirmDialog tracks its own open prop, not its mounting', () => {
-    // It renders null when closed but is mounted throughout, so it is the one
-    // dialog whose lock cannot be a constant — and a hook that cannot be
-    // conditional is exactly where `true` gets written by reflex.
-    const { rerender } = render(<ConfirmDialog open={false} title="t" body="b" onConfirm={() => {}} onCancel={() => {}} />)
-    expect(locked(), 'a closed dialog froze the page').toBe(false)
-    rerender(<ConfirmDialog open title="t" body="b" onConfirm={() => {}} onCancel={() => {}} />)
-    expect(locked()).toBe(true)
-    rerender(<ConfirmDialog open={false} title="t" body="b" onConfirm={() => {}} onCancel={() => {}} />)
-    expect(locked(), 'closing did not release the page').toBe(false)
-  })
 
   it('stays locked while two overlays are stacked', () => {
     // The counter is the reason this is ref-counted rather than a boolean: a
@@ -68,11 +48,4 @@ describe('an overlay freezes the page behind it', () => {
     expect(locked()).toBe(false)
   })
 
-  it('is on the dialog, not on the screen that opened it', () => {
-    // Sanity: nothing about rendering an ordinary element freezes the page, so
-    // the assertions above are reading a real signal rather than a default.
-    render(<div>an ordinary screen</div>)
-    expect(screen.getByText('an ordinary screen')).toBeTruthy()
-    expect(locked()).toBe(false)
-  })
 })

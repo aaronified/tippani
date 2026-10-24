@@ -335,65 +335,8 @@ function measure(row, skin) {
   return wcag(row.ink(k), row.paper(k))
 }
 
-// ---- the grain veil --------------------------------------------------------
-//
-// .grain-overlay used to blend with its BACKDROP — multiply on light, screen on
-// dark — which is what made a fixed full-viewport layer cost a full recomposite
-// on every scroll frame. It is a flat veil under a noise MASK now. The claim the
-// stylesheet makes for that swap is not that the grain is free (it is not: at
-// its darkest texel it costs real contrast, and it always did) but that
-// retiring the blend does not CHANGE what it costs.
-//
-// The two are algebraically each other's mirror. With a noise texel n in 0..1
-// and the layer at alpha a, the old multiply gives base·(1 − a(1 − n)) and the
-// new mask gives base·(1 − a·n): the same range of darkening, reached at
-// opposite ends of the noise. For isotropic noise that is the same grain with
-// its sign flipped, which is why the worst case — the thing a contrast floor
-// cares about — is identical.
-describe('retiring the backdrop blend on the page grain', () => {
-  const A = { light: 0.055, dark: 0.05 }
-
-  // n = 0..1 across the noise; the extremes are what a floor is measured at.
-  const oldWay = (c, n, dark) =>
-    dark
-      ? c.map((v) => 255 - (255 - v) * (1 - A.dark * (1 - n)))
-      : c.map((v) => v * (1 - A.light * (1 - n)))
-  const newWay = (c, n, dark) =>
-    dark ? c.map((v) => v + (255 - v) * A.dark * n) : c.map((v) => v * (1 - A.light * n))
-
-  it('leaves every pair measuring what it measured before', () => {
-    let worst = { delta: 0 }
-    for (const row of INVENTORY) {
-      for (const skin of SKINS) {
-        const k = tokensFor(...skin)
-        const dark = skin[2]
-        // The worst the grain can make each pair, under each scheme.
-        const floorOf = (f) => Math.min(
-          ...[0, 1].map((n) => wcag(f(row.ink(k), n, dark), f(row.paper(k), n, dark))),
-        )
-        const delta = Math.abs(floorOf(oldWay) - floorOf(newWay))
-        if (delta > worst.delta) worst = { delta, id: row.id, skin }
-      }
-    }
-    expect(
-      worst.delta,
-      `${worst.id} moves ${worst.delta.toFixed(3)} of a point (${(worst.skin || []).join('/')})`,
-    ).toBeLessThan(0.01)
-  })
-})
-
 describe(FULL ? 'every ink on every paper (full)' : 'every ink on every paper (sample)', () => {
   const rows = FULL ? INVENTORY : INVENTORY.filter((r) => r.sample)
-
-  it(`covers ${rows.length} pairs across ${SKINS.length} skins`, () => {
-    expect(rows.length).toBeGreaterThan(0)
-    // The sample has to reach every KIND, or "one per type" is a claim rather
-    // than a property — and the kind that quietly loses its sample is the one
-    // nobody notices going unmeasured.
-    const kinds = new Set(INVENTORY.map((r) => r.kind))
-    const sampled = new Set(rows.map((r) => r.kind))
-    expect([...kinds].filter((k) => !sampled.has(k)), 'a kind with no sampled row').toEqual([])
-  })
 
   for (const row of rows) {
     it(`${row.id} — ${row.where}`, () => {

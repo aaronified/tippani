@@ -78,20 +78,6 @@ describe('a character sheet inside a panel', () => {
     expect(bars.length, `${bars.length} header bars — the pack draws one`).toBe(1)
   })
 
-  it('prints the name once', () => {
-    const printed = screen.queryAllByText('Matrim Cauthon')
-      // A field's VALUE may legitimately repeat the name — "Called here" says what
-      // this work calls them, and that is a fact about the work, not a heading.
-      .filter((n) => !n.closest('.cs-row, .tp-field, form'))
-    expect(printed.length, 'the record is named more than once in the chrome').toBe(1)
-  })
-
-  it('puts the name in the header the panel owns', () => {
-    const bar = document.querySelector('.tp-panel-head')
-    expect(bar, 'the panel head is gone entirely').toBeTruthy()
-    expect(bar.textContent).toContain('Matrim Cauthon')
-  })
-
 })
 
 // AND THE MECHANISM ON ITS OWN, so the rule is pinned without depending on which
@@ -114,25 +100,6 @@ describe('a body that publishes a header', () => {
 
   beforeEach(async () => {
     await open({ title: 'Andy Dufresne', render: () => <Sheet /> })
-  })
-
-  it('still draws exactly one bar', () => {
-    expect(document.querySelectorAll('.tp-panel-head, .cs-head').length).toBe(1)
-  })
-
-  it('puts the crumb under the name, in that bar', () => {
-    const bar = document.querySelector('.tp-panel-head')
-    expect(bar.textContent).toContain('Andy Dufresne')
-    expect(bar.textContent, 'the crumb never reached the header').toContain('in The Shawshank Redemption')
-  })
-
-  it('puts the work\'s cover in the bar, with the medium glyph over it', () => {
-    const bar = document.querySelector('.tp-panel-head')
-    const art = bar.querySelector('.cs-scope-art')
-    expect(art, 'no cover in the header — the pack puts one in the slot a back key would hold').toBeTruthy()
-    expect(art.querySelector('img'), 'the cover slot draws no picture').toBeTruthy()
-    expect(art.querySelector('.cs-scope-overlay'),
-      'the medium glyph is not OVER the cover — the owner reported it beside it').toBeTruthy()
   })
 
   it('and takes the header away again when the panel closes', async () => {

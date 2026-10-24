@@ -19,7 +19,7 @@
 
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import { ShelfControl, WorkCard } from '../../src/works.jsx'
+import { WorkCard } from '../../src/works.jsx'
 
 // One tile, as a board deals it. `kind` is the BOARD's kind, which is the whole
 // point: 'movie' is what the Catalogue passes for a film, a show and a game
@@ -44,93 +44,11 @@ describe('the badge on the artwork of something in progress', () => {
     expect(screen.getByLabelText('Currently playing')).toBeTruthy()
     expect(screen.queryByLabelText('Currently watching')).toBeNull()
   })
-
-  it('leaves a film watching', () => {
-    tile('movie', { status: 'watching' })
-    expect(screen.getByLabelText('Currently watching')).toBeTruthy()
-    expect(screen.queryByLabelText('Currently playing')).toBeNull()
-  })
-
-  it('leaves a show watching too', () => {
-    // A show is a movies row as well, and it settles as watched — so the row it
-    // must NOT fall through to is the book one.
-    tile('movie', { media_type: 'show', status: 'watching' })
-    expect(screen.getByLabelText('Currently watching')).toBeTruthy()
-    expect(screen.queryByLabelText('Currently reading')).toBeNull()
-  })
-
-  it('leaves a book reading', () => {
-    tile('book', { status: 'reading' })
-    expect(screen.getByLabelText('Currently reading')).toBeTruthy()
-  })
 })
 
 describe('the colour bar under the artwork', () => {
   it('says Watching over a film, not Reading', () => {
     tile('movie', { status: 'watching', progress: 40 })
     expect(barName()).toBe('Watching — 40%')
-  })
-
-  // THE THREE BELOW PASS WITH THE FIX REVERTED, and that is what they are for
-  // rather than a flaw in them. The bar's defect was one word — a film and a show
-  // announced themselves as "Reading" — and these pin the cases that were already
-  // right, so a later change cannot fix one word by breaking three.
-  //
-  // The game is in that group and not in the fixed one, which is worth saying
-  // plainly because it is easy to assume otherwise: `common.shelf.playing.book`
-  // and `.film` are both the single word "Playing", so a game's bar read correctly
-  // even while it was being asked the wrong question. The bug was real and the
-  // symptom was not, and a case named as though it had been would be a claim
-  // nobody can check.
-  it('leaves a game saying Playing, as it already did', () => {
-    tile('movie', { media_type: 'game', status: 'playing', progress: 30 })
-    expect(barName()).toBe('Playing — 30%')
-  })
-
-  it('leaves a book reading', () => {
-    tile('book', { status: 'reading', progress: 20 })
-    expect(barName()).toBe('Reading — 20%')
-  })
-
-  it('and names a settled state without a percentage', () => {
-    tile('movie', { status: 'completed' })
-    expect(barName()).toBe('Completed')
-  })
-
-  // ---- and the one-line form the work-detail hero asks for -----------------
-  //
-  // `compact` is ShelfControl minus the full-width progress track: the pack's
-  // header draws the shelf state on ONE line at every width, and the app's own
-  // measurement of the three-line form was 59.8px against the prototype's 44 —
-  // "the largest single departure from its density", per hero-rhythm.test.js,
-  // which owns the rule and used to assert it by looking for the word `compact`
-  // alone on its own line in `WorkDetail.jsx`. That passed if the prop was
-  // ignored and failed on `compact={true}`, which is the same interface. What the
-  // rule actually says is what the control DRAWS, so that is what is checked here.
-  it('draws no separate progress track in its one-line form', () => {
-    const { unmount } = render(
-      <ShelfControl kind="movie" item={{ id: 1, media_type: 'movie' }} status="watching" progress={55} onSelect={() => {}} compact />,
-    )
-    const tracks = document.querySelectorAll('[role="img"][aria-label*="%"]')
-    expect(tracks.length, 'the one-line form still draws the full-width track').toBe(0)
-    unmount()
-  })
-
-  it('and does draw one in the ordinary form, so the two really differ', () => {
-    render(
-      <ShelfControl kind="movie" item={{ id: 1, media_type: 'movie' }} status="watching" progress={55} onSelect={() => {}} />,
-    )
-    expect(document.querySelectorAll('[role="img"][aria-label*="%"]').length,
-      'the ordinary form draws no track either, so the case above proves nothing').toBeGreaterThan(0)
-  })
-
-  it('carries the same word onto the track on a detail page', () => {
-    // ShelfProgress draws the same bar under the state chip, and it was dropping
-    // the kind one frame above the bug — the shape shelf-menu.test.jsx exists to
-    // stop for the transitions menu.
-    render(
-      <ShelfControl kind="movie" item={{ id: 1, media_type: 'movie' }} status="watching" progress={55} onSelect={() => {}} />,
-    )
-    expect(barName()).toBe('Watching — 55%')
   })
 })

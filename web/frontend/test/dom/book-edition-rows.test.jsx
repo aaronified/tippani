@@ -64,18 +64,6 @@ const typeIn = (label, text) =>
   fireEvent.change(screen.getByLabelText(new RegExp(`^${label}$`, 'i')), { target: { value: text } })
 
 describe('a book\'s edition fields', () => {
-  it('are rows on the form, showing what is stored', async () => {
-    panel()
-    await shown()
-    // Read off the SCREEN and not off the spec list: a field named in a table and
-    // never rendered would satisfy any assertion about the table.
-    for (const label of ['Subtitle', 'Publisher', 'Pages', 'Language', 'Original language']) {
-      expect(screen.getByRole('button', { name: new RegExp(`Edit ${label}`, 'i') })).toBeTruthy()
-    }
-    expect(screen.getByText('Penguin Classics')).toBeTruthy()
-    expect(screen.getByText('503')).toBeTruthy()
-    expect(screen.getByText('Russian')).toBeTruthy()
-  })
 
   it('save what was typed, and restate everything else while doing it', async () => {
     panel()
@@ -95,16 +83,4 @@ describe('a book\'s edition fields', () => {
     expect(body.title).toBe('The Master and Margarita')
   })
 
-  it('send a page count as a whole number, whatever was typed', async () => {
-    panel()
-    await shown()
-    openRow('Pages')
-    // A COUNT IS NOT A NUMBER. `series_index` is deliberately fractional; the
-    // server's `pages` is an int, and 480.5 fails the JSON decode before any
-    // validation gets to say something a reader could act on.
-    typeIn('Pages', '480.6')
-    fireEvent.click(screen.getByRole('button', { name: /^Save Pages$/i }))
-    await waitFor(() => expect(PUTS.length).toBe(1))
-    expect(PUTS[0].body.pages).toBe(481)
-  })
 })

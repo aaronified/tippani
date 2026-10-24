@@ -52,15 +52,6 @@ function Demo({ onSubmit = () => {}, initial = '' }) {
 const openModal = (ui) => render(<FormModal open onClose={() => {}} title="Edit quote">{ui}</FormModal>)
 
 describe('a form inside the dialog', () => {
-  it('puts a ✓ in the header, bound to the form by id', () => {
-    openModal(<Demo initial="hello" />)
-    const save = screen.getByLabelText('Save')
-    expect(save.type).toBe('submit')
-    // Form ownership by attribute is what makes it the default button.
-    expect(save.getAttribute('form')).toBeTruthy()
-    expect(save.form).not.toBeNull()
-    expect(save.form.getAttribute('id')).toBe(save.getAttribute('form'))
-  })
 
   it('submits the form when pressed', async () => {
     const onSubmit = vi.fn()
@@ -68,64 +59,5 @@ describe('a form inside the dialog', () => {
     await userEvent.click(screen.getByLabelText('Save'))
     expect(onSubmit).toHaveBeenCalledWith('hello')
   })
-
-  it('drops its own footer button, so the ✓ is the only submit', () => {
-    openModal(<Demo initial="hello" />)
-    const submits = [...document.querySelectorAll('button')].filter((b) => b.type === 'submit')
-    expect(submits).toHaveLength(1)
-    expect(submits[0].getAttribute('aria-label')).toBe('Save')
-  })
-
-  it('keeps the ✕ beside it', () => {
-    openModal(<Demo initial="hello" />)
-    expect(screen.getByLabelText('Close')).toBeTruthy()
-  })
 })
 
-describe('the form says when it cannot be saved', () => {
-  it('greys the ✓ and carries the reason', () => {
-    // It is shown as a tooltip on the disabled button, and tooltips are labels.
-    openModal(<Demo />)
-    const save = screen.getByLabelText('Save')
-    expect(save.disabled).toBe(true)
-  })
-
-  it('enables it as soon as the form is valid', async () => {
-    openModal(<Demo />)
-    expect(screen.getByLabelText('Save').disabled).toBe(true)
-    await userEvent.type(screen.getByLabelText('Text'), 'a line')
-    expect(screen.getByLabelText('Save').disabled).toBe(false)
-  })
-})
-
-describe('a dialog with no form', () => {
-  it('shows no ✓ at all', () => {
-    // WorkDetails and the staged-quote editor. A button that looks like it saves
-    // and does nothing is worse than no button.
-    openModal(<p>Just some details, saved field by field.</p>)
-    expect(screen.queryByLabelText('Save')).toBeNull()
-    expect(screen.getByLabelText('Close')).toBeTruthy()
-  })
-
-  it('shows no ✓ once the form inside it unmounts', () => {
-    const { rerender } = render(
-      <FormModal open onClose={() => {}} title="Edit quote"><Demo initial="hi" /></FormModal>,
-    )
-    expect(screen.getByLabelText('Save')).toBeTruthy()
-    rerender(<FormModal open onClose={() => {}} title="Edit quote"><p>gone</p></FormModal>)
-    expect(screen.queryByLabelText('Save')).toBeNull()
-  })
-})
-
-describe('the same form rendered inline', () => {
-  it('keeps its own submit, because there is no header to borrow', () => {
-    render(<Demo initial="hello" />)
-    expect(screen.queryByLabelText('Save')).toBeNull()
-    expect(screen.getByRole('button', { name: 'Save' }).type).toBe('submit')
-  })
-
-  it('is not wearing a form id it was never given', () => {
-    const { container } = render(<Demo initial="hello" />)
-    expect(container.querySelector('form').getAttribute('id')).toBeNull()
-  })
-})

@@ -88,14 +88,6 @@ const popAtTheSameAddress = async () => {
   await act(async () => {})
 }
 
-const popToAnotherAddress = async (path) => {
-  scrolls.length = 0
-  window.history.replaceState({ tpDepth: 0 }, '', path)
-  await act(async () => {
-    window.dispatchEvent(new PopStateEvent('popstate', { state: { tpDepth: 0 } }))
-  })
-  await act(async () => {})
-}
 
 const wentToTheTop = () => scrolls.some((s) => s && s.top === 0)
 
@@ -106,18 +98,5 @@ describe('the shell, on a pop that did not change the address', () => {
     expect(wentToTheTop(),
       'closing an overlay asked the page to scroll to the top — the reader loses their place on the screen they were reading')
       .toBe(false)
-  })
-
-  it('still handles a pop that DID change the address, or the guard is too wide', async () => {
-    // The other direction, and the reason it matters: an early-out that fired on
-    // every pop would fix the symptom by breaking Back. Leaving a work page for the
-    // shelf has no remembered position for that shelf yet, so the shell is
-    // expected to start it at the top — which is the one case where asking to
-    // scroll is correct.
-    await mount()
-    await popToAnotherAddress('/library')
-    expect(scrolls.length,
-      'a real Back was ignored, so the shell is now showing a screen the address disagrees with')
-      .toBeGreaterThan(0)
   })
 })

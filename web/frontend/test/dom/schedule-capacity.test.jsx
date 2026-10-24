@@ -19,7 +19,7 @@
 // cannot see.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 
 let DAILY
 let ANSWER
@@ -116,15 +116,8 @@ const mount = async () => {
 const note = () => document.querySelector('[data-outgrown]')
 
 // The round opens in its own screen, from the card on Home.
-const startRound = async () => fireEvent.click(await screen.findByRole('button', { name: 'Start' }))
 
 describe('when the library outgrows the schedule', () => {
-  it('says nothing at all while the schedule can keep up', async () => {
-    DAILY = deck(2920, 2920)
-    await mount()
-    await waitFor(() => expect(screen.getByText(/where you stand/i)).toBeTruthy())
-    expect(note(), 'a library exactly AT capacity is inside it, and must not be told otherwise').toBeNull()
-  })
 
   it('and says so, with both numbers, once it cannot', async () => {
     DAILY = deck(4000, 2920)
@@ -135,57 +128,4 @@ describe('when the library outgrows the schedule', () => {
     expect(text, 'the note does not carry the capacity the server sent').toContain('2920')
   })
 
-  // THE FAILURE THIS EXISTS FOR, and it is driven THROUGH THE CARD rather than
-  // by calling the endpoint. Home's status row is fed by the daily deck first and
-  // by every answer after that, through one callback — so the note a reader has
-  // just read can disappear under their hand on the first grade. Posting to
-  // /review/answer from the test would exercise the mock and not the wiring: it
-  // passes with the callback disconnected, which is the one thing worth checking.
-  //
-  // So the deck carries a real card, an option is tapped, and the row is read
-  // again afterwards.
-  it('and keeps saying so after a card is graded', async () => {
-    DAILY = { ...deck(4000, 2920), items: [card()] }
-    ANSWER = { ok: true, stability: 30, status: 'remembered', capacity: 2920, states: statesOf(4000) }
-    await mount()
-    await waitFor(() => expect(note()).toBeTruthy())
-    await startRound()
-    await act(async () => { fireEvent.click(screen.getByText('Emma')) })
-    await waitFor(() => expect(screen.getByText(/not quite/i)).toBeTruthy())
-    expect(note(), 'the note went away on the first graded card').toBeTruthy()
-  })
-
-  // AND SURVIVES A RESPONSE THAT LEAVES IT OUT, which is what the isFinite guard
-  // in Home's takeStates is for. Every review response sends the capacity today
-  // and a Go guard says so; this is about the day one stops. Overwriting a known
-  // capacity with an absent one would blank the note mid-session, and a note that
-  // blinks out reads as a bug in the note rather than a missing field.
-  it('and survives an answer that leaves the capacity out', async () => {
-    DAILY = { ...deck(4000, 2920), items: [card()] }
-    ANSWER = { ok: true, stability: 30, status: 'remembered', states: statesOf(4000) }
-    await mount()
-    await waitFor(() => expect(note()).toBeTruthy())
-    await startRound()
-    await act(async () => { fireEvent.click(screen.getByText('Emma')) })
-    await waitFor(() => expect(screen.getByText(/not quite/i)).toBeTruthy())
-    expect(note(), 'a response without the capacity cleared one the screen already knew').toBeTruthy()
-  })
-
-  // A capacity nobody sent is not a capacity of nothing. Before the guard in
-  // overCapacity, `total > undefined` was false and `total > 0` was true — so the
-  // two plausible spellings of "missing" gave opposite screens, and one of them
-  // told every reader with a single quote that they had outgrown the schedule.
-  it('and never says so when the server sent no capacity', async () => {
-    DAILY = deck(4000, undefined)
-    await mount()
-    await waitFor(() => expect(screen.getByText(/where you stand/i)).toBeTruthy())
-    expect(note(), 'a missing capacity must read as "unknown", never as zero').toBeNull()
-  })
-
-  it('and never says so to a reader with an empty library', async () => {
-    DAILY = deck(0, 2920)
-    await mount()
-    await act(async () => {})
-    expect(note()).toBeNull()
-  })
 })

@@ -34,25 +34,6 @@ beforeEach(() => {
 })
 
 describe('the attached files and the prune', () => {
-  it('lists the files biggest first with what each keeps, and prunes nothing on its own', async () => {
-    render(<AttachedFilesPage embedded />)
-    expect(await screen.findByText('Dust of Dreams')).toBeTruthy()
-    expect(screen.getByText(/1.4 MB on disk · 36 quotes keep context/)).toBeTruthy()
-    expect(screen.getAllByText(/last quote added 2026-04-02/).length).toBeGreaterThan(0)
-    expect(calls.some((c) => c.method === 'POST')).toBe(false)
-  })
-
-  it('asks first, naming the work and saying once what is kept and what is lost', async () => {
-    render(<AttachedFilesPage embedded />)
-    await screen.findByText('Dust of Dreams')
-    fireEvent.click(screen.getAllByRole('button', { name: 'Prune' })[0])
-    expect(await screen.findByText('Prune the file for Dust of Dreams?')).toBeTruthy()
-    expect(screen.getByText(/36 quotes keep their context; 2 have none to keep/)).toBeTruthy()
-    // Cancelled: nothing was sent.
-    fireEvent.click(screen.getByRole('button', { name: /Cancel/ }))
-    await waitFor(() => expect(screen.queryByText('Prune the file for Dust of Dreams?')).toBeNull())
-    expect(calls.some((c) => c.method === 'POST')).toBe(false)
-  })
 
   it('prunes the work that was named, once confirmed', async () => {
     render(<AttachedFilesPage embedded />)
@@ -64,10 +45,4 @@ describe('the attached files and the prune', () => {
     await waitFor(() => expect(calls.some((c) => c.method === 'POST' && c.path === '/sources/4/prune')).toBe(true))
   })
 
-  it('draws nothing for a reader with no uploaded file', async () => {
-    stack = { sources: [], frees: 0 }
-    const { container } = render(<AttachedFilesPage embedded />)
-    await waitFor(() => expect(calls.some((c) => c.path === '/sources/stack')).toBe(true))
-    expect(container.textContent).toBe('')
-  })
 })

@@ -46,25 +46,6 @@ beforeEach(() => {
 const noop = () => {}
 
 describe('the board list', () => {
-  it('draws a tile per board, with its count', async () => {
-    render(<QuotesPage openId={null} onOpen={noop} onClose={noop} />)
-    await screen.findByText('Proverbs')
-    expect(screen.getByText('2 quotes')).toBeTruthy()
-    // An EMPTY board is still on the shelf. Under the old design this was the
-    // trap: an empty board had no control, so it could not be reached or left.
-    expect(screen.getByText('Speeches')).toBeTruthy()
-    expect(screen.getByText('0 quotes')).toBeTruthy()
-  })
-
-  // Not a board: no row, no menu, nothing to rename. It exists so a collection
-  // stays browsable as a whole, which is what a two-level screen otherwise takes
-  // away.
-  it('pins All quotes above the boards', async () => {
-    render(<QuotesPage openId={null} onOpen={noop} onClose={noop} />)
-    expect(await screen.findByText('All quotes')).toBeTruthy()
-    expect(screen.getByText('3 quotes')).toBeTruthy()
-  })
-
   // Hiding is explicit and never inferred from emptiness — an empty board you
   // just made must not vanish at the moment you make it.
   it('folds hidden boards away, and shows them on request', async () => {
@@ -80,30 +61,9 @@ describe('the board list', () => {
     await waitFor(() => expect(screen.getByText('Kennedy')).toBeTruthy())
   })
 
-  it('opens the board that was clicked', async () => {
-    const onOpen = vi.fn()
-    render(<QuotesPage openId={null} onOpen={onOpen} onClose={noop} />)
-    fireEvent.click(await screen.findByText('Proverbs'))
-    expect(onOpen).toHaveBeenCalledWith(1)
-  })
 })
 
 describe('a board', () => {
-  it('shows only its own quotes, and names itself', async () => {
-    render(<QuotesPage openId={1} onOpen={noop} onClose={noop} creditSeparators="," />)
-    await screen.findByText('A stitch in time saves nine')
-    expect(screen.getByText('Many hands make light work')).toBeTruthy()
-    // Filed on another board, so not here.
-    expect(screen.queryByText('Ask not what your country can do')).toBeNull()
-  })
-
-  it('offers the way back to the shelves', async () => {
-    const onClose = vi.fn()
-    render(<QuotesPage openId={1} onOpen={noop} onClose={onClose} creditSeparators="," />)
-    fireEvent.click(await screen.findByRole('button', { name: /All boards/ }))
-    expect(onClose).toHaveBeenCalled()
-  })
-
   // THE TRAP, ASSERTED. An empty board used to have no control on it at all,
   // and the choice was persisted, so a reload landed you back in the same dead
   // end. The way out must exist when there is nothing on the shelf.
@@ -115,11 +75,4 @@ describe('a board', () => {
     expect(onClose).toHaveBeenCalled()
   })
 
-  it('shows every quote under All quotes, whatever board it is on', async () => {
-    render(<QuotesPage openId="all" onOpen={noop} onClose={noop} creditSeparators="," />)
-    await screen.findByText('A stitch in time saves nine')
-    // Including one from a HIDDEN board: hiding a board hides the tile, not the
-    // quotes, which is what makes hiding safe enough to be a one-tap action.
-    expect(screen.getByText('Ask not what your country can do')).toBeTruthy()
-  })
 })

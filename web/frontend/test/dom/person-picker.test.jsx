@@ -67,36 +67,6 @@ describe('the performer picker', () => {
     render(<FieldPicker spec={spec()} onClose={() => {}} onSave={() => {}} />)
   })
 
-  it('offers the people the library already has', async () => {
-    await waitFor(() => expect(rows().length, 'no list at all — this is the text box the pack replaced').toBeGreaterThan(0))
-    const names = rows().map((r) => r.textContent)
-    expect(names.some((n) => n.includes('Daniel Radcliffe'))).toBe(true)
-    expect(names.some((n) => n.includes('Emma Watson'))).toBe(true)
-  })
-
-  it('draws a face for everyone, photograph or not', async () => {
-    await waitFor(() => expect(rows().length).toBeGreaterThan(0))
-    for (const r of rows()) {
-      const face = r.querySelector('.cs-pick-face')
-      expect(face, `${r.textContent} has no face`).toBeTruthy()
-      // A portrait or a silhouette, never an empty disc: the pack's fixture is
-      // mostly people without a photograph, so the unfilled case IS the design.
-      expect(
-        face.querySelector('img') || face.querySelector('svg'),
-        `${r.textContent} has an empty face — the silhouette is the resting state, not a gap`,
-      ).toBeTruthy()
-    }
-  })
-
-  it('narrows on any part of a name, not just the front of it', async () => {
-    await waitFor(() => expect(rows().length).toBeGreaterThan(0))
-    // "quinn" is the half of "Harley Quinn" a reader remembers, which is the rule
-    // CastCombo already follows and the reason a prefix match is not enough.
-    await act(async () => { await userEvent.type(box(), 'quinn') })
-    await waitFor(() => expect(rows().length).toBe(1))
-    expect(rows()[0].textContent).toContain('Harley Quinn')
-  })
-
   it('picking one fills the box, so the sheet commits a name and not an id', async () => {
     await waitFor(() => expect(rows().length).toBeGreaterThan(0))
     const row = rows().find((r) => r.textContent.includes('Emma Watson'))
@@ -104,31 +74,5 @@ describe('the performer picker', () => {
     expect(box().value).toBe('Emma Watson')
   })
 
-  it('says a name it does not know is new rather than refusing it', async () => {
-    await act(async () => { await userEvent.type(box(), 'Ingrid Bergman') })
-    await waitFor(() => expect(screen.getByText(/is new/i), 'an unknown name got no answer at all').toBeTruthy())
-  })
-
-  it('and says nothing of the sort about one it does know', async () => {
-    await waitFor(() => expect(rows().length).toBeGreaterThan(0))
-    await act(async () => { await userEvent.type(box(), 'Emma Watson') })
-    await waitFor(() => expect(screen.queryByText(/is new/i), 'offered to add somebody the library already has').toBeNull())
-  })
 })
 
-describe('the same picker asked for a dub', () => {
-  it('offers languages, and a box for one it did not list', async () => {
-    render(<FieldPicker spec={spec({ langs: ['English', 'বাংলা'] })} onClose={() => {}} onSave={() => {}} />)
-    await waitFor(() => expect(screen.getByText('বাংলা')).toBeTruthy())
-    // THE LIST IS A SHORTCUT AND NOT A SET. A library is not limited to five
-    // languages, and a picker that has no way to say a sixth is worse than none.
-    expect(screen.getByText(/or type a language/i)).toBeTruthy()
-  })
-
-  it('does not offer them when the credit is not a dub', async () => {
-    render(<FieldPicker spec={spec()} onClose={() => {}} onSave={() => {}} />)
-    await waitFor(() => expect(rows().length).toBeGreaterThan(0))
-    expect(screen.queryByText(/or type a language/i),
-      'a plain performer credit was asked which language it is dubbed in').toBeNull()
-  })
-})

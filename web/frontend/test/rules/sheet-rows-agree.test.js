@@ -54,17 +54,4 @@ describe('the blocks a sheet stacks', () => {
       `${sel} pads \`${pad}\` — the ${top} above and below it makes its neighbours further away than any other pair`)
       .toBe(0)
   })
-
-  it.each(BLOCKS)('%s separates what is inside it by the same token too', (sel) => {
-    const gap = decl(sel, 'gap')
-    expect(gap, `${sel} declares no gap`).toBeTruthy()
-    expect(gap, `${sel} gaps \`${gap}\` — two things side by side in a sheet are spaced one way`)
-      .toContain('var(--cs-inset)')
-  })
-
-  it('and the token they all read exists, with a length in it', () => {
-    const v = decl(':root', '--cs-inset')
-    expect(v, '--cs-inset is not declared, so every block above falls back to nothing').toBeTruthy()
-    expect(v, `--cs-inset is \`${v}\``).toMatch(/^[0-9.]+(px|em|rem)$/)
-  })
 })

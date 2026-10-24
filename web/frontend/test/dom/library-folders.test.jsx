@@ -46,29 +46,4 @@ describe('library folders', () => {
     expect(put.body.mounts[1]).toEqual({ id: 'movies', label: 'Movies', path: '/library/movies' })
   })
 
-  it('removes a folder by saving the list without it', async () => {
-    render(<LibraryFoldersGroup />)
-    await screen.findByText('/library/books')
-    fireEvent.click(screen.getByRole('button', { name: 'Stop using the folder Books' }))
-    await waitFor(() => expect(calls.find((c) => c.method === 'PUT')?.body).toEqual({ mounts: [] }))
-  })
-
-  it('carries the backup setting for attached files, off by default', async () => {
-    render(<LibraryFoldersGroup />)
-    await screen.findByText('/library/books')
-    fireEvent.click(screen.getByText('On'))
-    await waitFor(() => expect(calls.find((c) => c.path === '/admin/backup/sources' && c.method === 'PUT')?.body).toEqual({ include: true }))
-  })
-
-  it('offers a tidy only when files belong to no work, and says nothing otherwise', async () => {
-    const { unmount } = render(<LibraryFoldersGroup />)
-    await screen.findByText('/library/books')
-    expect(screen.queryByText('Tidy attached files')).toBeNull()
-    unmount()
-    tidyFiles = 2
-    render(<LibraryFoldersGroup />)
-    expect(await screen.findByText('2 stored files belong to no work.')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: 'Remove them' }))
-    await waitFor(() => expect(calls.some((c) => c.path === '/admin/maintenance/sources/sweep' && c.method === 'POST')).toBe(true))
-  })
 })

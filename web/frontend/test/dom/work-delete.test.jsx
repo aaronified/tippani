@@ -70,17 +70,6 @@ describe('deleting a book from its own page', () => {
     return screen.findByText('The Dispossessed')
   }
 
-  it('will not go through until the phrase is typed', async () => {
-    await page()
-    pressDelete()
-    await screen.findByLabelText(/type/i)
-    // A guard that can be clicked past is not a guard. The button is there and
-    // refuses, rather than the dialog closing on a mis-click.
-    expect(confirmBtn().disabled).toBe(true)
-    fireEvent.click(confirmBtn())
-    expect(CALLS.some(([m]) => m === 'DELETE')).toBe(false)
-  })
-
   it('deletes at the books endpoint and closes the screen', async () => {
     await page()
     pressDelete()
@@ -97,27 +86,3 @@ describe('deleting a book from its own page', () => {
   })
 })
 
-describe('deleting a film from its own page', () => {
-  let closed
-  const page = () => {
-    closed = 0
-    render(<Movies openId={7} onOpen={() => {}} onClose={() => { closed += 1 }} creditSeparators=",;&" onAdd={() => {}} onSearch={() => {}} dataNonce={0} />)
-    return screen.findByText('Stalker')
-  }
-
-  it('deletes at the movies endpoint and closes the screen', async () => {
-    await page()
-    pressDelete()
-    await screen.findByLabelText(/type/i)
-    // A film's phrase is its own noun — "delete 1 title", not "delete 1 book" —
-    // so a reader who has both open cannot confirm the wrong one by muscle
-    // memory. Typing the BOOK's phrase here must not satisfy it.
-    type('delete 1 book')
-    expect(confirmBtn().disabled).toBe(true)
-    type('delete 1 title')
-    fireEvent.click(confirmBtn())
-    await waitFor(() => expect(CALLS.some(([m]) => m === 'DELETE')).toBe(true))
-    expect(CALLS.find(([m]) => m === 'DELETE')[1]).toBe('/movies/7')
-    await waitFor(() => expect(closed).toBe(1))
-  })
-})

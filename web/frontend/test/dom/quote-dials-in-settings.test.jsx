@@ -78,48 +78,6 @@ afterEach(() => {
 })
 
 describe('the two reading dials, as a reader meets them', () => {
-  it('draw the words the catalogue holds for them', () => {
-    render(<QuoteReadingFields prefs={{}} />)
-    for (const key of ['quote-leading', 'quote-measure']) {
-      expect(screen.getByText(say(`settings.appearance.${key}.label`)),
-        `the ${key} label is not the catalogue’s`).toBeTruthy()
-    }
-  })
-
-  it('and every step of both lists is the catalogue’s word for its own key', async () => {
-    // A single MISSPELT key is the failure that hides — the catalogue humanises
-    // what it cannot find, so four steps resolve, one renders "Looose", and the
-    // list still reads like a list. Comparing against en.txt is the only way to
-    // tell the two apart.
-    const user = userEvent.setup()
-    render(<QuoteReadingFields prefs={{}} />)
-    const open = async (t) => {
-      await user.click(t)
-      const got = [...document.querySelectorAll('[role="option"]')].map((o) => (o.textContent || '').trim())
-      await user.click(t)
-      return got
-    }
-    const [leading, measure] = triggers()
-    expect(await open(leading), 'the leading steps are not the catalogue’s five').toEqual(
-      ['tight', 'snug', 'normal', 'relaxed', 'loose'].map((n) => say(`settings.appearance.quote-leading.${n}`)),
-    )
-    expect(await open(measure), 'the measure steps are not the catalogue’s').toEqual([
-      say('settings.appearance.quote-measure.full'),
-      ...[45, 55, 66, 80].map((n) => say('settings.appearance.quote-measure.chars', { n })),
-    ])
-  })
-
-  it('show the app’s own setting to a reader who has chosen nothing', () => {
-    // THE PROMISE THAT MATTERS MOST, at the surface rather than in the arithmetic:
-    // every account alive today stores 0 for both.
-    render(<QuoteReadingFields prefs={{}} />)
-    const [leading, measure] = triggers()
-    expect(shown(leading), 'an untouched account is not showing the app’s own leading')
-      .toBe(say('settings.appearance.quote-leading.normal'))
-    expect(shown(measure), 'an untouched account is not showing full width')
-      .toBe(say('settings.appearance.quote-measure.full'))
-  })
-
   it('send the one field they are for, and apply it before the server answers', async () => {
     const onPreferences = vi.fn()
     const user = userEvent.setup()

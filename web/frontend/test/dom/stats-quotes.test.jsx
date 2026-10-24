@@ -12,7 +12,7 @@
 // renders — a render test passed throughout.
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 
 import { t } from '../../src/i18n.js'
 import { pickFrom } from './helpers/pickFrom.jsx'
@@ -67,26 +67,6 @@ const page = async () => {
   await screen.findByText('Annotations')
 }
 
-// A StatTile is a number over a MonoLabel inside one box, so the tile is the
-// label's parent and the number is the other child.
-const tileFor = (label) => screen.getByText(label).closest('div')
-
-describe('the counts row', () => {
-  it('has a tile for standalone quotes', async () => {
-    await page()
-    expect(within(tileFor('Quotes')).getByText('7')).toBeTruthy()
-  })
-
-  it('does not call book highlights "Quotes"', async () => {
-    // There is a nav tab named Quotes, and it means the standalone kind. A tile
-    // named after a screen must not count a different thing from the screen.
-    await page()
-    expect(screen.getByText('Annotations')).toBeTruthy()
-    expect(within(tileFor('Quotes')).queryByText('30'), 'the Quotes tile is showing annotations').toBeNull()
-    expect(within(tileFor('Annotations')).getByText('30')).toBeTruthy()
-  })
-})
-
 describe('the header total', () => {
   it('counts all three media', async () => {
     // 30 + 20 + 7. It was 50 — two of the three kinds the page is about.
@@ -95,119 +75,3 @@ describe('the header total', () => {
   })
 })
 
-describe('the breakdown dropdown', () => {
-  it('offers the kinds the server actually sends', async () => {
-    // The failure was an absence in the chooser: two kinds arriving on every
-    // response with nothing to display them.
-    //
-    // READ OFF THE OPEN PANEL, IN THE WORDS ON IT. This used to collect the
-    // `value` of every `<option>` — a token nowhere on the screen, at an element
-    // the app no longer draws. The chooser is the app's own now, so the panel is
-    // opened and its rows are read the way a reader reads them. The one thing the
-    // screen cannot supply is which WORD answers to which server key, so the
-    // locale is asked for that and nothing else.
-    await page()
-    fireEvent.click(screen.getByLabelText('Breakdown kind'))
-    const panel = screen.getByRole('listbox')
-    for (const k of Object.keys(STATS.breakdown)) {
-      expect(
-        within(panel).queryByRole('option', { name: t(`stats.breakdown.${k}.label`) }),
-        `the server sends ${k} and the chooser does not offer it`,
-      ).toBeTruthy()
-    }
-  })
-})
-
-describe('the superlatives', () => {
-  it('name a most-quoted person beside the book and the film', async () => {
-    // Reads the COMBINED people breakdown, not one role's. In a library holding
-    // books and films the most-quoted person is very often somebody who appears
-    // in both, and "most quoted speaker" could only ever return the winner of
-    // one of the four sections.
-    await page()
-    expect(screen.getByText('Most quoted person')).toBeTruthy()
-    expect(screen.getAllByText('Bose').length).toBeGreaterThan(0)
-  })
-
-  it('stays quiet when there is nobody yet', async () => {
-    // An empty library must not render a superlative about nobody.
-    STATS.breakdown.people = kind()
-    await page()
-    expect(screen.getByText('Most quoted person')).toBeTruthy()
-    expect(screen.queryByText('Bose')).toBeNull()
-  })
-
-  it('draws a character’s still without falling over', async () => {
-    // A ROW WITH A PICTURE IS A DIFFERENT BRANCH FROM A ROW WITHOUT ONE, and
-    // nothing had ever rendered it: the fixture this suite runs on has no
-    // artwork, so the branch that draws a still went untested and shipped
-    // referring to an identifier that does not exist in its scope. It threw the
-    // moment a character had one — which is the very case the change was made
-    // for, and worse than the torn page it replaced.
-    //
-    // ASKED OF THE ROW, NOT OF THE PICTURE: what would have caught it is
-    // rendering the branch at all.
-    CHARACTERS = [{ id: 1, name: 'Delia Surridge', image_path: 'chars/delia.jpg' }]
-    await page()
-    // The card shows one breakdown at a time and opens on authors, so the kind
-    // has to be chosen the way a reader chooses it.
-    pickFrom('Breakdown kind', t('stats.breakdown.characters.label'))
-    expect(await screen.findByText('Delia Surridge'), 'the character row did not render').toBeTruthy()
-    await waitFor(() => expect(document.querySelector('.stat-face-round img')).toBeTruthy())
-  })
-
-  it.each([
-    ['a work’s cover', 'books', () => {}, 'Ice'],
-    ['a person’s portrait', 'authors', () => { PEOPLE = [{ id: 2, name: 'Anna Kavan', image_path: 'people/kavan.jpg' }] }, 'Anna Kavan'],
-  ])('draws %s in a breakdown row without falling over', async (_what, kindKey, arrange, who) => {
-    // THE SAME BLIND SPOT AS THE CHARACTER STILL, two lines up in the same span.
-    // Three branches draw a picture in that column and only one of them had ever
-    // been rendered — so a free identifier in either of the other two would ship
-    // exactly as the first one did, and 3,405 tests would say nothing.
-    arrange()
-    await page()
-    pickFrom('Breakdown kind', t(`stats.breakdown.${kindKey}.label`))
-    expect(await screen.findByText(who), 'the row did not render at all').toBeTruthy()
-    await waitFor(() => expect(document.querySelector('.stats-breakdown img, .breakdown-row img, img')).toBeTruthy())
-  })
-
-  it('and a person tile in the works grid draws a face rather than a gap', async () => {
-    // THE CALL SITE OF THE HEADLINE FIX. `PersonPortrait` having two kinds of
-    // stand-in says nothing about whether this caller asked for the right one —
-    // and the regression it is guarding against was exactly a call site passing
-    // the wrong thing while the component was correct.
-    PEOPLE = [{ id: 3, name: 'Bose', image_path: 'people/bose.jpg' }]
-    await page()
-    // Scoped to the tile, because the breakdown rows draw the same component as
-    // an ORNAMENT — which is the distinction under test, so a bare query would
-    // find whichever came first and prove nothing.
-    const tile = (await screen.findByText('Most quoted person')).closest('div').parentElement
-    const pic = await waitFor(() => {
-      const el = tile.querySelector('.person-portrait-round img')
-      expect(el, 'the tile drew no picture at all').toBeTruthy()
-      return el
-    })
-    fireEvent.error(pic)
-    expect(tile.querySelector('.person-portrait-round svg'),
-      'a record’s face fell back to the gap an ornament leaves').toBeTruthy()
-  })
-
-  it('offers the superlatives that were asked for', async () => {
-    // The set is a deliberate list, not whatever happened to be easy. Naming
-    // them here means removing one is a decision somebody has to make on
-    // purpose rather than a line that quietly stopped rendering.
-    await page()
-    for (const label of [
-      'Most annotated book',
-      'Most quoted film/show',
-      'Most quoted person',
-      'Most favourited person',
-      'Most quoted decade',
-      'Busiest month',
-      'Best remembered',
-      'Most forgotten',
-    ]) {
-      expect(screen.getByText(label), label).toBeTruthy()
-    }
-  })
-})

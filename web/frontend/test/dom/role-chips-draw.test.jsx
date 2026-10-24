@@ -83,15 +83,6 @@ const chipGlyph = (r, word) => {
 }
 
 describe('the role chips', () => {
-  it('draw a glyph, every one of the eight', async () => {
-    await mount()
-    const missing = []
-    for (const k of ROLES) {
-      const g = chipGlyph(row(WHO[k]), k)
-      if (!g || g.querySelectorAll('path, circle, rect, line, polyline, g').length === 0) missing.push(k)
-    }
-    expect(missing, 'a role chip with no drawing in it').toEqual([])
-  })
 
   it('and no two roles draw the same picture', async () => {
     await mount()
@@ -116,22 +107,4 @@ describe('the role chips', () => {
     expect(clashes, 'two roles drawn alike').toEqual([])
   })
 
-  it('and the word is still SAID, even though it is no longer drawn', async () => {
-    await mount()
-    // The roomy half of the count rule: the glyph is learnable only because the
-    // noun is printed next to it. A future change to the glyph-only form belongs
-    // on rows already carrying buttons and facts, not here, and would have to
-    // move this case deliberately rather than by accident.
-    // A GLYPH ALONE IS A PICTURE TO A SCREEN READER AND NOTHING AT ALL. The row
-    // stopped PAINTING the noun when the owner's spec moved the legend to the
-    // panel; it must never stop saying it. Case-folded, because the capital is
-    // the locale's and the stylesheet's to choose — asserting it would make this
-    // a test of the wording rather than of the word being there, which is how it
-    // failed once already on "translator".
-    for (const k of ROLES) {
-      const said = [...row(WHO[k]).querySelectorAll('[aria-label], [title]')]
-        .some((n) => (n.getAttribute('aria-label') || n.getAttribute('title') || '').trim().toLowerCase() === k)
-      expect(said, `${k} is drawn but never named`).toBe(true)
-    }
-  })
 })

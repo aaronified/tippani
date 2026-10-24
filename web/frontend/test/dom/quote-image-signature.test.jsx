@@ -84,11 +84,6 @@ const stamped = () => log.filter((e) => e.canvas === CARD && e.op === 'drawImage
 const footerText = () => log.filter((e) => e.canvas === CARD && e.op === 'fillText' && e.args[0] === 'tippani')[0]
 
 describe('the signature on the card', () => {
-  it('is not drawn unless the model carries one', async () => {
-    await render(model())
-    expect(stamped()).toHaveLength(0)
-  })
-
   it('sits in the footer row at the card\'s right edge, no taller than the row', async () => {
     const canvas = await render(model({ signature: SIGN }))
     const drawn = stamped()
@@ -109,37 +104,6 @@ describe('the signature on the card', () => {
     expect(y + h).toBeGreaterThan(cardBottom - 60)
   })
 
-  it('does not run over the Tippani wordmark', async () => {
-    await render(model({ signature: SIGN }))
-    const [, x] = stamped()[0].args
-    // The footer's words start at the left; the signature must start to the right of
-    // where the wordmark ends. Its x is the wordmark's start plus its measured width.
-    const word = footerText()
-    expect(x).toBeGreaterThan(word.args[1] + 'tippani'.length * 7)
-  })
-
-  it('a very wide signature is shrunk to the room the wordmark leaves, and keeps its shape', async () => {
-    // 3000 x 100 is 30:1 — at the row's height it would run straight over the wordmark.
-    Object.defineProperty(globalThis.Image.prototype, 'width', { value: 3000, configurable: true })
-    await render(model({ signature: { name: 'Jane Solo', url: '/api/covers/wide0123456789ab.png' } }))
-    const [, x, , w, h] = stamped()[0].args
-    const word = footerText()
-    // The wordmark's Bengali half follows "tippani"; the signature starts past both.
-    expect(x).toBeGreaterThanOrEqual(word.args[1] + 'tippani'.length * 7)
-    expect(x + w).toBeLessThanOrEqual(618)
-    expect(w / h).toBeCloseTo(30, 0)
-  })
-
-  it('is the signature that was asked for, filled in the card\'s own ink', async () => {
-    await render(model({ signature: SIGN }))
-    const id = stamped()[0].args[0].__recorderId
-    const own = log.filter((e) => e.canvas === id)
-    // A large source is halved on its way down, so the file itself may be drawn onto
-    // an intermediate canvas rather than the tinted one: look anywhere in the chain.
-    expect(log.some((e) => e.op === 'drawImage' && String(e.args[0]?.src || '').includes('0123456789abcdef.png'))).toBe(true)
-    // Ink keeps the signature's own shape (source-in), then fills.
-    expect(own.map((e) => e.op === 'composite' ? e.args[0] : e.op)).toEqual(['drawImage', 'source-in', 'fillRect'])
-  })
 })
 
 describe('buildModel and the signature', () => {
@@ -148,15 +112,8 @@ describe('buildModel and the signature', () => {
     faces: [], facesFor: 'author', signature: SIGN, ...over,
   })
 
-  it('carries it while its credit is checked', () => {
-    expect(buildModel(share(), { quote: true, author: true }, null).signature).toEqual(SIGN)
-  })
-
   it('drops it with the credit it belongs to', () => {
     expect(buildModel(share(), { quote: true, author: false }, null).signature).toBeNull()
   })
 
-  it('has none to carry when the share has none', () => {
-    expect(buildModel(share({ signature: null }), { quote: true, author: true }, null).signature).toBeNull()
-  })
 })

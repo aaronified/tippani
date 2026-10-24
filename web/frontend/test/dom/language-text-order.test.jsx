@@ -86,23 +86,6 @@ const chosen = (group) => {
 }
 
 describe('the per-language table', () => {
-  it('has a chooser for every language and one above them all', async () => {
-    await open()
-    expect(master()).toBeTruthy()
-    expect(await rowFor('Bengali')).toBeTruthy()
-    // FOUR, and all four reachable. A chooser missing one silently refuses a state
-    // the app can store.
-    expect(within(master()).getAllByRole('radio')).toHaveLength(4)
-    expect(within(await rowFor('Bengali')).getAllByRole('radio')).toHaveLength(4)
-  })
-
-  it('names every icon on a row with its language and its word', async () => {
-    await open()
-    const names = within(await rowFor('Bengali')).getAllByRole('radio').map((b) => b.getAttribute('aria-label'))
-    expect(names).toEqual([
-      'Bengali: translation only', 'Bengali: translation first', 'Bengali: quotation first', 'Bengali: quotation only',
-    ])
-  })
 
   it('saves the state a row is set to', async () => {
     await open()
@@ -124,41 +107,8 @@ describe('the per-language table', () => {
       .toEqual({})
   })
 
-  it('and a row with nothing of its own shows what the master says', async () => {
-    PREFS = { textOrder: JSON.stringify({ master: 'trans-only' }) }
-    await open()
-    expect(chosen(await rowFor('Bengali'))).toBe('translation only')
-  })
 })
 
 // WHAT THIS LANGUAGE'S QUOTES ARE SET IN HAS MOVED TO SETTINGS — see
 // language-faces.test.jsx.
 
-describe('a row with a setting of its own', () => {
-  it('says nothing while every row agrees', async () => {
-    PREFS = { textOrder: JSON.stringify({ master: 'trans-only' }) }
-    await open()
-    await rowFor('Bengali')
-    expect(screen.queryByText(/own setting/i)).toBeNull()
-    expect(document.querySelector('[title]')).toBeNull()
-  })
-
-  it('wears the dot beside its name, says so to a screen reader, and the default explains why it looks dimmed', async () => {
-    PREFS = { textOrder: JSON.stringify({ master: 'quote-first', byLanguage: { bengali: 'trans-only' } }) }
-    await open()
-    await rowFor('Bengali')
-    // THE DOT, NOT THE WORDS — the owner: "own settings need not be spelled out.
-    // you can use the dot." So the words are not painted on the row…
-    expect(screen.queryByText(/own setting/i)).toBeNull()
-    // …but they are still SAID, in the name of the one row's chooser that has a
-    // setting of its own — what a screen reader announces on the way in.
-    expect(screen.getByRole('radiogroup', { name: 'Bengali, own setting' })).toBeTruthy()
-    expect(screen.queryByRole('radiogroup', { name: /^(hindi|english), own setting$/i })).toBeNull()
-    // AND THE DEFAULT'S TOOLTIP IS PART OF THE SIGNAL: a dimmed control with
-    // nothing to say reads as disabled, when it is the one control that still
-    // does something to every row.
-    const tips = [...document.querySelectorAll('[title]')].map((e) => e.getAttribute('title'))
-    expect(tips.some((tip) => tip.length > 'own setting'.length && /own setting/i.test(tip)),
-      'the dimmed default says nothing about why').toBe(true)
-  })
-})

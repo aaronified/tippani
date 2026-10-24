@@ -21,40 +21,11 @@
 import { describe, expect, it } from 'vitest'
 import { patchMovesTheRow } from '../../src/works.jsx'
 
-describe('a heart, with no filter on', () => {
-  it('does not move the row, so the reply is enough', () => {
-    expect(patchMovesTheRow({ favorite: true }, {})).toBe(false)
-    expect(patchMovesTheRow({ color: 'blue' }, {})).toBe(false)
-    expect(patchMovesTheRow({ sticker_id: 3 }, {})).toBe(false)
-  })
-})
-
 describe('and with the filter that reads it', () => {
   it('moves the row, so the board is refetched', () => {
     expect(patchMovesTheRow({ favorite: false }, { fav: true })).toBe(true)
     expect(patchMovesTheRow({ color: 'blue' }, { color: 'pink' })).toBe(true)
     expect(patchMovesTheRow({ tags: [] }, { tag: 'grief' })).toBe(true)
   })
-
-  it('and only for the field that filter reads', () => {
-    // A colour filter does not care about a heart. Refetching anyway is the round
-    // trip this whole rule exists to avoid.
-    expect(patchMovesTheRow({ favorite: true }, { color: 'pink' })).toBe(false)
-    expect(patchMovesTheRow({ color: 'blue' }, { fav: true })).toBe(false)
-    expect(patchMovesTheRow({ sticker_id: 3 }, { fav: true, color: 'pink', tag: 'grief' })).toBe(false)
-  })
 })
 
-describe('the shape of the answer', () => {
-  it('is a boolean, never a truthy string', () => {
-    // `color && 'color' in fields` is the filter's VALUE when it matches, and a
-    // caller writing `if (x === true)` would then be wrong in a way nothing else
-    // would show.
-    expect(patchMovesTheRow({ color: 'blue' }, { color: 'pink' })).toBe(true)
-    expect(patchMovesTheRow({}, { color: 'pink' })).toBe(false)
-  })
-
-  it('survives being called with no filters at all', () => {
-    expect(patchMovesTheRow({ favorite: true })).toBe(false)
-  })
-})

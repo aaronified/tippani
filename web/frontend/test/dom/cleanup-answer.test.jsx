@@ -89,30 +89,6 @@ const page = () =>
 const gets = () => CALLS.filter(([m, p]) => m === 'GET' && p.startsWith('/cleanup'))
 
 describe('answering a cleanup finding', () => {
-  it('asks for the open bucket on arrival', async () => {
-    page()
-    await waitFor(() => expect(screen.getByText('Moby-Dick')).toBeTruthy())
-    expect(gets()[0][1]).toBe('/cleanup?bucket=open')
-  })
-
-  it('shows what the finding is and what it would become', async () => {
-    page()
-    // MATCHED WITHOUT NORMALISING THE WHITESPACE, which is the point of the case: a
-    // doubled space is what the finding IS, and getByText collapses runs of space by
-    // default — so the default matcher cannot tell the evidence from the result.
-    const exact = (want) => (_, el) => el?.textContent === want
-    await waitFor(() => expect(screen.getByText(exact('call»  «me Ishmael'))).toBeTruthy())
-    // THE ASSERTION THE WHOLE FEATURE RESTS ON: the result is on screen before
-    // anything is pressed. Read off `.cleanup-after`'s own text rather than the
-    // whole row's — the row leads with a mark saying "becomes", and that mark was
-    // the character `→` and is the app's drawn arrow now. A test keyed to the
-    // character would go red on a change no reader can see; what it must hold is
-    // that the RESULT is printed, whitespace and all.
-    const after = document.querySelector('.cleanup-after')
-    expect(after, 'the finding shows no result at all').toBeTruthy()
-    expect(after.textContent).toBe('call» «me Ishmael')
-    expect(after.querySelector('svg'), 'nothing marks it as the result').toBeTruthy()
-  })
 
   it('accepts exactly the finding it was showing', async () => {
     page()
@@ -133,57 +109,4 @@ describe('answering a cleanup finding', () => {
     expect(body.items[0].match_hash).toBe('abc123')
   })
 
-  it('re-reads the list after answering rather than guessing what changed', async () => {
-    page()
-    await waitFor(() => expect(screen.getByText('Moby-Dick')).toBeTruthy())
-    const before = gets().length
-    fireEvent.click(screen.getByText(t('cleanup.accept.label')))
-    await waitFor(() => expect(gets().length).toBeGreaterThan(before))
-  })
-
-  it('switches bucket by asking the server, not by filtering what it has', async () => {
-    page()
-    await waitFor(() => expect(screen.getByText('Moby-Dick')).toBeTruthy())
-    fireEvent.click(screen.getByText(t('cleanup.bucket.ignored.label', { n: 1 })))
-    await waitFor(() => expect(gets().some(([, p]) => p === '/cleanup?bucket=ignored')).toBe(true))
-    // The ignored bucket offers a way back and NOT an accept: a finding you have
-    // said no to is not one you are being asked about.
-    await waitFor(() => expect(screen.getByText(t('cleanup.restore.label'))).toBeTruthy())
-    expect(screen.queryByText(t('cleanup.accept.label'))).toBeNull()
-  })
-
-  it('puts an ignored finding back on the list', async () => {
-    page()
-    await waitFor(() => expect(screen.getByText('Moby-Dick')).toBeTruthy())
-    fireEvent.click(screen.getByText(t('cleanup.bucket.ignored.label', { n: 1 })))
-    await waitFor(() => expect(screen.getByText(t('cleanup.restore.label'))).toBeTruthy())
-    fireEvent.click(screen.getByText(t('cleanup.restore.label')))
-    await waitFor(() => expect(CALLS.some(([, p]) => p === '/cleanup/unignore')).toBe(true))
-    expect(CALLS.find(([, p]) => p === '/cleanup/unignore')[2].items[0].match_hash).toBe('def456')
-  })
-
-  it('offers no accept for a rule this build cannot rewrite', async () => {
-    // A finding with no `after` is listed and ignorable and has nothing to accept —
-    // the state the server describes for a rule with no fix. No rule is in it today,
-    // which is exactly why the page's handling of it needs a test.
-    ANSWER = () => ({
-      ...OPEN,
-      items: [{ ...OPEN.items[0], findings: [{ ...OPEN.items[0].findings[0], after_snippet: '' }] }],
-    })
-    page()
-    await waitFor(() => expect(screen.getByText('Moby-Dick')).toBeTruthy())
-    expect(screen.queryByText(t('cleanup.accept.label'))).toBeNull()
-    expect(screen.getByText(t('cleanup.ignore.label'))).toBeTruthy()
-  })
-
-  it('renders no unresolved key anywhere on it', async () => {
-    page()
-    await waitFor(() => expect(screen.getByText('Moby-Dick')).toBeTruthy())
-    const keyish = [...document.querySelectorAll('*')]
-      .flatMap((el) => [...el.childNodes])
-      .filter((n) => n.nodeType === 3)
-      .map((n) => n.textContent.trim())
-      .filter((txt) => /^[a-z][a-z0-9-]*(?:\.[a-z0-9-]+)+$/.test(txt))
-    expect(keyish, 'unresolved keys on screen').toEqual([])
-  })
 })

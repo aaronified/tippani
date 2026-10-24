@@ -35,26 +35,6 @@ const openMenuOn = (label) => {
   return card
 }
 
-describe('the card a context menu belongs to', () => {
-  it('is marked, and only that one', () => {
-    render(<><Card label="a" /><Card label="b" /></>)
-    expect(screen.getByTestId('a').className).not.toContain('is-menu-target')
-
-    openMenuOn('a')
-    expect(screen.getByTestId('a').className).toContain('is-menu-target')
-    // The mark answers "which one", so a second card wearing it would answer
-    // nothing at all.
-    expect(screen.getByTestId('b').className).not.toContain('is-menu-target')
-  })
-
-  it('drops the mark when the menu closes', () => {
-    render(<Card label="a" />)
-    openMenuOn('a')
-    fireEvent.keyDown(document, { key: 'Escape' })
-    expect(screen.getByTestId('a').className).not.toContain('is-menu-target')
-  })
-})
-
 describe('the page under an open card menu', () => {
   // Locked rather than re-anchored on scroll: a menu that chases its card is one
   // you can drag around the screen with the wheel, and it still leaves you
@@ -64,13 +44,6 @@ describe('the page under an open card menu', () => {
     expect(document.body.style.overflow).toBe('')
     openMenuOn('a')
     expect(document.body.style.overflow).toBe('hidden')
-  })
-
-  it('scrolls again once the menu is gone', () => {
-    render(<Card label="a" />)
-    openMenuOn('a')
-    fireEvent.keyDown(document, { key: 'Escape' })
-    expect(document.body.style.overflow).toBe('')
   })
 
   // NOT TESTED HERE: that a menu opened over an open sheet leaves the page

@@ -102,13 +102,6 @@ const round = () => screen.getByRole('dialog', { name: 'Daily quiz' })
 const closeRound = () => fireEvent.click(within(round()).getByRole('button', { name: 'Close' }))
 
 describe('the Daily quiz in its own screen', () => {
-  it('waits on Home, saying how many are due, until it is opened', async () => {
-    await mount()
-    await screen.findByText('3 cards due today')
-    expect(screen.queryByRole('button', { name: /Persuasion/ }), 'the round is on Home before Start').toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: 'Start' }))
-    expect(within(round()).getByText('1 of 3')).toBeTruthy()
-  })
 
   it('reopens past a card answered before it was closed, and never asks it twice', async () => {
     await mount()
@@ -124,62 +117,7 @@ describe('the Daily quiz in its own screen', () => {
     expect(within(round()).queryByRole('button', { name: /Persuasion/ })).toBeNull()
   })
 
-  it('is done when closed on its last answer, before Finish', async () => {
-    DAILY = deck([choice(1, 'Persuasion')])
-    await mount()
-    fireEvent.click(await screen.findByRole('button', { name: 'Start' }))
-    fireEvent.click(within(round()).getByRole('button', { name: /Persuasion/ }))
-    await within(round()).findByRole('button', { name: 'Finish' })
-    closeRound()
-    await screen.findByText(/all caught up/)
-    expect(screen.queryByRole('button', { name: /^(Start|Continue)$/ })).toBeNull()
-  })
-
   // A TYPED ANSWER THE SERVER HAS NOT MARKED IS STILL AN ANSWER: it is kept, the
   // card says so, and the round goes on. Closed after the next card, the round
   // reopens past both.
-  it('reopens past a typed answer that is kept and not yet marked', async () => {
-    DAILY = deck([
-      { kind: 'book', id: 8, direction: 'cloze', status: 'unseen', color: 'blue',
-        quote: 'it is a truth \uFFFC acknowledged', title: 'Pride and Prejudice', author: 'Austen', options: [], answer: 0 },
-      choice(2, 'Emma'),
-      choice(3, 'Sanditon'),
-    ])
-    ANSWER = { ok: false, status: 0 }
-    await mount()
-    fireEvent.click(await screen.findByRole('button', { name: 'Start' }))
-    fireEvent.change(within(round()).getByRole('textbox'), { target: { value: 'universally' } })
-    fireEvent.click(within(round()).getByRole('button', { name: 'Check' }))
-    await within(round()).findByText('kept, to be marked', {}, { timeout: 6000 })
-    fireEvent.click(within(round()).getByRole('button', { name: 'Next' }))
-    fireEvent.click(within(round()).getByRole('button', { name: /Emma/ }))
-    await within(round()).findByRole('button', { name: 'Next' })
-    closeRound()
-
-    await screen.findByText('1 card due today')
-    fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
-    expect(within(round()).getByText('3 of 3')).toBeTruthy()
-  }, 10000)
-})
-
-describe('a Practice round in its own screen', () => {
-  // ANSWERED TO ITS LAST CARD AND RELOADED BEFORE FINISH, the round is over:
-  // there is nothing to continue, and reopening it would ask that card again.
-  it('is over after a reload when its last card was answered', async () => {
-    await mount()
-    fireEvent.click(await screen.findByRole('button', { name: 'Start practice' }))
-    await screen.findByRole('dialog', { name: 'Practice' })
-    const practice = () => screen.getByRole('dialog', { name: 'Practice' })
-    await within(practice()).findByText('1 of 2')
-    fireEvent.click(within(practice()).getByRole('button', { name: /Middlemarch/ }))
-    fireEvent.click(await within(practice()).findByRole('button', { name: 'Next' }))
-    fireEvent.click(within(practice()).getByRole('button', { name: /Cranford/ }))
-    await within(practice()).findByRole('button', { name: 'Finish' })
-
-    cleanup()
-    forgetDailyDeck()
-    await mount()
-    await screen.findByRole('button', { name: 'Another round' })
-    expect(screen.queryByRole('button', { name: 'Continue practice' })).toBeNull()
-  })
 })

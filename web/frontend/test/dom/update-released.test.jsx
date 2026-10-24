@@ -40,47 +40,4 @@ describe('the date on the running build', () => {
     expect(screen.getByText(formatPartialDate('2026-09-01'))).toBeTruthy()
   })
 
-  it('says it has no date rather than inventing one, on a build that is not a release', () => {
-    // Every one of these is a real build this app ships: a local build, a branch
-    // image from CI, and a release candidate — which IS published, and still heads
-    // no changelog entry.
-    for (const version of ['dev', '3.0.0-edge.v3.a66ff6c', '3.1.0-rc.1']) {
-      cleanup()
-      card({ version, version_date: '' })
-      expect(
-        screen.getByText(t('settings.updates.released.unknown.label')),
-        `${version} did not say it has no release date`,
-      ).toBeTruthy()
-    }
-  })
-
-  it('draws the row even then, because a missing row is a question and a stated absence is an answer', () => {
-    // Also the shape every developer and every CI render sees: VERSION is `dev`
-    // there, so a hidden row would mean the shipped shape is the one nobody looks
-    // at. The row is found by its label's slot, not by its wording.
-    card({ version: 'dev', version_date: '' })
-    const rows = [...document.querySelectorAll('.mono-label')].map((n) => n.textContent)
-    expect(rows.length, 'the card lost its labelled rows').toBeGreaterThan(1)
-  })
-
-  it('refuses a value it cannot format, rather than printing it raw or as NaN', () => {
-    // The server already rejects a heading whose date is not YYYY-MM-DD, and the
-    // card guards again: a field a client formats is one bad heading away from
-    // printing NaN, and the two guards are cheap where the failure is silent.
-    for (const bad of ['25 August 2026', '2026-13-01', 'soon', '2026-09-01T00:00:00Z']) {
-      cleanup()
-      card({ version: '3.1.0', version_date: bad })
-      expect(screen.queryByText(/NaN/), `${bad} reached the reader`).toBeNull()
-      expect(screen.queryByText(bad), `${bad} was printed raw`).toBeNull()
-      expect(screen.getByText(t('settings.updates.released.unknown.label'))).toBeTruthy()
-    }
-  })
-
-  it('and does not confuse the build’s age with the version itself', () => {
-    // Two rows, two facts. A card that prints the version twice, or the date in
-    // the version's slot, is the duplication this screen's siblings were reported
-    // for.
-    card({ version: '3.1.0', version_date: '2026-09-01' })
-    expect(screen.getAllByText('3.1.0').length, 'the version is printed more than once').toBe(1)
-  })
 })

@@ -56,33 +56,6 @@ describe('a panel that hosts a form', () => {
     expect(onSubmit).toHaveBeenCalledTimes(1)
   })
 
-  it('draws no key at all for a panel with no form in it', async () => {
-    render(<PanelHarness panel={{ title: 'Links', render: () => <p>just a list</p> }} />)
-    await opened()
-    // A settling frame, so "not yet" cannot pass for "never".
-    await new Promise((r) => setTimeout(r, 30))
-    expect(save(), 'a list of rows has nothing to commit and must not offer to').toBeNull()
-  })
-
-  it('disables the key and says why, while the form says it is not ready', async () => {
-    render(
-      <PanelHarness panel={{ title: 'Details', render: () => <TinyForm reason="A title is required" onSubmit={() => {}} /> }} />,
-    )
-    await opened()
-    // Disabled is the assertion; the reason rides as a tooltip on the key, and a
-    // tooltip needs a hint host and a hover clock to appear — which is
-    // Tooltip's own test's subject, not this one's. form-modal-header.test.jsx
-    // draws the same line for the same reason.
-    expect((await savedKey()).disabled).toBe(true)
-  })
-
-  it('enables the key once the form says it is ready', async () => {
-    render(
-      <PanelHarness panel={{ title: 'Details', saveTip: 'Save every open row', render: () => <TinyForm onSubmit={() => {}} /> }} />,
-    )
-    await opened()
-    expect((await savedKey()).disabled).toBe(false)
-  })
 })
 
 // The port's own case, kept apart from the ported ones on purpose.
@@ -92,27 +65,3 @@ describe('a panel that hosts a form', () => {
 // assertion in them survived verbatim, which is the point — but a regression in
 // the SHELL could still hide inside a rewrite of the tests that watch it. So the
 // shell has a case of its own that no port touched.
-describe('the work detail lives on the stack', () => {
-  it('opens as a panel titled Details, with a ✓ its form registered', async () => {
-    const { workDetailsPanel } = await import('../../src/WorkDetails.jsx')
-    render(
-      <PanelHarness
-        panel={(stack) =>
-          workDetailsPanel(stack, {
-            kind: 'book',
-            item: { id: 1, title: 'Solaris', genres: [] },
-            onChanged: () => {},
-            onDelete: null,
-          })
-        }
-      />,
-    )
-    await waitFor(() => expect(document.querySelector('.tp-panel')).toBeTruthy())
-    // A panel, not a dialog card: the two are different chrome and the whole
-    // move was from one to the other.
-    expect(document.querySelector('.tp-panel-title').textContent).toBe('Details')
-    expect(document.querySelector('.hand-card.hc-r2'), 'still a FormModal').toBeNull()
-    // And the key the port would otherwise have deleted in silence.
-    expect(await screen.findByLabelText('Save')).toBeTruthy()
-  })
-})

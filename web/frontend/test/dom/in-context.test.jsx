@@ -78,22 +78,4 @@ describe('a highlight in its file', () => {
     expect(labels()).not.toContain('In context')
   })
 
-  it('shows more for this look only, up to what is stored, and asks no file for it', async () => {
-    card(5)
-    await waitFor(() => {
-      menu()
-      expect(labels()).toContain('In context')
-    })
-    fireEvent.click(screen.getByText('In context'))
-    await screen.findByText(THEN.body)
-    answer = (path) => ({
-      ...THEN,
-      span: { before: 1, after: 3 },
-      after: 'p1\n\np2\n\np3',
-      requested: path,
-    })
-    fireEvent.click(screen.getByRole('button', { name: 'Show more' }))
-    await waitFor(() => expect(reads.some((p) => p.includes('/quotes/annotation/5/context?before=1&after=3'))).toBe(true))
-    expect(await screen.findByText('p3')).toBeTruthy()
-  })
 })

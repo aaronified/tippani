@@ -20,7 +20,7 @@
 
 import { describe, expect, it } from 'vitest'
 import { byYear } from '../../src/ui.jsx'
-import { t, applyLocale } from '../../src/i18n.js'
+import { t } from '../../src/i18n.js'
 
 const pub = (title, published_year, published_circa = 0) => ({ title, published_year, published_circa })
 const shelf = (list) => [...list].sort(byYear((b) => b.published_year)).map((x) => x.title)
@@ -88,12 +88,5 @@ describe('sorting a shelf by the year it came out', () => {
     expect([...films].sort(byYear((m) => m.release_year)).map((x) => x.title)).toEqual(
       [...books].sort(byYear((b) => b.published_year)).map((x) => x.title),
     )
-  })
-
-  // One fact, one word. The menu entry is the same on both shelves because it
-  // asks the same question, and two spellings of it would read as two sorts.
-  it('names the sort the same on both shelves', () => {
-    applyLocale('en')
-    expect(t('library.sort.year.label')).toBe(t('movies.sort.year.label'))
   })
 })

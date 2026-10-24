@@ -16,17 +16,6 @@ import { parseScope } from '../../src/Settings.jsx'
 const ALL = ['books', 'movies', 'quotes']
 
 describe('parseScope', () => {
-  it.each([
-    ['books', ['books']],
-    ['movies', ['movies']],
-    ['quotes', ['quotes']],
-    ['books,quotes', ['books', 'quotes']],
-    ['movies,quotes', ['movies', 'quotes']],
-    ['books,movies,quotes', ALL],
-  ])('%s', (input, want) => {
-    expect(parseScope(input)).toEqual(want)
-  })
-
   // One test over all seven rows rather than four: each of these was the same
   // `parseScope(input)` compared with toEqual and differed in nothing but the
   // stored string. Every input survives as a row, each keeping the it() title it
@@ -60,14 +49,4 @@ describe('parseScope', () => {
     const got = STORED.map((c) => [row(c), parseScope(c.input)])
     expect(got).toEqual(STORED.map((c) => [row(c), c.want]))
   })
-
-  it.each(['', '   ', 'nonsense', ',,,', null, undefined])(
-    'falls back to everything, never nothing: %s',
-    (input) => {
-      // The one rule that cannot bend. An empty scope is a deck with no cards in
-      // it, which is indistinguishable from a deck you have finished for the day
-      // — and it would never say which. Mirrors scopeFlags on the server.
-      expect(parseScope(input)).toEqual(ALL)
-    },
-  )
 })

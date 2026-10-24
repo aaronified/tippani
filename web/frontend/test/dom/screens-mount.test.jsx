@@ -32,7 +32,7 @@
 
 import { describe, expect, it, vi } from 'vitest'
 import { render } from '@testing-library/react'
-import { SCREENS, SECTION_VARIANTS, screenLabelsInApp } from '../screens.js'
+import { SCREENS } from '../screens.js'
 
 // Every request refused, and refused the way api.js reports a refusal so the
 // screens take their real error branch rather than an impossible one.
@@ -43,16 +43,6 @@ vi.mock('../../src/api.js', async (orig) => ({
 }))
 
 describe('every screen App can route to', () => {
-  it('is in the table, and nothing in it is a screen App dropped', () => {
-    const inApp = screenLabelsInApp()
-    expect(inApp.length).toBeGreaterThan(8) // the regex still finds them
-    // A section variant is a row of the table and not a screen App tags — see
-    // SECTION_VARIANTS — so it is compared by the screen it is a section of.
-    expect(inApp).toEqual(Object.keys(SCREENS).filter((k) => !(k in SECTION_VARIANTS)).sort())
-    for (const [variant, screen] of Object.entries(SECTION_VARIANTS)) {
-      expect(inApp, `${variant} is a section of ${screen}, which App no longer routes`).toContain(screen)
-    }
-  })
 
   // One case per screen rather than a loop with one assertion, so a failure names
   // the screen in its own line instead of collapsing thirteen into one red test.

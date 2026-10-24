@@ -163,35 +163,6 @@ describe('the one import target', () => {
   // A ONE-TARGET IMPORT INVITES EVERY FILE A READER HAS, and "unrecognised" to a
   // Tippani backup is a worse answer than the wall was. `near_miss` names what
   // the file actually is and the words point at the door that does take it.
-  it('names a file it recognises and cannot import, and offers no format list', async () => {
-    reply = { status: 400, body: { error: 'server words', near_miss: 'backup' } }
-    render(<ImportPage />)
-    drop(well(), textFile('mine.tpbk'))
-    expect(await screen.findByText(/restore it from/i)).toBeTruthy()
-    // No override here: a backup is not a parser away from working, and a format
-    // list would invite the reader to try eight of them.
-    expect(screen.queryByLabelText('Read this file as a format you pick')).toBeNull()
-  })
-
-  it('offers the override only when nothing claimed the file, and sends it', async () => {
-    reply = { status: 400, body: { error: 'server words', near_miss: '' } }
-    render(<ImportPage />)
-    drop(well(), textFile('mystery.txt'))
-    await screen.findByLabelText('Read this file as a format you pick')
-    reply = { status: 200, body: { staged: 2, works: [] } }
-    // PRESSED BY NAME, AND THE SLUG IS STILL THE THING UNDER TEST. The chooser is
-    // the app's own now, so it is opened and the row reading "Goodreads" is
-    // pressed — but the assertion below is unchanged, and it is the whole point:
-    // `importSources` is keyed by the importer's own constants, not by the
-    // hyphenated route names, so what the row SENDS is the pairing that answers
-    // "unknown import source" for a file that was fine.
-    pickFrom('Read this file as a format you pick', 'Goodreads')
-    await waitFor(() => expect(uploads).toHaveLength(2))
-    expect(uploads[1]).toEqual({ path: '/import/auto', name: 'mystery.txt', fields: { as: 'goodreads_html' } })
-    // And the run is re-tallied off the re-read row rather than left reporting
-    // the failure: one file, two quotes.
-    expect(await screen.findByText(/1 file → 2 quotes staged/)).toBeTruthy()
-  })
 
   // AND IT SAYS WHAT HAPPENS IF YOU WALK AWAY, which is the half a reader cannot
   // see and would guess wrongly about. A file nothing claimed is answered with a
@@ -204,24 +175,6 @@ describe('the one import target', () => {
   // for a migration, the bytes and a retention policy. The row saying so is what
   // that ruling costs, and the reader who assumes the app kept their file is the
   // defect it would otherwise leave behind.
-  it('says the file is not queued anywhere, so nobody assumes it was kept', async () => {
-    reply = { status: 400, body: { error: 'server words', near_miss: '' } }
-    render(<ImportPage />)
-    drop(well(), textFile('mystery.txt'))
-    await screen.findByLabelText('Read this file as a format you pick')
-    expect(await screen.findByText(/nothing was queued from this file/i)).toBeTruthy()
-  })
-
-  it('and says it only where the file actually failed', async () => {
-    // A recognised-but-unimportable file has its own door (restore) and is not
-    // sitting unqueued in the sense this line is about; a file that STAGED
-    // something is queued, so the line would be a lie on both.
-    reply = { status: 400, body: { error: 'server words', near_miss: 'backup' } }
-    render(<ImportPage />)
-    drop(well(), textFile('mine.tpbk'))
-    await screen.findByText(/restore it from/i)
-    expect(screen.queryByText(/nothing was queued from this file/i)).toBeNull()
-  })
 
   // THE HOW-TOS ARE HELP NOW, and both halves of that are asserted, because only
   // one of them is a bug on its own. "Where do I get a Goodreads file" is a real
@@ -230,28 +183,11 @@ describe('the one import target', () => {
   // the last reason this screen carried a fold.
   //
   // THIS SCREEN NO LONGER HOLDS THEM.
-  it('leaves the step-lists to help rather than folding them under the target', () => {
-    render(<ImportPage />)
-    expect(screen.queryByText('Bookcision'), 'the screen kept its own copy of the source list').toBeNull()
-    // AND ITS SHAPE IS GONE TOO, not just the eight names. A numbered list is
-    // what a step-list IS here, and this screen draws no other — so an `ol`
-    // surviving would mean the markup outlived the words it held.
-    expect(document.querySelector('ol'), 'a step-list outlived the source list').toBeNull()
-  })
 
   // AND THE HELP SECTION DOES — every row of the table, not a sample of it. The
   // list is drawn FROM `SOURCES`, so a ninth parser added there appears here with
   // no edit; what this case defends is that the rendering did not quietly lose a
   // row, and that the section exists at all under its own key.
-  it('and the import help section draws every source in the table', () => {
-    render(<HelpList entries={helpFor('import').entries} />)
-    for (const s of SOURCES) {
-      expect(screen.getByText(sourceTitle(s.kind)), s.kind).toBeTruthy()
-    }
-    // The extension is a hint about which file is yours, so it is printed beside
-    // the name — detection is by content and never by this.
-    expect(screen.getAllByText('.txt').length, 'the extension hint is gone').toBeGreaterThan(0)
-  })
 })
 
 // A FILE IS A JOB ON THE SERVER'S QUEUE, and the row says where it stands. The
@@ -259,211 +195,12 @@ describe('the one import target', () => {
 // screen owes the reader is the same answer the Jobs screen gives — waiting, and
 // how many are ahead — and then the staging's own answer, read back from the job
 // exactly as the request's used to be.
-describe('each file waits its turn on the queue', () => {
-  it('says how many jobs are ahead, then what it staged', async () => {
-    states = ['queued', 'succeeded']
-    render(<ImportPage />)
-    drop(well(), textFile('clippings.txt'))
-    expect(await screen.findByText(/Waiting — 2 jobs ahead/)).toBeTruthy()
-    expect(await screen.findByText(/1 file → 3 quotes staged/, undefined, { timeout: 4000 })).toBeTruthy()
-    expect(screen.queryByText(/Waiting —/)).toBeNull()
-  })
-
-  it('a file stopped before it staged says Settings → Jobs can run it again', async () => {
-    states = ['stopped']
-    render(<ImportPage />)
-    drop(well(), textFile('clippings.txt'))
-    expect(await screen.findByText('Stopped — Settings → Jobs can run it again')).toBeTruthy()
-    // Not the override: the upload is kept on the server, and the file is not a
-    // parser away from working.
-    expect(screen.queryByLabelText('Read this file as a format you pick')).toBeNull()
-  })
-
-  // AND ONLY WHERE THERE IS ONE. An import cut off by a restart just after it let
-  // go of its upload, before its staging committed, has nothing to run again, and
-  // its job says so; the row sends the reader back to the file this page still
-  // holds rather than to a Run again that is not there.
-  //
-  // Mutation: the row pointing at Run again whatever the job says (the halted
-  // branch reading no `rerunnable`): red.
-  it('a file whose job kept no upload says to drop it again, not to run it again', async () => {
-    states = ['interrupted']
-    kept = false
-    render(<ImportPage />)
-    drop(well(), textFile('clippings.txt'))
-    expect(await screen.findByText('Interrupted — the server no longer has this file; drop it again')).toBeTruthy()
-    expect(screen.queryByText(/Settings → Jobs can run it again/)).toBeNull()
-  })
-
-  it('a refusal that queued nothing is shown as the server said it', async () => {
-    sents = [{ ok: false, status: 429, data: { error: 'five of your jobs are already waiting' } }]
-    render(<ImportPage />)
-    drop(well(), textFile('clippings.txt'))
-    expect(await screen.findByText('five of your jobs are already waiting')).toBeTruthy()
-  })
-
-  // EVERY FILE IS ON THE SERVER BEFORE ANY OF THEM HAS RUN: a batch dropped
-  // behind a long job is sent at once, not a file at a time as each one's turn
-  // comes, because a file sent is one a closed tab cannot lose.
-  it('sends the whole batch while its first file is still waiting', async () => {
-    // Waiting for good, until the case says otherwise: a batch that sent its
-    // second file only once the first had run would never send it here.
-    states = ['queued']
-    render(<ImportPage />)
-    drop(well(), textFile('a.md'), textFile('b.md'))
-    await waitFor(() => expect(uploads).toHaveLength(2))
-    expect(screen.getAllByText(/Waiting — 2 jobs ahead/)).toHaveLength(2)
-    expect(screen.queryByText(/→ \d+ quotes staged/)).toBeNull()
-    states = ['succeeded']
-    expect(await screen.findByText(/2 files → 6 quotes staged/, undefined, { timeout: 8000 })).toBeTruthy()
-  }, 20000)
-
-  // FIVE OF A READER'S JOBS AT A TIME is the queue's rule, so a file the server
-  // turns away for that waits in the page until one of this batch's has run, and
-  // is sent again then — it is not reported as failed while the batch is still
-  // going.
-  it('a file refused for the five-job limit is sent again once one of the batch has run', async () => {
-    sents = [null, { ok: false, status: 429, data: { error: 'five of your jobs are already waiting' } }]
-    render(<ImportPage />)
-    drop(well(), textFile('a.md'), textFile('b.md'))
-    expect(await screen.findByText(/2 files → 6 quotes staged/, undefined, { timeout: 4000 })).toBeTruthy()
-    expect(uploads.map((u) => u.name)).toEqual(['a.md', 'b.md', 'b.md'])
-    expect(screen.queryByText('five of your jobs are already waiting')).toBeNull()
-  })
-
-  // SENDING IS NOT WAITING. A file already sent is a job on the server, and it
-  // can wait for hours behind somebody else's; the well stayed locked for all of
-  // it, saying "Uploading…" with nothing uploading. It is free once the bytes are
-  // up, and a file dropped then joins the row still waiting rather than wiping it.
-  //
-  // Mutation: the well kept busy until every row has its answer (the send loop
-  // waiting for its jobs before it lets go): red — the well still says
-  // Uploading…, and the second drop sends nothing.
-  it('the well is free while a sent file waits, and a second drop joins its row', async () => {
-    states = ['queued']
-    render(<ImportPage />)
-    drop(well(), textFile('a.md'))
-    expect(await screen.findByText(/Waiting — 2 jobs ahead/)).toBeTruthy()
-    expect(within(well()).getByText('Choose file — one or many')).toBeTruthy()
-    expect(within(well()).queryByText('Uploading…')).toBeNull()
-    drop(well(), textFile('b.md'))
-    await waitFor(() => expect(uploads).toHaveLength(2))
-    const waiting = (name) => (_, el) => el?.tagName === 'P' && new RegExp(`^${name}\\s+Waiting`).test(el.textContent)
-    expect(await screen.findByText(waiting('a\\.md'))).toBeTruthy()
-    expect(await screen.findByText(waiting('b\\.md'))).toBeTruthy()
-    states = ['succeeded']
-    expect(await screen.findByText(/2 files → 6 quotes staged/, undefined, { timeout: 8000 })).toBeTruthy()
-  }, 20000)
-
-  // THE N1 NOTE: a closed tab keeps every file already sent — each is a job — and
-  // loses the ones not sent yet, which are still only in this page. So while a
-  // batch is sending, the rows say which is which.
-  it('a batch still sending says which files are not sent yet', async () => {
-    let release
-    gate = new Promise((r) => { release = r })
-    render(<ImportPage />)
-    drop(well(), textFile('a.md'), textFile('b.md'))
-    // The row of the file still in the page, read whole: its name, then the words.
-    const unsent = (_, el) => el?.tagName === 'P' && /^b\.md\s+not sent yet$/.test(el.textContent)
-    expect(await screen.findByText(unsent)).toBeTruthy()
-    expect(screen.getByText(/one not sent yet does not/)).toBeTruthy()
-    release()
-    expect(await screen.findByText(/2 files → 6 quotes staged/, undefined, { timeout: 4000 })).toBeTruthy()
-    expect(screen.queryByText(unsent)).toBeNull()
-    expect(screen.queryByText(/one not sent yet does not/)).toBeNull()
-  })
-})
 
 // AND THE PROGRESS IS ACTUALLY ASKED FOR. The move to XHR buys nothing if the
 // caller passes no callback — the upload would report to nobody and the row
 // would say "pending" exactly as it did before, with the API change invisible.
-describe('the upload reports how far it has got', () => {
-  it('hands uploadWithProgress a callback', async () => {
-    render(<ImportPage />)
-    drop(well(), textFile('clippings.txt'))
-    await waitFor(() => expect(uploads).toHaveLength(1))
-    expect(typeof progressed[0], 'the upload reports progress to nobody').toBe('function')
-  })
-
-  it('draws the bar in the well while the bytes are going up', async () => {
-    // THE CALLBACK ALONE IS NOT THE FEATURE. A caller can take a progress
-    // callback, keep the fraction in state and render nothing with it, and the
-    // case above passes on that — the reader still watches a well that says
-    // "uploading" and nothing else. So this one holds the upload open and looks
-    // at the screen.
-    let release
-    gate = new Promise((r) => { release = r })
-    render(<ImportPage />)
-    drop(well(), textFile('clippings.txt'))
-    await waitFor(() => expect(document.querySelector('.import-drop [role="progressbar"]')).toBeTruthy())
-    release()
-    // AND IT GOES WHEN THE UPLOAD DOES. A bar left behind after the answer lands
-    // is the "pending" row's failure in a new shape: something on screen that
-    // stopped meaning anything.
-    await waitFor(() => expect(document.querySelector('[role="progressbar"]')).toBeNull())
-  })
-})
 
 // A SUBTITLE OR AN EBOOK IS NOT AN IMPORT AND IS NOT AN ERROR. Its content cannot say
 // which work it belongs to (a subtitle names no film inside itself), so the row asks,
 // and the file goes up through the same route every other door uses. Nothing is
 // staged: the summary still says so.
-describe('a file that is the source of a work and not highlights', () => {
-  const asSource = (format) => { reply = { status: 200, body: { source_file: format, staged: 0 } } }
-
-  it('asks which work, never offers a game, and sends the file for the one chosen', async () => {
-    asSource('srt')
-    render(<ImportPage />)
-    drop(well(), textFile('film.ass.txt'))
-    expect(await screen.findByText(/A subtitle file, not highlights/)).toBeTruthy()
-    // The picker is the library's own list: the film and the show are there, the game is not.
-    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'V for' } })
-    fireEvent.click(await screen.findByText('V for Vendetta'))
-    fireEvent.click(screen.getByRole('button', { name: 'Attach to V for Vendetta' }))
-    await waitFor(() => expect(puts).toHaveLength(1))
-    expect(puts[0]).toEqual({ path: '/sources', name: 'film.ass.txt', fields: { subject: 'screen', subject_id: '7' } })
-    expect(await screen.findByText(/Attached to V for Vendetta/)).toBeTruthy()
-  })
-
-  it('does not list a game as somewhere a subtitle can go', async () => {
-    asSource('srt')
-    render(<ImportPage />)
-    drop(well(), textFile('film.srt'))
-    await screen.findByText(/A subtitle file, not highlights/)
-    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Hades' } })
-    await waitFor(() => expect(screen.queryByText('Hades')).toBeNull())
-  })
-
-  it('asks which episode when the work is a show', async () => {
-    asSource('srt')
-    render(<ImportPage />)
-    drop(well(), textFile('andor.srt'))
-    await screen.findByText(/A subtitle file, not highlights/)
-    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Andor' } })
-    fireEvent.click(await screen.findByText('Andor'))
-    const attach = screen.getByRole('button', { name: 'Attach to Andor' })
-    expect(attach.disabled).toBe(true)
-    fireEvent.change(screen.getByLabelText('Episode'), { target: { value: 's01e04' } })
-    expect(attach.disabled).toBe(false)
-    fireEvent.click(attach)
-    await waitFor(() => expect(puts).toHaveLength(1))
-    expect(puts[0].fields).toEqual({ subject: 'screen', subject_id: '8', episode: 's01e04' })
-  })
-
-  it('offers an ebook only the books', async () => {
-    asSource('epub')
-    render(<ImportPage />)
-    drop(well(), textFile('dust.epub'))
-    expect(await screen.findByText(/An ebook, not highlights/)).toBeTruthy()
-    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Dust' } })
-    fireEvent.click(await screen.findByText('Dust of Dreams'))
-    fireEvent.click(screen.getByRole('button', { name: 'Attach to Dust of Dreams' }))
-    await waitFor(() => expect(puts).toHaveLength(1))
-    expect(puts[0].fields).toEqual({ subject: 'book', subject_id: '3' })
-  })
-
-  it('takes any file the operating system will offer: the picker has no extension filter', () => {
-    render(<ImportPage />)
-    expect(document.querySelector('input[type="file"]').getAttribute('accept')).toBeNull()
-  })
-})

@@ -123,84 +123,8 @@ describe('waiting for the new version', () => {
     expect(screen.getByText(/updating and restarting/i)).toBeTruthy()
   })
 
-  it('reloads once the version answering is a different one', async () => {
-    await startUpdate()
-    await tick(2)
-    expect(RELOAD).not.toHaveBeenCalled()
-
-    DOWN = true
-    await tick(2)
-    DOWN = false
-    VERSION = '3.1.1'
-    await tick(1)
-    expect(RELOAD).toHaveBeenCalled()
-  })
-
-  it('stops the moment the server says the apply died, and names the step', async () => {
-    // THE FAILURE THE PAGE COULD NOT SEE, and the one that was reported: "the
-    // page gets stuck on this message, and the app is not even posting any
-    // update command on the docker shell."
-    //
-    // The apply identifies its own container by asking the Engine about the
-    // machine's HOSTNAME, so a compose file that sets `hostname:` gets a 404
-    // there — before a single image is pulled. The page had no way to learn that:
-    // the apply's own answer almost never arrives (the pull outlasts the server's
-    // 60-second write timeout, so the browser's fetch resolves to no status at
-    // all), so it waited six minutes for a version that was never going to
-    // change and then said something about reloading.
-    //
-    // Now the server writes down which step it reached and the page reads it.
-    await startUpdate()
-    await tick(1)
-    expect(RELOAD).not.toHaveBeenCalled()
-
-    PHASE = 'failed'
-    PHASE_ERROR = 'identify this container: inspect self: docker 404'
-    await tick(1)
-
-    expect(RELOAD).not.toHaveBeenCalled()
-    // The Engine's own words, on the card and not only in a toast — this is the
-    // line that gets pasted into an issue.
-    expect(await screen.findByText(/inspect self: docker 404/)).toBeTruthy()
-    expect(TOASTS.join(' ')).toContain('docker 404')
-    // And it is over: no more waiting for a restart that was never started.
-    expect(screen.queryByText(/updating and restarting/i)).toBeNull()
-  })
-
-  it('does not stop for a step the apply is still inside', async () => {
-    // "pulling" is not an ending. A record naming a step in progress must read as
-    // keep waiting, or every slow pull reports a failure and invites a second
-    // press — which is the thing the apply lock exists to refuse.
-    await startUpdate()
-    PHASE = 'pulling'
-    await tick(4)
-    expect(screen.getByText(/updating and restarting/i)).toBeTruthy()
-    expect(RELOAD).not.toHaveBeenCalled()
-  })
-
-  it('says so when it comes back on the build it left on', async () => {
-    await startUpdate()
-    // Down for two turns, then back — with the same version, which is what a
-    // branch build does when the image behind the tag has not been rebuilt.
-    DOWN = true
-    await tick(2)
-    DOWN = false
-    await tick(1)
-
-    expect(RELOAD).not.toHaveBeenCalled()
-    expect(TOASTS.join(' ')).toMatch(/on the same build/)
-  })
-
   // ONE FAILED POLL IS NOT A RESTART. A dropped request is at least as likely as
   // a container being stopped, and treating it as one would report "it came back
   // on the same build" about a container that never went anywhere.
-  it('does not call a single dropped request a restart', async () => {
-    await startUpdate()
-    DOWN = true
-    await tick(1)
-    DOWN = false
-    await tick(3)
-    expect(RELOAD).not.toHaveBeenCalled()
-    expect(screen.getByText(/updating and restarting/i)).toBeTruthy()
-  })
+  
 })

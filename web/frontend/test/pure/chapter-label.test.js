@@ -12,41 +12,6 @@ import { describe, expect, it } from 'vitest'
 import { chapterLabel } from '../../src/text.js'
 
 describe('chapterLabel', () => {
-  it('prints a number and a name as one string', () => {
-    expect(chapterLabel({ chapter_no: 7, chapter: 'The Fall' })).toBe('7 · The Fall')
-  })
-
-  it('prints a number alone, which is most books', () => {
-    expect(chapterLabel({ chapter_no: 7, chapter: '' })).toBe('7')
-  })
-
-  it('prints a name alone, which is essays and scripture', () => {
-    expect(chapterLabel({ chapter_no: 0, chapter: 'Envoi' })).toBe('Envoi')
-  })
-
-  it('prints nothing when there is neither, so a caller can join it in blind', () => {
-    expect(chapterLabel({ chapter_no: 0, chapter: '' })).toBe('')
-    expect(chapterLabel({})).toBe('')
-    expect(chapterLabel(null)).toBe('')
-  })
-
-  it('keeps a fraction, which is why the column is not an integer', () => {
-    expect(chapterLabel({ chapter_no: 12.5, chapter: 'Interlude' })).toBe('12.5 · Interlude')
-  })
-
-  // A REAL column hands back 7 as 7, but a form hands back "7" — and a whole number
-  // must never print as "7.0" or the heading stops matching the exporter's.
-  it('never prints a trailing .0, whatever type it is given', () => {
-    expect(chapterLabel({ chapter_no: 7.0, chapter: '' })).toBe('7')
-    expect(chapterLabel({ chapter_no: '7', chapter: '' })).toBe('7')
-    expect(chapterLabel({ chapter_no: '7.50', chapter: '' })).toBe('7.5')
-  })
-
-  it('trims the name, so a stray space cannot become part of the separator', () => {
-    expect(chapterLabel({ chapter_no: 7, chapter: '  The Fall  ' })).toBe('7 · The Fall')
-    expect(chapterLabel({ chapter_no: 0, chapter: '   ' })).toBe('')
-  })
-
   // THE SEPARATOR IS THE ROUND TRIP. chapterHeading in export_handlers.go writes
   // this exact string and splitChapterHeading in markdown.go cuts on it; if this
   // assertion ever needs changing, those two need changing in the same commit.

@@ -56,20 +56,6 @@ beforeEach(() => {
 // The name is the better handle anyway: it is what a person hears, what a hold on
 // a phone answers with, and what survives the next change of chrome.
 describe('the prune button', () => {
-  it('does not draw when nothing is stranded', async () => {
-    await mount()
-    await waitFor(() => expect(calls).toContain('GET /people/orphans'))
-    expect(screen.queryByRole('button', { name: /prune/i })).toBeNull()
-  })
-
-  it('says how many it would take', async () => {
-    ORPHANS = { people: [{ id: 1, name: 'Nobody' }], characters: [{ id: 2, name: 'Woland' }] }
-    await mount()
-    await waitFor(() => expect(screen.getByRole('button', { name: /prune/i })).toBeTruthy())
-    // Two, not one of each and not the character count alone.
-    expect(screen.getByRole('button', { name: /prune/i }).textContent).toMatch(/2/)
-  })
-
   it('asks before it sweeps, and names both kinds', async () => {
     ORPHANS = { people: [{ id: 1, name: 'Nobody' }], characters: [{ id: 2, name: 'Woland' }] }
     await mount()

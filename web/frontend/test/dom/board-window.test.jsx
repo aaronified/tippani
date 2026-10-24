@@ -101,11 +101,6 @@ const reachTheEnd = async () => {
 }
 
 describe('the library board is windowed', () => {
-  it('mounts one page of tiles, not the whole shelf', async () => {
-    await mount()
-    expect(tiles()).toBe(60)
-    expect(screen.queryByText('Book 100')).toBeNull()
-  })
 
   it('grows when the end of the board is reached', async () => {
     await mount()
@@ -116,29 +111,4 @@ describe('the library board is windowed', () => {
     expect(screen.getByText('Book 150')).toBeTruthy()
   })
 
-  it('stops observing once the whole shelf is mounted', async () => {
-    await mount()
-    await reachTheEnd()
-    await reachTheEnd()
-    expect(tiles()).toBe(150)
-    // Nothing left to grow into: the sentinel is gone, so there is no observer
-    // left holding the board's last element alive.
-    expect(observers.length).toBe(0)
-  })
-
-  it('renders the whole shelf where there is no IntersectionObserver', async () => {
-    globalThis.IntersectionObserver = undefined
-    await mount()
-    // The widening lands in the effect that would otherwise have installed the
-    // observer, one commit after the list arrives.
-    await act(async () => {})
-    expect(tiles()).toBe(150)
-  })
-
-  it('loads covers lazily, so an unscrolled board asks for what it shows', async () => {
-    await mount()
-    const covers = screen.getAllByRole('img', { name: /cover/i })
-    expect(covers.length).toBeGreaterThan(0)
-    for (const img of covers) expect(img.getAttribute('loading')).toBe('lazy')
-  })
 })

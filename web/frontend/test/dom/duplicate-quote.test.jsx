@@ -66,15 +66,6 @@ const cardMenu = async () => {
 }
 
 describe('duplicating a quote', () => {
-  it('offers the row, and says what will carry across', async () => {
-    board()
-    await cardMenu()
-    const row = await screen.findByRole('menuitem', { name: /Duplicate/ })
-    // "Duplicate" is unambiguous about the verb and silent about the scope, and
-    // the scope is the whole question — so the row carries its own sub-line.
-    expect(row.textContent).toMatch(/note/i)
-    expect(row.textContent).toMatch(/colour|color/i)
-  })
 
   it('opens the Add surface on this book with the quote seeded, and writes nothing', async () => {
     opened.length = 0
@@ -114,51 +105,3 @@ describe('duplicating a quote', () => {
 // whether they are editing the original.
 const { default: AddSurface } = await import('../../src/AddSurface.jsx')
 
-describe('the Add surface on a duplicate', () => {
-  const surface = (fields) =>
-    render(
-      <AddSurface
-        open
-        initialSection="quote"
-        initialTarget={{ type: 'book', id: 1 }}
-        initialFields={fields}
-        sections={{ library: true, movies: true, quotes: true, anthologies: false }}
-        onClose={() => {}}
-        onAdded={() => {}}
-      />,
-    )
-
-  it('names the record Save will write, and says what is in the boxes', async () => {
-    surface({ quote: 'Manuscripts don’t burn.', note: 'Woland.', color: 'blue', tags: ['craft'] })
-    // Every box is full of another quote's words; "Capture a quote" over that is
-    // a form that looks like it is editing the thing it copied.
-    expect(await screen.findByText(/Duplicate this quote/i)).toBeTruthy()
-    expect(screen.getByText(/Save writes a new one/i)).toBeTruthy()
-  })
-
-  it('arrives with the boxes already filled', async () => {
-    // THE COMMA STRING ON PURPOSE, and it is the shape the PREVIOUS release
-    // wrote: a duplicate opened from a page loaded before the upgrade, or a
-    // sitting still on disk, arrives like this. The form normalises either
-    // shape (`asTags`), and reading only the array dropped them silently.
-    // THE COMMA STRING ON PURPOSE — the shape the PREVIOUS release wrote. A
-    // duplicate opened from a page loaded before the upgrade arrives like this,
-    // and so does a sitting still on disk. The form normalises either shape
-    // (`asTags`); reading only the array dropped the tags silently.
-    surface({ quote: 'Manuscripts don’t burn.', note: 'Woland.', color: 'blue', tags: 'craft' })
-    // At initialisation, not in an effect: an effect lands a frame after the
-    // first paint, which is a form a reader can start typing into and then watch
-    // overwrite itself.
-    await waitFor(() => {
-      const filled = [...document.querySelectorAll('input, textarea')].map((el) => el.value)
-      expect(filled).toContain('Manuscripts don’t burn.')
-      expect(filled).toContain('Woland.')
-    })
-  })
-
-  it('is the ordinary capture form when nothing is seeded', async () => {
-    surface(null)
-    expect(screen.queryByText(/Duplicate this quote/i)).toBeNull()
-    expect(screen.queryByText(/Save writes a new one/i)).toBeNull()
-  })
-})

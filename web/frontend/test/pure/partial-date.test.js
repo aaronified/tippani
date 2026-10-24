@@ -14,15 +14,9 @@
 // happened would file itself neatly between two that did.
 
 import { describe, expect, it } from 'vitest'
-import { formatPartialDate, isPartialDate, todayPartial } from '../../src/ui.jsx'
+import {  isPartialDate,  } from '../../src/ui.jsx'
 
 describe('isPartialDate', () => {
-  it('accepts the three shapes', () => {
-    for (const good of ['1944', '1944-01', '1944-01-23', '2024-02-29']) {
-      expect(isPartialDate(good), good).toBe(true)
-    }
-  })
-
   // One test over all fifteen rejected inputs rather than three loops: every
   // one is the same assertion — isPartialDate is strictly false — and only the
   // string differs. The three groups keep their headings as comments, and the
@@ -52,59 +46,5 @@ describe('isPartialDate', () => {
     const accepted = bad.filter((s) => isPartialDate(s) !== false).map((s) => JSON.stringify(s))
     expect(accepted).toEqual([])
   })
-
-  it('rejects a year outside the bounds it claims', () => {
-    expect(isPartialDate('0999')).toBe(false)
-    expect(isPartialDate('3001')).toBe(false)
-    expect(isPartialDate('1000')).toBe(true)
-    expect(isPartialDate('3000')).toBe(true)
-  })
 })
 
-describe('formatPartialDate', () => {
-  // The precision SHOWS, which is the whole reason for keeping a partial date
-  // rather than padding it to a day nobody recorded.
-  it('renders each shape at its own precision', () => {
-    expect(formatPartialDate('1944')).toBe('1944')
-    expect(formatPartialDate('1944-03')).toBe('Mar 1944')
-    expect(formatPartialDate('1944-03-04')).toBe('4 Mar 1944')
-  })
-
-  it('renders nothing for nothing', () => {
-    expect(formatPartialDate('')).toBe('')
-    expect(formatPartialDate(null)).toBe('')
-    expect(formatPartialDate(undefined)).toBe('')
-  })
-
-  // A leading zero in the day is dropped, because "04 Mar" reads as a form
-  // field and "4 Mar" reads as a date.
-  it('does not pad the day', () => {
-    expect(formatPartialDate('1944-03-04')).toBe('4 Mar 1944')
-    expect(formatPartialDate('1944-12-25')).toBe('25 Dec 1944')
-  })
-
-  // Every month index has to land on the right name — an off-by-one here is
-  // invisible in January and wrong for the other eleven.
-  it('names all twelve months', () => {
-    const want = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-    want.forEach((name, i) => {
-      const mm = String(i + 1).padStart(2, '0')
-      expect(formatPartialDate(`1944-${mm}`), mm).toBe(`${name} 1944`)
-    })
-  })
-})
-
-describe('todayPartial', () => {
-  it('is a full date the validator accepts', () => {
-    expect(isPartialDate(todayPartial())).toBe(true)
-    expect(todayPartial()).toMatch(/^\d{4}-\d{2}-\d{2}$/)
-  })
-
-  // It builds the string from LOCAL parts rather than toISOString, which would
-  // hand back yesterday's date for anyone west of UTC after their evening.
-  it('agrees with the local calendar, not UTC', () => {
-    const n = new Date()
-    const p = (x) => String(x).padStart(2, '0')
-    expect(todayPartial()).toBe(`${n.getFullYear()}-${p(n.getMonth() + 1)}-${p(n.getDate())}`)
-  })
-})

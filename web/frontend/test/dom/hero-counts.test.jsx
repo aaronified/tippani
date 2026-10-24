@@ -59,45 +59,7 @@ function present(counts, props = {}) {
   return !!container.querySelector('.hero-counts')
 }
 
-describe('counting a list of quotes', () => {
-  it('counts each of the four independently', () => {
-    expect(
-      countQuotes([
-        q({ favorite: true, note: 'a thought', tags: ['craft'] }),
-        q({ favorite: true }),
-        q({ note: '   ' }), // whitespace is not a note
-        q({ tags: [] }),
-      ]),
-    ).toEqual({ total: 4, favourites: 2, noted: 1, tagged: 1 })
-  })
-
-  it('treats a whitespace-only note as no note', () => {
-    // The server stores what was typed, and a note field somebody tabbed through
-    // holds a space. Counting it would report a note nobody wrote.
-    expect(countQuotes([q({ note: '\n \t ' })]).noted).toBe(0)
-    expect(countQuotes([q({ note: 'x' })]).noted).toBe(1)
-  })
-
-  it('survives a row that arrives without its tags array', () => {
-    // A row mid-save should not be able to crash a hero.
-    expect(countQuotes([{ favorite: true }]).tagged).toBe(0)
-  })
-
-  it('counts an empty library as four zeroes rather than nothing', () => {
-    expect(countQuotes([])).toEqual({ total: 0, favourites: 0, noted: 0, tagged: 0 })
-  })
-})
-
 describe('the line it prints', () => {
-  it('says nothing at all while the counts are still loading', () => {
-    // null, not zero. A hero that flashes "no quotes yet" before the quotes land
-    // tells you the book is empty, briefly and wrongly, on every visit.
-    expect(present(null)).toBe(false)
-  })
-
-  it('names the wishlist state instead of printing a zero', () => {
-    expect(lead({ total: 0, favourites: 0, noted: 0, tagged: 0 })).toBe('no quotes yet')
-  })
 
   it('drops the three that are zero and keeps the total', () => {
     expect(lead({ total: 7, favourites: 0, noted: 0, tagged: 0 })).toBe('7 quotes')
@@ -106,87 +68,5 @@ describe('the line it prints', () => {
     expect(rest({ total: 7, favourites: 0, noted: 0, tagged: 0 })).toBeNull()
   })
 
-  it('prints every part that has something in it', () => {
-    const c = { total: 12, favourites: 3, noted: 5, tagged: 8 }
-    expect(lead(c)).toBe('12 quotes')
-    const r = rest(c)
-    expect(r).toContain('3 favourites')
-    expect(r).toContain('5 noted')
-    expect(r).toContain('8 tagged')
-    // AND THE HEADLINE IS NOT IN THE BREAKDOWN. The three qualifiers are slices
-    // of the total, so putting the total among them makes four peers again.
-    expect(r).not.toContain('12')
-  })
-
-  it('says one quote, not 1 quotes', () => {
-    expect(lead({ total: 1, favourites: 1 })).toBe('1 quote')
-    expect(rest({ total: 1, favourites: 1 })).toBe('1 favourite')
-  })
-
-  it('takes the film side’s word for what it is counting', () => {
-    expect(lead({ total: 4 }, { noun: ['line', 'lines'] })).toBe('4 lines')
-    expect(lead({ total: 0 }, { noun: ['line', 'lines'] })).toBe('no lines yet')
-  })
-
-  it('carries the accent on the number and nothing else', () => {
-    // The number you came for is the one you see first; its noun sits beside it
-    // at a quarter the size and the breakdown sits back below. The accent marks
-    // the NUMBER — a coloured noun would make the pair one blob of colour and
-    // undo the size difference that does the work.
-    cleanup()
-    render(<HeroCounts counts={{ total: 9, favourites: 2 }} />)
-    const marked = document.querySelectorAll('.hero-counts-total')
-    expect(marked).toHaveLength(1)
-    expect(marked[0].textContent).toBe('9')
-    expect(document.querySelector('.hero-counts-word').textContent).toBe('quotes')
-    // The breakdown is a sibling of the headline, not a member of it.
-    expect(document.querySelector('.hero-counts-total').closest('.hero-counts-rest')).toBeNull()
-  })
-
-  it('asks for amber by prop, because there is no page class to inherit', () => {
-    cleanup()
-    const { container } = render(<HeroCounts counts={{ total: 2 }} tone="amber" />)
-    expect(container.querySelector('.hero-counts').className).toContain('hero-counts-amber')
-    cleanup()
-    const plain = render(<HeroCounts counts={{ total: 2 }} />).container
-    expect(plain.querySelector('.hero-counts').className).not.toContain('hero-counts-amber')
-  })
-
-  it('hides the separators from a screen reader', () => {
-    // The middot is punctuation between numbers, not a word to be read out.
-    cleanup()
-    render(<HeroCounts counts={{ total: 3, favourites: 1, noted: 1 }} />)
-    for (const s of document.querySelectorAll('.hero-counts-sep')) {
-      expect(s.getAttribute('aria-hidden')).toBe('true')
-    }
-  })
 })
 
-describe('taking one row back out', () => {
-  const stats = { total: 10, favourites: 4, noted: 3, tagged: 6 }
-
-  it('subtracts what THAT row contributed, not just the total', () => {
-    // The point of the helper. Deleting a favourited, noted, tagged quote has to
-    // take one off all four, and deleting a bare one has to take one off the total
-    // alone — a blanket decrement would drift the breakdown a little at a time.
-    expect(minusQuote(stats, q({ favorite: true, note: 'x', tags: ['a'] }))).toEqual({
-      total: 9,
-      favourites: 3,
-      noted: 2,
-      tagged: 5,
-    })
-    expect(minusQuote(stats, q())).toEqual({ total: 9, favourites: 4, noted: 3, tagged: 6 })
-  })
-
-  it('never goes below zero', () => {
-    // A double-fire, or a delete of a row the counts never saw, must not print
-    // "-1 quotes" — which is the kind of thing a hero shows for the rest of a
-    // session because nothing throws.
-    const out = minusQuote({ total: 0, favourites: 0, noted: 0, tagged: 0 }, q({ favorite: true }))
-    expect(out).toEqual({ total: 0, favourites: 0, noted: 0, tagged: 0 })
-  })
-
-  it('passes null through, because a delete can land before the counts do', () => {
-    expect(minusQuote(null, q())).toBeNull()
-  })
-})

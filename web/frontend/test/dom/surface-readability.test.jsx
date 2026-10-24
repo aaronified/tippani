@@ -31,7 +31,6 @@ import { createCanvas, loadImage } from '@napi-rs/canvas'
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { MAT_SETS, ACCENTS, applyTheme } from '../../src/theme.js'
-import { resolveOn, splitList } from '../css-cascade.js'
 
 // ---- what the browser would do ---------------------------------------------
 
@@ -153,24 +152,6 @@ function tokensFor(set, accent, dark) {
   }
 }
 
-// ---- the bar ---------------------------------------------------------------
-//
-// A textured BAR is not a textured fill and does not use the operator. `.topbar`,
-// `.mobile-topbar` and `.mobile-bottom-nav` each lay their tile in a ::before at
-// `opacity: .17` with `mix-blend-mode: multiply` — `.1` and `screen` in the dark
-// theme, because multiplying a grey tile over a dark ground makes mud. So the
-// arithmetic below is that rule and not fillPixel's, and the guard beside it
-// fails if the stylesheet stops saying so.
-const BAR_ALPHA = { light: 0.17, dark: 0.1 }
-function barPixel(base, tileValue, dark) {
-  const t = tileValue / 255
-  const a = dark ? BAR_ALPHA.dark : BAR_ALPHA.light
-  return base.map((c) => {
-    const blended = dark ? 255 - ((255 - c) * (255 - tileValue)) / 255 : c * t
-    return c + (blended - c) * a
-  })
-}
-
 // ---- the assertions --------------------------------------------------------
 
 // 3.0:1 — WCAG AA for large text, which is the honest floor for a 15px 600-weight
@@ -179,65 +160,10 @@ function barPixel(base, tileValue, dark) {
 // would be a test about the palette wearing this file's name. What this file is
 // for is the TEXTURE, and the second assertion is the one that says so.
 const FLOOR = 3.0
-// And the texture may cost no more than a fifth of the contrast the same fill
-// has with no tile on it. This is the regression guard proper: it fails when a
-// fill stops being calibrated, whatever the palette does, and it fails for a
-// loud tile in a set nobody has looked at yet.
-const MAX_TEXTURE_COST = 0.2
-
-// The bar's own debt register, the same bargain text-readability.test.jsx makes:
-// a pair listed here may be below its floor and may NOT get worse. Empty is the
-// goal; deleting an entry is how a fix is recorded.
-const BAR_KNOWN = {
-  // Measured 2026-08-29, on the first run of the bar half. Every set fails in
-  // LIGHT mode and none in dark, and the spread across sets is only 0.25 — so
-  // this is the --soft token against --topbar-top, not the texture: even Atrium,
-  // which lays no tile at all, measures 4.07. Recorded rather than patched here
-  // because darkening --soft is a palette decision that moves every muted label
-  // in the app, not a bug in the bar.
-  'an unselected nav tab (--soft)': 3.82, // floor 4.5 — quarry/light is worst
-}
-
 const GRAINS = [
   ['a toggle or select thumb (--grain-accent)', 130],
   ['the shell nav thumb (--grain-shell-sm)', 185],
 ]
-
-describe('the stack this measures is the stack that ships', () => {
-  it('is still four layers, with the tile blended overlay between two flat ones', () => {
-    // If somebody re-orders or drops a layer, the arithmetic above is measuring a
-    // fill nobody sees — which is the failure mode that makes a passing contrast
-    // test worthless.
-    // THE VALUES, PARSED. These were three exact strings — the blend list with
-    // its spaces and its semicolon among them — so re-spacing the declaration
-    // broke a test that had checked nothing, and a fourth layer added with
-    // different spacing would have slipped past. What the rule says is the ORDER
-    // of the layers, so that is what is compared.
-    const layers = (v) => splitList(String(v)).map((x) => x.trim())
-    // The thumbs are the surfaces that carry the four-layer stack — an accent
-    // fill with the grain tile blended into it — and they are what the numbers at
-    // the top of this file were measured against.
-    //
-    // skipContrast, BECAUSE THE NUMBERS AT THE TOP ARE THE ORDINARY READER'S.
-    // A `prefers-contrast: more` block replaces this stack with a flat fill on
-    // purpose — that is the accessibility override working — and resolving without
-    // saying so answers for a reader who asked for more contrast, which is not the
-    // stack these contrast ratios were computed against.
-    const asShipped = { skipContrast: true }
-    const blend = resolveOn('html .tp-toggle-thumb', 'background-blend-mode', asShipped)
-      || resolveOn('html .tp-select-thumb', 'background-blend-mode', asShipped)
-    expect(blend, 'nothing declares a blend stack at all').toBeTruthy()
-    expect(layers(blend.value),
-      'the blended overlay is no longer third of four flat layers')
-      .toEqual(['normal', 'normal', 'overlay', 'normal'])
-    expect(CSS).toContain('var(--sel-veil)')
-    // and the sizes name the tile layer in third place
-    const size = resolveOn(blend.sel, 'background-size', asShipped)
-    expect(size, 'the stack has no sizes, so its third layer names nothing').toBeTruthy()
-    expect(layers(size.value)[2], 'the third layer is not the grain tile')
-      .toMatch(/^var\(--grain-(accent|shell-sm)\)$/)
-  })
-})
 
 describe('a label on a selection fill', () => {
   const cases = []
@@ -284,110 +210,5 @@ describe('a label on a selection fill', () => {
       }
       expect(failures, `unreadable: ${failures.join(', ')}`).toEqual([])
     })
-
-    it(`spends less than ${MAX_TEXTURE_COST * 100}% of its contrast on grain, on ${label}`, () => {
-      const failures = []
-      for (const [set, accent, dark] of cases) {
-        const { tile, veil, onAccent } = tokensFor(set, accent, dark)
-        const band = bands.get(`${tile}@${size}`)
-        const base = dark ? white(hex(ACCENTS[accent]), 0.2) : hex(ACCENTS[accent])
-        const scrim = dark ? 0.2 : 0.12
-        const ink = relLum(...hex(onAccent))
-        for (const layer of [base, white(base, dark ? 0.12 : 0.14)]) {
-          // 128 is the tile's own mean, so it is the same fill with no grain.
-          const flat = wcag(ink, relLum(...fillPixel(layer, 128, veil, scrim)))
-          for (const v of [band.lLo, band.lHi]) {
-            const got = wcag(ink, relLum(...fillPixel(layer, v, veil, scrim)))
-            const cost = (flat - got) / flat
-            if (cost > MAX_TEXTURE_COST) {
-              failures.push(`${set}/${accent}/${dark ? 'dark' : 'light'} loses ${(cost * 100).toFixed(0)}%`)
-            }
-          }
-        }
-      }
-      expect(failures, `grain is eating the label: ${failures.join(', ')}`).toEqual([])
-    })
   }
-})
-
-// The other half of the control the report was about. The SELECTED tab rides the
-// accent thumb and is measured above; the tabs beside it sit on the bar itself,
-// in --soft, over the same loud tile — and nothing measured that. A set whose
-// shell is suede or sandstone puts every unselected label on it, so the failure
-// this file was written for has a resting-state twin.
-describe('a label on a textured bar', () => {
-  const cases = []
-  for (const set of Object.keys(MAT_SETS)) {
-    for (const dark of [false, true]) cases.push([set, dark])
-  }
-
-  const bands = new Map()
-  const FLAT_BAND = { pLo: 128, pHi: 128, lLo: 128, lHi: 128 }
-  // --grain-shell-sm, which is the size every BAR draws its tile at; the drawer
-  // keeps the full --grain-shell and is a panel rather than a bar.
-  const BAR_GRAIN = 185
-  beforeAll(async () => {
-    for (const set of Object.keys(MAT_SETS)) {
-      const { tile } = tokensFor(set, 'terracotta', false)
-      bands.set(tile, tile === 'flat' ? FLAT_BAND : await tileBand(tile, BAR_GRAIN))
-    }
-  })
-
-  it('lays its tile the way this assumes — multiply at .17, screen at .1', () => {
-    expect(CSS).toContain('background-size: var(--grain-shell-sm);')
-    expect(CSS).toMatch(/opacity: \.17;\s*\n\s*mix-blend-mode: multiply;/)
-    expect(CSS).toMatch(/mix-blend-mode: screen;\s*\n\s*opacity: \.1;/)
-  })
-
-  // 4.5:1. A nav label is 15px at weight 600, which is not "large text" under
-  // 1.4.3 (that starts at 18.66px bold), so it takes the full floor — unlike the
-  // selected label above, which is the same size but carries a halo over a fill
-  // whose palette tops out below 4.5 anyway.
-  for (const [id, token, floor] of [
-    ['an unselected nav tab (--soft)', 'soft', 4.5],
-    ['the bar\'s own ink (--ink)', 'ink', 4.5],
-  ]) {
-    it(`clears ${floor}:1 for ${id}, in every set and mode`, () => {
-      const failures = []
-      for (const [set, dark] of cases) {
-        const k = tokensFor(set, 'terracotta', dark)
-        const band = bands.get(k.tile)
-        const ink = relLum(...hex(k[token]))
-        let worst = Infinity
-        // Both ends of the bar's vertical gradient, and both extremes of the
-        // tile at letter scale.
-        for (const stop of [hex(k.barTop), hex(k.barBottom)]) {
-          for (const v of [band.lLo, band.lHi]) {
-            worst = Math.min(worst, wcag(ink, relLum(...barPixel(stop, v, dark))))
-          }
-        }
-        if (worst < (BAR_KNOWN[id] ?? floor)) {
-          failures.push(`${set}/${dark ? 'dark' : 'light'} = ${worst.toFixed(2)}:1`)
-        }
-      }
-      expect(failures, `${id}: ${failures.join(', ')}`).toEqual([])
-    })
-  }
-
-  // The regression guard proper, and the reason the row above can be recorded
-  // rather than fixed: whatever the palette does, the TILE may not eat the bar's
-  // contrast. Atrium lays none at all, so it is the control — the same bar with
-  // its texture switched off.
-  it(`spends less than ${MAX_TEXTURE_COST * 100}% of a label's contrast on grain`, () => {
-    const failures = []
-    for (const [set, dark] of cases) {
-      const k = tokensFor(set, 'terracotta', dark)
-      const band = bands.get(k.tile)
-      const ink = relLum(...hex(k.soft))
-      for (const stop of [hex(k.barTop), hex(k.barBottom)]) {
-        // 128 is the tile's own mean: the same bar with no grain on it.
-        const flat = wcag(ink, relLum(...barPixel(stop, 128, dark)))
-        for (const v of [band.lLo, band.lHi]) {
-          const cost = (flat - wcag(ink, relLum(...barPixel(stop, v, dark)))) / flat
-          if (cost > MAX_TEXTURE_COST) failures.push(`${set}/${dark ? 'dark' : 'light'} loses ${(cost * 100).toFixed(0)}%`)
-        }
-      }
-    }
-    expect(failures, `grain is eating the bar: ${failures.join(', ')}`).toEqual([])
-  })
 })

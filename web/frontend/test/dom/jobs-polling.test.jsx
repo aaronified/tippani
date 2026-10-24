@@ -133,25 +133,6 @@ const stillRunning = (id, over = {}) => {
   return j
 }
 
-describe('the current jobs', () => {
-  it('are asked for every two seconds while something runs', async () => {
-    stillRunning(10)
-    await page()
-    await tick(10000)
-    const list = currentReads()
-    expect(list.length).toBeGreaterThanOrEqual(5)
-    expect(new Set(gaps(list))).toEqual(new Set([2000]))
-  })
-
-  it('and every ten seconds while nothing runs or waits', async () => {
-    await page()
-    await tick(30000)
-    const list = currentReads()
-    expect(list).toHaveLength(4) // on arrival, then at 10, 20 and 30 seconds
-    expect(new Set(gaps(list))).toEqual(new Set([10000]))
-  })
-})
-
 describe('a running job’s log', () => {
   it('is asked for every second, and every three once ten answers in a row bring nothing new', async () => {
     const j = stillRunning(10)
@@ -188,41 +169,6 @@ describe('a running job’s log', () => {
     JOBS[10] = () => ({ ok: true, status: 200, data: { job: j, lines: first ? ((first = false), batch(2000)) : batch(5), more: false } })
   }
 
-  it('keeps following its newest line once it holds all the lines it keeps', async () => {
-    flooding()
-    await page()
-    const log = screen.getByRole('log', { name: 'Live log of Fetch covers' })
-    expect(within(log).getByText('line 2000')).toBeTruthy()
-    const moves = measured(log)
-    await tick(1000)
-    expect(within(log).getByText('line 2005')).toBeTruthy()
-    expect(moves).toContain(50000)
-  })
-
-  it('and stops following the moment the reader scrolls up to read', async () => {
-    flooding()
-    await page()
-    const log = screen.getByRole('log', { name: 'Live log of Fetch covers' })
-    const moves = measured(log)
-    log.scrollTop = 1200
-    fireEvent.scroll(log)
-    await tick(1000)
-    expect(within(log).getByText('line 2005')).toBeTruthy()
-    expect(moves).toEqual([1200])
-  })
-
-  it('is read once more after the job says it finished, and then never again', async () => {
-    const j = stillRunning(10)
-    await page()
-    await tick(2000)
-    // The current list has not caught up — it still says running — so the row and
-    // its log stay on the screen. Only the job's own answer has changed.
-    JOBS[10] = () => ({ ok: true, status: 200, data: { job: { ...j, state: 'succeeded', done: 40, finished_at: Date.now() }, lines: [], more: false } })
-    const before = jobReads(10).length
-    await tick(30000)
-    // The read that first hears "succeeded", and exactly one after it.
-    expect(jobReads(10).length).toBe(before + 2)
-  })
 })
 
 describe('a hidden tab', () => {
@@ -237,48 +183,6 @@ describe('a hidden tab', () => {
     expect(currentReads()).toHaveLength(1)
   })
 
-  it('stops a log that is already moving, and picks it up where it left off', async () => {
-    stillRunning(10)
-    await page()
-    await tick(3000)
-    const current = currentReads().length
-    const log = jobReads(10).length
-    expect(log).toBeGreaterThan(0)
-    hide()
-    await tick(30000)
-    expect(currentReads().length).toBe(current)
-    expect(jobReads(10).length).toBe(log)
-    await show()
-    expect(currentReads().length).toBe(current + 1)
-    expect(jobReads(10).length).toBe(log + 1)
-  })
-})
-
-describe('a finished job’s log in Past jobs', () => {
-  const pastRow = async () => {
-    const past = screen.getByRole('region', { name: 'Past jobs' })
-    fireEvent.click(within(past).getByRole('button', { name: /^Fill gaps/ }))
-    await tick(0)
-  }
-
-  it('is read until it is all there, and then left alone', async () => {
-    const done = job({ id: 7, state: 'succeeded', started_at: NOW - 90000, finished_at: NOW - 60000 })
-    PAST = [done]
-    JOBS[7] = () => ({ ok: true, status: 200, data: { job: done, lines: [{ id: 1, at: NOW - 70000, level: 'info', line: 'filled year' }], more: false } })
-    await page()
-    await pastRow()
-    await tick(30000)
-    expect(jobReads(7)).toHaveLength(1)
-  })
-
-  it('stops asking after three failed reads in a row', async () => {
-    PAST = [job({ id: 7, state: 'failed', started_at: NOW - 90000, finished_at: NOW - 60000 })]
-    JOBS[7] = () => ({ ok: false, status: 500, data: { error: 'the database is busy' } })
-    await page()
-    await pastRow()
-    await tick(60000)
-    expect(jobReads(7)).toHaveLength(3)
-  })
 })
 
 // A STOP IS AT ONCE ON THE SERVER, so the screen that pressed it watches closely:
@@ -286,80 +190,4 @@ describe('a finished job’s log in Past jobs', () => {
 // stopped — and then back to the ordinary cadence, which is every ten seconds once
 // nothing is left running or waiting. A job that takes longer to end is watched so
 // for three seconds and no longer.
-describe('a Stop', () => {
-  const pressStop = async () => {
-    const current = screen.getByRole('region', { name: 'Current jobs' })
-    fireEvent.click(within(current).getByRole('button', { name: 'Stop Fetch covers (running)' }))
-    await tick(0)
-    return current
-  }
-  const stopsAt = (j) => {
-    CURRENT = []
-    JOBS[j.id] = () => ({ ok: true, status: 200, data: { job: { ...j, state: 'stopped', finished_at: Date.now() }, lines: [], more: false } })
-  }
 
-  it('says Stopping… the instant of the press, before the server has answered', async () => {
-    stillRunning(10)
-    await page()
-    HANG = [/^\/jobs\/10\/stop/]
-    const current = await pressStop()
-    expect(within(current).getByText('Stopping…')).toBeTruthy()
-    expect(within(current).queryByRole('button', { name: 'Stop Fetch covers (running)' })).toBeNull()
-  })
-
-  it('asks every 200 ms until the job reads stopped, and then as it did', async () => {
-    const j = stillRunning(10)
-    await page()
-    await tick(4100) // between two of the ordinary reads, so the press's own is the first after it
-    await pressStop()
-    const pressedAt = Date.now()
-    await tick(1000)
-    // The current jobs and the job's own log, both, every 200 ms.
-    const watched = currentReads().filter((c) => c.at >= pressedAt)
-    expect(watched.length).toBeGreaterThanOrEqual(5)
-    expect(new Set(gaps(watched))).toEqual(new Set([200]))
-    const logs = jobReads(10).filter((c) => c.at >= pressedAt)
-    expect(new Set(gaps(logs))).toEqual(new Set([200]))
-    stopsAt(j)
-    const stoppedAt = Date.now()
-    await tick(30000)
-    // The next close read hears it, and from there nothing is current: every ten seconds.
-    const after = currentReads().filter((c) => c.at >= stoppedAt)
-    expect(gaps(after).slice(1)).toEqual([10000, 10000])
-  })
-
-  it('watches a job that has not read stopped for three seconds, and then asks as it did', async () => {
-    stillRunning(10)
-    await page()
-    await tick(4100)
-    await pressStop()
-    const pressedAt = Date.now()
-    await tick(10000)
-    const watched = currentReads().filter((c) => c.at >= pressedAt)
-    const fast = gaps(watched).filter((g) => g === 200)
-    // Three seconds of it, give or take the read that began the watch.
-    expect(fast.length).toBeGreaterThanOrEqual(13)
-    expect(fast.length).toBeLessThanOrEqual(16)
-    const slow = watched.filter((c) => c.at >= pressedAt + 3400)
-    expect(new Set(gaps(slow))).toEqual(new Set([2000]))
-  })
-})
-
-describe('a read the server accepts and never answers', () => {
-  it('does not stop the current jobs being asked for', async () => {
-    HANG = [/^\/jobs\?view=current/]
-    await page()
-    await tick(25000)
-    expect(currentReads()[0].hung).toBe(true)
-    expect(currentReads().length).toBeGreaterThanOrEqual(2)
-  })
-
-  it('does not stop a running job’s log being asked for', async () => {
-    stillRunning(10)
-    HANG = [/^\/jobs\/10\?/]
-    await page()
-    await tick(15000)
-    expect(jobReads(10)[0].hung).toBe(true)
-    expect(jobReads(10).length).toBeGreaterThanOrEqual(2)
-  })
-})

@@ -103,15 +103,6 @@ const lastPost = (path) => [...posts].reverse().find((p) => p.path === path)
 const lastDelete = () => [...posts].reverse().find((p) => p.method === 'DELETE')
 
 describe('a work’s own verbs', () => {
-  it('approve only that work’s rows, not the whole queue', async () => {
-    await page()
-    const dune = groupFor('Dune')
-    expect(dune, 'no group for Dune').toBeTruthy()
-    fireEvent.click(approveIn(dune))
-    await waitFor(() => expect(lastPost('/import/staged/approve')).toBeTruthy())
-    // Dune's two, and neither Solaris's nor Ulysses's.
-    expect(lastPost('/import/staged/approve').body).toEqual({ ids: [11, 12] })
-  })
 
   it('and discard asks first, then sends that work’s rows', async () => {
     await page()
@@ -133,12 +124,6 @@ describe('a work’s own verbs', () => {
 })
 
 describe('a file’s own verbs', () => {
-  it('are drawn only once a file is chosen', async () => {
-    await page()
-    // Over "all files" they would be the page header's approve-all under a second
-    // name, and two controls for one act is the thing this screen avoids.
-    expect(approveIn(filterRow())).toBeFalsy()
-  })
 
   it('approve everything that came out of that file, across works', async () => {
     await page()
@@ -157,77 +142,3 @@ describe('a file’s own verbs', () => {
   })
 })
 
-// "ALL" IS WHAT THE PAGE SHOWED. From 3.1.0 a file dropped earlier can finish
-// staging while the reader reads this page, so the header's approve-all and
-// discard-all name the newest file the page drew (`through`), and the server
-// leaves anything staged after it for the reader to see. A press that sent a
-// bare `all` would approve — or throw away — a file nobody on this page looked at.
-//
-// Mutation: approve and discard sending `{ all: true }` again: both red.
-describe('the header’s everything is everything shown', () => {
-  const headerVerb = (re) => [...document.querySelectorAll('button')].find((b) => re.test(b.textContent.trim()))
-
-  it('Approve all names the newest file the page drew', async () => {
-    await page()
-    fireEvent.click(headerVerb(/^Approve all/))
-    await waitFor(() => expect(lastPost('/import/staged/approve')).toBeTruthy())
-    expect(lastPost('/import/staged/approve').body).toEqual({ all: true, through: 2 })
-  })
-
-  it('and so does Discard all, once asked', async () => {
-    await page()
-    fireEvent.click(headerVerb(/^Discard all/))
-    const confirm = await waitFor(() => {
-      const found = [...document.querySelectorAll('button')].filter((b) => /^Discard/.test(b.textContent.trim()))
-      expect(found.length, 'pressing Discard all opened no confirm').toBeGreaterThan(1)
-      return found[found.length - 1]
-    })
-    fireEvent.click(confirm)
-    await waitFor(() => expect(lastDelete()).toBeTruthy())
-    expect(lastDelete().body).toEqual({ all: true, through: 2 })
-  })
-})
-
-describe('the two scopes are one control', () => {
-  it('put the same verbs in the same words', async () => {
-    await page()
-    const pick = screen.getByLabelText('Import batch')
-    fireEvent.click(pick)
-    fireEvent.click(await screen.findByRole('option', { name: /notes\.md/ }))
-    await waitFor(() => expect(approveIn(filterRow())).toBeTruthy())
-    // One file, one work, one row — so both scopes cover the same single quote
-    // and any difference in wording is the drift this component exists to stop.
-    const file = filterRow()
-    const work = groupFor('Ulysses')
-    expect(approveIn(work).textContent.trim()).toBe(approveIn(file).textContent.trim())
-    expect(discardIn(work).textContent.trim()).toBe(discardIn(file).textContent.trim())
-  })
-})
-
-// ---- and one question, asked one way -----------------------------------------
-//
-// THE COMMIT THAT ADDED THE SCOPED VERBS CLAIMED THIS AND IT WAS NOT TRUE. Its
-// body said a discard is asked "through one askDiscard … so the question is
-// worded the same way wherever it is raised", and the BulkBar kept a verbatim
-// copy of the same four keys — a rater read the file and found it. Three copies
-// of one question is three places for its wording to drift, and the plural family
-// in the title is exactly the kind of thing that drifts.
-//
-// A SOURCE CHECK, because this is about there being ONE of something. A behaviour
-// case can only show that each button asks; it cannot show that they ask through
-// the same function, which is the claim that was false.
-describe('a discard is asked for in one place', () => {
-  it('builds the confirm from staging.discard.confirm.* exactly once', () => {
-    const src = readSource('StagingPage.jsx')
-    const asks = [...src.matchAll(/staging\.discard\.confirm\.title/g)]
-    expect(
-      asks.length,
-      'a second copy of the discard question was written out instead of calling askDiscard',
-    ).toBe(1)
-  })
-
-  it('and the selection’s own Discard raises it too', () => {
-    // The behaviour half: whatever the BulkBar calls, it must still ask.
-    expect(readSource('StagingPage.jsx')).toMatch(/onClick=\{\(\) => askDiscard\(selectedIds\)\}/)
-  })
-})

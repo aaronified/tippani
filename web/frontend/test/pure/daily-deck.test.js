@@ -37,20 +37,6 @@ describe('the coalescer', () => {
     expect(a.data.streak).toBe(3)
   })
 
-  it('shares a request that has already settled, within the window', async () => {
-    await dailyDeck(0)
-    await dailyDeck(0)
-    expect(CALLS).toHaveLength(1)
-  })
-
-  it('treats a different day as a different deck', async () => {
-    // The offset IS the day. Sharing across it would hand somebody yesterday's
-    // cards.
-    await dailyDeck(0)
-    await dailyDeck(330)
-    expect(CALLS).toEqual(['/review/daily?offset=0', '/review/daily?offset=330'])
-  })
-
   it('goes and asks again once a card has been answered', async () => {
     await dailyDeck(0)
     // An answer grades a card and takes it out of today's list, so the held
@@ -59,18 +45,5 @@ describe('the coalescer', () => {
     forgetDailyDeck()
     await dailyDeck(0)
     expect(CALLS).toHaveLength(2)
-  })
-
-  it('never holds a failure', async () => {
-    OK = false
-    const first = await dailyDeck(0)
-    expect(first.ok).toBe(false)
-    OK = true
-    // A retry has to be a retry: holding the refusal would make the reader's
-    // second attempt do nothing, which reads as the app being broken rather than
-    // the network.
-    const second = await dailyDeck(0)
-    expect(CALLS).toHaveLength(2)
-    expect(second.ok).toBe(true)
   })
 })

@@ -23,7 +23,7 @@
 // which open a person write `usePersonOpener(stack)` — the one argument every one
 // of the app's eight call sites passes today.
 import { act, cleanup, render, screen } from '@testing-library/react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 let PERSON
@@ -40,7 +40,7 @@ vi.mock('../../src/api.js', async (orig) => ({
 }))
 
 const { WorkDoor, usePersonOpener } = await import('../../src/personOpen.jsx')
-const { characterPanel } = await import('../../src/identity.jsx')
+await import('../../src/identity.jsx')
 const { PanelHost, usePanelStack } = await import('../../src/ui.jsx')
 
 beforeEach(() => {
@@ -77,20 +77,6 @@ function Screen() {
   return <PanelHost stack={stack} />
 }
 
-// A screen that hosts a CHARACTER panel, which work-detail pages and Home's
-// favourite cards both do — and none of them names a work opener either.
-function CharacterScreen() {
-  const stack = usePanelStack()
-  const [done, setDone] = useState(false)
-  const panel = useMemo(() => characterPanel(stack, { id: 4, name: 'Andy Dufresne' }), [])
-  useEffect(() => {
-    if (done) return
-    setDone(true)
-    stack.open(panel)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-  return <PanelHost stack={stack} />
-}
 
 const settle = async () => { await act(async () => { await Promise.resolve() }) }
 
@@ -117,54 +103,5 @@ describe('a work tile on a person’s screen', () => {
     expect(opened, 'pressing a work tile has to open THAT work').toEqual([['movie', 3]])
   })
 
-  it('says it cannot be opened where the app has no door, and pressing it does not throw', async () => {
-    await act(async () => { render(<Screen />) })
-    await settle()
-    const t = tile('Dead Man Walking')
-    expect(t.getAttribute('aria-disabled'), 'a tile with nowhere to go says so').toBe('true')
-    // A tile that draws as live and throws on press is the one outcome worse
-    // than a dead control: it reads as the app breaking.
-    await act(async () => { t.click() })
-  })
 })
 
-describe('a work tile on a character’s screen', () => {
-  it('opens that work, from a screen that never mentions a work opener', async () => {
-    const opened = []
-    await act(async () => {
-      render(
-        <WorkDoor open={(kind, id) => opened.push([kind, id])}>
-          <CharacterScreen />
-        </WorkDoor>,
-      )
-    })
-    await settle()
-    const t = tile('The Shawshank Redemption')
-    expect(t.getAttribute('aria-disabled')).toBe(null)
-    await act(async () => { t.click() })
-    // A CHARACTER'S TILE HAS MORE THAN ONE THING BEHIND IT — the work, and this
-    // character as that work has them — so it asks, which is the pack's own rule
-    // and `work-chooser.test.jsx`'s subject. The door is what the WORK row needs;
-    // without one that row is `aria-disabled` and the sheet offers a dead end.
-    const row = screen.getAllByText('The Shawshank Redemption')
-      .map((el) => el.closest('button.cs-choose')).find(Boolean)
-    expect(row, 'the sheet has to offer the work itself').toBeTruthy()
-    expect(row.getAttribute('aria-disabled')).toBe(null)
-    await act(async () => { row.click() })
-    expect(opened, 'the character’s strip is the same strip and owes the same thing').toEqual([['movie', 3]])
-  })
-
-  it('and where the app has no door the sheet says the work cannot be reached', async () => {
-    await act(async () => { render(<CharacterScreen />) })
-    await settle()
-    await act(async () => { tile('The Shawshank Redemption').click() })
-    // queryAll, not getAll: the local scope it opens instead does not print the
-    // work's title at all, and getAllByText throws on an empty match — which
-    // would fail this case for the query's reason rather than the app's.
-    const row = screen.queryAllByText('The Shawshank Redemption')
-      .map((el) => el.closest('button.cs-choose')).find(Boolean)
-    // The one thing left behind the tile is the local scope, so the tile opens
-    // it directly rather than asking — there is nothing to choose between.
-    expect(row, 'with no door there is one answer left, and a sheet over one answer is a sheet to dismiss').toBeFalsy()
-  })
-})

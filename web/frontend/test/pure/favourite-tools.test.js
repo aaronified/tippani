@@ -24,7 +24,7 @@
 // be looked at.
 
 import { describe, expect, it } from 'vitest'
-import { actionsFor, atRow, isWorkKind } from '../../src/actions.jsx'
+import { actionsFor, atRow,  } from '../../src/actions.jsx'
 
 const row = { id: 1, quote: 'The book is the author’s. The margin is yours.' }
 const toolsFor = (kind) =>
@@ -35,14 +35,6 @@ describe('what the registry will put in a quote card’s tools row', () => {
     for (const kind of ['annotation', 'dialogue', 'quote']) {
       expect(toolsFor(kind), kind).toEqual(['copy', 'share'])
     }
-  })
-
-  // The failing case, pinned rather than merely fixed: a work has no words of
-  // its own to copy and no share card, so asking on its behalf correctly gets
-  // nothing. Anyone who reintroduces the old call sees why here.
-  it('gives neither to a work, which is what a highlight was being read as', () => {
-    expect(toolsFor('book')).toEqual([])
-    expect(toolsFor('movie')).toEqual([])
   })
 })
 

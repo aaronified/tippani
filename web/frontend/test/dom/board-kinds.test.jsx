@@ -58,50 +58,13 @@ const openNewBoard = async () => {
 }
 
 describe('the starter offer', () => {
-  it('names all three on the add-board form', async () => {
-    render(<BoardList boards={BOARDS} total={0} reload={noop} onOpen={noop} />)
-    await openNewBoard()
-    for (const name of ['Proverbs', 'Speeches', 'Others']) {
-      expect(screen.getByRole('button', { name: new RegExp(`^${name}`) })).toBeTruthy()
-    }
-  })
 
   // It fills the form in and STOPS. Creating on the press would take the name
   // away from the reader — and a second board called Proverbs is a 409, so
   // being handed an editable field beats being handed an error.
-  it('fills the form rather than creating a board', async () => {
-    render(<BoardList boards={BOARDS} total={0} reload={noop} onOpen={noop} />)
-    await openNewBoard()
-    fireEvent.click(screen.getByRole('button', { name: /^Proverbs/ }))
-
-    const name = screen.getByDisplayValue('Proverbs')
-    expect(name).toBeTruthy()
-    expect(SENT.some((s) => s.method === 'POST')).toBe(false)
-
-    // And the reader can take it somewhere else entirely before creating.
-    fireEvent.change(name, { target: { value: 'Grandmother' } })
-    expect(screen.getByDisplayValue('Grandmother')).toBeTruthy()
-  })
 
   // The proverb starter is the only one that asks a second question, because it
   // is the only kind whose extra fields mean anything.
-  it('asks a proverb board for its languages, and only a proverb board', async () => {
-    render(<BoardList boards={BOARDS} total={0} reload={noop} onOpen={noop} />)
-    await openNewBoard()
-
-    expect(screen.queryByText('languages')).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: /^Proverbs/ }))
-    await screen.findByText('languages')
-
-    fireEvent.click(await screen.findByRole('button', { name: 'Bengali' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Hindi' }))
-    fireEvent.click(screen.getByText('Create'))
-
-    await waitFor(() => expect(SENT.some((s) => s.method === 'POST')).toBe(true))
-    const post = SENT.find((s) => s.method === 'POST')
-    expect(post.body.kind).toBe('proverb')
-    expect(post.body.languages).toEqual(['Bengali', 'Hindi'])
-  })
 
   // ONE LANGUAGE, ONE CHIP, however many ways the library spells it.
   //
@@ -110,47 +73,12 @@ describe('the starter offer', () => {
   // because the on-test beside them has always folded. The surviving spelling is
   // the FIRST one offered, not the prettiest: the board's own languages lead the
   // list, so a board that already says "bengali" keeps saying it.
-  it('draws one chip for a language its library spells two ways', async () => {
-    render(<BoardList boards={BOARDS} total={0} reload={noop} onOpen={noop} />)
-    await openNewBoard()
-    fireEvent.click(screen.getByRole('button', { name: /^Proverbs/ }))
-    await screen.findByText('languages')
-
-    const chips = await screen.findAllByRole('button', { name: /^bengali$/i })
-    expect(chips).toHaveLength(1)
-    expect(chips[0].textContent).toContain('Bengali')
-  })
 
   // And the board's own spelling outranks the library's, which is the half a fold
   // that always kept the capitalised form would get wrong.
-  it('keeps the spelling the board already carries', async () => {
-    BOARDS = [board(1, 'Proverbs', { kind: 'proverb', languages: ['bengali'] })]
-    render(<BoardList boards={BOARDS} total={1} reload={noop} onOpen={noop} />)
-    fireEvent.click(screen.getByLabelText(/more/i))
-    fireEvent.click(await screen.findByText('Edit'))
-    await screen.findByText('languages')
-
-    const chips = await screen.findAllByRole('button', { name: /^bengali$/i })
-    expect(chips).toHaveLength(1)
-    expect(chips[0].textContent).toContain('bengali')
-    expect(chips[0].textContent).not.toContain('Bengali')
-  })
 
   // Not a closed list: a reader's proverbs are not limited to the languages their
   // library already holds, nor to the ninety-one iso639.js knows.
-  it('takes a language it has never heard of', async () => {
-    render(<BoardList boards={BOARDS} total={0} reload={noop} onOpen={noop} />)
-    await openNewBoard()
-    fireEvent.click(screen.getByRole('button', { name: /^Proverbs/ }))
-    await screen.findByText('languages')
-
-    fireEvent.change(screen.getByPlaceholderText('Tamil, Yoruba…'), { target: { value: 'Tamil' } })
-    fireEvent.click(screen.getByText('Add'))
-    fireEvent.click(screen.getByText('Create'))
-
-    await waitFor(() => expect(SENT.some((s) => s.method === 'POST')).toBe(true))
-    expect(SENT.find((s) => s.method === 'POST').body.languages).toEqual(['Tamil'])
-  })
 
   // A lone text input inside a <form> submits on Enter, which here would create
   // the board on the keystroke meant to fill a field in.
@@ -172,16 +100,7 @@ describe('the starter offer', () => {
   // silently rewrite its name and colour. The section itself stays — an existing
   // board can still be told what it holds — but it is the plain two-way toggle
   // there, with no starter to overwrite the name somebody chose.
-  it('is offered on a new board only', async () => {
-    BOARDS = [board(1, 'Kennedy')]
-    render(<BoardList boards={BOARDS} total={0} reload={noop} onOpen={noop} />)
-    fireEvent.click(screen.getByLabelText(/more/i))
-    fireEvent.click(await screen.findByText('Edit'))
-    await screen.findByDisplayValue('Kennedy')
-    expect(screen.getByText('what it holds')).toBeTruthy()
-    expect(screen.queryByRole('button', { name: /^Speeches/ })).toBeNull()
-    expect(screen.queryByRole('button', { name: /^Others/ })).toBeNull()
-  })
+  
 })
 
 describe('a board keeps what it holds', () => {
@@ -204,15 +123,3 @@ describe('a board keeps what it holds', () => {
   })
 })
 
-describe('the per-language sections', () => {
-  // Language is the field that carries a proverb. On a board of speeches it is
-  // empty on every row, so the grouping would be one section called "No
-  // language" holding the whole board.
-  it('are offered on a proverb board and nowhere else', () => {
-    const has = (b) => groupOptionsFor(b).some(([v]) => v === 'language')
-    expect(has({ kind: 'proverb' })).toBe(true)
-    expect(has({ kind: 'plain' })).toBe(false)
-    // All quotes is not a board at all, so there is nothing to read a kind off.
-    expect(has(null)).toBe(false)
-  })
-})

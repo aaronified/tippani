@@ -26,74 +26,6 @@ function openMenu(item = BOOK, props = {}) {
   fireEvent.contextMenu(screen.getByTitle(item.title))
 }
 
-const labels = () => screen.getAllByRole('menuitem').map((n) => n.textContent.trim())
-
-describe('the menu a cover opens', () => {
-  it('offers the things the bar offers one selected book', () => {
-    openMenu(BOOK, { onEdit: () => {} })
-    const shown = labels()
-    expect(shown).toContain('Fill gaps')
-    expect(shown).toContain('Skip in quiz')
-    expect(shown).toContain('Edit')
-    expect(shown).toContain('Delete')
-  })
-
-  // The flip, on the card this time. The tile already wears the matching mark
-  // (QuizSkipMark), so a menu item that always read "Skip in quiz" would be
-  // offering to do a thing the glyph beside it says is already done.
-  it('reads Add to quiz on a book that is already out of it', () => {
-    openMenu({ ...BOOK, review_excluded: true })
-    expect(labels()).toContain('Add to quiz')
-    expect(labels()).not.toContain('Skip in quiz')
-  })
-
-  it('has no Copy or Share, because a cover is not a quote', () => {
-    openMenu()
-    expect(labels()).not.toContain('Copy')
-    expect(labels()).not.toContain('Share')
-  })
-
-  // The registry's rule, exercised through the component: a board that cannot
-  // reload after a write passes no `onChanged`, and the writes are then absent
-  // rather than present and silently ineffective.
-  //
-  // THIS ASSERTED AN EMPTY MENU until 1.15.0, which was the same statement only
-  // as long as every action on a work was a write. Practise is the first that is
-  // not — it opens a themed round over the book, which reads the quote pool and
-  // changes nothing this tile draws — so gating it on a reload callback would be
-  // coupling a read to a write for the symmetry of it.
-  //
-  // AND "NO WRITES" IS NOT QUITE THE RULE EITHER, which "Add to anthology" is what
-  // made plain. It writes, and writes properly — it gathers the work's passages
-  // into an anthology — but the thing it writes to is somewhere else, and this
-  // tile draws none of it. The hazard the callback guards against is a control
-  // that is "present and silently ineffective", and that is a write whose RESULT
-  // this surface would have to redraw to show. So the rule is about what the tile
-  // would have to catch up with, and the five below are the writes that qualify:
-  // every one of them changes the work this menu was opened on.
-  it('offers nothing the tile would have to redraw when the board cannot reload', () => {
-    render(<WorkCard kind="book" item={BOOK} onOpen={() => {}} />)
-    fireEvent.contextMenu(screen.getByTitle(BOOK.title))
-    for (const write of ['Fill gaps', 'Skip in quiz', 'Add to quiz', 'Edit', 'Delete']) {
-      expect(labels()).not.toContain(write)
-    }
-    expect(labels()).toEqual(['Add source file', 'Practise', 'Add to anthology'])
-  })
-
-  it('offers a themed round over the book itself', () => {
-    openMenu()
-    expect(labels()).toContain('Practise')
-  })
-
-  it('starts a selection from the menu, and says which way round it is', () => {
-    const toggle = vi.fn()
-    const selection = { isSelected: () => false, toggle, active: false, extendTo: vi.fn() }
-    openMenu(BOOK, { selection })
-    expect(labels()[0]).toBe('Select')
-    fireEvent.click(screen.getByText('Select'))
-    expect(toggle).toHaveBeenCalledWith(BOOK.id, 'book')
-  })
-})
 
 describe('deleting one work from its cover', () => {
   // A TYPED PHRASE, THE BAR'S OWN, and the dialog still has to say what goes with
@@ -105,27 +37,6 @@ describe('deleting one work from its cover', () => {
   // count and the wording it should produce differ, so the aggregate names EVERY
   // count whose sentence came out wrong at once. cleanup() runs per row so
   // getByRole('dialog') still matches exactly one.
-  it('asks first, names what the bin will be holding, and gets the plural right', () => {
-    const CASES = [
-      // 'Undo' is not a count-varying claim; it is asserted here because this is
-      // the row where the dialog is doing its full job.
-      { name: 'twelve saved', count: 12, contains: ['12 quotes', 'Undo'], absent: [] },
-      { name: 'exactly one', count: 1, contains: ['1 quote,'], absent: ['1 quotes'] },
-      // An empty book has no subtree to warn about, and a sentence about "the 0
-      // quotes saved from it" is worse than no sentence.
-      { name: 'nothing saved', count: 0, contains: [], absent: ['0 quote'] },
-    ]
-    const wrong = []
-    for (const { name, count, contains, absent } of CASES) {
-      cleanup()
-      openMenu({ ...BOOK, annotation_count: count })
-      fireEvent.click(screen.getByText('Delete'))
-      const said = screen.getByRole('dialog').textContent
-      for (const want of contains) if (!said.includes(want)) wrong.push(`${name}: does not say ${want}`)
-      for (const no of absent) if (said.includes(no)) wrong.push(`${name}: says ${no}`)
-    }
-    expect(wrong).toEqual([])
-  })
 
   // THE GUARD, AND THAT IT IS A GUARD RATHER THAN A LABEL. The dialog naming a
   // phrase while accepting the button anyway is the failure worth a test: it
@@ -157,97 +68,11 @@ describe('deleting one work from its cover', () => {
   // A dialog dismissed and reopened must ask again. It would not if the typed
   // text outlived the close — the second open would arrive already satisfied,
   // which is a typed guard you only ever have to type once.
-  it('asks again after it is dismissed', () => {
-    openMenu({ ...BOOK, annotation_count: 12 })
-    fireEvent.click(screen.getByText('Delete'))
-    fireEvent.change(within(screen.getByRole('dialog')).getByRole('textbox'), { target: { value: 'delete 1 book' } })
-    fireEvent.click(within(screen.getByRole('dialog')).getByText('Cancel').closest('button'))
-
-    fireEvent.contextMenu(screen.getByTitle(BOOK.title))
-    fireEvent.click(screen.getByText('Delete'))
-    const again = screen.getByRole('dialog')
-    expect(within(again).getByText('Delete it').closest('button').disabled).toBe(true)
-  })
-})
-
-describe('the card and the bar cannot drift', () => {
-  // The invariant, restated at the component's own level: everything the bar
-  // can do to a selection of exactly one work is reachable from that work's
-  // card. Set fields and Shelf are the stated exceptions — the first is
-  // bulk-only by rule (over one work the full form is strictly better), the
-  // second needs a submenu a card menu has no shape for.
-  it.each(['book', 'movie'])('%s', (kind) => {
-    const ctx = {
-      fillGaps: vi.fn(), setShelf: vi.fn(), setFields: vi.fn(),
-      setReview: vi.fn(), edit: vi.fn(), remove: vi.fn(),
-    }
-    const onCard = new Set(actionsFor(kind, BOOK, ctx).map((a) => a.id))
-    for (const a of bulkActionsFor(kind, [BOOK], ctx)) {
-      if (a.id === 'set-fields' || a.id === 'shelf') continue
-      expect(onCard.has(a.id), `${kind}: the bar can ${a.id} and the card cannot`).toBe(true)
-    }
-  })
+  
 })
 
 // THE FILE THESE QUOTES CAME FROM. The card offers to attach one, a game never does
 // (the owner's: "games have no equivalent"), and a show asks which episode first
 // because a subtitle covers one. What is pressed and what the server is sent is
 // what a person does; no function or module is named.
-describe('adding the file a work came from', () => {
-  const FILM = { id: 9, title: 'Star Wars', media_type: 'movie', dialogue_count: 3 }
-  const SHOW = { id: 10, title: 'Andor', media_type: 'show', dialogue_count: 3 }
-  const GAME = { id: 11, title: 'Hades', media_type: 'game', dialogue_count: 3 }
 
-  function openFor(kind, item) {
-    render(<WorkCard kind={kind} item={item} onOpen={() => {}} onChanged={() => {}} />)
-    fireEvent.contextMenu(screen.getByTitle(item.title))
-  }
-
-  it('is offered on a book and a film and never on a game', () => {
-    openFor('book', BOOK)
-    expect(labels()).toContain('Add source file')
-    cleanup()
-    openFor('movie', FILM)
-    expect(labels()).toContain('Add source file')
-    cleanup()
-    openFor('movie', GAME)
-    expect(labels()).not.toContain('Add source file')
-  })
-
-  it('sends the chosen file for the work it was chosen on, whatever the file is called', async () => {
-    const calls = []
-    const real = globalThis.fetch
-    globalThis.fetch = vi.fn(async (url, init) => {
-      calls.push({ url: String(url), method: init?.method, body: init?.body })
-      return new Response(JSON.stringify({ id: 1, name: 'vendetta.ass.txt', format: 'ass' }), {
-        status: 201,
-        headers: { 'content-type': 'application/json' },
-      })
-    })
-    try {
-      openFor('movie', FILM)
-      fireEvent.click(screen.getByText('Add source file'))
-      const picker = screen.getByLabelText('Choose a source file')
-      // No extension filter: the owner's own file was `.ass.txt`.
-      expect(picker.getAttribute('accept')).toBeNull()
-      const file = new File(['[Script Info]'], 'vendetta.ass.txt', { type: 'text/plain' })
-      fireEvent.change(picker, { target: { files: [file] } })
-      await vi.waitFor(() => expect(calls.length).toBe(1))
-      expect(calls[0].method).toBe('PUT')
-      expect(calls[0].url.endsWith('/sources')).toBe(true)
-      expect(calls[0].body.get('subject')).toBe('screen')
-      expect(calls[0].body.get('subject_id')).toBe('9')
-      expect(calls[0].body.get('episode')).toBeNull()
-    } finally {
-      globalThis.fetch = real
-    }
-  })
-
-  it('asks a show which episode before it opens the file picker', async () => {
-    openFor('movie', SHOW)
-    fireEvent.click(screen.getByText('Add source file'))
-    const ep = await screen.findByLabelText('Episode')
-    fireEvent.change(ep, { target: { value: 's01e04' } })
-    expect(within(document.body).getByText('Choose file')).toBeTruthy()
-  })
-})

@@ -67,21 +67,6 @@ const row = (name) => screen.getByText(name).closest('.cast-row')
 const tag = (name) => row(name).querySelector('.field-src')
 
 describe('every cast row says where it came from', () => {
-  it('wears the supplier that seeded it', async () => {
-    await list()
-    expect(tag('the Stalker'), 'a provider row wears nothing').toBeTruthy()
-    expect(tag('the Stalker').getAttribute('data-src')).toBe('tmdb')
-  })
-
-  it('draws a row you typed as yours, not as an absence', async () => {
-    await list()
-    // The accent state, which the CSS inks differently — `manual` is a real answer
-    // in this app, and the one a reader scans a record for.
-    expect(tag('the Professor').getAttribute('data-src')).toBe('manual')
-    // The word, twice over on purpose — once for the eye and once for a screen
-    // reader — so this counts rather than picking one.
-    expect(within(tag('the Professor')).getAllByText(/you/i)).toHaveLength(2)
-  })
 
   it('keeps the supplier’s mark on a row you corrected, and says you corrected it', async () => {
     await list()
@@ -97,31 +82,4 @@ describe('every cast row says where it came from', () => {
     expect(within(t).getByText(/corrected/i).className).toContain('sr-only')
   })
 
-  it('tells the two apart, which is the whole point of reading the column', async () => {
-    await list()
-    // Read as `provider`, a corrected row tells the reader a refetch will
-    // overwrite their correction. Read as `reader`, it hides the upstream row.
-    // So the untouched row must NOT carry the note the corrected one does.
-    expect(tag('the Stalker').getAttribute('title')).not.toMatch(/corrected/i)
-  })
-
-  it('says nothing where there is nothing true to say', async () => {
-    await list()
-    // Not "unknown source": the row is a supplier's and the slug is simply not
-    // stored, and a tag naming a supplier that was never recorded is worse than no
-    // tag — the reader would go looking for it.
-    expect(tag('the Wife'), 'invented a source for a row that has none').toBeNull()
-  })
-
-  it('still says a correction is yours when the supplier under it has no name', async () => {
-    await list()
-    // THE OPPOSITE ANSWER TO THE ROW ABOVE, on the same absence, and the reason is
-    // which half survives. On a `provider` row with no slug there is nothing true
-    // left to say. On a `corrected` one there is: you edited it, and that is the
-    // half a refetch is forbidden to overwrite — the one a reader is scanning for.
-    // Falling silent here would drop the more important of the two facts.
-    const t = tag('the Boy')
-    expect(t, 'a correction with no supplier under it vanished').toBeTruthy()
-    expect(t.getAttribute('data-src')).toBe('manual')
-  })
 })

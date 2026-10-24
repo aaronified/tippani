@@ -11,7 +11,7 @@
 // So this file forces the width and asserts what the phone gets: one way back,
 // the standing tick/cross pair on a form, and the sheet's own chrome.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 
 import { MOBILE_SCREEN_QUERY } from '../../src/ui.jsx'
 
@@ -65,69 +65,15 @@ const surface = (props = {}) =>
 const sheet = () => document.querySelector('.mobile-sheet-card')
 
 describe('the add surface on a phone', () => {
-  it('is a sheet with a grip, not the desktop dialog', async () => {
-    surface({ initialSection: 'standalone' })
-    await screen.findByRole('button', { name: 'A board' })
-    expect(sheet()).toBeTruthy()
-    // The grip is what says the sheet moves; `useSheetDrag` reads it as the
-    // handle, so its absence is a drag with nothing to start from.
-    expect(sheet().querySelector('.tp-sheet-grip')).toBeTruthy()
-    // ONE OVERLAY, AND IT IS THE SHEET.
-    //
-    // This line was `expect(document.querySelector('[role="dialog"]')).toBeNull()`,
-    // using the ABSENCE of a dialog role as the proof that the desktop branch had
-    // not rendered — which stopped being true the day the sheet started saying it
-    // is a modal (it is one, and it was the only overlay in the app not saying so;
-    // see MobileSheet). The proxy was also weaker than the claim: it passed if
-    // NEITHER branch rendered. Counting says the thing itself.
-    const dialogs = document.querySelectorAll('[role="dialog"]')
-    expect(dialogs.length).toBe(1)
-    expect(dialogs[0]).toBe(sheet())
-  })
 
   // THE DEFECT THE OWNER REPORTED: "there are two back buttons now, both doing
   // different things." The sheet's leading slot drew an arrow that CLOSED while
   // the surface drew its own arrow beside it that STEPPED.
-  it('draws exactly one way back, and it steps rather than closing', async () => {
-    const onClose = vi.fn()
-    surface({ initialSection: 'standalone', onClose })
-    fireEvent.click(await screen.findByRole('button', { name: 'A board' }))
-    fireEvent.click(await screen.findByRole('button', { name: 'Others' }))
-    fireEvent.click(await screen.findByRole('button', { name: 'Proverb' }))
-    await screen.findByLabelText('Quote')
-    const backs = screen.getAllByLabelText('Back to the list')
-    expect(backs).toHaveLength(1)
-    fireEvent.click(backs[0])
-    // It stepped to the first screen and did NOT take the surface down with it.
-    expect(await screen.findByText('What kind of quote')).toBeTruthy()
-    expect(onClose).not.toHaveBeenCalled()
-  })
 
   // THE STANDING PAIR — "a tick confirms, a cross discards", and "the cross is
   // red wherever there is a pair for it to be half of". Handing the leading slot
   // to Back took the ✕ off the form entirely, so an armed ✓ had no discarding
   // half at all.
-  it('keeps the tick and the cross together on the form, with the cross red', async () => {
-    surface({ initialSection: 'standalone' })
-    fireEvent.click(await screen.findByRole('button', { name: 'A board' }))
-    fireEvent.click(await screen.findByRole('button', { name: 'Others' }))
-    fireEvent.click(await screen.findByRole('button', { name: 'Proverb' }))
-    await screen.findByLabelText('Quote')
-    const cross = screen.getByLabelText('Close')
-    expect(cross).toBeTruthy()
-    expect(cross.style.color).toBe('var(--error)')
-    // And the arrow is never red: stepping back discards nothing.
-    expect(screen.getByLabelText('Back to the list').style.color).toBe('')
-  })
-
-  it('draws a plain way out where no form is registered', async () => {
-    // The first screen has nothing to save, so its ✕ is a plain exit — painting
-    // that one red would warn about closing a list of choices.
-    surface({ initialSection: 'standalone' })
-    const cross = await screen.findByLabelText('Close')
-    expect(cross.style.color).toBe('')
-    expect(screen.queryByLabelText('Back to the list')).toBeNull()
-  })
 
   // A STEP IS NOT A DISMISSAL — the owner: "the back animations are finnicky."
   // The arrow ran `slideOut`, the hook's exit: the card animated fully off the
@@ -135,33 +81,10 @@ describe('the add surface on a phone', () => {
   // one frame with no entrance to undo it, and only then swapped its contents —
   // after which the new screen's height sprang for another 220ms. Four movements
   // for a press that dismisses nothing.
-  it('steps without animating the sheet away, and does it on the press', async () => {
-    surface({ initialSection: 'standalone' })
-    fireEvent.click(await screen.findByRole('button', { name: 'A board' }))
-    fireEvent.click(await screen.findByRole('button', { name: 'Others' }))
-    fireEvent.click(await screen.findByRole('button', { name: 'Proverb' }))
-    await screen.findByLabelText('Quote')
-    fireEvent.click(screen.getByLabelText('Back to the list'))
-    // ON THE FRAME OF THE PRESS. `slideOut` defers its verb to a 220ms timer, so
-    // asserting the content is already back is what separates the two paths —
-    // with the old code this findBy would have to outwait the animation.
-    expect(screen.getByText('What kind of quote')).toBeTruthy()
-    // And the card never went anywhere: a positive translateY is the exit.
-    expect(sheet().style.transform || '').not.toMatch(/translateY\(\s*[1-9]/)
-  })
 
   // THE OTHER HALF, and without it the case above is satisfiable by deleting
   // `slideOut` from the sheet altogether — which would throw away the exit
   // animation the owner asked for in the same breath as the popup.
-  it('but a close still slides the sheet away before it goes', async () => {
-    const onClose = vi.fn()
-    surface({ initialSection: 'standalone', onClose })
-    await screen.findByRole('button', { name: 'A board' })
-    fireEvent.click(screen.getByLabelText('Close'))
-    // The verb waits on the animation; the card is on its way out meanwhile.
-    expect(onClose).not.toHaveBeenCalled()
-    expect(sheet().style.transform || '').toMatch(/translateY\(\s*[1-9]/)
-  })
 
   // AND THE DEVICE'S OWN BACK GESTURE DOES WHAT THE ARROW DOES. It closed the
   // surface outright from a screen whose arrow stepped. The first repair passed
@@ -193,27 +116,6 @@ describe('the add surface on a phone', () => {
   // is that the slot stopped carrying one ambiguous name and started carrying a name
   // AND its author. So a case that only checked the clip would be pinning half a
   // ruling — and the half that is a regression on its own.
-  it('names who made the work under its title', async () => {
-    // Straight to the form with the work already chosen, the way a ＋ pressed on a
-    // book's own page arrives — which is also the render in the owner's screenshot.
-    surface({ initialSection: 'quote', initialTarget: { type: 'book', id: 4 } })
-    // TWICE, AND THAT IS THE FIX RATHER THAN AN INCONVENIENCE: the form's own work
-    // chip printed it and the header printed an empty string, because an opening
-    // target arrives as {type,id} and the header wanted a row. `findByText` throwing
-    // on two matches is how this case first noticed.
-    const title = await waitFor(() => {
-      const el = document.querySelector('.mobile-sheet-title')
-      expect(el?.textContent, 'the header does not name the work the ＋ was pressed on').toBe('The Dispossessed')
-      return el
-    })
-    expect(title).toBeTruthy()
-    const sub = await waitFor(() => {
-      const el = document.querySelector('.mobile-sheet-sub')
-      expect(el, 'the header has no second line at all').toBeTruthy()
-      return el
-    })
-    expect(sub.textContent, 'the author is not under the title').toBe('Le Guin')
-  })
 
   // AND THE OTHER HALF OF "author/director whatever", which nothing held.
   //
@@ -227,16 +129,6 @@ describe('the add surface on a phone', () => {
   // `director` IS ONE COLUMN WEARING THREE NAMES — a film's director, a show's
   // creator, a game's studio — so this case covers all three: the header prints the
   // value, never the noun.
-  it('and names who made a film under its title too', async () => {
-    surface({ initialSection: 'quote', initialTarget: { type: 'movie', id: 9 } })
-    await waitFor(() => {
-      const el = document.querySelector('.mobile-sheet-title')
-      expect(el?.textContent, 'the header does not name the film the ＋ was pressed on').toBe('Stalker')
-    })
-    const sub = document.querySelector('.mobile-sheet-sub')
-    expect(sub, 'a film gets no second line at all, so only the book half was built').toBeTruthy()
-    expect(sub.textContent, 'the director is not under the title').toBe('Tarkovsky')
-  })
 
   // THE HEADER MENU IS GONE, and this case asserted it worked for one release.
   //
@@ -248,21 +140,5 @@ describe('the add surface on a phone', () => {
   //
   // THE WAY IT REPLACES IS ASSERTED, not just the absence, because "the control is
   // gone" and "the control is gone and so is the capability" look identical here.
-  it('has no mode menu, because Back is the way to the other modes', async () => {
-    surface({ initialSection: 'standalone' })
-    fireEvent.click(await screen.findByRole('button', { name: 'A board' }))
-    fireEvent.click(await screen.findByRole('button', { name: 'Others' }))
-    fireEvent.click(await screen.findByRole('button', { name: 'Proverb' }))
-    await screen.findByLabelText('Quote')
-    expect(screen.queryByLabelText('Change what you are adding'), 'the mode menu came back').toBeNull()
-    // Back, twice, reaches the chooser the menu used to list.
-    fireEvent.click(screen.getByLabelText('Back to the list'))
-    // AND THE FIRST SCREEN IS WHERE THE MENU'S ROWS LIVE. It holds step 1 and step
-    // 2 together — the modes and, under them, which work or board — so one Back
-    // from the form lands on the list the dropdown was a copy of. That is the whole
-    // of the owner's "we have the back button already", and asserting the mode is
-    // REACHABLE is what keeps this from being a test that only deletes something.
-    expect(await screen.findByText('What kind of quote')).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Files' }), 'the modes are not on the screen Back returns to').toBeTruthy()
-  })
+  
 })

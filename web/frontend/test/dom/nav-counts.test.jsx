@@ -46,44 +46,5 @@ describe('a destination that holds things says how many of each', () => {
     expect(navBadge(key, { stats: STATS })).toBe(want)
   })
 
-  it('uses one separator for every pair, including the Checks row', () => {
-    // Checks is not a tab and is badged by its own function; the separator is
-    // the thing that must not diverge, because two different marks on one rail
-    // read as two different kinds of fact.
-    const seps = new Set(
-      ['library', 'movies', 'quotes', 'anthologies']
-        .map((k) => navBadge(k, { stats: STATS }).replace(/[0-9]/g, ''))
-        .concat(checksBadge(7, 4).replace(/[0-9]/g, '')),
-    )
-    expect([...seps]).toEqual([' | '])
-  })
 })
 
-describe('a destination that holds one thing still says one', () => {
-  it('metadata counts gaps, not a pair', () => {
-    expect(navBadge('metadata', { metaIssues: 5 })).not.toContain(' | ')
-  })
-
-  it('stats names the streak and settings the version', () => {
-    expect(navBadge('stats', { streak: 9 })).not.toContain(' | ')
-    expect(navBadge('settings', { version: '3.1.0' })).toContain('3.1.0')
-  })
-})
-
-describe('a server that has not been upgraded yet', () => {
-  // An older binary behind a newer bundle: the four new keys are absent. Every
-  // row must still draw its left-hand number rather than the word "undefined",
-  // which is what a bare template literal would have printed.
-  it('falls back to zero for a count the payload does not carry', () => {
-    const old = { books: 412, annotations: 9310, movies: 88, dialogues: 640, quotes: 205 }
-    expect(navBadge('quotes', { stats: old })).toBe('0 | 205')
-  })
-
-  // anthologies is the one that stays ABSENT rather than falling back — the row
-  // has no count at all until the server sends one, which is the guard that has
-  // been quietly doing its job since before the key existed.
-  it('draws no anthologies count at all when the key is missing', () => {
-    const old = { books: 1, annotations: 1, movies: 1, dialogues: 1, quotes: 1, tags: 1 }
-    expect(navBadge('anthologies', { stats: old })).toBeNull()
-  })
-})

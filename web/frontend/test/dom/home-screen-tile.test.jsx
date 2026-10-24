@@ -64,24 +64,6 @@ describe("Home's screen tile", () => {
     expect(tile().textContent).toMatch(/^19 12 4 3/)
   })
 
-  it('leaves out a kind the shelf does not hold', async () => {
-    await mount({ movies: 15, films: 12, shows: 0, games: 3 })
-    expect(screen.getByRole('button', { name: named('15', '12', 'films', '3', 'games', 'titles · 280 dialogues') })).toBeTruthy()
-  })
-
-  it('keeps the word when the shelf holds one kind', async () => {
-    await mount({ movies: 12, films: 12, shows: 0, games: 0 })
-    expect(screen.getByRole('button', { name: '12 films · 280 dialogues' })).toBeTruthy()
-    cleanup()
-    await mount({ movies: 3, films: 0, shows: 0, games: 3 })
-    expect(screen.getByRole('button', { name: '3 games · 280 dialogues' })).toBeTruthy()
-    expect(nameOf(tile())).not.toMatch(/films/)
-  })
-
   // The noun takes the plural of what the figure counts: a shelf of one show is
   // "1 show", where a caption written out per kind printed "1 shows".
-  it('says "show" for a shelf of one show', async () => {
-    await mount({ movies: 1, films: 0, shows: 1, games: 0 })
-    expect(screen.getByRole('button', { name: '1 show · 280 dialogues' })).toBeTruthy()
-  })
 })

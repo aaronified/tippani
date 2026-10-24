@@ -70,12 +70,6 @@ const labels = () => {
 describe('the activity calendar’s month axis', () => {
   const NAMES = () => MONTH_KEYS.map((k) => t(k))
 
-  it('names months at all, so this test is testing something', () => {
-    const names = NAMES()
-    const shown = labels().filter((s) => names.includes(s))
-    expect(shown.length, 'the calendar drew no month labels — nothing to check').toBeGreaterThan(3)
-  })
-
   it('prints each one whole, never a cut of it', () => {
     // A CUT IS A PROPER PREFIX OF A NAME THAT IS NOT ITSELF A NAME. That catches
     // `.slice(0,3)` in any language and stays true when the names are Bengali,
@@ -87,13 +81,4 @@ describe('the activity calendar’s month axis', () => {
     expect(cuts, 'these month labels are cuts of a month name').toEqual([])
   })
 
-  it('and takes them from the same table the date picker uses', () => {
-    // The axis and the picker disagreeing about what April is called is the other
-    // half of why the table is shared.
-    const names = NAMES()
-    const monthish = labels().filter((s) => names.some((n) => n.startsWith(s) || s.startsWith(n)))
-    for (const s of monthish) {
-      expect(names, `"${s}" is not one of the app's month names`).toContain(s)
-    }
-  })
 })

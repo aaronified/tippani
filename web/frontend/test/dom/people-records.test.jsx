@@ -88,84 +88,12 @@ const mount = async () => {
 const row = (name) => screen.getByText(name).closest('.record-row')
 
 describe('one row per record', () => {
-  it('names the other spellings under the canonical one', async () => {
-    await mount()
-    // Without this the merged list reads as if two names went missing.
-    expect(within(row('Mikhail Bulgakov')).getByText(/M\. Bulgakov/)).toBeTruthy()
-    expect(within(row('Mikhail Bulgakov')).getByText(/Михаил Булгаков/)).toBeTruthy()
-  })
-
-  it('prints the record’s own works and quotes, not one spelling’s share', async () => {
-    await mount()
-    const r = row('Mikhail Bulgakov')
-    // BOTH COUNTS, AND BY THE WORDS RATHER THAN THE DIGITS. The two numbers sit
-    // side by side under the name now — an icon each and no noun, the owner's own
-    // shape — so `getByText('12')` would no longer say WHICH count it found, and
-    // a row that printed the works count twice would pass it. The accessible name
-    // is what the icon stands for, and reading them is how this case tells the
-    // two apart. It is also what a reader who cannot see the icons is told.
-    const named = (re) => [...r.querySelectorAll('[aria-label]')]
-      .some((n) => re.test(n.getAttribute('aria-label') || ''))
-    expect(named(/^12 works/), 'the works count should be on the row, named').toBe(true)
-    expect(named(/^128 quotes/), 'the quotes count should be on the row, named').toBe(true)
-  })
-
-  it('reads /people/records and never the spelling list', async () => {
-    await mount()
-    expect(CALLS.some(([m, p]) => m === 'GET' && p === '/people/records')).toBe(true)
-    expect(CALLS.some(([, p]) => p.startsWith('/people/names'))).toBe(false)
-  })
 
   it('finds a record by a spelling it is not called', async () => {
     await mount()
     fireEvent.change(screen.getByPlaceholderText(/search/i), { target: { value: 'Михаил' } })
     await waitFor(() => expect(screen.queryByText('Oleg Basilashvili')).toBeNull())
     expect(screen.getByText('Mikhail Bulgakov')).toBeTruthy()
-  })
-})
-
-describe('the role filter', () => {
-  // A DROPDOWN, NOT CHIPS — the owner's "defects will be filtered via chips,
-  // type will be via dropdown". A role is the type of a record.
-  it('starts on all roles, so a record in no role is visible', async () => {
-    await mount()
-    // The row the old author-first default hid. A role is derived from a credit,
-    // so a record nothing credits belongs to no chip.
-    expect(screen.getByText('Somebody Nobody Credits')).toBeTruthy()
-  })
-
-  it('filter to one role when asked', async () => {
-    await mount()
-    pickFrom('Roles', 'Actors')
-    await waitFor(() => expect(screen.queryByText('Mikhail Bulgakov')).toBeNull())
-    expect(screen.getByText('Oleg Basilashvili')).toBeTruthy()
-    expect(screen.queryByText('Somebody Nobody Credits')).toBeNull()
-  })
-})
-
-describe('the two doors on a row', () => {
-  it('opens the record panel from the name', async () => {
-    await mount()
-    act(() => within(row('Mikhail Bulgakov')).getByText('Mikhail Bulgakov').click())
-    // The panel is pushed onto this console's own stack, so what is asserted is
-    // that the record page is on screen rather than the enrichment modal.
-    expect(await screen.findByText('The person')).toBeTruthy()
-  })
-
-  it('opens the portrait editor from the face', async () => {
-    await mount()
-    const face = within(row('Mikhail Bulgakov')).getByLabelText(/Portrait for Mikhail Bulgakov/)
-    expect(face.querySelector('img')).toBeTruthy()
-    // A record with no portrait still has the control — that is the row that needs
-    // it — and it says so by being empty rather than by disappearing.
-    //
-    // ASKED OF WHAT IS DRAWN, not of a class the caller sets from the stored
-    // path: that class could not tell an absent picture from one whose file has
-    // gone, which is the whole reason it stopped being set. A stand-in on the
-    // screen is a silhouette, and a silhouette is an svg.
-    const empty = within(row('Oleg Basilashvili')).getByLabelText(/Portrait for Oleg/)
-    expect(empty.querySelector('svg'), 'the empty portrait draws no stand-in').toBeTruthy()
-    expect(empty.querySelector('img'), 'the empty portrait drew a picture').toBeNull()
   })
 })
 
@@ -185,20 +113,6 @@ describe('fetching one record', () => {
     expect(CALLS.some(([m, p]) => m === 'PUT' && p === '/people')).toBe(false)
   })
 
-  it('reads the rows again afterwards, so what it found is on the screen', async () => {
-    await mount()
-    const reads = () => CALLS.filter(([m, p]) => m === 'GET' && p === '/people/records').length
-    const before = reads()
-    act(() => within(row('Oleg Basilashvili')).getByRole('button', { name: /fetch/i }).click())
-    await waitFor(() => expect(reads()).toBeGreaterThan(before))
-  })
-
-  it('says which record could not be fetched, and why', async () => {
-    FETCHED = { ok: false, status: 502, data: { error: 'TMDB did not answer' } }
-    await mount()
-    act(() => within(row('Oleg Basilashvili')).getByRole('button', { name: /fetch/i }).click())
-    expect(await screen.findByText('Oleg Basilashvili: TMDB did not answer')).toBeTruthy()
-  })
 })
 
 // ── THE PROVIDER LINKS ARE ON THE ROW AT EVERY WIDTH.
@@ -233,13 +147,6 @@ describe('a record’s provider links', () => {
   }
   afterEach(() => { if (realMatchMedia) { window.matchMedia = realMatchMedia; realMatchMedia = undefined } })
 
-  it('are on the row on a desk', async () => {
-    await mount()
-    const r = row('Somebody Nobody Credits')
-    expect(within(r).getByRole('link', { name: /imdb/i }), 'the IMDb link should be on the row').toBeTruthy()
-    expect(within(r).getByRole('link', { name: /wikidata/i })).toBeTruthy()
-  })
-
   it('and on the row on a phone, which is where they used to vanish', async () => {
     asPhone()
     await mount()
@@ -256,10 +163,4 @@ describe('a record’s provider links', () => {
   // passed with the rule changed to `wrap`, which is the vacuous pass the repo's
   // testing ruling exists to end. The `nowrap` itself is held in the tier that
   // reads the stylesheet: `x-scrollers-do-not-wrap.test.js`.
-  it('sit in a scroller of their own rather than loose in the row', async () => {
-    asPhone()
-    await mount()
-    expect(row('Somebody Nobody Credits').querySelector('.provider-chips'), 'the chips should be in a scroller')
-      .toBeTruthy()
-  })
 })

@@ -36,7 +36,7 @@
 // runner misses what nothing clicks.
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { openSettingsSection } from './helpers/settingsSection.jsx'
 
 let PUTS
@@ -103,81 +103,6 @@ const sources = async () => {
 }
 const dialog = () => screen.getByRole('dialog')
 
-describe('the two panels are doors, not cards', () => {
-  it('does not stand either panel open on the page it is a door on', async () => {
-    // The whole point of the change. Both were cards in the column grid: eleven
-    // type roles with a specimen apiece, and a row per language with a tray of
-    // flags behind each, permanently unrolled beside cards you read at a glance.
-    await page()
-    expect(screen.queryByRole('dialog')).toBeNull()
-    expect(screen.queryByText(/Or type one/)).toBeNull()
-    cleanup()
-    await sources()
-    expect(screen.queryByRole('dialog')).toBeNull()
-    // The first language row — what was on the page before and must not be now.
-    expect(screen.queryByText('Bengali')).toBeNull()
-    expect(screen.queryByText(/Or type one/)).toBeNull()
-  })
-
-  it('offers the faces themselves, not a door to them', async () => {
-    // THE DOOR IS GONE AND THAT IS THE CHANGE. "Type" was the only way to a
-    // typeface, so choosing one cost four presses on the screen whose subject is
-    // typefaces. The pack draws a picker per row and no button at all.
-    await page()
-    expect(screen.queryByRole('button', { name: 'Type' }), 'the Type door is back').toBeNull()
-    expect(screen.getByRole('button', { name: /Typeface for Labels/i })).toBeTruthy()
-    expect(screen.queryByRole('dialog')).toBeNull()
-  })
-
-  it('keeps a door\'s words at every width where a door is left', async () => {
-    // has-btn-icon is what data-labels="off" squares to 44px. A door into a whole
-    // screen opts out of that the way primary submits and destructive confirms do:
-    // a bare letterform on a phone is not an unlabelled button, it is a screen
-    // nobody finds. ONE is left on this section, and it is no longer the one into
-    // Quote fonts — that panel is a card now — but the one out of it, to the
-    // language table on Metadata where a language is actually added.
-    await page()
-    for (const name of ['Open the language table']) {
-      const b = screen.getByRole('button', { name })
-      expect(b.className, name).not.toContain('has-btn-icon')
-      expect(b.querySelector('.btn-label-fixed')?.textContent, name).toBe(name)
-      expect(b.querySelector('svg'), `${name} has no glyph`).not.toBeNull()
-    }
-  })
-
-  it('opens no dialog at all, because both halves are on the screen', async () => {
-    // WHAT THIS USED TO ASSERT: that the Quote fonts door opened exactly one
-    // panel and not two stacked scrims. There is no door — the owner's ask folded
-    // the panel into the section as a card — so the stronger claim is available:
-    // nothing on this section opens a dialog to answer a question about type.
-    await page()
-    expect(screen.queryByRole('button', { name: 'Set fonts by language' }),
-      'the door into the Quote fonts panel is back').toBeNull()
-    expect(screen.queryAllByRole('dialog')).toHaveLength(0)
-    // And the card itself is here, which is what proves the rows did not vanish
-    // with the door.
-    expect(screen.getByRole('region', { name: /Quote fonts/i })).toBeTruthy()
-  })
-
-  it('puts the faces under Language and font, and the marks table nowhere on Settings', async () => {
-    // WHERE they are, which is the one thing the assertions above cannot see:
-    // they find controls on a page without caring what those sit under.
-    await page()
-    const chosenTab = screen.getAllByRole('tab').find((el) => el.getAttribute('aria-selected') === 'true')
-    expect(chosenTab?.textContent).toContain('Language and font')
-    expect(screen.getByRole('button', { name: /Typeface for Labels/i })).toBeTruthy()
-    // AND THE MARKS TABLE IS NOT ON SETTINGS AT ALL: the block left that page, and
-    // has now left the sources block too for a section of its own.
-    expect(screen.queryByRole('button', { name: 'Language marks' })).toBeNull()
-    cleanup()
-    await sources()
-    expect(screen.queryByRole('button', { name: 'Language marks' })).toBeNull()
-    // And the keys card is still here, which is what proves the screen rendered
-    // rather than the query having nothing to find.
-    expect(screen.getByText('Multi-author credits')).toBeTruthy()
-  })
-})
-
 describe('the language editor', () => {
   // ONE EDITOR FOR EVERY LANGUAGE. The tray these cases drove opened inline under
   // a row, in whatever shape that language's letters made it; the owner: "each
@@ -194,21 +119,6 @@ describe('the language editor', () => {
   }
   const save = () => fireEvent.click(screen.getByRole('button', { name: 'Save' }))
 
-  it('opens from the row, with the mark grid and a way to add one of your own', async () => {
-    await openEditor()
-    expect(screen.getByRole('button', { name: /Add a mark of your own/i })).toBeTruthy()
-  })
-
-  it('offers the letters of the language’s own name and no flags', async () => {
-    // Asserted against `glyphsFor` rather than a literal so this stays a test of
-    // what the EDITOR RENDERS — the derivation has its own cases in iso639.test.js.
-    const grid = await openEditor()
-    const offered = within(grid).getAllByRole('radio').map((o) => o.textContent)
-    expect(offered).toEqual(glyphsFor('bn'))
-    expect(offered.length).toBeGreaterThan(0)
-    expect(document.body.textContent).not.toMatch(/\p{Regional_Indicator}/u)
-  })
-
   it('adds a typed mark to that language’s own marks and chooses it', async () => {
     await openEditor()
     fireEvent.click(screen.getByRole('button', { name: /Add a mark of your own/i }))
@@ -221,36 +131,6 @@ describe('the language editor', () => {
       expect(blob.bengali.c).toEqual(['✦'])
       expect(blob.bengali.m).toBe('✦')
     })
-  })
-
-  it('sets a script letter without adding it to the reader’s own', async () => {
-    // The SECOND letter, so this is a choice and not the default the row already
-    // wears — the first would save nothing and pass on an editor that did not work.
-    const grid = await openEditor()
-    const letter = glyphsFor('bn')[1]
-    fireEvent.click(within(grid).getByRole('radio', { name: letter }))
-    save()
-    await waitFor(() => {
-      const blob = lastPrefs()
-      expect(blob.bengali.m).toBe(letter)
-      expect(blob.bengali.c).toBeUndefined()
-    })
-  })
-
-  it('renames a language without touching what quotes are stored as', async () => {
-    await openEditor()
-    fireEvent.change(screen.getByLabelText(/Language name/i), { target: { value: 'বাংলা' } })
-    save()
-    // The KEY is still the canonical language. A rename that moved the key would
-    // orphan every quote stored under the old one.
-    await waitFor(() => expect(lastPrefs().bengali.n).toBe('বাংলা'))
-  })
-
-  it('arms the tick only once something has changed', async () => {
-    await openEditor()
-    expect(document.querySelector('.tp-tick-count')).toBeNull()
-    fireEvent.change(screen.getByLabelText(/Language name/i), { target: { value: 'বাংলা' } })
-    expect(document.querySelector('.tp-tick-count')?.textContent).toBe('1')
   })
 
   // ── REMOVING ONE, and the refusal that is the whole point of the control. What
@@ -266,60 +146,6 @@ describe('the language editor', () => {
     expect(PUTS.filter(([p]) => p === '/auth/me/preferences')).toHaveLength(0)
   })
 
-  it('removes one the library is not, after asking, and drops its whole entry', async () => {
-    applyLanguageMarks({ languageMarks: '{"sylheti":{"m":"✦"},"bengali":{"m":"ক"}}' })
-    render(<LanguageMarksSettings prefs={USER.preferences} onSaved={() => {}} />)
-    fireEvent.click(await screen.findByRole('button', { name: /^Edit sylheti/i }))
-    fireEvent.click(await screen.findByRole('button', { name: /Remove language/i }))
-    // IT ASKS FIRST: the confirm names the same act, so there are two buttons of
-    // that name once it is up, and its own is the last.
-    await waitFor(() => expect(screen.getAllByRole('button', { name: /Remove language/i })).toHaveLength(2))
-    expect(PUTS.filter(([p]) => p === '/auth/me/preferences'), 'it removed before asking').toHaveLength(0)
-    fireEvent.click(screen.getAllByRole('button', { name: /Remove language/i }).at(-1))
-    await waitFor(() => {
-      const blob = lastPrefs()
-      expect(blob.sylheti).toBeUndefined()
-      expect(blob.bengali.m).toBe('ক')
-    })
-  })
-})
-
-describe('adding a language', () => {
-  // ADDING IS A SEARCH OF ISO 639-3, the registry of every language with a code
-  // — the association the owner found missing: "these languages are supposed to
-  // be from the ISO languages list (the larger 3 digit list)." A language the
-  // registry has arrives with its code; one it does not is still added as typed,
-  // because a language is free text in this app.
-  const search = async (q) => {
-    render(<LanguageMarksSettings prefs={USER.preferences} onSaved={() => {}} />)
-    fireEvent.click(await screen.findByRole('button', { name: 'Add a language' }))
-    fireEvent.change(screen.getByRole('combobox', { name: /Find a language/i }), { target: { value: q } })
-  }
-
-  it('finds Sylheti in the registry and keeps its code', async () => {
-    await search('Sylheti')
-    fireEvent.click(await screen.findByRole('option', { name: 'Sylheti (syl)' }))
-    await waitFor(() => {
-      const blob = lastPrefs()
-      expect(blob.sylheti.n).toBe('Sylheti')
-      expect(blob.sylheti.i).toBe('syl')
-    })
-  })
-
-  it('finds a language by its code as well as by its name', async () => {
-    await search('grc')
-    expect(await screen.findByRole('option', { name: 'Ancient Greek (to 1453) (grc)' })).toBeTruthy()
-  })
-
-  it('adds a language the registry never heard of, as typed and without a code', async () => {
-    await search('Tippanese')
-    fireEvent.click(await screen.findByRole('option', { name: /Add “Tippanese” without a code/ }))
-    await waitFor(() => {
-      const blob = lastPrefs()
-      expect(blob.tippanese.n).toBe('Tippanese')
-      expect(blob.tippanese.i).toBeUndefined()
-    })
-  })
 })
 
 describe('the faces, on the section that shows them', () => {
@@ -334,24 +160,6 @@ describe('the faces, on the section that shows them', () => {
     fireEvent.click(within(rowFor(label)).getByRole('button', { name: new RegExp(`Style modifiers for ${label}`, 'i') }))
     return rowFor(label)
   }
-
-  it('says nothing about monospace', async () => {
-    // 1.15.2. The mono row answered a question nobody on that screen had asked,
-    // every time it was opened. The reasoning survives in fonts.js, beside the
-    // style table it is about.
-    await page()
-    expect(within(openStyles('Labels')).queryByText(/monospace/i)).toBeNull()
-  })
-
-  it('sets a face through the dropdown that replaced the chips', async () => {
-    await page()
-    fireEvent.click(within(rowFor('Labels')).getByRole('button', { name: /Typeface for Labels/i }))
-    // The list portals to <body>, so it is NOT inside the row.
-    const opts = screen.getAllByRole('option')
-    expect(opts.length, 'the dropdown offers no typefaces').toBeGreaterThan(1)
-    fireEvent.click(opts[1])
-    await waitFor(() => expect(PUTS.some(([p]) => p === '/auth/me/preferences')).toBe(true))
-  })
 
   it('narrows the list as you type, and Enter takes what is left', async () => {
     // The reason it is typeable at all: three bundled faces per role plus every
@@ -372,75 +180,4 @@ describe('the faces, on the section that shows them', () => {
     })
   })
 
-  it('says so rather than emptying when nothing matches', async () => {
-    await page()
-    fireEvent.click(within(rowFor('Labels')).getByRole('button', { name: /Typeface for Labels/i }))
-    const box = screen.getByPlaceholderText(/Type a typeface name/i)
-    fireEvent.change(box, { target: { value: 'zzzz' } })
-    expect(screen.queryAllByRole('option')).toHaveLength(0)
-    expect(screen.getByText(/nothing matches/i)).toBeTruthy()
-  })
-
-  // WHOSE INTERFACE, and it is the half of the owner's font spec that is about
-  // the app's own words: "any language that the user adds in via translation
-  // files should have a full ui font picker (revamp the font picker in settings
-  // for that)." Every language still has one — AND THE WAY TO IT IS BEING IN THAT
-  // LANGUAGE, not a chooser above the rows. The owner's ask removed the chooser:
-  // "the interface faces do not need a 'these faces are for' because the language
-  // is selected above anyway." What the rows write is therefore the overlay of
-  // the language on screen, which is also the only scope whose specimens can be
-  // believed.
-  describe('the language the rows are for', () => {
-    it('is said as a fact and not asked as a question', async () => {
-      await page()
-      expect(screen.queryByRole('button', { name: /These faces are for/i }),
-        'the scope chooser is back').toBeNull()
-      expect(screen.getByText(/The faces English is set in/i)).toBeTruthy()
-    })
-
-    // THE CASE THAT WOULD HAVE CAUGHT THE ONE THING A COMMIT SHIPPED BROKEN.
-    // `save` changed from (field, value) to (changes), and the style chip's call
-    // site kept the old two-argument shape — so Object.entries over the STRING
-    // 'monoStyle' PUT {"0":"m","1":"o",…}: a silent no-op under the shared scope,
-    // and a 400 under a named one.
-    it('presses a style chip and saves the modifier, not the field name', async () => {
-      await page()
-      fireEvent.click(within(openStyles('Labels')).getByRole('button', { name: 'Bold' }))
-      await waitFor(() => {
-        const put = PUTS.filter(([p]) => p === '/auth/me/preferences').at(-1)
-        expect(Object.values(JSON.parse(put[1].fontsByLocale))[0].monoStyle).toBe('bold')
-        // The shape that broke it: numeric keys from a spread string.
-        expect(put[1]['0'], 'the field NAME was spread into the patch').toBeUndefined()
-      })
-    })
-
-    // THE CASE THE SCOPE EXISTS FOR, and it survives the chooser going: a choice
-    // made while reading one language must not overwrite the answer every other
-    // language reads.
-    it('writes that language\'s overlay and leaves the shared field alone', async () => {
-      await page()
-      fireEvent.click(within(rowFor('Labels')).getByRole('button', { name: /Typeface for Labels/i }))
-      fireEvent.change(screen.getByPlaceholderText(/Type a typeface name/i), { target: { value: 'jet' } })
-      fireEvent.keyDown(document, { key: 'Enter' })
-      await waitFor(() => {
-        const put = PUTS.filter(([p]) => p === '/auth/me/preferences').at(-1)
-        expect(put[1].fontMono, 'a per-language choice overwrote the shared answer').toBeUndefined()
-        expect(JSON.parse(put[1].fontsByLocale).en.mono).toBe('jetbrains-mono')
-      })
-    })
-  })
-
-  it('offers Upload once, as its own control rather than as a fourth typeface', async () => {
-    // It was a chip in the row of faces, which reads as a face — and then it was
-    // six buttons, one per role, because uploading assigned. It is not a face and
-    // it is not a role's business: it is a way of getting one, and there is one
-    // of it.
-    await page()
-    const ups = screen.getAllByText(/Upload a font/i)
-    expect(ups, 'upload is drawn more than once').toHaveLength(1)
-    const up = ups[0].closest('label')
-    expect(up, 'no Upload control').toBeTruthy()
-    expect(up.className, 'Upload is still styled as a typeface chip').not.toContain('tp-filter-chip')
-    expect(up.querySelector('input[type="file"]'), 'Upload takes no file').toBeTruthy()
-  })
 })

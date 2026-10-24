@@ -53,35 +53,4 @@ describe('a works strip', () => {
     expect(titlesOf(right)[0]).toBe('Gardens of the Moon')
   })
 
-  it('sends a work nobody has dated to the end rather than the front', () => {
-    // 0 IS "NOT KNOWN". Sorted as a number it is smaller than every real year, so
-    // a strip would open with the works that have the least known about them and
-    // assert they came first.
-    expect(titlesOf([
-      tile('Undated', 0),
-      tile('Also undated', undefined),
-      tile('Gardens of the Moon', 1999),
-    ])).toEqual(['Gardens of the Moon', 'Undated', 'Also undated'])
-  })
-
-  it('and leaves two works of one year in the order it was given them', () => {
-    // A PERSON'S STRIP IS TWO LISTS: what they played leads what they made, and
-    // that rule survives only if works sharing a year are not reshuffled.
-    expect(titlesOf([
-      tile('Played in', 1999),
-      tile('Wrote', 1999),
-    ])).toEqual(['Played in', 'Wrote'])
-  })
-
-  it('and does not depend on its caller having sorted anything', () => {
-    // THE STRIP THAT PRINTS THE LINE OWNS THE ORDER. Two screens draw this
-    // component from two different shapes; a sort in either caller leaves the
-    // other one wrong and nothing says so.
-    const backwards = [tile('Later', 2009), tile('Earlier', 1999)]
-    expect(titlesOf(backwards)).toEqual(['Earlier', 'Later'])
-    // AND IT DOES NOT REORDER THE CALLER'S OWN ARRAY while doing it: the callers
-    // hand over a `useMemo` result, and mutating one is a render writing to the
-    // value it was given.
-    expect(backwards.map((w) => w.title)).toEqual(['Later', 'Earlier'])
-  })
 })

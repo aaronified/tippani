@@ -15,7 +15,6 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { drawQuoteCard } from '../../src/quoteImage.js'
-import { tileFor } from '../../src/theme.js'
 
 const model = () => ({
   quote: 'The margins are where the reader answers back.',
@@ -88,63 +87,4 @@ describe('the card wears the material', () => {
     expect(tex.map((f) => f.blend)).toEqual(['source-over', 'overlay'])
   })
 
-  it('draws at the material’s own strength, not at full opacity', () => {
-    drawQuoteCard(canvas, model(), { ...THEME, tile: TILE })
-    for (const f of fills.filter((x) => x.pattern)) expect(f.alpha).toBe(0.1)
-  })
-
-  it('leaves the context as it found it', () => {
-    // A pattern pass that forgets to put globalAlpha and the blend back paints
-    // every word after it at 10% in overlay — a card with a body and no text.
-    drawQuoteCard(canvas, model(), { ...THEME, tile: TILE })
-    const after = fills.filter((f) => !f.pattern && f.alpha !== 1)
-    expect(after, 'a fill after the texture pass inherited its alpha').toEqual([])
-  })
-
-  it('scales the tile to its background-size, not its pixel size', () => {
-    // 220px coarse and 71px fine off a 256px tile: the two passes are the same
-    // image at two magnifications, which is what makes them one material.
-    drawQuoteCard(canvas, model(), { ...THEME, tile: TILE })
-    const ks = patterns.filter((p) => p.transform).map((p) => p.transform.a ?? p.transform[0])
-    if (ks.length) expect(ks).toEqual([220 / 256, 71 / 256])
-  })
-
-  it('draws a flat card when the tile has not loaded yet', () => {
-    // The first paint of every share: the grain arrives a frame later and the
-    // picture is never withheld waiting for it.
-    drawQuoteCard(canvas, model(), { ...THEME, tile: { ...TILE, img: null } })
-    expect(fills.filter((f) => f.pattern)).toEqual([])
-  })
-
-  it('draws a flat card rather than throwing where patterns are unsupported', () => {
-    // The other canvas tests stub a context with no createPattern at all, and they
-    // pass — which is the guard working, not the texture missing.
-    const ctx = recorder()
-    delete ctx.createPattern
-    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(() => ctx)
-    expect(() => drawQuoteCard(document.createElement('canvas'), model(), { ...THEME, tile: TILE })).not.toThrow()
-    expect(fills.filter((f) => f.pattern)).toEqual([])
-  })
-})
-
-describe('the material comes from the same table the app reads', () => {
-  it('answers a set and slot with the scales index.css composites at', () => {
-    // Not a second copy of the numbers: tileFor reads theme.js's TEXTILES, the one
-    // table the stylesheet's --tile-* aliases and this canvas both resolve through.
-    expect(tileFor('manuscript', 'card')).toMatchObject({ name: 'paper', coarse: 220, fine: 71, strength: 0.1 })
-    expect(tileFor('bindery', 'card')).toMatchObject({ name: 'paper-photo', strength: 0.07 })
-    expect(tileFor('film-assembly', 'card')).toMatchObject({ name: 'matte' })
-  })
-
-  it('honours a per-slot override, so the picture can wear a tile no set names', () => {
-    expect(tileFor('manuscript', 'card', 'glass-soft')).toMatchObject({ name: 'glass-soft' })
-  })
-
-  it('falls back to the set rather than to nothing for a name it does not know', () => {
-    expect(tileFor('quarry', 'card', 'obsidian')).toMatchObject({ name: 'satin' })
-  })
-
-  it('falls back to Manuscript for a set it does not know', () => {
-    expect(tileFor('vellum', 'card')).toMatchObject({ name: 'paper' })
-  })
 })

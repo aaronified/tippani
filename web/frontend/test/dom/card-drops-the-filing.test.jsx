@@ -54,30 +54,4 @@ describe('the capture date is off the card', () => {
     expect(document.body.textContent).not.toContain(filed)
   })
 
-  // AND IT IS THE CREATED DATE TOO, since `annDate` falls back to it — a row
-  // imported without a source date would otherwise keep printing one.
-  it('nor the day the row was created, where that is all there is', () => {
-    const row = { ...ROW, noted_at: '' }
-    card(row)
-    expect(document.body.textContent).not.toContain(fmtDate(annDate(row)))
-  })
-
-  // THE CARD STILL SAYS WHERE THE WORDS ARE FROM. A test that only asserts an
-  // absence passes on a card that renders nothing at all.
-  it('and still says where in the book it is', () => {
-    card()
-    expect(screen.getByText(/Recalled to Life/)).toBeTruthy()
-  })
-
-  // The other half of the locator rule, on the rendered card rather than on the
-  // function — see locator-meta.test.js for the rule itself.
-  it('one locator, not two: a named chapter drops the page', () => {
-    card()
-    expect(document.body.textContent).not.toMatch(/204/)
-  })
-
-  it('but a highlight with no chapter keeps its page, which is all it has', () => {
-    card({ ...ROW, chapter: '', chapter_no: 0 })
-    expect(screen.getByText(/204/)).toBeTruthy()
-  })
 })

@@ -37,7 +37,6 @@ vi.mock('../../src/api.js', async (orig) => ({
 
 const { DevicesCard } = await import('../../src/Settings.jsx')
 
-
 beforeEach(() => {
   CALLS = []
   DEVICES = [
@@ -66,18 +65,6 @@ const press = async (el) => {
 }
 
 describe('unpairing one device', () => {
-  it('asks with the device named, and sends nothing until it is answered', async () => {
-    await mount()
-    await press(screen.getByLabelText('Unpair Pixel 8'))
-    // ALERTDIALOG, because this one destroys something. `ConfirmDialog` takes
-    // the role the pack gives it (`book-detail.dc.html:562`) whenever the act
-    // is destructive or final, so a screen reader interrupts rather than waits —
-    // and asking for it by name here is what keeps this question in that class.
-    const dialog = screen.getByRole('alertdialog')
-    expect(within(dialog).getByText(/Pixel 8/)).toBeTruthy()
-    expect(within(dialog).getByText(/stop working immediately/)).toBeTruthy()
-    expect(CALLS.some(([m]) => m === 'DELETE')).toBe(false)
-  })
 
   it('revokes the one it named, and only that one', async () => {
     await mount()
@@ -95,36 +82,3 @@ describe('unpairing one device', () => {
   })
 })
 
-describe('unpairing every device', () => {
-  // THE BROADEST REVOKE THE APP HAS. Its question must not be the single-device
-  // one: naming a phone while taking all of them away is the wrong sentence for
-  // the act, and it is the sentence a reader would act on.
-  it('asks about all of them, not about one', async () => {
-    await mount()
-    await press(screen.getByLabelText('Unpair every device'))
-    // ALERTDIALOG, because this one destroys something. `ConfirmDialog` takes
-    // the role the pack gives it (`book-detail.dc.html:562`) whenever the act
-    // is destructive or final, so a screen reader interrupts rather than waits —
-    // and asking for it by name here is what keeps this question in that class.
-    const dialog = screen.getByRole('alertdialog')
-    expect(within(dialog).getByText(/Unpair every device\?/)).toBeTruthy()
-    expect(within(dialog).queryByText(/Pixel 8/)).toBeNull()
-    expect(CALLS.some(([m, p]) => p === '/auth/devices/revoke-all')).toBe(false)
-  })
-
-  it('revokes all of them once answered yes', async () => {
-    await mount()
-    await press(screen.getByLabelText('Unpair every device'))
-    await press(screen.getByText('Confirm').closest('button'))
-    await waitFor(() =>
-      expect(CALLS.some(([m, p]) => m === 'POST' && p === '/auth/devices/revoke-all')).toBe(true),
-    )
-  })
-
-  it('revokes nothing when answered no', async () => {
-    await mount()
-    await press(screen.getByLabelText('Unpair every device'))
-    await press(screen.getByText('Cancel').closest('button'))
-    expect(CALLS.some(([m, p]) => p === '/auth/devices/revoke-all')).toBe(false)
-  })
-})

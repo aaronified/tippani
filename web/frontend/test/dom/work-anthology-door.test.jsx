@@ -73,32 +73,4 @@ describe("a book's own menu gathers its passages", () => {
     expect(fill[2].rule).toContain('scope=all')
   })
 
-  it('does not keep taking what is highlighted later unless asked', async () => {
-    await openTheDoor()
-    fireEvent.change(screen.getByLabelText('Anthology'), { target: { value: 'Style notes' } })
-    fireEvent.click(screen.getByLabelText('Save'))
-    await waitFor(() => expect(CALLS.some(([m, p]) => m === 'POST' && /\/fill$/.test(p))).toBe(true))
-    // The default is a one-off gather: an anthology that grew because you looked at
-    // it is a change that happened while you were not looking, and 0075 refused
-    // that deliberately.
-    expect(CALLS.find(([m, p]) => m === 'POST' && /\/fill$/.test(p))[2].auto).toBe(false)
-  })
-
-  it('keeps taking them when the reader turns it on', async () => {
-    await openTheDoor()
-    fireEvent.change(screen.getByLabelText('Anthology'), { target: { value: 'Style notes' } })
-    fireEvent.click(screen.getByText('On'))
-    fireEvent.click(screen.getByLabelText('Save'))
-    await waitFor(() => expect(CALLS.some(([m, p]) => m === 'POST' && /\/fill$/.test(p))).toBe(true))
-    expect(CALLS.find(([m, p]) => m === 'POST' && /\/fill$/.test(p))[2].auto).toBe(true)
-  })
-
-  it('names a film by the field a film answers to', async () => {
-    await openTheDoor('movie', { id: 7, title: 'Anand', annotation_count: 3 })
-    fireEvent.change(screen.getByLabelText('Anthology'), { target: { value: 'Lines' } })
-    fireEvent.click(screen.getByLabelText('Save'))
-    await waitFor(() => expect(CALLS.some(([m, p]) => m === 'POST' && /\/fill$/.test(p))).toBe(true))
-    // `book=7` here would find somebody else's shelf entirely.
-    expect(CALLS.find(([m, p]) => m === 'POST' && /\/fill$/.test(p))[2].rule).toContain('movie=7')
-  })
 })

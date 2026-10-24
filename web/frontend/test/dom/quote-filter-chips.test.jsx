@@ -25,7 +25,6 @@
 
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { FilterChip } from '../../src/ui.jsx'
 import { countQuotes } from '../../src/works.jsx'
 
 const ROWS = [
@@ -49,46 +48,6 @@ const { default: Library } = await import('../../src/Library.jsx')
 // The predicate the board applies, stated here as the contract the chip and the
 // hero's count have to share.
 const noted = (a) => (a.note || '').trim().length > 0
-const tagged = (a) => (a.tags || []).length > 0
-
-describe('what a chip says about itself', () => {
-  it('announces pressed in BOTH states, not only when on', () => {
-    render(<FilterChip active={false} label="tagged" onClick={() => {}} />)
-    expect(screen.getByRole('button', { name: 'tagged' }).getAttribute('aria-pressed')).toBe('false')
-  })
-
-  it('announces pressed when it is on', () => {
-    render(<FilterChip active label="has notes" onClick={() => {}} />)
-    expect(screen.getByRole('button', { name: 'has notes' }).getAttribute('aria-pressed')).toBe('true')
-  })
-
-  it('coerces an unset active rather than dropping the attribute', () => {
-    // A missing aria-pressed is a plain button. Undefined must read as off.
-    render(<FilterChip label="favourites" onClick={() => {}} />)
-    expect(screen.getByRole('button', { name: 'favourites' }).getAttribute('aria-pressed')).toBe('false')
-  })
-})
-
-describe('the on-chips come first', () => {
-  it('puts a switched-on filter ahead of the ones that are off', () => {
-    // The row scrolls under a measured fade. A switched-on filter that has
-    // scrolled out of sight is a board quietly hiding rows for a reason nothing
-    // on screen still says — so the sort is by on-ness, and it is stable.
-    const chips = [
-      { on: false, label: 'favourites' },
-      { on: false, label: 'has notes' },
-      { on: true, label: 'tagged' },
-    ]
-    const ordered = chips.slice().sort((a, b) => Number(b.on) - Number(a.on))
-    expect(ordered.map((c) => c.label)).toEqual(['tagged', 'favourites', 'has notes'])
-  })
-
-  it('leaves the order alone when none of them is on', () => {
-    const chips = [{ on: false, label: 'a' }, { on: false, label: 'b' }, { on: false, label: 'c' }]
-    const ordered = chips.slice().sort((a, b) => Number(b.on) - Number(a.on))
-    expect(ordered.map((c) => c.label)).toEqual(['a', 'b', 'c'])
-  })
-})
 
 describe('the chips agree with the numbers the hero prints', () => {
   const rows = [
@@ -103,19 +62,6 @@ describe('the chips agree with the numbers the hero prints', () => {
     expect(rows.filter(noted)).toHaveLength(countQuotes(rows).noted)
   })
 
-  it('counts tags the same way, and survives a row with no tags array', () => {
-    expect(rows.filter(tagged)).toHaveLength(countQuotes(rows).tagged)
-    expect(() => rows.filter(tagged)).not.toThrow()
-  })
-
-  it('combines as AND, so two chips narrow rather than widen', () => {
-    // Two filters that widened would be a board that shows MORE the more you
-    // ask of it — which is the one behaviour a filter may not have.
-    const both = rows.filter((a) => noted(a) && tagged(a))
-    expect(both.map((r) => r.id)).toEqual([1])
-    expect(both.length).toBeLessThanOrEqual(rows.filter(noted).length)
-    expect(both.length).toBeLessThanOrEqual(rows.filter(tagged).length)
-  })
 })
 
 

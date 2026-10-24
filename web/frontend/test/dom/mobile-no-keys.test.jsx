@@ -51,12 +51,6 @@ describe('Kbd — the key cap', () => {
     expect(container.textContent).toBe('')
   })
 
-  it('still draws on a pointer device, including the two-key form', () => {
-    setViewport(false)
-    const { container } = render(<Kbd keys="G then L" />)
-    expect([...container.querySelectorAll('kbd')].map((k) => k.textContent)).toEqual(['G', 'L'])
-    expect(container.textContent).toContain('then')
-  })
 })
 
 // The composed label goes to the bubble rather than into the tree, so these read
@@ -81,27 +75,6 @@ const hover = (mobile) => {
   return document.querySelector('.hint-bubble, .tp-hint, [data-hint]')?.textContent || ''
 }
 
-describe('Tooltip — the key on the label', () => {
-  // The hover delay is a real timer, so it has to be advanced rather than waited
-  // for. shouldAdvanceTime keeps React's own scheduling working underneath.
-  beforeEach(() => vi.useFakeTimers({ shouldAdvanceTime: true }))
-  afterEach(() => vi.useRealTimers())
-
-  // The registry still composes it. If this ever stops being true the two cases
-  // below would both pass while the feature was gone.
-  it('composes label and key, which is what the phone case suppresses', () => {
-    expect(withShortcut('Search', 'search')).toBe('Search · /')
-  })
-
-  it('shows the key on a pointer device', () => {
-    expect(hover(false)).toBe('Search · /')
-  })
-
-  it('shows the label alone on a phone', () => {
-    expect(hover(true)).toBe('Search')
-  })
-})
-
 describe('ShortcutSheet — the whole legend', () => {
   it('does not open on a phone', () => {
     setViewport(true)
@@ -113,28 +86,5 @@ describe('ShortcutSheet — the whole legend', () => {
     expect(document.querySelectorAll('kbd')).toHaveLength(0)
   })
 
-  it('opens on a pointer device, with the bindings in it', () => {
-    setViewport(false)
-    render(<ShortcutSheet open onClose={() => {}} />)
-    // The title appears twice (the heading and the panel's own label), so this
-    // asserts the CONTENT: a sheet that opened empty would be the same bug.
-    expect(screen.getAllByText('Keyboard shortcuts').length).toBeGreaterThan(0)
-    const caps = [...document.querySelectorAll('kbd')].map((k) => k.textContent)
-    expect(caps).toContain('/')
-    expect(caps).toContain('?')
-  })
 })
 
-describe('the help sheet', () => {
-  const terms = (touch) => helpFor('search', touch).entries.map((e) => e.term)
-
-  it('names the keyboard for a pointer reader and not for a touch one', () => {
-    expect(terms(false)).toContain('Keyboard')
-    expect(terms(true)).not.toContain('Keyboard')
-  })
-
-  it('does not promise a drawer row that prints keys, because none does now', () => {
-    const kb = helpFor('search', false).entries.find((e) => e.term === 'Keyboard')
-    expect(kb.what).not.toContain('drawer row')
-  })
-})

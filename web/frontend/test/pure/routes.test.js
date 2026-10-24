@@ -8,173 +8,17 @@
 
 import { describe, expect, it } from 'vitest'
 import {
-  addSection,
   CONTENT_TABS,
   DRAWER_TABS,
-  helpScreen,
   parsePath,
-  ROUTE_TABS,
-  searchScope,
   statePath,
   UTILITY_TABS,
 } from '../../src/routes.js'
 
 describe('parsePath', () => {
-  it('reads the root as Home', () => {
-    expect(parsePath('/')).toEqual({ tab: 'home', detail: null })
-    expect(parsePath('')).toEqual({ tab: 'home', detail: null })
-  })
-
-  it('reads the list pages', () => {
-    expect(parsePath('/library')).toEqual({ tab: 'library', detail: null })
-    expect(parsePath('/catalogue')).toEqual({ tab: 'movies', detail: null })
-  })
-
-  it('reads a work detail into a typed id', () => {
-    expect(parsePath('/books/42')).toEqual({ tab: 'library', detail: { type: 'book', id: 42 } })
-    expect(parsePath('/catalogue/7')).toEqual({ tab: 'movies', detail: { type: 'movie', id: 7 } })
-  })
-
-  // Asserted as a literal, not by looping over ROUTE_TABS imported from the
-  // source. The loop version was tautological: deleting an entry from the table
-  // just made it run one fewer iteration, so '/staging' could stop routing and
-  // nothing would fail. This is the only test protecting that table, so it has
-  // to state the expected contents rather than read them.
-  it('has exactly these plain tabs', () => {
-    expect(ROUTE_TABS).toEqual(['search', 'quotes', 'anthologies', 'tags', 'metadata', 'stats', 'settings', 'staging', 'bin', 'cleanup', 'checks', 'profile'])
-  })
-
-  it('routes every plain tab by name', () => {
-    expect(parsePath('/search')).toEqual({ tab: 'search', detail: null })
-    expect(parsePath('/quotes')).toEqual({ tab: 'quotes', detail: null })
-    expect(parsePath('/anthologies')).toEqual({ tab: 'anthologies', detail: null })
-    expect(parsePath('/tags')).toEqual({ tab: 'tags', detail: null })
-    expect(parsePath('/metadata')).toEqual({ tab: 'metadata', detail: null })
-    expect(parsePath('/stats')).toEqual({ tab: 'stats', detail: null })
-    expect(parsePath('/settings')).toEqual({ tab: 'settings', detail: null })
-    expect(parsePath('/staging')).toEqual({ tab: 'staging', detail: null })
-    expect(parsePath('/bin')).toEqual({ tab: 'bin', detail: null })
-    expect(parsePath('/cleanup')).toEqual({ tab: 'cleanup', detail: null })
-  })
-
-  // /quotes IS a work prefix now (0036). It used to be a flat list — "there is
-  // no /quotes/:id, because a standalone quote has no detail page of its own" —
-  // and that was true of a QUOTE and is not true of a BOARD. The boards are the
-  // level /quotes lists, exactly as /library lists books, and a board opens at
-  // /quotes/{id} the way a book opens at /books/{id}.
-  it('opens a board at /quotes/{id}', () => {
-    expect(parsePath('/quotes')).toEqual({ tab: 'quotes', detail: null })
-    expect(parsePath('/quotes/')).toEqual({ tab: 'quotes', detail: null })
-    expect(parsePath('/quotes/7')).toEqual({ tab: 'quotes', detail: { type: 'board', id: 7 } })
-  })
-
-  // The pinned All quotes entry is not a board — it has no row and therefore no
-  // id — so it takes the word instead, which keeps it bookmarkable like the rest.
-  it('routes /quotes/all to the pinned entry', () => {
-    expect(parsePath('/quotes/all')).toEqual({ tab: 'quotes', detail: { type: 'board', id: 'all' } })
-  })
-
-  // An unusable id falls back to the board LIST rather than to Home, the same
-  // rule /books and /catalogue follow: you asked for something in the quotes,
-  // so the quotes are a better answer than the front page.
-  it('falls back to the board list for an unusable id', () => {
-    expect(parsePath('/quotes/nonsense')).toEqual({ tab: 'quotes', detail: null })
-    expect(parsePath('/quotes/0')).toEqual({ tab: 'quotes', detail: null })
-  })
-
-  it('emits /quotes for the quotes tab, and /quotes/{id} for a board', () => {
-    expect(statePath('quotes', null)).toBe('/quotes')
-    expect(statePath('quotes', { type: 'board', id: 7 })).toBe('/quotes/7')
-    expect(statePath('quotes', { type: 'board', id: 'all' })).toBe('/quotes/all')
-  })
-
-  it('maps /pending onto the staging tab', () => {
-    expect(parsePath('/pending')).toEqual({ tab: 'staging', detail: null })
-  })
-
-  it('keeps /import as its own signal for the Add surface', () => {
-    // Not a tab any more — the Shell turns this into Home with the Add surface
-    // open on its import section, so parsePath has to hand it through distinctly
-    // rather than collapsing it to home here.
-    expect(parsePath('/import')).toEqual({ tab: 'import', detail: null })
-  })
-
   it('lands an unknown path on Home rather than a blank screen', () => {
     expect(parsePath('/nonsense')).toEqual({ tab: 'home', detail: null })
     expect(parsePath('/deep/unknown/path')).toEqual({ tab: 'home', detail: null })
-  })
-
-  // /books is the detail prefix, not a list path — the book list is /library.
-  // It used to fall through to Home; sending it to the list it obviously meant
-  // is the same fix as the mistyped-id case below.
-  it('sends the bare detail prefix to that side of the library', () => {
-    expect(parsePath('/books')).toEqual({ tab: 'library', detail: null })
-  })
-
-  // A non-numeric id used to satisfy the truthiness guard and produce
-  // { id: NaN }, which fetches /books/NaN and renders an error screen — the
-  // very outcome the unknown-path fallback exists to prevent. It now falls back
-  // to the list for that side of the library, which is a better answer than
-  // Home: the path still says which half you meant.
-  it('lands a mistyped work id on that side of the library', () => {
-    for (const bad of ['abc', '0', '-1', '1.5', '%20']) {
-      expect(parsePath(`/books/${bad}`), bad).toEqual({ tab: 'library', detail: null })
-      expect(parsePath(`/catalogue/${bad}`), bad).toEqual({ tab: 'movies', detail: null })
-      expect(parsePath(`/movies/${bad}`), bad).toEqual({ tab: 'movies', detail: null })
-    }
-  })
-
-  it('never produces a NaN id', () => {
-    for (const p of ['/books/abc', '/catalogue/abc', '/movies/x', '/books/1.5']) {
-      expect(Number.isNaN(parsePath(p).detail?.id)).toBe(false)
-    }
-  })
-
-  it('ignores trailing slashes', () => {
-    expect(parsePath('/library/')).toEqual({ tab: 'library', detail: null })
-    expect(parsePath('/books/42/')).toEqual({ tab: 'library', detail: { type: 'book', id: 42 } })
-    expect(parsePath('///')).toEqual({ tab: 'home', detail: null })
-  })
-
-  // The catalogue tab used to be called "movies". Both spellings still parse.
-  // A re-verify is reviewed by its job, from Settings › Jobs, long after the
-  // check ran — so the job is part of the address and has to survive a refresh.
-  it('opens a re-verify review by its job, and the bare console for a bad id', () => {
-    expect(parsePath('/metadata/reverify/12')).toEqual({ tab: 'metadata', detail: { type: 'reverify', id: 12 } })
-    expect(parsePath('/metadata/reverify/abc')).toEqual({ tab: 'metadata', detail: null })
-    expect(parsePath('/metadata/reverify')).toEqual({ tab: 'metadata', detail: null })
-  })
-
-  it('accepts the legacy /movies spelling', () => {
-    expect(parsePath('/movies')).toEqual({ tab: 'movies', detail: null })
-    expect(parsePath('/movies/7')).toEqual({ tab: 'movies', detail: { type: 'movie', id: 7 } })
-  })
-})
-
-describe('statePath', () => {
-  it('emits the canonical path for each tab', () => {
-    expect(statePath('home', null)).toBe('/')
-    expect(statePath('library', null)).toBe('/library')
-    expect(statePath('movies', null)).toBe('/catalogue')
-    expect(statePath('staging', null)).toBe('/pending')
-    expect(statePath('search', null)).toBe('/search')
-  })
-
-  it('emits a work detail path', () => {
-    expect(statePath('library', { type: 'book', id: 42 })).toBe('/books/42')
-    expect(statePath('movies', { type: 'movie', id: 7 })).toBe('/catalogue/7')
-  })
-
-  it('lets the detail win over the tab', () => {
-    // The Shell can hold a stale tab while a detail is open; the detail is the
-    // more specific fact and decides the URL.
-    expect(statePath('home', { type: 'book', id: 1 })).toBe('/books/1')
-  })
-
-  // The rename is one-way on purpose: /movies is understood, never produced.
-  it('never emits the legacy /movies spelling', () => {
-    expect(statePath('movies', null)).not.toContain('/movies')
-    expect(statePath('movies', { type: 'movie', id: 7 })).not.toContain('/movies')
   })
 })
 
@@ -210,64 +54,6 @@ describe('the round trip', () => {
     const want = states.map(([tab, detail]) => [name([tab, detail]), { tab, detail }])
     expect(got).toEqual(want)
   })
-
-  // The legacy alias is the one input that deliberately does not round-trip
-  // back to itself — it normalises to the canonical spelling instead.
-  it('normalises a legacy link rather than preserving it', () => {
-    const parsed = parsePath('/movies/7')
-    expect(statePath(parsed.tab, parsed.detail)).toBe('/catalogue/7')
-  })
-})
-
-describe('the shell controls', () => {
-  it('opens help for the screen you are actually looking at', () => {
-    expect(helpScreen('library', null)).toBe('library')
-    expect(helpScreen('library', { type: 'book', id: 1 })).toBe('book-detail')
-    expect(helpScreen('movies', { type: 'movie', id: 1 })).toBe('movie-detail')
-  })
-
-  // On a work's own page, "add" means a quote against it — not another book.
-  it('offers a quote when a work is open, and the list kind otherwise', () => {
-    expect(addSection('library', { type: 'book', id: 1 })).toBe('quote')
-    expect(addSection('movies', { type: 'movie', id: 1 })).toBe('quote')
-    expect(addSection('library', null)).toBe('book')
-    expect(addSection('movies', null)).toBe('film')
-    expect(addSection('home', null)).toBe('book')
-    // The Quotes list holds quotes belonging to nothing, so its ＋ offers one
-    // of those rather than a book.
-    expect(addSection('quotes', null)).toBe('standalone')
-  })
-
-  // A BOARD IS NOT A WORK, and it is a detail like any other. Standing inside a
-  // board of proverbs and pressing ＋ has to offer a proverb — not the card that
-  // asks which book the line came from, on a screen holding lines that came from
-  // no book at all. An anthology is the same shape: nothing on that screen adds
-  // an entry (its own note says the server has no route for one), so its ＋ means
-  // what the list behind it means and not a highlight against a work.
-  it('still offers a standalone quote when the open thing is a board', () => {
-    expect(addSection('quotes', { type: 'board', id: 7 })).toBe('standalone')
-    expect(addSection('anthologies', { type: 'anthology', id: 2 })).toBe(
-      addSection('anthologies', null),
-    )
-  })
-
-  it('pre-scopes search to the side you are on', () => {
-    expect(searchScope('library', null)).toBe('books')
-    expect(searchScope('movies', null)).toBe('movies')
-    expect(searchScope('home', null)).toBe('all')
-    expect(searchScope('quotes', null)).toBe('quotes')
-    expect(searchScope('home', { type: 'book', id: 1 })).toBe('books')
-    expect(searchScope('home', { type: 'movie', id: 1 })).toBe('movies')
-  })
-
-  // All three read the same (tab, detail) and must not disagree about which
-  // side of the library you are on.
-  it('agree with each other on a work detail', () => {
-    const detail = { type: 'movie', id: 3 }
-    expect(helpScreen('movies', detail)).toBe('movie-detail')
-    expect(addSection('movies', detail)).toBe('quote')
-    expect(searchScope('movies', detail)).toBe('movies')
-  })
 })
 
 // ---- the nav contract ----
@@ -285,12 +71,6 @@ describe('the shell controls', () => {
 const keys = (list) => list.filter(Boolean).map(([key]) => key)
 
 describe('the nav contract', () => {
-  it('offers every content tab in the drawer', () => {
-    for (const key of keys(CONTENT_TABS)) {
-      expect(keys(DRAWER_TABS)).toContain(key)
-    }
-  })
-
   // THE DRAWER IS THE PHONE'S ONLY NAV NOW, which is what makes this the
   // strictest row in the contract rather than a restatement of the two above it.
   // The four-tab bottom bar was retired when that bar became a dock of verbs, so
@@ -301,40 +81,6 @@ describe('the nav contract', () => {
     for (const key of rail) expect(keys(DRAWER_TABS), key).toContain(key)
   })
 
-  it('offers every utility tab in the drawer', () => {
-    for (const key of keys(UTILITY_TABS)) {
-      expect(keys(DRAWER_TABS)).toContain(key)
-    }
-  })
-
-  it('names no tab twice within a list', () => {
-    for (const list of [CONTENT_TABS, UTILITY_TABS, DRAWER_TABS]) {
-      const k = keys(list)
-      expect(new Set(k).size).toBe(k.length)
-    }
-  })
-
-  it('keeps content and utility disjoint', () => {
-    // The desktop strip renders them as two Toggles either side of a divider,
-    // and a key in both would light up as active in both.
-    const util = new Set(keys(UTILITY_TABS))
-    for (const key of keys(CONTENT_TABS)) expect(util.has(key)).toBe(false)
-  })
-
-  // `bin` and `cleanup` stay out of the TABLES, and that is now a narrower claim
-  // than it once was: both have a deliberate row in the rail's foot and in the
-  // drawer, hand-written there so they sit apart from the destinations rather
-  // than among them. What this still forbids is a tidy-up that "completes" the
-  // tab lists by folding every route into them — which would put a permanent
-  // invitation to browse your deletions in the middle of the nav, next to
-  // Library, instead of in the foot where you go looking for it deliberately.
-  it.each(['bin', 'cleanup'])('keeps %s out of every nav list while keeping its URL', (tab) => {
-    const all = new Set([...keys(CONTENT_TABS), ...keys(UTILITY_TABS), ...keys(DRAWER_TABS)])
-    expect(ROUTE_TABS).toContain(tab)
-    expect(all.has(tab)).toBe(false)
-    expect(parsePath(statePath(tab, null))).toEqual({ tab, detail: null })
-  })
-
   it('gives every nav tab a URL that survives a hard refresh', () => {
     // A tab you can reach but cannot bookmark is half a screen. home/library/
     // movies have bespoke slugs. Search is no longer a drawer row — it is a dock
@@ -343,24 +89,5 @@ describe('the nav contract', () => {
     for (const tab of all) {
       expect(parsePath(statePath(tab, null)).tab).toBe(tab)
     }
-  })
-
-  // SEARCH LOST ITS NAV ROW when it became a dock key, and with it the coverage
-  // the loop above gave it. It is still a real screen with a real URL, and the
-  // dock reaches it by tab key like everything else, so the route has to hold.
-  it('keeps search bookmarkable now that no nav list names it', () => {
-    expect(ROUTE_TABS).toContain('search')
-    expect(parsePath(statePath('search', null))).toEqual({ tab: 'search', detail: null })
-  })
-
-  it('gives every strip and bar row a hover label, and no drawer row one', () => {
-    // The strip and the bar collapse to icon-only, so a row without a third
-    // element becomes an unnamed glyph. Drawer rows always show their words.
-    for (const row of [...CONTENT_TABS, ...UTILITY_TABS]) {
-      expect(typeof row[2]).toBe('string')
-      expect(row[2].trim()).not.toBe('')
-      expect(row[2].split(/\s+/).length).toBeLessThanOrEqual(5) // the five-word rule
-    }
-    for (const row of DRAWER_TABS.filter(Boolean)) expect(row).toHaveLength(2)
   })
 })

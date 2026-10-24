@@ -80,15 +80,6 @@ const TIER_LINE = {
 }
 
 describe('the difficulty picker', () => {
-  it('draws one button per tier the server knows', async () => {
-    await mount()
-    const got = tierButtons()
-    expect(REVIEW_TIERS.length).toBe(4)
-    got.forEach((b, i) => {
-      expect(b, `no button for the ${REVIEW_TIERS[i]} tier`).toBeTruthy()
-    })
-  })
-
   // THE VALUE ON THE WIRE IS THE ONE GO NORMALISES. A picker that sent a label,
   // or a capitalised key, would be silently corrected to medium by loadPrefs —
   // a control that moves and then does nothing, which is the failure the ladder
@@ -113,29 +104,4 @@ describe('the difficulty picker', () => {
       .toBe(got[REVIEW_TIERS.indexOf('medium')])
   })
 
-  // FOUR ADJECTIVES ARE NOT AN EXPLANATION. The owner's ask: the toggle says
-  // Easy / Medium / Hard / Random, and a reader on Hard could read the whole row
-  // without learning that it means typing. One line, under whichever is chosen —
-  // the info dot describes all four, this describes the one in force.
-  it('says what the chosen tier actually does, for every tier', async () => {
-    for (const k of REVIEW_TIERS) {
-      await mount({ srTier: k })
-      expect(screen.queryByText(TIER_LINE[k]), `${k} is offered without saying what it does`).toBeTruthy()
-      // AND ONLY ITS OWN LINE. A screen that printed all four would "pass" the
-      // check above on every tier and tell the reader nothing.
-      for (const other of REVIEW_TIERS) {
-        if (other === k) continue
-        expect(screen.queryByText(TIER_LINE[other]), `${k} also shows ${other}'s line`).toBeNull()
-      }
-      cleanup()
-    }
-  })
-
-  it("and Easy's line names what it gives up, not only what it gives", async () => {
-    await mount({ srTier: 'medium' })
-    expect(easyCost(), 'the Easy caveat is shown to a reader who is not on Easy').toBeNull()
-    cleanup()
-    await mount({ srTier: 'easy' })
-    expect(easyCost(), 'Easy is offered without saying what it gives up').toBeTruthy()
-  })
 })

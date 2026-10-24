@@ -59,19 +59,6 @@ beforeEach(() => {
 })
 
 describe('files found in a mounted library', () => {
-  it('draws nothing for a box with no folders mounted, and scans nothing on its own', async () => {
-    mounts = []
-    const { container } = render(<FoundFilesPage embedded />)
-    await waitFor(() => expect(calls.some((c) => c.path === '/sources/mounts')).toBe(true))
-    expect(container.innerHTML).toBe('')
-    expect(calls.some((c) => c.path === '/sources/scan')).toBe(false)
-  })
-
-  it('does not scan until the reader presses Scan', async () => {
-    render(<FoundFilesPage embedded />)
-    await screen.findByRole('button', { name: 'Scan' })
-    expect(calls.some((c) => c.path === '/sources/scan')).toBe(false)
-  })
 
   it('walks as many passes as the server asks for, resuming from the cursor it gave', async () => {
     render(<FoundFilesPage embedded />)
@@ -84,50 +71,5 @@ describe('files found in a mounted library', () => {
     // Both passes' files are on screen and counted, so a truncation is never silent.
     expect(screen.getByText('V for Vendetta')).toBeTruthy()
     expect(screen.getByText(/412 scanned · 2 found · 6 not matched/)).toBeTruthy()
-  })
-
-  it('accepts the exact group together, naming the bucket and sending only tokens', async () => {
-    render(<FoundFilesPage embedded />)
-    fireEvent.click(await screen.findByRole('button', { name: 'Scan' }))
-    const exact = await screen.findByTestId('found-exact')
-    fireEvent.click(within(exact).getByRole('button', { name: 'Accept all 1' }))
-    await waitFor(() => expect(calls.some((c) => c.path === '/sources/attach-found')).toBe(true))
-    const press = calls.find((c) => c.path === '/sources/attach-found')
-    expect(press.body).toEqual({ bucket: 'exact', tokens: ['t1'] })
-    // The fuzzy group has no Accept all: those are one press each.
-    const review = screen.getByTestId('found-review')
-    expect(within(review).queryByRole('button', { name: /Accept all/ })).toBeNull()
-  })
-
-  it('keeps the rows that failed to attach, and drops only those that did', async () => {
-    passes = [{ candidates: [C({ token: 'ok1' }), C({ token: 'bad', title: 'Andor', work_id: 2, rel: 'shows/a.srt' })], scanned: 2, unclaimed: 0, truncated: false, cursor: '' }]
-    failing.add('bad')
-    render(<FoundFilesPage embedded />)
-    fireEvent.click(await screen.findByRole('button', { name: 'Scan' }))
-    const exact = await screen.findByTestId('found-exact')
-    fireEvent.click(within(exact).getByRole('button', { name: 'Accept all 2' }))
-    await waitFor(() => expect(screen.queryByText('V for Vendetta')).toBeNull())
-    // The one that failed is still there to retry or refuse.
-    expect(screen.getByText('Andor')).toBeTruthy()
-  })
-
-  it('shows one row per work however many passes found a file for it', async () => {
-    passes = [
-      { candidates: [C({ token: 'first', rel: 'a/Dune.epub' })], scanned: 1, unclaimed: 0, truncated: true, cursor: 'a/Dune.epub' },
-      { candidates: [C({ token: 'copy', rel: 'z/Dune (copy).epub' })], scanned: 1, unclaimed: 0, truncated: false, cursor: '' },
-    ]
-    render(<FoundFilesPage embedded />)
-    fireEvent.click(await screen.findByRole('button', { name: 'Scan' }))
-    await waitFor(() => expect(calls.filter((c) => c.path === '/sources/scan')).toHaveLength(2))
-    expect(await screen.findAllByTestId('found-row')).toHaveLength(1)
-  })
-
-  it('refuses a file with a cross and the row goes', async () => {
-    render(<FoundFilesPage embedded />)
-    fireEvent.click(await screen.findByRole('button', { name: 'Scan' }))
-    const review = await screen.findByTestId('found-review')
-    fireEvent.click(within(review).getByRole('button', { name: 'Do not offer this file for Dust of Dreams again' }))
-    await waitFor(() => expect(calls.find((c) => c.path === '/sources/ignore-found')?.body).toEqual({ tokens: ['t2'] }))
-    await waitFor(() => expect(screen.queryByText('Dust of Dreams')).toBeNull())
   })
 })

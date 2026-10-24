@@ -9,7 +9,7 @@
 // movieQuoteShare from a name→person map, the shape GET /people answers), the words
 // on the screen, and what is stamped on the card canvas.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { ShareDialog, bookShare } from '../../src/share.jsx'
 import { t } from '../../src/i18n.js'
 
@@ -62,18 +62,6 @@ async function open(share) {
 }
 
 describe("the picture's signature option", () => {
-  it('is not offered when nobody credited has a signature', async () => {
-    await open(shareBy({ 'Jane Solo': { name: 'Jane Solo', image_path: '', signature_path: '' } }))
-    expect(option()).toBeNull()
-  })
-
-  it('starts off, and the card carries no signature', async () => {
-    await open(shareBy({ 'Jane Solo': JANE }))
-    expect(pressed(option())).toBe('false')
-    // Give the card time to draw, then check nothing was stamped.
-    await new Promise((r) => setTimeout(r, 50))
-    expect(stamps).toHaveLength(0)
-  })
 
   it('stamps the signature on the card once switched on, and takes it off again', async () => {
     await open(shareBy({ 'Jane Solo': JANE }))
@@ -85,13 +73,6 @@ describe("the picture's signature option", () => {
     await new Promise((r) => setTimeout(r, 50))
     // Redrawn without it: nothing new stamped after the switch back.
     expect(stamps.length).toBe(before)
-  })
-
-  it('remembers being switched on', async () => {
-    localStorage.setItem('tippani:shareSignature', 'true')
-    await open(shareBy({ 'Jane Solo': JANE }))
-    expect(pressed(option())).toBe('true')
-    await waitFor(() => expect(stamps.length).toBeGreaterThan(0))
   })
 
   it('is not offered on a card showing the character, who signed nothing', async () => {

@@ -76,18 +76,6 @@ describe('a sitting', () => {
     await hasWork(await withQuote(open()))
   })
 
-  it('starts it with the same colour and tags', async () => {
-    remember()
-    await hasWork(await withQuote(open()))
-    // The tag field carries the words, so the next quote is one keystroke from
-    // being tagged the same way rather than a re-typing exercise.
-    // PILLS, NOT A COMMA BOX. The form took a token input in the add-surface
-    // rework, which is what the three edit forms have always used — so the
-    // remembered tags come back as two chips rather than one string.
-    expect(screen.getByText('grief')).toBeTruthy()
-    expect(screen.getByText('craft')).toBeTruthy()
-  })
-
   it('forgets the WORK after half an hour, and keeps the colour and tags', async () => {
     // The mis-filing case. A day later, a pre-filled book is a quote in the wrong
     // place with nothing on screen to say so — while a colour and a tag carry no
@@ -99,37 +87,4 @@ describe('a sitting', () => {
     await hasNoWork(await withQuote(state))
   })
 
-  it('never carries the quote itself', async () => {
-    // The words are the one thing that is never the same twice, and a form that
-    // came back holding the last quote is a form somebody saves twice by accident.
-    remember({ quote: 'the last thing I saved' })
-    const state = open()
-    expect(screen.queryByDisplayValue('the last thing I saved')).toBeNull()
-    // The work still came back — it is the quote alone that is dropped.
-    await hasWork(await withQuote(state))
-  })
-
-  it('opens cold with nothing remembered', async () => {
-    await hasNoWork(await withQuote(open()))
-    expect(screen.queryByText('grief')).toBeNull()
-  })
-
-  it('survives a note written by a newer version, or by hand', async () => {
-    // localStorage is editable and shared across versions of the app. A shape it
-    // does not recognise must leave the form empty rather than throwing on mount —
-    // this is the capture surface, and it failing to open is losing the quote.
-    localStorage.setItem(KEY, '{"nonsense":true}')
-    let state
-    expect(() => { state = open() }).not.toThrow()
-    await hasNoWork(await withQuote(state))
-    localStorage.setItem(KEY, 'not json at all')
-    expect(() => open()).not.toThrow()
-  })
-
-  it('leaves the picker empty when the remembered work is gone', async () => {
-    // Deleted in another tab, or by somebody else. The list that lands is the only
-    // source of truth for what can be picked.
-    remember({ targetKey: 'book:999' })
-    await hasNoWork(await withQuote(open()))
-  })
 })

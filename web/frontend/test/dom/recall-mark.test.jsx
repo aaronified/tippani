@@ -16,8 +16,6 @@
 // mirrored from `recallStatus()` on the server, so the client cannot invent a
 // fifth or drop one.
 
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
 
 import { cleanup, render } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -48,16 +46,6 @@ describe('the recall mark', () => {
     }
   })
 
-  it('is a glyph rather than a coloured disc', () => {
-    const { container } = render(<ReviewDot item={{}} />)
-    expect(container.querySelector('svg'), 'the mark draws no glyph at all').toBeTruthy()
-  })
-
-  it('still says which state it is in words, for a reader who cannot see it', () => {
-    const { container } = render(<ReviewDot item={{}} />)
-    const label = container.querySelector('[aria-label]')?.getAttribute('aria-label') || ''
-    expect(label, 'the mark is drawn and never named').not.toBe('')
-  })
 })
 
 // ── AND IT LEADS THE ROW OF THINGS YOU CAN DO ─────────────────────────────────

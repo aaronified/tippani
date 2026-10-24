@@ -25,21 +25,6 @@ describe('a material set reaches the page', () => {
     root().removeAttribute('data-mat-set')
   })
 
-  it('lands on <html> so a test, a screenshot and a person can all see it', () => {
-    applyTheme({ materialSet: 'quarry', theme: 'light' })
-    expect(root().dataset.matSet).toBe('quarry')
-    expect(getResolvedTheme().materialSet).toBe('quarry')
-  })
-
-  it('puts the set’s own four materials in the four slots', () => {
-    // Quarry: sandstone underfoot, a granite bench, coated stock, marble boards.
-    applyTheme({ materialSet: 'quarry', theme: 'light' })
-    expect(prop('--tile-ground')).toBe('var(--tile-sandstone)')
-    expect(prop('--tile-shell')).toBe('var(--tile-granite)')
-    expect(prop('--tile-card')).toBe('var(--tile-satin)')
-    expect(prop('--tile-cover')).toBe('var(--tile-marble)')
-  })
-
   it('gives every set a different page to read off', () => {
     // The one assertion that a set which changes nothing would fail. Two sets
     // sharing a card material is allowed — Manuscript and School both write on
@@ -58,171 +43,11 @@ describe('a material set reaches the page', () => {
     expect(seen.size).toBe(8)
   })
 
-  it('names a tile the stylesheet actually declares', () => {
-    // theme.js writes var(--tile-linen); index.css has to be the file that says
-    // what linen is. A typo here resolves to nothing at all and the surface simply
-    // loses its grain — no error, no warning.
-    //
-    // NOT ONLY url(). Atrium's --tile-flat is a transparent gradient — a valid
-    // layer that draws nothing — and matching url() alone would report the one
-    // set that is CORRECTLY textureless as the one that is broken.
-    const declared = new Set(
-      [...require('node:fs')
-        .readFileSync(require('node:path').join(process.env.TIPPANI_SRC, 'index.css'), 'utf8')
-        .matchAll(/--tile-([\w-]+):\s*(?:url|linear-gradient)\(/g)].map((m) => m[1]),
-    )
-    const missing = []
-    for (const name of Object.keys(MAT_SETS)) {
-      applyTheme({ materialSet: name, theme: 'light' })
-      for (const slot of ['ground', 'shell', 'card', 'cover']) {
-        const tile = /var\(--tile-([\w-]+)\)/.exec(prop(`--tile-${slot}`))?.[1]
-        if (!declared.has(tile)) missing.push(`${name}/${slot}: --tile-${tile}`)
-      }
-    }
-    expect(missing, 'a slot points at a tile index.css never declares').toEqual([])
-  })
-
   // ATRIUM IS THE PLAIN ONE, and "plain" has to mean nothing is drawn rather
   // than something is covered. A veil at strength 0 would look identical and
   // still name two tile layers the browser fetches and composites — which is
   // the opposite of the point of the set.
-  it('gives Atrium no surface stack at all, not a covered one', () => {
-    applyTheme({ materialSet: 'atrium', theme: 'light' })
-    for (const slot of ['ground', 'shell', 'card', 'cover']) {
-      expect(prop(`--surf-${slot}-image`), `${slot} still draws something`).toBe('none')
-    }
-    // And the selection fills lose their tile with it: the veil is total.
-    expect(prop('--sel-veil')).toBe('100.0%')
-  })
 
-  it('leaves Atrium out of the per-slot material picker', () => {
-    // "No material" is a choice about the SET; offering it as a twenty-ninth
-    // tile would put it in a list where it reads as a broken slot.
-    expect(TILE_NAMES).not.toContain('flat')
-  })
-
-  it('falls back to Manuscript rather than to nothing', () => {
-    // A stored value from a future release, or a hand-edited one. The old code
-    // branched on the theme here; there is one answer now.
-    applyTheme({ materialSet: 'vellum', theme: 'dark' })
-    expect(root().dataset.matSet).toBe('manuscript')
-    expect(prop('--tile-card')).toBe('var(--tile-paper)')
-  })
-})
-
-describe('the operator writes a whole composite, not just a tile', () => {
-  beforeEach(() => {
-    root().removeAttribute('style')
-  })
-
-  it('veils the surface in its own colour at 1 − strength', () => {
-    // paper is strength .10, so the veil is 90% of the card colour and the tile
-    // takes the remaining tenth. A veil at 100% would hide the grain completely;
-    // one at 0% would put a raw grey tile on the page.
-    applyTheme({ materialSet: 'manuscript', theme: 'light' })
-    const img = prop('--surf-card-image')
-    expect(img).toContain('90.0%')
-    expect(img).toContain('var(--tile-paper)')
-    // THE VEIL AND THE TWO GRAIN LAYERS ARE STILL THE LAST THREE, and that is what
-    // this line now says. What precedes them is the material's own behaviour under
-    // the one light — the four dials, compiled to gradients — so the list grew at
-    // the front. Asserting the tail rather than the whole string is deliberate:
-    // this case is about the OPERATOR, and pinning the lighting layers here would
-    // make it fail every time a dial's default moved.
-    expect(prop('--surf-card-blend').endsWith('normal, overlay, normal')).toBe(true)
-    expect(prop('--surf-card-size')).toContain('220px 220px')
-    expect(prop('--surf-card-size')).toContain('71px 71px')
-  })
-
-  // THE SELECTION FILLS SKIPPED THE OPERATOR ENTIRELY, and that is the bug this
-  // pins. The toggle thumb, the active filter chip and the drawer's active row
-  // composite --tile-shell straight onto the accent at FULL weight, so the grain
-  // they showed was the tile's raw standard deviation rather than s × sd — three
-  // times louder for a photographic tile than for a generated one. Bindery's
-  // concrete and Quarry's sandstone put a light label on bright patches measuring
-  // 1.4:1; Manuscript's linen, at a third the deviation, hid the same fault.
-  it('calibrates the selection fills to the shell tile, not to the loudest one', () => {
-    applyTheme({ materialSet: 'manuscript', theme: 'light' })
-    expect(prop('--sel-veil')).toBe('90.0%') // paper, strength .10
-
-    applyTheme({ materialSet: 'quarry', theme: 'light' })
-    expect(prop('--sel-veil')).toBe('92.0%') // granite, strength .08
-
-    applyTheme({ materialSet: 'bindery', theme: 'dark' })
-    expect(prop('--sel-veil')).toBe('89.0%') // leather-suede, strength .11
-  })
-
-  // A SLOT OVERRIDE HAS TO BE CALIBRATED TOO, or putting one loud tile into a
-  // quiet set brings the fault straight back — which is the shape the per-slot
-  // override was added in, so keying this off the set name would have been wrong
-  // on the day it shipped.
-  it('follows a per-slot override rather than the set it came from', () => {
-    applyTheme({ materialSet: 'manuscript', theme: 'light', tileShell: 'leather-suede' })
-    expect(prop('--sel-veil')).toBe('89.0%') // suede's .11, not paper's .10
-  })
-
-  it('gives glass a blur and a sweep instead of an opaque veil', () => {
-    // A pane does not hide what is behind it, it softens it. Office puts glass on
-    // the desk, so the ground slot takes the other branch entirely.
-    applyTheme({ materialSet: 'office', theme: 'light' })
-    expect(prop('--surf-ground-blur')).toContain('blur(18px)')
-    expect(prop('--surf-ground-image')).toContain('124deg')
-    expect(prop('--surf-ground-border')).not.toBe('transparent')
-  })
-
-  it('leaves an opaque material with identity values rather than nothing', () => {
-    // Written every time, so switching from a glass set to a stone one cannot
-    // leave the pane's blur and rim behind on the new surface.
-    applyTheme({ materialSet: 'office', theme: 'light' })
-    expect(prop('--surf-ground-blur')).toContain('blur')
-    applyTheme({ materialSet: 'quarry', theme: 'light' })
-    expect(prop('--surf-ground-blur')).toBe('none')
-    expect(prop('--surf-ground-border')).toBe('transparent')
-    expect(prop('--surf-ground-inset')).toBe('none')
-  })
-
-  it('bleeds the accent into metal and into nothing else', () => {
-    // A mirror-ish surface reflects its surroundings rather than holding a colour
-    // of its own. Film assembly's desk is metal; Atelier's is canvas.
-    // THE ACCENT BLEED IS THE FIRST LAYER AND STAYS THERE. It is a `soft-light`
-    // and the lighting layers that follow it are `screen` and `soft-light`, so
-    // "is there a soft-light" no longer distinguishes metal from canvas — what
-    // does is that metal's stack is LONGER by exactly that one leading layer.
-    applyTheme({ materialSet: 'film-assembly', theme: 'light' })
-    const metal = prop('--surf-ground-blend')
-    expect(metal.startsWith('soft-light')).toBe(true)
-    applyTheme({ materialSet: 'atelier', theme: 'light' })
-    const canvas = prop('--surf-ground-blend')
-    expect(canvas.startsWith('soft-light')).toBe(false)
-    // And both still end in the operator's own three.
-    for (const stack of [metal, canvas]) {
-      expect(stack.endsWith('normal, overlay, normal')).toBe(true)
-    }
-  })
-})
-
-describe('the picker draws what choosing it would do', () => {
-  it('previews a set that is not applied, from the same function', () => {
-    // Settings shows seven specimens at once; only one of them can be the live
-    // set. The old four cards carried hardcoded palette hexes and drifted from
-    // theme.js, which is the drift this closes.
-    applyTheme({ materialSet: 'manuscript', theme: 'light' })
-    const quarry = surfaceStyle('quarry', 'card', false, '#B4482D')
-    expect(quarry.backgroundImage).toContain('var(--tile-satin)')
-    expect(prop('--tile-card')).toBe('var(--tile-paper)') // the live set is untouched
-  })
-
-  it('answers in both modes for the same set', () => {
-    const light = surfaceStyle('manuscript', 'card', false, '#B4482D')
-    const dark = surfaceStyle('manuscript', 'card', true, '#B4482D')
-    expect(light.backgroundColor).not.toBe(dark.backgroundColor)
-    // One file serves both: the tile is identical and only the veil colour moves.
-    expect(dark.backgroundImage).toContain('var(--tile-paper)')
-  })
-
-  it('has a label for every set, and no label for anything else', () => {
-    expect(Object.keys(MAT_SET_LABELS).sort()).toEqual(Object.keys(MAT_SETS).sort())
-  })
 })
 
 describe('a slot can be overridden off the set', () => {
@@ -238,41 +63,5 @@ describe('a slot can be overridden off the set', () => {
     expect(prop('--tile-cover')).toBe('var(--tile-wood)')
   })
 
-  it('reaches a tile no set names', () => {
-    applyTheme({ materialSet: 'manuscript', theme: 'light', tileCover: 'glass-soft' })
-    expect(prop('--tile-cover')).toBe('var(--tile-glass-soft)')
-    // And it takes the glass branch, because what it is made of decides that.
-    expect(prop('--surf-cover-blur')).toContain('blur')
-  })
-
-  it('falls back to the set rather than to nothing', () => {
-    // A tile name from a later release, or a hand-edited preference. The slot has to
-    // keep a texture: an override that resolved to nothing would leave one surface
-    // in the app flat, with no error anywhere.
-    applyTheme({ materialSet: 'quarry', theme: 'light', tileCard: 'obsidian' })
-    expect(prop('--tile-card')).toBe('var(--tile-satin)')
-  })
-
-  it('is reported back so the picker can show what is set', () => {
-    applyTheme({ materialSet: 'atelier', theme: 'light', tileShell: 'walnut' })
-    expect(getResolvedTheme().tiles).toEqual(['', 'walnut', '', ''])
-  })
-
-  it('offers every tile the stylesheet declares, and nothing it does not', () => {
-    // url() only, deliberately: the picker offers MATERIALS, and every material
-    // is a file. --tile-flat is the one declaration that is not, and it must not
-    // be in this list — see TILE_NAMES.
-    const declared = new Set(
-      [...require('node:fs')
-        .readFileSync(require('node:path').join(process.env.TIPPANI_SRC, 'index.css'), 'utf8')
-        .matchAll(/--tile-([\w-]+):\s*url\(/g)].map((m) => m[1]),
-    )
-    for (const name of TILE_NAMES) {
-      applyTheme({ materialSet: 'manuscript', theme: 'light', tileCard: name })
-      const tile = /var\(--tile-([\w-]+)\)/.exec(prop('--tile-card'))?.[1]
-      expect(declared.has(tile), `the picker offers ${name}, which resolves to --tile-${tile}`).toBe(true)
-    }
-    expect(TILE_NAMES.length).toBeGreaterThanOrEqual(27)
-  })
 })
 

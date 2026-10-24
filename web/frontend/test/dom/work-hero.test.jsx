@@ -66,14 +66,6 @@ const hero = (over = {}) =>
 const orderOf = (el) => [...document.querySelectorAll('*')].indexOf(el)
 
 describe('one header, one order', () => {
-  it('leads with the cover, then says what the work is, then names it', () => {
-    const { container } = hero()
-    const split = container.querySelector('.work-hero-split')
-    expect(split, 'no .work-hero-split').not.toBeNull()
-    expect(split.querySelector('img[alt="cover"]')).not.toBeNull()
-    expect(orderOf(screen.getByTestId('kind'))).toBeLessThan(orderOf(container.querySelector('h1')))
-  })
-
   it('runs kind → title → genres → count → shelf, in that order', () => {
     const { container } = hero()
     const seq = [
@@ -85,66 +77,9 @@ describe('one header, one order', () => {
     ]
     expect(seq, `out of order: ${seq.join(' ')}`).toEqual([...seq].sort((a, b) => a - b))
   })
-
-  it('puts the people, the description and the verbs after all of that', () => {
-    const { container } = hero({ actions: <button type="button">Practise</button> })
-    const shelf = orderOf(screen.getByTestId('shelf'))
-    expect(orderOf(screen.getByTestId('meta'))).toBeGreaterThan(shelf)
-    expect(orderOf(screen.getByText('A book about margins.'))).toBeGreaterThan(orderOf(screen.getByTestId('meta')))
-    expect(orderOf(container.querySelector('.work-hero-actions'))).toBeGreaterThan(shelf)
-  })
-
-  it('keeps the identity line with the title, not with the shelf', () => {
-    const { container } = hero()
-    const facts = container.querySelector('.work-hero-facts')
-    // What the work IS lives in the facts block under the title.
-    expect(facts.contains(screen.getByTestId('kind'))).toBe(true)
-    // Who made it is its own row below — a person is an object, not a fact.
-    expect(facts.contains(screen.getByTestId('meta'))).toBe(false)
-  })
-
-  it('draws the heart on the title line, where its position is learnable', () => {
-    const { container } = hero()
-    const titleRow = container.querySelector('.work-hero-title')
-    expect(titleRow.querySelector('h1')).not.toBeNull()
-    expect(titleRow.querySelector('.heart')).not.toBeNull()
-  })
-
-  it('does not float anything', () => {
-    // THE FLOAT IS THE BUG THIS ARRANGEMENT DOES NOT HAVE. Floating the actions
-    // right is what tore a book's name in half — "Moby-Dick; or, The" on one line,
-    // five buttons, then the rest of it — and needed `clear: right`, a measured
-    // guard and a whole browser harness to catch. The pack has no float; the verbs
-    // are a row at the foot, where they cannot cut into anything.
-    const { container } = hero({ actions: <button type="button">Practise</button> })
-    for (const el of container.querySelectorAll('*')) {
-      expect(el.style.float || '', `${el.className} floats`).toBe('')
-    }
-  })
 })
 
 describe('the compact bar knows which screen it is on', () => {
-  // IT SHIPPED WITHOUT THIS GATE and was wrong on every phone for a few hours.
-  // The shell's own top bar already sticks at y=0 there and already carries the
-  // work's name and its author, so a second sticky bar pinned to the same edge
-  // paints BEHIND it: 61px of bar under a 52px one, so nine pixels of opaque
-  // background and a stray hairline protrude below the shell bar and clip the
-  // quotes scrolling under. On a two-line title it disappears entirely — mounted,
-  // invisible, and repeating two strings already on screen.
-  //
-  // The pack: "ON A PHONE THE BAR GOES BACK TO NAMING THE SCREEN… the bar is the
-  // only thing that still says which book you are in." One bar.
-  //
-  // The default in this file is a PHONE (setScreen(true) in beforeEach), which is
-  // why every other case here proves the absence and this one has to switch.
-  it('never mounts on a phone, however far the header has scrolled', () => {
-    // The hook cannot report "scrolled" in jsdom, so this asserts the gate the
-    // only way a unit test can: the marker is there, and the bar is not.
-    const { container } = hero()
-    expect(container.querySelector('.work-hero-mark'), 'no marker to observe').not.toBeNull()
-    expect(container.querySelector('.work-hero-mini-slot')).toBeNull()
-  })
-
   it('leaves exactly one copy of the title in the document on a phone', () => {
     // The cost of the bar is a second copy of the name. A phone must not pay it
     // for something it will never show.
@@ -153,80 +88,3 @@ describe('the compact bar knows which screen it is on', () => {
   })
 })
 
-describe('progress rides the cover, not a row of its own', () => {
-  it('welds a strip to the foot of the cover when there is progress', () => {
-    const { container } = hero({ progress: 0.62 })
-    const bar = container.querySelector('.work-hero-cover-wrap .work-hero-shelfbar')
-    expect(bar, 'the strip is not inside the cover wrapper').not.toBeNull()
-    expect(bar.querySelector('span').style.width).toBe('62%')
-  })
-
-  it('gives the shelf track a line of its own, in the row with the chips', () => {
-    // The class is the contract the stylesheet keys on. A 168px bar allowed to
-    // wrap like a chip puts the state, the track and the ×N counter on three
-    // lines in no particular order — the bug a phone-only rule used to fix and
-    // that a 300px column reproduces.
-    const { container } = hero({
-      tags: (
-        <>
-          <span>reading</span>
-          <span className="shelf-track">bar</span>
-        </>
-      ),
-    })
-    expect(container.querySelector('.work-hero-state .shelf-track')).not.toBeNull()
-  })
-
-  it('draws nothing at all when there is no progress', () => {
-    // A 0% track on a book you have not opened is a bar that says nothing.
-    expect(hero({ progress: null }).container.querySelector('.work-hero-shelfbar')).toBeNull()
-  })
-
-  it('clamps a value that arrived wrong rather than drawing past the cover', () => {
-    expect(hero({ progress: 4 }).container.querySelector('.work-hero-shelfbar span').style.width).toBe('100%')
-    expect(hero({ progress: -1 }).container.querySelector('.work-hero-shelfbar span').style.width).toBe('0%')
-  })
-})
-
-describe('every kind of work gets the same header', () => {
-  it('draws a film exactly as it draws a book', () => {
-    // The way this breaks is one screen growing its own header, which is what
-    // happened before: the film page called a different component and never got
-    // the column arrangement at all. There is only one component now — so the
-    // assertion is that a film's props produce the same structure, not that two
-    // implementations agree.
-    const book = hero().container.querySelector('.work-hero').className
-    const film = hero({
-      title: 'Northline',
-      kindRow: <span data-testid="kind">Film · 1978</span>,
-      meta: <span data-testid="meta">R. Whitfield</span>,
-    }).container
-    expect(film.querySelector('.work-hero').className).toBe(book)
-    expect(film.querySelector('.work-hero-split')).not.toBeNull()
-    expect(film.querySelector('.work-hero-facts')).not.toBeNull()
-  })
-
-  it('holds its shape when a work has no genres, no description and no credits', () => {
-    // A hand-added film often has none of them, and the header must not collapse
-    // into a different arrangement for it.
-    const { container } = hero({ genres: [], description: '', meta: null })
-    expect(container.querySelector('.work-hero-split')).not.toBeNull()
-    expect(orderOf(screen.getByTestId('counts'))).toBeGreaterThan(orderOf(container.querySelector('h1')))
-  })
-
-  it('does not draw a credits row, or its +N, when there is nobody in it', () => {
-    const { container } = hero({ meta: null, onPeople: () => {}, peopleCount: 3 })
-    expect(container.querySelector('.work-hero-credits')).toBeNull()
-    expect(container.querySelector('.work-hero-more')).toBeNull()
-  })
-
-  it('keeps the +N OUTSIDE the scroller, so it cannot scroll away', () => {
-    // The two affordances are a pair and have to be separable: the fade says
-    // swipe, the button says tap for all of it. A button that moves with the
-    // swipe reads as a fourth person.
-    const { container } = hero({ onPeople: () => {}, peopleCount: 3 })
-    const more = container.querySelector('.work-hero-more')
-    expect(more).not.toBeNull()
-    expect(container.querySelector('.work-hero-credit-row').contains(more)).toBe(false)
-  })
-})

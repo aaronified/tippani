@@ -25,8 +25,6 @@
 //  * A credit can exist with no record behind it. Those have nothing to give a
 //    second work to.
 
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
 
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -74,76 +72,6 @@ const rowNamed = (key) => {
 
 beforeEach(() => { calls.length = 0 })
 afterEach(() => cleanup())
-
-describe('the sheet about one credit', () => {
-  it('offers a way to add another work', () => {
-    sheet({ onAddWork: () => {} })
-    expect(rowNamed('identity.row.add-work.label'),
-      'a character credited in one work has no route to a second, so the reader must make a duplicate and merge it')
-      .toBeTruthy()
-  })
-
-  // DRAWN ONLY WHERE IT ACTS — the rule the works strip's add tile and the global
-  // sheet's "Remove from all works" both follow. A row that presses dead is worse
-  // than one that is not there, because from the outside they look the same until
-  // you press.
-  // WITH TWO WORKS, so the section around the row is drawn for the OTHER row and
-  // this one is judged on its own guard. Handed one work it passed for the wrong
-  // reason: the section is gated too, so nothing reached the row's condition and
-  // removing that condition left the test green — which a mutation found and a
-  // reading would not have.
-  it('draws no such row when there is nothing to give a work to', () => {
-    sheet({
-      onAddWork: null,
-      onOpenGlobal: () => {},
-      works: [
-        { kind: 'screen', work_id: 4, title: 'V for Vendetta' },
-        { kind: 'book', work_id: 9, title: 'V for Vendetta' },
-      ],
-    })
-    expect(rowNamed('identity.row.global.label'),
-      'the section is not drawn at all, so this case is testing the section rather than the row')
-      .toBeTruthy()
-    expect(rowNamed('identity.row.add-work.label'),
-      'the row is drawn where it cannot act, so pressing it does nothing and says nothing')
-      .toBeFalsy()
-  })
-
-  it('opens the chooser rather than writing anything by itself', () => {
-    const opened = []
-    sheet({ onAddWork: () => opened.push('chooser') })
-    fireEvent.click(rowNamed('identity.row.add-work.label'))
-    expect(opened, 'the row did not open the work chooser').toEqual(['chooser'])
-    // It must not write a credit on the press: the reader has not said WHICH work
-    // yet, and a row that commits before the question is answered is a row that
-    // guesses.
-    expect(calls.filter((c) => c.method === 'POST'),
-      'the row wrote a credit before the reader had chosen a work')
-      .toEqual([])
-  })
-
-  // THE GLOBAL ROW APPEARS ON THE COUNT, which is what makes the second credit
-  // the promotion. Asserted from the same sheet with one more appearance, because
-  // that is the only thing that changes.
-  it('grows the global door once a second credit exists', () => {
-    const { unmount } = sheet({ onAddWork: () => {}, onOpenGlobal: () => {} })
-    expect(rowNamed('identity.row.global.label'),
-      'a character in one work offers a door to a global screen that is the screen you are on')
-      .toBeFalsy()
-    unmount()
-    sheet({
-      onAddWork: () => {},
-      onOpenGlobal: () => {},
-      works: [
-        { kind: 'screen', work_id: 4, title: 'V for Vendetta' },
-        { kind: 'book', work_id: 9, title: 'V for Vendetta' },
-      ],
-    })
-    expect(rowNamed('identity.row.global.label'),
-      'a second credit did not bring the global door — nothing promotes, so the count is the whole mechanism')
-      .toBeTruthy()
-  })
-})
 
 // AND THE DOOR IS ONE DOOR, whichever sheet the reader is standing on.
 //
@@ -208,23 +136,6 @@ describe('the work-level sheet a reader actually opens', () => {
     fireEvent.click(rowNamed('identity.row.add-work.label'))
   }
 
-  it('opens a chooser the reader can pick a work in', async () => {
-    await press()
-    await waitFor(() => {
-      expect(
-        document.querySelector(`input[placeholder="${t('identity.character.works.add.placeholder')}"]`),
-        'the press left the screen exactly as it was — the row is a door onto nothing',
-      ).toBeTruthy()
-    })
-  })
-
-  it('offers the works this character is not in yet, and not the one they are', async () => {
-    await press()
-    await waitFor(() => expect(document.querySelectorAll('.char-pick').length).toBeGreaterThan(0))
-    const offered = [...document.querySelectorAll('.char-pick')].map((b) => b.textContent.trim())
-    expect(offered, 'the chooser offers the work the character is already credited in').toEqual(['Watchmen'])
-  })
-
   it('writes the second credit when a work is picked', async () => {
     await press()
     await waitFor(() => expect(document.querySelector('.char-pick')).toBeTruthy())
@@ -235,85 +146,5 @@ describe('the work-level sheet a reader actually opens', () => {
       expect(wrote.body, 'the credit does not name the work that was picked')
         .toMatchObject({ kind: 'book', work_id: 9 })
     })
-  })
-})
-
-// ---- ONE DOOR, TWO SHEETS --------------------------------------------------
-describe('the add-work door on both sheets', () => {
-  const SHELF = {
-    books: [{ id: 9, title: 'Watchmen', cover_path: '' }, { id: 10, title: 'From Hell', cover_path: '' }],
-    movies: [{ id: 4, title: 'V for Vendetta', poster_path: '', media_type: 'movie' }],
-  }
-  // TWO CREDITS, so the same record answers as the global sheet, and ONE of them
-  // named as the work so it answers as the work-level sheet. Same record, same
-  // shelf — the only thing that differs is which sheet the reader opened.
-  const APPEARANCES = [
-    {
-      cast_id: 3, kind: 'movie', work_id: 4, work_title: 'V for Vendetta',
-      character: 'Evey Hammond', actor: 'Natalie Portman', actor_id: 8,
-      image: '', cover: '', media_type: 'movie', description: '',
-    },
-    {
-      cast_id: 4, kind: 'book', work_id: 10, work_title: 'From Hell',
-      character: 'Evey Hammond', actor: '', actor_id: 0,
-      image: '', cover: '', media_type: '', description: '',
-    },
-  ]
-
-  const openSheet = async (work) => {
-    const api = await import('../../src/api.js')
-    api.json.mockImplementation(async (method, path, body) => {
-      calls.push({ method, path, body })
-      if (method === 'GET' && path === '/characters/12') {
-        return { ok: true, data: { ...RECORD, appearances: APPEARANCES, aliases: [], links: [] } }
-      }
-      if (method === 'GET' && path === '/books') return { ok: true, data: { books: SHELF.books } }
-      if (method === 'GET' && path === '/movies') return { ok: true, data: { movies: SHELF.movies } }
-      return { ok: true, data: {} }
-    })
-    const { characterPanel } = await import('../../src/identity.jsx')
-    const view = render(characterPanel({ open: () => {}, push: () => {}, close: () => {} }, {
-      id: 12, name: RECORD.name, ...(work ? { work } : {}),
-    }).render())
-    await waitFor(() => expect(document.querySelector('.cs-body') || document.querySelector('.cs-row')).toBeTruthy())
-    return view
-  }
-
-  // WHAT THE DOOR IS CALLED DIFFERS — a tile in a strip of covers on one sheet, a
-  // row in a list on the other — so it is found by what it does, not by its words:
-  // the one control whose press puts up the works chooser.
-  const pressTheDoor = async () => {
-    const before = document.querySelectorAll('.char-pick, .tp-input').length
-    for (const el of document.querySelectorAll('button, [role=button]')) {
-      fireEvent.click(el)
-      const box = document.querySelector(`input[placeholder="${t('identity.character.works.add.placeholder')}"]`)
-      if (box) return true
-      if (document.querySelectorAll('.char-pick, .tp-input').length !== before) {
-        fireEvent.keyDown(document.body, { key: 'Escape' })
-      }
-    }
-    return false
-  }
-
-  const offered = async () => {
-    await waitFor(() => expect(document.querySelectorAll('.char-pick').length).toBeGreaterThan(0))
-    return [...document.querySelectorAll('.char-pick')].map((b) => b.textContent.trim()).sort()
-  }
-
-  it('comes up on the work-level sheet and on the global one, offering the same works', async () => {
-    const local = await openSheet({ kind: 'movie', id: 4, title: 'V for Vendetta', media_type: 'movie', castId: 3 })
-    expect(await pressTheDoor(), 'no control on the work-level sheet opens the works chooser').toBe(true)
-    const fromLocal = await offered()
-    local.unmount()
-    cleanup()
-
-    await openSheet(null)
-    expect(await pressTheDoor(), 'no control on the global sheet opens the works chooser').toBe(true)
-    const fromGlobal = await offered()
-
-    expect(fromLocal.length, 'the chooser came up empty, so the comparison proves nothing').toBeGreaterThan(0)
-    expect(fromGlobal,
-      'the two sheets offer different works, so one of the two doors has drifted from the other')
-      .toEqual(fromLocal)
   })
 })

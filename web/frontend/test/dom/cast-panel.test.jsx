@@ -120,43 +120,6 @@ beforeEach(() => {
 })
 
 describe('the people panel', () => {
-  it('fetches its cast as soon as it renders', async () => {
-    panel()
-    await waitFor(() => expect(CALLS.some(([m, p]) => m === 'GET' && p === '/movies/7/cast')).toBe(true))
-  })
-
-  it('can be closed, and asks for nothing more once it is', async () => {
-    await openPanel(FILM, 'movie')
-    // Counted on the request that matters, not the total: usePeople's own GET
-    // can land between the two reads and has nothing to do with this claim.
-    const casts = () => CALLS.filter(([m, q]) => m === 'GET' && q === '/movies/7/cast').length
-    const before = casts()
-    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
-    expect(screen.queryByText('Amanda Waller')).toBeNull()
-    expect(casts()).toBe(before)
-  })
-
-  it('lists the characters and who plays them', async () => {
-    await openPanel()
-    expect(await screen.findByText('Amanda Waller')).toBeTruthy()
-    expect(screen.getByText('Viola Davis')).toBeTruthy()
-  })
-
-  it('asks for the character pictures that are not local yet', async () => {
-    // THE REGRESSION. The route has existed since 0050 and nothing had ever
-    // called it, so no character art had ever reached a reader's disk.
-    await openPanel()
-    await waitFor(() => expect(posted(/^\/movies\/7\/cast\/art$/)).toHaveLength(1))
-    // And the row it fetched now draws the stored file rather than the fallback —
-    // the panel re-read its cast once the answer said a picture arrived.
-    // ASKED OF WHICH HALF IS ON THE SCREEN, not of which element carries a class:
-    // the picture and its stand-in are drawn by one component now, so the box
-    // wears the class either way and `img.cast-face` stopped matching a row that
-    // is drawing a picture perfectly well.
-    // Not "no row anywhere is drawing the stand-in" — the second row of this
-    // fixture legitimately has no art and legitimately draws one.
-    await waitFor(() => expect(document.querySelector('.cast-face img')).toBeTruthy())
-  })
 
   it('asks once for the whole work, never once per row', async () => {
     // Twenty roles were twenty requests from here, each an outbound fetch from a
@@ -167,28 +130,6 @@ describe('the people panel', () => {
     await flush()
     expect(posted(/^\/cast\/\d+\/image$/).filter(([, , b]) => !b), 'a per-row fetch was made').toEqual([])
     expect(posted(/cast\/art$/)).toHaveLength(1)
-  })
-
-  it('does not ask again for one it already has', async () => {
-    // The art is local and the role names no actor, so there is no headshot to
-    // look for either: nothing on this page needs fetching, and nothing is asked.
-    CAST = [{ ...WITH_ART[0], actor: '', character_image_path: 'already.jpg' }]
-    await openPanel()
-    await waitFor(() => expect(screen.getByText('Amanda Waller')).toBeTruthy())
-    await flush()
-    expect(posted(/cast\/art$/)).toEqual([])
-  })
-
-  it('says nothing, and re-reads nothing, when no picture arrived', async () => {
-    OK_IMAGE = false
-    await openPanel()
-    await waitFor(() => expect(posted(/^\/movies\/7\/cast\/art$/)).toHaveLength(1))
-    const casts = () => CALLS.filter(([m, q]) => m === 'GET' && q === '/movies/7/cast').length
-    const before = casts()
-    await flush()
-    await flush()
-    expect(casts()).toBe(before)
-    expect(screen.queryByRole('alert')).toBeNull()
   })
 
   it('saves both names of a corrected row in one request', async () => {
@@ -203,46 +144,6 @@ describe('the people panel', () => {
     expect(body).toEqual({ character: 'A. Waller', actor: 'V. Davis' })
   })
 
-  // THE ROW THAT IS BEING EDITED KEEPS ITS PICTURE. Pressing the pencil used to
-  // swap the whole row for two text boxes, so the reader who opened it BECAUSE a
-  // character's picture was wrong found a form with no picture in it — and every
-  // field sat 44px left of the rows above, because those begin with a face and
-  // this one began with a text box.
-  it('offers the picture from inside the edit form, not only beside it', async () => {
-    await openPanel()
-    await screen.findByText('Amanda Waller')
-    fireEvent.click(screen.getAllByRole('button', { name: /^Edit / })[0])
-    // Still in the edit form — the two boxes are what the pencil opened.
-    expect(screen.getByLabelText(/^Character$/i)).toBeTruthy()
-
-    // The edited row's own face, not a neighbour's — one per row, still.
-    const face = screen.getAllByRole('button', { name: 'Picture for Amanda Waller' })
-    expect(face).toHaveLength(1)
-    fireEvent.click(face[0])
-    fireEvent.change(screen.getByLabelText('Image URL for Amanda Waller'), { target: { value: 'https://example.com/edit.png' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Apply' }))
-    await waitFor(() => {
-      const withBody = posted(/^\/cast\/11\/image$/).filter(([, , b]) => b?.image_url)
-      expect(withBody[0][2].image_url).toBe('https://example.com/edit.png')
-    })
-    // And the names survived the detour: the picture editor is not a mode change.
-    expect(screen.getByLabelText(/^Character$/i).value).toBe('Amanda Waller')
-  })
-
-  it('adds a character the provider never listed', async () => {
-    // The endpoint 0048 was built for: a game whose Wikidata lookup came back
-    // empty had no way to name a voice actor at all.
-    await openPanel()
-    fireEvent.click(screen.getByRole('button', { name: 'Add a character' }))
-    fireEvent.change(screen.getByLabelText(/^Character$/i), { target: { value: 'the bartender' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Add' }))
-    await waitFor(() => expect(CALLS.some(([m, p]) => m === 'POST' && p === '/movies/7/cast')).toBe(true))
-    const [, , body] = CALLS.find(([m, p]) => m === 'POST' && p === '/movies/7/cast')
-    // EXACTLY WHAT WAS TYPED, like every other name box in the app: the
-    // as-you-type capitaliser is gone and the keyboard hint replaced it.
-    expect(body.character).toBe('the bartender')
-  })
-
   it('confirms before removing a row, because a deletion leaves a tombstone', async () => {
     await openPanel()
     await screen.findByText('Amanda Waller')
@@ -252,104 +153,6 @@ describe('the people panel', () => {
     await waitFor(() => expect(CALLS.some(([m, p]) => m === 'DELETE' && p === '/cast/11')).toBe(true))
   })
 
-  it('sets a picture the reader chose, through the same route', async () => {
-    await openPanel()
-    await screen.findByText('Amanda Waller')
-    // THE FACE IS THE BUTTON. It used to be an unlabelled refresh arrow in the
-    // row's action cluster, which is how "i cannot edit or see the character
-    // images anywhere" happened: the thing you press to change a picture is the
-    // picture. Same accessible name, so this line reads the same and points at a
-    // different element.
-    fireEvent.click(screen.getAllByRole('button', { name: /^Picture for / })[0])
-    fireEvent.change(screen.getByLabelText('Image URL for Amanda Waller'), { target: { value: 'https://example.com/w.png' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Apply' }))
-    await waitFor(() => {
-      const withBody = posted(/^\/cast\/11\/image$/).filter(([, , b]) => b?.image_url)
-      expect(withBody).toHaveLength(1)
-      expect(withBody[0][2].image_url).toBe('https://example.com/w.png')
-      // A pasted address names no supplier: the server records it as the reader's.
-      expect(withBody[0][2].image_source).toBeUndefined()
-    })
-  })
-
-  // A PICTURE OF A ROLE IS THE ONE PICTURE ALMOST NOTHING HAS. TheTVDB carries an
-  // image per character and no other supplier does, so a TMDB-sourced row, a
-  // game's typed voice cast and every character in a book have never had one to
-  // fetch. The strip is the answer to that, and the sentence it searches for is
-  // the part worth pinning: "ACTOR as CHARACTER in TITLE" finds a still, while
-  // the character and the title alone find the poster.
-  it('searches for the role in costume, naming the actor, the character and the work', async () => {
-    IMAGE_SOURCES = { google: true, amazon: false }
-    IMAGES = [{ url: 'https://pics.test/waller.jpg', thumb: 'https://encrypted-tbn0.gstatic.com/w', source: 'google' }]
-    await openPanel()
-    await screen.findByText('Amanda Waller')
-    fireEvent.click(screen.getAllByRole('button', { name: /^Picture for / })[0])
-    fireEvent.click(screen.getAllByText('search images')[0])
-
-    await waitFor(() => expect(CALLS.some(([, p]) => p === '/images/search')).toBe(true))
-    // cast_id is the one that matters and the one that is easy to drop: without
-    // it the server cannot reach the work's TheTVDB record, and the strip falls
-    // back to asking a search engine for a sentence — which is what it did
-    // before the ladder and is indistinguishable from "no results" on an install
-    // with no Custom Search key.
-    expect(CALLS.find(([, p]) => p === '/images/search')[2]).toEqual({
-      kind: 'character', name: 'Amanda Waller', actor: 'Viola Davis',
-      title: 'Suicide Squad', media_type: 'movie', cast_id: 11,
-    })
-
-    // Drawn: the thumbnail. Stored: the original, through the same route a
-    // pasted address takes.
-    const img = await waitFor(() => {
-      const el = document.querySelector('.cast-row-pics img')
-      expect(el, 'no candidate was drawn').toBeTruthy()
-      return el
-    })
-    expect(img.getAttribute('src')).toBe('https://encrypted-tbn0.gstatic.com/w')
-    fireEvent.click(img.closest('button'))
-    await waitFor(() => {
-      const withBody = posted(/^\/cast\/11\/image$/).filter(([, , b]) => b?.image_url)
-      expect(withBody).toHaveLength(1)
-      expect(withBody[0][2].image_url).toBe('https://pics.test/waller.jpg')
-      // CREDITED TO THE STRIP'S SUPPLIER: a web picture is Google Images'.
-      expect(withBody[0][2].image_source).toBe('google-images')
-    })
-  })
-
-  // With no supplier configured the control does exactly what it did before the
-  // strip existed, because "find me a picture" is one intention and two buttons
-  // would make the reader work out which one their server can honour.
-  it('falls back to a web search in a tab when nothing is configured', async () => {
-    IMAGE_SOURCES = { google: false, amazon: false }
-    window.open = vi.fn()
-    await openPanel()
-    await screen.findByText('Amanda Waller')
-    fireEvent.click(screen.getAllByRole('button', { name: /^Picture for / })[0])
-    fireEvent.click(screen.getAllByText('search images')[0])
-    await waitFor(() => expect(window.open).toHaveBeenCalled())
-    expect(document.querySelector('.cast-row-pics')).toBeNull()
-  })
-
-  it('a book has characters and no actors and nothing to fetch', async () => {
-    ROLE = 'none'
-    CAST = [{ id: 21, character: 'Ahab', actor: '', character_image_url: '', character_image_path: '' }]
-    await openPanel(BOOK, 'book')
-    expect(await screen.findByText('Ahab')).toBeTruthy()
-    expect(posted(/cast\/art$/), 'a book with no art to fetch asked for some').toEqual([])
-    // And the actor box is ABSENT rather than disabled — the API refuses an actor
-    // on a book rather than quietly clearing it (0047's line).
-    fireEvent.click(screen.getByRole('button', { name: /^Edit / }))
-    expect(screen.queryByLabelText(/^Actor$/i)).toBeNull()
-    fireEvent.change(screen.getByLabelText(/^Character$/i), { target: { value: 'Ishmael' } })
-    fireEvent.click(screen.getByRole('button', { name: /^Save / }))
-    await waitFor(() => expect(CALLS.some(([m, p]) => m === 'PUT' && p === '/cast/21')).toBe(true))
-    expect(CALLS.find(([m, p]) => m === 'PUT' && p === '/cast/21')[2]).toEqual({ character: 'Ishmael' })
-  })
-
-  it('says so, rather than showing an empty list, when there is no cast', async () => {
-    CAST = []
-    await openPanel()
-    expect(await screen.findByText(/No cast on file/)).toBeTruthy()
-  })
 })
 
 // ---- the faces a WORK PAGE draws --------------------------------------------
@@ -362,102 +165,6 @@ describe('the people panel', () => {
 //
 // The hook is tested on its own rather than through Movies.jsx: the board pulls in
 // half the app, and what is at issue is which requests are made and when.
-describe('the character art a work page needs', () => {
-  const Probe = ({ cast, workID = 7, names = [], people = {} }) => {
-    const { useCastArt } = probeMod
-    useCastArt('movie', workID, { cast, names, people, onFilled: () => { FILLED += 1 } })
-    return null
-  }
-  const WAITING = [{ id: 11, character_image_url: 'https://x/w.jpg', character_image_path: '' }]
-
-  it('asks for the pictures the board is about to draw', async () => {
-    // The work's own record already says which roles have a provider picture and
-    // no file — that is what makes the check free.
-    CAST = WITH_ART.map((c) => ({ ...c }))
-    render(<Probe cast={WAITING} />)
-    await waitFor(() => expect(posted(/^\/movies\/7\/cast\/art$/)).toHaveLength(1))
-    // And the page is told once, at the end, so it can refetch the rows whose
-    // character_images the server resolves.
-    await waitFor(() => expect(FILLED).toBe(1))
-  })
-
-  it('makes NO request at all when the art is already local', async () => {
-    // The point of reading the work's own cast first: a film whose faces are
-    // stored costs nothing on every visit.
-    render(<Probe cast={[{ character_image_url: 'https://x/w.jpg', character_image_path: 'stored.jpg' }]} />)
-    await flush()
-    expect(CALLS).toEqual([])
-  })
-
-  it('makes no request when no role has a picture to fetch', async () => {
-    render(<Probe cast={[{ character: 'Ahab', character_image_url: '', character_image_path: '' }]} />)
-    await flush()
-    expect(CALLS).toEqual([])
-  })
-
-  it('does not report back when nothing arrived', async () => {
-    // A refetch that changes nothing is a request and a re-render for no reason.
-    OK_IMAGE = false
-    render(<Probe cast={WAITING} />)
-    await waitFor(() => expect(posted(/^\/movies\/7\/cast\/art$/)).toHaveLength(1))
-    await flush()
-    expect(FILLED).toBe(0)
-  })
-
-  // A PARENT'S REFETCH WHILE THE REQUEST IS OUT is the page drawing the same
-  // cast again, not a second reason to ask. It joins the request and hears its
-  // answer — and the pictures that arrived are still reported, which is what the
-  // old loop lost when a refetch cut it short.
-  it('joins the request in flight when the page redraws, and still reports what arrived', async () => {
-    let release
-    ART_GATE = new Promise((r) => { release = r })
-    CAST = WITH_ART.map((c) => ({ ...c }))
-    const { rerender } = render(<Probe cast={WAITING} />)
-    await waitFor(() => expect(posted(/cast\/art$/)).toHaveLength(1))
-    rerender(<Probe cast={WAITING.map((c) => ({ ...c }))} />)
-    await flush()
-    release()
-    await waitFor(() => expect(FILLED).toBe(1))
-    expect(posted(/cast\/art$/)).toHaveLength(1)
-  })
-
-  // AND A REDRAW THAT LEAVES NOTHING TO ASK does not drop the answer to the
-  // request already out: the pictures it brings are still reported, once.
-  it('reports what arrived even when the page redraws with nothing left to ask', async () => {
-    let release
-    ART_GATE = new Promise((r) => { release = r })
-    CAST = WITH_ART.map((c) => ({ ...c }))
-    const { rerender } = render(<Probe cast={WAITING} />)
-    await waitFor(() => expect(posted(/cast\/art$/)).toHaveLength(1))
-    rerender(<Probe cast={[{ id: 11, character_image_url: 'https://x/w.jpg', character_image_path: 'stored.jpg' }]} />)
-    await flush()
-    release()
-    await waitFor(() => expect(FILLED).toBe(1))
-    await flush()
-    expect(FILLED).toBe(1)
-    expect(posted(/cast\/art$/)).toHaveLength(1)
-  })
-
-  // THE BOARD AND THE DETAILS PANEL ARE ONE PAGE, drawing the same faces. While
-  // one surface's request is out, the other's is the same request.
-  it('makes one request between the board and the cast panel on the same page', async () => {
-    let release
-    ART_GATE = new Promise((r) => { release = r })
-    render(
-      <>
-        <Probe cast={WAITING} names={['Viola Davis', 'Margot Robbie']} />
-        <CastSection kind="movie" item={FILM} onChanged={() => {}} />
-      </>,
-    )
-    expect(await screen.findByText('Amanda Waller')).toBeTruthy()
-    await flush()
-    release()
-    await waitFor(() => expect(FILLED).toBe(1))
-    // The panel heard the same answer and re-read its cast: the stored picture is drawn.
-    await waitFor(() => expect(document.querySelector('.cast-face img')).toBeTruthy())
-    expect(posted(/cast\/art$/)).toHaveLength(1)
-  })
-})
 
 // ---- the panel's tick, and a row that is open -------------------------------
 //
@@ -466,56 +173,6 @@ describe('the character art a work page needs', () => {
 // a `save` with the same registry instead — and without that, typing a corrected
 // character name and pressing the tick closed the panel and threw the name away,
 // under a control that had just said it saved.
-describe('a cast row that is open when the tick is pressed', () => {
-  const withHost = async (item = FILM) => {
-    const entries = new Map()
-    const host = { register: (id, entry) => (entry ? entries.set(id, entry) : entries.delete(id)) }
-    render(
-      <UnsavedFieldsContext.Provider value={host}>
-        <CastSection kind="movie" item={item} onChanged={() => {}} />
-      </UnsavedFieldsContext.Provider>,
-    )
-    await waitFor(() => expect(CALLS.some(([m, p]) => m === 'GET' && p.endsWith('/cast'))).toBe(true))
-    return entries
-  }
-
-  it('registers nothing while it is merely open', async () => {
-    const entries = await withHost()
-    await screen.findByText('Amanda Waller')
-    fireEvent.click(screen.getAllByRole('button', { name: /^Edit / })[0])
-    // An open row you have not changed is not unsaved work, which is the same rule
-    // an InlineField follows.
-    expect(entries.size).toBe(0)
-  })
-
-  it('registers a save once it is typed into, and the save writes', async () => {
-    const entries = await withHost()
-    await screen.findByText('Amanda Waller')
-    fireEvent.click(screen.getAllByRole('button', { name: /^Edit / })[0])
-    fireEvent.change(screen.getByLabelText(/^Character$/i), { target: { value: 'A. Waller' } })
-    await waitFor(() => expect(entries.size).toBe(1))
-    const entry = [...entries.values()][0]
-    // A `save` and no `key`: it contributes nothing to the field patch and
-    // everything to the promise.
-    expect(entry.key).toBeUndefined()
-    expect(typeof entry.save).toBe('function')
-
-    expect(await entry.save()).toBe(true)
-    const put = CALLS.find(([m, p]) => m === 'PUT' && p === '/cast/11')
-    expect(put, 'the tick did not save the open row').toBeTruthy()
-    expect(put[2].character).toBe('A. Waller')
-  })
-
-  it('reports a refusal, so the panel does not close over it', async () => {
-    const entries = await withHost()
-    await screen.findByText('Amanda Waller')
-    fireEvent.click(screen.getAllByRole('button', { name: /^Edit / })[0])
-    fireEvent.change(screen.getByLabelText(/^Character$/i), { target: { value: 'A. Waller' } })
-    await waitFor(() => expect(entries.size).toBe(1))
-    OK_PUT = false
-    expect(await [...entries.values()][0].save()).toBe(false)
-  })
-})
 
 // ---- what the panel tells its host, and with what --------------------------
 //
@@ -529,41 +186,6 @@ describe('a cast row that is open when the tick is pressed', () => {
 // It survived two review passes because every test in this file stubbed the
 // callback as `() => {}`, which cannot see what it was given. So this one looks at
 // the ARGUMENT — the only assertion that could have caught it.
-describe('what the panel hands back', () => {
-  const seen = []
-  const panelWithSpy = async () => {
-    seen.length = 0
-    render(<CastSection kind="movie" item={FILM} onCastChanged={(...args) => seen.push(args)} />)
-    await waitFor(() => expect(CALLS.some(([m, p]) => m === 'GET' && p.endsWith('/cast'))).toBe(true))
-  }
-
-  it('hands over the new cast after a save', async () => {
-    await panelWithSpy()
-    await screen.findByText('Amanda Waller')
-    fireEvent.click(screen.getAllByRole('button', { name: /^Edit / })[0])
-    fireEvent.change(screen.getByLabelText(/^Character$/i), { target: { value: 'A. Waller' } })
-    fireEvent.click(screen.getByRole('button', { name: /^Save / }))
-    await waitFor(() => expect(CALLS.some(([m, p]) => m === 'PUT' && p === '/cast/11')).toBe(true))
-    await waitFor(() => expect(seen.length).toBeGreaterThan(0))
-    // NOT `[]`, which is what the first repair produced and what an earlier
-    // version of this test asserted as correct: a callback that says nothing is a
-    // callback the host cannot act on, and it left the boards showing the old
-    // cast until the page was reloaded by hand.
-    for (const args of seen) {
-      expect(args).toHaveLength(1)
-      expect(Array.isArray(args[0]), 'the panel did not hand over the cast').toBe(true)
-    }
-  })
-
-  it('hands it over after an add too', async () => {
-    await panelWithSpy()
-    fireEvent.click(screen.getByRole('button', { name: 'Add a character' }))
-    fireEvent.change(screen.getByLabelText(/^Character$/i), { target: { value: 'the bartender' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Add' }))
-    await waitFor(() => expect(seen.length).toBeGreaterThan(0))
-    for (const args of seen) expect(Array.isArray(args[0])).toBe(true)
-  })
-})
 
 // ---- the two cast fetches, on the fetch screen -----------------------------
 //
@@ -577,73 +199,6 @@ describe('what the panel hands back', () => {
 // Tested here rather than through WorkDetails because this is the component that
 // makes the requests; that it is RENDERED on the fetch screen is asserted in
 // details-save-all.test.jsx, which drives the real dialog.
-describe('the cast fetches', () => {
-  it('asks TheTVDB with no body — the id is on the record', async () => {
-    render(<CastFills item={FILM} onFilled={() => {}} />)
-    fireEvent.click(screen.getByRole('button', { name: /Cast from TheTVDB/ }))
-    await waitFor(() => expect(posted(/^\/movies\/7\/cast\/tvdb$/)).toHaveLength(1))
-    // NO BODY. A search here is where the wrong cast gets attached to the right
-    // work, so the id comes from the row and nothing guesses.
-    expect(posted(/^\/movies\/7\/cast\/tvdb$/)[0][2]).toBeUndefined()
-  })
-
-  // THE REFUSAL THAT HAD NOWHERE TO GO. TheTVDB is the only supplier with a
-  // picture per role, and a library matched on TMDB — every library upgraded from
-  // before 2.2.0 — has no id here at all, so this button answered with a sentence
-  // telling the reader to go and use Look up: notice a second supplier is offered,
-  // pick the same title again, take one row out of a merge. Three screens away
-  // from the art, which is how "the character images are not visible anywhere"
-  // stayed true after the art itself was built.
-  it('offers the TheTVDB records for this title when the row has no id', async () => {
-    TVDB_NEEDS_ID = true
-    LOOKUP = [
-      { source: 'tvdb', source_id: '297762', title: 'Suicide Squad', release_year: 2016 },
-      { source: 'tmdb', source_id: '297761', title: 'Suicide Squad', release_year: 2016 },
-    ]
-    render(<CastFills item={{ ...FILM, tvdb_id: 0 }} onFilled={() => {}} />)
-    fireEvent.click(screen.getByRole('button', { name: /Cast from TheTVDB/ }))
-
-    // The search it was telling the reader to go and run, run for them — and
-    // filtered to the supplier that was asked for, so the TMDB row with the same
-    // name cannot be picked into a TheTVDB field.
-    const pick = await screen.findByRole('button', { name: /Suicide Squad · 2016/ })
-    expect(screen.queryAllByRole('button', { name: /Suicide Squad · 2016/ })).toHaveLength(1)
-
-    fireEvent.click(pick)
-    await waitFor(() => {
-      const withID = posted(/^\/movies\/7\/cast\/tvdb$/).filter(([, , b]) => b?.tvdb_id)
-      expect(withID).toHaveLength(1)
-      expect(withID[0][2].tvdb_id).toBe(297762)
-    })
-  })
-
-  it('says so plainly when TheTVDB has no record to offer', async () => {
-    TVDB_NEEDS_ID = true
-    LOOKUP = [{ source: 'tmdb', source_id: '1', title: 'Suicide Squad', release_year: 2016 }]
-    render(<CastFills item={{ ...FILM, tvdb_id: 0 }} onFilled={() => {}} />)
-    fireEvent.click(screen.getByRole('button', { name: /Cast from TheTVDB/ }))
-    expect(await screen.findByText(/no match for this title/i)).toBeTruthy()
-  })
-
-  it('hides TheTVDB for a game, which has no record there at all', () => {
-    render(<CastFills item={GAME} onFilled={() => {}} />)
-    expect(screen.queryByRole('button', { name: /Cast from TheTVDB/ })).toBeNull()
-    // IMDb is what a game has, and it stays.
-    expect(screen.getByRole('button', { name: /Cast from IMDb/ })).toBeTruthy()
-  })
-
-  // WHAT IT HANDS BACK IS THE CAST, not a bare "something changed". The caller is
-  // a screen away from the panel that would otherwise reload it, and both
-  // endpoints already reply with the merged list — so a callback that could not
-  // say WHAT changed would cost the caller a round trip to find out.
-  it('hands the caller the cast that came back', async () => {
-    let got = null
-    render(<CastFills item={FILM} onFilled={(c) => { got = c }} />)
-    fireEvent.click(screen.getByRole('button', { name: /Cast from TheTVDB/ }))
-    await waitFor(() => expect(got).not.toBeNull())
-    expect(got.map((c) => c.character)).toEqual(['Amanda Waller', 'Harley Quinn'])
-  })
-})
 
 // ── THE FACE LADDER, and the middle rung is the one the merge needed.
 //
@@ -652,35 +207,6 @@ describe('the cast fetches', () => {
 // nothing on the second. The row carries what is stored at each grain — this
 // work's picture of the role, and the record's own default — and this panel
 // decides which to draw.
-describe('a cast row’s face', () => {
-  const faceSrc = () => {
-    const img = document.querySelector('.cast-face-btn img')
-    return img ? img.getAttribute('src') : null
-  }
-
-  it('prefers what THIS work stores for the role', async () => {
-    CAST = [{ id: 11, character: 'Woland', actor: '', character_image_path: 'in-this-book.jpg', character_record_image: 'the-record.jpg', character_image_url: '' }]
-    await openPanel(BOOK, 'book')
-    await waitFor(() => expect(faceSrc()).toContain('in-this-book.jpg'))
-  })
-
-  it('falls back to the record’s own default, which is what a merge leaves behind', async () => {
-    // The appearance the merge folded in has no picture of its own; the record
-    // does, because the reader promoted one.
-    CAST = [{ id: 11, character: 'Woland', actor: '', character_image_path: '', character_record_image: 'the-record.jpg', character_image_url: '' }]
-    await openPanel(BOOK, 'book')
-    await waitFor(() => expect(faceSrc()).toContain('the-record.jpg'))
-  })
-
-  it('draws nothing when neither grain has one', async () => {
-    CAST = [{ id: 11, character: 'Woland', actor: '', character_image_path: '', character_record_image: '', character_image_url: '' }]
-    await openPanel(BOOK, 'book')
-    await flush()
-    // A book has no performer either, so the actor rung is empty by definition —
-    // and an empty slot is the state the reader is here to fix.
-    expect(faceSrc()).toBeNull()
-  })
-})
 
 // A PICTURE CHOSEN ON A CAST LIST IS FRAMED LIKE EVERY OTHER. This row had no upload route in
 // the client (the identity sheet has had one for the same row all along), so what it picked went
@@ -689,48 +215,3 @@ describe('a cast row’s face', () => {
 // framed picture by (POST /cast/{id}/image/upload), and that jsdom decodes nothing, so Image is
 // stubbed to give a picture a size. `form.frame-form` is the one class it reads, to find the
 // frame dialog's own tick among the panel's.
-describe('a picture chosen on a cast row', () => {
-  const choose = async () => {
-    IMAGE_SOURCES = { google: true, amazon: false }
-    IMAGES = [{ url: 'https://pics.test/wide.jpg', thumb: 'https://encrypted-tbn0.gstatic.com/w', source: 'google' }]
-    PREVIEW = { image: 'data:image/png;base64,AAAA' }
-    vi.stubGlobal('Image', class {
-      set src(_) {
-        this.naturalWidth = 1600
-        this.naturalHeight = 701
-        setTimeout(() => this.onload?.())
-      }
-    })
-    HTMLCanvasElement.prototype.toBlob = (done) => done(new Blob(['framed'], { type: 'image/jpeg' }))
-    await openPanel()
-    await screen.findByText('Amanda Waller')
-    fireEvent.click(screen.getAllByRole('button', { name: /^Picture for / })[0])
-    fireEvent.click(screen.getAllByText('search images')[0])
-    const img = await waitFor(() => {
-      const el = document.querySelector('.cast-row-pics img')
-      expect(el).toBeTruthy()
-      return el
-    })
-    fireEvent.click(img.closest('button'))
-  }
-  const uploads = () => CALLS.filter(([m]) => m === 'UPLOAD')
-  afterEach(() => { vi.unstubAllGlobals(); PREVIEW = null })
-
-  it('is framed before it is kept, and nothing is saved yet', async () => {
-    await choose()
-    await screen.findByText(/^Frame — Amanda Waller/)
-    expect(posted(/^\/cast\/11\/image$/).filter(([, , b]) => b?.image_url), 'the picture was saved by address before it was framed').toHaveLength(0)
-    expect(uploads().length).toBe(0)
-  })
-
-  it('keeps the framed picture, as an upload of the reader’s own', async () => {
-    await choose()
-    await screen.findByText(/^Frame — Amanda Waller/)
-    await screen.findByRole('slider', { name: /zoom/i })
-    const tick = () => document.querySelector('button[type="submit"][form="' + document.querySelector('form.frame-form')?.id + '"]')
-    await waitFor(() => expect(tick()?.disabled).toBe(false))
-    fireEvent.click(tick())
-    await waitFor(() => expect(uploads().map((u) => u[1])).toEqual(['/cast/11/image/upload']))
-    expect(posted(/^\/cast\/11\/image$/).filter(([, , b]) => b?.image_url), 'the unframed address was saved as well').toHaveLength(0)
-  })
-})

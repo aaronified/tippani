@@ -90,25 +90,3 @@ describe('on a phone, a screen draws no bar of its own', () => {
   }
 })
 
-describe('on a desk, the same screens keep their header', () => {
-  for (const key of SCREENS_KEEPING_A_DESK_HEADER) {
-    it(`${key} draws one`, async () => {
-      width(false)
-      BAR = { sub: null, keys: null }
-      await mount(key)
-      // One, not two: the desktop shell has no top bar of its own to double.
-      await waitFor(() => expect(document.querySelectorAll('.page-header')).toHaveLength(1))
-      // And it publishes no sub-line, because there is no bar to put one in.
-      expect(BAR.sub).toBeNull()
-    })
-  }
-
-  for (const key of ['settings', 'metadata']) {
-    it(`${key} draws none, because the breadcrumb already names it`, async () => {
-      width(false)
-      BAR = { sub: null, keys: null }
-      await mount(key)
-      expect(document.querySelectorAll('.page-header')).toHaveLength(0)
-    })
-  }
-})

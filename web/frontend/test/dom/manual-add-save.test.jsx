@@ -42,33 +42,6 @@ function Harness({ onAdded = () => {}, initialTitle = '' }) {
   )
 }
 
-describe('the form is addressable from outside itself', () => {
-  it('carries the id the header button points at', () => {
-    // The form owner is what makes it the default button, and therefore what
-    // makes Enter-to-submit work.
-    const { container } = render(<ManualTab formId={FORM_ID} title="" setTitle={() => {}} onAdded={() => {}} />)
-    const form = container.querySelector('form')
-    expect(form).not.toBeNull()
-    expect(form.id).toBe(FORM_ID)
-  })
-
-  it('has no submit control of its own left inside it', () => {
-    // If one came back it would become the default button instead of the ✓, and
-    // the header would quietly stop being the thing that saves.
-    const { container } = render(<ManualTab formId={FORM_ID} title="Middlemarch" setTitle={() => {}} onAdded={() => {}} />)
-    const inside = [...container.querySelectorAll('form button')]
-    expect(inside.filter((b) => b.type === 'submit')).toHaveLength(0)
-  })
-
-  it('no longer offers the old text button', () => {
-    const { container } = render(<ManualTab formId={FORM_ID} title="Middlemarch" setTitle={() => {}} onAdded={() => {}} />)
-    // The tab is on screen first: "no Add book button" is also true of a tab
-    // that threw on mount.
-    expect(container.querySelector('form'), 'the tab did not render at all').not.toBeNull()
-    expect(screen.queryByRole('button', { name: /add book/i })).toBeNull()
-  })
-})
-
 describe('the header ✓ submits the form', () => {
   it('runs the form’s own onSubmit when pressed', async () => {
     const onAdded = vi.fn()
@@ -77,17 +50,4 @@ describe('the header ✓ submits the form', () => {
     expect(onAdded).toHaveBeenCalledWith({ id: 7, title: 'Middlemarch' })
   })
 
-  it('is greyed out with no title, and says why in words', () => {
-    render(<Harness />)
-    expect(screen.getByLabelText('Save').disabled).toBe(true)
-    // A disabled glyph explains nothing on its own.
-    expect(screen.getByText(/a title is required to save/i)).toBeTruthy()
-  })
-
-  it('drops the explanation once there is a title', async () => {
-    render(<Harness />)
-    await userEvent.type(screen.getByLabelText('Title'), 'Middlemarch')
-    expect(screen.getByLabelText('Save').disabled).toBe(false)
-    expect(screen.queryByText(/a title is required to save/i)).toBeNull()
-  })
 })

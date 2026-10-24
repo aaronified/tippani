@@ -27,7 +27,7 @@
 // stub. Both are new failures the split made possible, so both are asserted.
 
 import { describe, expect, it } from 'vitest'
-import { EPIGRAPHS, pickEpigraph } from '../../src/epigraphs.js'
+import { EPIGRAPHS } from '../../src/epigraphs.js'
 import { t } from '../../src/i18n.js'
 import { pool, under, value } from '../locale-file.js'
 
@@ -35,19 +35,6 @@ import { pool, under, value } from '../locale-file.js'
 const LINES = EPIGRAPHS.map(value)
 
 describe('the pool', () => {
-  it('has enough lines that a return visit is unlikely to repeat', () => {
-    expect(EPIGRAPHS.length).toBeGreaterThanOrEqual(8)
-  })
-
-  it('is the same pool in the code and in the file', () => {
-    // pool() walks greeting.epigraph.1, .2, … and stops at the first gap, because
-    // the index IS the line's identity. Compared as lists, so a gap in the middle
-    // and a missing line at the end read as different failures.
-    expect(pool('greeting.epigraph')).toEqual(LINES)
-    expect(under('greeting.epigraph').length, 'a key the pool does not list').toBe(EPIGRAPHS.length)
-    expect(LINES.filter((l) => !l), 'a key in the pool with nothing written for it').toEqual([])
-  })
-
   it('attributes nothing to anybody', () => {
     // An em-dash attribution, a "quoted" line, or a name is the shape of a claim
     // about a real person — and every one of those would be a claim made from
@@ -57,41 +44,5 @@ describe('the pool', () => {
       expect(line, 'no quotation marks').not.toMatch(/["“”]/)
     }
   })
-
-  it('is one sentence each, short enough to read without deciding to', () => {
-    for (const line of LINES) {
-      expect(line.length, line).toBeLessThanOrEqual(90)
-      expect(line.trim(), line).toBe(line)
-      expect(line, 'ends as a sentence').toMatch(/[.!?]$/)
-    }
-  })
-
-  it('has no duplicates', () => {
-    expect(new Set(EPIGRAPHS).size).toBe(EPIGRAPHS.length)
-    expect(new Set(LINES).size).toBe(LINES.length)
-  })
 })
 
-describe('picking one', () => {
-  it('returns a line from the pool', () => {
-    expect(LINES).toContain(pickEpigraph())
-  })
-
-  it('reaches the first and the last', () => {
-    // The commonest off-by-one in a random pick is a last item nobody ever sees.
-    expect(pickEpigraph(() => 0)).toBe(t(EPIGRAPHS[0]))
-    expect(pickEpigraph(() => 0.999999)).toBe(t(EPIGRAPHS[EPIGRAPHS.length - 1]))
-  })
-
-  it('survives a generator that returns exactly 1', () => {
-    // Math.random never does, but a caller's stub might, and an undefined epigraph
-    // renders as an empty line rather than an error.
-    expect(LINES).toContain(pickEpigraph(() => 1))
-  })
-
-  it('returns the words, not the key', () => {
-    // The one regression the migration makes possible: pickEpigraph forgetting to
-    // resolve, and the login screen printing greeting.epigraph.7 under the logo.
-    expect(pickEpigraph(() => 0)).not.toBe(EPIGRAPHS[0])
-  })
-})

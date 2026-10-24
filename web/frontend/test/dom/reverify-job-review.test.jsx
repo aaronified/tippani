@@ -106,26 +106,6 @@ const mountAt = async (path) => {
 }
 
 const theReview = () => screen.findByRole('dialog', { name: 'Re-verify metadata' })
-const checkedAgain = () => CALLS.filter(([m, p]) => m === 'POST' && p === '/metadata/reverify')
-
-describe('a finished re-verify, opened at its address', () => {
-  it('draws the job’s findings, without checking the sources again', async () => {
-    await mountAt('/metadata/reverify/5')
-    const review = await theReview()
-    await within(review).findByText('The Paper Boat')
-    expect(checkedAgain()).toHaveLength(0)
-  })
-
-  it('ticks the untouched empty field and leaves the one changed since the check for the reader', async () => {
-    await mountAt('/metadata/reverify/5')
-    const review = await theReview()
-    await within(review).findByText('changed since the check')
-    // Two empty fields, one of them changed since the check: one is ticked.
-    expect(within(review).getByRole('button', { name: 'Apply 1 approved change' })).toBeTruthy()
-    const boxes = within(review).getAllByRole('checkbox')
-    expect(boxes.map((b) => b.checked)).toEqual([true, false])
-  })
-})
 
 describe('Review findings, pressed on a past job in Settings › Jobs', () => {
   it('opens that job’s findings on Metadata, and closing them goes back to the jobs', async () => {

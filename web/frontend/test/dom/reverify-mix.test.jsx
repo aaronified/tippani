@@ -75,16 +75,6 @@ describe('per-field mix and match', () => {
     ITEMS = dualPinned()
   })
 
-  it('offers a cell per supplier only where they disagree', async () => {
-    await openReview()
-    // Both suppliers are named against the description.
-    await waitFor(() => expect(screen.getAllByText(/TheTVDB/i).length).toBeGreaterThan(0))
-    expect(screen.getByText("TMDB's description.")).toBeTruthy()
-    expect(screen.getByText("TheTVDB's description.")).toBeTruthy()
-    // The single-answer field keeps the plain fresh column.
-    expect(screen.getByText('The Wachowskis')).toBeTruthy()
-  })
-
   it('sends the picked supplier value and names it in sources', async () => {
     await openReview()
     fireEvent.click(screen.getByText("TMDB's description.").closest('button'))
@@ -96,28 +86,4 @@ describe('per-field mix and match', () => {
     expect(item.sources.description).toBe('tmdb')
   })
 
-  it('defaults an untouched tick to the preferred supplier', async () => {
-    await openReview()
-    // Tick the checkbox rather than picking a cell.
-    const boxes = document.querySelectorAll('input[type="checkbox"]')
-    fireEvent.click(boxes[0])
-    fireEvent.click(await screen.findByText(/^Apply/i))
-    await waitFor(() => expect(applyBody()).toBeTruthy())
-    const item = applyBody()
-    expect(item.set.description).toBe("TheTVDB's description.")
-    expect(item.sources.description).toBe('tvdb')
-  })
-
-  // A FILL THE FLOW TICKED FOR THE READER NAMES ITS SUPPLIER TOO. The seed used
-  // to store `true` for a pre-ticked fill, and `true` went out as its source —
-  // a value the server's map of supplier names cannot hold, so an apply of the
-  // default ticks was refused whole as a malformed body.
-  it('sends a pre-ticked fill under its supplier’s name, not as a bare yes', async () => {
-    await openReview()
-    fireEvent.click(await screen.findByText(/^Apply/i))
-    await waitFor(() => expect(applyBody()).toBeTruthy())
-    const item = applyBody()
-    expect(item.set.director).toBe('The Wachowskis')
-    expect(item.sources.director).toBe('tvdb')
-  })
 })

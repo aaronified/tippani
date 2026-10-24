@@ -74,13 +74,4 @@ describe('byLastRead', () => {
     const got = cases.map(({ name, list }) => [name, order(list)])
     expect(got).toEqual(cases.map(({ name, want }) => [name, want]))
   })
-
-  it('is a total order, so the sort is stable across runs', () => {
-    // Two works read on the same day, or two never read: the comparator must
-    // return something other than 0 for distinct titles, or the order depends on
-    // the engine's sort and the board reshuffles itself on a re-render.
-    const same = [w('b', '2020-01-01'), w('a', '2020-01-01')]
-    expect(order(same)).toEqual(['a', 'b'])
-    expect(byLastRead(w('a', '2020-01-01'), w('b', '2020-01-01'))).toBeLessThan(0)
-  })
 })

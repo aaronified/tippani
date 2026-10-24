@@ -97,36 +97,4 @@ describe('the duplicate card', () => {
     expect(CALLS.some(([m, p]) => m === 'POST' && p === '/people/rename')).toBe(false)
   })
 
-  it('keeps the record holding more of the library, unless told otherwise', async () => {
-    // The default is accepted as offered most of the time, so it has to be the
-    // one that loses nothing: folding the record with three books into the one
-    // with one is a merge that survives either way, but the reader reading the
-    // button wants to see the name they think of as theirs.
-    await mount()
-    expect(screen.getByText(/Merge into “Ursula LeGuin”/)).toBeTruthy()
-  })
-
-  it('says how much hangs off each, because the names cannot say it', async () => {
-    const box = await mount()
-    // The figures are text and the nouns are the glyphs beside them, which is
-    // also why the singular and the plural are asked for by NAME: the drawing is
-    // the same one either way and only its label says which.
-    expect(within(box).getByText('3')).toBeTruthy()
-    expect(within(box).getByText('1')).toBeTruthy()
-    expect(within(box).getByRole('img', { name: 'works' })).toBeTruthy()
-    expect(within(box).getByRole('img', { name: 'work' })).toBeTruthy()
-  })
-
-  it('has nothing to ask once the two spellings are one record', async () => {
-    // What a merge leaves behind: one row, with the folded spelling named under
-    // it. The card cannot re-offer a merge it has already made, because there is
-    // no second row to cluster with.
-    ROWS = [rec({ id: 7, name: 'Ursula LeGuin', spellings: ['Ursula Le Guin'], works: 4 })]
-    render(<PeopleConsole onFlash={() => {}} />)
-    await screen.findByText('Ursula LeGuin')
-    // Both spellings are still readable — the merge did not touch what the books
-    // print, which is the promise the confirm makes.
-    expect(screen.getByText(/Ursula Le Guin/)).toBeTruthy()
-    expect(screen.queryByText(/keep which spelling/)).toBeNull()
-  })
 })

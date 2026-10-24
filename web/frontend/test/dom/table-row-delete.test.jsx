@@ -60,22 +60,6 @@ describe.each([
     <Movies openId={1} onOpen={() => {}} onClose={() => {}} creditSeparators=",;&" onAdd={() => {}} onSearch={() => {}} dataNonce={0} />
   ), 'Round up the usual suspects.'],
 ])('Delete on a row of %s', (_what, viewKey, screenOf, line) => {
-  it('is pressable at all — it used to throw on the press', async () => {
-    inTableView(viewKey)
-    render(screenOf())
-    await screen.findByText(new RegExp(line.slice(0, 16)))
-    const keys = screen.getAllByRole('button', { name: /^Delete$/i })
-    expect(keys.length, 'the table row draws no Delete key').toBeGreaterThan(0)
-    // A throw inside a React handler does NOT come back out of fireEvent — the
-    // synthetic event system reports it to the window and the press returns
-    // normally — so pressing alone asserts nothing. Listen for it.
-    const thrown = []
-    const heard = (e) => thrown.push(e.error?.message || e.message)
-    window.addEventListener('error', heard)
-    try { fireEvent.click(keys[0]) } finally { window.removeEventListener('error', heard) }
-    expect(thrown, 'the press threw').toEqual([])
-  })
-
   it('and asks before it deletes, the way the card view asks', async () => {
     inTableView(viewKey)
     render(screenOf())

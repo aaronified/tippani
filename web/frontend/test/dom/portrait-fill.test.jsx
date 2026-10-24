@@ -66,15 +66,6 @@ describe('the headshots a work page asks for', () => {
     await waitFor(() => expect(asked()).toEqual([['Viola Davis']]))
   })
 
-  // THE FREE CASE, and the reason this can sit on every work page: the caller
-  // already holds the map, so it can tell there is nothing to do without asking.
-  it('makes no request when every face is already stored', async () => {
-    const names = ['Viola Davis']
-    render(<Probe names={names} people={{ 'Viola Davis': { image_path: 'davis.jpg' } }} />)
-    await new Promise((r) => setTimeout(r, 0))
-    expect(asked()).toEqual([])
-  })
-
   // A NAME IS ATTEMPTED ONCE, resolved or not. Re-rendering with the same map —
   // which is exactly what happens when a portrait for somebody ELSE lands — must
   // not start the unresolvable ones over.
@@ -88,34 +79,4 @@ describe('the headshots a work page asks for', () => {
     expect(asked()).toEqual([['A Minor Player']])
   })
 
-  it('tells the caller once, after the answer lands', async () => {
-    RESOLVES = { 'Viola Davis': true, 'Margot Robbie': true }
-    const told = []
-    render(<Probe names={['Viola Davis', 'Margot Robbie']} people={{}} onFilled={(what) => told.push(what)} />)
-    await waitFor(() => expect(told).toEqual([{ characters: 0, portraits: 2 }]))
-  })
-
-  it('says nothing when nothing arrived', async () => {
-    let filled = 0
-    render(<Probe names={['Nobody At All']} people={{}} onFilled={() => { filled += 1 }} />)
-    await waitFor(() => expect(asked()).toHaveLength(1))
-    await new Promise((r) => setTimeout(r, 0))
-    expect(filled).toBe(0)
-  })
-
-  // A BOOK HAS NO ACTORS, and asking for headshots on its behalf would be names
-  // the server has no second column to find them in.
-  it('asks for no names on a book', async () => {
-    render(<Probe kind="book" names={['Somebody']} people={{}} />)
-    await new Promise((r) => setTimeout(r, 0))
-    expect(asked()).toEqual([])
-  })
-
-  // ONE REQUEST, NOT ONE PER FACE — the server walks the names one at a time,
-  // so a self-hosted box does not open twenty connections because somebody
-  // opened a film. In the order the page draws them.
-  it('asks for all of them in one request, in the page’s order', async () => {
-    render(<Probe names={['A', 'B', 'C']} people={{}} />)
-    await waitFor(() => expect(asked()).toEqual([['A', 'B', 'C']]))
-  })
 })

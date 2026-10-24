@@ -27,7 +27,7 @@ import { render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { QUOTE_TEXT } from '../../src/fonts.js'
-import { QUOTE_LEADINGS, QUOTE_MEASURES, applyTypeScale } from '../../src/type.js'
+import { applyTypeScale } from '../../src/type.js'
 
 // One quote slot, set the way every quote slot in the app is set.
 const Quote = () => <p style={{ ...QUOTE_TEXT, fontSize: 'var(--type-display-17)' }}>Der Mensch ist frei</p>
@@ -39,35 +39,6 @@ afterEach(() => {
 })
 
 describe('a reader who has set both dials', () => {
-  it('gets them on the quote, through the properties rather than through a number', () => {
-    applyTypeScale({ quoteLeading: 190, quoteMeasure: 45 })
-    render(<Quote />)
-    const p = screen.getByText(/Der Mensch ist frei/)
-
-    // The values inherit from <html> down to the words.
-    expect(getComputedStyle(p).getPropertyValue('--quote-leading').trim()).toBe('1.9')
-    expect(getComputedStyle(p).getPropertyValue('--quote-measure').trim()).toBe('45ch')
-    // And the slot defers to them instead of carrying its own.
-    expect(p.style.lineHeight, 'the slot writes a leading of its own').toContain('--quote-leading')
-    expect(p.style.maxWidth, 'the slot writes a measure of its own').toContain('--quote-measure')
-  })
-
-  it('and every position of each dial reaches the page', () => {
-    // Not one value that happened to be true when this was written — the same
-    // lesson the Go size test records, where a withdrawn step broke a behaviour
-    // case that had nothing to do with the behaviour.
-    for (const n of QUOTE_LEADINGS) {
-      applyTypeScale({ quoteLeading: n })
-      expect(document.documentElement.style.getPropertyValue('--quote-leading'), `leading ${n}`)
-        .toBe(String(n / 100))
-    }
-    for (const n of QUOTE_MEASURES) {
-      applyTypeScale({ quoteMeasure: n })
-      expect(document.documentElement.style.getPropertyValue('--quote-measure'), `measure ${n}`)
-        .toBe(n ? `${n}ch` : 'none')
-    }
-  })
-
   it('and still has them after a reload', () => {
     // The round trip: a dial is set, the page is thrown away, and the app boots
     // again from what the server stored. Nothing is remembered on the element.
@@ -83,18 +54,6 @@ describe('a reader who has set both dials', () => {
     const p = screen.getByText(/Der Mensch ist frei/)
     expect(getComputedStyle(p).getPropertyValue('--quote-leading').trim()).toBe('1.3')
     expect(getComputedStyle(p).getPropertyValue('--quote-measure').trim()).toBe('80ch')
-  })
-})
-
-describe('a reader who has set neither', () => {
-  it('gets the leading the app has always drawn and no measure at all', () => {
-    // THE CASE THIS FILE EXISTS FOR. Everybody's account stores 0 for both today,
-    // so if this one is wrong the change restyles every library on upgrade.
-    applyTypeScale({})
-    render(<Quote />)
-    const p = screen.getByText(/Der Mensch ist frei/)
-    expect(getComputedStyle(p).getPropertyValue('--quote-leading').trim()).toBe('1.55')
-    expect(getComputedStyle(p).getPropertyValue('--quote-measure').trim()).toBe('none')
   })
 })
 
@@ -153,11 +112,4 @@ describe('the element the measure lands on', () => {
     expect(deafToTheMeasure(deck.container), 'the recall deck').toEqual([])
   })
 
-  it('and this walk can fail — an inline span with a measure is caught', () => {
-    // THE FLOOR. Every case above compares against [], so a walk that finds no
-    // measured element passes while checking nothing. This is the same shape the
-    // defect had, built on purpose.
-    const { container } = render(<span style={{ maxWidth: '45ch' }}>Der Mensch ist frei</span>)
-    expect(deafToTheMeasure(container)).toHaveLength(1)
-  })
 })

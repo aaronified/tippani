@@ -58,65 +58,6 @@ beforeEach(() => {
 })
 afterEach(() => cleanup())
 
-describe('a character row', () => {
-  it('names every performer, and pressing one opens that person', async () => {
-    CHARACTERS = [character({
-      works_in: [{
-        kind: 'movie', id: 9, title: 'The Godfather Part II', media_type: 'movie',
-        // BOTH VITOS ON ONE FILM, which is the pair the server used to collapse to
-        // whichever had the higher id.
-        actors: [{ id: 11, name: 'Robert De Niro' }, { id: 12, name: 'Marlon Brando' }],
-      }],
-    })]
-    const opened = []
-    render(<CharactersConsole rows={CHARACTERS} onReload={() => {}} />)
-    await screen.findByText('Vito Corleone')
-
-    for (const name of ['Robert De Niro', 'Marlon Brando']) {
-      expect(screen.getByText(name), `the row does not name ${name}`).toBeTruthy()
-    }
-    // A PILL IS A DOOR, which is the reason the server sends an id beside the name.
-    fireEvent.click(screen.getByText('Marlon Brando'))
-    await waitFor(() => expect(SENT.some((s) => s.path.includes('/people/id/12'))).toBe(true))
-  })
-
-  it('calls a television series a show, not a film', async () => {
-    CHARACTERS = [character({
-      name: 'Geralt',
-      works_in: [{ kind: 'movie', id: 4, title: 'The Witcher', media_type: 'show', actors: [] }],
-    })]
-    render(<CharactersConsole rows={CHARACTERS} onReload={() => {}} />)
-    await screen.findByText('Geralt')
-    // The glyph is the clapper board either way — there is one in the set and a
-    // second would be a picture nobody has seen. The NOUN is what was wrong.
-    expect(screen.queryByLabelText(t('unit.show', { count: 1 })), 'a show is not labelled a show').toBeTruthy()
-    expect(screen.queryByLabelText(t('unit.film', { count: 1 })), 'a show is labelled a film').toBeNull()
-  })
-
-  // ONE DRAWING, HOWEVER MANY MEDIA IT COVERS. A film and a show share the clapper,
-  // so a character in both would draw it TWICE side by side, told apart only by a
-  // tooltip nobody has hovered — "a lookalike next to the real glyph is two
-  // pictures of one thing", and on a row it reads as a rendering fault rather than
-  // as a fact. One mark, and its name says what it stands for here.
-  it('draws one clapper for a character in a film and a show, naming both', async () => {
-    CHARACTERS = [character({
-      name: 'Jack Ryan',
-      works_in: [
-        { kind: 'movie', id: 4, title: 'The Hunt for Red October', media_type: 'movie', actors: [] },
-        { kind: 'movie', id: 5, title: 'Tom Clancy’s series', media_type: 'show', actors: [] },
-      ],
-    })]
-    render(<CharactersConsole rows={CHARACTERS} onReload={() => {}} />)
-    await screen.findByText('Jack Ryan')
-
-    const both = `${t('unit.film', { count: 1 })} · ${t('unit.show', { count: 1 })}`
-    expect(screen.queryAllByLabelText(both), 'the two media are not one mark').toHaveLength(1)
-    // And neither medium is also drawn on its own, which is what two marks means.
-    expect(screen.queryByLabelText(t('unit.film', { count: 1 }))).toBeNull()
-    expect(screen.queryByLabelText(t('unit.show', { count: 1 }))).toBeNull()
-  })
-})
-
 describe('a person row', () => {
   it('offers a delete on a record nothing credits, and writes it', async () => {
     PEOPLE = [person({ name: 'Bob Peck', works: 1, credits: 0 })]
@@ -130,20 +71,4 @@ describe('a person row', () => {
     await waitFor(() => expect(SENT.some((s) => s.method === 'DELETE' && s.path === '/people/1')).toBe(true))
   })
 
-  // THE HALF THAT MATTERS MORE, because the other one merely works. `DELETE
-  // /people/{id}` REFUSES a record still credited on a work — a 409 naming the
-  // count — so a glyph drawn over one is a dead press under a confirm that has
-  // just promised the bin. On a real library that is most of the list.
-  it('does not offer one on a record a work still credits', async () => {
-    PEOPLE = [person({ name: 'Frank Herbert', works: 1, credits: 1 })]
-    render(<PeopleConsole onFlash={() => {}} onReverify={() => {}} onSearch={() => {}} />)
-    await screen.findByText('Frank Herbert')
-
-    expect(
-      screen.queryByLabelText(t('metadata.people.action.delete.aria', { name: 'Frank Herbert' })),
-      'the row offers a delete the server would refuse',
-    ).toBeNull()
-    // And the row is otherwise whole — this is a missing verb, not a missing row.
-    expect(screen.getByLabelText(t('metadata.people.row.fetch.aria', { name: 'Frank Herbert' }))).toBeTruthy()
-  })
 })

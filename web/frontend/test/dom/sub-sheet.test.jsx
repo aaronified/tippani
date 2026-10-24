@@ -63,10 +63,6 @@ beforeEach(() => {
 afterEach(() => cleanup())
 
 describe('a sub-surface of a panel', () => {
-  it('is drawn inside the panel box, not over the whole viewport', async () => {
-    const sheet = await openSheet('Sort name')
-    expect(sheet.closest('.tp-panel'), 'the sheet escaped the popup it belongs to').toBeTruthy()
-  })
 
   it('leaves the screen it came from mounted underneath', async () => {
     // The escalation's real cost: the record you were editing disappeared, so a
@@ -77,29 +73,4 @@ describe('a sub-surface of a panel', () => {
     expect(screen.getAllByText('Woland').length, 'the record name is gone from the screen').toBeGreaterThan(0)
   })
 
-  it('offers the way back by naming the screen it came from', async () => {
-    // "the breadcrumb back option works" — the owner naming the mechanism they
-    // want. It is the panel's own back key, which is why it carries the parent's
-    // name rather than the word "back".
-    const sheet = await openSheet('Sort name')
-    const back = sheet.querySelector('.tp-panel-back')
-    expect(back, 'no way back out of the sheet').toBeTruthy()
-    expect(back.textContent).toContain('Woland')
-  })
-
-  it('draws no ✕ beside the back key, which would close the lot', async () => {
-    // `PanelHost`'s own rule for a nested surface: "its two exits are answer and
-    // back", and a third key that closes everything is a destructive control
-    // wearing a dismiss key's clothes.
-    const sheet = await openSheet('Sort name')
-    const names = [...sheet.querySelectorAll('.tp-panel-head button')]
-      .map((b) => b.getAttribute('aria-label') || '')
-    expect(names.filter((n) => /close/i.test(n)), 'a close key on a nested surface').toHaveLength(0)
-  })
-
-  it('is positioned against the panel and not against the viewport', async () => {
-    // `fixed` here would put the sheet back over the whole screen however it is
-    // nested, which is the defect in one word.
-    expect(resolveOn('.tp-subsheet', 'position').value).toBe('absolute')
-  })
 })

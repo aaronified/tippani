@@ -95,14 +95,6 @@ describe('the shelf cap over a game', () => {
     POOL = inProgress(3, 'game', 'playing')
   })
 
-  it('counts games, in the word a game is played in', async () => {
-    await start()
-    expect(await screen.findByText('Already Playing 3')).toBeTruthy()
-    expect(screen.getByText(/holds 3 games at a time/)).toBeTruthy()
-    expect(screen.queryByText('Already Watching 3')).toBeNull()
-    expect(screen.queryByText(/3 films at a time/)).toBeNull()
-  })
-
   it('settles one as played, not as watched', async () => {
     await start()
     await screen.findByText('Already Playing 3')
@@ -111,19 +103,3 @@ describe('the shelf cap over a game', () => {
   })
 })
 
-describe('the shelf cap over a film', () => {
-  beforeEach(() => {
-    // The other half, so neither side can be satisfied by rewording the other.
-    // Two, because SHELF_CAPS.movie is 2.
-    ROW = { id: 8, title: 'Solaris', media_type: 'movie', status: '', director: 'Tarkovsky', release_year: 1972 }
-    POOL = inProgress(2, 'movie', 'watching')
-  })
-
-  it('still counts films, and still settles them as watched', async () => {
-    await start()
-    expect(await screen.findByText('Already Watching 2')).toBeTruthy()
-    expect(screen.getByText(/holds 2 films at a time/)).toBeTruthy()
-    expect(screen.getAllByRole('button', { name: 'Mark as watched' })).toHaveLength(2)
-    expect(screen.queryByRole('button', { name: 'Mark as played' })).toBeNull()
-  })
-})

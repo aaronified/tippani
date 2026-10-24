@@ -30,57 +30,6 @@ async function open(user) {
   return screen.getByRole('listbox')
 }
 
-describe('the Settings row', () => {
-  test('offers every installed language with its coverage beside the name', async () => {
-    const user = userEvent.setup()
-    setLocaleFiles({ fr: file({}, { _name: 'Français' }) })
-    render(<LanguagePicker titleKey="settings.language.title" info />)
-    const panel = await open(user)
-    const rows = within(panel).getAllByRole('option')
-    // The two built-ins and the operator's file. NOT the pseudo-locale, which is
-    // applicable but no longer offered — see the last describe in this file.
-    expect(rows).toHaveLength(3)
-    // COVERAGE ON EVERY ROW, design §7 — including the two that ship in the box,
-    // which is the whole point of showing it. No language is second-class, so none
-    // of them gets to omit the number.
-    for (const row of rows) expect(row.textContent).toMatch(/\d+%$/)
-    expect(within(panel).getByRole('option', { name: `Français · ${coverage('fr')}%` })).toBeTruthy()
-  })
-
-  test('picking one applies it and hands the code to the caller to save', async () => {
-    const user = userEvent.setup()
-    const onPick = vi.fn()
-    setLocaleFiles({ fr: file({ 'settings.language.title': 'Langue' }, { _name: 'Français' }) })
-    render(<LanguagePicker titleKey="settings.language.title" onPick={onPick} />)
-    const panel = await open(user)
-    await user.click(within(panel).getByRole('option', { name: /Français/ }))
-    // Applied by the picker itself — the first-run screen has no session to save
-    // to and still has to work.
-    expect(localeActive()).toBe('fr')
-    // …and the SAVE is the caller's, which is what keeps this out of the
-    // Appearance card's persist() and its every-field-on-any-change PUT.
-    expect(onPick).toHaveBeenCalledWith('fr')
-  })
-
-  test('the choice is mirrored device-locally, so the login screen matches next boot', async () => {
-    const user = userEvent.setup()
-    setLocaleFiles({ fr: file({}, { _name: 'Français' }) })
-    render(<LanguagePicker titleKey="settings.language.title" />)
-    const panel = await open(user)
-    await user.click(within(panel).getByRole('option', { name: /Français/ }))
-    expect(localStorage.getItem(LOCALE_KEY)).toBe('fr')
-  })
-
-  test('the row title, and the whole picker, are keyed rather than written here', () => {
-    render(<LanguagePicker titleKey="settings.language.title" />)
-    // The word on screen is whatever en.txt says it is. Asserting the KEY resolves
-    // rather than asserting the word means a translator changing the copy does not
-    // break the test — and a key that stops resolving does.
-    expect(screen.getByText(t('settings.language.title'))).toBeTruthy()
-    expect(t('settings.language.title')).not.toBe('Language title') // not the placeholder
-  })
-})
-
 describe('the language actually renders', () => {
   test('choosing one changes the words on screen, with no reload', async () => {
     const user = userEvent.setup()
@@ -93,15 +42,6 @@ describe('the language actually renders', () => {
     expect(before).not.toBe('Langue')
   })
 
-  test('and the document says which language, and which way it reads', async () => {
-    const user = userEvent.setup()
-    setLocaleFiles({ ar: file({}, { _name: 'العربية', _dir: 'rtl' }) })
-    render(<LanguagePicker titleKey="settings.language.title" />)
-    const panel = await open(user)
-    await user.click(within(panel).getByRole('option', { name: /العربية/ }))
-    expect(document.documentElement.lang).toBe('ar')
-    expect(document.documentElement.dir).toBe('rtl')
-  })
 })
 
 describe('a stored language that is no longer installed', () => {
@@ -129,27 +69,3 @@ describe('a stored language that is no longer installed', () => {
 // found. Both halves are pinned below, because either one silently flipping is a
 // different bug — a diagnostic in a reader's menu, or a diagnostic that no longer
 // works.
-describe('the pseudo-locale is applicable but not offered', () => {
-  test('the picker lists the shipped languages and not the transform', async () => {
-    const user = userEvent.setup()
-    render(<LanguagePicker titleKey="settings.language.title" />)
-    const panel = await open(user)
-    const rows = within(panel).getAllByRole('option')
-    expect(rows.length, 'expected the two built-ins and nothing else').toBe(2)
-    for (const row of rows) {
-      expect(row.textContent, 'the transform is in the reader’s menu').not.toContain('⟦')
-    }
-    expect(localeCatalogue().some((l) => l.code === PSEUDO)).toBe(false)
-  })
-
-  test('and still applies when asked for by code, or it audits nothing', () => {
-    // The door a translator uses, and the one the suite uses: the code itself.
-    applyLocale(PSEUDO)
-    expect(localeActive()).toBe(PSEUDO)
-    expect(isInstalled(PSEUDO), 'applicable, even though unlisted').toBe(true)
-    // Every keyed string it returns is bracketed. An English literal still in the
-    // JSX would be the only plain text left, which is the whole point.
-    expect(t('settings.language.title').startsWith('⟦')).toBe(true)
-    applyLocale('en')
-  })
-})

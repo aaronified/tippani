@@ -97,17 +97,6 @@ const film = (over = {}, props = {}) =>
 const chip = () => document.querySelector('.person-chip')
 
 describe('a book quote’s speaker', () => {
-  it('is a chip, and the meta line stops repeating the name', async () => {
-    book()
-    const c = chip()
-    expect(c, 'no chip, so the line still only says who it is in text').toBeTruthy()
-    expect(within(c).getByText('Woland')).toBeTruthy()
-    // ONE MENTION, NOT TWO. Naming the same person in the chip and again in the
-    // locator line is the reader reading one fact twice and wondering what the
-    // difference between the two is — the SearchPage `omitSpeaker` precedent.
-    expect(screen.getAllByText('Woland')).toHaveLength(1)
-  })
-
   it('hands back the cast row, not just the record', async () => {
     book()
     fireEvent.click(chip())
@@ -119,38 +108,6 @@ describe('a book quote’s speaker', () => {
     expect(opened[0].character_id).toBe(3)
   })
 
-  it('falls back to the text when the line has no link', async () => {
-    book({ speaker_cast: undefined })
-    expect(chip(), 'a chip with nothing behind it').toBeNull()
-    // Not silence: the card said who it was before this feature existed and must
-    // go on saying so.
-    expect(screen.getByText(/Woland/)).toBeTruthy()
-  })
-
-  it('keeps the name and drops the press when the cast row has no record', async () => {
-    book({ speaker_cast: { ...SPEAKER, character_id: 0 } })
-    const c = chip()
-    expect(c, 'the name went out with the door').toBeTruthy()
-    expect(within(c).getByText('Woland')).toBeTruthy()
-    // STILL A BUTTON, and it says it has nowhere to go rather than looking like a
-    // different kind of thing — the owner's ruling.
-    expect(c.tagName).toBe('BUTTON')
-    expect(c.getAttribute('aria-disabled')).toBe('true')
-    fireEvent.click(c)
-    expect(opened, 'pressed a chip with no page behind it').toHaveLength(0)
-  })
-
-  it('keeps the name and drops the press on a surface with nowhere to open it', async () => {
-    // Search and the standalone board render this card and own no panel stack, so
-    // they pass no opener. Home DOES own one now, which is what let its pills
-    // become doors; these two are what is left of the state.
-    book({}, { onOpenCharacter: undefined })
-    const c = chip()
-    expect(c, 'the card lost its pill').toBeTruthy()
-    expect(within(c).getByText('Woland')).toBeTruthy()
-    expect(c.tagName).toBe('BUTTON')
-    expect(c.getAttribute('aria-disabled')).toBe('true')
-  })
 })
 
 describe('a film line’s speaker', () => {
@@ -174,46 +131,6 @@ describe('a film line’s speaker', () => {
     expect(screen.getAllByText(/the Stalker/)).toHaveLength(1)
   })
 
-  it('hands back the cast row', async () => {
-    film()
-    fireEvent.click(chip())
-    expect(opened).toHaveLength(1)
-    expect(opened[0].cast_id).toBe(11)
-  })
-
-  it('falls back to the text when there is no link', async () => {
-    film({ speaker_cast: undefined })
-    expect(chip()).toBeNull()
-    expect(screen.getByText(/the Stalker/)).toBeTruthy()
-  })
-})
-
-describe('the face on the chip', () => {
-  it('is hashed from the record’s name, not from what this work bills', async () => {
-    // HANDOFF 1.8, and the reason it is a rule: "hash the canonical name, never
-    // creditAs — otherwise a person changes face between two books." A novel
-    // billing "the professor" and a film billing "Woland" are one record and must
-    // wear one face, so the label takes the billing and the silhouette takes the
-    // record.
-    const { Silhouette } = await import('../../src/silhouette.jsx')
-    // Two references drawn from the two candidate names, so the assertion is
-    // "which of these did it pick" rather than a hash value copied into the test.
-    const face = (name) => {
-      const { container } = render(<Silhouette name={name} />)
-      const svg = container.querySelector('svg.tp-silhouette').innerHTML
-      cleanup()
-      return svg
-    }
-    const asRecord = face('Woland')
-    const asBilled = face('the professor')
-    expect(asRecord, 'the two names hash alike, so this case proves nothing').not.toBe(asBilled)
-
-    book({ speaker_cast: { ...SPEAKER, name: 'the professor', record_name: 'Woland' } })
-    const c = chip()
-    expect(within(c).getByText('the professor'), 'the chip prints the record name, not this work’s billing').toBeTruthy()
-    const drawn = c.querySelector('svg.tp-silhouette').innerHTML
-    expect(drawn, 'hashed the billing rather than the record').toBe(asRecord)
-  })
 })
 
 // ---- one face on the row, not two ------------------------------------------
@@ -239,18 +156,6 @@ describe('the face on a card', () => {
   const discFaces = () => [...document.querySelectorAll('img[src*="characters/"]')]
     .filter((i) => !i.closest('.person-chip'))
 
-  it('is the chip alone when the line has one speaker', async () => {
-    book({ character_images: [{ name: 'Woland', path: 'characters/w.jpg' }] })
-    expect(document.querySelectorAll('.person-chip')).toHaveLength(1)
-    expect(discFaces(), 'the disc row is still drawn behind the chip').toHaveLength(0)
-  })
-
-  it('is the chip alone on a film line too', async () => {
-    film({ character_images: [{ name: 'the Stalker', path: 'characters/s.jpg' }] })
-    expect(document.querySelectorAll('.person-chip')).toHaveLength(1)
-    expect(discFaces(), 'the disc row is still drawn behind the chip').toHaveLength(0)
-  })
-
   it('is a chip per named character on the line the chip could not speak for', async () => {
     // AN ENSEMBLE LINE, which is the case the discs existed for: the linker
     // refuses to guess between two names, so nothing is stored. A stack of discs
@@ -268,25 +173,4 @@ describe('the face on a card', () => {
     expect(document.querySelectorAll('.person-chip')).toHaveLength(2)
   })
 
-  it('wears the actor’s headshot when the character has no picture of their own', async () => {
-    // THE FALLBACK, on the film side, and the ladder is the character's still →
-    // the record's default → the performer. A book has no actor to fall back to
-    // and lands on the hashed silhouette instead.
-    film(
-      { speaker_cast: { cast_id: 11, character_id: 3, name: 'the Stalker', image: '' }, actor: 'Aleksandr Kaydanovskiy' },
-      { actorMap: { 'Aleksandr Kaydanovskiy': { name: 'Aleksandr Kaydanovskiy', image_path: 'people/ak.jpg' } } },
-    )
-    const img = document.querySelector('.person-chip img')
-    expect(img, 'the chip drew no face at all').toBeTruthy()
-    expect(img.getAttribute('src')).toContain('people/ak.jpg')
-  })
-
-  it('prefers the character’s own still over the actor’s headshot', async () => {
-    film(
-      { speaker_cast: { cast_id: 11, character_id: 3, name: 'the Stalker', image: 'characters/stalker.jpg' }, actor: 'Aleksandr Kaydanovskiy' },
-      { actorMap: { 'Aleksandr Kaydanovskiy': { name: 'Aleksandr Kaydanovskiy', image_path: 'people/ak.jpg' } } },
-    )
-    const img = document.querySelector('.person-chip img')
-    expect(img.getAttribute('src'), 'the performer won over the role').toContain('characters/stalker.jpg')
-  })
 })

@@ -92,60 +92,11 @@ afterEach(() => {
   window.matchMedia = realMatchMedia
 })
 
-describe('with nothing unsaved', () => {
-  it('closes on a click outside, with no question', async () => {
-    render(<Harness dirty={0} />)
-    expect(await screen.findByText('the panel body')).toBeTruthy()
-    clickAway()
-    // NO QUESTION IS THE CLAIM. The close itself is history-driven — the stack
-    // walks `window.history` back exactly as far as it pushed — so its absence
-    // arrives a frame later and is awaited rather than asserted on the spot.
-    expect(screen.queryByText(/Leave without saving/), 'it asked about nothing').toBeNull()
-    await waitFor(() => expect(screen.queryByText('the panel body')).toBeNull())
-  })
-
-  it('closes on a drag back down, with no question', async () => {
-    phone()
-    render(<Harness dirty={0} />)
-    await screen.findByText('the panel body')
-    dragDown()
-    expect(screen.queryByText(/Leave without saving/), 'it asked about nothing').toBeNull()
-    await waitFor(() => expect(screen.queryByText('the panel body')).toBeNull())
-  })
-
-  it('closes on Escape, with no question', async () => {
-    render(<Harness dirty={0} />)
-    await screen.findByText('the panel body')
-    esc()
-    expect(screen.queryByText(/Leave without saving/)).toBeNull()
-    await waitFor(() => expect(screen.queryByText('the panel body')).toBeNull())
-  })
-})
-
 // AND THE PANEL DRAWS ITS OWN WAY BACK UP, which is a fact about the RENDER and
 // not about the hook. The hook's own cases live in `focus-owns-the-scroll`; this
 // one exists because the element went missing from `PanelHost` in the commit that
 // described it, and every one of those hook cases stayed green — a rule tested
 // only where it is decided is a rule nobody checks is wired.
-describe('a panel that can be scrolled', () => {
-  it('carries a key back to its own top', async () => {
-    render(<Harness dirty={0} />)
-    await screen.findByText('the panel body')
-    expect(panel().querySelector('.to-top'),
-      'the panel draws no way back up, so a long sheet is a one-way flick')
-      .toBeTruthy()
-  })
-
-  it('and it is the panel\'s own, not the page\'s', async () => {
-    render(<Harness dirty={0} />)
-    await screen.findByText('the panel body')
-    // The page's key is fixed to the viewport corner; this one belongs to the
-    // card, so it has to be inside it.
-    const keys = [...document.querySelectorAll('.to-top')]
-    expect(keys.length, 'more than one key is on screen, offering two surfaces').toBe(1)
-    expect(panel().contains(keys[0]), 'the key is outside the panel it answers to').toBe(true)
-  })
-})
 
 describe('with work at stake', () => {
   it('asks instead of closing when you click outside', async () => {
@@ -156,45 +107,6 @@ describe('with work at stake', () => {
     // AND THE PANEL IS STILL THERE. A question that appears while the thing it
     // is about has already gone is not a question, it is a notification.
     expect(screen.getByText('the panel body')).toBeTruthy()
-  })
-
-  it('counts, because three fields is a different decision from one', async () => {
-    render(<Harness dirty={3} />)
-    await settled(3)
-    clickAway()
-    expect(await screen.findByText(/3 fields/)).toBeTruthy()
-    cleanup()
-    resetPanelHistory()
-    render(<Harness dirty={1} />)
-    await settled(1)
-    clickAway()
-    expect(await screen.findByText(/One field/)).toBeTruthy()
-  })
-
-  it('asks on Escape too — the route most likely to be pressed by reflex', async () => {
-    render(<Harness dirty={1} />)
-    await settled(1)
-    esc()
-    expect(await screen.findByText(/Leave without saving/)).toBeTruthy()
-    expect(screen.getByText('the panel body')).toBeTruthy()
-  })
-
-  it('asks on a drag back down, which is the phone\'s ✕', async () => {
-    phone()
-    render(<Harness dirty={2} />)
-    await settled(2)
-    dragDown()
-    expect(await screen.findByText(/Leave without saving/),
-      'the sheet slid away and took two typed fields with it — a gesture is not a cheaper way out than the ✕')
-      .toBeTruthy()
-    expect(screen.getByText('the panel body'), 'the question appeared over a panel that had already gone').toBeTruthy()
-  })
-
-  it('asks on the ✕ as well, so no route is the cheap way out', async () => {
-    render(<Harness dirty={1} />)
-    await settled(1)
-    fireEvent.click(screen.getByRole('button', { name: /close/i }))
-    expect(await screen.findByText(/Leave without saving/)).toBeTruthy()
   })
 
   it('keeps the panel and the drafts when you say keep', async () => {

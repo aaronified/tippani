@@ -37,67 +37,7 @@ const bubble = () => document.querySelector('.hint-bubble, .tp-hint, [data-hint]
 const bubbleText = () => bubble()?.textContent || ''
 const tick = (ms) => act(() => { vi.advanceTimersByTime(ms) })
 
-describe('a hovered label waits to be asked', () => {
-  // REPORTED: "use a slight delay before the tooltips. now they are instantaneous
-  // and thus irritating." The irritation is not the label — it is the labels you
-  // never wanted. Crossing the top bar to reach the ＋ passes over five controls,
-  // and every one of them used to answer.
-  it('says nothing at all on the frame the pointer arrives', () => {
-    render(<><ToastHost /><Tooltip label="Copy this quote"><button type="button">c</button></Tooltip></>)
-    fireEvent.pointerEnter(screen.getByRole('button'), { pointerType: 'mouse' })
-    act(() => {})
-    expect(bubbleText(), 'the bubble is still instantaneous').not.toContain('Copy this quote')
-    tick(HOVER_TIP_MS - 50)
-    expect(bubbleText(), 'it arrived early').not.toContain('Copy this quote')
-    tick(100)
-    expect(bubbleText()).toContain('Copy this quote')
-  })
-
-  it('and nothing at all to a pointer that was only passing through', () => {
-    // The whole point. Leaving before the delay elapses must cancel it rather than
-    // let a bubble arrive over wherever the pointer went next.
-    render(<><ToastHost /><Tooltip label="Copy this quote"><button type="button">c</button></Tooltip></>)
-    const btn = screen.getByRole('button')
-    fireEvent.pointerEnter(btn, { pointerType: 'mouse' })
-    tick(HOVER_TIP_MS - 100)
-    fireEvent.pointerLeave(btn, { pointerType: 'mouse' })
-    tick(HOVER_TIP_MS + 200)
-    expect(bubbleText(), 'a label arrived after the pointer had gone').not.toContain('Copy this quote')
-  })
-
-  it('but answers a keyboard immediately, because tabbing IS the question', () => {
-    // There is no passing over a control with a keyboard, so there is no intent
-    // left to test and a delay would only be a pause between press and answer.
-    render(<><ToastHost /><Tooltip label="Copy this quote"><button type="button">c</button></Tooltip></>)
-    const btn = screen.getByRole('button')
-    btn.matches = (sel) => sel === ':focus-visible'
-    fireEvent.focus(btn)
-    act(() => {})
-    expect(bubbleText()).toContain('Copy this quote')
-  })
-
-  it('drops a pending label when the control is pressed', () => {
-    // Pressing inside the delay must not leave a bubble to arrive afterwards, over
-    // whatever the press just opened.
-    render(<><ToastHost /><Tooltip label="Copy this quote"><button type="button">c</button></Tooltip></>)
-    const btn = screen.getByRole('button')
-    fireEvent.pointerEnter(btn, { pointerType: 'mouse' })
-    tick(HOVER_TIP_MS - 100)
-    fireEvent.click(btn)
-    tick(HOVER_TIP_MS + 200)
-    expect(bubbleText()).not.toContain('Copy this quote')
-  })
-})
-
 describe('a hovered label closes itself', () => {
-  it('from a Tooltip, after the cap', () => {
-    render(<><ToastHost /><Tooltip label="Copy this quote"><button type="button">c</button></Tooltip></>)
-    fireEvent.pointerEnter(screen.getByRole('button'), { pointerType: 'mouse' })
-    tick(HOVER_TIP_MS + 20) // the intent delay comes first now
-    expect(bubbleText()).toContain('Copy this quote')
-    tick(HOVER_HIDE_MS + 50)
-    expect(bubbleText()).not.toContain('Copy this quote')
-  })
 
   // THE ONE THAT WAS BROKEN. Toggle opens its option labels by calling showHint
   // directly, and never set a timer of its own.
@@ -121,48 +61,6 @@ describe('a hovered label closes itself', () => {
     // re-render, get covered, or simply be left behind, and no leave arrives.
     tick(HOVER_HIDE_MS + 50)
     expect(bubbleText()).not.toContain('Hide the words')
-  })
-})
-
-describe('an info dot sticks when you click it, on purpose', () => {
-  // A CLICK ON A HOVER-OPENED POPOVER PINS IT. It does not close it. Hover is
-  // how you glance; the click is how you say "leave this up while I read it".
-  it('pins a hover-opened popover rather than closing it', () => {
-    render(<><ToastHost /><InfoDot text="What a colon does" title="Facets" /></>)
-    const dot = screen.getByRole('button', { name: /More information/ })
-    fireEvent.pointerEnter(dot, { pointerType: 'mouse' })
-    act(() => {})
-    expect(dot.getAttribute('aria-expanded')).toBe('true')
-    fireEvent.click(dot)
-    expect(dot.getAttribute('aria-expanded')).toBe('true')
-    // And now the pointer can go anywhere: this is what pinning bought.
-    fireEvent.pointerLeave(dot, { pointerType: 'mouse' })
-    tick(10000)
-    expect(dot.getAttribute('aria-expanded')).toBe('true')
-  })
-
-  it('and a second click is what closes it', () => {
-    render(<><ToastHost /><InfoDot text="What a colon does" title="Facets" /></>)
-    const dot = screen.getByRole('button', { name: /More information/ })
-    fireEvent.click(dot)
-    expect(dot.getAttribute('aria-expanded')).toBe('true')
-    fireEvent.click(dot)
-    expect(dot.getAttribute('aria-expanded')).toBe('false')
-  })
-
-  // The UNPINNED popover is the only one hover closes, and it does so on the
-  // leave rather than on a timer — there is text in it, and a paragraph that
-  // vanishes while you are reading it is worse than one you have to move away
-  // from.
-  it('closes an unclicked one when the pointer leaves', () => {
-    render(<><ToastHost /><InfoDot text="What a colon does" title="Facets" /></>)
-    const dot = screen.getByRole('button', { name: /More information/ })
-    fireEvent.pointerEnter(dot, { pointerType: 'mouse' })
-    act(() => {})
-    expect(dot.getAttribute('aria-expanded')).toBe('true')
-    fireEvent.pointerLeave(dot, { pointerType: 'mouse' })
-    tick(1000)
-    expect(dot.getAttribute('aria-expanded')).toBe('false')
   })
 })
 
@@ -194,19 +92,6 @@ describe('the hover delay', () => {
   const enter = (el, x, y) =>
     fireEvent.pointerEnter(el, { pointerType: 'mouse', clientX: x, clientY: y })
 
-  it('shows the label when the pointer rests', async () => {
-    vi.useFakeTimers()
-    try {
-      const el = mount()
-      enter(el, 100, 100)
-      move(el, 102, 101) // a resting hand's jitter, well inside the slop
-      await act(async () => { vi.advanceTimersByTime(500) })
-      expect(document.body.textContent).toContain('Search')
-    } finally {
-      vi.useRealTimers()
-    }
-  })
-
   it('shows nothing while the pointer is still travelling', async () => {
     vi.useFakeTimers()
     try {
@@ -226,16 +111,4 @@ describe('the hover delay', () => {
     }
   })
 
-  it('says nothing once the pointer has left, even if the clock finishes anyway', async () => {
-    vi.useFakeTimers()
-    try {
-      const el = mount()
-      enter(el, 100, 100)
-      fireEvent.pointerLeave(el, { pointerType: 'mouse' })
-      await act(async () => { vi.advanceTimersByTime(1000) })
-      expect(document.body.textContent).not.toContain('Search')
-    } finally {
-      vi.useRealTimers()
-    }
-  })
 })

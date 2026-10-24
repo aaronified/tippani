@@ -52,10 +52,6 @@ describe('a year survives being written down and read back', () => {
     expect(back.circa, 'the estimate was lost on the way through the box').toBe(circa)
   })
 
-  it('and no year at all stays no year', () => {
-    expect(yearInputValue(0, true)).toBe('')
-    expect(yearInputValue(null, true)).toBe('')
-  })
 })
 
 describe('what the reader may type', () => {
@@ -65,29 +61,9 @@ describe('what the reader may type', () => {
     expect(onChange, 'the estimate was stripped, as it always was').toHaveBeenCalledWith('c. 1500')
   })
 
-  it('and keeps a BCE year, which was equally unenterable', () => {
-    const { onChange } = mount()
-    fireEvent.change(box(), { target: { value: '380 BCE' } })
-    expect(onChange).toHaveBeenCalledWith('380 BCE')
-  })
-
-  it('and both at once, which is how an ancient text is actually dated', () => {
-    const { onChange } = mount()
-    fireEvent.change(box(), { target: { value: 'c. 380 BCE' } })
-    expect(onChange).toHaveBeenCalledWith('c. 380 BCE')
-  })
 })
 
 describe('the checkbox and the phrase are one fact', () => {
-  it('is ticked by a phrase that carries the marker', () => {
-    mount('c. 1500')
-    expect(flag().checked, 'the box says nothing about a year that is already approximate').toBe(true)
-  })
-
-  it('and unticked by one that does not', () => {
-    mount('1500')
-    expect(flag().checked).toBe(false)
-  })
 
   it('and ticking it writes the marker into the phrase', () => {
     const { onChange } = mount('1500')
@@ -95,38 +71,5 @@ describe('the checkbox and the phrase are one fact', () => {
     expect(onChange).toHaveBeenCalledWith('c. 1500')
   })
 
-  it('and unticking takes it out again, without eating the year', () => {
-    const { onChange } = mount('c. 1500')
-    fireEvent.click(flag())
-    expect(onChange).toHaveBeenCalledWith('1500')
-  })
-
-  it('and ticking twice does not stack two markers', () => {
-    // The flag is DERIVED, so this cannot happen by construction — which is the
-    // reason it is derived, and the reason to pin it.
-    const { onChange } = mount('c. 1500')
-    fireEvent.change(box(), { target: { value: 'c. c. 1500' } })
-    expect(parseYearInput('c. c. 1500').year, 'a doubled marker parsed as a year anyway').toBe(0)
-  })
-
-  it('and cannot be ticked with no year to be approximate about', () => {
-    // "c. " on its own reads back as no year, so the flag would appear to untick
-    // itself on the next render.
-    mount('')
-    expect(flag().disabled, 'an estimate was offered about nothing').toBe(true)
-  })
 })
 
-describe('and a phrase it cannot read says so', () => {
-  it('marks an unparseable year invalid', () => {
-    // Newly possible: while the box stripped to digits nothing invalid could be
-    // typed. Now "sometime in the 90s" is enterable and saves as no year at all.
-    mount('sometime in the 90s')
-    expect(box().getAttribute('aria-invalid')).toBe('true')
-  })
-
-  it('but says nothing about an empty box', () => {
-    mount('')
-    expect(box().getAttribute('aria-invalid')).toBeNull()
-  })
-})

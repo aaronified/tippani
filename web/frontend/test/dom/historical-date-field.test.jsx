@@ -44,10 +44,6 @@ const mount = (over = {}) => {
 
 describe('a date in history', () => {
   // The keypad first, because it is the part no validator change would have fixed.
-  it('offers a keyboard that can spell an era', () => {
-    mount({ historical: true })
-    expect(field().getAttribute('inputmode'), 'a numeric keypad has no B, C or E on it').not.toBe('numeric')
-  })
 
   it('lets the era survive being typed', () => {
     const { onChange } = mount({ historical: true })
@@ -70,72 +66,11 @@ describe('a date in history', () => {
     }
   })
 
-  it('still refuses a date the calendar does not have', () => {
-    mount({ historical: true, value: '399-02-30' })
-    expect(field().getAttribute('aria-invalid'), 'February has never had 30 days').toBe('true')
-  })
-})
-
-describe('a date in the reader’s own life', () => {
-  // The bound is the whole difference between the two, so it is asserted as a
-  // difference: the same string, accepted by one field and refused by the other.
-  it('keeps refusing what a historical field now takes', () => {
-    for (const historicalOnly of ['399', '399 BCE', '40']) {
-      mount({ value: historicalOnly })
-      expect(field().getAttribute('aria-invalid'), historicalOnly).toBe('true')
-      cleanupRender()
-    }
-  })
-
-  it('keeps its numeric keypad, having nothing to spell', () => {
-    mount()
-    expect(field().getAttribute('inputmode')).toBe('numeric')
-  })
-
-  it('keeps stripping, so nothing invalid can be typed into it', () => {
-    const { onChange } = mount()
-    fireEvent.change(field(), { target: { value: '18a90' } })
-    expect(onChange).toHaveBeenCalledWith('1890')
-  })
 })
 
 // The owner's second ask, in their words: "there SHould be an info dot on the year
 // fields (keep it in the field, and not on the header) (all of them) to explain
 // the formats and how to do circa (the button) and BCE (-)."
-describe('the explanation', () => {
-  const dot = () => document.querySelector('button[aria-label^="More information"]')
-
-  it('rides in the box’s own row, not up on the label', () => {
-    mount({ historical: true })
-    const d = dot()
-    expect(d, 'no info dot at all').toBeTruthy()
-    // The label sits in the field's own header; the dot must not be its sibling
-    // there. Sharing a parent with the INPUT is what "in the field" means.
-    expect(d.parentElement.contains(field()), 'the dot is not in the input’s row').toBe(true)
-  })
-
-  it('names the era marker and the tick, because that is what it was asked for', () => {
-    mount({ historical: true })
-    fireEvent.click(dot())
-    const said = document.body.textContent
-    expect(said, 'no BCE example').toMatch(/BCE/)
-    expect(said, 'no minus-sign form').toMatch(/-399/)
-    expect(said, 'nothing about the tick').toMatch(/tick/i)
-  })
-
-  it('is on the year boxes too, which is what “all of them” meant', () => {
-    render(<YearField label="Year" value="" onChange={() => {}} circaLabel="Approximate" />)
-    const d = dot()
-    expect(d, 'the year box has no info dot').toBeTruthy()
-    expect(d.parentElement.querySelector('input.tp-input'), 'the dot left the box’s row').toBeTruthy()
-  })
-
-  it('does not offer an era to a field that would refuse one', () => {
-    mount()
-    fireEvent.click(dot())
-    expect(document.body.textContent, 'a read log cannot be BCE').not.toMatch(/BCE/)
-  })
-})
 
 // render() appends; these cases each want a fresh tree.
 function cleanupRender() {

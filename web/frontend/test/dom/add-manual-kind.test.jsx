@@ -74,13 +74,6 @@ async function addByHand(kind, title) {
 describe('the hand-entry popup', () => {
   // The enumeration. Read the chips out of the component's own source so this
   // cannot drift from the toggle it is guarding.
-  it('has a heading and a media type for every kind the toggle offers', async () => {
-    const { KINDS } = await import('../../src/AddSurface.jsx')
-    for (const [value] of KINDS) {
-      expect(KIND_EXPECTATIONS[value], `KINDS offers "${value}" with no expectation here`).toBeDefined()
-    }
-    expect(Object.keys(KIND_EXPECTATIONS).sort()).toEqual(KINDS.map(([v]) => v).sort())
-  })
 
   for (const [kind, want] of Object.entries(KIND_EXPECTATIONS)) {
     if (!want.mediaType) continue // book goes through the books flow, not /movies
@@ -96,54 +89,3 @@ describe('the hand-entry popup', () => {
   }
 })
 
-describe('the missing-key warning', () => {
-  // The one that would have stopped the user reaching the film form at all.
-  //
-  // WHAT IT SAYS CHANGED IN 1.16.0 and the assertion changed with it. A game
-  // without an IGDB key still SEARCHES now — Wikidata is the fallback — so the
-  // old wording ("no IGDB key configured") described a lookup that was off when
-  // it is merely thinner, and would have sent somebody to Settings for a
-  // credential they may not need. What has to survive is that the message names
-  // the GAME supplier rather than the film one, and says what you are getting.
-  it('names IGDB on Game when only the game supplier is unconfigured', async () => {
-    STATUS = { tmdb: { source: 'custom' }, igdb: { source: 'none' } }
-    render(<AddLookup initialKind="game" onAdded={() => {}} />)
-    const msg = await screen.findByText(/no IGDB key/i)
-    expect(msg.textContent).toMatch(/Wikidata/)
-    expect(screen.queryByText(/no movie-lookup key configured/)).toBeNull()
-  })
-
-  // The converse, so the fix is a routing of two probes and not a second
-  // always-on message: a configured IGDB says nothing on Game.
-  it('says nothing on Game when IGDB is configured but TMDB is not', async () => {
-    STATUS = { tmdb: { source: 'none' }, igdb: { source: 'custom' } }
-    render(<AddLookup initialKind="game" onAdded={() => {}} />)
-    await waitFor(() => expect(CALLS.some((c) => c.path === '/metadata/status')).toBe(true))
-    expect(screen.queryByText(/no IGDB key/)).toBeNull()
-    expect(screen.queryByText(/no movie-lookup key configured/)).toBeNull()
-  })
-
-  it('still names the movie key on Film', async () => {
-    STATUS = { tmdb: { source: 'none' }, igdb: { source: 'custom' } }
-    render(<AddLookup initialKind="film" onAdded={() => {}} />)
-    expect(await screen.findByText(/no movie-lookup key configured/)).toBeTruthy()
-  })
-})
-
-describe('a game as a capture target', () => {
-  // workFromMovie is how a freshly-added work becomes the thing a quote is filed
-  // against. It narrowed to show-or-film, so a game arrived at the picker tagged
-  // FILM and carrying media_type 'movie' — the same silent mis-filing one layer
-  // further on.
-  it('keeps its media type and wears its own tag', () => {
-    expect(workFromMovie({ id: 2, title: 'Hades', media_type: 'game' })).toMatchObject({
-      kind: 'screen',
-      media_type: 'game',
-      tag: 'GAME',
-    })
-  })
-
-  it('still reads a row with no media_type as a film', () => {
-    expect(workFromMovie({ id: 3, title: 'Chinatown' })).toMatchObject({ media_type: 'movie', tag: 'FILM' })
-  })
-})

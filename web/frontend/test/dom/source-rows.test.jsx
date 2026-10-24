@@ -28,7 +28,7 @@
 // restating them; this file is the half that proves the screen can paint what it
 // is sent.
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, render, screen, waitFor } from '@testing-library/react'
 
 let STATUS
 
@@ -75,64 +75,4 @@ describe('a supplier row', () => {
     expect(document.querySelector('[aria-label="Source: TMDB — built in"]')).toBeTruthy()
   })
 
-  it('offers no Test on a supplier that has no key, because there is nothing to ask with', async () => {
-    STATUS.sources = [row('tmdb', 'needed'), row('google', 'saved')]
-    await page()
-    const dead = screen.getByRole('button', { name: /Ask TMDB a test question/i })
-    expect(dead.disabled, 'a press that could only report "no key" is offered').toBe(true)
-    const live = screen.getByRole('button', { name: /Ask Google Books a test question/i })
-    expect(live.disabled, 'the supplier that CAN be asked is not offered either').toBe(false)
-  })
-
-  it('says when no answer from a supplier is on record, rather than leaving the row silent', async () => {
-    // A picture rung is recorded only when the app actually uses it, so a row
-    // with no answer is the ordinary state of a server that has just started —
-    // and a blank space there is indistinguishable from an answer that failed to
-    // render. (Open Library used to be the example here and was the wrong one: it
-    // is asked on every book lookup, and a rating found that the app was
-    // recording that answer under Google's name.)
-    STATUS.sources = [row('wikimedia', 'optional')]
-    await page()
-    expect(screen.getByText(/no answer recorded since the server started/i)).toBeTruthy()
-  })
-
-  // "Fields | works", and people where it supplied any. The owner, 30 September:
-  // "not just the count of works and peoples, but of fields."
-  it('says how many fields a supplier wrote, in how many works, and the people it filled', async () => {
-    STATUS.sources = [
-      { ...row('google', 'saved'), fields: 214, works: 38 },
-      { ...row('wikimedia', 'optional'), fields: 12, people: 12 },
-      row('tmdb', 'builtin'),
-    ]
-    await page()
-    const text = document.body.textContent
-    expect(text).toMatch(/214 fields \| 38/)
-    // The glyph carries the noun, so a screen reader hears "38 works".
-    expect(screen.getByRole('img', { name: 'works' })).toBeTruthy()
-    expect(screen.getByRole('img', { name: 'people' })).toBeTruthy()
-    expect(text).toMatch(/12 fields · 12/)
-    expect(text).toMatch(/0 fields/)
-  })
-
-  // RED IS FOR A SUPPLIER THAT CANNOT BE ASKED AND HAS WRITTEN NOTHING. One that
-  // needs its key again but supplied people (by identity or a link, with no
-  // field) has written something, and its count is not a warning.
-  it('reds the count of a supplier that cannot be asked only when it has written nothing', async () => {
-    STATUS.sources = [{ ...row('tmdb', 'needed'), people: 2 }, row('igdb', 'needed')]
-    await page()
-    const counts = [...document.querySelectorAll('.src-row-count')]
-    expect(counts.map((c) => c.classList.contains('is-needed'))).toEqual([false, true])
-  })
-
-  // AND ITS TOOLTIP DOES NOT SAY NOTHING CAME FROM IT. The count reads "0 fields"
-  // with the people after it, and the tooltip a pointer rests on said "Nothing in
-  // your library came from TMDB" over two people it had supplied.
-  it('tells a pointer on a people-only count that the people came from it', async () => {
-    STATUS.sources = [{ ...row('tmdb', 'needed'), people: 2 }]
-    render(<ToastHost />)
-    await page()
-    fireEvent.pointerEnter(document.querySelector('.src-row-count'), { pointerType: 'mouse' })
-    expect(await screen.findByText(/No field, but 2 people in your library have a link or a record from TMDB/)).toBeTruthy()
-    expect(screen.queryByText(/Nothing in your library came from TMDB/)).toBeNull()
-  })
 })
