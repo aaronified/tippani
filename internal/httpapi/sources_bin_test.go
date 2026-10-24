@@ -146,7 +146,7 @@ func TestABulkDeleteIsRestoredWithItsFilesAsOneEntry(t *testing.T) {
 func TestAMountedSourceComesBackWithItsWorkAsARowAndTheMountIsUntouched(t *testing.T) {
 	srv, c, root, film, _, _ := mountFixture(t)
 	line := c.newLine(film, "Governments should be afraid of their people.", nil)
-	for _, cand := range c.scan("").Candidates {
+	for _, cand := range c.scan().Candidates {
 		if cand.WorkID == film && cand.Subject == "screen" {
 			c.mustDo("POST", "/sources/attach-found", map[string]any{"bucket": cand.Bucket, "tokens": []string{cand.Token}}, 200)
 		}

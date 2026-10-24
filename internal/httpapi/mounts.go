@@ -21,9 +21,10 @@ package httpapi
 // ones this process chose to offer. The signing key is random per process, so a token does
 // not survive a restart, which only means "scan again".
 //
-// NOTHING RUNS ON ITS OWN. The walk is inside the request, bounded by a file cap and a wall
-// clock budget, and answers `truncated` with a cursor when it stops short. It is never
-// automatic, never on boot, never on a timer, and starts no goroutine.
+// A scan starts only when a reader presses Scan: never on boot, never on a timer. One press
+// queues a job (library_scan.go, ADR-0917-A) that walks the whole folder and stores its
+// findings and checkpoint in the database as it goes. Nothing is capped and no second press
+// is needed. The job ends when the folder does, or when the reader presses Stop.
 
 import (
 	"crypto/hmac"
@@ -37,10 +38,8 @@ import (
 	"net/http"
 	"path"
 	"regexp"
-	"sort"
 	"strconv"
 	"strings"
-	"time"
 
 	"tippani/internal/ebook"
 	"tippani/internal/importer"
@@ -53,9 +52,6 @@ import (
 const (
 	settingLibraryMounts = "library_mounts"
 	maxMounts            = 8
-	// One press of Scan: how many files it may report and how long it may walk.
-	scanFiles  = 400
-	scanBudget = 8 * time.Second
 	// A file over the source cap is skipped, as an upload would be refused.
 	scanMaxBytes = maxSourceUpload
 )
@@ -174,6 +170,18 @@ func (s *Server) handlePutMounts(w http.ResponseWriter, r *http.Request) {
 		}
 		clean = append(clean, m)
 	}
+	// Scan rows of a removed or repointed folder are deleted: the id may be reused.
+	for _, old := range s.loadMounts() {
+		kept := false
+		for _, m := range clean {
+			if m.ID == old.ID && m.Path == old.Path {
+				kept = true
+			}
+		}
+		if !kept {
+			s.forgetLibraryScans(old.ID)
+		}
+	}
 	raw, _ := json.Marshal(clean)
 	v := string(raw)
 	if len(clean) == 0 {
@@ -271,102 +279,6 @@ type scanWork struct {
 	asin    string
 	foldedT string
 	foldedA string
-}
-
-// handleScanMount: POST /sources/scan {mount_id, cursor}.
-func (s *Server) handleScanMount(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		MountID string `json:"mount_id"`
-		Cursor  string `json:"cursor"`
-	}
-	if !decodeBody(w, r, &req) {
-		return
-	}
-	root, cfg, err := s.mountByID(strings.TrimSpace(req.MountID))
-	if cfg == nil {
-		writeErr(w, http.StatusNotFound, "no such library folder")
-		return
-	}
-	if err != nil {
-		// "The file is not where it was" has a remedy; "there is no source" does not.
-		writeErr(w, http.StatusConflict, "that folder cannot be read right now: "+err.Error())
-		return
-	}
-	uid := userID(r)
-	books, movies, haveBook, haveFilm, quoted, err := s.scanLibrary(uid)
-	if err != nil {
-		internalError(w, r, "scan: read library", err)
-		return
-	}
-	ignored := s.ignoredFound(uid)
-
-	started := time.Now()
-	walk := root.Walk(req.Cursor, map[string]bool{".srt": true, ".vtt": true, ".ass": true, ".epub": true}, scanFiles, scanBudget)
-
-	type pick struct {
-		cand foundCandidate
-		rank int
-	}
-	best := map[string]pick{}
-	unclaimed := 0
-	consider := func(key string, p pick) {
-		if cur, ok := best[key]; !ok || p.cand.Bucket < cur.cand.Bucket || (p.cand.Bucket == cur.cand.Bucket && (p.rank < cur.rank || (p.rank == cur.rank && len(p.cand.Rel) < len(cur.cand.Rel)))) {
-			// "exact" sorts before "review", which is the order wanted.
-			best[key] = p
-		}
-	}
-	truncated, cursor := walk.Truncated, walk.Cursor
-	processed := ""
-	for _, f := range walk.Files {
-		// THE WHOLE REQUEST IS BOUNDED, not only the walk: identifying files costs a read each, and a
-		// slow mount would otherwise carry one request far past any proxy's patience. Stopping here
-		// answers truncated with the last file handled as the cursor, so Continue picks up after it.
-		if processed != "" && time.Since(started) > 2*scanBudget {
-			truncated, cursor = true, processed
-			break
-		}
-		processed = f.Rel
-		if f.Size > scanMaxBytes || f.Size == 0 {
-			continue
-		}
-		ext := strings.ToLower(path.Ext(f.Rel))
-		matched := false
-		if ext == ".epub" {
-			if c, ok := s.matchEPUB(root, cfg.ID, f.Rel, books, haveBook, quoted, ignored); ok {
-				consider("book:"+strconv.FormatInt(c.WorkID, 10), pick{cand: c})
-				matched = true
-			}
-		} else if c, rank, ok := s.matchSubtitle(cfg.ID, f.Rel, movies, haveFilm, quoted, ignored); ok {
-			consider(c.Subject+":"+strconv.FormatInt(c.WorkID, 10)+":"+c.Episode, pick{cand: c, rank: rank})
-			matched = true
-		}
-		if !matched {
-			unclaimed++
-		}
-	}
-	out := make([]foundCandidate, 0, len(best))
-	for _, p := range best {
-		out = append(out, p.cand)
-	}
-	sort.Slice(out, func(i, j int) bool {
-		if out[i].Bucket != out[j].Bucket {
-			return out[i].Bucket < out[j].Bucket
-		}
-		if out[i].Title != out[j].Title {
-			return out[i].Title < out[j].Title
-		}
-		return out[i].Episode < out[j].Episode
-	})
-	writeJSON(w, http.StatusOK, map[string]any{
-		"candidates": out,
-		"scanned":    len(walk.Files),
-		"unclaimed":  unclaimed,
-		"truncated":  truncated,
-		"cursor":     cursor,
-		"skipped": map[string]int{
-			"irregular": walk.Skipped.Irregular, "outside": walk.Skipped.Outside, "unreadable": walk.Skipped.Unreadable,
-		},
-	})
 }
 
 // scanLibrary reads what a scan can attach to: works that HAVE quotes (a file for a work
@@ -536,21 +448,35 @@ func (s *Server) matchSubtitle(mountID, rel string, movies []scanWork, have map[
 	return c, n.Rank, true
 }
 
-// matchEPUB identifies a book by what is IN the file: an ISBN or ASIN both sides hold is
-// exact, and otherwise the folded title (the file's often carries a subtitle the library's
-// lacks) with the author agreeing is a proposal.
-func (s *Server) matchEPUB(root *mount.Root, mountID, rel string, books []scanWork, have map[int64]bool, quoted, ignored map[string]bool) (foundCandidate, bool) {
-	// THROUGH A HANDLE, NOT THE WHOLE FILE: a zip's central directory and the package document are
-	// a few kilobytes at the end of a file that may be tens of megabytes, and a scan touches hundreds.
+// epubIdentity is the few EPUB fields a match is judged on. It is stored in
+// library_scan_files.meta, so an unchanged file can be matched again without opening it.
+type epubIdentity struct {
+	Title   string   `json:"t"`
+	Creator string   `json:"c"`
+	ISBNs   []string `json:"i,omitempty"`
+	ASINs   []string `json:"a,omitempty"`
+}
+
+// readEPUBIdentity opens one EPUB through the mount and reads its metadata.
+// It reads through a handle, not the whole file: the zip directory and package document
+// are a few kilobytes at the end of a file that may be tens of megabytes.
+func readEPUBIdentity(root *mount.Root, rel string) (epubIdentity, error) {
 	f, size, err := root.OpenReader(rel)
 	if err != nil {
-		return foundCandidate{}, false
+		return epubIdentity{}, err
 	}
 	defer f.Close()
 	meta, err := ebook.ReadMetaAt(f, size)
 	if err != nil {
-		return foundCandidate{}, false
+		return epubIdentity{}, err
 	}
+	return epubIdentity{Title: meta.Title, Creator: meta.Creator, ISBNs: meta.ISBNs, ASINs: meta.ASINs}, nil
+}
+
+// matchEPUB identifies a book by what is IN the file: an ISBN or ASIN both sides hold is
+// exact, and otherwise the folded title (the file's often carries a subtitle the library's
+// lacks) with the author agreeing is a proposal.
+func (s *Server) matchEPUB(meta epubIdentity, mountID, rel string, books []scanWork, have map[int64]bool, quoted, ignored map[string]bool) (foundCandidate, bool) {
 	var hit *scanWork
 	how := ""
 	isbns := map[string]bool{}
@@ -667,6 +593,7 @@ func (s *Server) handleAttachFound(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		attached++
+		s.dropFindings(uid, t, false)
 		done = append(done, tok)
 		total.Matched += st.Matched
 		total.Ambiguous += st.Ambiguous
@@ -762,6 +689,7 @@ func (s *Server) handleIgnoreFound(w http.ResponseWriter, r *http.Request) {
 		if n, _ := res.RowsAffected(); n > 0 {
 			ignored++
 		}
+		s.dropFindings(uid, t, true)
 	}
 	writeJSON(w, http.StatusOK, map[string]int{"ignored": ignored})
 }

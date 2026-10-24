@@ -44,7 +44,7 @@ export const JOB_KINDS = [
   // The queued ones: the five loops a reader starts from a screen, the backup,
   // and — from 3.1.0 — an import and its approval and the safety copy a restore
   // or a reset takes first, which their own routes queue.
-  'fill', 'covers', 'people', 'reverify', 'reverify-apply', 'backup', 'import', 'import.approve', 'backup.safety',
+  'fill', 'covers', 'people', 'reverify', 'reverify-apply', 'backup', 'import', 'import.approve', 'library.scan', 'backup.safety',
   // Recorded in their request (F2): lookups a reader starts one at a time,
   // saves that fetch a picture from an address, and the acts that swap the
   // database under the queue. THE SERVER'S ROUTE TABLE IS THE LIST TO KEEP THIS
@@ -74,6 +74,8 @@ export const COUNT_KEYS = [
   // job did: the quotes it staged, the quotes it put in the library.
   ['staged', 'settings.jobs.count.staged'],
   ['added', 'settings.jobs.count.added'],
+  ['scanned', 'settings.jobs.count.scanned'],
+  ['found', 'settings.jobs.count.found'],
   ['fields', 'settings.jobs.count.fields'],
   ['fetched', 'settings.jobs.count.fetched'],
   ['enriched', 'settings.jobs.count.enriched'],

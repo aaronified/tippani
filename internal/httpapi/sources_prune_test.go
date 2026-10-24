@@ -156,7 +156,7 @@ func TestTheStackIsBiggestFirstSoTheDecisionStartsWhereItFreesMost(t *testing.T)
 func TestAMountedFileHasNothingToPruneAndAnotherReadersIsNotFound(t *testing.T) {
 	srv, c, _, film, _, _ := mountFixture(t)
 	cara := addUser(t, srv.Handler(), c, "cara")
-	for _, cand := range c.scan("").Candidates {
+	for _, cand := range c.scan().Candidates {
 		if cand.WorkID == film && cand.Subject == "screen" {
 			c.mustDo("POST", "/sources/attach-found", map[string]any{"bucket": cand.Bucket, "tokens": []string{cand.Token}}, 200)
 		}

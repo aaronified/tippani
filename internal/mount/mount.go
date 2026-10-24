@@ -17,9 +17,9 @@
 //   - NO PATH FROM THE CLIENT. Callers hand this package paths RELATIVE to a root that
 //     the server derived or verified itself; the walk reports what it found and the
 //     reader chooses from that.
-//   - BOUNDED. A walk stops at a file cap or a wall-clock budget and says so, with a
-//     cursor to resume from, so a large library is a few presses and a silent
-//     truncation can never read as a clean library.
+//   - STREAMED. A walk hands each file to a callback and keeps none. It holds one
+//     directory's entries at most, so memory does not grow with the library. The callback
+//     can end the walk (a Stop). The caller keeps the checkpoint (ADR-0917-A).
 //
 // Nothing here starts a goroutine, and nothing here wakes on a timer.
 package mount
@@ -33,7 +33,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"time"
 )
 
 // ErrOutside is a path that resolves outside the root, usually by a symlink.
@@ -158,17 +157,15 @@ func (r *Root) Exists(rel string) bool {
 
 // Found is one file a walk reported.
 type Found struct {
-	Rel  string // slash-separated, relative to the root
-	Size int64
+	Rel     string // slash-separated, relative to the root
+	Size    int64
+	ModTime int64 // unix milliseconds; with Size, shows whether the file changed
 }
 
 // WalkResult says what a walk did, including what it refused.
 type WalkResult struct {
-	Files []Found
-	// Truncated is true when the walk stopped at its cap or budget; Cursor is then the
-	// path it stopped at, and Walk resumed from it covers the rest exactly once.
-	Truncated bool
-	Cursor    string
+	// Stopped is true when the callback ended the walk before the end of the tree.
+	Stopped bool
 	// Skipped counts what was seen and not reported, by reason.
 	Skipped struct {
 		Irregular  int // devices, FIFOs, sockets
@@ -177,23 +174,20 @@ type WalkResult struct {
 	}
 }
 
-// Walk lists regular files under the root whose lower-case extension is in exts, in a
-// stable lexical order, starting after cursor. It stops after maxFiles reported files
-// or when budget has elapsed, whichever comes first.
+// Walk reports regular files under the root whose lower-case extension is in exts, one at a
+// time to visit, in lexical order of their full paths, starting after cursor (a relative
+// path from an earlier walk; "" for the start). visit returns false to end the walk. The
+// file it was given is then not handled, so a caller that saves the last file it finished
+// resumes at that one.
 //
-// A SYMLINK IS NEVER FOLLOWED OUT OF THE ROOT, and is followed within it only as a
-// file: a link to a directory is not descended into, which is also what stops a loop.
-func (r *Root) Walk(cursor string, exts map[string]bool, maxFiles int, budget time.Duration) WalkResult {
+// A symlink is never followed out of the root. Inside the root it is followed only as a
+// file; a link to a directory is not entered, which also prevents loops.
+func (r *Root) Walk(cursor string, exts map[string]bool, visit func(Found) bool) WalkResult {
 	var res WalkResult
-	deadline := time.Now().Add(budget)
-	stopped := false
-	// lastVisited is the last file the walk looked at, reported or not: where a walk that ran
-	// out of time resumes from. visited guarantees every pass makes progress.
-	lastVisited, visited := "", 0
 
 	var walk func(dirAbs, dirRel string)
 	walk = func(dirAbs, dirRel string) {
-		if stopped {
+		if res.Stopped {
 			return
 		}
 		ents, err := os.ReadDir(dirAbs)
@@ -201,10 +195,9 @@ func (r *Root) Walk(cursor string, exts map[string]bool, maxFiles int, budget ti
 			res.Skipped.Unreadable++
 			return
 		}
-		// THE ORDER IS THE ORDER OF THE FULL PATHS, which is what a cursor compares. A directory
-		// is keyed with its trailing slash, so `a.srt` comes before the directory `a/` ('.' sorts
-		// before '/'), exactly as the strings "a.srt" and "a/x.srt" do. Sorting by bare name
-		// walked `a/` first and then, on resume, skipped `a.srt` as already done.
+		// Order by full path, which is what a cursor compares. A directory is keyed with a
+		// trailing slash, so `a.srt` sorts before the directory `a/`. Sorting by bare name
+		// would walk `a/` first and skip `a.srt` on resume.
 		key := func(e fs.DirEntry) string {
 			if e.IsDir() {
 				return e.Name() + "/"
@@ -213,15 +206,7 @@ func (r *Root) Walk(cursor string, exts map[string]bool, maxFiles int, budget ti
 		}
 		sort.Slice(ents, func(i, j int) bool { return key(ents[i]) < key(ents[j]) })
 		for _, e := range ents {
-			if stopped {
-				return
-			}
-			// THE BUDGET IS CHECKED PER ENTRY, not only when a file is reported: a tree of millions
-			// of files that match nothing would otherwise never meet it. At least one entry is
-			// always visited, so a resumed pass cannot stall on an expired budget.
-			if visited > 0 && time.Now().After(deadline) {
-				res.Truncated, res.Cursor = true, lastVisited
-				stopped = true
+			if res.Stopped {
 				return
 			}
 			rel := e.Name()
@@ -261,8 +246,6 @@ func (r *Root) Walk(cursor string, exts map[string]bool, maxFiles int, budget ti
 			if cursor != "" && rel <= cursor {
 				continue
 			}
-			visited++
-			lastVisited = rel
 			if !exts[strings.ToLower(filepath.Ext(e.Name()))] {
 				continue
 			}
@@ -271,10 +254,8 @@ func (r *Root) Walk(cursor string, exts map[string]bool, maxFiles int, budget ti
 				res.Skipped.Unreadable++
 				continue
 			}
-			res.Files = append(res.Files, Found{Rel: rel, Size: st.Size()})
-			if len(res.Files) >= maxFiles {
-				res.Truncated, res.Cursor = true, rel
-				stopped = true
+			if !visit(Found{Rel: rel, Size: st.Size(), ModTime: st.ModTime().UnixMilli()}) {
+				res.Stopped = true
 			}
 		}
 	}

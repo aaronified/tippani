@@ -172,6 +172,12 @@ var builtinJobKinds = []queuedKind{
 	// when it did not finish: a rerun approves whatever of the selection is still
 	// staged, and never a batch staged after its press (through).
 	{name: "import.approve", rerunnable: true, counts: countApprove, run: runApproveStaged},
+	//
+	// {mount_id}: walk one library folder and store what it finds (library_scan.go).
+	// Queued by POST /sources/scan, never through POST /jobs. Result {scanned, found,
+	// unclaimed, complete}; counts {scanned, found}. Can be run again after success: an
+	// unchanged folder reads nothing, and a grown one finds the new files.
+	{name: libraryScanKind, rerunnable: true, againAfterSuccess: true, counts: countsNamed("scanned", "found"), run: runLibraryScan},
 }
 
 // countsNamed counts a result that is an object by keeping the members named,

@@ -1140,6 +1140,8 @@ approval flash's (*যোগ হয়েছে*), the approval's name the stagi
 | Key | English | Bengali |
 | --- | --- | --- |
 | `settings.jobs.kind.import-approve` | Approve imported quotes | ইমপোর্টের উদ্ধৃতি মেনে নেওয়া |
+| `settings.jobs.kind.library-scan` | Library scan | লাইব্রেরি খোঁজা |
+| `settings.jobs.count.scanned` | {n} file scanned / {n} files scanned | {n}টি ফাইল দেখা হয়েছে |
 | `settings.jobs.count.staged` | {n} quote staged / {n} quotes staged | {n}টা উদ্ধৃতি জমা হয়েছে |
 | `settings.jobs.count.added` | {n} added | {n}টা যোগ হয়েছে |
 | `import.row.unsent` | not sent yet | এখনও পাঠানো হয়নি |

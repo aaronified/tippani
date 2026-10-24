@@ -170,6 +170,11 @@ type Server struct {
 	// queued, and while the spool is swept, so a sweep never finds a file whose
 	// job is not in the table yet (import_queue.go).
 	spoolMu sync.Mutex
+
+	// scanStart makes "is a scan of this folder live?" and "queue one" a single step
+	// (library_scan.go). scanSlice shortens a scan's slice in a test; 0 is the default.
+	scanStart sync.Mutex
+	scanSlice time.Duration
 }
 
 func New(st *store.Store, static fs.FS, dataDir string, cookieSecure, trustedProxy bool) *Server {
@@ -641,6 +646,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("PUT /admin/mounts", s.requireAdmin(s.handlePutMounts))
 	mux.Handle("GET /sources/mounts", s.requireAuth(s.handleListMounts))
 	mux.Handle("POST /sources/scan", s.requireAuth(s.handleScanMount))
+	mux.Handle("GET /sources/found", s.requireAuth(s.handleFoundFiles))
 	mux.Handle("POST /sources/attach-found", s.requireAuth(s.handleAttachFound))
 	mux.Handle("POST /sources/ignore-found", s.requireAuth(s.handleIgnoreFound))
 	mux.Handle("GET /locators/proposals", s.requireAuth(s.handleLocatorProposals))

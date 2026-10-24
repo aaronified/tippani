@@ -21,9 +21,13 @@ import (
 
 type foundList struct {
 	Candidates []foundCandidate `json:"candidates"`
-	Scanned    int              `json:"scanned"`
-	Unclaimed  int              `json:"unclaimed"`
-	Truncated  bool             `json:"truncated"`
+	Scan       struct {
+		State     string `json:"state"`
+		JobID     int64  `json:"job_id"`
+		Scanned   int    `json:"scanned"`
+		Found     int    `json:"found"`
+		Unclaimed int    `json:"unclaimed"`
+	} `json:"scan"`
 }
 
 const andorSRT = "1\n00:00:01,000 --> 00:00:03,000\nSomething first.\n\n" +
@@ -77,9 +81,29 @@ func mountFixture(t *testing.T) (srv *Server, c *testClient, root string, film, 
 	return
 }
 
-func (c *testClient) scan(cursor string) foundList {
+// startScan presses Scan on the folder and returns the job's id.
+func (c *testClient) startScan() int64 {
 	c.t.Helper()
-	return decode[foundList](c.t, c.mustDo("POST", "/sources/scan", map[string]any{"mount_id": "library", "cursor": cursor}, 200))
+	rec := c.do("POST", "/sources/scan", map[string]any{"mount_id": "library"})
+	if rec.Code != http.StatusAccepted && rec.Code != http.StatusOK {
+		c.t.Fatalf("Scan answered %d: %s", rec.Code, rec.Body)
+	}
+	return decode[struct {
+		JobID int64 `json:"job_id"`
+	}](c.t, rec).JobID
+}
+
+// found reads what the folder's scan has stored for this reader.
+func (c *testClient) found() foundList {
+	c.t.Helper()
+	return decode[foundList](c.t, c.mustDo("GET", "/sources/found?mount_id=library", nil, 200))
+}
+
+// scan presses Scan once, waits for the job to finish, and reads the findings.
+func (c *testClient) scan() foundList {
+	c.t.Helper()
+	c.waitJob(c.startScan(), "succeeded")
+	return c.found()
 }
 
 func byTitle(l foundList) map[string]foundCandidate {
@@ -105,7 +129,7 @@ func TestOnlyTheAdminChoosesFoldersAndAReaderNeverSeesAPath(t *testing.T) {
 
 func TestAScanProposesWhatItCanNameAndCountsWhatItCannot(t *testing.T) {
 	_, c, _, film, show, book := mountFixture(t)
-	got := c.scan("")
+	got := c.scan()
 	by := byTitle(got)
 
 	v := by["V for Vendetta|"]
@@ -127,7 +151,7 @@ func TestAScanProposesWhatItCanNameAndCountsWhatItCannot(t *testing.T) {
 	if b.WorkID != book || b.How != "id" || b.Format != "epub" {
 		t.Fatalf("an ISBN inside the file is an exact match, though the title carries a subtitle: %+v", b)
 	}
-	if got.Unclaimed < 1 {
+	if got.Scan.Unclaimed < 1 {
 		t.Fatalf("the film not in the library is counted, not hidden: %+v", got)
 	}
 	for _, cand := range got.Candidates {
@@ -143,7 +167,7 @@ func TestANameAloneIsAProposalForALookNotAnExactMatch(t *testing.T) {
 	_ = srv
 	c.newLine(only, "A line from a film that has no ids at all.", nil)
 	writeFiles(t, root, map[string][]byte{"movies/Title Only (2010)/Title Only (2010).en.srt": []byte(filmSRT)})
-	got := byTitle(c.scan(""))["Title Only|"]
+	got := byTitle(c.scan())["Title Only|"]
 	if got.How != "title" || got.Bucket != "review" || got.WorkID != only {
 		t.Fatalf("%+v", got)
 	}
@@ -153,7 +177,7 @@ func TestAttachingReadsThroughTheMountAndCopiesNothing(t *testing.T) {
 	srv, c, root, film, _, _ := mountFixture(t)
 	line := c.newLine(film, "Governments should be afraid of their people.", nil)
 	var toks []string
-	for _, cand := range c.scan("").Candidates {
+	for _, cand := range c.scan().Candidates {
 		if cand.Bucket == "exact" && cand.Subject == "screen" && cand.WorkID == film {
 			toks = append(toks, cand.Token)
 		}
@@ -179,7 +203,7 @@ func TestAttachingReadsThroughTheMountAndCopiesNothing(t *testing.T) {
 		t.Fatalf("%+v", got)
 	}
 	// A file attached means the work no longer appears in a scan.
-	for _, cand := range c.scan("").Candidates {
+	for _, cand := range c.scan().Candidates {
 		if cand.WorkID == film && cand.Subject == "screen" {
 			t.Fatalf("an attached work is proposed again: %+v", cand)
 		}
@@ -190,7 +214,7 @@ func TestATamperedOrForeignTokenAttachesNothing(t *testing.T) {
 	srv, admin, _, film, _, _ := mountFixture(t)
 	cara := addUser(t, srv.Handler(), admin, "cara")
 	var tok string
-	for _, cand := range admin.scan("").Candidates {
+	for _, cand := range admin.scan().Candidates {
 		if cand.WorkID == film && cand.Subject == "screen" {
 			tok = cand.Token
 		}
@@ -219,7 +243,7 @@ func TestABulkPressNeverCrossesBucketsHere(t *testing.T) {
 	c.newLine(only, "A line from a film that has no ids at all.", nil)
 	writeFiles(t, root, map[string][]byte{"movies/Title Only (2010)/Title Only (2010).en.srt": []byte(filmSRT)})
 	var review string
-	for _, cand := range c.scan("").Candidates {
+	for _, cand := range c.scan().Candidates {
 		if cand.Bucket == "review" {
 			review = cand.Token
 		}
@@ -233,7 +257,7 @@ func TestABulkPressNeverCrossesBucketsHere(t *testing.T) {
 func TestARefusedFileIsNotOfferedAgain(t *testing.T) {
 	_, c, _, film, _, _ := mountFixture(t)
 	var tok, refused string
-	for _, cand := range c.scan("").Candidates {
+	for _, cand := range c.scan().Candidates {
 		if cand.WorkID == film && cand.Subject == "screen" {
 			tok, refused = cand.Token, cand.Rel
 		}
@@ -244,7 +268,7 @@ func TestARefusedFileIsNotOfferedAgain(t *testing.T) {
 	}
 	// The REFUSED FILE does not come back. Refusal is per file and per work, as Cleanup's is, so
 	// the next-best track for the same film may be offered in its place.
-	for _, cand := range c.scan("").Candidates {
+	for _, cand := range c.scan().Candidates {
 		if cand.Rel == refused {
 			t.Fatalf("a refused file came back: %+v", cand)
 		}
@@ -256,7 +280,7 @@ func TestARefusedFileIsNotOfferedAgain(t *testing.T) {
 func TestWhenTheMountGoesAwayContextStillOpensAndTheStateSaysMissing(t *testing.T) {
 	srv, c, root, film, _, _ := mountFixture(t)
 	line := c.newLine(film, "Governments should be afraid of their people.", nil)
-	for _, cand := range c.scan("").Candidates {
+	for _, cand := range c.scan().Candidates {
 		if cand.WorkID == film && cand.Subject == "screen" {
 			c.mustDo("POST", "/sources/attach-found", map[string]any{"bucket": "exact", "tokens": []string{cand.Token}}, 200)
 		}
@@ -289,7 +313,7 @@ func TestWhenTheMountGoesAwayContextStillOpensAndTheStateSaysMissing(t *testing.
 // removes rows, never bytes the operator owns.
 func TestDeletingAMountedWorkOrSourceNeverTouchesTheFileOnTheMount(t *testing.T) {
 	srv, c, root, film, _, book := mountFixture(t)
-	for _, cand := range c.scan("").Candidates {
+	for _, cand := range c.scan().Candidates {
 		if cand.Subject == "screen" || cand.Subject == "book" {
 			c.mustDo("POST", "/sources/attach-found", map[string]any{"bucket": cand.Bucket, "tokens": []string{cand.Token}}, 200)
 		}
@@ -319,7 +343,7 @@ func TestDeletingAMountedWorkOrSourceNeverTouchesTheFileOnTheMount(t *testing.T)
 func TestAttachSaysWhichTokensAttachedSoAScreenKeepsTheRest(t *testing.T) {
 	_, c, _, film, _, _ := mountFixture(t)
 	var good string
-	for _, cand := range c.scan("").Candidates {
+	for _, cand := range c.scan().Candidates {
 		if cand.WorkID == film && cand.Subject == "screen" {
 			good = cand.Token
 		}
@@ -344,7 +368,7 @@ func TestAnEPUBAttachedFromTheMountSuppliesMetadataToo(t *testing.T) {
 	srv.searchBooks = func(context.Context, string, string, string, string) ([]metadata.BookCandidate, error) {
 		return nil, nil
 	}
-	for _, cand := range c.scan("").Candidates {
+	for _, cand := range c.scan().Candidates {
 		if cand.Subject == "book" && cand.WorkID == book {
 			c.mustDo("POST", "/sources/attach-found", map[string]any{"bucket": cand.Bucket, "tokens": []string{cand.Token}}, 200)
 		}
@@ -357,7 +381,7 @@ func TestAnEPUBAttachedFromTheMountSuppliesMetadataToo(t *testing.T) {
 
 func TestARefusalIsForgottenWithTheWorkSoAReusedIdInheritsNone(t *testing.T) {
 	srv, c, _, film, _, _ := mountFixture(t)
-	for _, cand := range c.scan("").Candidates {
+	for _, cand := range c.scan().Candidates {
 		if cand.WorkID == film && cand.Subject == "screen" {
 			c.mustDo("POST", "/sources/ignore-found", map[string]any{"tokens": []string{cand.Token}}, 200)
 		}
@@ -380,7 +404,7 @@ func TestARefusalIsForgottenWithTheWorkSoAReusedIdInheritsNone(t *testing.T) {
 // given the same id would silently take over their rows.
 func TestARemovedFoldersIdCannotBeGivenToAnotherFolderWhileFilesPointAtIt(t *testing.T) {
 	_, c, root, film, _, _ := mountFixture(t)
-	for _, cand := range c.scan("").Candidates {
+	for _, cand := range c.scan().Candidates {
 		if cand.WorkID == film && cand.Subject == "screen" {
 			c.mustDo("POST", "/sources/attach-found", map[string]any{"bucket": cand.Bucket, "tokens": []string{cand.Token}}, 200)
 		}

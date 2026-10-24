@@ -37,6 +37,8 @@ func Title(kind, subject string, total int) string {
 		t = "Import"
 	case "import.approve":
 		t = "Approve imported quotes" + counted(" from", total, "work", "works")
+	case "library.scan":
+		t = "Scan a library folder"
 	case "backup.safety":
 		t = "Take a safety copy"
 	// What runs in its request and is kept as a job all the same.

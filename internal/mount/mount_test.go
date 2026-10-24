@@ -8,7 +8,6 @@ import (
 	"sort"
 	"strings"
 	"testing"
-	"time"
 )
 
 // WHAT THIS KNOWS: a folder of files in a temp directory, the package's two verbs
@@ -37,26 +36,31 @@ func tree(t *testing.T, files ...string) *Root {
 
 var srtOnly = map[string]bool{".srt": true}
 
-func rels(res WalkResult) []string {
-	var out []string
-	for _, f := range res.Files {
-		out = append(out, f.Rel)
-	}
-	return out
+// walked returns the files a walk reports from cursor, at most limit when limit > 0
+// (the callback then ends the walk, as a Stop does).
+func walked(r *Root, cursor string, exts map[string]bool, limit int) (got []string, res WalkResult) {
+	res = r.Walk(cursor, exts, func(f Found) bool {
+		if limit > 0 && len(got) >= limit {
+			return false
+		}
+		got = append(got, f.Rel)
+		return true
+	})
+	return got, res
 }
 
 func TestWalkListsMatchingFilesInStableOrderWithRelativePaths(t *testing.T) {
 	r := tree(t, "movies/B Film (2001)/b.en.srt", "movies/A Film (1999)/a.en.srt", "movies/A Film (1999)/a.mkv", "books/x.EPUB", "top.srt")
-	got := rels(r.Walk("", map[string]bool{".srt": true, ".epub": true}, 100, time.Minute))
+	got, _ := walked(r, "", map[string]bool{".srt": true, ".epub": true}, 0)
 	want := []string{"books/x.EPUB", "movies/A Film (1999)/a.en.srt", "movies/B Film (2001)/b.en.srt", "top.srt"}
 	if strings.Join(got, "|") != strings.Join(want, "|") {
 		t.Fatalf("got %q", got)
 	}
 }
 
-// A folder past the cap answers truncated with a cursor, and Continue from it covers the
-// rest EXACTLY ONCE: no gap, no repeat.
-func TestAWalkIsBoundedAndResumesExactlyOnce(t *testing.T) {
+// Ending a walk from the callback and resuming after the last handled file covers every
+// file exactly once.
+func TestEndingAWalkAndResumingCoversEachFileOnce(t *testing.T) {
 	var files []string
 	for _, d := range []string{"a", "b", "c"} {
 		for i := 0; i < 4; i++ {
@@ -64,34 +68,33 @@ func TestAWalkIsBoundedAndResumesExactlyOnce(t *testing.T) {
 		}
 	}
 	r := tree(t, files...)
-	full := rels(r.Walk("", srtOnly, 1000, time.Minute))
+	full, _ := walked(r, "", srtOnly, 0)
 	if len(full) != 12 {
 		t.Fatalf("setup: %v", full)
 	}
 	var seen []string
 	cursor := ""
 	for pass := 0; pass < 20; pass++ {
-		res := r.Walk(cursor, srtOnly, 5, time.Minute)
-		seen = append(seen, rels(res)...)
-		if !res.Truncated {
+		got, res := walked(r, cursor, srtOnly, 5)
+		seen = append(seen, got...)
+		if !res.Stopped {
 			break
 		}
-		if res.Cursor == "" {
-			t.Fatal("truncated with no cursor")
-		}
-		cursor = res.Cursor
+		cursor = got[len(got)-1]
 	}
 	sort.Strings(seen)
 	if strings.Join(seen, "|") != strings.Join(full, "|") {
-		t.Fatalf("resuming skipped or repeated files:\n got %q\nwant %q", seen, full)
+		t.Fatalf("resuming skipped or repeated files: got %q, want %q", seen, full)
 	}
 }
 
-func TestABudgetStopsAWalkAndSaysSo(t *testing.T) {
-	r := tree(t, "a.srt", "b.srt", "c.srt")
-	res := r.Walk("", srtOnly, 1000, -time.Second) // already over budget
-	if !res.Truncated || len(res.Files) == 0 || res.Cursor == "" {
-		t.Fatalf("%+v", res)
+// Each file is reported with its size and modification time.
+func TestWalkReportsSizeAndModificationTime(t *testing.T) {
+	r := tree(t, "a.srt")
+	var f Found
+	r.Walk("", srtOnly, func(x Found) bool { f = x; return true })
+	if f.Rel != "a.srt" || f.Size != int64(len("content of a.srt")) || f.ModTime <= 0 {
+		t.Fatalf("%+v", f)
 	}
 }
 
@@ -108,8 +111,8 @@ func TestASymlinkOutOfTheMountIsRefusedNotFollowed(t *testing.T) {
 	if err := os.Symlink(secret, filepath.Join(r.Path(), "escape.srt")); err != nil {
 		t.Skipf("cannot make a symlink here: %v", err)
 	}
-	res := r.Walk("", srtOnly, 100, time.Minute)
-	if got := rels(res); len(got) != 1 || got[0] != "ok.srt" {
+	got, res := walked(r, "", srtOnly, 0)
+	if len(got) != 1 || got[0] != "ok.srt" {
 		t.Fatalf("followed a link out of the mount: %q", got)
 	}
 	if res.Skipped.Outside != 1 {
@@ -209,41 +212,21 @@ func TestThePackageContainsNoCallThatWrites(t *testing.T) {
 // ordered entries by bare name visited "a/" first, and on resume skipped "a.srt" as done.
 func TestAResumedWalkLosesNoFileBesideADirectoryWhoseNameItPrefixes(t *testing.T) {
 	r := tree(t, "a/x.srt", "a/y.srt", "a.srt", "a-b.srt", "a b.srt", "b.srt")
-	full := rels(r.Walk("", srtOnly, 1000, time.Minute))
+	full, _ := walked(r, "", srtOnly, 0)
 	var seen []string
 	cursor := ""
 	for pass := 0; pass < 20; pass++ {
-		res := r.Walk(cursor, srtOnly, 1, time.Minute)
-		seen = append(seen, rels(res)...)
-		if !res.Truncated {
+		got, res := walked(r, cursor, srtOnly, 1)
+		seen = append(seen, got...)
+		if !res.Stopped {
 			break
 		}
-		cursor = res.Cursor
+		cursor = got[len(got)-1]
 	}
 	sort.Strings(seen)
 	sort.Strings(full)
 	if strings.Join(seen, "|") != strings.Join(full, "|") || len(seen) != 6 {
 		t.Fatalf("resuming skipped or repeated files:\n got %q\nwant %q", seen, full)
-	}
-}
-
-// THE BUDGET MEETS A TREE THAT MATCHES NOTHING. A walk was only timed when a file was
-// reported, so a mount of millions of non-matching files was bounded by nothing.
-func TestTheBudgetStopsAWalkThatFindsNothingAndItStillResumes(t *testing.T) {
-	var files []string
-	for i := 0; i < 30; i++ {
-		files = append(files, "d/"+string(rune('a'+i%26))+string(rune('a'+i/26))+".mkv")
-	}
-	files = append(files, "z.srt")
-	r := tree(t, files...)
-	res := r.Walk("", srtOnly, 1000, -time.Second)
-	if !res.Truncated || res.Cursor == "" || len(res.Files) != 0 {
-		t.Fatalf("an expired budget should stop a walk that has reported nothing: %+v", res)
-	}
-	// Resuming with a fresh budget finds the one file.
-	got := rels(r.Walk(res.Cursor, srtOnly, 1000, time.Minute))
-	if len(got) != 1 || got[0] != "z.srt" {
-		t.Fatalf("%q", got)
 	}
 }
 

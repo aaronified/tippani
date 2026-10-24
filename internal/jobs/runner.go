@@ -286,10 +286,13 @@ func (r *Runner) kind(name string) (Kind, bool) {
 // from_job column: a re-verify's apply names the check it came from that way, and
 // it is the one member of params the runner reads.
 func (r *Runner) Enqueue(owner Owner, kind, subject string, params any, total int, secret any) (int64, error) {
-	return r.enqueue(owner, kind, subject, params, total, secret, 0)
+	return r.enqueue(owner, kind, subject, params, total, secret, 0, 0)
 }
 
-func (r *Runner) enqueue(owner Owner, kind, subject string, params any, total int, secret any, rerunOf int64) (int64, error) {
+// enqueue queues a job. self is the id of a running job that is queueing its own
+// continuation (0 otherwise): that job is not counted against the duplicate check or the
+// owner's limit, because it ends as soon as the new job is in the table.
+func (r *Runner) enqueue(owner Owner, kind, subject string, params any, total int, secret any, rerunOf, self int64) (int64, error) {
 	k, ok := r.kind(kind)
 	if !ok {
 		return 0, ErrUnknownKind
@@ -320,7 +323,7 @@ func (r *Runner) enqueue(owner Owner, kind, subject string, params any, total in
 	case owner.Gen != r.st.Generation():
 		return 0, ErrStale
 	}
-	id, err := r.insert(owner, kind, cleanSubject(subject), p, total, rerunOf)
+	id, err := r.insert(owner, kind, cleanSubject(subject), p, total, rerunOf, self)
 	if err == nil && secret != nil {
 		r.smu.Lock()
 		r.secrets[id] = secret
@@ -347,7 +350,7 @@ func (r *Runner) enqueue(owner Owner, kind, subject string, params any, total in
 // insert, and the trigger covers every delete after it: a user_id on a queued
 // row always names the account that queued it, which is what lets the claim
 // (execute) and Rerun check the id alone.
-func (r *Runner) insert(owner Owner, kind, subject, params string, total int, rerunOf int64) (int64, error) {
+func (r *Runner) insert(owner Owner, kind, subject, params string, total int, rerunOf, self int64) (int64, error) {
 	tx, err := r.st.DB.Begin()
 	if err != nil {
 		return 0, err
@@ -365,8 +368,8 @@ func (r *Runner) insert(owner Owner, kind, subject, params string, total int, re
 	held := r.heldJSON()
 	var dup int64
 	err = tx.QueryRow(`SELECT id FROM jobs WHERE user_id = ? AND kind = ? AND params = ?
-		AND state IN ('queued', 'running') AND id NOT IN (SELECT value FROM json_each(?)) ORDER BY id LIMIT 1`,
-		owner.UserID, kind, params, held).Scan(&dup)
+		AND state IN ('queued', 'running') AND id NOT IN (SELECT value FROM json_each(?)) AND id <> ? ORDER BY id LIMIT 1`,
+		owner.UserID, kind, params, held, self).Scan(&dup)
 	switch {
 	case err == nil:
 		return 0, &ErrDuplicate{ID: dup}
@@ -375,7 +378,7 @@ func (r *Runner) insert(owner Owner, kind, subject, params string, total int, re
 	}
 	var n int
 	if err := tx.QueryRow(`SELECT count(*) FROM jobs WHERE user_id = ? AND state IN ('queued', 'running')
-		AND id NOT IN (SELECT value FROM json_each(?))`, owner.UserID, held).Scan(&n); err != nil {
+		AND id NOT IN (SELECT value FROM json_each(?)) AND id <> ?`, owner.UserID, held, self).Scan(&n); err != nil {
 		return 0, err
 	}
 	if n >= r.opts.PerOwner {
@@ -1171,7 +1174,7 @@ func (r *Runner) Rerun(id int64, viewer Owner, secret any) (int64, error) {
 	if k, ok := r.kind(kind); !ok || !k.Rerunnable || queued == 0 || carried {
 		return 0, ErrNotRerunnable
 	}
-	return r.enqueue(viewer, kind, subject, json.RawMessage(params), total, secret, id)
+	return r.enqueue(viewer, kind, subject, json.RawMessage(params), total, secret, id, 0)
 }
 
 // Boot settles what the previous run of the server left: every job still waiting

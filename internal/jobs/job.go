@@ -93,6 +93,14 @@ func (j *Job) Stopping() bool {
 // telling its run so.
 func (j *Job) stopAsked() bool { return j.stop.Load() || j.shutdown.Load() }
 
+// Continue queues another job of the same kind, owner and subject with the given params,
+// for a run that does its work in slices. The new job goes to the back of the queue, so jobs
+// queued meanwhile run first. This job is not counted against the duplicate check or the
+// owner's job limit, so the continuation is not refused for either.
+func (j *Job) Continue(params any) (int64, error) {
+	return j.r.enqueue(j.owner, j.kind, j.subject, params, 0, nil, 0, j.id)
+}
+
 // Params decodes the job's params into v.
 func (j *Job) Params(v any) error { return json.Unmarshal([]byte(j.params), v) }
 

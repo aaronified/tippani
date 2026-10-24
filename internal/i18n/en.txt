@@ -5997,6 +5997,7 @@ settings.jobs.kind.import = Import
 # The approval of staged quotes out of Pending import, which writes them into the
 # library: a job of its own since 3.1.0, beside the import that staged them.
 settings.jobs.kind.import-approve = Approve imported quotes
+settings.jobs.kind.library-scan = Library scan
 settings.jobs.kind.restore = Restore
 settings.jobs.kind.reset = Reset all data
 settings.jobs.kind.notify-daily = Daily deck
@@ -6040,6 +6041,10 @@ settings.jobs.count.applied.other = {n} applied
 # A work with no provider id pinned, which a fill or a re-verify cannot look up.
 settings.jobs.count.unpinned.one = {n} unpinned
 settings.jobs.count.unpinned.other = {n} unpinned
+settings.jobs.count.scanned.one = {n} file scanned
+settings.jobs.count.scanned.other = {n} files scanned
+settings.jobs.count.found.one = {n} found
+settings.jobs.count.found.other = {n} found
 settings.jobs.count.skipped.one = {n} skipped
 settings.jobs.count.skipped.other = {n} skipped
 settings.jobs.count.failed.one = {n} failed
@@ -8045,8 +8050,10 @@ found.counts = {files} scanned · {found} found · {unclaimed} not matched
 found.scan = Scan
 found.rescan = Scan again
 found.scanning = Scanning…
+found.stop = Stop
+found.stop.aria = Stop scanning
 found.info.title = Files in your library folders
-found.info.body = Searches the folders mounted on this server for subtitle and ebook files of works you have quotes from. Files are only read, never copied or changed; nothing is attached until you accept, and a refused file is not offered again.
+found.info.body = Looks through the folders mounted on this server for subtitle and ebook files of works you have quotes from, in the background, so you can leave. Files are only read, never copied or changed, and nothing is attached until you accept.
 found.nothing = Nothing new found for the works you have quotes from.
 found.exact.title = Matched by identifier
 found.exact.note = The folder or the book itself names this work. Safe to accept together.

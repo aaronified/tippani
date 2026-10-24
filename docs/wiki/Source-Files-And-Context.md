@@ -18,8 +18,8 @@ Three ways, all the same result:
   subtitle covers one episode. A game never offers it: games have no equivalent.
 - **Drop it on Import.** The import screen reads the bytes, and a subtitle or an ebook is neither highlights nor an error: it asks
   which work the file belongs to and attaches it. Nothing is staged.
-- **From a mounted library.** The administrator mounts your folders ([Library folders](Library-Folders.md)); you press **Scan** on
-  Checks and accept what it finds.
+- **From a mounted library.** The administrator mounts your folders ([Library folders](Library-Folders.md)); you press **Scan** once on
+  Checks (it runs as a job and walks the whole folder) and accept what it finds, even while it is still running.
 
 The type of file is decided by its bytes, never its name, so a subtitle saved as `film.ass.txt` still works. A file the app cannot
 read (including an ebook that is DRM-protected) is refused with the reason, and nothing is kept. A second file for the same work

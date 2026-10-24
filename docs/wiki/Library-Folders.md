@@ -17,8 +17,8 @@ Nothing is copied: an attached file stays where it is, and the app reads it thro
 
 2. In **Settings > Server > Library**, add each folder by its path **inside the container** (`/library/books`) and a name. The folder
    must be readable; a typo is refused with the reason. Readers see a folder by its name and never see a path.
-3. Readers press **Scan** on Checks. A large library is a few presses: each scan walks a bounded number of files and says where it
-   stopped.
+3. Readers press **Scan** on Checks. One press is enough, however large the library is: the scan runs as a job and walks the whole
+   folder. Settings > Jobs shows it, with a Stop.
 
 ## What a scan does, and does not
 
@@ -32,7 +32,16 @@ Nothing is copied: an attached file stays where it is, and the app reads it thro
 - **Nothing is ever written to a folder.** Every read is read-only, a path that resolves outside the folder (a symlink out) is
   refused, only regular files are read, and the package that does this holds no call that writes (a test keeps it that way). `:ro` is
   your guarantee on top of ours.
-- **Nothing runs on its own.** No scan on boot, none on a timer, none in the background.
+- **One press, and a job.** A scan starts only when a reader presses Scan (none on boot, none on a timer). It then runs in the
+  background as a job, one per reader and folder, and the reader can leave the screen. It has no file limit and needs no second press.
+- **Review while it runs.** Findings are saved as they are found. Checks lists them while the scan is still going, and they are still
+  there after a restart. Accepting or refusing one removes it.
+- **Resumable.** The scan saves where it has got to. After a Stop, a crash or a restart, pressing Scan continues from there instead of
+  starting over.
+- **A later scan only reads what changed.** The scan remembers each file's size and modification time. Unchanged files are not read
+  again, so a scan of an unchanged folder finishes in seconds. The scan runs in slices of 60 seconds. Each slice queues the next at
+  the back of the queue, so imports, backups and other jobs are not held up. Settings > Jobs shows one row per slice. Stop ends the
+  whole scan, and pressing Scan again resumes it. After a restart, press Scan to resume.
 - **A reader never sends a path.** A proposal carries a token the server signed; a forged one attaches nothing, and tokens do not
   survive a restart (which only means scan again).
 

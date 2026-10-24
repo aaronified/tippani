@@ -1,28 +1,26 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { json } from './api.js'
 import { t } from './i18n.js'
-import { Card, GhostButton, IconArrow, IconButton, IconCheck, IconClose, IconRefresh, InfoDot, SectionHead, toast } from './ui.jsx'
+import { Card, GhostButton, IconArrow, IconButton, IconCheck, IconClose, IconRefresh, IconStop, InfoDot, SectionHead, toast } from './ui.jsx'
+import { announceJobs, isLive, pressStop } from './jobs.js'
 import { invalidateContext } from './sources.jsx'
 
-// Files found in a mounted library — a section of Checks.
+// Files found in a mounted library, a section of Checks.
 //
-// The operator mounts the folders the library already lives in, read-only, and the reader
-// presses Scan. Nothing is copied and nothing is attached on its own: what the scan finds is
-// listed as "this file for this work", exact where an identifier matched (a folder's id, an
-// EPUB's ISBN) and for a look where only a name did, and the reader accepts or refuses.
-// A refusal is remembered. THE SCAN IS NEVER AUTOMATIC: no press, no scan, and the section
-// draws nothing for a box with no folders mounted.
+// The operator mounts the folders the library already lives in, read-only. One press of Scan
+// starts a background job per folder that walks the whole folder, however large. Nothing is
+// copied and nothing is attached on its own: findings are listed as "this file for this work",
+// exact where an identifier matched and for a look where only a name did, and the reader accepts
+// or refuses. A refusal is remembered.
 //
-// A LARGE LIBRARY IS A FEW REQUESTS, not one long wait or a background job: the server walks
-// a bounded number of files and answers `truncated` with a cursor, and this loops on it,
-// saying how far it has got. A silent truncation would read as a clean library.
+// The server stores findings as it goes, so they appear here while the scan runs and are still
+// here after a restart. This screen polls the scan's progress and reads the list again when the
+// number found changes. No press, no scan, and the section draws nothing for a box with no
+// folders mounted.
 
-const MAX_PASSES = 60
+const POLL_MS = 1500
 
-// ONE PROPOSAL PER WORK ACROSS THE WHOLE SCAN. The server keeps the best file per work within one
-// pass, but a large library is several passes, and a second copy of a book found in a later pass
-// must not become a second row for it (accepting both would fail the second). Exact beats review;
-// otherwise the first found stays.
+// One proposal per work across folders. Exact beats review; otherwise the first stays.
 function oneEach(list) {
   const seen = new Map()
   for (const c of list) {
@@ -35,51 +33,79 @@ function oneEach(list) {
 
 export default function FoundFilesPage({ embedded = false }) {
   const [mounts, setMounts] = useState(null)
-  const [found, setFound] = useState(null) // null: not scanned yet
-  const [scanned, setScanned] = useState(0)
-  const [unclaimed, setUnclaimed] = useState(0)
-  const [scanning, setScanning] = useState(false)
+  const [found, setFound] = useState(null) // null: nothing scanned yet
+  const [scans, setScans] = useState({}) // folder id -> the scan's status
   const [busy, setBusy] = useState(false)
   const alive = useRef(true)
+  const loadedCount = useRef({}) // folder id -> findings the list was last read with
+
+  // Read every folder's findings and status.
+  const load = useCallback(async (list) => {
+    let all = []
+    const next = {}
+    for (const m of list) {
+      const r = await json('GET', `/sources/found?mount_id=${encodeURIComponent(m.id)}`)
+      if (!r.ok) continue
+      next[m.id] = r.data.scan
+      loadedCount.current[m.id] = r.data.scan?.found || 0
+      all = all.concat(r.data.candidates || [])
+    }
+    if (!alive.current) return
+    setScans(next)
+    const any = Object.values(next).some((st) => st && st.state !== 'none')
+    setFound(any || all.length ? oneEach(all) : null)
+  }, [])
 
   useEffect(() => {
     alive.current = true
-    json('GET', '/sources/mounts').then((r) => alive.current && setMounts(r.ok ? r.data.mounts || [] : []))
+    json('GET', '/sources/mounts').then((r) => {
+      if (!alive.current) return
+      const list = r.ok ? r.data.mounts || [] : []
+      setMounts(list)
+      if (list.length) load(list)
+    })
     return () => {
       alive.current = false
     }
-  }, [])
+  }, [load])
 
-  const scan = useCallback(async () => {
-    setScanning(true)
-    setFound([])
-    setScanned(0)
-    setUnclaimed(0)
-    let all = []
-    let files = 0
-    let lost = 0
-    for (const m of mounts || []) {
-      let cursor = ''
-      for (let pass = 0; pass < MAX_PASSES && alive.current; pass++) {
-        const r = await json('POST', '/sources/scan', { mount_id: m.id, cursor })
-        if (!r.ok) {
-          toast(r.data?.error || t('common.source.error'))
-          break
-        }
-        all = oneEach(all.concat(r.data.candidates || []))
-        files += r.data.scanned || 0
-        lost += r.data.unclaimed || 0
-        if (alive.current) {
-          setFound(all)
-          setScanned(files)
-          setUnclaimed(lost)
-        }
-        if (!r.data.truncated) break
-        cursor = r.data.cursor
+  const scanning = Object.values(scans).some(isLive)
+
+  // While a scan runs, poll its progress. The list is read again when the count of findings
+  // moves, and once more when the scan ends.
+  useEffect(() => {
+    if (!scanning || !mounts) return undefined
+    const timer = setTimeout(async () => {
+      let reload = false
+      const next = { ...scans }
+      for (const m of mounts) {
+        if (!isLive(scans[m.id])) continue
+        const r = await json('GET', `/sources/found?mount_id=${encodeURIComponent(m.id)}&status=1`)
+        if (!r.ok) continue
+        next[m.id] = r.data.scan
+        if (!isLive(r.data.scan) || r.data.scan.found !== loadedCount.current[m.id]) reload = true
       }
+      if (!alive.current) return
+      if (reload) await load(mounts)
+      else setScans(next)
+    }, POLL_MS)
+    return () => clearTimeout(timer)
+  }, [scanning, scans, mounts, load])
+
+  async function scan() {
+    for (const m of mounts || []) {
+      const r = await json('POST', '/sources/scan', { mount_id: m.id })
+      if (!r.ok) toast(r.data?.error || t('common.source.error'))
     }
-    if (alive.current) setScanning(false)
-  }, [mounts])
+    announceJobs()
+    if (alive.current) await load(mounts || [])
+  }
+
+  async function stop() {
+    for (const st of Object.values(scans)) {
+      if (isLive(st) && st.job_id) await pressStop(st.job_id)
+    }
+  }
 
   async function attach(bucket, list) {
     setBusy(true)
@@ -116,6 +142,7 @@ export default function FoundFilesPage({ embedded = false }) {
   }
 
   if (!mounts || mounts.length === 0) return null
+  const sum = (key) => Object.values(scans).reduce((n, st) => n + (st?.[key] || 0), 0)
   const groups = [
     ['exact', (found || []).filter((c) => c.bucket === 'exact')],
     ['review', (found || []).filter((c) => c.bucket === 'review')],
@@ -128,10 +155,15 @@ export default function FoundFilesPage({ embedded = false }) {
         <SectionHead
           embedded={embedded}
           title={t('found.title')}
-          counts={found ? t('found.counts', { files: scanned, found: found.length, unclaimed }) : ''}
+          counts={found ? t('found.counts', { files: sum('scanned'), found: sum('found'), unclaimed: sum('unclaimed') }) : ''}
           right={
             <>
               <InfoDot title={t('found.info.title')} text={t('found.info.body')} />
+              {scanning && (
+                <GhostButton type="button" icon={<IconStop />} keepLabel className="tp-btn-danger" aria-label={t('found.stop.aria')} onClick={stop}>
+                  <span>{t('found.stop')}</span>
+                </GhostButton>
+              )}
               <GhostButton type="button" disabled={scanning} onClick={scan}>
                 <IconRefresh />
                 <span>{scanning ? t('found.scanning') : found ? t('found.rescan') : t('found.scan')}</span>
