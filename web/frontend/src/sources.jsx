@@ -250,12 +250,14 @@ export function SourceFileRow({ s, withContext = null, quotes = 0, acts }) {
 // with Attach and Not this one.
 export function FoundFileRow({ c, folder, busy, onAttach, onRefuse }) {
   return (
-    <div className="flex flex-wrap items-start gap-3" data-testid="source-found">
-      <p className="min-w-0 flex-1">
-        {t('common.source.found', { folder, file: c.rel })}
+    <div className="flex flex-col gap-2" data-testid="source-found">
+      <p className="min-w-0">
+        {t('common.source.found', { folder })}
         {c.episode ? ` · ${c.episode.toUpperCase()}` : ''}
       </p>
-      <div className="flex items-center gap-2">
+      {/* The path is long and has no spaces, so it wraps anywhere on its own full-width line. */}
+      <p className="microcopy min-w-0" style={{ overflowWrap: 'anywhere' }}>{c.rel}</p>
+      <div className="flex flex-wrap items-center gap-2">
         <GhostButton type="button" disabled={busy} onClick={onAttach}>
           <IconCheck />
           <span>{t('common.source.found.attach')}</span>

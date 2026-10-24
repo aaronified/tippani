@@ -81,7 +81,8 @@ describe('Metadata > Source files', () => {
     expect(await screen.findByText(/512 scanned · 1 found · 3 not matched/)).toBeTruthy()
     expect(calls.filter((c) => c.path === '/sources/scan')).toHaveLength(1)
 
-    const offer = await screen.findByText(/A file was found in Books: Erikson\/Dust of Dreams\.epub/)
+    const offer = await screen.findByText(/A file was found in Books/)
+    expect(screen.getByText(/Erikson\/Dust of Dreams\.epub/)).toBeTruthy()
     fireEvent.click(within(offer.closest('[data-testid="source-work"]')).getByRole('button', { name: 'Attach' }))
     await waitFor(() => expect(calls.find((c) => c.path === '/sources/attach-found')?.body).toEqual({ bucket: 'review', tokens: ['tok-1'] }))
     await waitFor(() => expect(screen.queryByText(/A file was found in Books/)).toBeNull())

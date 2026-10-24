@@ -66,7 +66,8 @@ const panel = () =>
 describe('a work’s source file on its panel', () => {
   it('offers the file a scan found for this work, and Attach attaches it', async () => {
     panel()
-    expect(await screen.findByText(/A file was found in Books: Erikson\/Dust of Dreams\.epub/)).toBeTruthy()
+    expect(await screen.findByText(/A file was found in Books/)).toBeTruthy()
+    expect(screen.getByText(/Erikson\/Dust of Dreams\.epub/)).toBeTruthy()
     // Only this work's finding, not the other book's.
     expect(screen.queryByText(/The Crippled God/)).toBeNull()
 
