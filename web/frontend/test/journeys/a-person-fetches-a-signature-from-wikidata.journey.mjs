@@ -10,7 +10,7 @@
 //
 // THIS ONE NEEDS THE INTERNET, and says so rather than hiding it: the Fetch asks Open Library,
 // Wikidata and Commons, and a signature is not something a test may invent. It skips, loudly,
-// where Commons cannot be reached. The server is online for this file alone (every other
+// where Commons, Wikidata or Open Library cannot be reached. The server is online for this file alone (every other
 // journey runs it offline so a lookup cannot make a run differ from the last).
 //
 // SETUP KNOWS POST /books (`title`, `author`) and the `id` it answers with: a book by the
@@ -25,9 +25,19 @@ import { expect, it } from 'vitest'
 
 import { openApp } from './harness/world.mjs'
 
-const reachable = await fetch('https://commons.wikimedia.org/', { method: 'HEAD', signal: AbortSignal.timeout(8000) })
-  .then((r) => r.ok)
-  .catch(() => false)
+// The Fetch asks all three services. A slow or down one fails the journey for a reason that has nothing
+// to do with the app (the CI log showed Open Library timing out), so every one must answer first.
+const answers = (url, init) =>
+  fetch(url, { ...init, signal: AbortSignal.timeout(8000) })
+    .then((r) => r.ok)
+    .catch(() => false)
+const reachable = (
+  await Promise.all([
+    answers('https://commons.wikimedia.org/', { method: 'HEAD' }),
+    answers('https://www.wikidata.org/', { method: 'HEAD' }),
+    answers('https://openlibrary.org/search/authors.json?limit=1&q=Tagore'),
+  ])
+).every(Boolean)
 
 const app = openApp({ env: { TIPPANI_OFFLINE: '0' } })
 

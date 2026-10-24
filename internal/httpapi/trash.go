@@ -1058,6 +1058,9 @@ var accountSkipTables = map[string]bool{
 	"sessions": true, "device_tokens": true, "quiz_sessions": true,
 	"widget_keys": true, "notify_settings": true,
 	"jobs": true, "job_logs": true, "system_logs": true,
+	// Library scan state. It is rebuilt from the mounted folder by pressing Scan, and it refers to
+	// folder ids that may not exist after a restore.
+	"library_scans": true, "library_scan_findings": true, "library_scan_files": true,
 }
 
 // binAccount snapshots an entire account and its library into ONE bin entry,
