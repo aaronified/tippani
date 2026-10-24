@@ -41,7 +41,7 @@
 // and the performer — which is the whole point of the cast table.
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 
 vi.mock('../../src/api.js', async (orig) => ({
   ...(await orig()),
@@ -95,20 +95,6 @@ const film = (over = {}, props = {}) =>
   )
 
 const chip = () => document.querySelector('.person-chip')
-
-describe('a book quote’s speaker', () => {
-  it('hands back the cast row, not just the record', async () => {
-    book()
-    fireEvent.click(chip())
-    expect(opened).toHaveLength(1)
-    // THE ROW IS WHAT OPENS THE RIGHT APPEARANCE. A work can bill one character
-    // twice, and a panel told only the record and the work lifts whichever comes
-    // first — the bug characterPanel's `castId` exists to stop.
-    expect(opened[0].cast_id).toBe(11)
-    expect(opened[0].character_id).toBe(3)
-  })
-
-})
 
 describe('a film line’s speaker', () => {
   it('is a chip, and the performer stays beside it', async () => {

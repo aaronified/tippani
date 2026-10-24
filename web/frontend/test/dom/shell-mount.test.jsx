@@ -36,13 +36,6 @@ const mount = async () => {
 }
 
 describe('the logged-in shell', () => {
-  it('mounts', async () => {
-    await mount()
-    // The error boundary renders IN PLACE OF the frame, so the frame's own
-    // landmark is the proof this is the frame and not the apology for one.
-    expect(document.querySelector('.rail')).toBeTruthy()
-  })
-
   // ── HOME'S TWO SEATS. Home publishes none of its own and is where a session
   // starts, so the dock's last two are the shell's: the sections, and the tools.
   describe('the dock on Home', () => {

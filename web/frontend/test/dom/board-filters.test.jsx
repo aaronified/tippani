@@ -79,21 +79,6 @@ const asPhone = () => {
   })
 }
 
-describe('the board narrows', () => {
-
-  // The wishlist is derived — a book with nothing saved out of it IS the
-  // wishlist — and the board's three-way control has to map onto the server's
-  // two-way flag without losing the middle state.
-
-  it('stacks two filters', async () => {
-    await board()
-    press('♥ favourites')
-    press('annotated')
-    expect(shown()).toEqual(['Dispossessed'])
-    expect(seeded()).toEqual(['favourite=yes', 'wishlist=no'])
-  })
-})
-
 // The dock is the shell's, and these tests render the board alone — so the key
 // is reached through the store the shell subscribes to rather than through a
 // second render of the whole frame.

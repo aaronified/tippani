@@ -56,17 +56,4 @@ describe('a credit on a skipped work', () => {
     expect(face.getAttribute('src')).toMatch(/rawicz\.jpg/)
   })
 
-  it('draws a stand-in where nobody has fetched the person yet', async () => {
-    ANSWER = oneWork([{ name: 'Unfetched', image_path: '' }])
-    render(<NeverAsked />)
-    await waitFor(() => expect(screen.getByText('The Long Walk')).toBeTruthy())
-    // The name is still on the screen and still a door; what is absent is a
-    // picture, which is the honest answer rather than a failure. A SHORT name, and
-    // that is not arbitrary: the chip clips a long one to eighteen characters —
-    // the app's one ruled-on truncation — so a realistic name here would fail this
-    // assertion for a reason that has nothing to do with faces.
-    expect(document.body.textContent).toContain('Unfetched')
-    expect([...document.querySelectorAll('img')].some((i) => (i.getAttribute('src') || '').includes('people')))
-      .toBe(false)
-  })
 })

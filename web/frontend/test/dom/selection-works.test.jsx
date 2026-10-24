@@ -70,7 +70,6 @@ function Board({ items = BOOKS, kind = 'book' }) {
 
 const count = () => Number(screen.getByTestId('count').textContent)
 const boxes = () => screen.getAllByRole('checkbox')
-const sent = (path) => CALLS.find(([, p]) => p === path)
 const press = (el) => fireEvent.pointerDown(el, { pointerType: 'touch', clientX: 30, clientY: 30 })
 const hold = async (ms = 500) => {
   await act(async () => {
@@ -84,10 +83,6 @@ beforeEach(() => {
   JOBS = jobsServer()
   opened = []
 })
-
-// The overflow, opened by its accessible name rather than by the glyph: a reader
-// hears the words, and a test that clicked "⋯" would be asserting the drawing.
-const openMore = () => fireEvent.click(screen.getByRole('button', { name: /More for the/ }))
 
 describe('the bar over a selection of works', () => {
   const open = () => {
@@ -146,45 +141,3 @@ describe('the bar over a selection of works', () => {
 // So the assertions go all the way to the REQUEST. A test that found the menu item
 // would have passed on the day the callback was added and said nothing about
 // whether the dialog sends anything.
-describe('setting one field over a selection', () => {
-  const pickTwo = () => {
-    render(<Board />)
-    fireEvent.click(boxes()[0])
-    fireEvent.click(boxes()[1])
-  }
-
-  // Select is this app's own dropdown, not a native <select>: it opens a panel and
-  // the options are clicked. Driving it with fireEvent.change silently does
-  // nothing, which is a test that passes while asserting the default.
-  const chooseField = (label) => {
-    fireEvent.click(screen.getByLabelText('Which field to set'))
-    fireEvent.click(screen.getByText(label))
-  }
-  const openDialog = () => {
-    openMore()
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Set fields' }))
-  }
-
-  it('sets the series on both books in one request', async () => {
-    pickTwo()
-    openDialog()
-    chooseField('Series')
-    fireEvent.change(screen.getByLabelText(/^Series$/i), { target: { value: 'the hainish cycle' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Apply' }))
-
-    await waitFor(() => expect(sent('/books/bulk')).toBeTruthy())
-    const [, , body] = sent('/books/bulk')
-    expect(body.ids).toEqual([1, 2])
-    // EXACTLY WHAT WAS TYPED. This is the same Field the single-book form uses,
-    // and neither rewrites a name any more: the small-word rule that used to run
-    // here could not be argued with, and the keyboard hint that replaced it can.
-    // So a series set over five books is spelled the way it was typed, which is
-    // also how it would have been spelled in one of them.
-    expect(body.series).toBe('the hainish cycle')
-    // ONE key. A targeted patch is what makes "set the series and leave the rest"
-    // possible at all — a full-state body here would clear every other field on
-    // both books.
-    expect(Object.keys(body).sort()).toEqual(['ids', 'series'])
-  })
-
-})

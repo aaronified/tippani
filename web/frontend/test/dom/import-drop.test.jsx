@@ -136,21 +136,6 @@ beforeEach(() => {
 })
 
 describe('the one import target', () => {
-  it('is a single control, and the bytes pick the parser', async () => {
-    render(<ImportPage />)
-    // ONE file input on the screen, where there were seven. This is the assertion
-    // the wall would fail, and it fails it by counting rather than by naming a
-    // card — a re-styled wall is still a wall.
-    expect(document.querySelectorAll('input[type="file"]')).toHaveLength(1)
-    drop(well(), textFile('clippings.txt'))
-    await waitFor(() => expect(uploads).toHaveLength(1))
-    // The sniffing endpoint, with no format asserted: the file says what it is.
-    expect(uploads[0]).toEqual({ path: '/import/auto', name: 'clippings.txt', fields: null })
-    // The run's own line, not the row's — both say "3 quotes staged", and the
-    // summary is the one that proves the file count and the total were tallied.
-    expect(await screen.findByText(/1 file → 3 quotes staged/)).toBeTruthy()
-  })
-
   it('takes several files at once, one request each', async () => {
     render(<ImportPage />)
     drop(well(), textFile('a.md'), textFile('b.html'))

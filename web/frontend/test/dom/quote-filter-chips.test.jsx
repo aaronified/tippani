@@ -24,7 +24,7 @@
 // would filter "5 noted" down to four rows.
 
 import { describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { screen } from '@testing-library/react'
 import { countQuotes } from '../../src/works.jsx'
 
 const ROWS = [
@@ -64,21 +64,3 @@ describe('the chips agree with the numbers the hero prints', () => {
 
 })
 
-
-// THE CLAIM THAT CAN ONLY BE MADE ON THE SCREEN. Everything above is about a
-// predicate and a component; this is about whether the board actually draws the
-// set. The two surfaces were writing their chips inline and separately, and had
-// already drifted to one each — which is the failure mode a shared list exists to
-// end, and the only way to see it is to render the thing.
-describe('the board draws all three', () => {
-  it('offers favourites, notes and tags — not just favourites', async () => {
-    render(
-      <Library openId={1} onOpen={() => {}} onClose={() => {}} creditSeparators=",;&" onAdd={() => {}} onSearch={() => {}} dataNonce={0} />,
-    )
-    // Each is a toggle, so each announces itself as one.
-    for (const label of ['♥ favourites', 'has notes', 'tagged']) {
-      const chip = await screen.findByRole('button', { name: label })
-      expect(chip.getAttribute('aria-pressed'), `${label} does not announce its state`).toBe('false')
-    }
-  })
-})

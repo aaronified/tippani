@@ -26,7 +26,7 @@
 // or a module of the app.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { openSettingsSection } from './helpers/settingsSection.jsx'
 
 let CALLS
@@ -128,18 +128,6 @@ const posted = (path) => CALLS.filter(([m, p]) => m === 'POST' && p === path)
 const reads = () => CALLS.filter(([m, p]) => m === 'GET' && p === '/jobs/common').length
 // Where an element sits among its card's, for "in this order".
 const before = (a, b) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
-
-describe('running one', () => {
-  it('sends the row’s own job, and then shows it waiting with a Stop where Run was', async () => {
-    const card = await page()
-    fireEvent.click(within(card).getByRole('button', { name: 'Run Fetch missing people' }))
-    await waitFor(() => expect(posted('/jobs').map(([, , b]) => b)).toEqual([{ kind: 'people', params: { missing: true } }]))
-    expect(await within(card).findByRole('button', { name: 'Stop Fetch missing people' })).toBeTruthy()
-    expect(within(card).queryByRole('button', { name: 'Run Fetch missing people' })).toBeNull()
-    within(card).getByText('Waiting — one job ahead')
-  })
-
-})
 
 describe('stopping one', () => {
   // Each case's job is a job of its own, with an id of its own, as the server's

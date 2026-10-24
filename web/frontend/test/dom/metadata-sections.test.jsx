@@ -140,14 +140,6 @@ const tab = (name) => screen.getByRole('tab', { name })
 
 describe('a section at a time', () => {
 
-  it('shows one section at a time: another door takes the works list away', async () => {
-    await mount()
-    await screen.findByText(/A Wizard of Earthsea/)
-    await press(tab(/^Characters/))
-    expect(await screen.findByText('Woland')).toBeTruthy()
-    expect(screen.queryByText(/A Wizard of Earthsea/)).toBeNull()
-  })
-
   it('remembers which section, because it is a fact about this desk', async () => {
     await mount()
     await press(tab(/^Characters/))

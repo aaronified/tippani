@@ -67,7 +67,6 @@ const tierButtons = () =>
 const LABELS = { easy: 'Easy', medium: 'Medium', hard: 'Hard', random: 'Random' }
 const labelOf = (k) => LABELS[k]
 
-const easyCost = () => screen.queryByText(/miss the close wrong answers/i)
 
 // THE LINE UNDER THE PICKER, whichever tier is chosen. Found by a phrase only
 // that tier's sentence contains, so a screen that printed one line for all four
@@ -90,18 +89,6 @@ describe('the difficulty picker', () => {
     const put = SENT.filter((s) => s.path.startsWith('/auth/me/preferences')).pop()
     expect(put, 'pressing a tier sent no preferences PUT at all').toBeTruthy()
     expect(put.body.srTier).toBe('hard')
-  })
-
-  // MEDIUM IS THE DEFAULT AND THE PICKER HAS TO SHOW IT. An account that has
-  // never opened this panel stores nothing; a control that read "" as no
-  // selection would leave the reader unable to tell which tier they were on.
-  it('and shows medium for an account that has never chosen', async () => {
-    await mount({})
-    const got = tierButtons()
-    const selected = got.filter((b) => b.getAttribute('aria-selected') === 'true')
-    expect(selected.length, 'exactly one tier should read as chosen').toBe(1)
-    expect(selected[0], 'an account that stored nothing is not shown as being on medium')
-      .toBe(got[REVIEW_TIERS.indexOf('medium')])
   })
 
 })

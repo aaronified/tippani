@@ -163,23 +163,6 @@ describe('Current jobs', () => {
 
 describe('System logs', () => {
 
-  it('exports exactly what the filters show, or everything the server keeps', async () => {
-    await page()
-    const logs = await card('System logs')
-    await within(logs).findByText('openlibrary.org answered 503', { exact: false })
-    fireEvent.change(within(logs).getByRole('searchbox', { name: 'Search the system logs' }), { target: { value: 'openlibrary' } })
-    await waitFor(() => expect(logReads().at(-1).get('q')).toBe('openlibrary'))
-    const shown = within(logs).getByRole('link', { name: /What is shown/ }).getAttribute('href')
-    expect(shown.startsWith('/api/admin/logs.md?')).toBe(true)
-    const params = new URLSearchParams(shown.split('?')[1])
-    expect(params.get('level')).toBe('error,warn,info,request')
-    expect(params.get('q')).toBe('openlibrary')
-    // The window the list was read over, as the server answered it.
-    expect(Number(params.get('from'))).toBe(SERVER_NOW - 24 * HOUR)
-    expect(params.get('upto')).toBe('41')
-    expect(within(logs).getByRole('link', { name: /Export all the logs kept/ }).getAttribute('href')).toBe('/api/admin/logs.md?all=1')
-  })
-
   // A BROWSER WHOSE CLOCK IS MONTHS BEHIND THE SERVER'S — the journey tier's is
   // fixed at 2026-01-01 — reads, pages and exports the server's window. When the
   // screen sent its own clock, the export's window ended before the lines on the

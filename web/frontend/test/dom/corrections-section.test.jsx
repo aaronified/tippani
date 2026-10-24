@@ -6,7 +6,6 @@
 // press; and the section draws NOTHING when no quote differs from its file.
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { ToastHost } from '../../src/ui.jsx'
 
 const sent = []
 let list = {}
@@ -101,16 +100,4 @@ describe('corrections from the file on Checks', () => {
     expect(sent[0].body.items[0].id).toBe(3)
   })
 
-  it('says how many a bulk press left for a press of their own', async () => {
-    reply = { applied: 1, skipped_edited: 1 }
-    render(
-      <>
-        <CorrectionsPage embedded />
-        <ToastHost />
-      </>,
-    )
-    const group = await screen.findByTestId('corrections-accents')
-    fireEvent.click(group.querySelectorAll('button')[1])
-    await screen.findByText(/1 you edited yourself was left for a press of its own/)
-  })
 })

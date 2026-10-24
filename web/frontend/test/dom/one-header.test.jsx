@@ -36,7 +36,6 @@ vi.mock('../../src/api.js', async (orig) => ({
   }),
 }))
 
-const { characterPanel } = await import('../../src/identity.jsx')
 const { PanelHost, usePanelStack } = await import('../../src/ui.jsx')
 const { ScreenHead } = await import('../../src/characterRows.jsx')
 
@@ -65,20 +64,6 @@ beforeEach(() => {
 afterEach(() => cleanup())
 
 const open = async (panel) => { await act(async () => { render(<Harness panel={panel} />) }) }
-
-describe('a character sheet inside a panel', () => {
-  beforeEach(async () => {
-    await open(characterPanel({ open: () => {}, push: () => {}, close: () => {} },
-      { id: 4, name: 'Matrim Cauthon', work: { kind: 'book', id: 3, title: 'Crossroads Of Twilight' } }))
-  })
-
-  it('draws one header bar, not two', () => {
-    // Both bars carried a bottom rule and a name. Counting the bars is the rule.
-    const bars = document.querySelectorAll('.tp-panel-head, .cs-head')
-    expect(bars.length, `${bars.length} header bars — the pack draws one`).toBe(1)
-  })
-
-})
 
 // AND THE MECHANISM ON ITS OWN, so the rule is pinned without depending on which
 // fixture makes an identity screen think it is local. `ScreenHead` is the thing

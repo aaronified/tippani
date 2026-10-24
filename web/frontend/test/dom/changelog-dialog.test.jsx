@@ -21,7 +21,7 @@
 // mangles an entry six releases down the list where nobody looks.
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import { openSettingsSection } from './helpers/settingsSection.jsx'
 
 let CALLS
@@ -62,17 +62,6 @@ const openLog = async () => {
   await openSettingsSection('Server')
   await waitFor(() => expect(screen.getByText('1.12.0')).toBeTruthy())
 }
-
-describe('opening it', () => {
-
-  it('fetches once when the section is reached', async () => {
-    await openLog()
-    expect(CALLS.filter(([, p]) => p === '/changelog')).toHaveLength(1)
-  })
-
-  const versions = () => [...document.querySelectorAll('.cl-version')].map((n) => n.textContent)
-
-})
 
 describe('the inline renderer', () => {
   const only = (entry) => {

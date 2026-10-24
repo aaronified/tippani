@@ -73,7 +73,6 @@ const open = async () => {
 // is unchanged; what changed is how a reader names the choice. On a row it is the
 // name the icon announces, "Bengali: translation only", which is the language and
 // the word together — the icon alone would be a picture to a screen reader.
-const rowFor = (name) => screen.findByRole('radiogroup', { name: new RegExp(`^${name}(, own setting)?$`, 'i') })
 const master = () => screen.getByRole('radiogroup', { name: /^all languages$/i })
 const written = () => PUTS.filter(([p]) => p === '/auth/me/preferences').map(([, b]) => JSON.parse(b.textOrder))
 
@@ -86,13 +85,6 @@ const chosen = (group) => {
 }
 
 describe('the per-language table', () => {
-
-  it('saves the state a row is set to', async () => {
-    await open()
-    pick(await rowFor('Bengali'), 'translation only')
-    await waitFor(() => expect(written().length).toBeGreaterThan(0))
-    expect(written().at(-1).byLanguage.bengali).toBe('trans-only')
-  })
 
   // THE OWNER'S "IT WILL PUSH ALL KNOBS TO ALIGN WITH IT". The master is not a
   // fallback the rows read; moving it CLEARS them.

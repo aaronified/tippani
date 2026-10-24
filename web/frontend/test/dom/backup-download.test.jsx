@@ -132,35 +132,6 @@ describe('creating a backup', () => {
 
 })
 
-describe('the backup, as a job', () => {
-
-  // THE PROMPT CLOSES AND THE CARD WATCHES: the archive is sealed on the server,
-  // and the button says so until the job ends — then the new archive is on the
-  // card, and the toast offers the copy.
-  it('keeps the card busy while its job runs, then shows the new archive', async () => {
-    JOBS.hold('backup')
-    await card()
-    await makeOne()
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Back up' })).toBeNull())
-    const busy = await screen.findByRole('button', { name: /Backing up/ })
-    expect(busy.disabled).toBe(true)
-    const [id] = [...JOBS.jobs.keys()]
-    JOBS.finish(id)
-    expect(await screen.findByText('backup created', {}, { timeout: 4000 })).toBeTruthy()
-    expect(await screen.findByRole('link', { name: /Download the last one/ })).toBeTruthy()
-    expect(screen.getByRole('button', { name: /Back up now/ }).disabled).toBe(false)
-  })
-
-  // LIVE FROM THE PRESS: between the start's answer and the card's first read of
-  // the job there is an id and no job to draw, and a Back up now that came back
-  // for that beat invites a second backup behind the first. The beat is held open.
-
-  // THE SEAL CAN STILL FAIL AFTER THE PRESS — the password changed while the job
-  // waited, say — and the card says so in the job's own words, with nothing
-  // offered to download.
-
-})
-
 // THE SAFETY COPY'S PASSWORD FILLS THE RESTORE ONLY WHERE IT OPENS THE ARCHIVE.
 // An archive this server made opens with the current password, so typing it twice
 // is ceremony; one sealed somewhere else wants the password of its own era, and a

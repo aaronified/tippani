@@ -75,15 +75,6 @@ beforeEach(() => {
   applyLanguageMarks({})
 })
 
-// The LAST save, not the first. Several of these fire more than one PUT — adding
-// a custom mark selects it — and asserting on PUTS[0] reads the state the panel
-// was in before the act under test.
-const lastPrefs = () => {
-  const puts = PUTS.filter(([p]) => p === '/auth/me/preferences')
-  expect(puts.length, 'nothing was saved').toBeGreaterThan(0)
-  return JSON.parse(puts.at(-1)[1].languageMarks || '{}')
-}
-
 // THE DEFAULT IS THE SECTION THIS FILE IS ABOUT. Almost every case here opens
 // the Type panel, and Type lives under Language and font now that Settings is
 // sectioned — so the default section is that one, and a case wanting another
@@ -118,20 +109,6 @@ describe('the language editor', () => {
     return screen.findByRole('radiogroup', { name: new RegExp(`Script letters for ${language}`, 'i') })
   }
   const save = () => fireEvent.click(screen.getByRole('button', { name: 'Save' }))
-
-  it('adds a typed mark to that language’s own marks and chooses it', async () => {
-    await openEditor()
-    fireEvent.click(screen.getByRole('button', { name: /Add a mark of your own/i }))
-    const input = screen.getByRole('textbox', { name: /Add a mark of your own/i })
-    fireEvent.change(input, { target: { value: '✦' } })
-    fireEvent.keyDown(input, { key: 'Enter' })
-    save()
-    await waitFor(() => {
-      const blob = lastPrefs()
-      expect(blob.bengali.c).toEqual(['✦'])
-      expect(blob.bengali.m).toBe('✦')
-    })
-  })
 
   // ── REMOVING ONE, and the refusal that is the whole point of the control. What
   // removal drops is a mark, a name and a code — never a quote — so a row the

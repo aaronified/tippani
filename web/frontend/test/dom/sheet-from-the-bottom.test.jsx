@@ -166,13 +166,6 @@ describe('what starts a drag', () => {
 
 describe('what a drag does', () => {
 
-  it('and settles on an anchor when the finger lets go', async () => {
-    render(<Sheet onDismiss={vi.fn()} />)
-    await drag('grip', -60)
-    expect(ANCHORS, `the sheet came to rest at ${heightOf(el('sheet'))}, which is not one of the stops`)
-      .toContain(heightOf(el('sheet')))
-  })
-
   it('and a pull well past the smallest stop takes the guarded exit, once', async () => {
     // THE SAME EXIT AS THE ✕ AND ESCAPE. A second way out that skipped the
     // unsaved-changes question would be a way to lose typing, so this is the

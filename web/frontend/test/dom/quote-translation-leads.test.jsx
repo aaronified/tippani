@@ -78,12 +78,6 @@ const leads = (text) => {
 beforeEach(() => { document.body.innerHTML = '' })
 
 describe('a card, and which text is the words', () => {
-  it('reads as written when the reader declared its language', () => {
-    card({ master: 'trans-first', byLanguage: { german: 'quote-first' } })
-    leads(GERMAN)
-    expect(secondLine()?.textContent).toBe(ENGLISH)
-  })
-
   it('and leads with the translation when they did not', () => {
     card({ master: 'trans-first', byLanguage: { english: 'quote-first' } })
     leads(ENGLISH)

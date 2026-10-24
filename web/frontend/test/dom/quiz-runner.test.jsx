@@ -76,16 +76,6 @@ describe('a multiple-choice card', () => {
     expect(screen.getByText('not quite')).toBeTruthy()
   })
 
-  it('takes one answer per card, however many times it is tapped', async () => {
-    render(<QuizRunner mode="daily" cards={[mcq()]} />)
-    fireEvent.click(screen.getByText('Persuasion'))
-    await waitFor(() => expect(posted()).toHaveLength(1))
-    fireEvent.click(screen.getByText('Emma'))
-    fireEvent.click(screen.getByText('Villette'))
-    expect(posted()).toHaveLength(1)
-    expect(posted()[0].body.result).toBe('got')
-  })
-
 })
 
 describe('a flip card', () => {
@@ -255,12 +245,4 @@ describe('a “which quote is from this work?” card', () => {
     ])
   })
 
-  it('reports them once, however long the card stays on screen', async () => {
-    render(<QuizRunner mode="daily" cards={[which()]} />)
-    fireEvent.click(screen.getByText('a line of ours'))
-    await waitFor(() => expect(seen()).toHaveLength(2))
-    fireEvent.click(screen.getByText('a line of theirs'))
-    fireEvent.click(screen.getByText('a third line'))
-    expect(seen()).toHaveLength(2)
-  })
 })

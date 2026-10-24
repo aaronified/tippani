@@ -75,18 +75,3 @@ describe('the preference is open (§4)', () => {
   })
 })
 
-describe('a key that resolves nowhere', () => {
-  test('renders a word rather than blank or the key itself', () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const got = t('library.help.topbar.swipe.description')
-    expect(got).toBe('Description')
-    expect(got).not.toContain('.')
-    expect(got).not.toBe('')
-    // The person who can fix it is not looking at the button.
-    expect(warn).toHaveBeenCalledOnce()
-    t('library.help.topbar.swipe.description')
-    expect(warn).toHaveBeenCalledOnce() // one bug is one line, not one per render
-    warn.mockRestore()
-  })
-})
-

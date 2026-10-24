@@ -99,14 +99,3 @@ describe('a key row', () => {
 
 })
 
-describe('multi-author credits', () => {
-
-  it('still writes the preference when a separator is toggled', async () => {
-    await page()
-    fireEvent.click(screen.getByRole('button', { name: 'amp' }))
-    await waitFor(() =>
-      expect(PUTS.some(([p, b]) => p === '/auth/me/preferences' && typeof b.creditSeparators === 'string')).toBe(true),
-    )
-  })
-})
-

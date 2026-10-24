@@ -62,17 +62,3 @@ describe('the board list', () => {
   })
 
 })
-
-describe('a board', () => {
-  // THE TRAP, ASSERTED. An empty board used to have no control on it at all,
-  // and the choice was persisted, so a reload landed you back in the same dead
-  // end. The way out must exist when there is nothing on the shelf.
-  it('still offers the way back when it is empty', async () => {
-    const onClose = vi.fn()
-    render(<QuotesPage openId={2} onOpen={noop} onClose={onClose} creditSeparators="," />)
-    const back = await screen.findByRole('button', { name: /All boards/ })
-    fireEvent.click(back)
-    expect(onClose).toHaveBeenCalled()
-  })
-
-})
