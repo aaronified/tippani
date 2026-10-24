@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.4.1] - 2026-10-24
+
+### Changed
+
+- **One press of Scan walks the whole library folder.** Scan on Checks > Found files used to stop
+  after 400 files or 8 seconds, so a reader had to press it again and again to get through a real
+  library. One press now scans the folder to the end as a background job. It runs in 60-second
+  slices and queues the next slice itself, so imports, backups and other jobs are not blocked for
+  the length of a scan. The scan shows on the jobs card with its progress and a Stop button.
+- **A scan can be stopped and resumed.** Progress, the findings and the list of files already seen
+  are stored in the database, so Stop, a crash or a restart does not lose them. After an
+  interruption, press Scan and it resumes from the last saved point. Findings can be reviewed on
+  Checks while the scan is still running.
+- **A later scan reads only new or changed files**, so it finishes quickly. A scan still starts
+  only when a reader presses Scan (not on boot or on a timer), still never writes to the folder,
+  and a reader still never sends a path. See ADR-0917.
+
+### Known limits
+
+- After a server restart a scan does not continue by itself. Press Scan to resume it.
+
 ## [3.4.0] - 2026-10-24
 
 ### Added
