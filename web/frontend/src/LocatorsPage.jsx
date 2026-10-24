@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { json } from './api.js'
 import { t } from './i18n.js'
+import { useSourcesChanged } from './sources.jsx'
 import { Card, GhostButton, IconArrow, IconButton, IconCheck, IconClose, InfoDot, SectionHead, toast } from './ui.jsx'
 
 // Times the subtitles propose for film lines — a section of Checks.
@@ -39,6 +40,8 @@ export default function LocatorsPage({ embedded = false, onOpenMovie }) {
   useEffect(() => {
     load()
   }, [load])
+  // A file attached elsewhere on this screen proposes times here.
+  useSourcesChanged(load)
 
   async function press(path, bucket, items) {
     setBusy(true)

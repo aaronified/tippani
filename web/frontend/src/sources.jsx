@@ -175,6 +175,17 @@ registerSessionCache(() => contextLists.clear())
 export function invalidateContext() {
   contextLists.clear()
   contextListeners.forEach((f) => f())
+  sourceListeners.forEach((f) => f())
+}
+
+// useSourcesChanged runs `fn` whenever a file is added, replaced or removed anywhere, so a
+// section that proposes things from stored files (the times on Checks) can reload.
+const sourceListeners = new Set()
+export function useSourcesChanged(fn) {
+  useEffect(() => {
+    sourceListeners.add(fn)
+    return () => sourceListeners.delete(fn)
+  }, [fn])
 }
 
 function contextList(subject, workId) {

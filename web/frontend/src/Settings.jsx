@@ -1,3 +1,4 @@
+import LibraryFoldersGroup from './libraryFolders.jsx'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { coverImgURL, DEMO, json, errText, copyText, apiURL, upload as uploadFile, uploadWithProgress } from './api.js'
 import { coversThatFit } from './coverFit.js'
@@ -2772,6 +2773,9 @@ function ServerCard({ user, update, onUpdateInfo, updateAsking, onUpdateAsking, 
           onAsking={onUpdateAsking}
         />
         <BackupCard user={user} asking={backupAsking} onAsking={onBackupAsking} />
+        {/* The folders the library already lives in, mounted read-only, and whether a backup
+            carries the files attached to works (libraryFolders.jsx). */}
+        <LibraryFoldersGroup />
         {/* WIDE, because a release log is prose at full measure. A column of
             entries broken to half a card is a changelog nobody finishes. */}
         <PrefGroup title={t('settings.changelog.title')} wide>

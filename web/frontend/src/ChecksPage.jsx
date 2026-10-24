@@ -26,6 +26,7 @@ import { PageHeader } from './ui.jsx'
 const StagingPage = lazy(() => import('./StagingPage.jsx'))
 const CleanupPage = lazy(() => import('./CleanupPage.jsx'))
 const LocatorsPage = lazy(() => import('./LocatorsPage.jsx'))
+const FoundFilesPage = lazy(() => import('./FoundFilesPage.jsx'))
 
 export default function ChecksPage({ onPending, onOpenBook, onOpenMovie, onApproved, onOpenQuotes }) {
   return (
@@ -57,6 +58,11 @@ export default function ChecksPage({ onPending, onOpenBook, onOpenMovie, onAppro
           onOpenMovie={onOpenMovie}
           onOpenQuotes={onOpenQuotes}
         />
+      </Suspense>
+      {/* Files a mounted library holds for works that have quotes. Draws nothing, rule
+          included, for a box with no folders mounted. */}
+      <Suspense fallback={null}>
+        <FoundFilesPage embedded />
       </Suspense>
       {/* Times a work's subtitle proposes for its lines. Draws nothing, rule included,
           when there is nothing to propose. */}

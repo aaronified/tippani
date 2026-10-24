@@ -64,11 +64,12 @@ const uses = (glyph) => {
 
 describe('the circular arrow', () => {
   it('is only ever a LOCAL pass, and only on Checks', () => {
-    // Two callers, both `CleanupPage.jsx`: rescan, and rescan after ignoring some.
-    // Nothing leaves the machine on either, which is the whole reason the arrow
-    // survived the split at all.
+    // Two callers: `CleanupPage.jsx` (rescan, and rescan after ignoring some) and
+    // `FoundFilesPage.jsx` (scan the mounted library folders). Nothing leaves the machine
+    // on either, which is the whole reason the arrow survived the split at all: both are
+    // a pass over local data, on Checks, pressed by the reader.
     const where = uses('IconRefresh').map(([f]) => f)
-    expect(where, 'the refresh arrow is back on something that is not a local rescan').toEqual(['CleanupPage.jsx'])
+    expect(where, 'the refresh arrow is back on something that is not a local rescan').toEqual(['CleanupPage.jsx', 'FoundFilesPage.jsx'])
   })
 
   it('and the three verbs it was standing in for are each somewhere', () => {

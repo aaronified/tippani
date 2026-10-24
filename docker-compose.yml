@@ -32,6 +32,13 @@ services:
       # full example + an honest note on what the proxy does and doesn't buy).
       # It only works when you track a moving tag (image: …:latest, as above).
       #   - /var/run/docker.sock:/var/run/docker.sock
+      # OPT-IN: your library, read-only. Mount the folders your books and films already
+      # live in with `:ro`, then add their paths below as Library folders (Settings → Server,
+      # admin). Readers can then scan them from Checks for the subtitle and ebook files of
+      # works they have quotes from. The app only ever READS from these folders: nothing is
+      # copied, renamed or deleted there, and `:ro` is your guarantee on top of ours.
+      #   - /srv/books:/library/books:ro
+      #   - /srv/movies:/library/movies:ro
     # The image runs as non-root (uid 65532); to let it reach the socket above,
     # add it to your host's docker group (find the gid with `getent group docker`):
     #   group_add:
