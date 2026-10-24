@@ -8,6 +8,7 @@ import {
   IconEdit,
   IconHeart,
   IconMetadata,
+  IconOpen,
   IconMoveTo,
   IconPalette,
   IconQuiz, IconPractise,
@@ -145,6 +146,19 @@ export function actionsFor(kind, item, ctx = {}) {
       single: true,
       available: isWork && !!ctx.addSource && canTakeSource(kind, item),
       run: () => ctx.addSource(item),
+    },
+    {
+      id: 'inContext',
+      label: t('common.action.context.label'),
+      where: ROW,
+      icon: <IconOpen />,
+      tooltip: t('common.action.context.tip', { subject }),
+      // THE QUOTE IN ITS FILE: what came before and after, from rows stored when the
+      // file was added. Absent unless this quote has context (the card passes the
+      // callback only then), never disabled. One quote at a time, so `single`.
+      single: true,
+      available: !isWork && !!ctx.inContext,
+      run: () => ctx.inContext(item),
     },
     {
       id: 'practise',

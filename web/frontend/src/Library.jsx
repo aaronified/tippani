@@ -11,6 +11,7 @@ import { ShareDialog, bookShare, copyQuote } from './share.jsx'
 import { deleteWithUndo } from './undo.jsx'
 import { ActionRow, actionsFor } from './actions.jsx'
 import { ANTHOLOGY_KIND, useGatherDoor } from './anthologyGather.jsx'
+import { ContextDialog, contextKind, contextSubject, useHasContext } from './sources.jsx'
 import { selectionClick, selectionMenuItems, useSelection } from './selection.jsx'
 import { facetValue, facetValues, publishSearchSeed, seedableChips, withFacet, withFacetValues } from './facets.js'
 import { SelectionBar } from './SelectionBar.jsx'
@@ -1242,6 +1243,11 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
         ].filter(Boolean).join(' · ')
       : meta
   const gather = useGatherDoor()
+  // THE QUOTE IN ITS FILE. A highlight is a book's and a standalone quote is not, and
+  // this card draws both (`selectKind` says which), so the kind decides which list to ask.
+  const ctxKind = contextKind(selectKind)
+  const hasContext = useHasContext(contextSubject(ctxKind), a.book_id, a.id)
+  const [showContext, setShowContext] = useState(false)
   const editForm = (
     <Form initial={a} onSubmit={(fields) => save(a.id, fields)} onCancel={() => setEditingId(null)} submitLabel={t('common.action.save.label')} tagSuggestions={tagSuggestions} stickers={stickers} reloadStickers={reloadStickers} bookId={a.book_id ?? null} />
   )
@@ -1280,6 +1286,8 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
     // `selectKind` is the kind this card was drawn as, which is the only thing that
     // knows.
     addToAnthology: (row) => gather.open({ items: [{ kind: ANTHOLOGY_KIND[selectKind], item_id: row.id }], count: 1 }),
+    // Absent unless this quote has stored context: nothing to show is nothing to offer.
+    inContext: hasContext ? () => setShowContext(true) : undefined,
     remove,
   })
   // SELECT IS THE FIRST ITEM IN THE MENU, and that is what makes the context menu
@@ -1456,6 +1464,7 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
         </div>
       {menu}
       {gather.node}
+      {showContext && <ContextDialog kind={ctxKind} id={a.id} onClose={() => setShowContext(false)} />}
     </HandCard>
   )
 }

@@ -7610,3 +7610,15 @@ import.row.source.attach = {title}-এর সঙ্গে জুড়ুন
 import.row.source.attach.none = জুড়ুন
 import.row.source.attached = {title}-এর সঙ্গে জুড়ে দেওয়া হয়েছে
 import.row.source.episode = পর্ব
+# The quote in its source file: what came before and after, from rows stored when the file was added.
+common.action.context.label = প্রসঙ্গসহ
+common.action.context.tip = সূত্র ফাইলে এই {subject}-এর আগে-পরের লাইনগুলো দেখান
+common.source.placed = {name} যোগ হয়েছে: {total}টির মধ্যে {found}টি উদ্ধৃতির প্রসঙ্গ পাওয়া গেছে
+context.title = প্রসঙ্গসহ
+context.window = আগে {before}, পরে {after}
+context.more = আরও দেখান
+context.at = সময় {time}
+context.bound.before.paragraph = এখান থেকেই অধ্যায় শুরু।
+context.bound.after.paragraph = এখানেই অধ্যায় শেষ।
+context.bound.before.cue = এর আগে লম্বা নীরবতা।
+context.bound.after.cue = এর পরে লম্বা নীরবতা।

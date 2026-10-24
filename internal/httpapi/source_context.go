@@ -390,6 +390,14 @@ func (s *Server) handleGetContext(w http.ResponseWriter, r *http.Request) {
 	if wantA.Valid {
 		span.After = int(wantA.Int64)
 	}
+	// "Show more", for this read only: the panel may ask for a wider window than the
+	// setting, up to what is stored. It changes nothing and is forgotten on close.
+	if v, err := strconv.Atoi(r.URL.Query().Get("before")); err == nil && v >= 0 {
+		span.Before = v
+	}
+	if v, err := strconv.Atoi(r.URL.Query().Get("after")); err == nil && v >= 0 {
+		span.After = v
+	}
 	span.Before = min(span.Before, a.Stored.Before)
 	span.After = min(span.After, a.Stored.After)
 	a.Span = span
@@ -468,4 +476,50 @@ func (s *Server) handleRescanSource(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"context": st})
+}
+
+// handleContextIDs: GET /sources/context-ids?subject=&subject_id= — which quotes of a
+// work have stored context, as ids. A card asks it once per work so the "In context"
+// action can be ABSENT where it would show nothing (the registry's rule: absent, not
+// disabled), without every quote list query learning a new column. A work that is not
+// the reader's answers an empty list, which leaks nothing: the filter is the owner.
+//
+// For standalone quotes (subject=utterance) there is no work row, so every utterance
+// of the reader's that has context is listed.
+func (s *Server) handleContextIDs(w http.ResponseWriter, r *http.Request) {
+	uid := userID(r)
+	q := r.URL.Query()
+	subject := q.Get("subject")
+	if subject != sourceBook && subject != sourceScreen && subject != sourceUtterance {
+		writeErr(w, http.StatusBadRequest, "subject must be book, screen or utterance")
+		return
+	}
+	query := `SELECT sc.item_id FROM source_context sc JOIN work_sources ws ON ws.id = sc.source_id
+	          WHERE sc.user_id = ? AND ws.subject = ?`
+	args := []any{uid, subject}
+	if subject != sourceUtterance {
+		id, _ := strconv.ParseInt(q.Get("subject_id"), 10, 64)
+		if id <= 0 {
+			writeErr(w, http.StatusBadRequest, "say which work")
+			return
+		}
+		query += ` AND ws.subject_id = ?`
+		args = append(args, id)
+	}
+	rows, err := s.Store.DB.Query(query, args...)
+	if err != nil {
+		internalError(w, r, "context ids", err)
+		return
+	}
+	defer rows.Close()
+	ids := []int64{}
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			internalError(w, r, "context ids: scan", err)
+			return
+		}
+		ids = append(ids, id)
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ids": ids})
 }

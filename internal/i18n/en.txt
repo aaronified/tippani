@@ -7973,3 +7973,15 @@ import.row.source.attach = Attach to {title}
 import.row.source.attach.none = Attach
 import.row.source.attached = Attached to {title}
 import.row.source.episode = Episode
+# The quote in its source file: what came before and after, from rows stored when the file was added.
+common.action.context.label = In context
+common.action.context.tip = Show the lines around this {subject} in its source file
+common.source.placed = Added {name}: found context for {found} of {total} quotes
+context.title = In context
+context.window = {before} before, {after} after
+context.more = Show more
+context.at = At {time}
+context.bound.before.paragraph = Its chapter begins here.
+context.bound.after.paragraph = Its chapter ends here.
+context.bound.before.cue = A long silence comes before this.
+context.bound.after.cue = A long silence follows this.

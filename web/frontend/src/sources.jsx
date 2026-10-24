@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
 import { FormModal, Field, GhostButton, IconDelete, toast, useFilePick } from './ui.jsx'
 import { json, putUpload } from './api.js'
+import { registerSessionCache } from './sessionCaches.js'
 import { t } from './i18n.js'
 
 // The file a work's quotes came from — the doors' shared behaviour.
@@ -41,7 +42,16 @@ export function useSourceDoor(onDone) {
         toast(r.data?.error || t('common.source.error'))
         return
       }
-      toast(t('common.source.added', { name: r.data?.name || file.name }))
+      // What reading the file found, said plainly: the quotes it could not place are
+      // not a failure, and a reader who sees "3 of 5" knows to look at the other two.
+      const c = r.data?.context
+      const total = c ? c.matched + c.ambiguous + c.unmatched + c.skipped : 0
+      toast(
+        c && total > 0
+          ? t('common.source.placed', { name: r.data?.name || file.name, found: c.matched + c.skipped, total })
+          : t('common.source.added', { name: r.data?.name || file.name }),
+      )
+      invalidateContext()
       onDone?.(r.data)
     },
     [onDone],
@@ -148,3 +158,127 @@ export function SourceLine({ kind, item, version, onRemoved }) {
 }
 
 const sizeOf = (n) => (n >= 1 << 20 ? `${(n / (1 << 20)).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`)
+
+// ---- what a quote's file says around it --------------------------------------------
+
+// WHICH QUOTES HAVE CONTEXT, asked once per work and kept. A card asks "does this
+// quote have context" so the action can be absent where it would show nothing (the
+// registry's rule: absent, not disabled) — and a board of fifty cards must not make
+// fifty requests to find out. One list per (subject, work), shared by every card on
+// it, forgotten whenever a file is added, replaced or removed.
+const contextLists = new Map() // work key -> a promise of the set of quote ids
+const contextListeners = new Set()
+// SIGNING OUT DOES NOT RELOAD THE PAGE, so the next account on this browser would be
+// served the last one's list of quotes with context. Registered, so it is emptied.
+registerSessionCache(() => contextLists.clear())
+
+export function invalidateContext() {
+  contextLists.clear()
+  contextListeners.forEach((f) => f())
+}
+
+function contextList(subject, workId) {
+  const key = `${subject}:${workId ?? ''}`
+  if (!contextLists.has(key)) {
+    const q = subject === 'utterance' ? 'subject=utterance' : `subject=${subject}&subject_id=${workId}`
+    contextLists.set(
+      key,
+      json('GET', `/sources/context-ids?${q}`).then((r) => new Set(r.ok ? r.data?.ids || [] : [])),
+    )
+  }
+  return contextLists.get(key)
+}
+
+// useHasContext: does quote `itemId` of work `workId` have stored context? `subject`
+// is the SOURCE's word (book, screen, utterance). False until the list arrives.
+export function useHasContext(subject, workId, itemId) {
+  const [has, setHas] = useState(false)
+  const [tick, setTick] = useState(0)
+  useEffect(() => {
+    const f = () => setTick((n) => n + 1)
+    contextListeners.add(f)
+    return () => contextListeners.delete(f)
+  }, [])
+  useEffect(() => {
+    if (!subject || (subject !== 'utterance' && !workId)) return undefined
+    let live = true
+    contextList(subject, workId).then((ids) => live && setHas(ids.has(itemId)))
+    return () => {
+      live = false
+    }
+  }, [subject, workId, itemId, tick])
+  return has
+}
+
+// The quote kinds, in the server's words for the context route.
+export const contextKind = (selectKind) => (selectKind === 'quote' ? 'utterance' : selectKind === 'dialogue' ? 'dialogue' : 'annotation')
+export const contextSubject = (kind) => (kind === 'utterance' ? 'utterance' : kind === 'dialogue' ? 'screen' : 'book')
+
+// ContextDialog — the quote in place, with what came before and after, the quote itself
+// marked. It reads ONE stored row (GET /quotes/{kind}/{id}/context), which is why it
+// opens instantly and works with the file gone. "Show more" widens the window for this
+// look only, up to what is stored, and is forgotten on close: the settings are for what
+// should stick, and a one-off question should not fiddle with them.
+export function ContextDialog({ kind, id, onClose }) {
+  const [ctx, setCtx] = useState(null)
+  const [error, setError] = useState('')
+  const [more, setMore] = useState(null) // { before, after } or null for the default
+  useEffect(() => {
+    let live = true
+    const q = more ? `?before=${more.before}&after=${more.after}` : ''
+    json('GET', `/quotes/${kind}/${id}/context${q}`).then((r) => {
+      if (!live) return
+      if (r.ok) setCtx(r.data)
+      else setError(r.data?.error || t('common.source.error'))
+    })
+    return () => {
+      live = false
+    }
+  }, [kind, id, more])
+  const unit = ctx?.unit === 'cue' ? 'cue' : 'paragraph'
+  const canWiden = ctx && (ctx.span.before < ctx.stored.before || ctx.span.after < ctx.stored.after)
+  const step = unit === 'cue' ? 5 : 2
+  const split = (s) => (s ? s.split(unit === 'cue' ? '\n' : '\n\n') : [])
+  return (
+    <FormModal open onClose={onClose} title={t('context.title')} maxWidth={640}>
+      {error && <p className="microcopy" style={{ color: 'var(--error)' }}>{error}</p>}
+      {ctx && (
+        <div className="flex flex-col gap-3" data-testid="context-panel">
+          {ctx.bound_before && <p className="microcopy">{t(unit === 'cue' ? 'context.bound.before.cue' : 'context.bound.before.paragraph')}</p>}
+          {split(ctx.before).map((p, i) => (
+            <p key={`b${i}`} style={{ color: 'var(--soft)' }}>{p}</p>
+          ))}
+          <blockquote className="context-body" style={{ borderInlineStart: '3px solid var(--accent)', paddingInlineStart: '0.75em' }}>
+            {split(ctx.body).map((p, i) => (
+              <Fragment key={`m${i}`}>
+                {i > 0 && <br />}
+                {p}
+              </Fragment>
+            ))}
+          </blockquote>
+          {ctx.start && <p className="microcopy">{t('context.at', { time: ctx.start })}</p>}
+          {split(ctx.after).map((p, i) => (
+            <p key={`a${i}`} style={{ color: 'var(--soft)' }}>{p}</p>
+          ))}
+          {ctx.bound_after && <p className="microcopy">{t(unit === 'cue' ? 'context.bound.after.cue' : 'context.bound.after.paragraph')}</p>}
+          <p className="microcopy">
+            {t('context.window', { before: ctx.span.before, after: ctx.span.after })}
+          </p>
+          {canWiden && (
+            <GhostButton
+              type="button"
+              onClick={() =>
+                setMore({
+                  before: Math.min(ctx.stored.before, ctx.span.before + step),
+                  after: Math.min(ctx.stored.after, ctx.span.after + step),
+                })
+              }
+            >
+              <span>{t('context.more')}</span>
+            </GhostButton>
+          )}
+        </div>
+      )}
+    </FormModal>
+  )
+}

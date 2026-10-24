@@ -318,3 +318,51 @@ func testEPUB(t *testing.T, encryption string) []byte {
 	}
 	return buf.Bytes()
 }
+
+func TestTheListOfQuotesWithContextIsPerWorkAndOwnersOnly(t *testing.T) {
+	srv := newTestServer(t)
+	admin := signupAdmin(t, srv.Handler())
+	cara := addUser(t, srv.Handler(), admin, "cara")
+	book, other := admin.newBook("Mine"), admin.newBook("Other")
+	placed := admin.newHighlight(book, "It was a bright cold day in April, and the clocks were striking thirteen.")
+	admin.newHighlight(book, "A line the file does not contain, nowhere in it at all.")
+	admin.putSource(sourceFields("book", book), "b.txt", []byte(prose))
+
+	type ids struct {
+		IDs []int64 `json:"ids"`
+	}
+	got := decode[ids](t, admin.mustDo("GET", "/sources/context-ids?subject=book&subject_id="+strconv.FormatInt(book, 10), nil, 200))
+	if len(got.IDs) != 1 || got.IDs[0] != placed {
+		t.Fatalf("only the placed quote has context: %+v", got)
+	}
+	if got := decode[ids](t, admin.mustDo("GET", "/sources/context-ids?subject=book&subject_id="+strconv.FormatInt(other, 10), nil, 200)); len(got.IDs) != 0 {
+		t.Fatalf("another work has none: %+v", got)
+	}
+	// Somebody else asking about my work learns nothing: empty, not an error and not my ids.
+	if got := decode[ids](t, cara.mustDo("GET", "/sources/context-ids?subject=book&subject_id="+strconv.FormatInt(book, 10), nil, 200)); len(got.IDs) != 0 {
+		t.Fatalf("leaked across accounts: %+v", got)
+	}
+	admin.mustDo("GET", "/sources/context-ids?subject=nope", nil, http.StatusBadRequest)
+}
+
+func TestShowMoreWidensTheWindowForOneReadUpToWhatIsStored(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	book := c.newBook("B")
+	hl := c.newHighlight(book, "At one end of it a coloured poster was tacked to the wall.")
+	c.putSource(sourceFields("book", book), "b.txt", []byte(prose))
+	id := strconv.FormatInt(hl, 10)
+
+	def := decode[ctxAnswer](t, c.mustDo("GET", "/quotes/annotation/"+id+"/context", nil, 200))
+	if def.Span.Before != 2 || def.Span.After != 2 {
+		t.Fatalf("the default is two either side: %+v", def.Span)
+	}
+	wide := decode[ctxAnswer](t, c.mustDo("GET", "/quotes/annotation/"+id+"/context?before=4&after=9", nil, 200))
+	if wide.Span.Before != 4 || wide.Span.After != 2 { // 4 before exist; only 2 after exist in this file
+		t.Fatalf("widened up to what is stored and no further: %+v stored %+v", wide.Span, wide.Stored)
+	}
+	// Forgotten: the next plain read is the default again.
+	if again := decode[ctxAnswer](t, c.mustDo("GET", "/quotes/annotation/"+id+"/context", nil, 200)); again.Span.Before != 2 {
+		t.Fatalf("%+v", again.Span)
+	}
+}

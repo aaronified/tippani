@@ -37,7 +37,10 @@ let answer = null
 vi.mock('../../src/api.js', async (orig) => ({
   ...(await orig()),
   json: vi.fn(async (method, path) => {
-    asked.push(`${method} ${path}`)
+    // A real card also asks which quotes of its work have stored context (so `In
+    // context` can be absent where it would show nothing). That is the CARD's read and
+    // not the panel's, and this list is what the PANEL asked about.
+    if (!path.startsWith('/sources/context-ids')) asked.push(`${method} ${path}`)
     return answer ? { ok: true, data: answer } : { ok: false, status: 500 }
   }),
 }))
