@@ -272,10 +272,10 @@ func (s *Server) extractContextUnits(uid int64, src sourceKey, units []srcmatch.
 		}
 		if _, err := tx.Exec(
 			`INSERT INTO source_context (user_id, source_id, subject, item_id, before, body, after, unit,
-			        stored_before, stored_after, bound_before, bound_after, start_at, end_at)
-			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			        stored_before, stored_after, match_dist, bound_before, bound_after, start_at, end_at)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			uid, src.id, q.subject, q.id, c.Before, c.Body, c.After, unit,
-			c.TookBefore, c.TookAfter, b2i(c.BoundBefore), b2i(c.BoundAfter), startAt, endAt); err != nil {
+			c.TookBefore, c.TookAfter, res.Match.Dist, b2i(c.BoundBefore), b2i(c.BoundAfter), startAt, endAt); err != nil {
 			return st, err
 		}
 		st.Matched++
@@ -290,10 +290,11 @@ func b2i(b bool) int {
 	return 0
 }
 
-// clockText prints milliseconds as H:MM:SS, the shape a film's timestamp is written in.
+// clockText prints milliseconds as HH:MM:SS, the shape a film's timestamp is written in
+// everywhere else in the app (and the one that sorts lexically).
 func clockText(ms int64) string {
 	s := ms / 1000
-	return strconv.FormatInt(s/3600, 10) + ":" + pad2(s%3600/60) + ":" + pad2(s%60)
+	return pad2(s/3600) + ":" + pad2(s%3600/60) + ":" + pad2(s%60)
 }
 
 func pad2(n int64) string {

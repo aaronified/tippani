@@ -625,6 +625,11 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /sources", s.requireAuth(s.handleGetSource))
 	mux.Handle("PUT /sources", s.requireAuth(s.handlePutSource))
 	mux.Handle("DELETE /sources/{id}", s.requireAuth(s.handleDeleteSource))
+	// Proposed times for film lines, from the context stored when a subtitle was added.
+	// Proposals only: nothing is written until the reader accepts (locators.go).
+	mux.Handle("GET /locators/proposals", s.requireAuth(s.handleLocatorProposals))
+	mux.Handle("POST /locators/accept", s.requireAuth(s.handleLocatorAccept))
+	mux.Handle("POST /locators/ignore", s.requireAuth(s.handleLocatorIgnore))
 	mux.Handle("GET /sources/context-ids", s.requireAuth(s.handleContextIDs))
 	mux.Handle("POST /sources/{id}/rescan", s.requireAuth(s.handleRescanSource))
 	// One stored row, read: the context of a quote opens no file (source_context.go).

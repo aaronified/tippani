@@ -42,6 +42,11 @@ CREATE TABLE source_context (
   stored_after  INTEGER NOT NULL,
   want_before   INTEGER,
   want_after    INTEGER,
+  -- How far the match was from verbatim: 0 is exact after the fold, anything else is the
+  -- edit distance. It is what lets a proposal built from this row say how sure it is
+  -- without re-reading the file (locators-from-files: exact and unique is the bucket a
+  -- reader may accept together; anything else wants an eye).
+  match_dist    INTEGER NOT NULL DEFAULT 0,
   bound_before  INTEGER NOT NULL DEFAULT 0,
   bound_after   INTEGER NOT NULL DEFAULT 0,
   start_at      TEXT    NOT NULL DEFAULT '',

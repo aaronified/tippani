@@ -131,7 +131,7 @@ func TestAFilmLineIsPlacedInItsSubtitleWithItsTimeAcrossDroppedAccents(t *testin
 		t.Fatalf("stats = %+v", row.Context)
 	}
 	got := c.contextOf("dialogue", line)
-	if got.Unit != "cue" || got.Start != "0:00:04" {
+	if got.Unit != "cue" || got.Start != "00:00:04" {
 		t.Fatalf("a cue span carries its time: %+v", got)
 	}
 	if !strings.Contains(got.Body, "humble vaudevillian") || !strings.Contains(got.Body, "victim and villain") {
@@ -152,7 +152,7 @@ func TestAShowsSubtitleCoversOnlyThatEpisodesLines(t *testing.T) {
 		"2\n00:00:04,000 --> 00:00:07,000\nI burn my life to make a sunrise that I know I will never see.\n"
 	c.putSource(sourceFields("screen", show, "episode", "s01e04"), "e4.srt", []byte(srt))
 
-	if got := c.contextOf("dialogue", inEp); got.Start != "0:00:04" {
+	if got := c.contextOf("dialogue", inEp); got.Start != "00:00:04" {
 		t.Fatalf("%+v", got)
 	}
 	c.mustDo("GET", "/quotes/dialogue/"+strconv.FormatInt(otherEp, 10)+"/context", nil, http.StatusNotFound)
