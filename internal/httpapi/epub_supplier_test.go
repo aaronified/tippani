@@ -130,4 +130,3 @@ func TestTheEPUBIsOfferedAsAChoiceForAFieldThatAlreadyHasAValue(t *testing.T) {
 		t.Fatalf("the file should be on offer beside the stored value: %+v", pub)
 	}
 }
-

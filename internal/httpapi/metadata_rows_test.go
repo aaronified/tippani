@@ -338,4 +338,3 @@ func TestAPersonRowSaysTheirRoleOnEachWork(t *testing.T) {
 		t.Errorf("the film should say director, got %v", roles["Stalker"])
 	}
 }
-

@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"strings"
 	"testing"
 
 	"tippani/internal/metadata"
@@ -249,5 +250,120 @@ func TestTVDBCastFillWillNotOverwriteAnIDTheRowAlreadyHas(t *testing.T) {
 	}](t, c.mustDo("GET", "/movies/"+strconv.FormatInt(id, 10), nil, http.StatusOK))
 	if kept.TVDBID != 297762 {
 		t.Fatalf("tvdb_id = %d, want the row's own 297762", kept.TVDBID)
+	}
+}
+
+// A REJECTED THETVDB KEY USED TO BE INVISIBLE, and the reported symptom was
+// exactly the shape of that: "TVDB says the API key is inactive! but i can
+// search TVDB from the app!" Both halves were true. TheTVDB's free
+// user-supported key logs in only with the subscriber's PIN beside it — the app
+// never sent one — so login 401s, the partial-failure rule swallows it because
+// TMDB answered, and the reader reads TMDB's hits as TheTVDB's.
+
+type lookupWarnResp struct {
+	Candidates []metadata.MovieCandidate `json:"candidates"`
+	Warning    string                    `json:"warning"`
+}
+
+// The stub refuses at login the way TheTVDB refuses a key with no PIN behind it.
+func newRefusingTVDB(t *testing.T) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/login" {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+}
+
+func newAnsweringTMDB(t *testing.T) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/search/movie" {
+			_, _ = w.Write([]byte(`{"results":[{"id":297761,"title":"Suicide Squad","release_date":"2016-08-05"}]}`))
+			return
+		}
+		http.NotFound(w, r)
+	}))
+}
+
+func TestARejectedTVDBKeyIsSaidOutLoudEvenWhenTMDBAnswers(t *testing.T) {
+	srv := newTestServer(t)
+	tmdb, tvdb := newAnsweringTMDB(t), newRefusingTVDB(t)
+	defer tmdb.Close()
+	defer tvdb.Close()
+	srv.TMDB.Key, srv.TMDB.BaseURL = "testkey", tmdb.URL
+	srv.TVDB = &metadata.TVDB{Key: "testkey", BaseURL: tvdb.URL}
+
+	c := signupAdmin(t, srv.Handler())
+	got := decode[lookupWarnResp](t, c.mustDo("POST", "/movies/lookup",
+		map[string]any{"title": "Suicide Squad"}, 200))
+
+	// THE RESULTS STILL COME BACK. One supplier being down must never hide the
+	// other's hits — that rule is right and is not what this changes.
+	if len(got.Candidates) != 1 || got.Candidates[0].Source != "tmdb" {
+		t.Fatalf("the working supplier's hits did not survive: %+v", got.Candidates)
+	}
+	// AND THE READER IS TOLD WHOSE THEY ARE.
+	if got.Warning == "" {
+		t.Fatal("a rejected key produced results with no explanation, which is the reported bug")
+	}
+	if !strings.Contains(got.Warning, "PIN") {
+		t.Errorf("the warning does not name the usual cause: %q", got.Warning)
+	}
+}
+
+// The PIN is stored write-only and saved on its own, like every other secret —
+// correcting a mistyped PIN must not mean re-entering the key beside it.
+func TestTheTVDBPINIsWriteOnlyAndSavedOnItsOwn(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	c.mustDo("PUT", "/admin/metadata-keys", map[string]any{"tvdb_key": "abc", "tvdb_pin": "4242"}, 200)
+
+	body := c.mustDo("GET", "/admin/metadata-keys", nil, 200).Body.String()
+	if strings.Contains(body, "4242") {
+		t.Fatalf("the PIN was echoed back: %s", body)
+	}
+	if !strings.Contains(body, `"tvdb_pin_set":true`) || !strings.Contains(body, `"tvdb_key_set":true`) {
+		t.Fatalf("the pair is not reported: %s", body)
+	}
+	c.mustDo("PUT", "/admin/metadata-keys", map[string]any{"tvdb_pin": "9999"}, 200)
+	if !strings.Contains(c.mustDo("GET", "/admin/metadata-keys", nil, 200).Body.String(), `"tvdb_key_set":true`) {
+		t.Fatal("saving the PIN cleared the key")
+	}
+}
+
+// THE BUILT-IN IS THE LAST FALLBACK AND NEVER THE FIRST, which is the whole of
+// what "a key you save wins" means — and the case worth pinning is the middle
+// one: a reader with their own key must not silently be served ours.
+func TestTheTVDBBuiltinIsOnlyReachedWhenNothingElseIsSet(t *testing.T) {
+	srv := newTestServer(t)
+	srv.TVDB = &metadata.TVDB{} // no direct/programmatic key
+	c := signupAdmin(t, srv.Handler())
+
+	if _, source := srv.resolveTVDB(); source != "none" {
+		t.Fatalf("source = %q with nothing configured, want none", source)
+	}
+	srv.TVDBBuiltin = "project-key"
+	client, source := srv.resolveTVDB()
+	if source != "builtin" || client.Key != "project-key" {
+		t.Fatalf("source = %q key = %q, want the built-in", source, client.Key)
+	}
+	// THE BUILT-IN CARRIES NO PIN. It is a project key, which authenticates on
+	// its own; a PIN belongs to a person's subscription and to their key.
+	if client.PIN != "" {
+		t.Errorf("the built-in was given a PIN: %q", client.PIN)
+	}
+
+	c.mustDo("PUT", "/admin/metadata-keys", map[string]any{"tvdb_key": "mine", "tvdb_pin": "4242"}, 200)
+	client, source = srv.resolveTVDB()
+	if source != "custom" || client.Key != "mine" {
+		t.Fatalf("a saved key must win over the built-in: source=%q key=%q", source, client.Key)
+	}
+	// And the reader's PIN travels with the reader's key, or the free tier is
+	// half a credential and 401s.
+	if client.PIN != "4242" {
+		t.Errorf("the saved PIN did not reach the client: %q", client.PIN)
 	}
 }

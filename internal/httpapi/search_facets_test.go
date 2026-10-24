@@ -1,5 +1,15 @@
 package httpapi
 
+import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"net/url"
+	"sort"
+	"testing"
+	"time"
+)
+
 // Facets — narrowing a search by saying which field you meant.
 //
 // EVERY ASSERTION HERE IS ON VALUES, NEVER ON COUNTS, and that is not fussiness.
@@ -15,14 +25,6 @@ package httpapi
 // should go. That fails loudly if you are lucky and silently if you are not,
 // which is why the tests below reach every section rather than only the easy
 // flat ones.
-
-import (
-	"net/http"
-	"net/url"
-	"sort"
-	"testing"
-	"time"
-)
 
 // ---- helpers ---------------------------------------------------------------
 
@@ -639,6 +641,273 @@ func TestFacetsCannotReachAnotherAccount(t *testing.T) {
 			len(res.Tags) + len(res.Genres)
 		if n != 0 {
 			t.Errorf("bob saw %d rows through %q: %+v", n, q, res)
+		}
+	}
+}
+
+// SEARCH HITS CARRY THEIR CHARACTERS' PICTURES, IN EVERY SECTION THAT HOLDS ONE
+// (0050).
+//
+// The sections are assembled independently, so the risk this guards is a section
+// nobody remembered — and the symptom would be a chip silently falling back to the
+// actor on one part of the page and not another. It walks the three sections a
+// dialogue hit reaches from one query: the quote match, the ACTOR match and the
+// CHARACTER match.
+//
+// The actor section is included on purpose. The client decides which face to draw
+// from the section it is rendering — the actor under Actors, the character
+// elsewhere — so the data is present either way, and withholding it here would
+// make the client's choice depend on what the server guessed the reader meant.
+func TestSearchHitsCarryCharacterPictures(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+	film, withArt, _ := seedTVDBCast(t, srv, c)
+
+	srv.fetchImage = func(context.Context, string, string) (string, error) {
+		return "waller-stored.jpg", nil
+	}
+	c.mustDo("POST", "/cast/"+itoa(withArt)+"/image", nil, http.StatusOK)
+	c.mustDo("POST", "/dialogues", map[string]any{
+		"movie_id": film, "quote": "Squadron is a go.",
+		"character": "Amanda Waller", "actor": "Viola Davis",
+	}, http.StatusCreated)
+
+	type hit struct {
+		Quote           string `json:"quote"`
+		CharacterImages []struct {
+			Name string `json:"name"`
+			Path string `json:"path"`
+		} `json:"character_images"`
+	}
+	type resp struct {
+		Dialogues []hit `json:"dialogues"`
+		Actors    []struct {
+			Name      string `json:"name"`
+			Dialogues []hit  `json:"dialogues"`
+		} `json:"actors"`
+		Characters []struct {
+			Name      string `json:"name"`
+			Dialogues []hit  `json:"dialogues"`
+		} `json:"characters"`
+	}
+	search := func(q string) resp {
+		t.Helper()
+		res := c.mustDo("GET", "/search?q="+q+"&scope=all", nil, http.StatusOK)
+		var out resp
+		if err := json.Unmarshal(res.Body.Bytes(), &out); err != nil {
+			t.Fatalf("decode search: %v", err)
+		}
+		return out
+	}
+
+	// 1. THE QUOTE MATCHED — the words. The chip is the character's.
+	byQuote := search("squadron")
+	if len(byQuote.Dialogues) == 0 {
+		t.Fatal("no dialogue hits for a quote match")
+	}
+	if n := len(byQuote.Dialogues[0].CharacterImages); n != 1 {
+		t.Errorf("quote-match hit carries %d picture(s), want 1", n)
+	}
+
+	// 2. THE CHARACTER MATCHED — the section the chip is drawn from.
+	byChar := search("waller")
+	if len(byChar.Characters) == 0 {
+		t.Fatal("no characters section for a character match")
+	}
+	if n := len(byChar.Characters[0].Dialogues); n == 0 {
+		t.Fatal("the characters section holds no lines")
+	}
+	if n := len(byChar.Characters[0].Dialogues[0].CharacterImages); n != 1 {
+		t.Errorf("character-section hit carries %d picture(s), want 1", n)
+	}
+
+	// 3. THE ACTOR MATCHED. The data is still attached, even though this section's
+	// chips draw the actor.
+	byActor := search("viola")
+	if len(byActor.Actors) == 0 {
+		t.Fatal("no actors section for an actor match")
+	}
+	if n := len(byActor.Actors[0].Dialogues); n == 0 {
+		t.Fatal("the actors section holds no lines")
+	}
+	if n := len(byActor.Actors[0].Dialogues[0].CharacterImages); n != 1 {
+		t.Errorf("actor-section hit carries %d picture(s), want 1 — the client picks "+
+			"the face, so the server must not withhold it", n)
+	}
+}
+
+// A quote keeps its colour when you search for it.
+//
+// Colour is not decoration here. Since 1.7.1 the six slots are CATEGORIES the
+// reader names — doubt, joy, to-check — so a quote's colour is a field of the
+// record in the same way its tags are. Every other surface carried it: the
+// Library, a work's page, Home's favourites, the export, the share card.
+//
+// Search did not, and only for the two kinds that have a parent. `utteranceHit`
+// selected `u.color` and had a Color field; `annotationHit` and `dialogueHit`
+// had neither the column nor the field, so every book annotation and every film
+// line came back with an empty colour. A library sorted into six named
+// categories looked uncategorised the moment it was searched, and the share
+// sheet opened from a result silently dropped the category line.
+//
+// The test asserts VALUES for all three kinds together, because the bug was
+// exactly that two of the three disagreed with the other one, and a test for
+// one kind would have gone on passing.
+
+func TestSearchCarriesTheQuoteColour(t *testing.T) {
+	h := newTestServer(t).Handler()
+	c := signupAdmin(t, h)
+
+	book := decode[bookDetail](t, c.mustDo("POST", "/books", map[string]any{
+		"title": "The Dispossessed", "author": "Ursula K. Le Guin",
+	}, http.StatusCreated))
+	c.mustDo("POST", "/annotations", map[string]any{
+		"book_id": book.ID, "quote": "You cannot buy the revolution.", "color": "green",
+	}, http.StatusCreated)
+
+	movie := decode[movieDetail](t, c.mustDo("POST", "/movies", map[string]any{
+		"title": "Stalker", "director": "Andrei Tarkovsky", "release_year": 1979,
+	}, http.StatusCreated))
+	c.mustDo("POST", "/dialogues", map[string]any{
+		"movie_id": movie.ID, "quote": "Let everything that has been planned come true.",
+		"character": "Stalker", "color": "purple",
+	}, http.StatusCreated)
+
+	newUtterance(t, c, map[string]any{
+		"quote": "The revolution is not a dinner party.", "speaker": "Mao Zedong", "color": "pink",
+	})
+
+	// One query that reaches all three kinds at once, so a colour that goes
+	// missing on only one of them cannot hide behind the other two.
+	res := decode[searchResults](t, c.mustDo("GET", "/search?q=revolution", nil, http.StatusOK))
+
+	if len(res.Annotations) != 1 {
+		t.Fatalf("expected one annotation, got %d", len(res.Annotations))
+	}
+	if got := res.Annotations[0].Color; got != "green" {
+		t.Errorf("annotation colour: got %q, want %q", got, "green")
+	}
+	if len(res.Quotes) != 1 {
+		t.Fatalf("expected one quote, got %d", len(res.Quotes))
+	}
+	if got := res.Quotes[0].Color; got != "pink" {
+		t.Errorf("quote colour: got %q, want %q", got, "pink")
+	}
+
+	// The dialogue's words do not contain "revolution", so it is fetched by its
+	// own query rather than riding along on this one.
+	res = decode[searchResults](t, c.mustDo("GET", "/search?q=planned", nil, http.StatusOK))
+	if len(res.Dialogues) != 1 {
+		t.Fatalf("expected one dialogue, got %d", len(res.Dialogues))
+	}
+	if got := res.Dialogues[0].Color; got != "purple" {
+		t.Errorf("dialogue colour: got %q, want %q", got, "purple")
+	}
+}
+
+// A DECADE FACET THAT COULD NOT FIND A QUOTE.
+//
+// searchDecadeFacet took two booleans — books and movies — so the one kind of row
+// that carries a date OF ITS OWN was the one kind it never looked at. A standalone
+// quote is dated by `occasion_date`; a book highlight and a film line borrow their
+// work's year and arrive here inside that work.
+//
+// THIS IS NOT A HYPOTHETICAL GAP. timelineYears counts those quotes into its bars
+// — its UNION has a branch reading `substr(occasion_date, 1, 5)` for exactly them
+// — and the timeline's ticks are doors into this facet. So a library holding one
+// quote from 399 BCE drew a bar over that decade, and the door under the bar
+// opened an empty page.
+//
+// WHAT A TEST WRITER NEEDS TO KNOW: `occasion_date` is TEXT holding a partial date
+// with a four-digit zero-padded year and a leading '-' for BCE. A decade query
+// gives a year RANGE, and for a BCE decade the range is negative and runs from the
+// higher absolute year — the 380s BCE is [-389, -380].
+func TestADecadeFindsAStandaloneQuote(t *testing.T) {
+	c := signupAdmin(t, newTestServer(t).Handler())
+
+	// One line per decade, so a hit proves the range and not merely the column.
+	said := map[string]string{
+		"-0399": "The unexamined life is not worth living.",
+		"-0380": "The 380s BCE, at the far end of the decade.",
+		"-0389": "The 380s BCE, at the near end of it.",
+		"0040":  "A line from the first century, written for this test.",
+		"1944":  "Give me blood, and I will give you freedom",
+		"":      "A line with no date at all.",
+	}
+	for date, quote := range said {
+		body := bose()
+		body["quote"] = quote
+		body["occasion_date"] = date
+		newUtterance(t, c, body)
+	}
+
+	for _, tc := range []struct {
+		q    string
+		want []string
+	}{
+		{"390s BCE", []string{"-0399"}},
+		// Both ends of one decade, and in chronological order rather than the
+		// order the padded text would give: 389 BCE is earlier than 380 BCE.
+		{"380s BCE", []string{"-0389", "-0380"}},
+		// THE PADDED FORM for a year under 1000, because "40s" is the documented
+		// shorthand for the 1940s — see TestParseDecade above. It is also the form
+		// the stats timeline links with, which is the case that matters here.
+		{"0040s", []string{"0040"}},
+		{"1940s", []string{"1944"}},
+		// THE UNDATED QUOTE MUST NOT ANSWER THIS. CAST('' AS INTEGER) is 0 and
+		// "0s" is a legal query whose range is 0-9, so without the emptiness
+		// guard this one search returns every undated quote in the library.
+		{"0s", nil},
+		{"1950s", nil},
+	} {
+		res := decode[searchResults](t, c.mustDo("GET", "/search?q="+url.QueryEscape(tc.q), nil, http.StatusOK))
+		if tc.want == nil {
+			if res.Decade != nil && len(res.Decade.Quotes) > 0 {
+				t.Errorf("%q returned %d quote(s), want none: %+v", tc.q, len(res.Decade.Quotes), res.Decade.Quotes)
+			}
+			continue
+		}
+		if res.Decade == nil {
+			t.Fatalf("%q returned no decade facet at all", tc.q)
+		}
+		if len(res.Decade.Quotes) != len(tc.want) {
+			t.Fatalf("%q returned %d quote(s), want %d", tc.q, len(res.Decade.Quotes), len(tc.want))
+		}
+		for i, date := range tc.want {
+			if got := res.Decade.Quotes[i].OccasionDate; got != date {
+				t.Errorf("%q quote %d is dated %q, want %q", tc.q, i, got, date)
+			}
+		}
+	}
+}
+
+// THE FACET ANSWERS TO THE SCOPE, which is what replacing the two booleans bought
+// beyond the new kind: a books-only search must not return a quote, and a
+// quotes-only one must not return a book.
+func TestADecadeFacetRespectsTheScope(t *testing.T) {
+	c := signupAdmin(t, newTestServer(t).Handler())
+	body := bose()
+	body["occasion_date"] = "1944"
+	newUtterance(t, c, body)
+	c.mustDo("POST", "/books", map[string]any{"title": "A 1944 Book", "published_year": 1944}, http.StatusCreated)
+
+	for _, tc := range []struct {
+		scope  string
+		books  int
+		quotes int
+	}{
+		{"all", 1, 1},
+		{"books", 1, 0},
+		{"quotes", 0, 1},
+	} {
+		res := decode[searchResults](t, c.mustDo("GET", "/search?q=1940s&scope="+tc.scope, nil, http.StatusOK))
+		if res.Decade == nil {
+			t.Fatalf("scope %q returned no decade facet", tc.scope)
+		}
+		if len(res.Decade.Books) != tc.books || len(res.Decade.Quotes) != tc.quotes {
+			t.Errorf("scope %q: %d book(s) and %d quote(s), want %d and %d",
+				tc.scope, len(res.Decade.Books), len(res.Decade.Quotes), tc.books, tc.quotes)
 		}
 	}
 }

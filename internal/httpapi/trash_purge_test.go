@@ -176,4 +176,3 @@ func TestSweepCollectsAParkedFileNobodyReferences(t *testing.T) {
 		t.Errorf("the sweep took a file a live bin entry still needs: %v", err)
 	}
 }
-

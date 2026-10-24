@@ -161,4 +161,3 @@ func assetRefs(html string) []string {
 	}
 	return out
 }
-

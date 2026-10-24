@@ -336,4 +336,3 @@ func TestPairingEvictionPrefersTheMintersOwnCodes(t *testing.T) {
 		t.Fatalf("another user's minting evicted bob's pairing code: %d %s", rec.Code, rec.Body)
 	}
 }
-

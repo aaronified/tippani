@@ -142,4 +142,3 @@ func TestAKeptAnswerTooLongAgoOrFromNowhereIsRefused(t *testing.T) {
 	keptAnswer(t, c, with("client_id", "has spaces"), http.StatusBadRequest)
 	keptAnswer(t, c, with("answered_ago_ms", (29*24*time.Hour).Milliseconds()), http.StatusOK)
 }
-

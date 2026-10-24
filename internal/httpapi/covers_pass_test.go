@@ -202,4 +202,3 @@ func TestACoversJobStoppedWithAWorkInHandLeavesThatWorkUntouched(t *testing.T) {
 		t.Fatalf("posters after the stop: %v, want the first film's and not the second's", posters)
 	}
 }
-

@@ -408,3 +408,378 @@ func TestTheQuizCardCarriesABookHighlightsCharacter(t *testing.T) {
 		t.Fatalf("the highlight with a character is not in the deck: %+v", deck.Items)
 	}
 }
+
+// ?id= on the three quote lists — one row, by id.
+//
+// It exists for the review card's in-card edit, which has to PUT full state and
+// therefore has to read full state first. The three things worth pinning are the
+// three ways a filter like this goes wrong quietly: it narrows on ALL three
+// kinds (a filter that works on annotations and is ignored on dialogues returns
+// the whole list, which an edit form would then fill from the wrong row), a
+// stranger's id is empty rather than readable, and a filter that matches nothing
+// says so instead of falling back to everything.
+
+// Each list names its rows after its own kind rather than "items", so the tests
+// read whichever key came back. Decoding a fixed key would pass trivially on a
+// list it cannot see — zero rows read as zero rows matched.
+type quoteListRow struct {
+	ID    int64  `json:"id"`
+	Quote string `json:"quote"`
+}
+
+func quoteListRows(t *testing.T, c *testClient, path string) []quoteListRow {
+	t.Helper()
+	body := decode[map[string][]quoteListRow](t, c.mustDo("GET", path, nil, http.StatusOK))
+	if len(body) != 1 {
+		t.Fatalf("GET %s returned %d top-level keys, want 1: %v", path, len(body), body)
+	}
+	for _, rows := range body {
+		return rows
+	}
+	return nil
+}
+
+func TestQuoteListsNarrowToOneRowByID(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	book := createBook(t, c, "Persuasion")
+	a1 := idOf(t, c.mustDo("POST", "/annotations", map[string]any{"book_id": book, "quote": "one"}, http.StatusCreated).Body.Bytes())
+	c.mustDo("POST", "/annotations", map[string]any{"book_id": book, "quote": "two"}, http.StatusCreated)
+
+	movie := idOf(t, c.mustDo("POST", "/movies", map[string]any{"title": "Casablanca"}, http.StatusCreated).Body.Bytes())
+	d1 := idOf(t, c.mustDo("POST", "/dialogues", map[string]any{"movie_id": movie, "quote": "here's looking at you"}, http.StatusCreated).Body.Bytes())
+	c.mustDo("POST", "/dialogues", map[string]any{"movie_id": movie, "quote": "round up the usual suspects"}, http.StatusCreated)
+
+	u1 := idOf(t, c.mustDo("POST", "/quotes", map[string]any{"quote": "the unexamined life", "speaker": "Socrates"}, http.StatusCreated).Body.Bytes())
+	c.mustDo("POST", "/quotes", map[string]any{"quote": "I know that I know nothing", "speaker": "Socrates"}, http.StatusCreated)
+
+	for _, tc := range []struct {
+		path string
+		id   int64
+		want string
+	}{
+		{"/annotations", a1, "one"},
+		{"/dialogues", d1, "here's looking at you"},
+		{"/quotes", u1, "the unexamined life"},
+	} {
+		t.Run(tc.path, func(t *testing.T) {
+			// Two rows exist on every kind, so a filter that is ignored returns two.
+			if all := quoteListRows(t, c, tc.path); len(all) != 2 {
+				t.Fatalf("%s holds %d rows, the test needs 2", tc.path, len(all))
+			}
+			rows := quoteListRows(t, c, tc.path+"?id="+itoa(tc.id))
+			if len(rows) != 1 {
+				t.Fatalf("%s?id=%d returned %d rows, want 1 — the filter was ignored", tc.path, tc.id, len(rows))
+			}
+			if rows[0].ID != tc.id || rows[0].Quote != tc.want {
+				t.Fatalf("%s?id=%d returned id=%d %q, want id=%d %q",
+					tc.path, tc.id, rows[0].ID, rows[0].Quote, tc.id, tc.want)
+			}
+		})
+	}
+}
+
+// Somebody else's id is an empty list, not their row and not a 403. The
+// ownership clause is already in every one of these queries; what this pins is
+// that ?id= is an AND on top of it rather than a way round it.
+func TestQuoteListByIDCannotReachAnotherAccount(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	owner := signupAdmin(t, h)
+	book := createBook(t, owner, "Private")
+	mine := idOf(t, owner.mustDo("POST", "/annotations",
+		map[string]any{"book_id": book, "quote": "not for you"}, http.StatusCreated).Body.Bytes())
+
+	stranger := addUser(t, h, owner, "stranger")
+	if rows := quoteListRows(t, stranger, "/annotations?id="+itoa(mine)); len(rows) != 0 {
+		t.Fatalf("a stranger read %d of somebody else's rows by id: %+v", len(rows), rows)
+	}
+}
+
+type annList struct {
+	Annotations []annotationRow `json:"annotations"`
+}
+
+// favorite on annotations: accepted on POST/PUT, echoed in
+// responses, filterable on GET (PLAN §3).
+func TestAnnotationFavorite(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	book := decode[bookDetail](t, c.mustDo("POST", "/books",
+		map[string]any{"title": "Dune"}, http.StatusCreated))
+
+	a1 := decode[annotationRow](t, c.mustDo("POST", "/annotations", map[string]any{
+		"book_id": book.ID, "quote": "Fear is the mind-killer.",
+		"favorite": true,
+	}, http.StatusCreated))
+	if !a1.Favorite {
+		t.Fatalf("a1: %+v", a1)
+	}
+	a2 := decode[annotationRow](t, c.mustDo("POST", "/annotations", map[string]any{
+		"book_id": book.ID, "quote": "The spice must flow.",
+	}, http.StatusCreated))
+	if a2.Favorite {
+		t.Fatalf("a2: %+v", a2)
+	}
+
+	// Filters.
+	favs := decode[annList](t, c.mustDo("GET", "/annotations?favorite=1", nil, 200))
+	if len(favs.Annotations) != 1 || favs.Annotations[0].ID != a1.ID {
+		t.Fatalf("favorite filter: %+v", favs.Annotations)
+	}
+	c.mustDo("GET", "/annotations?favorite=yes", nil, http.StatusBadRequest)
+
+	// Update is full state: omitting favorite clears it.
+	upd := decode[annotationRow](t, c.mustDo("PUT", "/annotations/"+itoa(a1.ID), map[string]any{
+		"quote": "Fear is the mind-killer.", "color": "yellow",
+	}, 200))
+	if upd.Favorite {
+		t.Fatalf("update: %+v", upd)
+	}
+}
+
+// favorite + tags on dialogues; tag usage counts span both join
+// tables (PLAN §3: one tag vocabulary spans books and movies), and detached
+// tags persist in the managed vocabulary (§10 — no auto-GC).
+func TestDialogueFavoriteTags(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	movie := decode[movieDetail](t, c.mustDo("POST", "/movies",
+		map[string]any{"title": "Casablanca"}, http.StatusCreated))
+	book := decode[bookDetail](t, c.mustDo("POST", "/books",
+		map[string]any{"title": "Dune"}, http.StatusCreated))
+	c.mustDo("POST", "/annotations", map[string]any{
+		"book_id": book.ID, "quote": "Fear is the mind-killer.", "tags": []string{"shared", "bookish"},
+	}, http.StatusCreated)
+
+	d1 := decode[dialogueRow](t, c.mustDo("POST", "/dialogues", map[string]any{
+		"movie_id": movie.ID, "quote": "Here's looking at you, kid.",
+		"tags": []string{"shared", "classic", "Classic", " "}, "favorite": true,
+	}, http.StatusCreated))
+	if !d1.Favorite || !sameStrings(d1.Tags, []string{"classic", "shared"}) {
+		t.Fatalf("d1: %+v", d1)
+	}
+	c.mustDo("POST", "/dialogues", map[string]any{
+		"movie_id": movie.ID, "quote": "Round up the usual suspects.",
+	}, http.StatusCreated)
+
+	// The shared vocabulary lists both kinds' tags; "shared" is counted once
+	// per join table.
+	tg := decode[tagsResp](t, c.mustDo("GET", "/tags", nil, 200))
+	if !sameStrings(tagNames(tg.Tags), []string{"bookish", "classic", "shared"}) {
+		t.Fatalf("tags: %+v", tg.Tags)
+	}
+	if sh := tg.Tags[2]; sh.Annotations != 1 || sh.Dialogues != 1 {
+		t.Fatalf("shared tag usage: %+v", sh)
+	}
+
+	// Filters.
+	byTag := decode[dlgList](t, c.mustDo("GET", "/dialogues?tag=classic", nil, 200))
+	if len(byTag.Dialogues) != 1 || byTag.Dialogues[0].ID != d1.ID {
+		t.Fatalf("tag filter: %+v", byTag.Dialogues)
+	}
+	favs := decode[dlgList](t, c.mustDo("GET", "/dialogues?favorite=1", nil, 200))
+	if len(favs.Dialogues) != 1 || favs.Dialogues[0].ID != d1.ID {
+		t.Fatalf("favorite filter: %+v", favs.Dialogues)
+	}
+
+	// Update replaces the tag set; the detached "classic" stays in the
+	// vocabulary at zero usage, "shared" keeps its annotation use.
+	upd := decode[dialogueRow](t, c.mustDo("PUT", "/dialogues/"+itoa(d1.ID), map[string]any{
+		"quote": "Here's looking at you, kid.", "tags": []string{"farewell"},
+	}, 200))
+	if upd.Favorite || !sameStrings(upd.Tags, []string{"farewell"}) {
+		t.Fatalf("update: %+v", upd)
+	}
+	tg = decode[tagsResp](t, c.mustDo("GET", "/tags", nil, 200))
+	if !sameStrings(tagNames(tg.Tags), []string{"bookish", "classic", "farewell", "shared"}) {
+		t.Fatalf("tags after update: %+v", tg.Tags)
+	}
+	if cl := tg.Tags[1]; cl.Annotations != 0 || cl.Dialogues != 0 {
+		t.Fatalf("classic should be unused: %+v", cl)
+	}
+
+	// Dialogue delete drops usage, not the tag.
+	c.mustDo("DELETE", "/dialogues/"+itoa(d1.ID), nil, 200)
+	tg = decode[tagsResp](t, c.mustDo("GET", "/tags", nil, 200))
+	if !sameStrings(tagNames(tg.Tags), []string{"bookish", "classic", "farewell", "shared"}) {
+		t.Fatalf("tags after dialogue delete: %+v", tg.Tags)
+	}
+
+	// Movie delete cascades dialogues and their join rows; the vocabulary —
+	// including the now-unused "movie-only" — persists.
+	c.mustDo("POST", "/dialogues", map[string]any{
+		"movie_id": movie.ID, "quote": "Play it, Sam.", "tags": []string{"movie-only"},
+	}, http.StatusCreated)
+	c.mustDo("DELETE", "/movies/"+itoa(movie.ID), nil, 200)
+	tg = decode[tagsResp](t, c.mustDo("GET", "/tags", nil, 200))
+	if !sameStrings(tagNames(tg.Tags), []string{"bookish", "classic", "farewell", "movie-only", "shared"}) {
+		t.Fatalf("tags after movie delete: %+v", tg.Tags)
+	}
+	for _, tag := range tg.Tags {
+		if tag.Dialogues != 0 {
+			t.Fatalf("dialogue usage should be gone: %+v", tag)
+		}
+	}
+}
+
+// favorite parsed from a markdown binding survives the import
+// (PLAN §5b: markdown/bookcision paths persist the field).
+func TestImportMarkdownFavorite(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	md := "---\ntitle: T\n---\n\n> plain quote\n\n> starred quote\n- favorite: yes\n"
+	res := decode[importResult](t, c.importApprove("/import/markdown", "t.md", []byte(md)))
+	if res.Added != 2 {
+		t.Fatalf("import: %+v", res)
+	}
+	favs := decode[annList](t, c.mustDo("GET", "/annotations?favorite=1", nil, 200))
+	if len(favs.Annotations) != 1 || favs.Annotations[0].Quote != "starred quote" {
+		t.Fatalf("favorite after import: %+v", favs.Annotations)
+	}
+}
+
+// A QUOTE SAYS WHO SPOKE IT, on the wire.
+//
+// `speaker_cast_id` has been a column since 0056 and no handler ever serialised
+// it, so the link was correct in the database and invisible everywhere — the app
+// could answer "which lines is this character's" from the character's own page and
+// could not put a name on the line itself. These pin the half that was missing.
+//
+// WHAT IS WORTH PINNING HERE, as opposed to what merely works:
+//
+//   THE CHIP IS NOT THE CHARACTER TEXT. `character` says who is NAMED on the line
+//   and is split on the reader's separators; `speaker_cast` says who SPOKE it and
+//   is one row or none. A line naming two people has both fields and they disagree
+//   on purpose.
+//
+//   A TOMBSTONE IS NOT A DELETE. 0048 keeps a removed provider row so a refetch
+//   recognises and skips it, which means the foreign key's ON DELETE SET NULL
+//   never fires for one — a quote written before the removal keeps a live-looking
+//   id pointing at a row the reader deleted. Every reader of this column has to
+//   guard `origin <> 'removed'`, and this is the case that says so.
+//
+//   ANOTHER READER'S CAST ROW IS NOT VISIBLE. The lookup restates `user_id`
+//   although the id arrives off a row already scoped to the caller; the failure it
+//   prevents is silent and would print somebody else's name on your quote.
+
+// speakerOf reads one book quote back through the list endpoint the board uses.
+// Through the endpoint rather than the table, because the whole defect being fixed
+// was a column that was right and a payload that was silent.
+func speakerOf(t *testing.T, c *testClient, bookID int64) *quoteSpeakerCast {
+	t.Helper()
+	res := decode[struct {
+		Annotations []annotationRow `json:"annotations"`
+	}](t, c.mustDo("GET", "/annotations?book_id="+itoa(bookID), nil, http.StatusOK))
+	if len(res.Annotations) != 1 {
+		t.Fatalf("want exactly one annotation, got %d", len(res.Annotations))
+	}
+	return res.Annotations[0].SpeakerCast
+}
+
+func dialogueSpeakerOf(t *testing.T, c *testClient, movieID int64) *quoteSpeakerCast {
+	t.Helper()
+	res := decode[struct {
+		Dialogues []dialogueRow `json:"dialogues"`
+	}](t, c.mustDo("GET", "/dialogues?movie_id="+itoa(movieID), nil, http.StatusOK))
+	if len(res.Dialogues) != 1 {
+		t.Fatalf("want exactly one dialogue, got %d", len(res.Dialogues))
+	}
+	return res.Dialogues[0].SpeakerCast
+}
+
+func TestABookQuoteCarriesTheCastRowItNames(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	book := createBook(t, c, "The Master and Margarita")
+	c.mustDo("POST", "/annotations", map[string]any{
+		"book_id": book, "quote": "Manuscripts don't burn.", "character": "Woland",
+	}, http.StatusCreated)
+
+	// Reading the cast is what adopts the quoted name into a row AND links the
+	// quote to it — see cast_from_quotes.go. A reader reaches this by opening the
+	// People panel; the 3.1.0 one-time pass is what covers everybody else.
+	castList(t, c, "books", book)
+
+	sp := speakerOf(t, c, book)
+	if sp == nil {
+		t.Fatal("the quote carries no speaker_cast, so no chip can be drawn")
+	}
+	if sp.Name != "Woland" {
+		t.Errorf("speaker name = %q, want %q", sp.Name, "Woland")
+	}
+	if sp.CastID == 0 {
+		t.Error("speaker carries no cast_id, so the character panel cannot be opened on this billing")
+	}
+	// THE RECORD IS THE DESTINATION. Without it the client draws no chip, because
+	// there is no page to open — so a payload with a cast id and no character id is
+	// the shape that silently produces nothing on screen.
+	if sp.CharacterID == 0 {
+		t.Error("speaker carries no character_id, so the chip would open nothing")
+	}
+}
+
+// A FILM LINE, the other half, and it is a separate case rather than a table
+// because the two live in two structs whose parity is itself under test.
+func TestAFilmLineCarriesTheCastRowItNames(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	movie := newMovie(t, c, map[string]any{"title": "Stalker"}).ID
+	c.mustDo("POST", "/dialogues", map[string]any{
+		"movie_id": movie, "quote": "Let everything that's been planned come true.",
+		"character": "the Stalker", "actor": "Aleksandr Kaydanovskiy",
+	}, http.StatusCreated)
+	castList(t, c, "movies", movie)
+
+	sp := dialogueSpeakerOf(t, c, movie)
+	if sp == nil {
+		t.Fatal("the line carries no speaker_cast")
+	}
+	if sp.Name != "the Stalker" {
+		t.Errorf("speaker name = %q, want %q", sp.Name, "the Stalker")
+	}
+	if sp.CharacterID == 0 {
+		t.Error("speaker carries no character_id")
+	}
+}
+
+// A REMOVED ROW IS STILL IN THE TABLE. This is the guard that is easiest to drop
+// and hardest to notice: the row survives as a tombstone so a refetch skips it, so
+// the foreign key never nulls the quote's link, so a lookup without the guard
+// happily resolves a speaker the reader deleted.
+func TestADeletedCastRowStopsBeingASpeaker(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	movie := newMovie(t, c, map[string]any{"title": "Solaris"}).ID
+	c.mustDo("POST", "/dialogues", map[string]any{
+		"movie_id": movie, "quote": "We don't want other worlds. We want a mirror.",
+		"character": "Snaut",
+	}, http.StatusCreated)
+	rows := castList(t, c, "movies", movie)
+	if len(rows) != 1 {
+		t.Fatalf("want one cast row, got %d", len(rows))
+	}
+	if sp := dialogueSpeakerOf(t, c, movie); sp == nil {
+		t.Fatal("no speaker before the removal, so this case would prove nothing")
+	}
+
+	c.mustDo("DELETE", "/cast/"+itoa(rows[0].ID), nil, http.StatusNoContent)
+
+	if sp := dialogueSpeakerOf(t, c, movie); sp != nil {
+		t.Errorf("a deleted cast row is still being drawn as the speaker: %+v", *sp)
+	}
+}

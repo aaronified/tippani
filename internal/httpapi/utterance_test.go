@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 )
 
@@ -197,4 +198,174 @@ func TestUtteranceFiltersStayScopedToTheOwner(t *testing.T) {
 			t.Fatalf("GET /quotes%s leaked %d of another account's quotes", qs, len(got.Utterances))
 		}
 	}
+}
+
+// What a proverb, a letter and an essay carry (0047).
+//
+// Five columns, one request struct, one scan helper — which is why this is the
+// cheapest of the three kinds to extend and the easiest to half-extend. The scan
+// is shared by the single fetch and the list, so a column added to utteranceCols
+// and forgotten in scanUtterance is a scan error that the list handler LOGS AND
+// SKIPS: a 200 with a short list, which is the "my quotes vanished" symptom that
+// file's own comment is about. Reading the list back is therefore not belt and
+// braces, it is the assertion.
+//
+// THE FIELDS ARE STORED ON EVERY BOARD, whatever its kind. Which of them a form
+// offers is the board's kind's business; which of them the table keeps is all of
+// them, because the kind lives on the board and a quote dragged from an essay
+// board to a plain one must not lose its page number on the way.
+
+func TestEveryStandaloneQuoteFieldMakesTheRoundTrip(t *testing.T) {
+	h := newTestServer(t).Handler()
+	c := signupAdmin(t, h)
+
+	created := newUtterance(t, c, map[string]any{
+		"quote":          "Ami tomake bhalobashi",
+		"speaker":        "Rabindranath Tagore",
+		"occasion":       "a letter",
+		"occasion_date":  "1913",
+		"occasion_circa": true,
+		"region":         "Sylhet",
+		"recipient":      "Jawaharlal Nehru",
+		"work_title":     "Letters from Abroad",
+		"locator":        "p. 288",
+	})
+	want := map[string]string{
+		"region": "Sylhet", "recipient": "Jawaharlal Nehru",
+		"work_title": "Letters from Abroad", "locator": "p. 288",
+	}
+	check := func(where string, u utteranceRow) {
+		got := map[string]string{
+			"region": u.Region, "recipient": u.Recipient,
+			"work_title": u.WorkTitle, "locator": u.Locator,
+		}
+		for k, v := range want {
+			if got[k] != v {
+				t.Errorf("%s: %s = %q, want %q", where, k, got[k], v)
+			}
+		}
+		if !u.OccasionCirca {
+			t.Errorf("%s: occasion_circa came back false", where)
+		}
+	}
+	check("create", created)
+
+	// The list, through scanUtterance — see the header for why this is the real
+	// assertion and not a repetition of the one above.
+	listed := decode[struct {
+		Utterances []utteranceRow `json:"utterances"`
+	}](t, c.mustDo("GET", "/quotes", nil, http.StatusOK)).Utterances
+	if len(listed) != 1 {
+		t.Fatalf("the quote did not come back in the list: %+v", listed)
+	}
+	check("list", listed[0])
+
+	// Full-state PUT, both ways: a body that carries them keeps them, a body that
+	// does not clears them. That is this endpoint's stated contract — the same one
+	// board_id has, and the trap 0035 and 0036 each caught once.
+	updated := decode[utteranceRow](t, c.mustDo("PUT", "/quotes/"+itoa(created.ID), map[string]any{
+		"quote": "Ami tomake bhalobashi", "speaker": "Rabindranath Tagore",
+		"occasion": "a letter", "occasion_date": "1913",
+		"region": "Kolkata", "recipient": "Jawaharlal Nehru",
+		"work_title": "Letters from Abroad", "locator": "p. 289",
+		"board_id": created.BoardID,
+	}, http.StatusOK))
+	if updated.Region != "Kolkata" || updated.Locator != "p. 289" {
+		t.Errorf("the PUT did not update: region=%q locator=%q", updated.Region, updated.Locator)
+	}
+	if updated.OccasionCirca {
+		t.Error("a full-state PUT that omitted occasion_circa left it set")
+	}
+}
+
+// Each cap is its own 400, because a message naming the wrong field is a message
+// the reader argues with.
+func TestAStandaloneQuoteFieldTooLongToStoreIsRefused(t *testing.T) {
+	h := newTestServer(t).Handler()
+	c := signupAdmin(t, h)
+	long := func(n int) string {
+		b := make([]byte, n)
+		for i := range b {
+			b[i] = 'x'
+		}
+		return string(b)
+	}
+	for field, n := range map[string]int{
+		"region": 101, "recipient": 201, "work_title": 201, "locator": 129,
+	} {
+		c.mustDo("POST", "/quotes",
+			map[string]any{"quote": "a line for " + field, field: long(n)}, http.StatusBadRequest)
+	}
+	// And the value one under each cap is accepted, so the test is measuring the
+	// boundary rather than "any long string fails".
+	for field, n := range map[string]int{
+		"region": 100, "recipient": 200, "work_title": 200, "locator": 128,
+	} {
+		c.mustDo("POST", "/quotes",
+			map[string]any{"quote": "an accepted line for " + field, field: long(n)}, http.StatusCreated)
+	}
+}
+
+// Circa is a precision flag and NOT part of what a quote IS, so ticking it must
+// not fork a duplicate. occasion_date is in UtteranceDedupeHash and this is
+// deliberately not, which is the one part of that decision that looks arguable —
+// so it gets the test rather than the comment.
+func TestTickingCircaDoesNotForkADuplicate(t *testing.T) {
+	h := newTestServer(t).Handler()
+	c := signupAdmin(t, h)
+	q := newUtterance(t, c, map[string]any{
+		"quote": "Give me blood", "speaker": "Bose", "occasion_date": "1944",
+	})
+	c.mustDo("POST", "/quotes", map[string]any{
+		"quote": "Give me blood", "speaker": "Bose", "occasion_date": "1944", "occasion_circa": true,
+	}, http.StatusConflict)
+
+	// Setting it on the row that exists is the supported way, and it does not
+	// change the hash — so the edit is accepted rather than answering 409 against
+	// itself.
+	got := decode[utteranceRow](t, c.mustDo("PUT", "/quotes/"+itoa(q.ID), map[string]any{
+		"quote": "Give me blood", "speaker": "Bose", "occasion_date": "1944",
+		"occasion_circa": true, "board_id": q.BoardID,
+	}, http.StatusOK))
+	if !got.OccasionCirca {
+		t.Fatal("circa did not stick")
+	}
+}
+
+// THE COLUMN HAS TO LEARN THE WORD, not just the two lists.
+//
+// The kind vocabulary lives in three places that must agree: QUOTE_KINDS in the
+// client, quoteKinds in Go, and a CHECK on utterances.kind. The first two are
+// edits; the third is a migration, and 0067 is the one that taught the column
+// `poem`. A test over either list would pass with the migration missing and every
+// save of a poem failing on a constraint error naming a column.
+//
+// SO THIS SAVES ONE, which is the only way to ask the CHECK anything.
+
+func TestAPoemCanBeSavedAndAnInventedKindCannot(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	got := newUtterance(t, c, map[string]any{
+		"quote":   "Turning and turning in the widening gyre\nThe falcon cannot hear the falconer;",
+		"speaker": "W. B. Yeats", "work_title": "The Second Coming", "kind": "poem",
+	})
+	if got.Kind != "poem" {
+		t.Fatalf("saved a poem and it came back as %q", got.Kind)
+	}
+	// AND THE LINE BREAKS ARE THE TEXT, for a poem more than for anything else in
+	// the library. A store that folded whitespace would make every poem prose.
+	if want := "gyre\nThe falcon"; !strings.Contains(got.Quote, want) {
+		t.Errorf("the stored quote is %q — a poem's line breaks are its text", got.Quote)
+	}
+	// AND AN UNKNOWN KIND IS STILL REFUSED — BY THE HANDLER, WHICH IS THE ONLY
+	// THING THIS LINE CAN SPEAK FOR. It used to say "the vocabulary is still a
+	// vocabulary", which read as a claim about the column and is not one: the 400
+	// comes from validQuoteKind (utterance_handlers.go), so stripping the CHECK out
+	// of the migration entirely leaves this passing. The column's own vocabulary is
+	// guarded in the store package, where the schema is — TestQuoteKindColumnRefuses-
+	// AnythingElse enumerates all eight values and refuses a ninth, and
+	// quote_kind_widening_test.go proves the widening carried the existing values
+	// across. Two layers, two tests, and neither one covers for the other.
+	c.mustDo("POST", "/quotes", map[string]any{
+		"quote": "x", "kind": "haiku"}, http.StatusBadRequest)
 }

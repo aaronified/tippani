@@ -286,4 +286,3 @@ func TestBinningSomebodyElsesItemIsNotFound(t *testing.T) {
 		t.Fatal("somebody else's quote was deleted")
 	}
 }
-

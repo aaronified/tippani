@@ -52,4 +52,3 @@ func TestShareImageDownload(t *testing.T) {
 		t.Fatalf("second download bytes differ: got %d, want %d", rec3.Body.Len(), len(png))
 	}
 }
-

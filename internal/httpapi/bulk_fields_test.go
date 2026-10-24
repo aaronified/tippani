@@ -1,5 +1,17 @@
 package httpapi
 
+import (
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"os"
+	"path/filepath"
+	"regexp"
+	"slices"
+	"strings"
+	"testing"
+)
+
 // The bulk field editor, and the two ways it was wrong.
 //
 // 1. THE LIVE BUG. `quoteFieldKinds` spelled the standalone-quote kind "quote"
@@ -20,16 +32,6 @@ package httpapi
 //
 // Both are silent failures of the kind bulk_handlers' own header is about: a
 // success that did nothing looks exactly like a success that did something.
-
-import (
-	"net/http"
-	"os"
-	"path/filepath"
-	"regexp"
-	"slices"
-	"strings"
-	"testing"
-)
 
 // The drift guard. Two tables name kinds; walking them against each other is
 // cheaper than remembering that they must agree, which is what four releases of
@@ -996,4 +998,146 @@ func quoteNow(t *testing.T, c *testClient, id int64) utteranceRow {
 	}
 	t.Fatalf("quote %d is not in the list", id)
 	return utteranceRow{}
+}
+
+// Moving quotes between boards in bulk.
+//
+// Until now the only way to change which board a quote was on was to open its
+// edit form and change one select in it — a full-state PUT, for a move — so
+// re-filing a dozen quotes was a dozen forms. `board_id` on POST /quotes/bulk is
+// that move, and the card's own ⋯ posts to it with a single id.
+//
+// The two refusals below are the whole risk. A bulk write that reports success
+// and moves nothing is indistinguishable from one that worked, and a board id is
+// the one field here that can point at somebody else's row.
+
+func TestBulkMoveQuotesToBoard(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	board := idOf(t, c.mustDo("POST", "/boards", map[string]any{"name": "Speeches"}, http.StatusCreated).Body.Bytes())
+	a := idOf(t, c.mustDo("POST", "/quotes", map[string]any{"quote": "the first line", "speaker": "A"}, http.StatusCreated).Body.Bytes())
+	b := idOf(t, c.mustDo("POST", "/quotes", map[string]any{"quote": "the second line", "speaker": "B"}, http.StatusCreated).Body.Bytes())
+
+	got := decode[bulkResp](t, c.mustDo("POST", "/quotes/bulk", map[string]any{
+		"ids": []int64{a, b}, "board_id": board,
+	}, http.StatusOK))
+	if got.Updated != 2 {
+		t.Fatalf("updated = %d, want 2", got.Updated)
+	}
+
+	rows := decode[struct {
+		Quotes []utteranceRow `json:"utterances"`
+	}](t, c.mustDo("GET", "/quotes", nil, http.StatusOK)).Quotes
+	if len(rows) != 2 {
+		t.Fatalf("quotes: %+v", rows)
+	}
+	for _, q := range rows {
+		if q.BoardID != board {
+			t.Errorf("quote %d is on board %d, want %d", q.ID, q.BoardID, board)
+		}
+	}
+}
+
+// A board id belonging to somebody else is refused outright rather than swapped
+// for the default. Filing forty quotes somewhere other than where the request
+// said is worse than refusing it, because nothing on screen would say so — the
+// same rule resolveBoard states for a single quote.
+func TestBulkMoveRefusesAnotherReadersBoard(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	owner := signupAdmin(t, h)
+	other := addUser(t, h, owner, "stranger")
+
+	theirs := idOf(t, other.mustDo("POST", "/boards", map[string]any{"name": "Theirs"}, http.StatusCreated).Body.Bytes())
+	mine := idOf(t, owner.mustDo("POST", "/quotes", map[string]any{"quote": "a line", "speaker": "A"}, http.StatusCreated).Body.Bytes())
+
+	owner.mustDo("POST", "/quotes/bulk", map[string]any{
+		"ids": []int64{mine}, "board_id": theirs,
+	}, http.StatusNotFound)
+
+	// And the quote did not move on the way to being refused.
+	rows := decode[struct {
+		Quotes []utteranceRow `json:"utterances"`
+	}](t, owner.mustDo("GET", "/quotes", nil, http.StatusOK)).Quotes
+	if len(rows) != 1 || rows[0].BoardID == theirs {
+		t.Fatalf("quote landed on another reader's board: %+v", rows)
+	}
+}
+
+func mkMovie(t *testing.T, c *testClient, title string) int64 {
+	t.Helper()
+	rec := c.mustDo("POST", "/movies", map[string]any{"title": title}, 201)
+	var m struct {
+		ID int64 `json:"id"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &m)
+	return m.ID
+}
+
+// TestBulkTagAnnotations: tag + flag a set of annotations at once (the search
+// "select all → tag them" flow), scoped to the caller.
+func TestBulkTagAnnotations(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	admin := signupAdmin(t, h)
+	bk := createBook(t, admin, "Dune")
+
+	mk := func(q string) int64 {
+		rec := admin.mustDo("POST", "/annotations", map[string]any{"book_id": bk, "quote": q}, 201)
+		var a struct {
+			ID int64 `json:"id"`
+		}
+		_ = json.Unmarshal(rec.Body.Bytes(), &a)
+		return a.ID
+	}
+	a1, a2 := mk("one"), mk("two")
+
+	admin.mustDo("POST", "/annotations/bulk", map[string]any{
+		"ids": []int64{a1, a2}, "add_tags": []string{"epic", "reread"}, "favorite": true,
+	}, 200)
+
+	res := decode[struct {
+		Annotations []struct {
+			ID       int64    `json:"id"`
+			Tags     []string `json:"tags"`
+			Favorite bool     `json:"favorite"`
+		} `json:"annotations"`
+	}](t, admin.mustDo("GET", fmt.Sprintf("/annotations?book_id=%d", bk), nil, 200))
+	if len(res.Annotations) != 2 {
+		t.Fatalf("want 2 annotations, got %d", len(res.Annotations))
+	}
+	for _, a := range res.Annotations {
+		if len(a.Tags) != 2 || !a.Favorite {
+			t.Fatalf("annotation %d not tagged/faved: %+v", a.ID, a)
+		}
+	}
+
+	// A second user can't tag them.
+	bob := addUser(t, h, admin, "bob")
+	bob.mustDo("POST", "/annotations/bulk", map[string]any{"ids": []int64{a1, a2}, "add_tags": []string{"x"}}, http.StatusNotFound)
+}
+
+// TestBulkUpdateMovies: batch director/series correction over a selection.
+func TestBulkUpdateMovies(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+	m1, m2 := mkMovie(t, c, "Heat"), mkMovie(t, c, "Collateral")
+
+	c.mustDo("POST", "/movies/bulk", map[string]any{
+		"ids": []int64{m1, m2}, "director": "Michael Mann", "add_genres": []string{"crime"},
+	}, 200)
+
+	for _, id := range []int64{m1, m2} {
+		var m map[string]any
+		_ = json.Unmarshal(c.mustDo("GET", fmt.Sprintf("/movies/%d", id), nil, 200).Body.Bytes(), &m)
+		if m["director"] != "Michael Mann" {
+			t.Fatalf("movie %d director = %v", id, m["director"])
+		}
+		if gs, _ := m["genres"].([]any); len(gs) != 1 {
+			t.Fatalf("movie %d genres = %v, want [crime]", id, m["genres"])
+		}
+	}
 }

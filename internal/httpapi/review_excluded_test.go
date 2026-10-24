@@ -264,4 +264,3 @@ func TestTheExcludedListCarriesTheWholeCountAndTheCreditsFace(t *testing.T) {
 		t.Errorf("the credit should carry the photograph the people row holds, got %q", g.People[0].ImagePath)
 	}
 }
-

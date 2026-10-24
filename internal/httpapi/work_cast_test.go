@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 
 	"tippani/internal/store"
@@ -478,3 +479,248 @@ func TestCastPairTakenTellsAFailedReadFromAnEmptyOne(t *testing.T) {
 	}
 }
 
+// The tile chooser, the counts, and the four fields 0063 put on the wire.
+
+// whosChar is the wire shape of one cast row in the chooser. Named rather than
+// written out per literal: the response type and the by-name index below both
+// need it, and three copies of an anonymous struct are three places for the
+// field set to drift apart.
+type whosChar struct {
+	CastID int64 `json:"cast_id"`
+	// The RECORD behind the row, which is not the row: a work may bill one
+	// character twice. Read by identity_counts_test.go, which needs the record a
+	// billing resolved to in order to ask the character sheet about it.
+	CharacterID int64  `json:"character_id"`
+	Name        string `json:"name"`
+	Quotes      int    `json:"quotes"`
+	Favourites  int    `json:"favourites"`
+}
+
+type whosResp struct {
+	Work struct {
+		Kind      string `json:"kind"`
+		ID        int64  `json:"id"`
+		Title     string `json:"title"`
+		MediaType string `json:"media_type"`
+	} `json:"work"`
+	Characters []whosChar `json:"characters"`
+	People     []struct {
+		ID    int64  `json:"id"`
+		Name  string `json:"name"`
+		Roles string `json:"roles"`
+	} `json:"people"`
+}
+
+func charsByName(r whosResp) map[string]whosChar {
+	out := map[string]whosChar{}
+	for _, c := range r.Characters {
+		out[c.Name] = c
+	}
+	return out
+}
+
+// A TILE OPENS EVERY CHARACTER IN THE WORK, not the one whose screen you came
+// from — the owner's ruling. The prototype lists only the character on the path,
+// which makes one cover behave differently depending on where it was pressed.
+func TestATileListsEveryCharacterAndEveryoneCredited(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	m := decode[struct{ ID int64 }](t, c.mustDo("POST", "/movies",
+		map[string]any{"title": "Part 2", "media_type": "movie", "director": "David Yates"},
+		http.StatusCreated))
+	for _, pair := range [][2]string{{"Harry", "Daniel Radcliffe"}, {"Ron", "Rupert Grint"}} {
+		c.mustDo("POST", "/movies/"+itoa(m.ID)+"/cast",
+			map[string]any{"character": pair[0], "actor": pair[1]}, http.StatusCreated)
+	}
+
+	got := decode[whosResp](t, c.mustDo("GET", "/movies/"+itoa(m.ID)+"/whos-in-it", nil, http.StatusOK))
+	if got.Work.Title != "Part 2" || got.Work.Kind != "movie" {
+		t.Fatalf("work: %+v", got.Work)
+	}
+	if len(got.Characters) != 2 {
+		t.Fatalf("characters: %+v", got.Characters)
+	}
+	names := map[string]bool{}
+	for _, ch := range got.Characters {
+		names[ch.Name] = true
+		if ch.CastID == 0 {
+			// The row and not the record: a work may bill one character twice, so
+			// the cast id is what names a local screen.
+			t.Fatalf("a character came back with no cast row: %+v", ch)
+		}
+	}
+	if !names["Harry"] || !names["Ron"] {
+		t.Fatalf("characters are %v", names)
+	}
+	// AND EVERYBODY CREDITED, in any role — the two performers and the director,
+	// which is the half `work_person` holds rather than `work_cast`.
+	people := map[string]string{}
+	for _, p := range got.People {
+		people[p.Name] = p.Roles
+	}
+	for _, want := range []string{"Daniel Radcliffe", "Rupert Grint", "David Yates"} {
+		if _, ok := people[want]; !ok {
+			t.Fatalf("%q is not among the credited: %+v", want, people)
+		}
+	}
+}
+
+// THE SECOND COUNT IS HOW MANY OF THOSE LINES THE READER FAVOURITED — the
+// owner's ruling, replacing a count of distinct locators that could only ever
+// read one on a library where nobody fills timestamps. So the fixture gives one
+// character four lines and favourites two of them, and the pair is 4 and 2: a
+// figure derived from the reader's own marks moves when they mark something,
+// which is the whole property the number it replaced did not have.
+func TestTheCountsAreThisCharactersQuotesAndTheirFavourites(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	m := decode[struct{ ID int64 }](t, c.mustDo("POST", "/movies",
+		map[string]any{"title": "Part 2", "media_type": "movie"}, http.StatusCreated))
+	cast := decode[struct{ ID int64 }](t, c.mustDo("POST", "/movies/"+itoa(m.ID)+"/cast",
+		map[string]any{"character": "Harry", "actor": "Daniel Radcliffe"}, http.StatusCreated))
+
+	// Four lines, the first two favourited. Each quote text is distinct because a
+	// dialogue's dedupe hash is over the WORDS — two identical lines in one film
+	// are one line, which is right and is not what this fixture is testing.
+	for i, fav := range []bool{true, true, false, false} {
+		c.mustDo("POST", "/dialogues", map[string]any{
+			"movie_id": m.ID, "quote": "line " + itoa(int64(i)),
+			"character": "Harry", "speaker_cast_id": cast.ID, "favorite": fav,
+		}, http.StatusCreated)
+	}
+
+	got := decode[whosResp](t, c.mustDo("GET", "/movies/"+itoa(m.ID)+"/whos-in-it", nil, http.StatusOK))
+	harry := charsByName(got)["Harry"]
+	if harry.Quotes != 4 {
+		t.Fatalf("quotes = %d, want 4: %+v", harry.Quotes, harry)
+	}
+	if harry.Favourites != 2 {
+		t.Fatalf("favourites = %d, want 2 of the 4: %+v", harry.Favourites, harry)
+	}
+	// AND THE TWO ARE NOT THE SAME NUMBER, which is what the box exists to show.
+	// A second figure that tracked the first would be decoration.
+	if harry.Favourites == harry.Quotes {
+		t.Fatalf("both counts read %d — the pair says nothing", harry.Quotes)
+	}
+}
+
+// ANOTHER READER'S WORK IS NOT FOUND, never forbidden — a 403 would confirm the
+// row exists.
+func TestWhosInItRefusesAnotherReadersWork(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+	m := decode[struct{ ID int64 }](t, c.mustDo("POST", "/movies",
+		map[string]any{"title": "Part 2", "media_type": "movie"}, http.StatusCreated))
+	bob := addUser(t, h, c, "bob")
+	bob.mustDo("GET", "/movies/"+itoa(m.ID)+"/whos-in-it", nil, http.StatusNotFound)
+}
+
+// A work's links out — 0062.
+//
+// A person has had a `links` column since the person panel learned to fetch
+// reference pages and a character gained one in 0057. The thing a reader is most
+// likely to want to open somewhere else — the work — had none, so a Goodreads
+// page lived in the note on one of its quotes.
+
+type linked struct {
+	ID    int64  `json:"id"`
+	Title string `json:"title"`
+	Links string `json:"links"`
+}
+
+const twoLinks = "https://www.imdb.com/title/tt0084787/ https://example.org/a-review"
+
+func TestABookKeepsItsLinks(t *testing.T) {
+	c := signupAdmin(t, newTestServer(t).Handler())
+	made := decode[linked](t, c.mustDo("POST", "/books", map[string]any{
+		"title": "The Thing", "links": twoLinks,
+	}, http.StatusCreated))
+	if made.Links != twoLinks {
+		t.Fatalf("create: %q", made.Links)
+	}
+	got := decode[linked](t, c.mustDo("GET", "/books/"+itoa(made.ID), nil, http.StatusOK))
+	if got.Links != twoLinks {
+		t.Fatalf("fetch: %q", got.Links)
+	}
+	// Full-state: a body that names no links clears them, like every other column
+	// on this PUT.
+	cleared := decode[linked](t, c.mustDo("PUT", "/books/"+itoa(made.ID),
+		map[string]any{"title": "The Thing"}, http.StatusOK))
+	if cleared.Links != "" {
+		t.Fatalf("a full-state PUT left %q", cleared.Links)
+	}
+	c.mustDo("POST", "/books", map[string]any{
+		"title": "Too Many", "links": strings.Repeat("https://example.org/x ", 400),
+	}, http.StatusBadRequest)
+}
+
+func TestLinksRoundTripThroughTheExportAndTheQueue(t *testing.T) {
+	c := signupAdmin(t, newTestServer(t).Handler())
+	made := decode[linked](t, c.mustDo("POST", "/books", map[string]any{
+		"title": "The Master and Margarita", "author": "Mikhail Bulgakov", "links": twoLinks,
+	}, http.StatusCreated))
+	c.mustDo("POST", "/annotations", map[string]any{
+		"book_id": made.ID, "quote": "Manuscripts don't burn",
+	}, http.StatusCreated)
+
+	md := c.mustDo("GET", "/books/"+itoa(made.ID)+"/export?format=md", nil, http.StatusOK).Body.String()
+	// ONE LINE. The column is whitespace-separated already and a frontmatter value
+	// is one line, so the export re-joins rather than inventing a list syntax.
+	if !strings.Contains(md, "links: https://www.imdb.com/title/tt0084787/ https://example.org/a-review") {
+		t.Fatalf("the export did not carry the links:\n%s", md)
+	}
+
+	c2 := signupAdmin(t, newTestServer(t).Handler())
+	res := stage(t, c2, "/import/markdown", "mm.md", []byte(md))
+	c2.mustFollow("POST", "/import/staged/approve", map[string]any{"batch_id": res.BatchID}, http.StatusOK)
+	list := decode[struct {
+		Books []linked `json:"books"`
+	}](t, c2.mustDo("GET", "/books", nil, http.StatusOK))
+	if len(list.Books) != 1 {
+		t.Fatalf("the import made %d books", len(list.Books))
+	}
+	back := decode[linked](t, c2.mustDo("GET", "/books/"+itoa(list.Books[0].ID), nil, http.StatusOK))
+	if back.Links != twoLinks {
+		t.Fatalf("the round trip lost the links: %q", back.Links)
+	}
+}
+
+// A GAME'S PUBLISHER WAS BEING LOST IN THE QUEUE, and had been since staging and
+// 0042 met: the Markdown parser read it, the movies column existed, and the
+// staged_works row between them had no slot for it — so importing a catalogue
+// export dropped it in silence, with a successful import and matching counts.
+// 0062's links would have landed in the identical hole.
+func TestACatalogueImportKeepsThePublisherAndTheLinks(t *testing.T) {
+	c := signupAdmin(t, newTestServer(t).Handler())
+	md := "---\ntitle: Disco Elysium\ntype: game\nyear: 2019\ndirector: ZA/UM\n" +
+		"publisher: ZA/UM Studio\nlinks: https://www.igdb.com/games/disco-elysium\n---\n\n" +
+		"> The world is a mess.\n- character: Kim Kitsuragi\n"
+	res := stage(t, c, "/import/markdown", "game.md", []byte(md))
+	c.mustFollow("POST", "/import/staged/approve", map[string]any{"batch_id": res.BatchID}, http.StatusOK)
+
+	list := decode[struct {
+		Movies []struct {
+			ID        int64  `json:"id"`
+			Title     string `json:"title"`
+			Publisher string `json:"publisher"`
+		} `json:"movies"`
+	}](t, c.mustDo("GET", "/movies", nil, http.StatusOK))
+	if len(list.Movies) != 1 {
+		t.Fatalf("the import made %d titles", len(list.Movies))
+	}
+	got := decode[struct {
+		Publisher string `json:"publisher"`
+		Links     string `json:"links"`
+	}](t, c.mustDo("GET", "/movies/"+itoa(list.Movies[0].ID), nil, http.StatusOK))
+	if got.Publisher != "ZA/UM Studio" {
+		t.Fatalf("the queue lost the publisher: %q", got.Publisher)
+	}
+	if got.Links != "https://www.igdb.com/games/disco-elysium" {
+		t.Fatalf("the queue lost the links: %q", got.Links)
+	}
+}

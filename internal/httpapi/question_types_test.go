@@ -278,4 +278,3 @@ func inauguralPools() (quizPools, workRef) {
 	}
 	return p, shared
 }
-

@@ -173,4 +173,3 @@ func TestRefetchEnriches(t *testing.T) {
 		t.Fatalf("existing author overwritten: %q", kept)
 	}
 }
-

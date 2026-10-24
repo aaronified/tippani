@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -201,3 +202,50 @@ func TestARequestWhoseClientLeavesMidWaitIsStillRefused(t *testing.T) {
 	}
 }
 
+func TestAHungRequestIsNamedInTheLogWhileItHangs(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+	logs := olog.CaptureForTest(t)
+	held := store.HoldEveryConnectionForTest(t, srv.Store.DB)
+
+	waits := srv.Store.DB.Stats().WaitCount
+	done := make(chan int, 1)
+	go func() { done <- c.do("GET", "/auth/me", nil).Code }()
+	for i := 0; srv.Store.DB.Stats().WaitCount == waits; i++ {
+		if i > 400 {
+			t.Fatal("the request never queued for a connection")
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+
+	if rec := healthz(h); rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("/healthz while a request is queued on a held pool: got %d, want 503", rec.Code)
+	}
+	select {
+	case code := <-done:
+		t.Fatalf("the queued request answered %d while the pool was still held", code)
+	default:
+	}
+	line := regexp.MustCompile(`\[error\] TIP-HEALTH-001 [^\n]*`).FindString(logs.String())
+	rid := regexp.MustCompile(`GET /api/auth/me \d+s \(req (r\d+)\)`).FindStringSubmatch(line)
+	if rid == nil {
+		t.Fatalf("the failed health check does not name the request that is waiting: %q", line)
+	}
+
+	store.ReleaseForTest(held)
+	select {
+	case code := <-done:
+		if code != http.StatusOK {
+			t.Fatalf("the queued request, once a connection came free: got %d, want 200", code)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("the queued request did not answer after the pool was released")
+	}
+	if !regexp.MustCompile(`GET /api/auth/me 200 [^\n]* alice ` + rid[1] + `\n`).MatchString(logs.String()) {
+		t.Fatalf("the access line does not carry the id the health check named (%s):\n%s", rid[1], logs)
+	}
+	if rec := healthz(h); rec.Code != http.StatusOK {
+		t.Fatalf("/healthz after the release: got %d, want 200", rec.Code)
+	}
+}

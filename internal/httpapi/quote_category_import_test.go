@@ -149,4 +149,3 @@ func TestAFileWithAnUnknownCategoryIsRefused(t *testing.T) {
 		t.Fatalf("a refused file must stage nothing, got %d", len(listed.Quotes))
 	}
 }
-

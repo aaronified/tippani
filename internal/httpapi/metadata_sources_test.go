@@ -489,4 +489,3 @@ func TestEverySourceRowHasANameToDraw(t *testing.T) {
 		}
 	}
 }
-

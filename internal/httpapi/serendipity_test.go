@@ -151,4 +151,3 @@ func TestAShuffledQuoteCarriesWhatTheCardDraws(t *testing.T) {
 		t.Errorf("color = %q, want blue", q.Colour)
 	}
 }
-

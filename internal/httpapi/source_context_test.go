@@ -296,4 +296,3 @@ func TestTheListOfQuotesWithContextIsPerWorkAndOwnersOnly(t *testing.T) {
 	}
 	admin.mustDo("GET", "/sources/context-ids?subject=nope", nil, http.StatusBadRequest)
 }
-

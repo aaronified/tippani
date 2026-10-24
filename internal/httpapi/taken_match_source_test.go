@@ -147,4 +147,3 @@ func TestARecheckOfAMergedMatchNamesTheHalfThatGaveEachField(t *testing.T) {
 		}
 	}
 }
-

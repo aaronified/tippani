@@ -1,15 +1,15 @@
 package httpapi
 
-// Season + episode on a show's dialogues (§3b / migration 0025). The interesting
-// cases are all about the two states a plain integer cannot tell apart — "season
-// 0" (where a series keeps its specials) and "no season recorded" — plus the
-// shows-only rule and the order a mixed set of lines comes back in.
-
 import (
 	"net/http"
 	"strings"
 	"testing"
 )
+
+// Season + episode on a show's dialogues (§3b / migration 0025). The interesting
+// cases are all about the two states a plain integer cannot tell apart — "season
+// 0" (where a series keeps its specials) and "no season recorded" — plus the
+// shows-only rule and the order a mixed set of lines comes back in.
 
 // newShow and newFilm create the two parents these tests need. A show is a movies
 // row with media_type "show", as everywhere else in the catalogue.
@@ -255,4 +255,299 @@ func TestStagedDialogueEpisodeSurvivesTheQueue(t *testing.T) {
 			}
 		}
 	}
+}
+
+// Episode-qualified dedupe for a show's dialogue.
+//
+// A book is one work and a passage in it is one passage, so excluding the locator
+// from the dedupe hash is right there. A series is one `movies` row while a line is
+// located BY episode, so the same rule made a recurring catchphrase unstorable
+// past its first occurrence. These tests pin the fix and, just as importantly, pin
+// that nothing changed for films, for un-episoded lines, or for books.
+
+// TestDialogueDedupeAcrossLocators runs the handler-level script once per locator
+// shape: build a parent, post the same line two or three times with different
+// locators, then check what the parent is left holding.
+func TestDialogueDedupeAcrossLocators(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	n := func(i int) *int { return &i }
+
+	type post struct {
+		season, episode *int
+		wantStatus      int
+	}
+	cases := []struct {
+		name        string
+		film        bool
+		parentTitle string
+		line        string
+		posts       []post
+		wantRows    int
+		// wantLabels is asserted only when set: the exact locators, in served order.
+		wantLabels             []string
+		wantDistinctIDs        bool
+		conflictCarriesFirstID bool
+	}{
+		{
+			// TestRecurringLineAcrossEpisodesStaysDistinct is the bug this all exists for: a
+			// catchphrase said in two episodes is two quotes, not one.
+			name:        "a recurring line across episodes stays distinct",
+			parentTitle: "Reel Seven",
+			line:        "You cut the part where I was happy.",
+			posts: []post{
+				{season: n(1), episode: n(2), wantStatus: http.StatusCreated},
+				// Same words, a different episode. Before the fix this answered 409 and handed
+				// back the S1E2 row, discarding the episode the caller actually typed.
+				{season: n(3), episode: n(7), wantStatus: http.StatusCreated},
+			},
+			wantRows:        2,
+			wantLabels:      []string{"S1E2", "S3E7"},
+			wantDistinctIDs: true,
+		},
+		{
+			// A season with no episode still discriminates — "somewhere in season 4" and
+			// "somewhere in season 6" are different claims about the same words.
+			name:        "a recurring line across seasons without episodes",
+			parentTitle: "Reel Seven",
+			line:        "She stopped asking.",
+			posts: []post{
+				{season: n(4), wantStatus: http.StatusCreated},
+				{season: n(6), wantStatus: http.StatusCreated},
+			},
+			wantRows: 2,
+		},
+		{
+			// The dedupe that SHOULD still fire: the same line, in the same episode, twice.
+			name:        "the same line in the same episode still deduplicates",
+			parentTitle: "Reel Seven",
+			line:        "Seven reels, seven ways to lie about a summer.",
+			posts: []post{
+				{season: n(2), episode: n(3), wantStatus: http.StatusCreated},
+				{season: n(2), episode: n(3), wantStatus: http.StatusConflict},
+			},
+			wantRows: 1,
+			// 409 carrying the row that already holds the slot, so a retried offline flush
+			// stays idempotent — the contract the annotation path also keeps.
+			conflictCarriesFirstID: true,
+		},
+		{
+			// Two un-episoded lines on a show dedupe exactly as they did before: the file
+			// said nothing about where they came from, so there is nothing to tell them apart.
+			name:        "un-episoded show lines still deduplicate",
+			parentTitle: "Reel Seven",
+			line:        "The pilot never aired.",
+			posts: []post{
+				{wantStatus: http.StatusCreated},
+				{wantStatus: http.StatusConflict},
+			},
+			wantRows: 1,
+		},
+		{
+			// A film has one runtime and no episodes, so its dedupe is untouched by any of
+			// this — including when a caller sends episode numbers a film cannot have (they
+			// are cleared by normalize, and must not leak into the hash and defeat dedupe).
+			name:        "film dialogue dedupe unchanged",
+			film:        true,
+			parentTitle: "Casablanca",
+			line:        "Round up the usual suspects.",
+			posts: []post{
+				{wantStatus: http.StatusCreated},
+				{wantStatus: http.StatusConflict},
+				// Same line again, this time with a season attached. normalize strips it for a
+				// film, so it must still read as the duplicate it is.
+				{season: n(2), episode: n(4), wantStatus: http.StatusConflict},
+			},
+			wantRows: 1,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			// A fresh parent per row, NOT a shared one. listDialogues filters by movie_id
+			// and the dedupe index is UNIQUE (movie_id, dedupe_hash), so a row whose whole
+			// assertion is "this work now holds N lines" must not be able to see — or
+			// dedupe against — another row's fixtures. Sharing one show here made three
+			// rows count every earlier row's lines too (4, 5, 6 instead of 2, 1, 1).
+			parent := newShow(c, tc.parentTitle)
+			if tc.film {
+				parent = newFilm(c, tc.parentTitle)
+			}
+
+			var created []int64
+			for _, p := range tc.posts {
+				body := map[string]any{"movie_id": parent, "quote": tc.line}
+				if p.season != nil {
+					body["season"] = *p.season
+				}
+				if p.episode != nil {
+					body["episode"] = *p.episode
+				}
+				rec := c.mustDo("POST", "/dialogues", body, p.wantStatus)
+				if p.wantStatus == http.StatusCreated {
+					created = append(created, decode[dialogueRow](t, rec).ID)
+					continue
+				}
+				if p.wantStatus == http.StatusConflict && tc.conflictCarriesFirstID {
+					if !strings.Contains(rec.Body.String(), itoa(created[0])) {
+						t.Fatalf("the 409 should carry the existing row %d, got %s", created[0], rec.Body)
+					}
+				}
+			}
+
+			if tc.wantDistinctIDs {
+				seen := map[int64]bool{}
+				for _, id := range created {
+					if seen[id] {
+						t.Fatalf("two episodes' occurrences collapsed into row %d", id)
+					}
+					seen[id] = true
+				}
+			}
+
+			rows := listDialogues(c, parent)
+			if len(rows) != tc.wantRows {
+				t.Fatalf("expected %d occurrence(s), got %d (%v)", tc.wantRows, len(rows), labels(rows))
+			}
+			if tc.wantLabels != nil {
+				if got := labels(rows); !sameStrings(got, tc.wantLabels) {
+					t.Fatalf("expected %v, got %v", tc.wantLabels, got)
+				}
+			}
+		})
+	}
+}
+
+// The importer half: one file naming the same line in two episodes must add two
+// rows, not add one and silently relabel it with the second episode.
+func TestImportRecurringLineAcrossEpisodes(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	md := "---\ntitle: Reel Seven\ntype: show\n---\n\n" +
+		"> You cut the part where I was happy.\n- season: 1\n- episode: 2\n\n" +
+		"> You cut the part where I was happy.\n- season: 3\n- episode: 7\n"
+
+	if rec := c.importApprove("/import/markdown", "reel-seven.md", []byte(md)); rec.Code != http.StatusOK {
+		t.Fatalf("import: %d %s", rec.Code, rec.Body)
+	}
+	list := decode[struct {
+		Movies []struct {
+			ID int64 `json:"id"`
+		} `json:"movies"`
+	}](t, c.mustDo("GET", "/movies", nil, http.StatusOK))
+	if len(list.Movies) != 1 {
+		t.Fatalf("expected one show, got %+v", list.Movies)
+	}
+	show := list.Movies[0].ID
+
+	// Both occurrences must be there. Before the fix the second hit
+	// UNIQUE (movie_id, dedupe_hash) and the importer's COALESCE enrichment
+	// relabelled the S1E2 row as S3E7 instead — one row, wrong episode.
+	rows := listDialogues(c, show)
+	if len(rows) != 2 {
+		t.Fatalf("expected both episodes' lines, got %d (%v)", len(rows), labels(rows))
+	}
+	if got := labels(rows); got[0] != "S1E2" || got[1] != "S3E7" {
+		t.Fatalf("expected S1E2 and S3E7, got %v", got)
+	}
+
+	// And re-importing the very same file is still a no-op — the property the
+	// text-only hash was protecting, which the qualified hash must not break.
+	if rec := c.importApprove("/import/markdown", "reel-seven.md", []byte(md)); rec.Code != http.StatusOK {
+		t.Fatalf("re-import: %d %s", rec.Code, rec.Body)
+	}
+	if rows := listDialogues(c, show); len(rows) != 2 {
+		t.Fatalf("re-import should be idempotent, got %d rows (%v)", len(rows), labels(rows))
+	}
+}
+
+// autofillActor maps the character(s) a line credits to who plays them in the
+// work's CAST MAPPING (work_cast, 0048). A line can name several characters
+// (comma-joined tokens), so the resolver splits, matches each on the folded name,
+// and joins the unique actors in order — only when no actor was supplied.
+//
+// THE RULE IS THE SAME ONE AS BEFORE AND THE SOURCE IS NOT. Until 0048 this read
+// `movies.cast_json`, which no screen could edit and which is empty for nearly
+// every game; every case below used to be fed a JSON literal. They are now fed
+// rows, which is the whole point: the last two cases could not be written at all
+// against a blob, because there was no way to author or to remove an entry in it.
+func TestAutofillActor(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+	film := createWork(t, c, "Two for the Road", "Stanley Donen", "movie")
+	// The third row is a credit with no performer, which TMDB really does return
+	// when a person's Roles array is empty — it must contribute nothing rather
+	// than an empty string in a comma-joined list.
+	seedProviderCast(t, srv, 1, "movie", film,
+		[2]string{"Mark Wallace", "Albert Finney"},
+		[2]string{"Joanna Wallace", "Audrey Hepburn"},
+		[2]string{"Narrator", ""})
+
+	cases := []struct {
+		name      string
+		character string
+		actor     string
+		want      string
+	}{
+		{"single character", "Mark Wallace", "", "Albert Finney"},
+		{"case-insensitive", "mark wallace", "", "Albert Finney"},
+		{"multiple characters", "Mark Wallace, Joanna Wallace", "", "Albert Finney, Audrey Hepburn"},
+		{"order preserved", "Joanna Wallace, Mark Wallace", "", "Audrey Hepburn, Albert Finney"},
+		{"dupe actors collapse", "Mark Wallace, Mark Wallace", "", "Albert Finney"},
+		{"unmatched character drops", "Mark Wallace, Nobody", "", "Albert Finney"},
+		{"cast member without actor", "Narrator", "", ""},
+		{"no match at all", "Nobody", "", ""},
+		{"explicit actor is preserved", "Mark Wallace", "Someone Else", "Someone Else"},
+		{"empty character", "", "", ""},
+		{"whitespace character", "  ", "", ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := autofillActor(srv.Store.DB, "movie", film, tc.character, tc.actor); got != tc.want {
+				t.Errorf("autofillActor(%q, %q) = %q, want %q", tc.character, tc.actor, got, tc.want)
+			}
+		})
+	}
+
+	// A work with no cast at all resolves nothing and is not an error — which is
+	// the state every game was permanently in before this table existed.
+	empty := createWork(t, c, "Disco Elysium", "ZA/UM", "game")
+	if got := autofillActor(srv.Store.DB, "movie", empty, "Kim Kitsuragi", ""); got != "" {
+		t.Errorf("an empty cast resolved %q, want empty", got)
+	}
+
+	// A ROW THE READER DELETED ANSWERS NOTHING. The delete leaves a tombstone
+	// (origin='removed') so that a refetch cannot hand the row back; the autofill
+	// has to agree that it is gone, or deleting a wrong credit would go on
+	// stamping its actor onto every line that names the character.
+	t.Run("a tombstoned row answers nothing", func(t *testing.T) {
+		hand := decode[castRow](t, c.mustDo("POST", "/movies/"+itoa(film)+"/cast", map[string]any{
+			"character": "Manchester Man", "actor": "Bill Nighy",
+		}, http.StatusCreated))
+		if got := autofillActor(srv.Store.DB, "movie", film, "Manchester Man", ""); got != "Bill Nighy" {
+			t.Fatalf("a hand-typed row should resolve: got %q", got)
+		}
+		// Tombstoned rather than hard-deleted by making it a provider row first,
+		// which is the only kind the delete keeps.
+		if _, err := srv.Store.DB.Exec(
+			`UPDATE work_cast SET provider_key = 'x', origin = 'provider' WHERE id = ?`, hand.ID); err != nil {
+			t.Fatal(err)
+		}
+		c.mustDo("DELETE", "/cast/"+itoa(hand.ID), nil, http.StatusNoContent)
+		var origin string
+		if err := srv.Store.DB.QueryRow(`SELECT origin FROM work_cast WHERE id = ?`, hand.ID).Scan(&origin); err != nil {
+			t.Fatalf("the row should still be there as a tombstone: %v", err)
+		}
+		if origin != "removed" {
+			t.Fatalf("origin = %q, want \"removed\" — the fixture is not testing what it says", origin)
+		}
+		if got := autofillActor(srv.Store.DB, "movie", film, "Manchester Man", ""); got != "" {
+			t.Errorf("a tombstoned row resolved %q, want empty", got)
+		}
+	})
 }

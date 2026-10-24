@@ -190,4 +190,3 @@ func TestAWalkOfTheLibraryIsSparedTheEmptyRun(t *testing.T) {
 		}
 	}
 }
-

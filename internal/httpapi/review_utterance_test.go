@@ -570,4 +570,3 @@ func TestAReviewCardCarriesItsQuotesLanguage(t *testing.T) {
 		t.Fatal("no utterance card in the deck to check")
 	}
 }
-

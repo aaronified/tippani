@@ -204,4 +204,3 @@ func TestAPreviewSaysWhatTheFillWillDoAndChangesNothing(t *testing.T) {
 		t.Errorf("the fill did %+v after a preview promising %+v", real, preview)
 	}
 }
-

@@ -236,4 +236,3 @@ func TestEveryBoardKindTheAppOffersCanBeCreated(t *testing.T) {
 		}
 	}
 }
-

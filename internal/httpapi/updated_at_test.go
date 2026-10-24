@@ -85,4 +85,3 @@ func TestImportedBookHasUpdatedAt(t *testing.T) {
 		t.Fatal("an imported book must have updated_at set, not NULL")
 	}
 }
-

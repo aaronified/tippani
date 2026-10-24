@@ -1,5 +1,19 @@
 package httpapi
 
+import (
+	"bytes"
+	"encoding/json"
+	"mime/multipart"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"testing"
+)
+
 // A work's source file, through the API only: upload, replace, look up, delete.
 //
 // WHAT THIS FILE KNOWS: the addresses PUT/GET /sources and DELETE /sources/{id},
@@ -8,18 +22,6 @@ package httpapi
 // directory has a Sources folder. It declares the last because "the first file
 // is gone from disk, not just from the row" is a claim about disk and nothing
 // the API shows can stand in for it.
-
-import (
-	"bytes"
-	"mime/multipart"
-	"net/http"
-	"net/http/httptest"
-	"os"
-	"path/filepath"
-	"strconv"
-	"strings"
-	"testing"
-)
 
 const srtSample = "1\n00:00:01,000 --> 00:00:03,000\nHello there.\n\n2\n00:00:04,000 --> 00:00:06,000\nGeneral Kenobi.\n"
 
@@ -302,5 +304,293 @@ func TestAStoredNameThatIsNotOursIsNeverJoinedToAPath(t *testing.T) {
 	c.mustDo("DELETE", "/sources/"+strconv.FormatInt(row.Sources[0].ID, 10), nil, http.StatusNoContent)
 	if _, err := os.Stat(outside); err != nil {
 		t.Fatalf("a hand-edited row reached outside Sources/: %v", err)
+	}
+}
+
+// MIXING SUPPLIERS: TMDB's metadata with TheTVDB's character art.
+//
+// The two halves are already separate controls — a re-sync pulls the record from
+// the source the title is pinned to, and POST /movies/{id}/cast/tvdb pulls only
+// the cast, from TheTVDB, whatever the pin says. What connected them was a
+// column: that route needs `movies.tvdb_id` on the row and refuses to search for
+// one, so a title that loses its TheTVDB id loses the only picture of a character
+// in costume this app can get.
+//
+// And a re-sync erased it. The record is written from ONE supplier's payload,
+// TMDB's details carry no TheTVDB id, so every id column was written from a
+// response that could not know two of them.
+
+// A RE-SYNC FROM ONE SUPPLIER MUST NOT ERASE ANOTHER'S ID. The rule was already
+// written for imdb_id — "a supplier is the authority on what it knows, never on
+// what it does not" — and applied to one column out of four.
+func TestARefetchKeepsTheOtherSuppliersIDs(t *testing.T) {
+	stub := &castStub{cast: `[{"id":1,"character":"Chell","name":"Alésia Glidewell"}]`}
+	_, c, done := castTMDBServer(t, stub)
+	defer done()
+
+	m := addFromTMDB(t, c)
+	// The reader adopts TheTVDB's id for this title — the whole point being to
+	// keep TMDB's record and reach TheTVDB's per-role art with it.
+	// A full-state PUT, like every other save in this app — the panel sends the
+	// whole record and this is the field the reader changed.
+	c.mustDo("PUT", "/movies/"+itoa(m.ID), map[string]any{"title": m.Title, "tvdb_id": 297762}, http.StatusOK)
+	if got := decode[movieDetail](t, c.mustDo("GET", "/movies/"+itoa(m.ID), nil, 200)); got.TVDBID != 297762 {
+		t.Fatalf("the id did not save: %+v", got)
+	}
+
+	// Re-fetch the metadata from TMDB, which is the ordinary "this record is
+	// stale" button and knows nothing about TheTVDB.
+	resyncFromTMDB(t, c, m.ID)
+
+	after := decode[movieDetail](t, c.mustDo("GET", "/movies/"+itoa(m.ID), nil, 200))
+	if after.TVDBID != 297762 {
+		t.Fatalf("re-fetching from TMDB erased the TheTVDB id (%d) — the character art goes with it", after.TVDBID)
+	}
+	// And the supplier's OWN id is still authoritative: this is a re-sync of that
+	// record, so it writes it.
+	if after.TMDBID != 603 {
+		t.Errorf("the pinned supplier's own id did not survive its own re-sync: %+v", after)
+	}
+}
+
+// The same rule from the other end, and the case that shows it is about the
+// COLUMN rather than about TheTVDB: a title with an IGDB id must not lose it to a
+// film re-sync either.
+func TestARefetchKeepsAnIGDBIDToo(t *testing.T) {
+	stub := &castStub{cast: `[]`}
+	_, c, done := castTMDBServer(t, stub)
+	defer done()
+
+	m := addFromTMDB(t, c)
+	c.mustDo("PUT", "/movies/"+itoa(m.ID), map[string]any{"title": m.Title, "igdb_id": 1942}, http.StatusOK)
+	resyncFromTMDB(t, c, m.ID)
+	if after := decode[movieDetail](t, c.mustDo("GET", "/movies/"+itoa(m.ID), nil, 200)); after.IGDBID != 1942 {
+		t.Fatalf("re-fetching erased the IGDB id: %+v", after)
+	}
+}
+
+// Two things a quote can now say that it could not before (0070).
+//
+// ── A quote can name who it reaches us through.
+//
+// The owner's case: "socrates' speeches are known from plato's paraphrasing."
+// Socrates is the speaker; Plato is neither the speaker nor the person spoken to.
+// He is the reason there is a text. Before this there was nowhere to put him but
+// the note, where nothing can group by him, cite him or find him — so the promise
+// under test is not only that the field stores, but that the NAME IS A WAY IN.
+//
+// ── A line of film dialogue can say where it stops.
+//
+// "Film timestamp: start and end". A line occupies a stretch of the runtime, and
+// the app has only ever recorded where that stretch begins.
+const (
+	apology      = "The unexamined life is not worth living"
+	socrates     = "Socrates"
+	plato        = "Plato"
+	platoApology = "Apology"
+)
+
+func TestASpeechNamesWhoItReachesUsThrough(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	u := newUtterance(t, c, map[string]any{
+		"quote":         apology,
+		"speaker":       socrates,
+		"kind":          "speech",
+		"work_title":    platoApology,
+		"source_author": plato,
+	})
+	if u.SourceAuthor != plato {
+		t.Fatalf("create dropped the source author: got %q", u.SourceAuthor)
+	}
+	// FOUR NAMES ON ONE ROW AND NONE OF THEM IS ANOTHER. The point of a fifth
+	// column rather than reusing one is that the reader means four different
+	// things; a field that quietly landed in `speaker` would make Plato the person
+	// who said this.
+	if u.Speaker != socrates {
+		t.Fatalf("the source author overwrote the speaker: %q", u.Speaker)
+	}
+
+	// THE READ IS A SEPARATE CLAIM FROM THE WRITE — the pair that broke for
+	// occasion_circa, which was accepted, stored and never sent back, so it was
+	// write-only across the whole app for a release. The list is the read (there is
+	// no single-quote GET) and it is the right assertion anyway: the card's
+	// attribution line draws this.
+	list := decode[utterancesResp](t, c.mustDo("GET", "/quotes", nil, http.StatusOK))
+	if len(list.Utterances) != 1 || list.Utterances[0].SourceAuthor != plato {
+		t.Fatalf("list row lacks the source author: %+v", list.Utterances)
+	}
+
+	// Editable and clearable: an attribution somebody got wrong has to be
+	// removable, not only replaceable.
+	body := map[string]any{"quote": apology, "speaker": socrates, "source_author": "Xenophon", "color": "yellow"}
+	c.mustDo("PUT", "/quotes/"+itoa(u.ID), body, http.StatusOK)
+	after := decode[utterancesResp](t, c.mustDo("GET", "/quotes", nil, http.StatusOK))
+	if after.Utterances[0].SourceAuthor != "Xenophon" {
+		t.Fatalf("update did not take: got %q", after.Utterances[0].SourceAuthor)
+	}
+	body["source_author"] = ""
+	c.mustDo("PUT", "/quotes/"+itoa(u.ID), body, http.StatusOK)
+	cleared := decode[utterancesResp](t, c.mustDo("GET", "/quotes", nil, http.StatusOK))
+	if cleared.Utterances[0].SourceAuthor != "" {
+		t.Fatalf("clearing the source author did not take: got %q", cleared.Utterances[0].SourceAuthor)
+	}
+}
+
+// THE WHOLE REASON TO RECORD PLATO is to find the Socrates lines by typing Plato.
+// A name stored outside the search index is a name you can only reach by
+// remembering which quote it sits on — which is the thing you were looking up. So
+// this searches for a word that appears in NO other column of the row.
+func TestTheSourceAuthorFindsTheQuoteHeTransmits(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	newUtterance(t, c, map[string]any{
+		"quote":         apology,
+		"speaker":       socrates,
+		"kind":          "speech",
+		"source_author": plato,
+	})
+
+	res := decode[searchResults](t, c.mustDo("GET", "/search?q="+url.QueryEscape(plato), nil, http.StatusOK))
+	if len(res.Quotes) != 1 {
+		t.Fatalf("searching the source author found %d quotes, want 1 — is source_author in utterances_fts?", len(res.Quotes))
+	}
+	if res.Quotes[0].Quote != apology {
+		t.Fatalf("found the wrong quote: %q", res.Quotes[0].Quote)
+	}
+}
+
+// A line of dialogue holds both ends of its stretch, and a game's line holds
+// neither — which is the same rule the start has obeyed since 0047, applied to
+// the end. A form that offered a box the server threw away would be offering to
+// record something it does not keep.
+func TestAFilmLineKeepsBothEndsAndAGameLineKeepsNone(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	film := decode[movieDetail](t, c.mustDo("POST", "/movies", map[string]any{"title": "Stalker"}, http.StatusCreated))
+	d := decode[dialogueRow](t, c.mustDo("POST", "/dialogues", map[string]any{
+		"movie_id":      film.ID,
+		"quote":         "Let everything that's been planned come true",
+		"timestamp":     "01:12:40",
+		"timestamp_end": "01:13:02",
+	}, http.StatusCreated))
+	if d.Timestamp != "01:12:40" || d.TimestampEnd != "01:13:02" {
+		t.Fatalf("the film line lost an end: %q .. %q", d.Timestamp, d.TimestampEnd)
+	}
+
+	// The list is what the card reads, and a range the card cannot see is a range
+	// the reader never gets back.
+	list := decode[struct {
+		Dialogues []dialogueRow `json:"dialogues"`
+	}](t, c.mustDo("GET", "/dialogues?movie_id="+itoa(film.ID), nil, http.StatusOK))
+	if len(list.Dialogues) != 1 || list.Dialogues[0].TimestampEnd != "01:13:02" {
+		t.Fatalf("list row lacks the end: %+v", list.Dialogues)
+	}
+
+	// A GAME HAS NO RUNTIME TO POINT INTO, either end. The server clears rather
+	// than refuses (normalizeLocator's stated rule), so this asserts the clearing.
+	game := decode[movieDetail](t, c.mustDo("POST", "/movies", map[string]any{
+		"title": "Disco Elysium", "media_type": "game",
+	}, http.StatusCreated))
+	g := decode[dialogueRow](t, c.mustDo("POST", "/dialogues", map[string]any{
+		"movie_id":      game.ID,
+		"quote":         "You are not a bad person",
+		"timestamp":     "00:04:00",
+		"timestamp_end": "00:04:11",
+		"act":           "Day Two",
+		"quest":         "Kim Kitsuragi",
+	}, http.StatusCreated))
+	if g.Timestamp != "" || g.TimestampEnd != "" {
+		t.Fatalf("a game's line kept a runtime: %q .. %q", g.Timestamp, g.TimestampEnd)
+	}
+	if g.Act != "Day Two" || g.Quest != "Kim Kitsuragi" {
+		t.Fatalf("clearing the runtime took the game's own locators with it: %q / %q", g.Act, g.Quest)
+	}
+}
+
+// The backup half of a work's source file: what the archive carries, who may
+// change that, and what a restore says it did not get. Through the API only.
+// It shares sources_test.go's helpers.
+
+func sourceEntries(names []string) int {
+	n := 0
+	for _, name := range names {
+		if strings.HasPrefix(name, "Sources/") && !strings.HasSuffix(name, "/") {
+			n++
+		}
+	}
+	return n
+}
+
+func archiveOf(t *testing.T, srv *Server, ka keptArchive) []string {
+	t.Helper()
+	raw, err := os.ReadFile(filepath.Join(srv.backupsDir(), ka.Name))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return tarNames(t, plaintextOf(t, raw, testPw))
+}
+
+func TestABackupCarriesSourceFilesOnlyWhenAsked(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	film := c.newScreen("Star Wars", "movie")
+	c.putSource(sourceFields("screen", film), "a.srt", []byte(srtSample))
+
+	if got := decode[map[string]bool](t, c.mustDo("GET", "/admin/backup/sources", nil, 200)); got["include"] {
+		t.Fatal("the default is off")
+	}
+	if n := sourceEntries(archiveOf(t, srv, backupNow(c))); n != 0 {
+		t.Fatalf("default archive carried %d source files", n)
+	}
+	c.mustDo("PUT", "/admin/backup/sources", map[string]any{"include": true}, 200)
+	if n := sourceEntries(archiveOf(t, srv, backupNow(c))); n != 1 {
+		t.Fatalf("with the setting on the archive should carry the file, got %d", n)
+	}
+	c.mustDo("PUT", "/admin/backup/sources", map[string]any{"include": false}, 200)
+	if n := sourceEntries(archiveOf(t, srv, backupNow(c))); n != 0 {
+		t.Fatalf("switched back off, got %d", n)
+	}
+	c.mustDo("PUT", "/admin/backup/sources", map[string]any{}, http.StatusBadRequest)
+}
+
+func TestTheBackupSettingIsTheAdminsAlone(t *testing.T) {
+	srv := newTestServer(t)
+	admin := signupAdmin(t, srv.Handler())
+	cara := addUser(t, srv.Handler(), admin, "cara")
+	cara.mustDo("GET", "/admin/backup/sources", nil, http.StatusForbidden)
+	cara.mustDo("PUT", "/admin/backup/sources", map[string]any{"include": true}, http.StatusForbidden)
+}
+
+func TestARestoreSaysWhichSourcesTheArchiveDidNotCarry(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	film := c.newScreen("Star Wars", "movie")
+	book := c.newBook("Dust of Dreams")
+	c.putSource(sourceFields("screen", film), "a.srt", []byte(srtSample))
+	c.putSource(sourceFields("book", book), "d.txt", []byte("prose"))
+	backupNow(c) // default: the rows travel, the files do not
+	safetyBackup(t, c)
+
+	rec := c.mustDo("POST", "/admin/restore", map[string]any{"password": testPw}, 200)
+	var got struct {
+		Missing int             `json:"sources_missing"`
+		List    []missingSource `json:"sources_missing_list"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Missing != 2 || len(got.List) != 2 {
+		t.Fatalf("the restore should name both works whose file it lacks: %s", rec.Body)
+	}
+	titles := got.List[0].Title + "|" + got.List[1].Title
+	if !strings.Contains(titles, "Star Wars") || !strings.Contains(titles, "Dust of Dreams") {
+		t.Fatalf("missing sources are named by work: %s", titles)
 	}
 }

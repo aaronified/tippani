@@ -1,19 +1,28 @@
 package httpapi
 
 import (
+	"archive/tar"
+	"bytes"
+	"compress/gzip"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"os"
+	"path/filepath"
 	"slices"
 	"sort"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
-
 	"tippani/internal/jobs"
+	"tippani/internal/metadata"
 	"tippani/internal/outbound"
 )
 
@@ -1071,5 +1080,1077 @@ func TestAJobAskedForWhileTheAccountIsBeingDeletedIsRefused(t *testing.T) {
 				t.Fatalf("a job in the admin's %s jobs besides bob's one: %+v", view, j)
 			}
 		}
+	}
+}
+
+// WHAT EACH JOB IS ABOUT, AS PAST JOBS NAMES IT.
+//
+// A lookup a reader makes is kept as a job in its request, and the row names what
+// was looked up — the title, the ISBN, the name the reader typed — so that "Book
+// lookup · Dune" can be told from "Book lookup · Emma" in Settings › Jobs. A
+// queued job about one work or one person is named after it; one about several
+// is named after nothing, and the screen counts them.
+//
+// Every request goes through the handler as the screens send it, with the
+// server offline (TIPPANI_OFFLINE), so every lookup's outward call is refused and
+// logged — which is what keeps a lookup as a job at all — and nothing reaches a
+// supplier. Past jobs is read as the Jobs tab reads it (GET /jobs?view=past).
+//
+// WHAT IT KNOWS, declared because a test here may not know the code: the logbook
+// and the outbound hook are given to the server as serve() gives them (the
+// queue's logbook, outbound.SetObserver), and the log is flushed before Past jobs
+// is read (flushed), since a request's job lands in the logbook's next batch; the
+// film's cast is fetched from a TheTVDB stub (suicideSquad) before the server
+// goes offline; and the job kinds' names and the wire fields of a job, which are
+// the contract Settings › Jobs is built to.
+//
+// What it guards, in a sentence a person would say: each lookup I make is kept
+// under what I looked up, and a job about one thing is kept under that thing —
+// when the thing is mine: a job given another reader's id is kept under nothing,
+// and my Past jobs never names what is theirs.
+func TestEachJobIsKeptUnderWhatItIsAbout(t *testing.T) {
+	srv := newTestServer(t)
+	q := queueing(t, srv)
+	outbound.SetObserver(q.lb.Outbound)
+	t.Cleanup(func() { outbound.SetObserver(nil) })
+	h := srv.Handler()
+	alice := signupAdmin(t, h)
+	film := suicideSquad(t, srv, alice)
+	var waller int64
+	for _, row := range castOf(t, alice, "/movies/"+itoa(film)+"/cast").Cast {
+		if row.Character == "Amanda Waller" {
+			waller = row.ID
+		}
+	}
+	dune := createdID(t, alice, "/books", map[string]any{"title": "Dune", "author": "Frank Herbert", "isbn": duneISBN})
+	emma := createdID(t, alice, "/books", map[string]any{"title": "Emma", "author": "Jane Austen"})
+	alice.mustDo("PUT", "/people", map[string]any{"kind": "author", "name": "Ursula K. Le Guin"}, http.StatusOK)
+	leGuin := recordID(t, alice, "Ursula K. Le Guin")
+	t.Setenv(outbound.EnvVar, "1")
+
+	// The lookups a reader makes, one at a time, each answered however a
+	// refused supplier makes it answer.
+	for _, req := range []struct {
+		path string
+		body any
+	}{
+		{"/books/lookup", map[string]any{"title": "Dune", "isbn": duneISBN}},
+		{"/books/lookup", map[string]any{"isbn": messiahISBN}},
+		{"/movies/lookup", map[string]any{"title": "Suicide Squad"}},
+		{"/images/search", map[string]any{"kind": "portrait", "name": "Viola Davis", "title": "Suicide Squad"}},
+		{"/images/search", map[string]any{"kind": "cover", "title": "Emma", "isbn": messiahISBN}},
+		{"/people/portrait", map[string]any{"kind": "author", "name": "Ursula K. Le Guin"}},
+		{"/people/lookup", map[string]any{"kind": "author", "name": "Ursula K. Le Guin"}},
+		{"/metadata/reverify", map[string]any{"book_ids": []int64{dune}}},
+		{"/cast/" + itoa(waller) + "/image", nil},
+		{"/movies/" + itoa(film) + "/cast/imdb", map[string]any{"imdb": "https://www.imdb.com/title/tt1386697/"}},
+		{"/people/id/" + itoa(leGuin) + "/fetch", nil},
+		{"/people/id/" + itoa(leGuin) + "/signature/fetch", nil},
+		{"/movies/" + itoa(film) + "/cast/art", map[string]any{"names": []string{"Viola Davis"}}},
+	} {
+		alice.do("POST", req.path, req.body)
+	}
+	// The queued ones, each waited out before the next, as five at once is a
+	// reader's limit.
+	for _, start := range []struct {
+		kind   string
+		params map[string]any
+	}{
+		{"fill", map[string]any{"book_ids": []int64{dune}}},
+		{"fill", map[string]any{"book_ids": []int64{dune, emma}}},
+		{"people", map[string]any{"ids": []int64{leGuin}}},
+		{"reverify", map[string]any{"people": []map[string]string{{"kind": "author", "name": "Ursula K. Le Guin"}}}},
+		{"reverify", map[string]any{"book_ids": []int64{dune}, "movie_ids": []int64{film}}},
+		{"covers", map[string]any{"missing_only": true}},
+	} {
+		j := alice.mustStart(start.kind, start.params)
+		alice.waitJob(j.ID, "succeeded")
+	}
+	flushed(t, q.lb)
+
+	kept := map[string][]string{}
+	for _, j := range alice.jobs("view=past&limit=200").Jobs {
+		kept[j.Kind] = append(kept[j.Kind], j.Subject)
+	}
+	for _, want := range []struct{ kind, subject string }{
+		{"lookup.book", "Dune"},
+		{"lookup.book", messiahISBN},
+		{"lookup.movie", "Suicide Squad"},
+		{"lookup.images", "Viola Davis"},
+		{"lookup.images", "Emma"},
+		{"lookup.portrait", "Ursula K. Le Guin"},
+		{"lookup.links", "Ursula K. Le Guin"},
+		{"lookup.reverify", "Dune"},
+		{"lookup.cast-image", "Amanda Waller"},
+		{"lookup.cast-imdb", "tt1386697"},
+		{"lookup.cast-tvdb", "Suicide Squad"},
+		{"lookup.person", "Ursula K. Le Guin"},
+		{"lookup.signature", "Ursula K. Le Guin"},
+		{"lookup.cast-art", "Suicide Squad"},
+		{"fill", "Dune"},
+		{"fill", ""},
+		{"people", "Ursula K. Le Guin"},
+		{"reverify", "Ursula K. Le Guin"},
+		{"reverify", ""},
+		{"covers", ""},
+	} {
+		if !slices.Contains(kept[want.kind], want.subject) {
+			t.Errorf("no %s job kept under %q; the %s jobs are under %q", want.kind, want.subject, want.kind, kept[want.kind])
+		}
+	}
+	// Two works, and neither is named: the screen says "2 works" itself.
+	if fills := kept["fill"]; len(fills) != 2 || slices.Contains(fills, "Emma") {
+		t.Errorf("the fill jobs are under %q", fills)
+	}
+	if t.Failed() {
+		var all []string
+		for k, v := range kept {
+			all = append(all, fmt.Sprintf("%s=%q", k, v))
+		}
+		slices.Sort(all)
+		t.Log("every job kept:\n" + strings.Join(all, "\n"))
+	}
+}
+
+// ANOTHER READER'S WORK IS NOT NAMED. Bob, holding the ids of alice's book, film
+// and author (a stale link, a guessed number), starts a fill of each work, a
+// check of the book and a fetch of the author. Each job is his to see, and each
+// is kept under nothing: a job's subject is what Past jobs shows, and a title
+// read without asking whose it is would tell him what alice has.
+func TestAJobGivenAnotherReadersIDIsNotNamedAfterWhatItFound(t *testing.T) {
+	srv := newTestServer(t)
+	queueing(t, srv)
+	h := srv.Handler()
+	alice := signupAdmin(t, h)
+	bob := addUser(t, h, alice, "bob")
+	dune := createdID(t, alice, "/books", map[string]any{"title": "Dune", "author": "Frank Herbert"})
+	arrival := createdID(t, alice, "/movies", map[string]any{"title": "Arrival", "media_type": "movie"})
+	alice.mustDo("PUT", "/people", map[string]any{"kind": "author", "name": "Ursula K. Le Guin"}, http.StatusOK)
+	leGuin := recordID(t, alice, "Ursula K. Le Guin")
+
+	for _, start := range []struct {
+		kind   string
+		params map[string]any
+	}{
+		{"fill", map[string]any{"book_ids": []int64{dune}}},
+		{"fill", map[string]any{"movie_ids": []int64{arrival}}},
+		{"reverify", map[string]any{"book_ids": []int64{dune}}},
+		{"people", map[string]any{"ids": []int64{leGuin}}},
+	} {
+		j := bob.mustStart(start.kind, start.params)
+		if j.Subject != "" {
+			t.Errorf("bob's %s of alice's id is kept under %q", start.kind, j.Subject)
+		}
+		bob.waitJob(j.ID, "succeeded")
+	}
+	past := bob.jobs("view=past&limit=50").Jobs
+	if len(past) != 4 {
+		t.Fatalf("bob's Past jobs: %d, want his four", len(past))
+	}
+	for _, j := range past {
+		if j.Subject != "" {
+			t.Errorf("bob's Past jobs shows his %s as %q", j.Kind, j.Subject)
+		}
+	}
+}
+
+// THE JOBS LIST, AS THE SCREENS READ IT (the wire contract's addendum).
+//
+// Settings › Jobs pages Past jobs by the smallest id it has, newest first; the
+// Metadata and People screens ask Current jobs for one kind, to show a run
+// already under way rather than start another; and Current jobs is read every
+// two seconds while anything runs, so a job's JSON carries its params without
+// the lists it was given. Everything is driven through the API as the screens
+// drive it.
+//
+// WHAT IT KNOWS, declared because a test here may not know the code: the queue
+// is given to the server as serve() gives it, with the test's kinds (queueing,
+// jobs_api_test.go), and the fill kind's rules run under a test name with a run
+// that holds (realKind), so its job can be read while it waits; the book
+// supplier's seam (srv.searchBooks, duneSupplier) for the one real fill; the
+// wire fields, which are the contract; and the table of the kinds a request is
+// kept under (jobKinds) and the kinds a person can start (builtinJobKinds),
+// held to the contract's list of the names the screens have words for, because
+// a kind is data that no request lists.
+//
+// What each one guards, in a sentence a person would say: Past jobs pages from
+// the newest, a page at a time, with nothing twice and nothing missed; asking
+// Current jobs for one kind shows only that kind, each marked as mine or not; a
+// job's JSON carries what it was asked in a word and not the lists it was given,
+// wherever it is shown, and running it again still runs it over those lists;
+// and every kind the server keeps a job under is one the screens can name.
+
+func TestPastJobsPageFromTheNewestWithNothingTwice(t *testing.T) {
+	srv := newTestServer(t)
+	queueing(t, srv)
+	h := srv.Handler()
+	alice := signupAdmin(t, h)
+	var made []int64
+	for i := 0; i < 5; i++ {
+		made = append(made, alice.waitJob(alice.mustStart("test.lines", map[string]any{"tag": fmt.Sprint(i)}).ID, "succeeded").ID)
+	}
+	slices.Reverse(made)
+
+	var seen []int64
+	query := "view=past&kind=test.lines&limit=2"
+	for page := 0; ; page++ {
+		got := alice.jobs(query)
+		ids := jobIDs(got.Jobs)
+		if page > 3 || len(ids) == 0 {
+			t.Fatalf("page %d: %v (more %t)", page, ids, got.More)
+		}
+		seen = append(seen, ids...)
+		if !got.More {
+			break
+		}
+		// The next page starts below the smallest id this one has.
+		query = fmt.Sprintf("view=past&kind=test.lines&limit=2&before=%d", ids[len(ids)-1])
+	}
+	if !slices.Equal(seen, made) {
+		t.Fatalf("paged past jobs %v, want every one newest first, once: %v", seen, made)
+	}
+}
+
+func TestAJobsJSONCarriesNoListItWasGivenAndARerunStillRunsOverThem(t *testing.T) {
+	srv := newTestServer(t)
+	q := queueing(t, srv)
+	srv.addJobKind(realKind(t, "fill", "test.fill", q.hold))
+	duneSupplier(srv)
+	h := srv.Handler()
+	alice := signupAdmin(t, h)
+
+	noLists := func(where string, j wireJob) {
+		t.Helper()
+		for k, v := range j.Params {
+			if _, isList := v.([]any); isList {
+				t.Errorf("%s: job #%d's params carry the list %s", where, j.ID, k)
+			}
+		}
+	}
+	held := alice.mustStart("test.fill", map[string]any{"book_ids": []int64{1, 2, 3}, "movie_ids": []int64{4}})
+	alice.waitJob(held.ID, "running")
+	check := alice.mustStart("reverify", map[string]any{"book_ids": []int64{9}, "fills_only": true})
+	noLists("POST /jobs", held)
+	noLists("POST /jobs", check)
+	noLists("GET /jobs/{id}", alice.job(held.ID))
+	for _, j := range alice.jobs("view=current").Jobs {
+		noLists("GET /jobs?view=current", j)
+	}
+	summary := decode[struct {
+		Running wireJob `json:"running"`
+	}](t, alice.mustDo("GET", "/jobs/summary", nil, http.StatusOK))
+	noLists("GET /jobs/summary", summary.Running)
+	// What the screens read of params is still there, and the size of a list is
+	// the job's total.
+	if held.Total != 4 || check.Params["fills_only"] != true {
+		t.Fatalf("the fill's total %d and the check's params %v", held.Total, check.Params)
+	}
+	q.let()
+	alice.waitJob(check.ID, "succeeded")
+
+	// Run again, a job still runs over the lists it was given: a fill of Dune,
+	// its year taken away after, fills it again.
+	dune := createdID(t, alice, "/books", map[string]any{"title": "Dune", "author": "Frank Herbert", "isbn": duneISBN})
+	fill := alice.waitJob(alice.mustStart("fill", map[string]any{"book_ids": []int64{dune}}).ID, "succeeded")
+	year := func() int {
+		return decode[struct {
+			Year int `json:"published_year"`
+		}](t, alice.mustDo("GET", fmt.Sprintf("/books/%d", dune), nil, http.StatusOK)).Year
+	}
+	alice.mustDo("PUT", fmt.Sprintf("/books/%d", dune), map[string]any{"title": "Dune", "author": "Frank Herbert",
+		"isbn": duneISBN, "published_year": 0, "pages": 0}, http.StatusOK)
+	if year() != 0 {
+		t.Fatalf("Dune's year after it was taken away: %d", year())
+	}
+	again := decode[struct {
+		Job wireJob `json:"job"`
+	}](t, alice.mustDo("POST", fmt.Sprintf("/jobs/%d/rerun", fill.ID), nil, http.StatusAccepted)).Job
+	alice.waitJob(again.ID, "succeeded")
+	if year() != 1965 {
+		t.Fatalf("Dune's year after the fill ran again: %d, want it filled again", year())
+	}
+}
+
+// contractKinds is the addendum's list of the kinds the screens have words for;
+// a job of any other kind shows as "Job".
+var contractKinds = []string{
+	"fill", "covers", "people", "reverify", "reverify-apply", "backup", "backup.safety", "import", "import.approve", "library.scan", "restore",
+	"reset", "update.check", "update.apply", "metadata.test", "notify.test", "notify.daily", "signin.oidc",
+	"work.save", "person.save", "character.save", "request", "lookup.book", "lookup.movie", "lookup.images",
+	"lookup.portrait", "lookup.links", "lookup.person", "lookup.reverify", "lookup.cast-image",
+	"lookup.cast-imdb", "lookup.cast-tvdb", "lookup.cast-art", "lookup.signature",
+}
+
+func TestEveryKindTheServerKeepsAJobUnderIsOneTheScreensCanName(t *testing.T) {
+	for pattern, kind := range jobKinds {
+		if !slices.Contains(contractKinds, kind) {
+			t.Errorf("%s is kept as %q, which no screen has words for", pattern, kind)
+		}
+	}
+	for _, k := range builtinJobKinds {
+		if !slices.Contains(contractKinds, k.name) {
+			t.Errorf("the queued kind %q is not one the screens have words for", k.name)
+		}
+		if k.run == nil {
+			t.Errorf("the queued kind %q has no run, so POST /jobs refuses it", k.name)
+		}
+	}
+}
+
+// AN ADMIN BACKS UP AND RESTORES, AND THE SERVER'S JOB HISTORY STAYS THE SERVER'S:
+// the archive they download carries none of it, and the restore keeps what the
+// server had, including what happened after the archive was made.
+//
+// WHAT IT KNOWS, declared because a test here may not know the code: the journal
+// tables' names and columns (jobs, job_logs, system_logs). It writes its rows
+// through srv.Store.DB because no request can make them: one is a job reading
+// running when the restore comes, which a server with a queue never lets happen
+// (the restore waits for a running job to end), so this server stops its queue
+// once the two archives are made — each is a queued job, as every backup is — and
+// the row is written as a crash would leave it; and the marker it looks for has
+// to sit in a job's subject, one of that job's lines and a request line, which
+// keeps no value a request carries. It
+// reads the tables inside each archive, opened with plaintextOf (this package's
+// way of opening a sealed archive the way a person with the password would),
+// because the claim is about the file the admin downloaded and nothing but
+// opening it can show what its tables hold. What the server kept is read back
+// through the API, as the reader and the admin see it once signed in again. The
+// backups, the download, the safety copy and the restore are driven through the
+// API as an admin drives them. The owner rules the carry-over applies are tested
+// one by one in internal/store; this is the path they run on.
+//
+// And for the waiting job a Stop reached before its row could say so: the
+// journey tier's seam TIPPANI_JOBS_HOLD (with TIPPANI_OFFLINE, which it needs),
+// so the job is still waiting when the restore comes, since offline it would have
+// run in milliseconds; and a write of the test's own on srv.Store.DB holding
+// SQLite's lock while Stop is pressed, as a running import's transaction holds it,
+// which is what leaves the Stop in the queue's memory with its row still owed.
+
+// A string nothing else in a library contains, so finding it in an archive's
+// bytes means a journal row rode along.
+const archiveMarker = "Wv-archive-journal-marker-5540"
+
+func TestABackupLeavesTheJobHistoryBehindAndARestoreKeepsTheServersOwn(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	admin := signupAdmin(t, h)
+	addUser(t, h, admin, "bob")
+	var bobID int64
+	if err := srv.Store.DB.QueryRow(`SELECT id FROM users WHERE username = 'bob'`).Scan(&bobID); err != nil {
+		t.Fatal(err)
+	}
+	exec := func(q string, args ...any) {
+		t.Helper()
+		if _, err := srv.Store.DB.Exec(q, args...); err != nil {
+			t.Fatalf("%s: %v", q, err)
+		}
+	}
+	// Written at today's time, so the thirty days the API shows still hold them.
+	now := time.Now().UnixMilli()
+	exec(`INSERT INTO jobs (id, user_id, username, kind, subject, state, created_at, finished_at)
+		VALUES (31, 1, 'alice', 'fill', ?, 'succeeded', ?, ?)`, archiveMarker+" subject", now, now)
+	exec(`INSERT INTO job_logs (id, job_id, at, level, line) VALUES (501, 31, ?, 'info', ?)`, now, archiveMarker+" job line")
+	exec(`INSERT INTO system_logs (id, at, level, line) VALUES (601, ?, 'request', ?)`, now, archiveMarker+" request line")
+
+	// The kept archive, as the Server card's Download hands it over.
+	backupNow(admin)
+	kept := admin.mustDo("GET", "/admin/backup/download", nil, http.StatusOK).Body.Bytes()
+	assertNoJournal(t, "the kept backup", plaintextOf(t, kept, testPw))
+
+	// The safety copy the restore insists on first is an archive too.
+	safety := takeSafetyCopy(t, admin, map[string]string{"passphrase": "safety-copy-1"})
+	assertNoJournal(t, "the safety copy", plaintextOf(t, safety, "safety-copy-1"))
+
+	// After the archives: bob starts a job that is still running when the restore
+	// comes (the header's "this server stops its queue").
+	unqueued(t, srv)
+	const running = 132
+	exec(`INSERT INTO jobs (id, user_id, username, kind, state, created_at, started_at)
+		VALUES (?, ?, 'bob', 'covers', 'running', ?, ?)`, running, bobID, now, now)
+
+	admin.mustDo("POST", "/admin/restore", map[string]any{"password": testPw}, http.StatusOK)
+
+	// The restore signed everybody out; both are in the archive.
+	signIn := func(name string) *testClient {
+		c := &testClient{t: t, h: h}
+		c.cookie = cookieOf(t, c.mustDo("POST", "/auth/login", map[string]string{"username": name, "password": testPw}, http.StatusOK))
+		return c
+	}
+	alice, bob := signIn("alice"), signIn("bob")
+
+	// The restore kept the server's history, not the archive's empty one — both
+	// jobs, the one made after the archive included, under their own ids.
+	type poll struct {
+		Job   wireJob `json:"job"`
+		Lines []struct {
+			ID   int64  `json:"id"`
+			Line string `json:"line"`
+		} `json:"lines"`
+	}
+	// Four: the two written above, and the backup and the safety copy that made
+	// the archives.
+	if all := alice.jobs("view=past"); len(all.Jobs) != 4 || !slices.Contains(jobIDs(all.Jobs), 31) || !slices.Contains(jobIDs(all.Jobs), running) {
+		t.Fatalf("past jobs after the restore: %v, want the server's four", jobIDs(all.Jobs))
+	}
+	finished := decode[poll](t, alice.mustDo("GET", "/jobs/31", nil, http.StatusOK))
+	if j := finished.Job; j.State != "succeeded" || !j.Own {
+		t.Fatalf("alice's finished job after the restore: %+v", j)
+	}
+	if l := finished.Lines; len(l) != 1 || l[0].ID != 501 || l[0].Line != archiveMarker+" job line" {
+		t.Fatalf("alice's job's log after the restore: %+v, want its one line under its id", l)
+	}
+	// Bob is in the archive under the same id and name, so the job stays his; it
+	// was running, and nothing resumes on its own.
+	if j := bob.job(running); j.State != "interrupted" || !j.Own {
+		t.Fatalf("bob's running job after the restore: %+v, want interrupted and still his", j)
+	}
+	carried := false
+	for _, l := range alice.logs(url.Values{"all": {"1"}}).Lines {
+		carried = carried || (l.ID == 601 && l.Line == archiveMarker+" request line")
+	}
+	if !carried {
+		t.Fatal("the system log's line did not come through the restore under its id")
+	}
+}
+
+// A WAITING JOB A STOP STOPPED READS STOPPED AFTER A RESTORE, NOT INTERRUPTED, when
+// the Stop answered before its row could say so. The reader was told stopped —
+// the press's own answer, and every read of the queue after it — and a restore
+// that carried the row on as it was, still waiting, turned it into a job the
+// restore interrupted.
+//
+// Mutation: the swap's write of the held rows (internal/jobs writeHeldBeforeSwap)
+// made to do nothing: red, the job reads interrupted.
+func TestAWaitingJobAStopStoppedReadsStoppedAfterARestore(t *testing.T) {
+	srv := newTestServer(t)
+	queueing(t, srv)
+	h := srv.Handler()
+	admin := signupAdmin(t, h)
+	backupNow(admin)
+	safetyBackup(t, admin)
+
+	t.Setenv(outbound.EnvVar, "1")
+	t.Setenv(jobs.HoldEnv, "1")
+	w := admin.mustStart("test.hold", map[string]any{"tag": "waiting"})
+	tx, err := srv.Store.DB.Begin() // _txlock=immediate: the lock is taken here
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(`INSERT INTO system_logs (at, level, line) VALUES (?, 'info', 'somebody else')`, time.Now().UnixMilli()); err != nil {
+		t.Fatal(err)
+	}
+	pressed := time.Now().UnixMilli()
+	stopped := decode[struct {
+		Job wireJob `json:"job"`
+	}](t, admin.mustDo("POST", fmt.Sprintf("/jobs/%d/stop", w.ID), nil, http.StatusOK)).Job
+	if err := tx.Rollback(); err != nil {
+		t.Fatal(err)
+	}
+	if stopped.State != "stopped" {
+		t.Fatalf("the Stop's own answer reads the job %s", stopped.State)
+	}
+	var row string
+	if err := srv.Store.DB.QueryRow(`SELECT state FROM jobs WHERE id = ?`, w.ID).Scan(&row); err != nil || row != "queued" {
+		t.Fatalf("the stopped job's row reads %q (%v) before the restore; the test needs it still owed", row, err)
+	}
+	// Its line written before the restore: a line still in the buffer when the
+	// files are swapped is not this test's subject.
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := srv.Logbook.Flush(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	admin.mustDo("POST", "/admin/restore", map[string]any{"password": testPw}, http.StatusOK)
+	again := &testClient{t: t, h: h}
+	again.cookie = cookieOf(t, again.mustDo("POST", "/auth/login", map[string]string{"username": "alice", "password": testPw}, http.StatusOK))
+
+	got := again.job(w.ID)
+	if got.State != "stopped" {
+		t.Fatalf("after the restore the job its Stop stopped reads %s", got.State)
+	}
+	if got.FinishedAt == nil || *got.FinishedAt < pressed || *got.FinishedAt > pressed+5000 {
+		t.Fatalf("it reads stopped at %v, want the moment of the press (%d)", got.FinishedAt, pressed)
+	}
+	if got.StartedAt != nil {
+		t.Fatalf("the stopped job was started: %+v", got)
+	}
+	saying(t, jobLines(again, w.ID), "alice stopped it before it started")
+}
+
+// A JOB A RESTORE CARRIED OVER IS HISTORY: IT IS READ, AND NOTHING ACTS ON IT AGAIN.
+// Its params name the replaced library's rows by id — the works a fill was
+// given, the records a people fetch, the fields an apply writes, the staged
+// quotes and batch bound an approval took — and in the restored library the same
+// ids can be other rows. So after the restore none of the jobs from before it is
+// offered Run again, or run again when asked, whatever its kind; a check's
+// findings are not reviewed against the restored rows, nor applied in its name;
+// an import stopped before the restore lets go of its upload, which nothing can
+// run again; and a job made after the restore is its own, offered Run again as
+// any is. Before the restore every one of them was offered Run again, which is
+// what makes the after half mean something.
+//
+// Beyond the header: a finished job of each of the other kinds is written into
+// the journal as its run leaves it (interrupted, or succeeded for the check,
+// with the findings its run stores), since a real run of each goes to the
+// suppliers; the import is a real upload, stopped while it waited behind the
+// test's own job (queueing).
+//
+// Mutation: the carry's mark (store.CarriedThroughKey) not written: red, every
+// job from before the restore is offered Run again.
+func TestAJobARestoreCarriedOverIsNotRunAgainOrReviewed(t *testing.T) {
+	srv := newTestServer(t)
+	q := queueing(t, srv)
+	h := srv.Handler()
+	admin := signupAdmin(t, h)
+	book := decode[struct {
+		ID int64 `json:"id"`
+	}](t, admin.mustDo("POST", "/books", map[string]any{"title": "Dune", "author": "Frank Herbert"}, http.StatusCreated)).ID
+	backupNow(admin)
+	safetyBackup(t, admin)
+	uid := accountID(t, admin, "alice")
+
+	now := time.Now().UnixMilli()
+	write := func(kind, state, params, result, counts string) int64 {
+		t.Helper()
+		var id int64
+		if err := srv.Store.DB.QueryRow(`INSERT INTO jobs (user_id, username, kind, state, params, result, counts, created_at, started_at, finished_at)
+			VALUES (?, 'alice', ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`, uid, kind, state, params, result, counts, now, now, now).Scan(&id); err != nil {
+			t.Fatal(err)
+		}
+		return id
+	}
+	item := fmt.Sprintf(`{"type":"book","id":%d,"set":{"description":"A desert planet."}}`, book)
+	before := map[string]int64{
+		"fill":           write("fill", "interrupted", fmt.Sprintf(`{"book_ids":[%d],"movie_ids":[]}`, book), "", "{}"),
+		"covers":         write("covers", "interrupted", `{"missing_only":false}`, "", "{}"),
+		"people":         write("people", "interrupted", `{"ids":[1]}`, "", "{}"),
+		"reverify-apply": write("reverify-apply", "interrupted", `{"items":[`+item+`]}`, "", "{}"),
+		"backup":         write("backup", "interrupted", `{}`, "", "{}"),
+		"import.approve": write("import.approve", "interrupted", `{"all":true,"through":1}`, "", "{}"),
+		"reverify": write("reverify", "succeeded", fmt.Sprintf(`{"book_ids":[%d],"movie_ids":[],"people":[],"fills_only":false}`, book),
+			fmt.Sprintf(`[{"type":"book","id":%d,"title":"Dune","status":"ok","diffs":[{"field":"description","stored":"","fresh":"A desert planet."}]}]`, book),
+			`{"items":1,"changes":1}`),
+	}
+	// The import: waiting behind the test's own job, stopped there, its upload kept.
+	ahead := admin.mustStart("test.hold", map[string]any{"tag": "ahead"})
+	admin.waitJob(ahead.ID, "running")
+	imp := queuedJob(t, admin.uploadOnly("/import/markdown", "sandworm.md", []byte(stagedBookMD)))
+	admin.mustDo("POST", fmt.Sprintf("/jobs/%d/stop", imp.ID), nil, http.StatusOK)
+	q.let()
+	admin.waitJob(ahead.ID, "succeeded")
+	before["import"] = imp.ID
+
+	for kind, id := range before {
+		if j := admin.job(id); !j.Rerunnable || j.Carried {
+			t.Fatalf("before the restore, the %s job is %+v; the test needs it offered Run again", kind, j)
+		}
+	}
+	admin.mustDo("GET", fmt.Sprintf("/jobs/%d/result", before["reverify"]), nil, http.StatusOK)
+	if left := spooled(t, srv); len(left) != 1 {
+		t.Fatalf("the spool before the restore: %v, want the stopped import's upload", left)
+	}
+
+	admin.mustDo("POST", "/admin/restore", map[string]any{"password": testPw}, http.StatusOK)
+	again := &testClient{t: t, h: h}
+	again.cookie = cookieOf(t, again.mustDo("POST", "/auth/login", map[string]string{"username": "alice", "password": testPw}, http.StatusOK))
+
+	for kind, id := range before {
+		j := again.job(id)
+		if !j.Own || !j.Carried || j.Rerunnable {
+			t.Errorf("after the restore, the %s job from before it is %+v; want still alice's, carried, and not offered Run again", kind, j)
+		}
+		// A backup's rerun asks for the password again; the answer is the same.
+		if rec := again.do("POST", fmt.Sprintf("/jobs/%d/rerun", id), map[string]any{"password": testPw}); rec.Code != http.StatusConflict {
+			t.Errorf("Run again on the %s job from before the restore: %d %s, want 409", kind, rec.Code, rec.Body)
+		}
+	}
+	if rec := again.do("GET", fmt.Sprintf("/jobs/%d/result", before["reverify"]), nil); rec.Code != http.StatusConflict ||
+		!bytes.Contains(rec.Body.Bytes(), []byte("before the library was restored")) {
+		t.Fatalf("the review of a check from before the restore: %d %s, want it refused", rec.Code, rec.Body)
+	}
+	if rec := again.startJob("reverify-apply", map[string]any{"items": []json.RawMessage{json.RawMessage(item)}, "from_job": before["reverify"]}); rec.Code != http.StatusBadRequest {
+		t.Fatalf("an apply in the name of a check from before the restore: %d %s, want 400", rec.Code, rec.Body)
+	}
+	if left := spooled(t, srv); len(left) != 0 {
+		t.Fatalf("the spool after the restore: %v, want the carried import's upload gone", left)
+	}
+
+	// A job made after the restore is offered Run again as any is.
+	after := again.jobEnded(again.mustStart("test.fail", map[string]any{"tag": "after"}).ID)
+	if after.Carried || !after.Rerunnable {
+		t.Fatalf("a job made after the restore: %+v, want its own and offered Run again", after)
+	}
+	again.mustDo("POST", fmt.Sprintf("/jobs/%d/rerun", after.ID), nil, http.StatusAccepted)
+}
+
+// assertNoJournal opens the database inside a plaintext archive and checks that
+// no journal row, and no byte of one, came along.
+func assertNoJournal(t *testing.T, what string, plain []byte) {
+	t.Helper()
+	gz, err := gzip.NewReader(bytes.NewReader(plain))
+	if err != nil {
+		t.Fatalf("%s: gunzip: %v", what, err)
+	}
+	tr := tar.NewReader(gz)
+	var dbBytes []byte
+	for {
+		hdr, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatalf("%s: tar: %v", what, err)
+		}
+		if hdr.Name == "tippani.db" {
+			if dbBytes, err = io.ReadAll(tr); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	if dbBytes == nil {
+		t.Fatalf("%s: no tippani.db in the archive", what)
+	}
+	if bytes.Contains(dbBytes, []byte(archiveMarker)) {
+		t.Fatalf("%s: the archive's database holds journal text", what)
+	}
+	path := filepath.Join(t.TempDir(), "tippani.db")
+	if err := os.WriteFile(path, dbBytes, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	db, err := sql.Open("sqlite", "file:"+path+"?mode=ro")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	for _, table := range []string{"jobs", "job_logs", "system_logs"} {
+		var n int
+		if err := db.QueryRow(`SELECT count(*) FROM ` + table).Scan(&n); err != nil || n != 0 {
+			t.Fatalf("%s: %s holds %d row(s) (%v)", what, table, n, err)
+		}
+	}
+}
+
+// AN ADMIN DELETES A READER, AND THE READER'S JOBS STAY — AS THE ADMIN'S.
+//
+// Driven the way a reader and an admin drive it: each starts a job through the
+// jobs API, and the account is made, deleted and restored from the bin through
+// the API.
+//
+// WHAT IT KNOWS, declared because a test here may not know the code: what
+// jobs_api_test.go's header declares (the queue set up as serve() sets it, the
+// test's own kinds, the wire field names), and the `jobs` table's name and its
+// user_id and username columns, which it reads through srv.Store.DB. The claim is
+// that the job belongs to nobody, and the wire cannot say that: an admin sees a
+// job owned by nobody and one owned by another reader alike, as not hers, under
+// the name it was started as. That it is not handed back when the account is is
+// said on the wire too, and read there.
+//
+// The other delete path, `tippani user del`, has its own test in cmd/tippani; the
+// trigger both rely on is 0079's, tested at the statement in internal/store.
+
+func TestAnAdminDeletingAReaderLeavesTheirJobsToTheAdmin(t *testing.T) {
+	srv := newTestServer(t)
+	queueing(t, srv)
+	h := srv.Handler()
+	admin := signupAdmin(t, h)
+	bob := addUser(t, h, admin, "bob")
+	bobsJob := bob.waitJob(bob.mustStart("test.lines", map[string]any{"tag": "bob's"}).ID, "succeeded")
+	alicesJob := admin.waitJob(admin.mustStart("test.lines", map[string]any{"tag": "alice's"}).ID, "succeeded")
+	aliceID := accountID(t, admin, "alice")
+
+	admin.mustDo("DELETE", "/admin/users/"+itoa(accountID(t, admin, "bob")), nil, http.StatusOK)
+
+	owner := func(id int64) (uid *int64, name string) {
+		t.Helper()
+		if err := srv.Store.DB.QueryRow(`SELECT user_id, username FROM jobs WHERE id = ?`, id).Scan(&uid, &name); err != nil {
+			t.Fatalf("job %d after the delete: %v", id, err)
+		}
+		return uid, name
+	}
+	if uid, name := owner(bobsJob.ID); uid != nil || name != "bob" {
+		t.Fatalf("bob's job after his account went: owned=%v username=%q, want no owner and his name kept", uid != nil, name)
+	}
+	if uid, _ := owner(alicesJob.ID); uid == nil || *uid != aliceID {
+		t.Fatal("deleting bob changed the owner of alice's job")
+	}
+	// The admin still has it, with its log, under his name.
+	if j := admin.job(bobsJob.ID); j.Username != "bob" || j.Own || j.State != "succeeded" {
+		t.Fatalf("bob's job as the admin sees it after the delete: %+v", j)
+	}
+
+	// Putting the account back from the bin brings bob back under his old id, and
+	// must not fail over the history it never took with it (the job table is not
+	// in the account's snapshot, so there is no row to collide with) — nor hand the
+	// job back: once let go, a job's owner is the admin.
+	bin := binOf(t, admin).Trash
+	if len(bin) != 1 || bin[0].Kind != "account" {
+		t.Fatalf("admin's bin: %+v", bin)
+	}
+	restore(t, admin, bin[0].ID, http.StatusOK)
+	if uid, _ := owner(bobsJob.ID); uid != nil {
+		t.Fatalf("restoring bob's account re-attached his old job to id %d", *uid)
+	}
+	back := &testClient{t: t, h: h}
+	back.cookie = cookieOf(t, back.mustDo("POST", "/auth/login", map[string]string{"username": "bob", "password": testPw}, http.StatusOK))
+	back.mustDo("GET", fmt.Sprintf("/jobs/%d", bobsJob.ID), nil, http.StatusNotFound)
+	if past := back.jobs("view=past"); len(past.Jobs) != 0 {
+		t.Fatalf("bob, back from the bin, has jobs: %+v", past.Jobs)
+	}
+}
+
+// WHAT AN ADMIN DOES TO THE WHOLE SERVER IS KEPT AS A JOB: a backup through the
+// API, which queues as the Server card's does, and a safety copy, which queues
+// too, and, though they run in their request, an update, a restore (the
+// first-run one too) and a factory reset, each found afterwards in Past jobs.
+//
+// Driven through the API as the Server and Updates cards drive them, and read
+// back through GET /jobs as Settings › Jobs reads it.
+//
+// WHAT IT KNOWS, declared: what jobs_api_test.go's header declares (the queue and
+// its logbook set up as serve() sets them, the wire field names), and the
+// update's Docker client stubbed as update_test.go stubs it (srv.newDocker).
+//
+// What each one guards, in a sentence a person would say: each of those is in
+// Past jobs afterwards, as queued or as having run in its request, named after
+// what it was about; a restore's and a reset's belong to nobody, since the account that
+// pressed them belonged to the database they replaced, and an admin still sees
+// them; a restore keeps the jobs from before it, and a reset keeps nothing but
+// its own.
+
+// pastJob waits for a job of kind to be in c's past jobs, as the list is read
+// again until it shows, and returns the newest.
+func pastJob(c *testClient, kind string) wireJob {
+	c.t.Helper()
+	deadline := time.Now().Add(20 * time.Second)
+	for {
+		if list := c.jobs("view=past&kind=" + kind).Jobs; len(list) > 0 {
+			return list[0]
+		}
+		if time.Now().After(deadline) {
+			c.t.Fatalf("no %s in past jobs", kind)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+func jobKindsOf(list []wireJob) []string {
+	var out []string
+	for _, j := range list {
+		out = append(out, j.Kind)
+	}
+	slices.Sort(out)
+	return out
+}
+
+func TestWhatAnAdminDoesToTheWholeServerIsKeptAsAJob(t *testing.T) {
+	srv := newTestServer(t)
+	queueing(t, srv)
+	fake := &fakeDocker{avail: true, name: "tippani", image: "ghcr.io/aaronified/tippani:latest"}
+	srv.newDocker = func() UpdateDocker { return fake }
+	h := srv.Handler()
+	admin := signupAdmin(t, h)
+
+	backupNow(admin)
+	kept := decode[struct {
+		Backup struct {
+			Name string `json:"name"`
+		} `json:"backup"`
+	}](t, admin.mustDo("GET", "/admin/backup", nil, http.StatusOK)).Backup.Name
+	safetyBackup(t, admin)
+
+	// The API's backup is the Server card's job, queued like it, and the safety
+	// copy is queued too.
+	for _, kind := range []string{"backup", "backup.safety"} {
+		j := pastJob(admin, kind)
+		if !j.Queued || !j.Own || j.State != "succeeded" || j.Subject != "" || j.Username != "alice" {
+			t.Fatalf("the %s in past jobs: %+v", kind, j)
+		}
+	}
+
+	admin.mustDo("POST", "/admin/restore", map[string]string{"password": testPw}, http.StatusOK)
+	again := &testClient{t: t, h: h}
+	again.cookie = cookieOf(t, again.mustDo("POST", "/auth/login", map[string]string{"username": "alice", "password": testPw}, http.StatusOK))
+	restore := pastJob(again, "restore")
+	if restore.Queued || restore.Own || restore.Username != "alice" || restore.Subject != kept || restore.State != "succeeded" {
+		t.Fatalf("the restore in past jobs: %+v, want alice's, belonging to nobody now, from %s", restore, kept)
+	}
+	// The history from before it is still there, and still hers: she is in the
+	// archive under the same id and name.
+	if j := pastJob(again, "backup"); !j.Own {
+		t.Fatalf("the backup from before the restore: %+v", j)
+	}
+
+	safetyBackup(t, again)
+	again.mustDo("POST", "/admin/reset", map[string]string{"confirm": "RESET"}, http.StatusOK)
+	fresh := signupAdmin(t, h)
+	reset := pastJob(fresh, "reset")
+	if reset.Own || reset.Username != "alice" || reset.State != "succeeded" {
+		t.Fatalf("the reset in past jobs: %+v", reset)
+	}
+	if got := jobKindsOf(fresh.jobs("view=past").Jobs); !slices.Equal(got, []string{"reset"}) {
+		t.Fatalf("past jobs after a factory reset: %v, want the reset alone", got)
+	}
+
+	// The update last, since a launched one shuts the queue until the server is
+	// replaced, and a restore or a reset after it would be refused.
+	fresh.mustDo("POST", "/admin/update/apply", map[string]string{"confirm": "UPDATE"}, http.StatusOK)
+	if j := pastJob(fresh, "update.apply"); j.Queued || !j.Own || j.State != "succeeded" || j.Subject != fake.image || j.Username != "alice" {
+		t.Fatalf("the update in past jobs: %+v", j)
+	}
+}
+
+func TestTheFirstRunRestoreIsKeptAsAJob(t *testing.T) {
+	old := newTestServer(t)
+	oh := old.Handler()
+	oldAdmin := signupAdmin(t, oh)
+	backupNow(oldAdmin)
+	archive := oldAdmin.mustDo("GET", "/admin/backup/download", nil, http.StatusOK).Body.Bytes()
+
+	srv := newTestServer(t)
+	queueing(t, srv)
+	h := srv.Handler()
+	anon := &testClient{t: t, h: h}
+	if rec := anon.restoreUpload("/auth/restore/upload", pwUpload(), archive); rec.Code != http.StatusOK {
+		t.Fatalf("the first-run restore: %d %s", rec.Code, rec.Body)
+	}
+	admin := &testClient{t: t, h: h}
+	admin.cookie = cookieOf(t, admin.mustDo("POST", "/auth/login", map[string]string{"username": "alice", "password": testPw}, http.StatusOK))
+	j := pastJob(admin, "restore")
+	if j.Queued || j.Own || j.Username != "" || j.Subject != "backup"+backupExt || j.State != "succeeded" {
+		t.Fatalf("the first-run restore in past jobs: %+v", j)
+	}
+	if n := len(admin.jobs(fmt.Sprintf("view=past&kind=%s", "restore")).Jobs); n != 1 {
+		t.Fatalf("%d restores kept, want 1", n)
+	}
+}
+
+// FILL GAPS, AS A JOB: a selection's Fill gaps, started as the screens start it
+// (POST /jobs {kind: "fill"}), watched as Settings › Jobs watches it, and the
+// library read back as its pages read it.
+//
+// WHAT IT KNOWS, declared because a test here may not know the code:
+//   - the queue is given to the server as serve() gives it (queueing,
+//     jobs_api_test.go), since no request starts the server;
+//   - the book supplier is the server's seam (srv.searchBooks), because a test
+//     may not reach Google Books or Open Library; one test holds it until its
+//     request is cancelled, as a supplier that never answers would be, so that
+//     Stop is pressed with a work in hand;
+//   - Pushover is a stub of its API (newFakePushover), for the same reason, and
+//     one test holds its answer, so that Stop is pressed after the last work;
+//   - the job's wire fields, and the names of its counts, which are the contract
+//     the screens are built to: the SPA's jobs.js reads counts by those names
+//     (COUNT_KEYS and jobOutcome), so a count spelled otherwise is a count the
+//     screen shows as nothing.
+//
+// What each one guards, in a sentence a person would say: a fill fills only what
+// is missing, says in its log what it did to each work, and counts fields filled,
+// works that failed and works that need a Look up apart, under the names the
+// screens read; Stop ends it at once, what it had filled stays filled, and the
+// work in hand is left untouched, and a Stop pressed once its last work is
+// written leaves it finished, not stopped; and a long fill tells the phone when
+// it reaches its end, not when it is stopped.
+
+// duneSupplier is a book supplier that knows every ISBN it is asked about as
+// Frank Herbert's Dune, 1965, 412 pages, and knows nothing by title alone.
+const duneISBN, messiahISBN = "9780441013593", "9780441172696"
+
+func duneSupplier(srv *Server) {
+	srv.searchBooks = func(_ context.Context, isbn, _, _, _ string) ([]metadata.BookCandidate, error) {
+		if isbn == "" {
+			return nil, nil
+		}
+		return []metadata.BookCandidate{{Source: "google", Title: "Dune", Author: "Frank Herbert",
+			ISBN13: isbn, PublishedYear: 1965, Pages: 412}}, nil
+	}
+}
+
+func createdID(t *testing.T, c *testClient, path string, body map[string]any) int64 {
+	t.Helper()
+	return decode[struct {
+		ID int64 `json:"id"`
+	}](t, c.mustDo("POST", path, body, http.StatusCreated)).ID
+}
+
+// logOf is a job's whole log as its pane reads it, one string per line.
+func logOf(t *testing.T, c *testClient, id int64) []string {
+	t.Helper()
+	page := decode[struct {
+		Lines []struct {
+			Level string `json:"level"`
+			Line  string `json:"line"`
+		} `json:"lines"`
+	}](t, c.mustDo("GET", fmt.Sprintf("/jobs/%d?log_after=0", id), nil, http.StatusOK))
+	var out []string
+	for _, l := range page.Lines {
+		out = append(out, l.Level+" "+l.Line)
+	}
+	return out
+}
+
+// countsAre fails unless a job's counts are exactly want: the names the screens
+// read, and nothing else under them.
+func countsAre(t *testing.T, j wireJob, want map[string]any) {
+	t.Helper()
+	var got, names []string
+	for k, v := range j.Counts {
+		got = append(got, fmt.Sprintf("%s=%v", k, v))
+	}
+	for k, v := range want {
+		names = append(names, fmt.Sprintf("%s=%v", k, v))
+	}
+	sort.Strings(got)
+	sort.Strings(names)
+	if !slices.Equal(got, names) {
+		t.Fatalf("%s job #%d counts %v, want exactly %v", j.Kind, j.ID, got, names)
+	}
+}
+
+func TestAFillJobFillsWhatIsMissingAndSaysWhatItDidToEachWork(t *testing.T) {
+	srv := newTestServer(t)
+	queueing(t, srv)
+	duneSupplier(srv)
+	h := srv.Handler()
+	alice := signupAdmin(t, h)
+	bob := addUser(t, h, alice, "bob")
+
+	dune := createdID(t, alice, "/books", map[string]any{"title": "Dune", "author": "Frank Herbert", "isbn": duneISBN})
+	messiah := createdID(t, alice, "/books", map[string]any{"title": "Dune Messiah", "author": "Frank Herbert"})
+	bobs := createdID(t, bob, "/books", map[string]any{"title": "Bob's book", "author": "Someone"})
+
+	job := alice.waitJob(alice.mustStart("fill", map[string]any{"book_ids": []int64{dune, messiah, bobs}}).ID, "succeeded")
+	if job.Done != 3 || job.Total != 3 {
+		t.Fatalf("the fill's progress: %d of %d", job.Done, job.Total)
+	}
+	// Two fields on Dune; bob's book is not alice's to fill, which is a failure;
+	// Dune Messiah has no ISBN to ask with, which is not.
+	countsAre(t, job, map[string]any{"fields": float64(2), "failed": float64(1), "unpinned": float64(1)})
+
+	log := strings.Join(logOf(t, alice, job.ID), "\n")
+	for _, want := range []string{
+		"info «Dune» — filled year, pages",
+		"info «Dune Messiah» — unpinned, so there is nothing to ask",
+		fmt.Sprintf("warn book #%d — not found", bobs),
+	} {
+		if !strings.Contains(log, want) {
+			t.Errorf("the fill's log has no %q:\n%s", want, log)
+		}
+	}
+	if strings.Contains(log, "Bob's book") {
+		t.Errorf("alice's fill names bob's book:\n%s", log)
+	}
+
+	got := decode[struct {
+		Year  int `json:"published_year"`
+		Pages int `json:"pages"`
+	}](t, alice.mustDo("GET", fmt.Sprintf("/books/%d", dune), nil, http.StatusOK))
+	if got.Year != 1965 || got.Pages != 412 {
+		t.Fatalf("Dune after the fill: %+v", got)
+	}
+}
+
+// A Stop pressed while the second work is being looked up ends the fill there:
+// the first work keeps what it was filled with, and is counted; the second, whose
+// lookup the Stop cut off, is left as it was and is counted nowhere.
+func TestAFillJobStoppedWithAWorkInHandKeepsWhatItFilledAndLeavesThatWork(t *testing.T) {
+	srv := newTestServer(t)
+	queueing(t, srv)
+	duneSupplier(srv)
+	answer := srv.searchBooks
+	asked := make(chan struct{}, 1)
+	srv.searchBooks = func(ctx context.Context, isbn, title, author, key string) ([]metadata.BookCandidate, error) {
+		if isbn == messiahISBN {
+			asked <- struct{}{}
+			<-ctx.Done() // the second work's supplier never answers
+			return nil, ctx.Err()
+		}
+		return answer(ctx, isbn, title, author, key)
+	}
+	h := srv.Handler()
+	alice := signupAdmin(t, h)
+	first := createdID(t, alice, "/books", map[string]any{"title": "Dune", "author": "Frank Herbert", "isbn": duneISBN})
+	second := createdID(t, alice, "/books", map[string]any{"title": "Dune", "author": "Frank Herbert", "isbn": messiahISBN})
+
+	job := alice.mustStart("fill", map[string]any{"book_ids": []int64{first, second}})
+	select {
+	case <-asked:
+	case <-time.After(20 * time.Second):
+		t.Fatal("the fill never asked about the second work")
+	}
+	alice.mustDo("POST", fmt.Sprintf("/jobs/%d/stop", job.ID), nil, http.StatusOK)
+	stopped := alice.waitJob(job.ID, "stopped")
+	if stopped.Done != 1 {
+		t.Fatalf("stopped after %d of %d works, want the one finished before the Stop", stopped.Done, stopped.Total)
+	}
+	countsAre(t, stopped, map[string]any{"fields": float64(2), "failed": float64(0), "unpinned": float64(0)})
+
+	year := func(id int64) int {
+		return decode[struct {
+			Year int `json:"published_year"`
+		}](t, alice.mustDo("GET", fmt.Sprintf("/books/%d", id), nil, http.StatusOK)).Year
+	}
+	if year(first) != 1965 || year(second) != 0 {
+		t.Fatalf("after the stop: the first book's year %d, the second's %d; want the first filled and the second untouched",
+			year(first), year(second))
+	}
+	if log := strings.Join(logOf(t, alice, job.ID), "\n"); !strings.Contains(log, "«Dune» — left untouched") {
+		t.Errorf("the fill's log does not say which work it left as it was:\n%s", log)
+	}
+}
+
+// A STOP THAT LANDS ONCE THE LAST WORK IS WRITTEN HAS NOTHING LEFT TO STOP. A long
+// fill tells the phone it has finished once its last work is written, and a Stop
+// pressed while that message is on its way finds a fill that has done everything
+// it was given: it succeeded, with every work filled and the message sent; it is
+// not a stopped fill.
+func TestAFillStoppedOnceItsLastWorkIsWrittenHasFinished(t *testing.T) {
+	srv := newTestServer(t)
+	queueing(t, srv)
+	srv.PushoverToken = "azGDORePK8gMaC0QOYAMyEEuzJnyUi"
+	duneSupplier(srv)
+	sending, sent := make(chan struct{}, 1), make(chan struct{})
+	var said atomic.Value
+	pushover := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = r.ParseForm()
+		said.Store(r.PostForm.Get("message"))
+		sending <- struct{}{}
+		<-sent // the message is on its way when the Stop is pressed
+		_, _ = w.Write([]byte(`{"status":1}`))
+	}))
+	t.Cleanup(pushover.Close)
+	srv.PushoverAPI = pushover.URL
+	h := srv.Handler()
+	alice := signupAdmin(t, h)
+	alice.mustDo("PUT", "/auth/notifications", map[string]any{"pushover_user": testPushoverUser}, http.StatusOK)
+	dune := createdID(t, alice, "/books", map[string]any{"title": "Dune", "author": "Frank Herbert", "isbn": duneISBN})
+	ids := []int64{dune}
+	for i := 1; i < notifyFetchMin; i++ {
+		ids = append(ids, createdID(t, alice, "/books", map[string]any{"title": fmt.Sprintf("Book %02d", i), "author": "Someone"}))
+	}
+
+	job := alice.mustStart("fill", map[string]any{"book_ids": ids})
+	select {
+	case <-sending:
+	case <-time.After(20 * time.Second):
+		t.Fatal("the fill never told the phone it had finished")
+	}
+	alice.mustDo("POST", fmt.Sprintf("/jobs/%d/stop", job.ID), nil, http.StatusOK)
+	close(sent)
+	done := alice.waitJob(job.ID, "succeeded")
+	if done.Done != len(ids) || done.Total != len(ids) {
+		t.Fatalf("the fill's progress: %d of %d", done.Done, done.Total)
+	}
+	countsAre(t, done, map[string]any{"fields": float64(2), "failed": float64(0), "unpinned": float64(len(ids) - 1)})
+	if log := strings.Join(logOf(t, alice, job.ID), "\n"); strings.HasSuffix(log, "stopped") {
+		t.Errorf("a fill that did every work ends its log saying it stopped:\n%s", log)
+	}
+	if got := said.Load(); got != fmt.Sprintf("2 fields filled across %d works.", len(ids)) {
+		t.Errorf("the phone was told %q", got)
+	}
+	year := decode[struct {
+		Year int `json:"published_year"`
+	}](t, alice.mustDo("GET", fmt.Sprintf("/books/%d", dune), nil, http.StatusOK)).Year
+	if year != 1965 {
+		t.Fatalf("Dune's year after the fill: %d", year)
 	}
 }

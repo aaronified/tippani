@@ -779,4 +779,3 @@ func TestCoversRefetchReplacesLowRes(t *testing.T) {
 		t.Fatalf("cover changed to a worse image: %q (err %v)", cover, err)
 	}
 }
-

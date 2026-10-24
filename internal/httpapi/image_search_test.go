@@ -1,5 +1,20 @@
 package httpapi
 
+import (
+	"bytes"
+	"context"
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+	"tippani/internal/metadata"
+)
+
 // POST /images/search — the picture strip behind a cover, a poster and a
 // portrait picker.
 //
@@ -8,16 +23,6 @@ package httpapi
 // still answers (and says so), one source failing does not take the others with
 // it, the query names what is being looked for, and no candidate is offered
 // without something behind it.
-
-import (
-	"fmt"
-	"net/http"
-	"net/http/httptest"
-	"strings"
-	"testing"
-
-	"tippani/internal/metadata"
-)
 
 type imageSearchResp struct {
 	Images []struct {
@@ -293,5 +298,163 @@ func TestAmazonIsNotConsultedForFaces(t *testing.T) {
 					got.Sources.Amazon, tc.kind, tc.want)
 			}
 		})
+	}
+}
+
+// A PICTURE CHOSEN FROM A SEARCH CAN BE FRAMED BEFORE THE FORM IS SAVED.
+//
+// What a person would say: I picked a cover from the strip, and I can move it about in
+// its frame straight away — nothing is saved until I say so, and looking at pictures I
+// then do not use leaves nothing behind.
+//
+// What the test knows, declared: the route is POST /images/preview {url} -> {image}, and
+// srv.fetchUserImage is the server's own seam for the download, because a test may not
+// reach a supplier. The reply is a data: URL because that is the only form the page may
+// draw and read back (its img-src is 'self' and data:).
+
+func stubUserImage(srv *Server, calls *[]string, payload []byte) {
+	srv.fetchUserImage = func(_ context.Context, rawURL, dir string) (string, error) {
+		*calls = append(*calls, rawURL)
+		// The real fetcher names a file by what it recognised the bytes as.
+		name := "00000000000000aa.png"
+		if bytes.Contains(payload, []byte("<svg")) {
+			name = "00000000000000aa.svg"
+		}
+		return name, os.WriteFile(filepath.Join(dir, name), payload, 0o600)
+	}
+}
+
+func TestAChosenPictureComesBackAsBytesThePageCanFrame(t *testing.T) {
+	srv := newTestServer(t)
+	png := append([]byte("\x89PNG\r\n\x1a\n"), []byte("the-rest-of-a-picture")...)
+	var asked []string
+	stubUserImage(srv, &asked, png)
+	c := signupAdmin(t, srv.Handler())
+
+	rec := c.mustDo("POST", "/images/preview", map[string]string{"url": "https://pics.example/cover.png"}, http.StatusOK)
+
+	var got struct {
+		Image string `json:"image"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	const prefix = "data:image/png;base64,"
+	if !strings.HasPrefix(got.Image, prefix) {
+		t.Fatalf("the reply is %.40q, want a PNG data: URL", got.Image)
+	}
+	back, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(got.Image, prefix))
+	if err != nil || string(back) != string(png) {
+		t.Errorf("the bytes that came back are not the picture that was fetched (err %v)", err)
+	}
+	if len(asked) != 1 || asked[0] != "https://pics.example/cover.png" {
+		t.Errorf("the server fetched %v, want exactly the address that was chosen", asked)
+	}
+}
+
+func TestLookingAtAPictureLeavesNothingStored(t *testing.T) {
+	srv := newTestServer(t)
+	var asked []string
+	stubUserImage(srv, &asked, append([]byte("\x89PNG\r\n\x1a\n"), 'x'))
+	c := signupAdmin(t, srv.Handler())
+
+	for i := 0; i < 3; i++ {
+		c.mustDo("POST", "/images/preview", map[string]string{"url": "https://pics.example/a.png"}, http.StatusOK)
+	}
+	if n := filesIn(t, srv.coversDir()); n != 0 {
+		t.Errorf("covers dir holds %d files after three previews, want none", n)
+	}
+}
+
+func TestAPreviewNeedsAnAddressAndASignedInReader(t *testing.T) {
+	srv := newTestServer(t)
+	var asked []string
+	stubUserImage(srv, &asked, []byte("x"))
+	c := signupAdmin(t, srv.Handler())
+
+	c.mustDo("POST", "/images/preview", map[string]string{"url": "  "}, http.StatusBadRequest)
+
+	anon := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/images/preview", strings.NewReader(`{"url":"https://pics.example/a.png"}`))
+	req.Header.Set("Content-Type", "application/json")
+	srv.Handler().ServeHTTP(anon, req)
+	if anon.Code != http.StatusUnauthorized {
+		t.Errorf("a signed-out reader got %d, want 401", anon.Code)
+	}
+	if len(asked) != 0 {
+		t.Errorf("a refused request still made the server fetch %v", asked)
+	}
+}
+
+// THE SENTENCE A PICTURE SEARCH IS SENT, and the case that made it worth pinning.
+//
+// The owner: "WHY DOES ITKOVIAN YIELD ZERO HITS? Google image is turned on in my
+// settings." It was on, and the rung ran, and it searched for something that does
+// not exist. Itkovian is a character in a BOOK, and `mediaNoun` answered "movie"
+// for everything it did not recognise — so a caller with nothing to say about the
+// medium got a film appended to its query. "Itkovian character movie" is a
+// correct search for a film that was never made, and it correctly returns
+// nothing.
+//
+// A WRONG NOUN IS WORSE THAN NO NOUN, which is the rule these cases hold. Two of
+// the words narrow a search usefully; the default narrowed it to fiction.
+//
+// THE MUTATION: put the `default: return "movie"` back and the unknown-medium
+// case fails, reading "Itkovian character in Memories of Ice movie" — which is
+// verbatim what the app was sending. And delete the actor inference in the
+// character branch and the last case fails, losing the "movie" that names what
+// kind of still to look for.
+func TestAPictureSearchNamesTheRightMedium(t *testing.T) {
+	for _, c := range []struct {
+		what                              string
+		kind, subject, actor, title, mtyp string
+		want                              string
+	}{
+		{
+			what: "a book's character says book, not movie",
+			kind: imageKindCharacter, subject: "Itkovian", title: "Memories of Ice", mtyp: "book",
+			want: "Itkovian character in Memories of Ice book",
+		},
+		{
+			// The defect itself: a caller that knows nothing about the medium.
+			what: "an unknown medium adds no noun at all",
+			kind: imageKindCharacter, subject: "Itkovian", title: "Memories of Ice",
+			want: "Itkovian character in Memories of Ice",
+		},
+		{
+			// And with no work either — the state the character sheet used to send.
+			// Thin, but honestly thin: it no longer claims a medium.
+			what: "a bare name stays a bare name",
+			kind: imageKindCharacter, subject: "Itkovian",
+			want: "Itkovian character",
+		},
+		{
+			what: "a film's role keeps the sentence that finds a still",
+			kind: imageKindCharacter, subject: "Roy Batty", actor: "Rutger Hauer",
+			title: "Blade Runner", mtyp: "movie",
+			want: "Rutger Hauer as Roy Batty in Blade Runner movie",
+		},
+		{
+			what: "a show says so",
+			kind: imageKindCharacter, subject: "Saul Goodman", title: "Better Call Saul", mtyp: "show",
+			want: "Saul Goodman character in Better Call Saul tv series",
+		},
+		{
+			// A CREDITED PERFORMER IS ITSELF A MEDIUM. Nobody is credited with
+			// playing a novel's character, so a role naming one is a screen role
+			// even where the caller said nothing — and that is what separates
+			// this from the unknown-medium case two rows up, which has no actor.
+			// Deleting the noun in a first cut broke exactly this, and the older
+			// suite caught it.
+			what: "a role with a performer and no medium is still a screen role",
+			kind: imageKindCharacter, subject: "Amanda Waller", actor: "Viola Davis",
+			title: "Suicide Squad",
+			want:  "Viola Davis as Amanda Waller in Suicide Squad movie",
+		},
+	} {
+		got := imageSearchQuery(c.kind, c.subject, "", c.actor, c.title, c.mtyp, 0)
+		if got != c.want {
+			t.Errorf("%s:\n  got  %q\n  want %q", c.what, got, c.want)
+		}
 	}
 }

@@ -228,4 +228,3 @@ func TestAnAnthologyThemeDrawsOnlyItsEntries(t *testing.T) {
 	bob := addUser(t, h, c, "bob")
 	bob.mustDo("GET", "/review/practice?anthology="+itoa(a.ID), nil, http.StatusNotFound)
 }
-

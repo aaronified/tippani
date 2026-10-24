@@ -396,4 +396,3 @@ func TestNoEasyChipNamesWhatTheCardMaskedOut(t *testing.T) {
 		t.Fatal("no typed blank reached the deck, so the case this test exists for was not measured")
 	}
 }
-

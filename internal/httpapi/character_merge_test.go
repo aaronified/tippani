@@ -615,4 +615,3 @@ func TestACastRowCarriesTheCharacterRecordsOwnPicture(t *testing.T) {
 		t.Fatalf("book A's row reports record image %q", gotA.Cast[0].CharacterRecordImage)
 	}
 }
-

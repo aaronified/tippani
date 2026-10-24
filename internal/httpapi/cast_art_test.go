@@ -17,7 +17,6 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
-
 )
 
 // A WORK PAGE'S PICTURES, ONE REQUEST: POST /{books|movies}/{id}/cast/art.

@@ -189,4 +189,3 @@ func TestExportQuotesWritesThePerKindFields(t *testing.T) {
 		t.Fatalf("the quotes export must not write the anthology's key:\n%s", got)
 	}
 }
-

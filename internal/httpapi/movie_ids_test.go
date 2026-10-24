@@ -195,4 +195,3 @@ func TestMovieLookupPinsTVDBID(t *testing.T) {
 		t.Fatalf("pinned series: %+v", p)
 	}
 }
-

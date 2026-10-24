@@ -246,4 +246,3 @@ func TestACharacterCanBeAskedWhatTheyHaveSaid(t *testing.T) {
 		t.Fatalf("shared_lines = %d, want the one two-hander", got.SharedLines)
 	}
 }
-

@@ -234,4 +234,3 @@ func TestSearchNarrowsToAnAddedOnRange(t *testing.T) {
 		t.Fatalf("a range with no query is still a search: %+v", only.Annotations)
 	}
 }
-

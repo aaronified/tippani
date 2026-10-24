@@ -1,13 +1,15 @@
 package httpapi
 
-// 0063 on the wire: the six fields a credit and a local character carry, the
-// work's own answer about performing versus voicing, and the name field that
-// saves a record's spellings in the order the reader put them.
-
 import (
 	"net/http"
 	"testing"
+	"time"
+	"tippani/internal/store"
 )
+
+// 0063 on the wire: the six fields a credit and a local character carry, the
+// work's own answer about performing versus voicing, and the name field that
+// saves a record's spellings in the order the reader put them.
 
 type wireCastRow struct {
 	ID           int64  `json:"id"`
@@ -254,3 +256,168 @@ func TestAFilmKeepsSeveralUnnamedCreditsWhileABookRevives(t *testing.T) {
 	}
 }
 
+// AN EDIT HOLDS ONE DATABASE CONNECTION, NOT TWO.
+//
+// Saving a quote writes its speaker and cast links inside a transaction, and
+// those need the reader's credit separators, a preference. The preference was
+// read through the pool while the transaction held a connection, so every such
+// save needed two at once. Four saves at once hold all four of the pool's
+// connections and each waits for a fifth, with no timeout: the state issue #40
+// describes, reached by ordinary use. The read now goes through the transaction.
+//
+// WHAT IT KNOWS, declared: the pool, through store.HoldEveryConnectionForTest,
+// which it holds full but for one connection. Nothing a reader can do puts a
+// live server there on purpose, and it is exactly the state in which a handler
+// that asks for a second connection inside its transaction waits for ever.
+func TestAnEditToADialogueLineNeedsOneConnection(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	movie := decode[movieDetail](t, c.mustDo("POST", "/movies",
+		map[string]any{"title": "Stalker", "director": "Andrei Tarkovsky"}, http.StatusCreated))
+	line := decode[dialogueRow](t, c.mustDo("POST", "/dialogues", map[string]any{
+		"movie_id": movie.ID, "quote": "Let everything that has been planned come true.",
+		"character": "Stalker", "actor": "Alexander Kaidanovsky",
+	}, http.StatusCreated))
+
+	held := store.HoldEveryConnectionForTest(t, srv.Store.DB)
+	_ = held[0].Close() // one connection free, which is all a save should need
+
+	done := make(chan int, 1)
+	go func() {
+		rec := c.do("PUT", "/dialogues/"+itoa(line.ID), map[string]any{
+			"quote":     "Let everything that has been planned come true.",
+			"character": "The Stalker", "actor": "Alexander Kaidanovsky",
+		})
+		done <- rec.Code
+	}()
+	select {
+	case code := <-done:
+		if code != http.StatusOK {
+			t.Fatalf("saving the line with one connection free: got %d, want 200", code)
+		}
+	case <-time.After(8 * time.Second):
+		store.ReleaseForTest(held[1:])
+		<-done
+		t.Fatal("saving a dialogue line waited over 8s with one connection free: something inside its transaction asked the pool for a second")
+	}
+}
+
+// The derived credit columns, exercised through the API rather than the store.
+//
+// WHY THIS FILE EXISTS. 0056 made books.author / translator / editor and
+// movies.director a cache of work_person, and internal/store proves the cache
+// and the links agree for writes that go through SetCredits. What it cannot
+// prove is that every HANDLER goes through it. Twenty-one places write those
+// columns; a handler that forgets is not a compile error and not a store test
+// failure — it is a book whose author line and whose person panel say different
+// things, discovered by a reader.
+//
+// So every assertion here drives a real request and then asks CreditsAgree,
+// which walks the whole library comparing the two. It is the same question the
+// store tests ask, from the only side that can answer it for a handler.
+
+// creditsMustAgree fails with the disagreement, not just a count: the row and
+// both values are what say which handler forgot.
+func creditsMustAgree(t *testing.T, srv *Server, uid int64) {
+	t.Helper()
+	bad, err := store.CreditsAgree(srv.Store.DB, uid, srv.creditSeps(srv.Store.DB, uid))
+	if err != nil {
+		t.Fatalf("credit check failed: %v", err)
+	}
+	for _, d := range bad {
+		t.Errorf("%s %d %s: column %q, links %q", d.Kind, d.WorkID, d.Role, d.Column, d.Links)
+	}
+	if len(bad) > 0 {
+		t.FailNow()
+	}
+}
+
+func TestCreatingABookWritesItsCreditLinks(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	b := decode[bookDetail](t, c.mustDo("POST", "/books", map[string]any{
+		"title":      "The Master and Margarita",
+		"author":     "Mikhail Bulgakov",
+		"translator": "Richard Pevear, Larissa Volokhonsky",
+	}, http.StatusCreated))
+
+	// TWO TRANSLATORS, NOT ONE PERSON WITH A COMMA IN THEIR NAME. This is the
+	// whole point of the split, and it is what the person panel's counts rest on.
+	var n int
+	if err := srv.Store.DB.QueryRow(
+		`SELECT count(*) FROM work_person WHERE kind = 'book' AND work_id = ? AND role = 'translator'`,
+		b.ID).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != 2 {
+		t.Fatalf("expected two translator links, got %d", n)
+	}
+	creditsMustAgree(t, srv, 1)
+}
+
+// ONE HUMAN BEING ACROSS TWO WORKS IS ONE RECORD, which is the claim the whole
+// migration exists to make true and the one a string-keyed library could not
+// make at all.
+func TestTwoWorksByOnePersonShareTheRecord(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	a := decode[bookDetail](t, c.mustDo("POST", "/books", map[string]any{
+		"title": "The Master and Margarita", "author": "Mikhail Bulgakov",
+	}, http.StatusCreated))
+	b := decode[bookDetail](t, c.mustDo("POST", "/books", map[string]any{
+		"title": "The White Guard", "author": "Mikhail Bulgakov",
+	}, http.StatusCreated))
+
+	var ids []int64
+	rows, err := srv.Store.DB.Query(
+		`SELECT DISTINCT person_id FROM work_person WHERE role = 'author' AND work_id IN (?, ?)`, a.ID, b.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			t.Fatal(err)
+		}
+		ids = append(ids, id)
+	}
+	if len(ids) != 1 {
+		t.Fatalf("two works by one author produced %d people: %v", len(ids), ids)
+	}
+	creditsMustAgree(t, srv, 1)
+}
+
+// A BULK EDIT IS THE LARGEST CREDIT WRITE THE APP CAN MAKE, and the shape most
+// likely to leave link rows describing a name nobody holds.
+func TestBulkSettingAnAuthorCarriesTheLinks(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	var ids []int64
+	for _, title := range []string{"One", "Two", "Three"} {
+		b := decode[bookDetail](t, c.mustDo("POST", "/books", map[string]any{
+			"title": title, "author": "Somebody",
+		}, http.StatusCreated))
+		ids = append(ids, b.ID)
+	}
+	c.mustDo("POST", "/books/bulk", map[string]any{
+		"ids": ids, "author": "Ursula K. Le Guin",
+	}, http.StatusOK)
+
+	creditsMustAgree(t, srv, 1)
+	var n int
+	if err := srv.Store.DB.QueryRow(
+		`SELECT count(DISTINCT person_id) FROM work_person WHERE role = 'author' AND work_id IN (?, ?, ?)`,
+		ids[0], ids[1], ids[2]).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 {
+		t.Fatalf("a bulk author set produced %d people across three books", n)
+	}
+}
