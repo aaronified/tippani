@@ -715,6 +715,8 @@ vocab.source.tvdb.label = TheTVDB
 # What a row whose supplier the app does not recognise is called.
 vocab.source.manual.label = আপনি
 vocab.source.import.label = ইমপোর্ট করা
+# The book's own EPUB, when one is attached: what the file says about its edition.
+vocab.source.epub.label = বইয়ের ফাইল
 # What a row whose supplier the app does not recognise is called.
 vocab.source.unknown.label = অজানা সূত্র
 
