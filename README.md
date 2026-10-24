@@ -88,6 +88,22 @@
 
 <table>
   <tr>
+    <td>
+      <h3>🧾 Open any quote in its context</h3>
+      Attach the subtitle track, ebook or text file a work's quotes came from, and <b>In context</b>
+      shows the lines around a quote with the quote marked. Tippani reads the file once and keeps
+      the surrounding text, so it still works after the file is gone. Point it at your book and
+      film folders, read-only, and one press of Scan proposes which file belongs to which work.
+      It also proposes film timestamps, book chapters and corrections from the file's own words,
+      and applies nothing until you accept. It never shows or serves the file itself.
+      <a href="https://github.com/aaronified/tippani/wiki/Source-Files-And-Context">How it works</a>
+      and <a href="https://github.com/aaronified/tippani/wiki/Library-Folders">mounting your folders</a>.
+    </td>
+  </tr>
+</table>
+
+<table>
+  <tr>
     <td width="60%">
       <h3>🔎 Find anything instantly</h3>
       Search every title, person, quote, note and tag at once. It forgives typos, and typing
@@ -185,6 +201,10 @@ Open `http://<host>:8080` and **create your admin account straight away**: until
 whoever reaches the page first becomes admin. The admin adds everyone else from Profile.
 
 The image runs on `linux/amd64` (tested) and `linux/arm64` (published, not yet tested).
+
+Optional: to scan your own book and film folders, mount them read-only, for example
+`- /srv/books:/library/books:ro`, then add each path under Settings › Server › Library. See
+[Library folders](https://github.com/aaronified/tippani/wiki/Library-Folders).
 
 ## Configuration
 
