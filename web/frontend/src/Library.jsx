@@ -11,7 +11,7 @@ import { ShareDialog, bookShare, copyQuote } from './share.jsx'
 import { deleteWithUndo } from './undo.jsx'
 import { ActionRow, actionsFor } from './actions.jsx'
 import { ANTHOLOGY_KIND, useGatherDoor } from './anthologyGather.jsx'
-import { ContextDialog, contextKind, contextSubject, useHasContext } from './sources.jsx'
+import { QuoteContext, contextKind, useInContext } from './sources.jsx'
 import { selectionClick, selectionMenuItems, useSelection } from './selection.jsx'
 import { facetValue, facetValues, publishSearchSeed, seedableChips, withFacet, withFacetValues } from './facets.js'
 import { SelectionBar } from './SelectionBar.jsx'
@@ -1245,9 +1245,7 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
   const gather = useGatherDoor()
   // THE QUOTE IN ITS FILE. A highlight is a book's and a standalone quote is not, and
   // this card draws both (`selectKind` says which), so the kind decides which list to ask.
-  const ctxKind = contextKind(selectKind)
-  const hasContext = useHasContext(contextSubject(ctxKind), a.book_id, a.id)
-  const [showContext, setShowContext] = useState(false)
+  const inContext = useInContext(contextKind(selectKind), a.book_id, a.id)
   const editForm = (
     <Form initial={a} onSubmit={(fields) => save(a.id, fields)} onCancel={() => setEditingId(null)} submitLabel={t('common.action.save.label')} tagSuggestions={tagSuggestions} stickers={stickers} reloadStickers={reloadStickers} bookId={a.book_id ?? null} />
   )
@@ -1287,7 +1285,7 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
     // knows.
     addToAnthology: (row) => gather.open({ items: [{ kind: ANTHOLOGY_KIND[selectKind], item_id: row.id }], count: 1 }),
     // Absent unless this quote has stored context: nothing to show is nothing to offer.
-    inContext: hasContext ? () => setShowContext(true) : undefined,
+    inContext: inContext.open,
     remove,
   })
   // SELECT IS THE FIRST ITEM IN THE MENU, and that is what makes the context menu
@@ -1464,7 +1462,7 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
         </div>
       {menu}
       {gather.node}
-      {showContext && <ContextDialog kind={ctxKind} id={a.id} onClose={() => setShowContext(false)} />}
+      {inContext.node}
     </HandCard>
   )
 }
@@ -2285,6 +2283,8 @@ export function AnnotationForm({ initial, onSubmit, onCancel, submitLabel, tagSu
             already carries — see proseField.jsx. */}
         <ProseArea language={language} className="tp-input" rows="3" value={quote} onChange={(e) => setQuote(e.target.value)} />
       </label>
+      {/* The lines around this highlight in its book's file, under the words they surround. */}
+      <QuoteContext kind="annotation" id={initial?.id} subject="book" workId={initial?.book_id ?? bookId} />
       {/* WHAT THE LINE IS IN, immediately above the translation because it is the
           fact that RANKS the two texts: without it the app cannot decide which of
           them leads. A name, so it takes the capital hint. */}

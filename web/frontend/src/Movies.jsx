@@ -9,7 +9,7 @@ import { ShareDialog, copyQuote, movieShare } from './share.jsx'
 import { deleteWithUndo } from './undo.jsx'
 import { ActionRow, actionsFor } from './actions.jsx'
 import { ANTHOLOGY_KIND, useGatherDoor } from './anthologyGather.jsx'
-import { ContextDialog, useHasContext } from './sources.jsx'
+import { QuoteContext, episodeKey, useInContext } from './sources.jsx'
 import { selectionClick, selectionMenuItems, useSelection } from './selection.jsx'
 import { facetValue, facetValues, publishSearchSeed, seedableChips, withFacet, withFacetValues } from './facets.js'
 import { SelectionBar } from './SelectionBar.jsx'
@@ -1802,10 +1802,9 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
   // annotation with different credits, so it gets the same set in the same places.
   const gather = useGatherDoor()
   // The line in its subtitle: stored context, so absent where there is none.
-  const hasContext = useHasContext('screen', d.movie_id, d.id)
-  const [showContext, setShowContext] = useState(false)
+  const inContext = useInContext('dialogue', d.movie_id, d.id)
   const acts = actionsFor('dialogue', d, {
-    inContext: hasContext ? () => setShowContext(true) : undefined,
+    inContext: inContext.open,
     copy: onCopy && (() => onCopy()),
     share: onShare && (() => onShare()),
     edit: onEdit && (() => onEdit()),
@@ -2134,7 +2133,7 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
       />
       {menu}
       {gather.node}
-      {showContext && <ContextDialog kind="dialogue" id={d.id} onClose={() => setShowContext(false)} />}
+      {inContext.node}
     </article>
     </>
   )
@@ -2354,6 +2353,8 @@ export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, show = 
         value={quote}
         onChange={(e) => setQuote(e.target.value)}
       />
+      {/* The lines around this line in its subtitle file. */}
+      <QuoteContext kind="dialogue" id={initial?.id} subject="screen" workId={initial?.movie_id} episode={episodeKey(initial)} />
       <div>
         <TokenInput
           value={characters}

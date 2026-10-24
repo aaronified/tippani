@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { json } from './api.js'
 import { t } from './i18n.js'
-import { useSourcesChanged } from './sources.jsx'
+import { READ_MS, sourceFail, useSourcesChanged } from './sources.jsx'
 import { Card, GhostButton, IconButton, IconCheck, IconClose, InfoDot, SectionHead, toast } from './ui.jsx'
 
 // Corrections from the file — a section of Checks.
@@ -51,7 +51,9 @@ export default function CorrectionsPage({ embedded = false, onOpenBook, onOpenMo
   const [open, setOpen] = useState({})
 
   const load = useCallback(async () => {
-    const r = await json('GET', '/corrections')
+    const r = await json('GET', '/corrections', undefined, { timeoutMs: READ_MS })
+    // A read that failed is said once; the section then draws nothing, as when it is empty.
+    if (!r.ok) toast(sourceFail(r))
     setData(r.ok ? r.data : { buckets: [], proposals: [], wrong_file: [] })
   }, [])
   useEffect(() => {
@@ -62,10 +64,10 @@ export default function CorrectionsPage({ embedded = false, onOpenBook, onOpenMo
 
   async function press(path, body) {
     setBusy(true)
-    const r = await json('POST', path, body)
+    const r = await json('POST', path, body, { timeoutMs: READ_MS })
     setBusy(false)
     if (!r.ok) {
-      toast(r.data?.error || t('common.source.error'))
+      toast(sourceFail(r))
       return
     }
     if (path.endsWith('/accept')) {

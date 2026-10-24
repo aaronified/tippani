@@ -252,3 +252,21 @@ export function jumpBack(seq) {
   window.history.go(-k)
   return true
 }
+
+// ---- what the address asked for on arrival -----------------------------------------
+//
+// An installed app's shortcut can only name an address, so a shortcut that should DO
+// something on arrival says so in the query (/metadata/files?scan=1). The query is read
+// once, when this module loads, before the shell rewrites the address to its plain path;
+// `takeArrival` answers true once and then never again, and drops the query from the bar
+// if it is still there, so a reload does not repeat the act.
+const arrivedWith = new URLSearchParams(typeof window !== 'undefined' && window.location ? window.location.search : '')
+const arrivalTaken = new Set()
+export function takeArrival(key) {
+  if (arrivalTaken.has(key) || arrivedWith.get(key) !== '1') return false
+  arrivalTaken.add(key)
+  if (typeof window !== 'undefined' && window.location && new URLSearchParams(window.location.search).has(key)) {
+    window.history.replaceState(window.history.state, '', window.location.pathname)
+  }
+  return true
+}

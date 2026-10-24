@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { json } from './api.js'
 import { t } from './i18n.js'
 import { Card, GhostButton, InfoDot, SectionHead, toast, useConfirm } from './ui.jsx'
-import { invalidateContext } from './sources.jsx'
+import { LoadFailed, QUICK_MS, READ_MS, invalidateContext, sourceFail } from './sources.jsx'
 
 // The files attached to your works, and the prune — a section of Checks.
 //
@@ -24,11 +24,13 @@ const size = (n) => (n >= 1 << 20 ? `${(n / (1 << 20)).toFixed(1)} MB` : `${Math
 export default function AttachedFilesPage({ embedded = false }) {
   const [data, setData] = useState(null)
   const [busy, setBusy] = useState(false)
+  const [loadError, setLoadError] = useState('')
   const { ask, confirmDialog } = useConfirm()
 
   const load = useCallback(async () => {
-    const r = await json('GET', '/sources/stack')
+    const r = await json('GET', '/sources/stack', undefined, { timeoutMs: QUICK_MS })
     setData(r.ok ? r.data : { sources: [], frees: 0 })
+    setLoadError(r.ok ? '' : t('attached.error.load', { why: sourceFail(r) }))
   }, [])
   useEffect(() => {
     load()
@@ -49,15 +51,16 @@ export default function AttachedFilesPage({ embedded = false }) {
     })
     if (!yes) return
     setBusy(true)
-    const r = await json('POST', `/sources/${row.id}/prune`)
+    const r = await json('POST', `/sources/${row.id}/prune`, undefined, { timeoutMs: READ_MS })
     setBusy(false)
     if (r.ok) {
       toast(t('attached.done', { title: row.title }))
       invalidateContext()
       load()
-    } else toast(r.data?.error || t('common.source.error'))
+    } else toast(sourceFail(r))
   }
 
+  if (loadError) return <LoadFailed text={loadError} onRetry={load} />
   if (!data || data.sources.length === 0) return confirmDialog
   return (
     <>

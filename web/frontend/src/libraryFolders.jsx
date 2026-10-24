@@ -3,6 +3,7 @@ import { json } from './api.js'
 import { t } from './i18n.js'
 import { Field, GhostButton, IconClose, IconPlus, Toggle, toast } from './ui.jsx'
 import { PrefGroup, PrefRow } from './prefRow.jsx'
+import { LoadFailed, QUICK_MS, goTo, sourceFail } from './sources.jsx'
 
 // The administrator's half of a mounted library, and the backup's one source-file setting.
 //
@@ -31,10 +32,13 @@ export default function LibraryFoldersGroup() {
   const [withSources, setWithSources] = useState(false)
   // What a tidy would remove, and what is missing: counts only, nothing touched until pressed.
   const [tidy, setTidy] = useState(null)
+  const [loadError, setLoadError] = useState('')
 
   const load = useCallback(async () => {
-    const [m, b, o] = await Promise.all([json('GET', '/admin/mounts'), json('GET', '/admin/backup/sources'), json('GET', '/admin/maintenance/sources')])
+    const q = { timeoutMs: QUICK_MS }
+    const [m, b, o] = await Promise.all([json('GET', '/admin/mounts', undefined, q), json('GET', '/admin/backup/sources', undefined, q), json('GET', '/admin/maintenance/sources', undefined, q)])
     setMounts(m.ok ? m.data.mounts || [] : [])
+    setLoadError(m.ok ? '' : t('settings.library.error.load', { why: sourceFail(m) }))
     if (b.ok) setWithSources(!!b.data.include)
     if (o.ok) setTidy(o.data)
   }, [])
@@ -44,10 +48,10 @@ export default function LibraryFoldersGroup() {
 
   async function save(next) {
     setBusy(true)
-    const r = await json('PUT', '/admin/mounts', { mounts: next.map(({ id, label: l, path: p }) => ({ id, label: l, path: p })) })
+    const r = await json('PUT', '/admin/mounts', { mounts: next.map(({ id, label: l, path: p }) => ({ id, label: l, path: p })) }, { timeoutMs: QUICK_MS })
     setBusy(false)
     if (!r.ok) {
-      toast(r.data?.error || t('common.source.error'))
+      toast(sourceFail(r))
       return false
     }
     setMounts(r.data.mounts || [])
@@ -69,18 +73,18 @@ export default function LibraryFoldersGroup() {
 
   async function sweep() {
     setBusy(true)
-    const r = await json('POST', '/admin/maintenance/sources/sweep')
+    const r = await json('POST', '/admin/maintenance/sources/sweep', undefined, { timeoutMs: QUICK_MS })
     setBusy(false)
     if (r.ok) {
       toast(t('settings.library.tidy.done', { n: r.data.removed, count: r.data.removed }))
       load()
-    } else toast(r.data?.error || t('common.source.error'))
+    } else toast(sourceFail(r))
   }
 
   async function setBackup(include) {
-    const r = await json('PUT', '/admin/backup/sources', { include })
+    const r = await json('PUT', '/admin/backup/sources', { include }, { timeoutMs: QUICK_MS })
     if (r.ok) setWithSources(!!r.data.include)
-    else toast(r.data?.error || t('common.source.error'))
+    else toast(sourceFail(r))
   }
 
   if (mounts === null) return null
@@ -90,9 +94,12 @@ export default function LibraryFoldersGroup() {
         label={t('settings.library.folders.label')}
         info={t('settings.library.folders.info')}
         said={
-          mounts.length === 0 ? (
+          loadError ? (
+            <LoadFailed text={loadError} onRetry={load} />
+          ) : mounts.length === 0 ? (
             <p className="microcopy">{t('settings.library.folders.none')}</p>
           ) : (
+            <>
             <ul className="flex flex-col gap-1" data-testid="library-folders">
               {mounts.map((m) => (
                 <li key={m.id} className="flex flex-wrap items-center gap-2">
@@ -111,6 +118,13 @@ export default function LibraryFoldersGroup() {
                 </li>
               ))}
             </ul>
+            {/* The scan itself is a reader's press, on Checks, where its findings are. */}
+            <p className="microcopy">
+              <button type="button" className="tp-link" onClick={() => goTo('/checks')}>
+                {t('settings.library.folders.scan')}
+              </button>
+            </p>
+            </>
           )
         }
       />

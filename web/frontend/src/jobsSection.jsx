@@ -25,7 +25,7 @@
 //     and a keyword typed into the shell's own search bar.
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import { copyText } from './api.js'
+import { copyText, json } from './api.js'
 import { t } from './i18n.js'
 import {
   allSystemLogsURL,
@@ -387,6 +387,10 @@ function RunningJob({ job, user, open, stopping, onToggle, onStop }) {
   const live = useJob(open ? job.id : null)
   const j = live.job && live.job.id === job.id ? live.job : job
   const title = jobTitle(j)
+  const found = useScanFound(j)
+  const summary = [jobSummary(j), found > 0 ? t('settings.jobs.count.found', { count: found, n: found }) : '']
+    .filter(Boolean)
+    .join(' · ')
   return (
     <div className="job-row">
       <div className="job-row-head">
@@ -403,7 +407,7 @@ function RunningJob({ job, user, open, stopping, onToggle, onStop }) {
         ))}
       </div>
       <div className="job-body">
-        <ProgressBar value={j.done || 0} max={j.total || 0} label={jobSummary(j) || undefined} />
+        <ProgressBar value={j.done || 0} max={j.total || 0} label={summary || undefined} />
         {open && (
           // THE LIVE LOG, named as one. Past jobs can hold the same job's last run
           // open on the same screen, under "Log of …", and a run started again
@@ -413,6 +417,25 @@ function RunningJob({ job, user, open, stopping, onToggle, onStop }) {
       </div>
     </div>
   )
+}
+
+// HOW MANY FILES A RUNNING LIBRARY SCAN HAS FOUND. The job row carries the files read; the
+// findings are counted by the scan itself (GET /sources/found), asked again each time the
+// row's progress moves. Only for your own scan: the route answers for the reader asking.
+function useScanFound(job) {
+  const [found, setFound] = useState(0)
+  const mount = job?.kind === 'library.scan' && job.own ? job.params?.mount_id || '' : ''
+  useEffect(() => {
+    if (!mount) return undefined
+    let live = true
+    json('GET', `/sources/found?mount_id=${encodeURIComponent(mount)}&status=1`).then((r) => {
+      if (live && r.ok && r.data?.scan?.job_id === job.id) setFound(r.data.scan.found || 0)
+    })
+    return () => {
+      live = false
+    }
+  }, [mount, job?.id, job?.done]) // eslint-disable-line react-hooks/exhaustive-deps
+  return found
 }
 
 // A WAITING JOB IS ONE LINE: what it is and how many are ahead of it. It has no

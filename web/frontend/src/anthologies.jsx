@@ -106,6 +106,8 @@ const sameEntry = (a, b) => a.kind === b.kind && a.item_id === b.item_id
 // the module graph looking wrong.
 export { ANTHOLOGY_KIND, AddToAnthologyDialog, workRule, worksRule } from './anthologyGather.jsx'
 import { gatherInto, useAnthologies } from './anthologyGather.jsx'
+import { actionsFor } from './actions.jsx'
+import { useInContext } from './sources.jsx'
 export { gatherInto, useAnthologies }
 
 // exportHref is a plain URL rather than a helper call, because this export is the
@@ -1259,6 +1261,12 @@ function AnthologyEntry({ entry, fields = {}, first, last, onNote, onMove, onRem
       : entry.work_id && entry.kind === 'screen'
         ? onOpenMovie
         : null
+  // The quote in its file, from the registry's own entry, when its file placed it.
+  const ctxKind = entry.kind === 'book' ? 'annotation' : entry.kind === 'screen' ? 'dialogue' : 'utterance'
+  const inContext = useInContext(ctxKind, entry.work_id, entry.item_id)
+  const contextItems = actionsFor(ctxKind === 'utterance' ? 'quote' : ctxKind, entry, { inContext: inContext.open })
+    .filter((a) => a.id === 'inContext')
+    .map((a) => ({ id: a.id, icon: a.icon, label: a.label, onClick: a.run }))
   return (
     <Card className="mt-3">
       <div className="flex items-start justify-between gap-2">
@@ -1367,6 +1375,7 @@ function AnthologyEntry({ entry, fields = {}, first, last, onNote, onMove, onRem
         <MoreMenu
           ariaLabel={t('anthologies.entry.more.aria')}
           items={[
+            ...contextItems,
             {
               id: 'note',
               icon: <IconEdit />,
@@ -1384,6 +1393,7 @@ function AnthologyEntry({ entry, fields = {}, first, last, onNote, onMove, onRem
           ]}
         />
       </div>
+      {inContext.node}
     </Card>
   )
 }

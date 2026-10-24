@@ -1,9 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { json } from './api.js'
 import { t } from './i18n.js'
-import { Card, GhostButton, IconArrow, IconButton, IconCheck, IconClose, IconRefresh, IconStop, InfoDot, SectionHead, toast } from './ui.jsx'
-import { announceJobs, isLive, pressStop } from './jobs.js'
-import { invalidateContext } from './sources.jsx'
+import { Card, GhostButton, IconArrow, IconButton, IconCheck, IconClose, IconRefresh, IconStop, InfoDot, SectionHead } from './ui.jsx'
+import { LoadFailed, goTo } from './sources.jsx'
+import { useLibraryScan } from './libraryScan.js'
 
 // Files found in a mounted library, a section of Checks.
 //
@@ -13,136 +11,15 @@ import { invalidateContext } from './sources.jsx'
 // exact where an identifier matched and for a look where only a name did, and the reader accepts
 // or refuses. A refusal is remembered.
 //
-// The server stores findings as it goes, so they appear here while the scan runs and are still
-// here after a restart. This screen polls the scan's progress and reads the list again when the
-// number found changes. No press, no scan, and the section draws nothing for a box with no
+// The reads, the polling and the presses are useLibraryScan's (libraryScan.js), shared with
+// Metadata > Source files. No press, no scan, and the section draws nothing for a box with no
 // folders mounted.
 
-const POLL_MS = 1500
-
-// One proposal per work across folders. Exact beats review; otherwise the first stays.
-function oneEach(list) {
-  const seen = new Map()
-  for (const c of list) {
-    const key = `${c.subject}:${c.work_id}:${c.episode || ''}`
-    const cur = seen.get(key)
-    if (!cur || (cur.bucket !== 'exact' && c.bucket === 'exact')) seen.set(key, c)
-  }
-  return [...seen.values()]
-}
-
 export default function FoundFilesPage({ embedded = false }) {
-  const [mounts, setMounts] = useState(null)
-  const [found, setFound] = useState(null) // null: nothing scanned yet
-  const [scans, setScans] = useState({}) // folder id -> the scan's status
-  const [busy, setBusy] = useState(false)
-  const alive = useRef(true)
-  const loadedCount = useRef({}) // folder id -> findings the list was last read with
-
-  // Read every folder's findings and status.
-  const load = useCallback(async (list) => {
-    let all = []
-    const next = {}
-    for (const m of list) {
-      const r = await json('GET', `/sources/found?mount_id=${encodeURIComponent(m.id)}`)
-      if (!r.ok) continue
-      next[m.id] = r.data.scan
-      loadedCount.current[m.id] = r.data.scan?.found || 0
-      all = all.concat(r.data.candidates || [])
-    }
-    if (!alive.current) return
-    setScans(next)
-    const any = Object.values(next).some((st) => st && st.state !== 'none')
-    setFound(any || all.length ? oneEach(all) : null)
-  }, [])
-
-  useEffect(() => {
-    alive.current = true
-    json('GET', '/sources/mounts').then((r) => {
-      if (!alive.current) return
-      const list = r.ok ? r.data.mounts || [] : []
-      setMounts(list)
-      if (list.length) load(list)
-    })
-    return () => {
-      alive.current = false
-    }
-  }, [load])
-
-  const scanning = Object.values(scans).some(isLive)
-
-  // While a scan runs, poll its progress. The list is read again when the count of findings
-  // moves, and once more when the scan ends.
-  useEffect(() => {
-    if (!scanning || !mounts) return undefined
-    const timer = setTimeout(async () => {
-      let reload = false
-      const next = { ...scans }
-      for (const m of mounts) {
-        if (!isLive(scans[m.id])) continue
-        const r = await json('GET', `/sources/found?mount_id=${encodeURIComponent(m.id)}&status=1`)
-        if (!r.ok) continue
-        next[m.id] = r.data.scan
-        if (!isLive(r.data.scan) || r.data.scan.found !== loadedCount.current[m.id]) reload = true
-      }
-      if (!alive.current) return
-      if (reload) await load(mounts)
-      else setScans(next)
-    }, POLL_MS)
-    return () => clearTimeout(timer)
-  }, [scanning, scans, mounts, load])
-
-  async function scan() {
-    for (const m of mounts || []) {
-      const r = await json('POST', '/sources/scan', { mount_id: m.id })
-      if (!r.ok) toast(r.data?.error || t('common.source.error'))
-    }
-    announceJobs()
-    if (alive.current) await load(mounts || [])
-  }
-
-  async function stop() {
-    for (const st of Object.values(scans)) {
-      if (isLive(st) && st.job_id) await pressStop(st.job_id)
-    }
-  }
-
-  async function attach(bucket, list) {
-    setBusy(true)
-    const r = await json('POST', '/sources/attach-found', { bucket, tokens: list.map((c) => c.token) })
-    setBusy(false)
-    if (!r.ok) {
-      toast(r.data?.error || t('common.source.error'))
-      return
-    }
-    const { attached = 0, skipped = 0, failed = 0, context = {} } = r.data
-    const placed = (context.matched || 0) + (context.skipped || 0)
-    const total = placed + (context.ambiguous || 0) + (context.unmatched || 0)
-    const parts = []
-    if (attached) parts.push(t('found.attached', { n: attached, count: attached, found: placed, total }))
-    if (failed) parts.push(t('found.failed', { n: failed, count: failed }))
-    if (skipped) parts.push(t('found.skipped', { n: skipped, count: skipped }))
-    if (parts.length) toast(parts.join(' · '))
-    // ONLY THE ONES THAT ATTACHED GO. The server names them; the rest stay, to be retried or
-    // refused, rather than vanishing with a count. Times proposed from the new files are now
-    // waiting in the section below, and every card may now have context.
-    const done = new Set(r.data.done || [])
-    setFound((cur) => (cur || []).filter((c) => !done.has(c.token)))
-    invalidateContext()
-  }
-
-  async function refuse(list) {
-    setBusy(true)
-    const r = await json('POST', '/sources/ignore-found', { tokens: list.map((c) => c.token) })
-    setBusy(false)
-    if (r.ok) {
-      const gone = new Set(list.map((c) => c.token))
-      setFound((cur) => (cur || []).filter((c) => !gone.has(c.token)))
-    }
-  }
-
-  if (!mounts || mounts.length === 0) return null
-  const sum = (key) => Object.values(scans).reduce((n, st) => n + (st?.[key] || 0), 0)
+  const { mounts, found, scans, scanning, starting, busy, loadError, badLines, sum, scan, stop, attach, refuse, retry, reload } = useLibraryScan()
+  if (!mounts) return null
+  // No folders and nothing failed: the section draws nothing, as before.
+  if (mounts.length === 0) return loadError ? <LoadFailed text={loadError} onRetry={retry} /> : null
   const groups = [
     ['exact', (found || []).filter((c) => c.bucket === 'exact')],
     ['review', (found || []).filter((c) => c.bucket === 'review')],
@@ -164,13 +41,22 @@ export default function FoundFilesPage({ embedded = false }) {
                   <span>{t('found.stop')}</span>
                 </GhostButton>
               )}
-              <GhostButton type="button" disabled={scanning} onClick={scan}>
+              <GhostButton type="button" disabled={scanning || starting} onClick={scan}>
                 <IconRefresh />
                 <span>{scanning ? t('found.scanning') : found ? t('found.rescan') : t('found.scan')}</span>
               </GhostButton>
             </>
           }
         />
+        {loadError && <LoadFailed text={loadError} onRetry={reload} />}
+        <p className="microcopy">
+          <button type="button" className="tp-link" onClick={() => goTo('/metadata/files')}>
+            {t('found.to.metadata')}
+          </button>
+        </p>
+        {badLines.map((line) => (
+          <p key={line} className="microcopy" role="alert" style={{ color: 'var(--error)' }}>{line}</p>
+        ))}
         {found && (
           <Card>
             <div className="flex flex-col gap-6">

@@ -14,6 +14,7 @@ import { AnnotationForm, annotationState, annDate, fmtDate } from './Library.jsx
 import { DialogueForm, dialogueState } from './Movies.jsx'
 import { UtteranceForm, utteranceMeta, utteranceState } from './Quotes.jsx'
 import { t, tNodes } from './i18n.js'
+import { contextKind, useInContext } from './sources.jsx'
 import { GLYPH_NAME } from './identityLocal.jsx'
 import { openCharacterDoor } from './identity.jsx'
 import { usePersonOpener } from './personOpen.jsx'
@@ -1248,6 +1249,8 @@ export function FavouriteTile({
 }) {
   const meta = FAV_KINDS[f.kind]
   const gather = useGatherDoor()
+  // The quote in its file, when its work's file placed it.
+  const inContext = useInContext(contextKind(meta.actionKind), f.workId, f.raw?.id)
   // From the registry (actions.jsx): a favourite is one of the three kinds of
   // quote seen from a different screen, so it gets the same set in the same order.
   const acts = actionsFor(meta.actionKind, f, {
@@ -1266,6 +1269,7 @@ export function FavouriteTile({
     // what the anthology route wants — `f.id` is the card's own shape.
     addToAnthology: () =>
       gather.open({ items: [{ kind: ANTHOLOGY_KIND[meta.actionKind], item_id: f.raw?.id }], count: 1 }),
+    inContext: inContext.open,
     remove: onDelete && (() => onDelete()),
   })
   const { cardProps, menuClass, menu } = useCardMenu(acts.map((x) => ({ ...x, onClick: x.run })))
@@ -1660,6 +1664,7 @@ export function FavouriteTile({
         </>
       {menu}
       {gather.node}
+      {inContext.node}
     </HandCard>
   )
 }
@@ -1834,8 +1839,10 @@ export function SerendipityCard({ q, onOpen, people = {}, seps, onOpenPerson, ac
   // cannot end up with the row in a different order from the Library's. Each is
   // available only if the handler is, which is how this card gets the same row
   // minus the two (edit, delete) it deliberately does not offer.
+  const inContext = useInContext(contextKind(kind.actionKind), q.work_id, q.id)
   const acts = actions
     ? actionsFor(kind.actionKind, q, {
+      inContext: inContext.open,
       copy: () => actions.copy(q),
       share: () => actions.share(q),
       favourite: async () => {
@@ -1942,6 +1949,7 @@ export function SerendipityCard({ q, onOpen, people = {}, seps, onOpenPerson, ac
           )}
         </div>
       </div>
+      {inContext.node}
     </HandCard>
   )
 }

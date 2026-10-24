@@ -41,7 +41,7 @@ const { invalidateContext } = await import('../../src/sources.jsx')
 
 const ROW = (id) => ({ id, book_id: 3, quote: 'It was a bright cold day in April', chapter: 'One', created_at: '2024-01-02' })
 const card = (id) =>
-  render(<AnnotationCard a={ROW(id)} tagMap={{}} save={() => {}} patch={() => {}} remove={() => {}} />)
+  render(<AnnotationCard a={ROW(id)} tagMap={{}} editing={false} save={() => {}} patch={() => {}} remove={() => {}} />)
 const menu = () => fireEvent.contextMenu(screen.getAllByText(/bright cold day/)[0])
 const labels = () => screen.getAllByRole('menuitem').map((n) => n.textContent.trim())
 

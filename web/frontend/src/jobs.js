@@ -219,6 +219,11 @@ export function jobHasFindings(job) {
 export function jobSummary(job) {
   if (!job) return ''
   if (job.state === 'running' && job.total > 0) return t('settings.jobs.progress', { done: job.done || 0, total: job.total })
+  // A library scan does not know how many files a folder holds until it has walked it,
+  // so while it runs it says how many it has read.
+  if (job.state === 'running' && job.kind === 'library.scan' && job.done > 0) {
+    return t('settings.jobs.count.scanned', { count: job.done, n: job.done })
+  }
   return jobCounts(job).join(' · ')
 }
 

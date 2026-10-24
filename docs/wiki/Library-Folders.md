@@ -17,7 +17,7 @@ Nothing is copied: an attached file stays where it is, and the app reads it thro
 
 2. In **Settings > Server > Library**, add each folder by its path **inside the container** (`/library/books`) and a name. The folder
    must be readable; a typo is refused with the reason. Readers see a folder by its name and never see a path.
-3. Readers press **Scan** on Checks. One press is enough, however large the library is: the scan runs as a job and walks the whole
+3. Readers press **Scan** on Metadata > Source files or on Checks. One press is enough, however large the library is: the scan runs as a job and walks the whole
    folder. Settings > Jobs shows it, with a Stop.
 
 ## What a scan does, and does not

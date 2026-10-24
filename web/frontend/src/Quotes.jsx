@@ -18,6 +18,7 @@ import { LanguageCombo, SuggestCombo, useVocabulary } from './suggest.jsx'
 import { LanguageMark } from './languages.jsx'
 import { json, errText, downloadPost } from './api.js'
 import { t } from './i18n.js'
+import { QuoteContext } from './sources.jsx'
 import { ProseArea } from './proseField.jsx'
 import { usePersonOpener } from './personOpen.jsx'
 // THE ONE SOURCE FOR WHAT A KIND CARRIES, read here as well as by the add
@@ -432,6 +433,8 @@ export function UtteranceForm({ initial, onSubmit, onCancel, submitLabel, tagSug
         {/* Spell-checked while it is being edited — see proseField.jsx. */}
         <ProseArea language={language} className="tp-input" rows="3" value={quote} onChange={(e) => setQuote(e.target.value)} />
       </label>
+      {/* The lines around this quote in its essay's, poem's or song's file. */}
+      <QuoteContext kind="utterance" id={initial?.id} subject="utterance" workId={initial?.id} />
       <label className="block">
         <MonoLabel className="mb-1.5 block">{t('common.field.note.label')}</MonoLabel>
         <ProseArea language={language} className="tp-input" rows="2" value={note} onChange={(e) => setNote(e.target.value)} />

@@ -35,7 +35,7 @@ import { DEFAULT_CREDIT_SEPS, splitCredits, personImgURL, usePeople } from './cr
 import { PasteLink, WorkLinks, linkRows, providerURL } from './workLinks.jsx'
 import { t } from './i18n.js'
 import { actionsFor } from './actions.jsx'
-import { SourceLine, useSourceDoor } from './sources.jsx'
+import { SourceSection, useSourceDoor } from './sources.jsx'
 import { KINDS } from './workKinds.js'
 import { BookLookupPicker, CoverControls, CoverPreview, MovieLookupPicker, hiResPoster, idNum } from './CoverPicker.jsx'
 import {
@@ -1360,8 +1360,8 @@ export function workDetailsPanel(stack, { kind, item, onChanged, onDelete, onGoT
 
 function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, genreSuggestions, onSaveField, onSaveAll, onCover, onChanged, onFetch, onDelete, onClose }) {
   // THE FILE THESE QUOTES CAME FROM. The verb is the registry's, the same entry the
-  // work card's menu renders, so the two doors cannot drift; this panel only adds
-  // the line that says which file is held.
+  // work card's menu renders, so the two doors cannot drift. SourceSection draws it
+  // beside the file that is held and what the last library scan found.
   const [sourceVersion, setSourceVersion] = useState(0)
   const source = useSourceDoor(() => setSourceVersion((v) => v + 1))
   const sourceAct = actionsFor(kind, item, { addSource: () => source.add(kind, item) }).find((a) => a.id === 'sourceAdd')
@@ -1600,12 +1600,6 @@ function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, gen
           title={t('common.work.lookup.info.title')}
           text={t(kind === 'book' ? 'book.fetch.info.body' : 'film.fetch.info.body')}
         />
-        {sourceAct && (
-          <GhostButton type="button" onClick={sourceAct.run} title={sourceAct.tooltip}>
-            {sourceAct.icon}
-            <span>{sourceAct.label}</span>
-          </GhostButton>
-        )}
         {source.node}
         <span className="flex-1" />
         {onDelete && (
@@ -1618,7 +1612,7 @@ function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, gen
         )}
       </div>
 
-      <SourceLine kind={kind} item={item} version={sourceVersion} />
+      <SourceSection kind={kind} item={item} quotes={workQuotes} version={sourceVersion} addAct={sourceAct} />
 
       {/* A FLEX WRAP, so a spec marked `half` can share its line with the row after
           it. Every row is full width in here unless it asks otherwise, which is

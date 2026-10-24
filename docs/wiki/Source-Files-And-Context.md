@@ -19,13 +19,39 @@ Three ways, all the same result:
 - **Drop it on Import.** The import screen reads the bytes, and a subtitle or an ebook is neither highlights nor an error: it asks
   which work the file belongs to and attaches it. Nothing is staged.
 - **From a mounted library.** The administrator mounts your folders ([Library folders](Library-Folders.md)); you press **Scan** once on
-  Checks (it runs as a job and walks the whole folder) and accept what it finds, even while it is still running.
+  Metadata > Source files or on Checks (it runs as a job and walks the whole folder) and accept what it finds, even while it is still
+  running.
 
 The type of file is decided by its bytes, never its name, so a subtitle saved as `film.ass.txt` still works. A file the app cannot
 read (including an ebook that is DRM-protected) is refused with the reason, and nothing is kept. A second file for the same work
 replaces the first.
 
 Limits: 25 MB per file. A work with a mounted file keeps no copy: the row points at the path inside the folder.
+
+## Where it shows
+
+- **Metadata > Source files** is the base. It lists every work that has quotes, with its file (name, kind, size, uploaded or in a
+  library folder) or a line saying it has none, and how many of its quotes have context. Filters show all works, works with no
+  file, works with a file, or works a scan found a file for. Each row has Add or Replace, Rescan, Prune (uploaded files only),
+  Remove, and Attach or Not this one for a found file. At the top are the library folders, **Scan** with its progress and **Stop**,
+  the reason the last scan of a folder failed, and links to Settings > Server (to add folders) and to Checks.
+- **A work's details panel** shows the same rows for that one work, a file the last scan found for it, a line while a scan is
+  running with a link to the jobs card, and the context size rule. A show lists its episode files on Metadata > Source files.
+- **The quote edit form** shows the stored context under the quote text: the lines before and after with the quote marked, which
+  file it came from, **Show more**, and the size adjustment for this quote with **Reset to inherited**. A quote the file could not
+  place gets one line saying so, and only when the work has a file.
+- **In context** is on every quote card that has stored context: Library, Catalogue, Quotes boards, search results, Home's
+  favourites and shuffle, and anthologies. The quiz card does not offer it, because the lines around a quote would give away the
+  answer.
+- **Checks > Found files** is where scan findings are reviewed in bulk, and **Checks > Attached files** lists uploaded files for
+  pruning.
+- **Settings > Jobs** shows a running scan as "Library scan" with the folder's name, the files read and the files found, and a Stop.
+- **Phone shortcuts.** A long press on the installed app offers **Scan** (opens Metadata > Source files and scans every folder once)
+  and **Files** (opens the same section).
+
+**Errors are shown.** Every request here has a time limit. A request that fails or gets no answer says so in a message with
+**Try again**, and a read that fails says so where its answer would have been. A scan that ended in failure shows its reason on
+Found files and on Metadata > Source files.
 
 ## Context
 

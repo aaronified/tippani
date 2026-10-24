@@ -7,7 +7,7 @@ It is generated from the glossary catalogue, `web/frontend/scripts/glossary/cata
 when a component has no entry, so a rename or a new control updates this page or fails the build. Each entry names the file
 that defines it.
 
-217 entries in 22 sections.
+218 entries in 22 sections.
 
 ## Shell
 
@@ -423,6 +423,12 @@ Adding a language **searches the registry** — 7,800-odd codes, loaded only whe
 The report was the owner's, over the metadata merge screen: “replace the single tick at the top with double tick. the single tick feels like ‘ok’ and not ‘multi-select’.” The cross beside it goes with it — a double tick next to a single ✕ reads as “select all / cancel”, which moves the confusion one control along instead of ending it. 
  
 Drawn as two whole marks with daylight between them rather than as the overlapping *done_all* of the icon sets, whose second mark is a bare diagonal that reads as a slash at this size. Shown here in the order they must never be confused in: confirm, take-all, close, take-none.
+
+### Source files and context
+
+*Defined in:* IconSourceFile — ui.jsx · SourceFilesConsole — SourceFilesConsole.jsx · SourceSection / QuoteContext / ContextBody — sources.jsx · useLibraryScan — libraryScan.js
+
+**The file a work’s quotes came from, and the lines around a quote in it.** IconSourceFile, a page with a folded corner, marks **Metadata › Source files**: every work with quotes, its file (name, kind, uploaded or in a library folder), how many of its quotes have context, and the library folders with their Scan. A work’s details panel shows the same rows for one work, and the quote edit form shows the stored context under the quote, with the quote marked. Every failed request is said where its answer would have been, with a way to try again.
 
 ## Buttons & inputs
 

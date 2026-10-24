@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { json } from './api.js'
 import { t } from './i18n.js'
-import { useSourcesChanged } from './sources.jsx'
+import { READ_MS, sourceFail, useSourcesChanged } from './sources.jsx'
 import { Card, GhostButton, IconArrow, IconButton, IconCheck, IconClose, InfoDot, SectionHead, toast } from './ui.jsx'
 
 // Times the subtitles propose for film lines, and places an EPUB proposes for a book's
@@ -35,7 +35,9 @@ export default function LocatorsPage({ embedded = false, onOpenBook, onOpenMovie
   const [busy, setBusy] = useState(false)
 
   const load = useCallback(async () => {
-    const r = await json('GET', '/locators/proposals')
+    const r = await json('GET', '/locators/proposals', undefined, { timeoutMs: READ_MS })
+    // A read that failed is said once; the section then draws nothing, as when it is empty.
+    if (!r.ok) toast(sourceFail(r))
     setData(r.ok ? r.data : { proposals: [], counts: { exact: 0, review: 0 } })
   }, [])
   useEffect(() => {
@@ -46,10 +48,10 @@ export default function LocatorsPage({ embedded = false, onOpenBook, onOpenMovie
 
   async function press(path, bucket, items) {
     setBusy(true)
-    const r = await json('POST', path, bucket ? { bucket, items } : { items })
+    const r = await json('POST', path, bucket ? { bucket, items } : { items }, { timeoutMs: READ_MS })
     setBusy(false)
     if (!r.ok) {
-      toast(r.data?.error || t('common.source.error'))
+      toast(sourceFail(r))
       return
     }
     if (path.endsWith('/accept')) {

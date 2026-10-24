@@ -10313,6 +10313,8 @@ export function IconLogout({ size = ICON_SIZE }) { return <svg {...iconStroke} w
 export function IconKey({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><circle cx="8" cy="12" r="4"/><path d="M12 12h8.5"/><path d="M17 12v3.5"/><path d="M20.5 12v2.5"/></svg> }
 // IconDevice — a paired phone (Settings' Devices card).
 export function IconDevice({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M10.5 18.5h3"/></svg> }
+// IconSourceFile — a page with a folded corner: the file a work's quotes came from.
+export function IconSourceFile({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg> }
 // IconArchive — a lidded box: one dated, encrypted backup.
 export function IconArchive({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><rect x="3" y="4.5" width="18" height="4" rx="1.2"/><path d="M4.8 8.5v10a2 2 0 0 0 2 2h10.4a2 2 0 0 0 2-2v-10"/><path d="M10 12.5h4"/></svg> }
 // IconRestore — the same box, opened upward. Restoring reads OUT of an archive,

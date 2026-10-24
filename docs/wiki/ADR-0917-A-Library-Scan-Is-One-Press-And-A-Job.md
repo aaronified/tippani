@@ -33,6 +33,10 @@ The job walks the whole folder with no cap and needs no second press.
   because that would need a boot-time scan.
 - A continuation is not counted against the reader's limit of 5 jobs or the duplicate check (`Job.Continue`), and a new press
   while a slice is queued or running shows that slice. A chain never holds more than one queued or running slice per folder.
+  Every slice has the same params (the folder id), so the queue's duplicate check, which runs inside the insert's write
+  transaction, keeps this rule. There is no mutex around the press (3.4.2: a mutex held across the insert made every press wait
+  behind one that was waiting for the database). A press that cannot queue the job within 10 seconds answers 503
+  (`TIP-JOBS-004`), and a failed or interrupted last slice shows on the folder's scan status with its error.
 - Progress, Stop and the jobs card come from the existing job system. There is no new UI machinery. Each slice is its own row in
   the job list.
 
