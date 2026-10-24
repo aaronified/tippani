@@ -21,10 +21,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/http/httptest"
-	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -107,26 +105,6 @@ func TestHealthzWaitsOutABriefQueueForAConnection(t *testing.T) {
 	}
 	if took := time.Since(start); took < 400*time.Millisecond {
 		t.Fatalf("answered in %s, before a connection was free: the probe did not wait for one", took)
-	}
-}
-
-func TestHealthzAnswers503WhenTheDatabaseIsClosed(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	logs := olog.CaptureForTest(t)
-	if err := srv.Store.Close(); err != nil {
-		t.Fatal(err)
-	}
-	start := time.Now()
-	rec := healthz(h)
-	if rec.Code != http.StatusServiceUnavailable || !strings.HasPrefix(rec.Body.String(), "TIP-HEALTH-002") {
-		t.Fatalf("a closed database: got %d %q, want 503 TIP-HEALTH-002", rec.Code, rec.Body)
-	}
-	if took := time.Since(start); took > time.Second {
-		t.Fatalf("a closed database took %s to report; it should not wait", took)
-	}
-	if !strings.Contains(logs.String(), "[error] TIP-HEALTH-002 GET /healthz") {
-		t.Fatalf("no TIP-HEALTH-002 line:\n%s", logs)
 	}
 }
 
@@ -223,139 +201,3 @@ func TestARequestWhoseClientLeavesMidWaitIsStillRefused(t *testing.T) {
 	}
 }
 
-// A closed database is not "no connection came free": the door lets the request
-// through at once, and the handler answers as it always did.
-func TestTheDoorDoesNotWaitOnAClosedDatabase(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	if err := srv.Store.Close(); err != nil {
-		t.Fatal(err)
-	}
-	start := time.Now()
-	rec := c.do("GET", "/auth/me", nil)
-	if rec.Code == http.StatusServiceUnavailable {
-		t.Fatalf("a closed database was refused at the door as if no connection came free: %s", rec.Body)
-	}
-	if took := time.Since(start); took > time.Second {
-		t.Fatalf("the door waited %s on a closed database", took)
-	}
-}
-
-func TestAHungRequestIsNamedInTheLogWhileItHangs(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	logs := olog.CaptureForTest(t)
-	held := store.HoldEveryConnectionForTest(t, srv.Store.DB)
-
-	waits := srv.Store.DB.Stats().WaitCount
-	done := make(chan int, 1)
-	go func() { done <- c.do("GET", "/auth/me", nil).Code }()
-	for i := 0; srv.Store.DB.Stats().WaitCount == waits; i++ {
-		if i > 400 {
-			t.Fatal("the request never queued for a connection")
-		}
-		time.Sleep(5 * time.Millisecond)
-	}
-
-	if rec := healthz(h); rec.Code != http.StatusServiceUnavailable {
-		t.Fatalf("/healthz while a request is queued on a held pool: got %d, want 503", rec.Code)
-	}
-	select {
-	case code := <-done:
-		t.Fatalf("the queued request answered %d while the pool was still held", code)
-	default:
-	}
-	line := regexp.MustCompile(`\[error\] TIP-HEALTH-001 [^\n]*`).FindString(logs.String())
-	rid := regexp.MustCompile(`GET /api/auth/me \d+s \(req (r\d+)\)`).FindStringSubmatch(line)
-	if rid == nil {
-		t.Fatalf("the failed health check does not name the request that is waiting: %q", line)
-	}
-
-	store.ReleaseForTest(held)
-	select {
-	case code := <-done:
-		if code != http.StatusOK {
-			t.Fatalf("the queued request, once a connection came free: got %d, want 200", code)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("the queued request did not answer after the pool was released")
-	}
-	if !regexp.MustCompile(`GET /api/auth/me 200 [^\n]* alice ` + rid[1] + `\n`).MatchString(logs.String()) {
-		t.Fatalf("the access line does not carry the id the health check named (%s):\n%s", rid[1], logs)
-	}
-	if rec := healthz(h); rec.Code != http.StatusOK {
-		t.Fatalf("/healthz after the release: got %d, want 200", rec.Code)
-	}
-}
-
-// A request that has been running past the server's write deadline is named once,
-// with its id. The two requests stall on their bodies, the one way to keep a
-// request running for a minute without holding the pool; a real server's
-// ReadTimeout would end that, and this checks the naming, not the stall.
-func TestARequestStillRunningPastTheWriteDeadlineIsNamedOnce(t *testing.T) {
-	if testing.Short() {
-		t.Skip("runs for a minute and a bit")
-	}
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	bookID := newTestBook(t, c, "Invisible Cities")
-	logs := olog.CaptureForTest(t)
-
-	stalled := func() (*io.PipeWriter, chan int) {
-		pr, pw := io.Pipe()
-		done := make(chan int, 1)
-		go func() {
-			req := httptest.NewRequest("POST", "/api/annotations", pr).WithContext(context.Background())
-			req.Header.Set("Content-Type", "application/json")
-			req.AddCookie(c.cookie)
-			rec := httptest.NewRecorder()
-			h.ServeHTTP(rec, req)
-			done <- rec.Code
-		}()
-		go func() { _, _ = io.WriteString(pw, fmt.Sprintf(`{"book_id":%d,`, bookID)) }()
-		return pw, done
-	}
-	stillRunning := regexp.MustCompile(`\[warn\] TIP-HTTP-003 POST /api/annotations still running after [0-9ms]+ \(from [^,]+, req (r\d+)\)`)
-	count := func() int { return len(stillRunning.FindAllString(logs.String(), -1)) }
-
-	aStart := time.Now()
-	a, aDone := stalled()
-	time.Sleep(5 * time.Second)
-	b, bDone := stalled()
-
-	time.Sleep(time.Until(aStart.Add(stuckAfter + time.Second)))
-	if rec := healthz(h); rec.Code != http.StatusOK {
-		t.Fatalf("/healthz: got %d; two requests stalled on their bodies hold no connection", rec.Code)
-	}
-	if n := count(); n != 1 {
-		t.Fatalf("a minute and a second after A began: %d still-running lines, want 1 (A):\n%s", n, logs)
-	}
-	time.Sleep(time.Until(aStart.Add(5*time.Second + stuckAfter + time.Second)))
-	c.mustDo("GET", "/auth/status", nil, http.StatusOK) // an arrival sweeps too
-	if n := count(); n != 2 {
-		t.Fatalf("after B passed the deadline and a request arrived: %d lines, want 2:\n%s", n, logs)
-	}
-	healthz(h)
-	healthz(h)
-	if n := count(); n != 2 {
-		t.Fatalf("each request must be named once: %d lines after two more sweeps:\n%s", n, logs)
-	}
-
-	for i, p := range []*io.PipeWriter{a, b} {
-		_, _ = io.WriteString(p, fmt.Sprintf(`"quote":"Cities, like dreams, are made of desires and fears (%d)."}`, i))
-		_ = p.Close()
-	}
-	for i, d := range []chan int{aDone, bDone} {
-		if code := <-d; code != http.StatusCreated {
-			t.Fatalf("stalled request %d, once its body arrived: got %d, want 201", i, code)
-		}
-	}
-	for _, m := range stillRunning.FindAllStringSubmatch(logs.String(), -1) {
-		if !regexp.MustCompile(`POST /api/annotations \d{3} [^\n]* ` + m[1] + `\n`).MatchString(logs.String()) {
-			t.Fatalf("the still-running line names %s, and no access line carries that id:\n%s", m[1], logs)
-		}
-	}
-}

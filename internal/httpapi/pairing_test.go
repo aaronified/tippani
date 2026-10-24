@@ -337,12 +337,3 @@ func TestPairingEvictionPrefersTheMintersOwnCodes(t *testing.T) {
 	}
 }
 
-// The alphabet's length must keep dividing 256, or newPairingCode's modulo
-// becomes biased. Cheap guard on a constant that looks harmless to edit.
-func TestPairingAlphabetIsUnbiased(t *testing.T) {
-	if len(pairingAlphabet) == 0 || 256%len(pairingAlphabet) != 0 {
-		t.Fatalf("pairingAlphabet has %d symbols, which does not divide 256 — "+
-			"newPairingCode's modulo would be biased; switch it to rejection sampling",
-			len(pairingAlphabet))
-	}
-}

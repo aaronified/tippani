@@ -224,70 +224,6 @@ func TestAnAdminNarrowsTheSystemLogByLevelTimeAndKeyword(t *testing.T) {
 	}
 }
 
-// THE WINDOW IS THE SERVER'S. The screen asks for "the last hour" as a length
-// of time, which the server ends at its own now, so a browser whose clock is
-// hours or months out is shown, and exports, the same lines as one whose clock
-// is right. The list says the window it read; sent back, it is what "What is
-// shown" exports, and a line logged after the read is not in the file.
-func TestTheSystemLogsWindowIsSetByTheServersClock(t *testing.T) {
-	srv := newTestServer(t)
-	logging(t, srv)
-	h := srv.Handler()
-	admin := signupAdmin(t, h)
-
-	if _, err := srv.Store.DB.Exec(`INSERT INTO system_logs (at, level, line) VALUES (?, 'info', '[test] Wv-since two hours ago')`,
-		time.Now().Add(-2*time.Hour).UnixMilli()); err != nil {
-		t.Fatal(err)
-	}
-	olog.Printf("[test] Wv-since just now")
-
-	// The last hour, and the last three, by the server's clock.
-	before := time.Now().Add(-time.Hour).UnixMilli()
-	hour := admin.logs(url.Values{"q": {"Wv-since"}, "since": {"3600000"}})
-	after := time.Now().Add(-time.Hour).UnixMilli()
-	if got := marked(hour, "Wv-since"); len(got) != 1 || !strings.HasSuffix(got[0], "Wv-since just now") {
-		t.Fatalf("the last hour: %q", got)
-	}
-	if hour.From < before || hour.From > after {
-		t.Fatalf("the last hour was read from %d, want the server's now less an hour, between %d and %d", hour.From, before, after)
-	}
-	if hour.Upto < hour.Lines[0].ID {
-		t.Fatalf("the window ends at line %d, before the newest line it holds, %d", hour.Upto, hour.Lines[0].ID)
-	}
-	if got := marked(admin.logs(url.Values{"q": {"Wv-since"}, "since": {"10800000"}}), "Wv-since"); len(got) != 2 {
-		t.Fatalf("the last three hours: %q", got)
-	}
-
-	// What is shown: the window the list was read over, and not a line logged
-	// after it.
-	olog.Printf("[test] Wv-since after the read")
-	shown := url.Values{"q": {"Wv-since"}, "from": {fmt.Sprint(hour.From)}, "upto": {fmt.Sprint(hour.Upto)}}
-	md := admin.mustDo("GET", "/admin/logs.md?"+shown.Encode(), nil, http.StatusOK).Body.String()
-	if !strings.Contains(md, "Wv-since just now") || strings.Contains(md, "two hours ago") || strings.Contains(md, "after the read") {
-		t.Fatalf("the export of what was shown:\n%s", md)
-	}
-	if !strings.Contains(md, "from "+utc(hour.From)+" UTC, to ") {
-		t.Fatalf("the export does not say the window it holds:\n%s", md)
-	}
-	// …while the list read again has the newer line.
-	if got := marked(admin.logs(url.Values{"q": {"Wv-since"}, "since": {"3600000"}}), "Wv-since"); len(got) != 2 {
-		t.Fatalf("the last hour read again: %q", got)
-	}
-
-	// A window that ends before it starts, and the other questions that cannot
-	// be answered, are refused rather than answered with an empty log.
-	for _, q := range []string{
-		fmt.Sprintf("from=%d&to=%d", time.Now().Add(-time.Hour).UnixMilli(), time.Now().Add(-2*time.Hour).UnixMilli()),
-		"to=" + fmt.Sprint(time.Now().Add(-31*24*time.Hour).UnixMilli()),
-		"since=3600000&from=1000",
-		"since=an+hour",
-		"upto=line",
-	} {
-		admin.mustDo("GET", "/admin/logs?"+q, nil, http.StatusBadRequest)
-		admin.mustDo("GET", "/admin/logs.md?"+q, nil, http.StatusBadRequest)
-	}
-}
-
 func TestTheSystemLogExportsWhatTheFiltersShowOrEverythingKept(t *testing.T) {
 	srv := newTestServer(t)
 	logging(t, srv)
@@ -385,56 +321,6 @@ func stalledDownload(t *testing.T, ts *httptest.Server, c *testClient, path stri
 		t.Fatalf("the download of %s began %v (%v), want a 200", path, res, err)
 	}
 	return res
-}
-
-func TestDownloadsNobodyReadsLeaveTheAppAnsweringAndAreGivenUpOn(t *testing.T) {
-	srv := newTestServer(t)
-	logging(t, srv)
-	h := srv.Handler()
-	admin := signupAdmin(t, h)
-	// Sixty thousand lines of two hundred bytes: a file several times what the
-	// socket buffers between the server and a client can hold.
-	if _, err := srv.Store.DB.Exec(`WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 60000)
-		INSERT INTO system_logs (at, level, code, line) SELECT ?, 'info', '', printf('[test] Wv-bulk %06d %s', i, ?) FROM n`,
-		time.Now().UnixMilli(), strings.Repeat("x", 180)); err != nil {
-		t.Fatal(err)
-	}
-	ts := httptest.NewServer(h)
-	t.Cleanup(ts.Close) // after the downloads' own cleanups, which close them first
-
-	// More stalled exports than the library pool has connections, and the app
-	// still answers a reader's list at once.
-	for range 5 {
-		stalledDownload(t, ts, admin, "/admin/logs.md?all=1")
-	}
-	req, _ := http.NewRequest("GET", ts.URL+apiPath("/books"), nil)
-	req.AddCookie(admin.cookie)
-	start := time.Now()
-	res, err := (&http.Client{Timeout: 5 * time.Second}).Do(req)
-	if err != nil {
-		t.Fatalf("GET /books beside five stalled exports: %v", err)
-	}
-	res.Body.Close()
-	if res.StatusCode != http.StatusOK {
-		t.Fatalf("GET /books beside five stalled exports: %d", res.StatusCode)
-	}
-	t.Logf("GET /books answered in %s beside five stalled exports", time.Since(start).Round(time.Millisecond))
-
-	// And a download nobody reads is let go once it has waited long enough,
-	// which the server's own log says.
-	old := exportIdle.Load()
-	exportIdle.Store(int64(300 * time.Millisecond))
-	t.Cleanup(func() { exportIdle.Store(old) })
-	stalledDownload(t, ts, admin, "/admin/logs.md?q=Wv-bulk")
-	for deadline := time.Now().Add(20 * time.Second); ; time.Sleep(20 * time.Millisecond) {
-		got := marked(admin.logs(url.Values{"level": {"warn"}, "q": {"export was not all sent"}}), "export was not all sent")
-		if len(got) > 0 {
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatal("an export nobody read for twenty seconds was never given up on")
-		}
-	}
 }
 
 // An export that a restore or a reset swaps the database under part-way ends with

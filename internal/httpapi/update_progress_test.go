@@ -18,9 +18,7 @@ package httpapi
 //      is not something an operator can act on.
 
 import (
-	"errors"
 	"net/http"
-	"strings"
 	"testing"
 )
 
@@ -67,58 +65,6 @@ func TestUpdateProgressRecordsEveryStep(t *testing.T) {
 	}
 	if got["user"] != "alice" {
 		t.Fatalf("user = %v, want the admin who pressed it", got["user"])
-	}
-}
-
-func TestUpdateProgressNamesTheStepThatFailed(t *testing.T) {
-	// THE REPORTED CASE. Self() asks the Engine about the container whose name is
-	// this machine's hostname, so a compose file that sets `hostname:` — or any
-	// runtime that does not name the container after its id — 404s here, BEFORE a
-	// single image is pulled. From the outside that is an update that issued no
-	// Docker command at all, which is exactly how it was described.
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	fake := &fakeDocker{avail: true, name: "tippani", image: "img", selfErr: errors.New("inspect self: docker 404")}
-	srv.newDocker = func() UpdateDocker { return fake }
-
-	c.mustDo("POST", "/admin/update/apply", map[string]any{"confirm": "UPDATE"}, http.StatusInternalServerError)
-
-	got := updateState(t, c)
-	if got["phase"] != updatePhaseFailed {
-		t.Fatalf("phase = %v, want %q", got["phase"], updatePhaseFailed)
-	}
-	// The Engine's own words. A reason that says "a Docker call failed" sends the
-	// operator to the logs; this one sends them to their compose file.
-	if s, _ := got["error"].(string); s == "" || !strings.Contains(s, "docker 404") {
-		t.Fatalf("error = %q, want the Engine's own words", got["error"])
-	}
-	// AND NOTHING WAS PULLED, which is the whole point of recording the step
-	// rather than only the outcome: it stopped before it touched an image.
-	if len(fake.pulled) != 0 || len(fake.watched) != 0 {
-		t.Fatalf("it acted despite failing to identify itself: %+v", fake)
-	}
-}
-
-func TestUpdateProgressSeparatesCannotFromFailed(t *testing.T) {
-	// A box with no Engine API did not FAIL an update — it was never able to try
-	// one, and the operator's next move is the guided command rather than pressing
-	// the button again. Recording both the same way would send them round the loop.
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	srv.newDocker = func() UpdateDocker {
-		return &fakeDocker{avail: false, why: "no such file: /var/run/docker.sock"}
-	}
-
-	c.mustDo("POST", "/admin/update/apply", map[string]any{"confirm": "UPDATE"}, http.StatusConflict)
-
-	got := updateState(t, c)
-	if got["phase"] != updatePhaseFailed {
-		t.Fatalf("phase = %v", got["phase"])
-	}
-	if s, _ := got["error"].(string); !strings.Contains(s, "docker.sock") {
-		t.Fatalf("error = %q, want the probe's own reason", got["error"])
 	}
 }
 

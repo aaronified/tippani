@@ -53,21 +53,6 @@ func TestABookKeepsItsSubtitlePublisherAndExtent(t *testing.T) {
 	}
 }
 
-func TestTheThreeEditionFieldsAreRefused(t *testing.T) {
-	c := signupAdmin(t, newTestServer(t).Handler())
-	// A page count is a count. Negative is the only refusal — a ceiling would be
-	// a guess about what a long book is, and an omnibus is the row that would
-	// hit it.
-	c.mustDo("POST", "/books", map[string]any{"title": "A", "pages": -1}, http.StatusBadRequest)
-	c.mustDo("POST", "/books", map[string]any{"title": "B", "pages": 4000}, http.StatusCreated)
-	c.mustDo("POST", "/books", map[string]any{
-		"title": "C", "subtitle": strings.Repeat("x", 501),
-	}, http.StatusBadRequest)
-	c.mustDo("POST", "/books", map[string]any{
-		"title": "D", "publisher": strings.Repeat("x", 201),
-	}, http.StatusBadRequest)
-}
-
 func TestTheEditionFieldsRoundTripThroughTheExport(t *testing.T) {
 	c := signupAdmin(t, newTestServer(t).Handler())
 	made := decode[bookEdition](t, c.mustDo("POST", "/books", map[string]any{

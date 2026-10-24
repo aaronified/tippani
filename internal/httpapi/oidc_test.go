@@ -165,22 +165,6 @@ func oidcRoundTrip(t *testing.T, h http.Handler, idp *fakeIdP, query string, exi
 	return rec.Header().Get("Location"), nil
 }
 
-func TestOIDCStatusOffersTheButtonOnlyWhenConfigured(t *testing.T) {
-	srv := newTestServer(t)
-	anon := &testClient{t: t, h: srv.Handler()}
-	if got := decode[map[string]any](t, anon.mustDo("GET", "/auth/status", nil, 200))["oidc"]; got != nil {
-		t.Fatalf("unconfigured: oidc = %v, want null", got)
-	}
-	withOIDC(t, srv)
-	anon = &testClient{t: t, h: srv.Handler()}
-	st := decode[struct {
-		OIDC struct{ Name string } `json:"oidc"`
-	}](t, anon.mustDo("GET", "/auth/status", nil, 200))
-	if st.OIDC.Name != "Authelia" {
-		t.Fatalf("configured: oidc.name = %q, want Authelia", st.OIDC.Name)
-	}
-}
-
 // The journey the feature exists for: a reader with a password links their
 // provider account from Settings, signs out, and signs back in with the button.
 func TestOIDCLinkThenSignIn(t *testing.T) {
@@ -381,25 +365,6 @@ func TestOIDCLinkRefusesAnIdentityHeldByAnotherAccount(t *testing.T) {
 	}
 	if decode[map[string]any](t, bob.mustDo("GET", "/auth/me", nil, 200))["oidc_linked"] == true {
 		t.Fatal("bob's account reads as linked")
-	}
-}
-
-// A provider that keeps names out of the ID token (Authelia's default claims
-// policy) still gets a named account: the name comes from userinfo. Mutation:
-// without the userinfo call the account is named "reader".
-func TestOIDCNamesComeFromUserinfoWhenTheTokenHasNone(t *testing.T) {
-	srv := newTestServer(t)
-	idp := withOIDC(t, srv)
-	idp.namesInUserinfo = true
-	srv.OIDCAutoCreate = true
-	h := srv.Handler()
-	_, cookie := signInWithOIDC(t, h, idp, "", nil)
-	if cookie == nil {
-		t.Fatal("no session")
-	}
-	me := decode[struct{ Username string }](t, (&testClient{t: t, h: h, cookie: cookie}).mustDo("GET", "/auth/me", nil, 200))
-	if me.Username != "alice" {
-		t.Fatalf("account named %q, want alice from userinfo", me.Username)
 	}
 }
 

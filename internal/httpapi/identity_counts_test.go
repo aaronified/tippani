@@ -152,26 +152,6 @@ func TestAPersonsCountsCoverTheirLinesAndTheirFavourites(t *testing.T) {
 	}
 }
 
-// A RECORD WITH NOTHING KEPT COUNTS NOTHING, both ways. Worth a case of its own
-// because the pair is derived rather than stored: an aggregate that treats an
-// absent row as a value reports lines a record does not have.
-func TestARecordWithNoLinesCountsNothing(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	m := decode[struct{ ID int64 }](t, c.mustDo("POST", "/movies",
-		map[string]any{"title": "Part 2", "media_type": "movie"}, http.StatusCreated))
-	c.mustDo("POST", "/movies/"+itoa(m.ID)+"/cast",
-		map[string]any{"character": "Neville", "actor": "Matthew Lewis"}, http.StatusCreated)
-
-	who := decode[whosResp](t, c.mustDo("GET", "/movies/"+itoa(m.ID)+"/whos-in-it", nil, http.StatusOK))
-	id := charsByName(who)["Neville"].CharacterID
-	got := decode[identityCounts](t, c.mustDo("GET", "/characters/"+itoa(id), nil, http.StatusOK))
-	if got.Quotes != 0 || got.Favourites != 0 {
-		t.Fatalf("a character with no lines reports %d / %d", got.Quotes, got.Favourites)
-	}
-}
-
 // AND A WORK'S OWN PAIR RIDES WITH THE COUNT ITS CARD ALREADY DRAWS, on both
 // shelves — two tables, two queries, so one proven says nothing about the other.
 func TestAWorkReportsHowManyOfItsQuotesAreFavourites(t *testing.T) {

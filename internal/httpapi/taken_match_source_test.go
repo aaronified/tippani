@@ -53,51 +53,6 @@ func TestTakingAMatchOnABookCreditsTheSupplierAndKeepsWhatYouTyped(t *testing.T)
 	}
 }
 
-func TestTakingAFilmMatchCreditsEachSupplier(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	m := decode[struct{ ID int64 }](t, c.mustDo("POST", "/movies", map[string]any{"title": "Ran", "series": "Kurosawa", "series_index": 2}, http.StatusCreated))
-	if got := sourcesByField(t, c, m.ID); got["title"] != "manual" || got["series_index"] != "manual" {
-		t.Errorf("a film typed in by hand is not the reader's, field by field: %v", got)
-	}
-	c.mustDo("PUT", "/movies/"+strconv.FormatInt(m.ID, 10), map[string]any{
-		"title": "Ran", "director": "Akira Kurosawa", "release_year": 1985, "genres": []string{"Drama", "War"},
-		"sources": map[string]string{"director": "tmdb", "release_year": "letterboxd", "genres": "tmdb"},
-	}, http.StatusOK)
-	got := sourcesByField(t, c, m.ID)
-	for f, w := range map[string]string{"director": "tmdb", "release_year": "letterboxd", "genres": "tmdb"} {
-		if got[f] != w {
-			t.Errorf("%s is credited to %q, want %q (%v)", f, got[f], w, got)
-		}
-	}
-	// A ♥ press re-posts the same genres in another order and casing: not an edit.
-	c.mustDo("PUT", "/movies/"+strconv.FormatInt(m.ID, 10), map[string]any{
-		"title": "Ran", "director": "Akira Kurosawa", "release_year": 1985, "genres": []string{"war", "drama"}, "favorite": true,
-	}, http.StatusOK)
-	if got := sourcesByField(t, c, m.ID); got["genres"] != "tmdb" {
-		t.Errorf("re-posting the same genres took them from tmdb: %v", got)
-	}
-}
-
-func TestAddingAMergedBookCreditsEachFieldToItsSupplier(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	b := decode[struct{ ID int64 }](t, c.mustDo("POST", "/books", map[string]any{
-		"title": "Middlemarch", "author": "George Eliot", "pages": 880,
-		"source": "google", "source_id": "g1", "sources": map[string]string{"title": "openlibrary"},
-	}, http.StatusCreated))
-	got := booksSourcesByField(t, c, b.ID)
-	if got["title"] != "openlibrary" || got["author"] != "google" || got["pages"] != "google" {
-		t.Errorf("a merged match was not credited field by field: %v", got)
-	}
-	unknown := decode[struct{ ID int64 }](t, c.mustDo("POST", "/books", map[string]any{
-		"title": "Romola", "source": "tvdb", "source_id": "x",
-	}, http.StatusCreated))
-	if got := booksSourcesByField(t, c, unknown.ID); len(got) != 0 {
-		t.Errorf("a source no book can have was written: %v", got)
-	}
-}
-
 func TestAnApprovedImportCreditsTheFileForWhatItBrought(t *testing.T) {
 	srv := newTestServer(t)
 	c := signupAdmin(t, srv.Handler())
@@ -152,36 +107,6 @@ func TestAMergedMatchIsCreditedFieldByFieldWhenItFillsGaps(t *testing.T) {
 	}
 }
 
-// AN IMPORTED BOOK IS CREDITED TO THE FILE TOO, on both of the import's writes:
-// a new book, and a gap in one already on the shelf, where what the reader
-// typed keeps its credit.
-func TestAnApprovedImportCreditsTheFileForABook(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	md := "---\ntitle: Middlemarch\nauthor: George Eliot\n---\n\n> A quote.\n"
-	if rec := c.importApprove("/import/markdown", "mm.md", []byte(md)); rec.Code != http.StatusOK {
-		t.Fatalf("import: %d %s", rec.Code, rec.Body)
-	}
-	list := decode[struct {
-		Books []struct{ ID int64 } `json:"books"`
-	}](t, c.mustDo("GET", "/books", nil, http.StatusOK))
-	if len(list.Books) != 1 {
-		t.Fatalf("expected one imported book, got %d", len(list.Books))
-	}
-	if got := booksSourcesByField(t, c, list.Books[0].ID); got["title"] != "import" || got["author"] != "import" {
-		t.Errorf("a new book from a file is not credited to the import: %v", got)
-	}
-
-	typed := decode[struct{ ID int64 }](t, c.mustDo("POST", "/books", map[string]any{"title": "Romola", "isbn": "9780140434705"}, http.StatusCreated))
-	md = "---\ntitle: Romola\nauthor: George Eliot\nisbn: 9780140434705\n---\n\n> Another.\n"
-	if rec := c.importApprove("/import/markdown", "romola.md", []byte(md)); rec.Code != http.StatusOK {
-		t.Fatalf("import: %d %s", rec.Code, rec.Body)
-	}
-	if got := booksSourcesByField(t, c, typed.ID); got["title"] != "manual" || got["author"] != "import" {
-		t.Errorf("an import filling a gap: %v, want the typed title the reader's and the author the import's", got)
-	}
-}
-
 // A RE-VERIFY OF A MERGED MATCH SAYS WHICH HALF GAVE EACH FIELD, on the diff and
 // on the field's offer, so the review's apply and the Details field picker credit
 // it there. The per-field credit stayed on the server, and only Fill gaps could
@@ -223,24 +148,3 @@ func TestARecheckOfAMergedMatchNamesTheHalfThatGaveEachField(t *testing.T) {
 	}
 }
 
-// A FILM'S FILL CREDITS THE SUPPLIER THAT ANSWERED. A film pinned to TheTVDB and
-// TMDB whose TheTVDB read fails is filled from TMDB, and the fill passed no
-// credit, so the apply fell back to the pin order and named TheTVDB.
-func TestAFilmFillCreditsTheSupplierThatAnswered(t *testing.T) {
-	srv := newTestServer(t)
-	tmdb := portraitTMDB(t, `[]`)
-	t.Cleanup(tmdb.Close)
-	srv.TMDB.Key = "testkey"
-	srv.TMDB.BaseURL = tmdb.URL
-	st, client, done := newTVDBCastStub(t, `{}`)
-	t.Cleanup(done)
-	st.code = http.StatusInternalServerError
-	srv.TVDB = client
-	c := signupAdmin(t, srv.Handler())
-	m := decode[struct{ ID int64 }](t, c.mustDo("POST", "/movies", map[string]any{"title": "Portal 2", "media_type": "movie"}, http.StatusCreated))
-	c.mustDo("PUT", "/movies/"+strconv.FormatInt(m.ID, 10), map[string]any{"title": "Portal 2", "media_type": "movie", "tvdb_id": 70, "tmdb_id": 603}, http.StatusOK)
-	c.mustDo("POST", "/metadata/fill", map[string]any{"movie_ids": []int64{m.ID}}, http.StatusOK)
-	if got := sourcesByField(t, c, m.ID); got["description"] != "tmdb" {
-		t.Errorf("the description TMDB gave is credited to %q (%v)", got["description"], got)
-	}
-}

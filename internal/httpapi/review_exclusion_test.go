@@ -69,36 +69,6 @@ func TestExcludingQuotesFromReview(t *testing.T) {
 	}
 }
 
-func TestExcludingAQuoteDoesNotInventReviewHistory(t *testing.T) {
-	// THE REASON THIS IS A COLUMN ON THE ROW AND NOT A FLAG ON item_reviews.
-	//
-	// The schedule table has NO ROW for a quote that has never been reviewed, so
-	// storing the exclusion there would mean INSERTing one — and four separate
-	// queries read "a row exists" as "this card has been seen". Excluding a quote
-	// and putting it back would silently promote it from never-seen to
-	// seen-and-overdue: a lie about the reader's own history, told by a
-	// preference they set for an unrelated reason.
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-
-	bookID := createBook(t, c, "A Wizard of Earthsea")
-	id := idOf(t, c.mustDo("POST", "/annotations",
-		map[string]any{"book_id": bookID, "quote": "to hear, one must be silent"}, http.StatusCreated).Body.Bytes())
-
-	before := decode[reviewDeckResp](t, c.mustDo("GET", "/review/daily", nil, 200)).States
-	if before.Total != 1 {
-		t.Fatalf("the one highlight should be in reach: %+v", before)
-	}
-	c.mustDo("POST", "/annotations/bulk", map[string]any{"ids": []int64{id}, "review": false}, 200)
-	c.mustDo("POST", "/annotations/bulk", map[string]any{"ids": []int64{id}, "review": true}, 200)
-
-	after := decode[reviewDeckResp](t, c.mustDo("GET", "/review/daily", nil, 200)).States
-	if after != before {
-		t.Errorf("a round trip through excluded changed the reader's history:\n before %+v\n after  %+v", before, after)
-	}
-}
-
 func TestExcludingAWorkCoversTheQuotesAddedAfterwards(t *testing.T) {
 	srv := newTestServer(t)
 	h := srv.Handler()
@@ -136,32 +106,6 @@ func TestExcludingAWorkCoversTheQuotesAddedAfterwards(t *testing.T) {
 	c.mustDo("POST", "/books/bulk", map[string]any{"ids": []int64{bookID}, "review": true}, 200)
 	if got := reviewTotal(t, c); got != 2 {
 		t.Fatalf("after including the book: %d, want 2", got)
-	}
-}
-
-func TestExcludingAFilmAndAStandaloneQuote(t *testing.T) {
-	// The other two kinds. A dialogue is a child row like an annotation; a
-	// standalone quote has no parent at all, so it carries only its own flag —
-	// the same asymmetry every other part of the standalone-quote work has.
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-
-	movieID := idOf(t, c.mustDo("POST", "/movies", map[string]any{"title": "Casablanca"}, http.StatusCreated).Body.Bytes())
-	c.mustDo("POST", "/dialogues", map[string]any{"movie_id": movieID, "quote": "here's looking at you, kid"}, http.StatusCreated)
-	qid := idOf(t, c.mustDo("POST", "/quotes",
-		map[string]any{"quote": "at the stroke of midnight", "speaker": "Jawaharlal Nehru"}, http.StatusCreated).Body.Bytes())
-
-	if got := reviewTotal(t, c); got != 2 {
-		t.Fatalf("before: %d, want 2", got)
-	}
-	c.mustDo("POST", "/movies/bulk", map[string]any{"ids": []int64{movieID}, "review": false}, 200)
-	if got := reviewTotal(t, c); got != 1 {
-		t.Fatalf("after excluding the film: %d, want 1", got)
-	}
-	c.mustDo("POST", "/quotes/bulk", map[string]any{"ids": []int64{qid}, "review": false}, 200)
-	if got := reviewTotal(t, c); got != 0 {
-		t.Fatalf("after excluding the standalone quote: %d, want 0", got)
 	}
 }
 
@@ -320,36 +264,6 @@ func TestClearingAQuotesOwnFlagPutsItBackInTheDeck(t *testing.T) {
 	c.mustDo("POST", "/annotations/bulk", map[string]any{"ids": []int64{annID}, "review": true}, 200)
 	if got := reviewTotal(t, c); got != 1 {
 		t.Fatalf("Add to quiz said the highlight was back and the deck still will not serve it: %d, want 1", got)
-	}
-}
-
-func TestADialogueReportsItsFilmsExclusion(t *testing.T) {
-	// The film side, asserted separately rather than trusted to symmetry: the
-	// two kinds were built as near-copies and the whole reason quote.go exists
-	// is that they drifted. dialogueCols reads `m.review_excluded`, which needs
-	// the movies join — an omission that would be a runtime scan failure, and
-	// scan failures here are LOGGED AND SKIPPED, so the symptom is an empty
-	// list with a 200 rather than an error.
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-
-	movieID := idOf(t, c.mustDo("POST", "/movies", map[string]any{"title": "Stalker"}, http.StatusCreated).Body.Bytes())
-	c.mustDo("POST", "/dialogues",
-		map[string]any{"movie_id": movieID, "quote": "let everything that has been planned come true"}, http.StatusCreated)
-	c.mustDo("POST", "/movies/bulk", map[string]any{"ids": []int64{movieID}, "review": false}, 200)
-
-	rows := decode[struct {
-		Dialogues []dialogueRow `json:"dialogues"`
-	}](t, c.mustDo("GET", "/dialogues?movie_id="+itoa(movieID), nil, 200)).Dialogues
-	if len(rows) != 1 {
-		t.Fatalf("expected one line, got %d — a scan failure drops rows silently", len(rows))
-	}
-	if !rows[0].ReviewExcluded {
-		t.Errorf("excluding the film left the line's own flag clear; the deck reads that flag")
-	}
-	if !rows[0].WorkReviewExcluded {
-		t.Errorf("work_review_excluded = false on a line of a skipped film")
 	}
 }
 

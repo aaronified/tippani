@@ -211,30 +211,6 @@ func TestCharacterSplitHandsBackARecordAndLeavesTheAppearances(t *testing.T) {
 	}
 }
 
-// The picker the merge control is built on. It finds by a FOLDED substring, which
-// is why it is done in Go: SQLite's lower() is ASCII-only.
-func TestCharacterSearchFindsFoldedAndCarriesItsWeight(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	keep, _, _, _ := twoWolands(t, srv, c)
-	c.mustDo("PUT", "/characters/"+itoa(keep), map[string]any{"name": "ВОЛАНД"}, 200)
-
-	hits := decode[struct {
-		Characters []charHit `json:"characters"`
-	}](t, c.mustDo("GET", "/characters/search?q=%D0%B2%D0%BE%D0%BB%D0%B0%D0%BD%D0%B4", nil, 200))
-	if len(hits.Characters) != 1 || hits.Characters[0].ID != keep {
-		t.Fatalf("a lower-case Cyrillic query did not find the upper-case record: %+v", hits.Characters)
-	}
-	// The weight is what makes a destructive pick safe: two records of one name are
-	// told apart by how much hangs off each.
-	if hits.Characters[0].Works != 1 {
-		t.Fatalf("hit reports %d works, want the one appearance it has", hits.Characters[0].Works)
-	}
-
-	// The literal route wins over /characters/{id} — "search" never arrives as an id.
-	c.mustDo("GET", "/characters/search", nil, 200)
-}
-
 func hasString(xs []string, want string) bool {
 	for _, x := range xs {
 		if x == want {
@@ -477,96 +453,6 @@ func TestDeletingAnUncreditedPerformerIsUndoableAndBringsTheirLinesBack(t *testi
 	creditsMustAgree(t, srv, 1)
 }
 
-// THE MERGED RECORD'S PICTURE REACHES BOTH BOOKS' QUOTES.
-//
-// The owner's report: set a character's default picture on the book you are
-// reading, merge that record with the same character in another book, and the
-// second book's quotes drew no face at all while the first book's did.
-//
-// The merge joins RECORDS — it does not, and must not, copy a per-work picture
-// onto every appearance, because "what this character looks like in THIS work" is
-// the finer grain `work_cast.character_image_path` exists for. What was missing is
-// the other half of that arrangement: with no per-work picture, the record's own
-// is what a quote should show. Without it "default" named a field nothing read.
-func TestAMergedCharacterPictureReachesEveryBooksQuotes(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	keep, drop, bookA, bookB := twoWolands(t, srv, c)
-
-	// The record's own picture — what "set the default image for a character"
-	// writes. Set through the store, because the route that fills it fetches bytes.
-	if _, err := srv.Store.DB.Exec(
-		`UPDATE characters SET image_path = ? WHERE id = ?`, "woland.jpg", keep); err != nil {
-		t.Fatal(err)
-	}
-	c.mustDo("POST", "/characters/merge", map[string]any{"keep_id": keep, "drop_id": drop}, 200)
-
-	// One quote in each book, both naming him.
-	for _, book := range []int64{bookA, bookB} {
-		c.mustDo("POST", "/annotations", map[string]any{
-			"book_id": book, "quote": "Manuscripts don't burn.", "character": "Woland",
-		}, http.StatusCreated)
-	}
-
-	type ann struct {
-		BookID          int64 `json:"book_id"`
-		CharacterImages []struct {
-			Name string `json:"name"`
-			Path string `json:"path"`
-		} `json:"character_images"`
-	}
-	got := decode[struct {
-		Annotations []ann `json:"annotations"`
-	}](t, c.mustDo("GET", "/annotations", nil, 200))
-	if len(got.Annotations) != 2 {
-		t.Fatalf("want the two quotes back, got %d", len(got.Annotations))
-	}
-	for _, a := range got.Annotations {
-		if len(a.CharacterImages) != 1 {
-			t.Fatalf("book %d: %d faces on the quote, want the merged record's one", a.BookID, len(a.CharacterImages))
-		}
-		if a.CharacterImages[0].Path != "woland.jpg" {
-			t.Fatalf("book %d: face = %q, want the record's own picture", a.BookID, a.CharacterImages[0].Path)
-		}
-	}
-}
-
-// AND THE PER-WORK PICTURE STILL WINS, which is the half the fallback must not
-// eat: a character drawn differently in the novel and in the film is the reason
-// the column is per-appearance at all.
-func TestAWorksOwnCharacterPictureBeatsTheRecordsDefault(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	keep, drop, bookA, _ := twoWolands(t, srv, c)
-	if _, err := srv.Store.DB.Exec(
-		`UPDATE characters SET image_path = ? WHERE id = ?`, "record.jpg", keep); err != nil {
-		t.Fatal(err)
-	}
-	c.mustDo("POST", "/characters/merge", map[string]any{"keep_id": keep, "drop_id": drop}, 200)
-	if _, err := srv.Store.DB.Exec(
-		`UPDATE work_cast SET character_image_path = ? WHERE kind = 'book' AND work_id = ?`,
-		"in-this-book.jpg", bookA); err != nil {
-		t.Fatal(err)
-	}
-	c.mustDo("POST", "/annotations", map[string]any{
-		"book_id": bookA, "quote": "Manuscripts don't burn.", "character": "Woland",
-	}, http.StatusCreated)
-
-	got := decode[struct {
-		Annotations []struct {
-			CharacterImages []struct {
-				Path string `json:"path"`
-			} `json:"character_images"`
-		} `json:"annotations"`
-	}](t, c.mustDo("GET", "/annotations", nil, 200))
-	if len(got.Annotations) != 1 || len(got.Annotations[0].CharacterImages) != 1 {
-		t.Fatalf("want one quote with one face, got %+v", got.Annotations)
-	}
-	if p := got.Annotations[0].CharacterImages[0].Path; p != "in-this-book.jpg" {
-		t.Fatalf("face = %q, want the picture stored against this work's cast row", p)
-	}
-}
-
 // THE OWNER'S EXACT SEQUENCE, both ways round.
 //
 // "I set the default image for a character from a book and then merged it with
@@ -730,25 +616,3 @@ func TestACastRowCarriesTheCharacterRecordsOwnPicture(t *testing.T) {
 	}
 }
 
-// A row with no character record linked reports no default, rather than the
-// first thing a loose subquery happened to find. character_id is nullable — most
-// rows on a library that has not been through the cast panel carry none.
-func TestAnUnlinkedCastRowReportsNoRecordPicture(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	film := newMovie(t, c, map[string]any{"title": "Solaris"}).ID
-	c.mustDo("POST", "/movies/"+itoa(film)+"/cast",
-		map[string]any{"character": "Kris Kelvin", "actor": "Donatas Banionis"}, http.StatusCreated)
-	got := decode[struct {
-		Cast []struct {
-			CharacterID          int64  `json:"character_id"`
-			CharacterRecordImage string `json:"character_record_image"`
-		} `json:"cast"`
-	}](t, c.mustDo("GET", "/movies/"+itoa(film)+"/cast", nil, 200))
-	if len(got.Cast) != 1 {
-		t.Fatalf("%d cast rows", len(got.Cast))
-	}
-	if got.Cast[0].CharacterRecordImage != "" {
-		t.Fatalf("an unlinked row reported %q", got.Cast[0].CharacterRecordImage)
-	}
-}

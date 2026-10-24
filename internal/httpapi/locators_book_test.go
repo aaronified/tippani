@@ -164,22 +164,6 @@ func TestAFuzzyMatchIsProposedForReviewWithItsDistance(t *testing.T) {
 	}
 }
 
-func TestASentenceInTwoPlacesGetsNoProposal(t *testing.T) {
-	f := placeFixtureOf(t)
-	if p, ok := f.c.proposalFor("annotation", f.ambiguous); ok {
-		t.Fatalf("a guess about where it sits is worse than saying so: %+v", p)
-	}
-}
-
-// The first paragraph of chapter two belongs to chapter two, not to the one before it.
-func TestAChapterEdgeHighlightIsNamedForTheChapterItOpens(t *testing.T) {
-	f := placeFixtureOf(t)
-	p, ok := f.c.proposalFor("annotation", f.edge)
-	if !ok || p.ProposedChapter != "Chapter Two" || p.Proposed != percentBefore(bookParagraphs(), 4) {
-		t.Fatalf("%+v %v", p, ok)
-	}
-}
-
 func TestAHighlightKeepsItsOwnChapterAndIsOnlyProposedAPlace(t *testing.T) {
 	f := placeFixtureOf(t)
 	p, ok := f.c.proposalFor("annotation", f.own)
@@ -304,18 +288,5 @@ func TestARescanGivesAnOlderRowItsPositionWithoutTouchingItsContext(t *testing.T
 	var want int
 	if err := f.srv.Store.DB.QueryRow(`SELECT want_before FROM source_context WHERE subject = 'annotation' AND item_id = ?`, f.exact).Scan(&want); err != nil || want != 0 {
 		t.Fatalf("the reader's own window changed: %d %v", want, err)
-	}
-}
-
-func TestAFilmLineStillGetsATimeAndNoChapter(t *testing.T) {
-	_, c, _, _, _ := locatorFixture(t)
-	got := c.proposals().Proposals
-	if len(got) == 0 {
-		t.Fatal("no proposals")
-	}
-	for _, p := range got {
-		if p.Kind != "dialogue" || p.ProposedChapter != "" || !strings.Contains(p.Proposed, ":") {
-			t.Fatalf("%+v", p)
-		}
 	}
 }

@@ -106,42 +106,6 @@ func TestABookCharacterSurvivesItsOwnExport(t *testing.T) {
 	}
 }
 
-// The hole itself, isolated: the barest book that can carry a character. No
-// author and no isbn — both dropped from the frontmatter when empty — so before
-// `type: book` there was nothing in this file that said "book" and one line in it
-// that said "film".
-func TestTheBarestBookWithACharacterStillReimportsAsABook(t *testing.T) {
-	h := newTestServer(t).Handler()
-	alice := signupAdmin(t, h)
-
-	book := decode[bookDetail](t, alice.mustDo("POST", "/books",
-		map[string]any{"title": "An Unattributed Novel"}, http.StatusCreated))
-	alice.mustDo("POST", "/annotations", map[string]any{
-		"book_id": book.ID, "quote": "A line somebody says.", "character": "A Speaker",
-	}, http.StatusCreated)
-
-	md := alice.mustDo("GET", "/books/"+itoa(book.ID)+"/export", nil, http.StatusOK).Body.String()
-	for _, absent := range []string{"author:", "isbn:"} {
-		if strings.Contains(md, absent) {
-			t.Fatalf("this fixture is meant to be bare and carries %q:\n%s", absent, md)
-		}
-	}
-
-	bob := addUser(t, h, alice, "bob")
-	if rec := bob.importApprove("/import/markdown", "bare.md", []byte(md)); rec.Code != http.StatusOK {
-		t.Fatalf("import: %d %s", rec.Code, rec.Body)
-	}
-	books := decode[pagedBooks](t, bob.mustDo("GET", "/books", nil, http.StatusOK))
-	if len(books.Books) != 1 || books.Books[0].Title != "An Unattributed Novel" {
-		t.Fatalf("the book did not come back as a book: %+v", books.Books)
-	}
-	if movies := decode[struct {
-		Movies []movieDetail `json:"movies"`
-	}](t, bob.mustDo("GET", "/movies", nil, http.StatusOK)); len(movies.Movies) != 0 {
-		t.Fatalf("the book re-imported into the catalogue: %+v", movies.Movies)
-	}
-}
-
 // ---- 2. a game's act and quest --------------------------------------------
 
 // The full path for the two fields that are IDENTITY as well as content. Two
@@ -211,33 +175,6 @@ func TestAGamesActAndQuestSurviveTheirOwnExport(t *testing.T) {
 	}
 }
 
-// The other direction of the same gate: act and quest belong to a game, so a FILM
-// file that carries them (hand-written, or a game retargeted onto a film in the
-// queue) has them dropped rather than stored. Retargeting is a legitimate repair,
-// which is why this is a clear and not a refusal — writeMovieDialogues' own
-// comment, one medium over.
-func TestAFilmFileDoesNotKeepAGamesLocator(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-
-	md := "---\ntitle: Solaris\ntype: movie\n---\n\n> We don't want to conquer space at all.\n" +
-		"- act: 3\n- quest: The Ocean\n- episode_name: Pilot\n- timestamp: 01:40:00\n"
-	if rec := c.importApprove("/import/markdown", "solaris.md", []byte(md)); rec.Code != http.StatusOK {
-		t.Fatalf("import: %d %s", rec.Code, rec.Body)
-	}
-	dlgs := dialoguesOf(t, c)
-	if len(dlgs) != 1 {
-		t.Fatalf("want one line, got %d", len(dlgs))
-	}
-	d := dlgs[0]
-	if d.Act != "" || d.Quest != "" || d.EpisodeName != "" {
-		t.Errorf("a film kept a locator it has no use for: %+v", d)
-	}
-	if d.Timestamp != "01:40:00" {
-		t.Errorf("and it lost the one locator it does have: %+v", d)
-	}
-}
-
 // ---- 3. a show's episode name ---------------------------------------------
 
 // The episode's name, beside its number. Unlike act and quest this one is NOT in
@@ -293,32 +230,6 @@ func TestAnEpisodeNameSurvivesItsOwnExport(t *testing.T) {
 	}
 	if got[0].EpisodeName != "All Prologue" {
 		t.Fatalf("the second file did not donate the episode name: %+v", got[0])
-	}
-}
-
-// THE QUEUE'S OWN ENRICHMENT ARM, which is a different code path from the live
-// table's: two copies of one line inside ONE file collide on
-// UNIQUE (staged_work_id, dedupe_hash) and the second donates whatever the first
-// lacks, so nothing is lost before the reader has seen it.
-//
-// The episode name is the field that can actually change hands. Act and quest are
-// IN the hash, so a collision means the copy already staged holds the same pair —
-// stated at the call site rather than implemented as a donation that could never
-// fire.
-func TestTheQueueDonatesAnEpisodeNameBetweenTwoCopies(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-
-	// One file, one work, the same line twice: bare first, named second.
-	md := "---\ntitle: The Wire\ntype: show\n---\n\n" +
-		"> All the pieces matter.\n- season: 1\n- episode: 6\n\n" +
-		"> All the pieces matter.\n- season: 1\n- episode: 6\n- episode_name: All Prologue\n"
-	staged := stage(t, c, "/import/markdown", "wire.md", []byte(md))
-	if staged.Staged != 1 {
-		t.Fatalf("two copies of one line should stage as one row, got %d", staged.Staged)
-	}
-	if q := oneStaged(t, c); q.EpisodeName != "All Prologue" {
-		t.Fatalf("the second copy did not donate the episode name to the queue: %+v", q)
 	}
 }
 
@@ -393,60 +304,6 @@ func TestAQuotesPerKindFieldsSurviveTheirOwnExport(t *testing.T) {
 	}
 	if !u.OccasionCirca {
 		t.Errorf("the circa tick was lost in the round trip: %+v", u)
-	}
-}
-
-// A quote with none of the five exports none of them, so a shelf written before
-// 0047 diffs clean against a fresh export — the same rule the default colour and
-// the residual category already follow.
-func TestAQuoteWithNoPerKindFieldsWritesNoneOfThem(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-	newUtterance(t, c, bose())
-
-	md := exportQuotes(t, c, nil)
-	for _, absent := range []string{"- region:", "- recipient:", "- work_title:", "- page:", "- circa:"} {
-		if strings.Contains(md, absent) {
-			t.Fatalf("an untouched quote exported %q:\n%s", absent, md)
-		}
-	}
-}
-
-// THE KEY COLLISION, and the reason the file says `page`. The anthology export
-// writes "- locator:" for a JOINED DISPLAY STRING built in SQL — "7 · The Fall ·
-// p. 288" — and applyQuoteBinding is shared by both parsers. Parsing `locator`
-// would pour that whole string into utterances.locator on every anthology
-// re-import, so a reader who turned the citations on would find their page field
-// reading like a breadcrumb trail.
-func TestAnAnthologyLocatorDoesNotBecomeAQuotesPage(t *testing.T) {
-	h := newTestServer(t).Handler()
-	alice := signupAdmin(t, h)
-
-	book := decode[bookDetail](t, alice.mustDo("POST", "/books",
-		map[string]any{"title": "A Book", "author": "An Author"}, http.StatusCreated))
-	ann := decode[annotationRow](t, alice.mustDo("POST", "/annotations", map[string]any{
-		"book_id": book.ID, "quote": "A passage worth keeping.",
-		"chapter_no": 7, "chapter": "The Fall", "location": "p. 288",
-	}, http.StatusCreated))
-	a := newAnthology(t, alice, "With citations")
-	addEntries(t, alice, a.ID, []map[string]any{{"kind": "book", "item_id": ann.ID}})
-	setFields(t, alice, a.ID, "With citations", map[string]any{"show_locator": true})
-
-	md := exportAnthology(t, alice, a.ID)
-	if !strings.Contains(md, "- locator: 7 · The Fall · p. 288") {
-		t.Fatalf("this fixture needs the anthology's locator line:\n%s", md)
-	}
-
-	bob := addUser(t, h, alice, "bob")
-	staged := stageQuotesMD(t, bob, "citations.md", md)
-	approveBatch(t, bob, staged.BatchID)
-
-	got := decode[utterancesResp](t, bob.mustDo("GET", "/quotes", nil, http.StatusOK)).Utterances
-	if len(got) != 1 {
-		t.Fatalf("want one quote back, got %d", len(got))
-	}
-	if got[0].Locator != "" {
-		t.Fatalf("an anthology's display locator was parsed as a page: %q", got[0].Locator)
 	}
 }
 

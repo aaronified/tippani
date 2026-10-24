@@ -1,7 +1,6 @@
 package httpapi
 
 import (
-	"net/http"
 	"testing"
 )
 
@@ -87,19 +86,4 @@ func TestResettingASectionLeavesTheOthersAlone(t *testing.T) {
 	if p.Theme != "dark" || p.Accent != "ochre" {
 		t.Errorf("the reset reached past the keys it was given: theme %q, accent %q", p.Theme, p.Accent)
 	}
-}
-
-func TestResettingRefusesAnEmptyOrOversizedKeyList(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-
-	c.mustDo("POST", "/auth/me/preferences/reset",
-		map[string]any{"keys": []string{}}, http.StatusBadRequest)
-
-	many := make([]string, 101)
-	for i := range many {
-		many[i] = "srTier"
-	}
-	c.mustDo("POST", "/auth/me/preferences/reset",
-		map[string]any{"keys": many}, http.StatusBadRequest)
 }

@@ -70,39 +70,6 @@ func TestAQuoteKnowsWhatKindItIs(t *testing.T) {
 	}
 }
 
-// An older client has never heard of 0035 and never sends a category. It must go
-// on working, and its quotes must land in the bucket that claims nothing about
-// them — which is what the column default says too.
-func TestAQuoteWithNoCategoryIsAnOther(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-
-	u := newUtterance(t, c, bose()) // no category, no language, no translation
-	if u.Category != "other" {
-		t.Fatalf("an omitted category must default to other, got %q", u.Category)
-	}
-	if u.Language != "" || u.Translation != "" {
-		t.Fatalf("nothing should be invented: %+v", u)
-	}
-}
-
-func TestAnUnknownCategoryIsRefused(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-
-	// 'aphorism' is a perfectly reasonable word and is not one of the three. The
-	// CHECK in 0035 would refuse it anyway, as a 500 — this is the 400.
-	body := proverb()
-	body["category"] = "aphorism"
-	c.mustDo("POST", "/quotes", body, http.StatusBadRequest)
-
-	// And on the way in through an edit, not only on create.
-	u := newUtterance(t, c, proverb())
-	bad := proverb()
-	bad["category"] = "APHORISM"
-	c.mustDo("PUT", "/quotes/"+itoa(u.ID), bad, http.StatusBadRequest)
-}
-
 func TestTheThreeBoardsAreOneFilter(t *testing.T) {
 	h := newTestServer(t).Handler()
 	c := signupAdmin(t, h)

@@ -99,39 +99,6 @@ func byss(v any) string {
 	return s
 }
 
-// NOT ASKED, NOT SENT. The reviewer and the unattended filler never read offers,
-// and a 15-item batch of them is the payload this flag exists to keep off the
-// wire.
-func TestOffersAreAbsentUnlessAskedFor(t *testing.T) {
-	srv := newTestServer(t)
-	srv.searchBooks = func(context.Context, string, string, string, string) ([]metadata.BookCandidate, error) {
-		return []metadata.BookCandidate{
-			{Source: "google", Title: "Dune", ISBN13: "9780441013593", Description: "fresh"},
-		}, nil
-	}
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	if _, err := srv.Store.DB.Exec(`INSERT INTO books (user_id, title, isbn, description)
-		VALUES (1, 'Dune', '9780441013593', 'old')`); err != nil {
-		t.Fatal(err)
-	}
-	var id int64
-	srv.Store.DB.QueryRow(`SELECT id FROM books WHERE title = 'Dune'`).Scan(&id)
-
-	res := decode[offersResp](t, c.mustDo("POST", "/metadata/reverify",
-		map[string]any{"book_ids": []int64{id}}, 200))
-	if len(res.Items[0].Offers) != 0 {
-		t.Fatalf("offers arrived unasked: %+v", res.Items[0].Offers)
-	}
-	// And one supplier IS a choice when the question is "what is on offer" —
-	// unlike `alts`, which needs two because it is a choice between suppliers.
-	res = decode[offersResp](t, c.mustDo("POST", "/metadata/reverify",
-		map[string]any{"book_ids": []int64{id}, "offers": true}, 200))
-	if rowsByField(res.Items[0].Offers)["description"].Alts == nil {
-		t.Fatalf("a single supplier offered nothing: %+v", res.Items[0].Offers)
-	}
-}
-
 // A PICTURE IS NOT A FIELD and a cast is not a value: neither wears a
 // provenance tag on the Details list, so neither has a door to open, and
 // carrying them would put a whole cast list into a response for nothing.

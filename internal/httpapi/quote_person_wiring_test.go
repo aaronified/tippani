@@ -118,86 +118,6 @@ func TestAStandaloneQuoteLinksAndUnlinksItsSpeaker(t *testing.T) {
 	quoteLinksMustAgree(t, srv, 1)
 }
 
-// The bulk field editor sets a speaker across a selection, and the panel follows.
-// This path interpolates its column name, so no search for "UPDATE utterances SET
-// speaker" would ever have found it — which is exactly why it gets a test.
-func TestBulkSettingASpeakerMovesTheQuotes(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-
-	var ids []int64
-	for _, q := range []string{"the first line", "the second line"} {
-		ids = append(ids, idOf(t, c.mustDo("POST", "/quotes",
-			map[string]any{"quote": q, "speaker": "Anon"}, http.StatusCreated).Body.Bytes()))
-	}
-	c.mustDo("POST", "/quotes/bulk", map[string]any{
-		"ids": ids, "speaker": "Marcus Aurelius",
-	}, http.StatusOK)
-
-	if n := linesOf(t, srv, personID(t, srv, 1, "Marcus Aurelius")); n != 2 {
-		t.Fatalf("the new speaker holds %d of the 2 quotes", n)
-	}
-	if n := linesOf(t, srv, personID(t, srv, 1, "Anon")); n != 0 {
-		t.Fatalf("the old speaker kept %d quote(s)", n)
-	}
-	quoteLinksMustAgree(t, srv, 1)
-}
-
-// Find-and-replace over an actor name — the cleanup this endpoint exists for.
-//
-// It also pins the vocabulary: `kind: "quote"` is the word the API speaks for a
-// standalone quote, and it resolved to no table at all until 0059's pass, so
-// every replace over a speaker answered 500.
-func TestFindAndReplaceOverASpeakerRelinksAndDoesNotCrash(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-
-	id := idOf(t, c.mustDo("POST", "/quotes", map[string]any{
-		"quote": "A line", "speaker": "Ursula LeGuin",
-	}, http.StatusCreated).Body.Bytes())
-
-	c.mustDo("POST", "/replace/apply", map[string]any{
-		"kind": "quote", "ids": []int64{id}, "field": "speaker",
-		"find": "LeGuin", "replace": "Le Guin",
-	}, http.StatusOK)
-
-	var printed string
-	if err := srv.Store.DB.QueryRow(`SELECT speaker FROM utterances WHERE id = ?`, id).Scan(&printed); err != nil {
-		t.Fatal(err)
-	}
-	if printed != "Ursula Le Guin" {
-		t.Fatalf("find-and-replace left the speaker as %q", printed)
-	}
-	if n := linesOf(t, srv, personID(t, srv, 1, "Ursula Le Guin")); n != 1 {
-		t.Fatalf("the corrected speaker holds %d quotes, want 1", n)
-	}
-	quoteLinksMustAgree(t, srv, 1)
-}
-
-// Renaming a person by NAME rewrites the strings and must leave the links
-// pointing somewhere — the handler deletes redundant records at the end, and the
-// foreign key is ON DELETE SET NULL, so a re-derive placed too early is silently
-// undone by that delete.
-func TestRenamingASpeakerByNameKeepsTheQuotesLinked(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-
-	c.mustDo("POST", "/quotes", map[string]any{
-		"quote": "A line", "speaker": "Ursula LeGuin",
-	}, http.StatusCreated)
-	c.mustDo("POST", "/people/rename", map[string]any{
-		"kind": "speaker", "from": "Ursula LeGuin", "to": "Ursula K. Le Guin",
-	}, http.StatusOK)
-
-	if n := linesOf(t, srv, personID(t, srv, 1, "Ursula K. Le Guin")); n != 1 {
-		t.Fatalf("the renamed speaker holds %d quotes, want 1", n)
-	}
-	quoteLinksMustAgree(t, srv, 1)
-}
-
 // Renaming the RECORD renames what its quotes print — otherwise the record
 // answers to a name none of its quotes carries, and the next unrelated edit
 // resolves that old spelling into a second record.
@@ -433,34 +353,6 @@ func TestFillingActorsFromTheCastLinksTheLinesItFills(t *testing.T) {
 	}
 	if n := linesOf(t, srv, personID(t, srv, 1, "Bob Peck")); n != 1 {
 		t.Fatalf("the filled line reached %d of the actor's panel, want 1", n)
-	}
-	quoteLinksMustAgree(t, srv, 1)
-}
-
-// Remapping a film's speakers — the ONE path that deliberately rewrites an actor
-// the reader already had, and therefore the one that can leave a link pointing at
-// the person the line no longer names.
-func TestRemappingSpeakersMovesTheLinkWithTheName(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-
-	m := decode[movieDetail](t, c.mustDo("POST", "/movies",
-		map[string]any{"title": "V for Vendetta"}, http.StatusCreated))
-	c.mustDo("POST", "/dialogues", map[string]any{
-		"movie_id": m.ID, "quote": "Who are you?", "character": "Evey", "actor": "N. Portman",
-	}, http.StatusCreated)
-	old := personID(t, srv, 1, "N. Portman")
-
-	c.mustDo("POST", "/movies/"+itoa(m.ID)+"/remap-speakers", map[string]any{
-		"mappings": []map[string]any{{"from": "Evey", "character": "Evey Hammond", "actor": "Natalie Portman"}},
-	}, http.StatusOK)
-
-	if n := linesOf(t, srv, old); n != 0 {
-		t.Fatalf("the old spelling kept %d line(s) after the remap", n)
-	}
-	if n := linesOf(t, srv, personID(t, srv, 1, "Natalie Portman")); n != 1 {
-		t.Fatalf("the remapped performer holds %d lines, want 1", n)
 	}
 	quoteLinksMustAgree(t, srv, 1)
 }

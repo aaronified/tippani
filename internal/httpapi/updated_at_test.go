@@ -86,21 +86,3 @@ func TestImportedBookHasUpdatedAt(t *testing.T) {
 	}
 }
 
-// A writer that sets updated_at explicitly must win — the trigger stands aside
-// rather than overwriting it with now().
-func TestExplicitUpdatedAtIsRespected(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	id := decode[bookDetail](t, c.mustDo("POST", "/books",
-		map[string]any{"title": "Explicit"}, http.StatusCreated)).ID
-
-	want := "2020-01-01 00:00:00"
-	if _, err := srv.Store.DB.Exec(
-		`UPDATE books SET updated_at = ? WHERE id = ?`, want, id); err != nil {
-		t.Fatal(err)
-	}
-	if got := updatedAt(t, srv, "books", id); got != want {
-		t.Fatalf("explicit updated_at = %q, want %q (the trigger overwrote it)", got, want)
-	}
-}

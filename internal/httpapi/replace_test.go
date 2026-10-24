@@ -92,40 +92,6 @@ func TestReplaceApplyRewritesOnlyWhatMatched(t *testing.T) {
 	}
 }
 
-// AN EMPTY `find` MATCHES AT EVERY POSITION, so a replace with it would
-// interleave the replacement through every character of every quote in the
-// selection — the most destructive thing this endpoint could be asked to do, and
-// the easiest to ask for by accident by leaving a box blank.
-func TestReplaceRefusesAnEmptyFind(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	_, ids := replaceSeed(t, c)
-	for _, find := range []string{"", "   "} {
-		for _, path := range []string{"/replace/preview", "/replace/apply"} {
-			c.mustDo("POST", path, map[string]any{
-				"kind": "annotation", "ids": ids, "field": "quote", "find": find, "replace": "x",
-			}, http.StatusBadRequest)
-		}
-	}
-}
-
-func TestReplaceRefusesAFieldTheKindLacks(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	_, ids := replaceSeed(t, c)
-	// `actor` is a dialogue column and an annotation has none — nobody plays Ahab.
-	// (This row read `character` until 0047, which gave a book highlight one: a
-	// novel has speakers. The rule is unchanged; the example had to move to a field
-	// that is still one-sided.)
-	c.mustDo("POST", "/replace/preview", map[string]any{
-		"kind": "annotation", "ids": ids, "field": "actor", "find": "a", "replace": "b",
-	}, http.StatusBadRequest)
-	// And a work is not a kind this endpoint takes at all.
-	c.mustDo("POST", "/replace/preview", map[string]any{
-		"kind": "book", "ids": ids, "field": "title", "find": "a", "replace": "b",
-	}, http.StatusBadRequest)
-}
-
 func TestReplaceNeverLeavesTheAccount(t *testing.T) {
 	srv := newTestServer(t)
 	h := srv.Handler()

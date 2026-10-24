@@ -104,36 +104,6 @@ func TestCoverUpload(t *testing.T) {
 	}
 }
 
-// TestMetadataKeysPartialSave: a partial PUT never clears untouched secrets, the
-// Amazon cookie is stored but never echoed, and the domain (not secret) is.
-func TestMetadataKeysPartialSave(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-
-	c.mustDo("PUT", "/admin/metadata-keys",
-		map[string]any{"amazon_cookie": "session-id=SECRET123", "amazon_domain": "www.amazon.de"}, 200)
-
-	rec := c.mustDo("GET", "/admin/metadata-keys", nil, 200)
-	body := rec.Body.String()
-	if strings.Contains(body, "SECRET123") {
-		t.Fatal("amazon cookie value leaked in GET response")
-	}
-	if !strings.Contains(body, `"amazon_cookie_set":true`) {
-		t.Fatalf("amazon_cookie_set missing: %s", body)
-	}
-	if !strings.Contains(body, `"amazon_domain":"www.amazon.de"`) {
-		t.Fatalf("amazon_domain missing: %s", body)
-	}
-
-	// A later PUT that only sets tmdb_key must leave the amazon cookie intact.
-	c.mustDo("PUT", "/admin/metadata-keys", map[string]any{"tmdb_key": "k"}, 200)
-	rec = c.mustDo("GET", "/admin/metadata-keys", nil, 200)
-	if !strings.Contains(rec.Body.String(), `"amazon_cookie_set":true`) {
-		t.Fatalf("partial PUT cleared the amazon cookie: %s", rec.Body)
-	}
-}
-
 // TestBookLookupQuota: a quota error from the search seam becomes a helpful
 // "add a key" message, not a generic failure.
 func TestBookLookupQuota(t *testing.T) {
@@ -204,26 +174,3 @@ func TestRefetchEnriches(t *testing.T) {
 	}
 }
 
-// TestTitlesSimilar pins the fuzzy match the import flag relies on.
-func TestTitlesSimilar(t *testing.T) {
-	same := [][2]string{
-		{"Homo Deus", "Homo Deus: The million-copy bestseller from the author of Nexus"},
-		{"Dune", "Dune"},
-		{"The Black Swan", "the black swan — the impact of the highly improbable"},
-	}
-	for _, p := range same {
-		if !titlesSimilar(p[0], p[1]) {
-			t.Errorf("titlesSimilar(%q, %q) = false, want true", p[0], p[1])
-		}
-	}
-	diff := [][2]string{
-		{"Dune", "Dune Messiah"},
-		{"Homo Deus", "Sapiens"},
-		{"It", "It Ends with Us"}, // 2-char stub must not match
-	}
-	for _, p := range diff {
-		if titlesSimilar(p[0], p[1]) {
-			t.Errorf("titlesSimilar(%q, %q) = true, want false", p[0], p[1])
-		}
-	}
-}

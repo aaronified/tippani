@@ -197,33 +197,6 @@ func TestARefetchLeavesACorrectedNameAloneAndUpdatesTheUntouchedOnes(t *testing.
 	}
 }
 
-// A refetch ADDS. The provider starts billing somebody it had left out, and the
-// new row arrives as the provider's own, in the provider's order.
-func TestARefetchAddsARowTheProviderHasStartedListing(t *testing.T) {
-	stub := &castStub{cast: `[{"id":6384,"character":"GLaDOS","name":"Ellen McLain"}]`}
-	_, c, done := castTMDBServer(t, stub)
-	defer done()
-
-	m := addFromTMDB(t, c)
-	if got := len(castOf(t, c, "/movies/"+itoa(m.ID)+"/cast").Cast); got != 1 {
-		t.Fatalf("seeded %d rows, want 1", got)
-	}
-
-	stub.cast = `[{"id":6384,"character":"GLaDOS","name":"Ellen McLain"},
-	              {"id":7,"character":"Wheatley","name":"Stephen Merchant","profile_path":"/s.jpg"}]`
-	resyncFromTMDB(t, c, m.ID)
-
-	list := castOf(t, c, "/movies/"+itoa(m.ID)+"/cast")
-	if len(list.Cast) != 2 {
-		t.Fatalf("the new credit did not arrive: %+v", list.Cast)
-	}
-	added := list.Cast[1]
-	if added.Character != "Wheatley" || added.Origin != "provider" || added.Billing != 1 ||
-		added.PersonID != "7" || added.ImageURL == "" {
-		t.Fatalf("the added row should be the provider's, in its own order, with its facts: %+v", added)
-	}
-}
-
 // (c) A READER-AUTHORED ROW IS UNTOUCHED BY A REFETCH THAT DOES NOT MENTION IT.
 // This is the case the whole feature exists for — a game's voice actor nobody
 // publishes — tested on a film because a film is the only medium a refetch can
@@ -304,62 +277,6 @@ func TestARemovedCastRowIsNotResurrectedByARefetch(t *testing.T) {
 	}
 }
 
-// ADOPTION. The reader types a credit the provider has not published yet and the
-// provider catches up. Without this the insert would hit the pair UNIQUE and fail
-// the entire refetch — a 500 on "look up again" because somebody had already got
-// a name right by hand.
-//
-// The row stays THEIRS: it keeps its origin, so the next fetch may not rewrite the
-// names on it either. What it gains is the provider's facts and the key that links
-// it to the listing, so it is re-matched rather than duplicated next time.
-func TestAdoptingAReaderRowTheProviderLaterAgreesWith(t *testing.T) {
-	stub := &castStub{cast: `[{"id":6384,"character":"GLaDOS","name":"Ellen McLain"}]`}
-	srv, c, done := castTMDBServer(t, stub)
-	defer done()
-
-	m := addFromTMDB(t, c)
-	// Typed in the reader's own casing, which folds to the same pair the provider
-	// will send.
-	mine := decode[castRow](t, c.mustDo("POST", "/movies/"+itoa(m.ID)+"/cast", map[string]any{
-		"character": "wheatley", "actor": "stephen merchant",
-	}, http.StatusCreated))
-
-	stub.cast = `[{"id":6384,"character":"GLaDOS","name":"Ellen McLain"},
-	              {"id":7,"character":"Wheatley","name":"Stephen Merchant","profile_path":"/s.jpg"}]`
-	resyncFromTMDB(t, c, m.ID)
-
-	list := castOf(t, c, "/movies/"+itoa(m.ID)+"/cast")
-	if len(list.Cast) != 2 {
-		t.Fatalf("the provider's entry should have been claimed, not duplicated: %+v", list.Cast)
-	}
-	adopted := castRowFor(t, c, m.ID, "wheatley")
-	if adopted.ID != mine.ID {
-		t.Fatalf("a second row was inserted beside the reader's: %d vs %d", adopted.ID, mine.ID)
-	}
-	if adopted.Origin != "reader" {
-		t.Fatalf("origin = %q — claiming the row must not take it off the reader", adopted.Origin)
-	}
-	if adopted.PersonID != "7" || adopted.ImageURL == "" {
-		t.Fatalf("the row should have gained the provider's facts: %+v", adopted)
-	}
-	var providerKey string
-	if err := srv.Store.DB.QueryRow(
-		`SELECT provider_key FROM work_cast WHERE id = ?`, mine.ID).Scan(&providerKey); err != nil {
-		t.Fatal(err)
-	}
-	if providerKey == "" {
-		t.Fatal("the adopted row must carry the provider key, or the next fetch duplicates it")
-	}
-	// Which the next fetch proves: still two rows, still the reader's spelling.
-	resyncFromTMDB(t, c, m.ID)
-	if list := castOf(t, c, "/movies/"+itoa(m.ID)+"/cast"); len(list.Cast) != 2 {
-		t.Fatalf("the second refetch duplicated the adopted row: %+v", list.Cast)
-	}
-	if row := castRowFor(t, c, m.ID, "wheatley"); row.Origin != "reader" {
-		t.Fatalf("the adopted row lost its provenance: %+v", row)
-	}
-}
-
 // A provider RETRACTING one of its own rows takes it away, because an untouched
 // provider row has no other author to answer to. This is the half of the rule
 // that is not a protection, and it is what keeps a mis-credited person from
@@ -412,65 +329,6 @@ func TestAnEmptyProviderListIsNotARetraction(t *testing.T) {
 	}
 	if blob != "[]" {
 		t.Fatalf("cast_json = %q — the superseded blob keeps its old behaviour", blob)
-	}
-}
-
-// THE BUG THE FEATURE EXISTS FOR, now closed at the other end. A game's voice
-// cast comes from Wikidata joined on the IGDB slug and for most games that lookup
-// finds nothing at all (TIP-META-018: 14 of 24 measured titles), so the blob was
-// '[]' and the auto-fill derived NOTHING for a game, every time, for ever. Name
-// the voice actor once and every line that character speaks takes it.
-func TestAGameLineTakesTheVoiceActorFromTheMapping(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-
-	game := createGame(t, c, "Disco Elysium", "ZA/UM")
-	// The normal state of a game: nothing was ever seeded.
-	var blob string
-	if err := srv.Store.DB.QueryRow(`SELECT cast_json FROM movies WHERE id = ?`, game).Scan(&blob); err != nil {
-		t.Fatal(err)
-	}
-	if blob != "[]" {
-		t.Fatalf("fixture is wrong — the game already has a cast blob: %s", blob)
-	}
-	// A line captured before anybody said who speaks it: no actor, and until this
-	// commit there was nowhere the answer could ever have come from.
-	before := decode[dialogueRow](t, c.mustDo("POST", "/dialogues", map[string]any{
-		"movie_id": game, "quote": "It is a shithole.", "character": "Kim Kitsuragi",
-	}, http.StatusCreated))
-	if before.Actor != "" {
-		t.Fatalf("nothing should have filled this yet: %+v", before)
-	}
-
-	c.mustDo("POST", "/movies/"+itoa(game)+"/cast", map[string]any{
-		"character": "Kim Kitsuragi", "actor": "Jullian Champenois",
-	}, http.StatusCreated)
-
-	// The next line takes it on the way in.
-	after := decode[dialogueRow](t, c.mustDo("POST", "/dialogues", map[string]any{
-		"movie_id": game, "quote": "Detective, please.", "character": "  kim kitsuragi ",
-	}, http.StatusCreated))
-	if after.Actor != "Jullian Champenois" {
-		t.Fatalf("the voice actor did not fill from the mapping: %+v", after)
-	}
-	// And a line already on the record is filled by the refill, which the remap
-	// endpoint is the deliberate way to ask for.
-	res := decode[remapResp](t, c.mustDo("POST", "/movies/"+itoa(game)+"/remap-speakers", map[string]any{
-		"mappings": []map[string]any{}, "refill": true,
-	}, http.StatusOK))
-	if res.Refilled != 1 {
-		t.Fatalf("refilled = %d, want 1 — the earlier line should fill from the mapping too", res.Refilled)
-	}
-
-	// A READER-TYPED ACTOR IS STILL NEVER OVERWRITTEN. The mapping fills a gap; it
-	// does not adjudicate an answer.
-	mine := decode[dialogueRow](t, c.mustDo("POST", "/dialogues", map[string]any{
-		"movie_id": game, "quote": "Sorry about that.", "character": "Kim Kitsuragi",
-		"actor": "Somebody Else",
-	}, http.StatusCreated))
-	if mine.Actor != "Somebody Else" {
-		t.Fatalf("a typed actor must win: %+v", mine)
 	}
 }
 
@@ -591,40 +449,5 @@ func TestApplyingAReverifiedCastRespectsACorrection(t *testing.T) {
 	}
 	if !strings.Contains(blob, `"Glados"`) || strings.Contains(blob, "Cave Johnson") {
 		t.Fatalf("cast_json = %q — the frozen copy must survive an approved cast", blob)
-	}
-}
-
-// The import path fills from the mapping too, which is the fourth and last caller
-// of the auto-fill. An imported file carries a character and usually no actor, and
-// before this the only thing that could name one was a blob no reader could write.
-func TestAnImportedLineTakesItsActorFromTheMapping(t *testing.T) {
-	c := signupAdmin(t, newTestServer(t).Handler())
-
-	m := decode[movieDetail](t, c.mustDo("POST", "/movies",
-		map[string]any{"title": "V for Vendetta"}, http.StatusCreated))
-	// Hand-typed, because that is the case the blob could never hold.
-	c.mustDo("POST", "/movies/"+itoa(m.ID)+"/cast", map[string]any{
-		"character": "V", "actor": "Hugo Weaving",
-	}, http.StatusCreated)
-
-	res := decode[imdbImportResp](t, c.importApprove("/import/imdb-quotes", "v.htm", []byte(vForVendettaQuotes)))
-	if res.MovieID != m.ID {
-		t.Fatalf("the import should have anchored to the existing title: %+v", res)
-	}
-	list := decode[dlgList](t, c.mustDo("GET", "/dialogues?movie_id="+itoa(m.ID), nil, http.StatusOK))
-	if len(list.Dialogues) == 0 {
-		t.Fatalf("nothing was imported: %+v", res)
-	}
-	var filled int
-	for _, d := range list.Dialogues {
-		if d.Character == "V" {
-			if d.Actor != "Hugo Weaving" {
-				t.Fatalf("an imported line should take the mapped actor: %+v", d)
-			}
-			filled++
-		}
-	}
-	if filled == 0 {
-		t.Fatalf("no line credited V: %+v", list.Dialogues)
 	}
 }

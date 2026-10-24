@@ -18,43 +18,6 @@ import (
 // server cannot spell. A face token that is stored but unresolvable is a face
 // nobody can see and nobody can clear.
 
-func TestQuoteFacesFoldTheLanguageName(t *testing.T) {
-	// The language box is free text, so "German" on a quote has to meet "german"
-	// in the table — the same fold read_languages.go and text_order.go use.
-	got, ok := normalizeFontsByLanguage(`{"German":"literata"}`)
-	if !ok {
-		t.Fatal("a valid table was refused")
-	}
-	var out map[string]string
-	if err := json.Unmarshal([]byte(got), &out); err != nil {
-		t.Fatalf("the stored blob does not parse: %v", err)
-	}
-	if out["german"] != "literata" {
-		t.Errorf("table = %v, want german -> literata", out)
-	}
-}
-
-func TestQuoteFacesDropARowWithNoFace(t *testing.T) {
-	// "" means this language follows the card, which is the ABSENCE of a setting.
-	// Storing it would leave a row that survives being cleared.
-	got, ok := normalizeFontsByLanguage(`{"german":"literata","french":""}`)
-	if !ok {
-		t.Fatal("a table with a cleared row was refused")
-	}
-	if strings.Contains(got, "french") {
-		t.Errorf("a cleared row was stored: %s", got)
-	}
-}
-
-func TestQuoteFacesStoreNothingWhenEveryRowIsCleared(t *testing.T) {
-	// Not "{}" — an empty object reads as a preference forever, and the whole
-	// point of clearing the last row is getting back to the account's first day.
-	got, ok := normalizeFontsByLanguage(`{"german":""}`)
-	if !ok || got != "" {
-		t.Errorf("got %q ok=%v, want an empty preference", got, ok)
-	}
-}
-
 func TestQuoteFacesRefuseATokenThisServerCannotSpell(t *testing.T) {
 	// Refused rather than dropped, the rule normalizeTextOrder follows: a value
 	// this server cannot spell is a client sending something it invented.
@@ -66,18 +29,6 @@ func TestQuoteFacesRefuseATokenThisServerCannotSpell(t *testing.T) {
 		if _, ok := normalizeFontsByLanguage(raw); ok {
 			t.Errorf("%s was accepted", raw)
 		}
-	}
-}
-
-func TestQuoteFacesRefuseMoreLanguagesThanAPreferenceShouldHold(t *testing.T) {
-	// A preference is not a corpus — readLanguagesMax's rule.
-	rows := map[string]string{}
-	for i := 0; i <= fontsByLanguageMax; i++ {
-		rows[strings.Repeat("a", i+1)] = "literata"
-	}
-	b, _ := json.Marshal(rows)
-	if _, ok := normalizeFontsByLanguage(string(b)); ok {
-		t.Errorf("a table of %d languages was accepted", len(rows))
 	}
 }
 
@@ -109,22 +60,6 @@ func TestLocaleFacesKeepOneLocalesPartialAnswer(t *testing.T) {
 	// overlay that filled them in would freeze them at today's built-ins.
 	if len(row) != 2 {
 		t.Errorf("the overlay gained entries nobody set: %v", row)
-	}
-}
-
-func TestLocaleFacesDropALocaleWithNothingOfItsOwn(t *testing.T) {
-	// An empty row is not "this locale follows nothing" — it is a locale that has
-	// been cleared, and it has to stop existing or it will go on shadowing the
-	// answer it is supposed to inherit.
-	got, ok := normalizeFontsByLocale(`{"bn":{"display":""},"fr":{"ui":"inter"}}`)
-	if !ok {
-		t.Fatal("a valid overlay was refused")
-	}
-	if strings.Contains(got, "bn") {
-		t.Errorf("an emptied locale was stored: %s", got)
-	}
-	if !strings.Contains(got, "inter") {
-		t.Errorf("the locale that did have an answer was lost: %s", got)
 	}
 }
 

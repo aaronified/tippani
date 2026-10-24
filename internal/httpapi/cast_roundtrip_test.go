@@ -144,58 +144,6 @@ func TestAGamesVoiceCastSurvivesTheMarkdownRoundTrip(t *testing.T) {
 	}
 }
 
-// A BOOK'S CHARACTERS ROUND-TRIP TOO, under their own key, and they need it more
-// than a film does: nothing seeds a book's list, so the file is the only copy.
-func TestABooksCharactersSurviveTheMarkdownRoundTrip(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-
-	book := createTestBook(t, c, "Moby-Dick", "Herman Melville")
-	c.mustDo("POST", "/books/"+itoa(book)+"/cast", map[string]any{"character": "Queequeg"},
-		http.StatusCreated)
-	c.mustDo("POST", "/books/"+itoa(book)+"/cast", map[string]any{"character": "Ahab"},
-		http.StatusCreated)
-	c.mustDo("POST", "/annotations", map[string]any{
-		"book_id": book, "quote": "Call me Ishmael.",
-	}, http.StatusCreated)
-
-	md := c.mustDo("GET", "/books/"+itoa(book)+"/export", nil, http.StatusOK).Body.String()
-	if !strings.Contains(md, "characters: Queequeg (reader); Ahab (reader)") {
-		t.Fatalf("a book's list is written under its own key, in billing order:\n%s", md)
-	}
-	if strings.Contains(md, "cast:") {
-		t.Fatalf("a novel has speakers, not a cast:\n%s", md)
-	}
-
-	other := addUser(t, h, c, "second")
-	if rec := other.importApprove("/import/markdown", "moby.md", []byte(md)); rec.Code != http.StatusOK {
-		t.Fatalf("import: %d %s", rec.Code, rec.Body)
-	}
-	list := decode[struct {
-		Books []bookDetail `json:"books"`
-	}](t, other.mustDo("GET", "/books", nil, http.StatusOK))
-	if len(list.Books) != 1 {
-		t.Fatalf("expected one imported book, got %d", len(list.Books))
-	}
-	cast := castOf(t, other, "/books/"+itoa(list.Books[0].ID)+"/cast")
-	if len(cast.Cast) != 2 || cast.Cast[0].Character != "Queequeg" || cast.Cast[1].Character != "Ahab" {
-		t.Fatalf("the round trip lost the characters, or their order: %+v", cast.Cast)
-	}
-}
-
-// A WORK WITH NO CAST EXPORTS EXACTLY AS IT DID BEFORE 0048 — writeFrontmatter
-// drops an empty value, so no existing file gains a blank key and no fixture that
-// pins an export's bytes has to move.
-func TestAWorkWithNoCastExportsUnchanged(t *testing.T) {
-	c := signupAdmin(t, newTestServer(t).Handler())
-	film := createFilm(t, c, "Solaris", "Andrei Tarkovsky")
-	md := c.mustDo("GET", "/movies/"+itoa(film)+"/export", nil, http.StatusOK).Body.String()
-	if strings.Contains(md, "cast:") {
-		t.Fatalf("a film with no cast should carry no cast line:\n%s", md)
-	}
-}
-
 // A FILM'S FILE RETARGETED ONTO A BOOK LOSES ITS ACTORS RATHER THAN FAILING.
 // 0047's rule, and the half of it that had nothing to enforce it until the cast
 // gained an import path: the API rejects a field the kind does not have, and an

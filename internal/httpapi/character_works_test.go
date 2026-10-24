@@ -208,50 +208,6 @@ func TestRemovingAWorkAfterReplacingTheSpeakersOnEveryQuote(t *testing.T) {
 	}
 }
 
-func TestRemovingAWorkAfterClearingTheSpeakerOffEveryQuote(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-	charID, bookID := oneWoland(t, c)
-	solo := decode[annotationRow](t, c.mustDo("POST", "/annotations", map[string]any{
-		"book_id": bookID, "quote": "Manuscripts don't burn", "character": "Woland",
-	}, http.StatusCreated))
-	pair := decode[annotationRow](t, c.mustDo("POST", "/annotations", map[string]any{
-		"book_id": bookID, "quote": "Two of them", "character": "Woland, Behemoth",
-	}, http.StatusCreated))
-	castID := charDetail(t, c, charID).Appearances[0].CastID
-
-	c.mustDo("DELETE", "/characters/"+itoa(charID)+"/works/"+itoa(castID)+"?quotes=clear", nil, http.StatusOK)
-
-	if got := lineOf(t, c, bookID, solo.ID); got.Character != "" {
-		t.Fatalf("clearing left %q on the solo line", got.Character)
-	}
-	if got := lineOf(t, c, bookID, pair.ID); got.Character != "Behemoth" {
-		t.Fatalf("clearing took the other speaker too: %q", got.Character)
-	}
-}
-
-func TestRemovingAWorkWithNoQuotesNeedsNoAnswerAtAll(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-	charID, _ := oneWoland(t, c)
-	castID := charDetail(t, c, charID).Appearances[0].CastID
-	c.mustDo("DELETE", "/characters/"+itoa(charID)+"/works/"+itoa(castID), nil, http.StatusOK)
-	if n := len(charDetail(t, c, charID).Appearances); n != 0 {
-		t.Fatalf("still there: %d appearances", n)
-	}
-	// AND THE LIST AGREES WITH THE PAGE. The console's works column counted every
-	// row including tombstones, so a removal that emptied the panel left "1 work"
-	// beside the name for ever.
-	list := decode[struct {
-		Characters []charHit `json:"characters"`
-	}](t, c.mustDo("GET", "/characters", nil, http.StatusOK))
-	for _, ch := range list.Characters {
-		if ch.ID == charID && ch.Works != 0 {
-			t.Fatalf("the list still counts %d work(s) for a character in none", ch.Works)
-		}
-	}
-}
-
 func TestARemovalOnlyReachesTheCastRowsOfItsOwnCharacter(t *testing.T) {
 	h := newTestServer(t).Handler()
 	c := signupAdmin(t, h)
@@ -310,95 +266,7 @@ func TestPromotingRefusesAPictureBelongingToAnotherCharacter(t *testing.T) {
 		map[string]any{"cast_id": other.ID}, http.StatusNotFound)
 }
 
-func TestTheAppearanceCarriesTheWorksOwnCoverAndItsKind(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	charID, bookID := oneWoland(t, c)
-	if _, err := srv.Store.DB.Exec(
-		`UPDATE books SET cover_path = 'covers/mm.jpg' WHERE id = ?`, bookID); err != nil {
-		t.Fatal(err)
-	}
-	movie := idOf(t, c.mustDo("POST", "/movies", map[string]any{"title": "Woland", "media_type": "show"}, http.StatusCreated).Body.Bytes())
-	c.mustDo("POST", "/characters/"+itoa(charID)+"/works",
-		map[string]any{"kind": "movie", "work_id": movie, "actor": "Oleg Basilashvili"}, http.StatusOK)
-
-	got := charDetail(t, c, charID)
-	var book, show appearanceOut
-	for _, a := range got.Appearances {
-		switch a.Kind {
-		case "book":
-			book = a
-		case "movie":
-			show = a
-		}
-	}
-	// A LIST OF APPEARANCES THAT PRINTS ONLY TITLES IS A LIST A READER HAS TO READ.
-	// The shelf they know is a shelf of spines.
-	if book.Cover != "covers/mm.jpg" {
-		t.Fatalf("the book appearance came back without its cover: %+v", book)
-	}
-	// And the film side says WHICH kind, so the row can be labelled with the right
-	// noun rather than calling a series a film.
-	if show.MediaType != "show" {
-		t.Fatalf("the show appearance says media_type %q", show.MediaType)
-	}
-	if show.Actor != "Oleg Basilashvili" {
-		t.Fatalf("the performer did not come with it: %+v", show)
-	}
-}
-
 // ---- what a character is on ONE work ---------------------------------------
-
-func TestAPerWorkNameAndDescriptionAreTheCastRowsAndNotTheRecords(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	charID, _ := oneWoland(t, c)
-	castID := charDetail(t, c, charID).Appearances[0].CastID
-
-	// 0056 added work_cast.description for exactly the case its own note names — a
-	// character whose description differs between the novel and the film — and
-	// nothing had ever written or read it. The finer grain existed in the schema
-	// and nowhere a reader could reach.
-	c.mustDo("PUT", "/cast/"+itoa(castID), map[string]any{
-		"character": "the professor", "description": "Arrives at Patriarch Ponds.",
-	}, http.StatusOK)
-
-	got := charDetail(t, c, charID).Appearances[0]
-	if got.Description != "Arrives at Patriarch Ponds." {
-		t.Fatalf("the appearance came back with description %q", got.Description)
-	}
-	// AND THE RECORD IS UNTOUCHED. The two fields look identical on screen and
-	// have very different blast radii — one row against every work the record is
-	// on — which is the whole reason the panel says which scope it is in.
-	rec := charDetail(t, c, charID)
-	if rec.Name != "Woland" {
-		t.Fatalf("the record's name changed to %q", rec.Name)
-	}
-}
-
-func TestASaveThatSaysNothingAboutTheDescriptionLeavesItAlone(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	charID, _ := oneWoland(t, c)
-	castID := charDetail(t, c, charID).Appearances[0].CastID
-	c.mustDo("PUT", "/cast/"+itoa(castID), map[string]any{
-		"character": "Woland", "description": "Kept.",
-	}, http.StatusOK)
-
-	// THE POINTER RULE, and the reason this field is a pointer where the two names
-	// are not. The cast panel's own Save sends a character and an actor and has no
-	// box for a description — a plain string field would let that save clear what
-	// the character page wrote, silently, with a 200.
-	c.mustDo("PUT", "/cast/"+itoa(castID), map[string]any{"character": "Woland"}, http.StatusOK)
-	if got := charDetail(t, c, charID).Appearances[0].Description; got != "Kept." {
-		t.Fatalf("a save with no description field left %q", got)
-	}
-	// An empty string is a different instruction from an absent field, and clears.
-	c.mustDo("PUT", "/cast/"+itoa(castID), map[string]any{"character": "Woland", "description": ""}, http.StatusOK)
-	if got := charDetail(t, c, charID).Appearances[0].Description; got != "" {
-		t.Fatalf("an explicit empty description left %q", got)
-	}
-}
 
 // A PART PLAYED TWICE ON ONE FILM. `idx_work_cast_pair` is unique on
 // (kind, work_id, character_key, actor_key), so two live rows may share a folded

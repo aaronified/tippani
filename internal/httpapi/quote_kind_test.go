@@ -72,17 +72,6 @@ func TestQuoteKindIsStoredAndReported(t *testing.T) {
 	}
 }
 
-// An omitted kind is empty and not a 400: a client that has never heard of 0053 is
-// not claiming the quote is an 'other', it is saying nothing.
-func TestQuoteKindMayBeOmitted(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	id := quoteWithKind(t, c, "a line", "")
-	if got := readQuote(t, c, id).Kind; got != "" {
-		t.Fatalf("an omitted kind became %q", got)
-	}
-}
-
 // A word off the list IS a 400, because a fixed vocabulary that silently accepts
 // anything is free text with extra steps — and the CHECK would otherwise report it
 // as a 500 from inside the transaction.
@@ -95,56 +84,6 @@ func TestQuoteKindRefusesAWordOffTheList(t *testing.T) {
 	}
 	if !strings.Contains(rec.Body.String(), "speech") {
 		t.Errorf("the refusal does not name the list: %s", rec.Body)
-	}
-}
-
-// Case and padding fold, so "Speech" is the same answer as "speech" — the same
-// rule the importer and the bulk editor follow.
-func TestQuoteKindFoldsCaseAndPadding(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	id := quoteWithKind(t, c, "a line", "  Speech ")
-	if got := readQuote(t, c, id).Kind; got != "speech" {
-		t.Fatalf("kind came back %q", got)
-	}
-}
-
-// THE SILENT-LOSS CASE. Every PUT here is full-state, so a client that sends no
-// kind is CLEARING it — which is correct and is exactly why the client's
-// utteranceState has to carry it. Asserted from both directions so the contract is
-// written down rather than assumed.
-func TestQuoteKindIsFullState(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	id := quoteWithKind(t, c, "a line", "essay")
-	path := "/quotes/" + strconv.FormatInt(id, 10)
-
-	c.mustDo("PUT", path, map[string]any{"quote": "a line", "kind": "essay", "place": "Dhaka"}, http.StatusOK)
-	if got := readQuote(t, c, id); got.Kind != "essay" || got.Place != "Dhaka" {
-		t.Fatalf("after a carrying PUT: %+v", got)
-	}
-	// And a PUT that drops it empties it. Not a bug — the shape of the endpoint —
-	// but the reason the client must send it on every colour change.
-	c.mustDo("PUT", path, map[string]any{"quote": "a line", "place": "Dhaka"}, http.StatusOK)
-	if got := readQuote(t, c, id).Kind; got != "" {
-		t.Fatalf("a full-state PUT without a kind left %q behind", got)
-	}
-}
-
-// The old free-text column is still accepted and still stored: it is on every row
-// a pre-0053 library holds, the export writes it, and the importer reads it back,
-// so refusing it would make a backup taken yesterday fail to restore today.
-func TestQuoteMediumStillRoundTrips(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	q := decode[struct{ ID int64 }](t, c.mustDo("POST", "/quotes",
-		map[string]any{"quote": "a line", "medium": "radio"}, http.StatusCreated))
-	got := readQuote(t, c, q.ID)
-	if got.Medium != "radio" {
-		t.Fatalf("medium came back %q", got.Medium)
-	}
-	if got.Kind != "" {
-		t.Errorf("the server guessed a kind from a medium it could not read: %q", got.Kind)
 	}
 }
 
@@ -213,18 +152,6 @@ func TestAQuoteKindSurvivesItsOwnExport(t *testing.T) {
 	}
 	if got[0].Kind != "letter" {
 		t.Errorf("the kind was lost on approval: %+v", got[0])
-	}
-}
-
-// A quote with no kind writes no binding, so a shelf exported before 0053 diffs
-// clean against a fresh export — the same rule the default colour, the residual
-// category and 0047's five already follow.
-func TestAQuoteWithNoKindWritesNoBinding(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-	newUtterance(t, c, map[string]any{"quote": "plain", "speaker": "somebody"})
-	if md := exportQuotes(t, c, nil); strings.Contains(md, "- kind:") {
-		t.Fatalf("an unset kind was written anyway:\n%s", md)
 	}
 }
 

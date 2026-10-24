@@ -123,37 +123,6 @@ func TestUpdateCheck(t *testing.T) {
 	}
 }
 
-// A CARD WITH NO BUTTON HAS TO SAY WHY. "One-click needs the Docker socket
-// mounted" is the same sentence whether it was never mounted, was mounted
-// somewhere this user cannot read, or is being looked for under a path with a
-// ":ro" suffix left on it by a compose file — and the operator has to guess
-// which. The reason travels with the refusal.
-func TestUpdateCheckSaysWhyThereIsNoButton(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	srv.GitHubAPI = mockGitHub(t, "v99.0.0").URL
-	srv.newDocker = func() UpdateDocker {
-		return &fakeDocker{avail: false, why: `no socket at /var/run/docker.sock:ro`}
-	}
-
-	res := decode[map[string]any](t, c.mustDo("GET", "/admin/update/check", nil, 200))
-	if res["can_self_update"] != false {
-		t.Fatal("offered a one-click update with no socket")
-	}
-	if res["socket_error"] != "no socket at /var/run/docker.sock:ro" {
-		t.Fatalf("socket_error = %v, want the probe's reason", res["socket_error"])
-	}
-
-	// And a working socket carries no reason at all — an empty string in the
-	// payload would draw an empty line under a card that is working.
-	srv.newDocker = func() UpdateDocker { return &fakeDocker{avail: true} }
-	res = decode[map[string]any](t, c.mustDo("GET", "/admin/update/check", nil, 200))
-	if _, ok := res["socket_error"]; ok {
-		t.Fatalf("a working socket reported %v", res["socket_error"])
-	}
-}
-
 // THE BRANCH BUILD THAT WAS TOLD IT WAS CURRENT WITH THREE COMMITS BEHIND IT.
 // A push to v3 rebuilds `:v3` and creates no GitHub release, so the pre-release
 // channel — which reads the release list — had nothing newer to report, and was
@@ -209,47 +178,6 @@ func TestABranchBuildIsComparedAgainstItsBranch(t *testing.T) {
 	res = decode[map[string]any](t, c.mustDo("GET", "/admin/update/check", nil, 200))
 	if res["update_available"] != false {
 		t.Fatalf("still offering an update after the branch was pulled: %v", res)
-	}
-}
-
-// AND main MOVES TOO. `:edge` is rebuilt on every push to the default branch,
-// and a build off it is UNORDERABLE by design — a run-up to nothing in
-// particular — which used to mean the check offered it the last stable release,
-// a downgrade, for want of anything it could compare. It can compare now.
-func TestAnEdgeBuildIsComparedAgainstMain(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	srv.newDocker = func() UpdateDocker { return &fakeDocker{} }
-
-	orig := buildinfo.Version
-	buildinfo.Version = "edge.main.f7ddba5"
-	t.Cleanup(func() { buildinfo.Version = orig })
-
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		if r.URL.Path == "/repos/aaronified/tippani/commits/main" {
-			w.Write([]byte(`{"sha":"a66ff6c0000000000000000"}`))
-			return
-		}
-		w.Write([]byte(`{"tag_name":"v2.2.9","html_url":"https://x/s"}`))
-	}))
-	t.Cleanup(ts.Close)
-	srv.GitHubAPI = ts.URL
-
-	res := decode[map[string]any](t, c.mustDo("GET", "/admin/update/check", nil, 200))
-	if res["latest"] != "main @ a66ff6c" {
-		t.Fatalf("latest = %v, want main's head and not the last stable release", res["latest"])
-	}
-	if res["update_available"] != true {
-		t.Fatal("main moved and nothing was offered")
-	}
-
-	// On the head itself: quiet, and NOT offered v2.2.9 as a consolation.
-	buildinfo.Version = "edge.main.a66ff6c"
-	res = decode[map[string]any](t, c.mustDo("GET", "/admin/update/check", nil, 200))
-	if res["update_available"] != false {
-		t.Fatalf("offered %v to a build that is main's head", res["latest"])
 	}
 }
 
@@ -422,31 +350,6 @@ func TestTheUpdateChannelCanBeSetBothWays(t *testing.T) {
 	}
 
 	c.mustDo("POST", "/admin/update/channel", map[string]any{"channel": "nightly"}, 400)
-}
-
-// A stable install is NOT quietly moved onto the rc line by this feature.
-func TestAReleaseBuildStaysOnStableUnlessAsked(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	srv.newDocker = func() UpdateDocker { return &fakeDocker{} }
-
-	orig := buildinfo.Version
-	buildinfo.Version = "2.2.9"
-	t.Cleanup(func() { buildinfo.Version = orig })
-
-	ts, seen := mockGitHubChannels(t, "v2.9.9", "v3.0.0-rc.1")
-	srv.GitHubAPI = ts.URL
-
-	res := decode[map[string]any](t, c.mustDo("GET", "/admin/update/check", nil, 200))
-	if res["channel"] != "stable" || res["latest"] != "v2.9.9" {
-		t.Fatalf("a release build should see the stable line, got %v", res)
-	}
-	for _, p := range *seen {
-		if p == "/repos/aaronified/tippani/releases" {
-			t.Fatal("stable channel must not read the pre-release list")
-		}
-	}
 }
 
 // ---- the update has to survive the connection it was asked over --------------

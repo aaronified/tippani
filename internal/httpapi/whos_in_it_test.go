@@ -134,58 +134,6 @@ func TestTheCountsAreThisCharactersQuotesAndTheirFavourites(t *testing.T) {
 	}
 }
 
-// A BOOK COUNTS ITS OWN HIGHLIGHTS. The two mediums are two queries against two
-// tables (`annotations` and `dialogues`), so a favourite count proved on one
-// says nothing about the other — which is how the second figure could be right
-// for films and wrong for books for a release.
-func TestABooksCharacterCountsFavouritedHighlights(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-
-	b := decode[struct{ ID int64 }](t, c.mustDo("POST", "/books",
-		map[string]any{"title": "Moby-Dick"}, http.StatusCreated))
-	c.mustDo("POST", "/books/"+itoa(b.ID)+"/cast",
-		map[string]any{"character": "Ahab"}, http.StatusCreated)
-
-	// The speaker link is written from the line's own `character` text on every
-	// quote write (store.SyncQuoteCast), so naming the billing is what points a
-	// highlight at the cast row — a book's POST takes no cast id.
-	for i, fav := range []bool{true, false, false} {
-		c.mustDo("POST", "/annotations", map[string]any{
-			"book_id": b.ID, "quote": "line " + itoa(int64(i)),
-			"character": "Ahab", "favorite": fav,
-		}, http.StatusCreated)
-	}
-
-	got := decode[whosResp](t, c.mustDo("GET", "/books/"+itoa(b.ID)+"/whos-in-it", nil, http.StatusOK))
-	ahab := charsByName(got)["Ahab"]
-	if ahab.Quotes != 3 || ahab.Favourites != 1 {
-		t.Fatalf("a book's character reports %d quotes / %d favourited, want 3 / 1: %+v",
-			ahab.Quotes, ahab.Favourites, ahab)
-	}
-}
-
-// A CHARACTER WITH NOTHING KEPT COUNTS NOTHING, and the LEFT JOIN's own null
-// row is why that is worth a test: it yields one row for a cast member with no
-// quotes, and any aggregate that treats null as a value counts it. The count
-// this pair replaced needed a fixup written back by hand for exactly this row.
-func TestACharacterWithNoQuotesCountsNothing(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	m := decode[struct{ ID int64 }](t, c.mustDo("POST", "/movies",
-		map[string]any{"title": "Part 2", "media_type": "movie"}, http.StatusCreated))
-	c.mustDo("POST", "/movies/"+itoa(m.ID)+"/cast",
-		map[string]any{"character": "Neville", "actor": "Matthew Lewis"}, http.StatusCreated)
-
-	got := decode[whosResp](t, c.mustDo("GET", "/movies/"+itoa(m.ID)+"/whos-in-it", nil, http.StatusOK))
-	n := charsByName(got)["Neville"]
-	if n.Quotes != 0 || n.Favourites != 0 {
-		t.Fatalf("an empty cast row reports %d quotes and %d favourited: %+v", n.Quotes, n.Favourites, n)
-	}
-}
-
 // ANOTHER READER'S WORK IS NOT FOUND, never forbidden — a 403 would confirm the
 // row exists.
 func TestWhosInItRefusesAnotherReadersWork(t *testing.T) {

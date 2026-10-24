@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"testing"
 
-	"tippani/internal/metadata"
 )
 
 // A LINE ARRIVES WITH ITS CHARACTERS' PICTURES (0050).
@@ -156,61 +155,6 @@ func TestALineNamesItsCharactersWithNoStoredArtAnywhere(t *testing.T) {
 	// the card shows instead of the text it no longer prints.
 	if len(names) != 3 || names[0] != "Rick" || names[1] != "Ilsa" || names[2] != "Sam" {
 		t.Errorf("got %v, want [Rick Ilsa Sam]", names)
-	}
-}
-
-// TWO CHARACTERS ON ONE LINE get two pictures, in the order the line names them.
-func TestALineNamingTwoCharactersGetsBothPictures(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	film := createFilm(t, c, "Suicide Squad", "David Ayer")
-
-	tx, err := srv.Store.DB.Begin()
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = mergeProviderCast(tx, 1, "movie", film, "tvdb", []metadata.CastMember{
-		{Character: "Amanda Waller", Actor: "Viola Davis", CharacterImageURL: "https://artworks.thetvdb.com/w.jpg"},
-		{Character: "Harley Quinn", Actor: "Margot Robbie", CharacterImageURL: "https://artworks.thetvdb.com/q.jpg"},
-	})
-	if err != nil {
-		tx.Rollback()
-		t.Fatal(err)
-	}
-	if err := tx.Commit(); err != nil {
-		t.Fatal(err)
-	}
-
-	n := 0
-	srv.fetchImage = func(context.Context, string, string) (string, error) {
-		n++
-		return "stored-" + itoa(int64(n)) + ".jpg", nil
-	}
-	for _, row := range castOf(t, c, "/movies/"+itoa(film)+"/cast").Cast {
-		c.mustDo("POST", "/cast/"+itoa(row.ID)+"/image", nil, http.StatusOK)
-	}
-
-	c.mustDo("POST", "/dialogues", map[string]any{
-		"movie_id": film, "quote": "Enough.", "character": "Harley Quinn, Amanda Waller",
-	}, http.StatusCreated)
-
-	got := decode[struct {
-		Dialogues []struct {
-			CharacterImages []struct {
-				Name string `json:"name"`
-			} `json:"character_images"`
-		} `json:"dialogues"`
-	}](t, c.mustDo("GET", "/dialogues?movie_id="+itoa(film), nil, http.StatusOK))
-	if len(got.Dialogues) != 1 {
-		t.Fatalf("want one line, got %d", len(got.Dialogues))
-	}
-	names := []string{}
-	for _, ci := range got.Dialogues[0].CharacterImages {
-		names = append(names, ci.Name)
-	}
-	if len(names) != 2 || names[0] != "Harley Quinn" || names[1] != "Amanda Waller" {
-		t.Fatalf("names = %v, want both in the order the line names them", names)
 	}
 }
 

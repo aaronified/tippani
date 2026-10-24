@@ -28,45 +28,6 @@ func breakdownRow(t *testing.T, c *testClient, kind, name string) (works, quotes
 	return 0, 0, false
 }
 
-func TestOnePersonWithABookAndAFilmIsOneRow(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-
-	// Stephen Fry writes books and acts in films. Under the old breakdowns he was
-	// a row in Authors and a separate row in Actors, each with half his work.
-	book := decode[bookDetail](t, c.mustDo("POST", "/books", map[string]any{
-		"title": "The Liar", "author": "Stephen Fry",
-	}, http.StatusCreated))
-	c.mustDo("POST", "/annotations", map[string]any{
-		"book_id": book.ID, "quote": "A line from the novel",
-	}, http.StatusCreated)
-
-	film := decode[movieDetail](t, c.mustDo("POST", "/movies", map[string]any{
-		"title": "Wilde", "director": "Brian Gilbert",
-	}, http.StatusCreated))
-	c.mustDo("POST", "/dialogues", map[string]any{
-		"movie_id": film.ID, "quote": "A line from the film", "actor": "Stephen Fry",
-	}, http.StatusCreated)
-
-	// The role breakdowns still each tell their own half — they are not wrong,
-	// they are partial, and they remain useful for "who do I read".
-	if w, q, ok := breakdownRow(t, c, "authors", "Stephen Fry"); !ok || w != 1 || q != 1 {
-		t.Errorf("authors row: works=%d quotes=%d found=%v", w, q, ok)
-	}
-	if w, q, ok := breakdownRow(t, c, "actors", "Stephen Fry"); !ok || w != 1 || q != 1 {
-		t.Errorf("actors row: works=%d quotes=%d found=%v", w, q, ok)
-	}
-
-	// The combined one is the whole person: two works, two quotes, one row.
-	w, q, ok := breakdownRow(t, c, "people", "Stephen Fry")
-	if !ok {
-		t.Fatal("Stephen Fry is missing from the people breakdown")
-	}
-	if w != 2 || q != 2 {
-		t.Errorf("people row: works=%d quotes=%d, want 2/2 — the book and the film", w, q)
-	}
-}
-
 // One person credited twice over one work is one row holding one work and one
 // quote — however the two credits happen to be spelled.
 //

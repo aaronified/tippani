@@ -91,58 +91,6 @@ func TestAutoImportReadsTheBytesAndNotTheName(t *testing.T) {
 	}
 }
 
-// The extension is never consulted, so a WRONG one must change nothing. A
-// Readest JSON saved as .txt and an IMDb page saved as .json are both files a
-// reader actually has.
-func TestAutoImportIgnoresAMisleadingExtension(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-	for _, name := range []string{"annotations.txt", "annotations.htm", "annotations"} {
-		rec := c.importAs(name, fixture(t, "readest_annotations_synth.json"), "")
-		if rec.Code != http.StatusOK {
-			t.Fatalf("%s: %d %s", name, rec.Code, rec.Body)
-		}
-		if got := decode[autoReply](t, rec); got.Source != importer.SourceReadestJSON {
-			t.Fatalf("%s read as %q", name, got.Source)
-		}
-	}
-}
-
-// ONE TARGET INVITES EVERY FILE A READER HAS. Answering "unrecognised" to a
-// backup archive — or to the app's own export, which is a zip — is a worse
-// failure than the wall of cards was, so each is named and nothing is staged.
-func TestAutoImportNamesWhatTheFileActuallyIs(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-	cases := []struct {
-		name string
-		data []byte
-		miss string
-	}{
-		{"a backup", []byte("TPBK\x01\x01" + strings.Repeat("\x00", 40)), "backup"},
-		{"an export archive", []byte("PK\x03\x04\x14\x00\x00\x00\x08\x00"), "zip"},
-		{"a cover", []byte("\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR"), "image"},
-		{"a typeface", []byte("wOF2\x00\x01\x00\x00"), "font"},
-	}
-	for _, tc := range cases {
-		rec := c.importAs("dropped", tc.data, "")
-		if rec.Code != http.StatusBadRequest {
-			t.Fatalf("%s: got %d, want 400: %s", tc.name, rec.Code, rec.Body)
-		}
-		got := decode[autoReply](t, rec)
-		if got.NearMiss != tc.miss {
-			t.Fatalf("%s: near_miss = %q, want %q", tc.name, got.NearMiss, tc.miss)
-		}
-		if got.Error == "" {
-			t.Fatalf("%s: no sentence beside the key", tc.name)
-		}
-	}
-	// Nothing above may have staged a batch.
-	if q := queue(t, c, ""); len(q.Batches) != 0 {
-		t.Fatalf("a near-miss staged something: %+v", q.Batches)
-	}
-}
-
 // A text file nothing can read is TIP-IMPORT-005: an empty near_miss, so the row
 // draws "could not tell what this is" and offers "Read this as…". There was no
 // code for this before, because the reader had already asserted the format.

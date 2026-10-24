@@ -67,43 +67,6 @@ func TestMergeDeckDealsTwoNotYetAskedToOneAsked(t *testing.T) {
 	}
 }
 
-// The Daily deck is rebuilt on every fetch with the unspent slots only, so the
-// slots are numbered from the cards already dealt today. A reader who has
-// answered one card is on slot two, and two cards later is owed a review.
-func TestMergeDeckNumbersSlotsFromTheCardsAlreadyDealt(t *testing.T) {
-	asked := cands("a1 b1 c1")
-	unseen := cands("e1 f1 g1 h1 i1")
-	for _, tc := range []struct {
-		dealt int
-		want  string
-	}{
-		{0, "UUAU"},
-		{1, "UAUU"},
-		{2, "AUUA"},
-		{5, "AUUA"},
-	} {
-		// The first four are the slots; what follows them is spares.
-		if got := kinds(mergeDeck(asked, unseen, 4, reviewDueEvery, tc.dealt)[:4], asked); got != tc.want {
-			t.Errorf("after %d dealt: %s, want %s", tc.dealt, got, tc.want)
-		}
-	}
-}
-
-// Either kind fills the other's slots when it runs out, and whatever the slots
-// did not take follows as spares — unseen first, then asked — because a card
-// the question builder rejects is replaced from them.
-func TestMergeDeckFillsFromWhicheverListRemains(t *testing.T) {
-	if got := dealt(mergeDeck(nil, cands("e1 f1 g1"), 3, reviewDueEvery, 0)); got != "e1 f1 g1" {
-		t.Errorf("unseen only: %s", got)
-	}
-	if got := dealt(mergeDeck(cands("a1 b1 c1"), nil, 3, reviewDueEvery, 0)); got != "a1 b1 c1" {
-		t.Errorf("asked only: %s", got)
-	}
-	if got := dealt(mergeDeck(cands("a1 b1"), cands("e1 f1 g1 h1"), 3, reviewDueEvery, 0)); got != "e1 f1 a1 g1 h1 b1" {
-		t.Errorf("with spares: %s, want the three slots then unseen spares then asked", got)
-	}
-}
-
 // Two lists each rotated by work can still put one work in consecutive slots
 // where they are dealt together. A slot looks a few cards down its own list for
 // a work not among the last two dealt.

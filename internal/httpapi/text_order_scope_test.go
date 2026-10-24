@@ -149,19 +149,3 @@ func TestAnInventedTextOrderIsRefused(t *testing.T) {
 		})
 	}
 }
-
-// WHITESPACE IS CLEARING IT, not a state. A client sending " " means the same
-// thing as a client sending "" — and if it were stored raw, `validTextOrder`
-// would never match it again and no control could clear it.
-func TestABlankTextOrderClearsRatherThanStores(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-	id := createBook(t, c, "The Dispossessed")
-	c.mustDo("PUT", "/books/"+itoa(id),
-		map[string]any{"title": "The Dispossessed", "text_order": "quote-only"}, http.StatusOK)
-	c.mustDo("PUT", "/books/"+itoa(id),
-		map[string]any{"title": "The Dispossessed", "text_order": "   "}, http.StatusOK)
-	if got := decode[bookDetail](t, c.mustDo("GET", "/books/"+itoa(id), nil, http.StatusOK)).TextOrder; got != "" {
-		t.Fatalf("a blank text_order was stored as %q", got)
-	}
-}

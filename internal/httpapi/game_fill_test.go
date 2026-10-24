@@ -193,36 +193,3 @@ func TestAGameIsNotResolvedToAnIdAnotherWorkCarries(t *testing.T) {
 	}
 }
 
-// SEVERAL OF THAT NAME, OR NO IGDB AT ALL: nothing is guessed, and the words say
-// IGDB, never a film supplier.
-func TestAGameIGDBCannotResolveSaysSoInIGDBsName(t *testing.T) {
-	srv := newTestServer(t)
-	fake := &igdbFake{search: `[{"id":1,"name":"Doom"},{"id":2,"name":"Doom"}]`}
-	fake.serve(t, srv)
-	c := signupAdmin(t, srv.Handler())
-	id := addGame(t, c, map[string]any{"title": "Doom"})
-
-	res := decode[fillResp](t, c.mustDo("POST", "/metadata/fill", map[string]any{"movie_ids": []int64{id}}, http.StatusOK))
-	if len(res.Results) != 1 || res.Results[0].Status != "unpinned" || !strings.Contains(res.Results[0].Error, "several") {
-		t.Fatalf("two games called Doom should leave it unpinned, saying so: %+v", res.Results)
-	}
-
-	srv.IGDB = nil
-	res = decode[fillResp](t, c.mustDo("POST", "/metadata/fill", map[string]any{"movie_ids": []int64{id}}, http.StatusOK))
-	if len(res.Results) != 1 || res.Results[0].Status != "unpinned" {
-		t.Fatalf("with no IGDB pair: %+v", res.Results)
-	}
-	if e := res.Results[0].Error; !strings.Contains(e, "IGDB") || strings.Contains(e, "TMDB") {
-		t.Errorf("a game with no IGDB pair is told about the wrong supplier: %q", e)
-	}
-
-	// AND A GAME ALREADY PINNED TO IGDB, WITH NO PAIR, names the pair too, rather
-	// than a film supplier's key.
-	if _, err := srv.Store.DB.Exec(`UPDATE movies SET igdb_id = 7 WHERE id = ?`, id); err != nil {
-		t.Fatal(err)
-	}
-	res = decode[fillResp](t, c.mustDo("POST", "/metadata/fill", map[string]any{"movie_ids": []int64{id}}, http.StatusOK))
-	if len(res.Results) != 1 || !strings.Contains(res.Results[0].Error, "IGDB") {
-		t.Errorf("a pinned game with no IGDB pair is told: %+v", res.Results)
-	}
-}

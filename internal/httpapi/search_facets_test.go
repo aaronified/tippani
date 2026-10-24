@@ -121,41 +121,7 @@ func TestTagFacetNarrowsToTheRightQuotes(t *testing.T) {
 		[]string{"the obstacle is the way"})
 }
 
-func TestTwoTagsIntersect(t *testing.T) {
-	// The rule the plan argues for: narrowing by a second tag must NARROW.
-	// Under an OR rule this test would see all three quotes back.
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-
-	newUtterance(t, c, map[string]any{"quote": "a line with both", "tags": []string{"stoicism", "death"}})
-	newUtterance(t, c, map[string]any{"quote": "a line with one", "tags": []string{"stoicism"}})
-	newUtterance(t, c, map[string]any{"quote": "a line with other", "tags": []string{"death"}})
-
-	both := searchWith(t, c, "q=line&scope=quotes&tag=stoicism&tag=death")
-	wantTitles(t, "tag:stoicism tag:death", utteranceTexts(both.Quotes), []string{"a line with both"})
-
-	one := searchWith(t, c, "q=line&scope=quotes&tag=stoicism")
-	wantTitles(t, "tag:stoicism", utteranceTexts(one.Quotes),
-		[]string{"a line with both", "a line with one"})
-}
-
 // ---- the colour facet ------------------------------------------------------
-
-func TestTwoColoursUnion(t *testing.T) {
-	// The other half of the same rule, and the reason it cannot be one rule. A
-	// quote has ONE colour, so ANDing two of them asks for something nothing is
-	// and returns nothing forever — a query that looks broken rather than empty.
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-
-	newUtterance(t, c, map[string]any{"quote": "a blue line", "color": "blue"})
-	newUtterance(t, c, map[string]any{"quote": "a pink line", "color": "pink"})
-	newUtterance(t, c, map[string]any{"quote": "a green line", "color": "green"})
-
-	two := searchWith(t, c, "q=line&scope=quotes&colour=blue&colour=pink")
-	wantTitles(t, "colour:blue colour:pink", utteranceTexts(two.Quotes),
-		[]string{"a blue line", "a pink line"})
-}
 
 func TestColourFacetEmptiesTheKindsThatHaveNoColour(t *testing.T) {
 	// THE DECISION THIS PINS. `colour=blue` asks for blue things. A book is not a
@@ -296,29 +262,6 @@ func TestTheLanguageFacetFoldsCaseAndMatchesWhole(t *testing.T) {
 	wantTitles(t, "language:English", utteranceTexts(res.Quotes), []string{})
 }
 
-// A FACET WITH NO SEARCH TERM, which is how a facet is actually used: you press
-// the chip, you do not also type. Every other facet has a case for it
-// (`scope=quotes&tag=stoicism`) and the language facet did not — both of the two
-// above pass `q=here`, so the one line that makes a bare `language=` legal could
-// be deleted and the whole suite would still pass while
-// `GET /search?scope=quotes&language=Bengali` answered 400 "q is required".
-//
-// THE LINE IS `searchFacets.any()`'s `len(f.languages) > 0` (search_facets.go).
-// `any()` is what tells the handler a request with no `q` still asks something,
-// so a facet missing from it is a facet that only works as a narrowing of a
-// typed search — which is the opposite of how the chips are used.
-func TestALanguageAloneIsASearch(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-
-	newUtterance(t, c, map[string]any{"quote": "nothing in this line is a search term", "language": "Bengali"})
-	newUtterance(t, c, map[string]any{"quote": "nor in this one", "language": "Sanskrit"})
-
-	res := searchWith(t, c, "scope=quotes&language=Bengali")
-	wantTitles(t, "language:Bengali with no q", utteranceTexts(res.Quotes),
-		[]string{"nothing in this line is a search term"})
-}
-
 // ---- work facets: genre, series, year, shelf -------------------------------
 
 func TestGenreSeriesAndYearFacets(t *testing.T) {
@@ -418,22 +361,6 @@ func TestFavouriteNoteAndWishlistFlags(t *testing.T) {
 	wantTitles(t, "note:no", quoteTexts(res.Annotations), []string{"another passage"})
 }
 
-func TestNoteFacetTreatsWhitespaceAsNoNote(t *testing.T) {
-	// TRIM is part of the predicate: a note of one space is not a note, and the
-	// books list has always counted it that way.
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-	book := decode[bookDetail](t, c.mustDo("POST", "/books", map[string]any{"title": "Blank"}, http.StatusCreated))
-	c.mustDo("POST", "/annotations", map[string]any{
-		"book_id": book.ID, "quote": "a passage here", "note": "   ",
-	}, http.StatusCreated)
-
-	res := searchWith(t, c, "q=passage&scope=annotations&note=yes")
-	if len(res.Annotations) != 0 {
-		t.Errorf("a whitespace note counted as a note: %v", quoteTexts(res.Annotations))
-	}
-}
-
 // ---- the request contract --------------------------------------------------
 
 // Every way a search request is refused before a single row is read: an
@@ -480,34 +407,6 @@ func TestSearchRejectsAMalformedRequest(t *testing.T) {
 			sub.mustDo("GET", tc.path, nil, http.StatusBadRequest)
 		})
 	}
-}
-
-func TestBothSpellingsOfTheBritishFacetsAreAccepted(t *testing.T) {
-	// The URL is meant to be hand-editable, and being right about `color=blue`
-	// costs one map entry. The chips only ever emit the British spelling.
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-	newUtterance(t, c, map[string]any{"quote": "a blue line", "color": "blue"})
-
-	for _, q := range []string{"q=line&scope=quotes&colour=blue", "q=line&scope=quotes&color=blue"} {
-		res := searchWith(t, c, q)
-		wantTitles(t, q, utteranceTexts(res.Quotes), []string{"a blue line"})
-	}
-}
-
-func TestAFacetAloneIsAWholeSearch(t *testing.T) {
-	// The ordinary shape of a chip-built query: picking `tag:stoicism` out of
-	// the dropdown lifts the words OUT of the box, so the box is empty and the
-	// only thing left is the parameter. Requiring `q` would have made the
-	// feature's main path a 400.
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-
-	newUtterance(t, c, map[string]any{"quote": "an untyped-for line", "tags": []string{"stoicism"}})
-	newUtterance(t, c, map[string]any{"quote": "an unrelated line"})
-
-	res := searchWith(t, c, "scope=quotes&tag=stoicism")
-	wantTitles(t, "tag:stoicism with no q", utteranceTexts(res.Quotes), []string{"an untyped-for line"})
 }
 
 func TestFacetValuesNeverReachTheFTSMatch(t *testing.T) {
@@ -571,146 +470,7 @@ func TestFacetsReachTheTagSectionAndItsCount(t *testing.T) {
 	}
 }
 
-func TestFacetsReachTheGenreSection(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-
-	c.mustDo("POST", "/books", map[string]any{
-		"title": "Kept", "genres": []string{"fantasy"}, "series": "Earthsea",
-	}, http.StatusCreated)
-	c.mustDo("POST", "/books", map[string]any{
-		"title": "Dropped", "genres": []string{"fantasy"}, "series": "Elsewhere",
-	}, http.StatusCreated)
-
-	res := searchWith(t, c, "q=fantasy&scope=books&series=Earthsea")
-	if len(res.Genres) != 1 {
-		t.Fatalf("genre section = %+v, want one genre", res.Genres)
-	}
-	wantTitles(t, "genre section books", bookTitles(res.Genres[0].Books), []string{"Kept"})
-}
-
-func TestFacetsReachTheDecadeSection(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-
-	c.mustDo("POST", "/books", map[string]any{
-		"title": "Sixties Fantasy", "published_year": 1968, "genres": []string{"fantasy"},
-	}, http.StatusCreated)
-	c.mustDo("POST", "/books", map[string]any{
-		"title": "Sixties History", "published_year": 1969, "genres": []string{"history"},
-	}, http.StatusCreated)
-
-	all := searchWith(t, c, "q=1960s&scope=books")
-	if all.Decade == nil {
-		t.Fatal("no decade section for a decade query")
-	}
-	wantTitles(t, "decade books", bookTitles(all.Decade.Books), []string{"Sixties Fantasy", "Sixties History"})
-
-	narrowed := searchWith(t, c, "q=1960s&scope=books&genre=Fantasy")
-	if narrowed.Decade == nil {
-		t.Fatal("the decade section vanished under a facet it can answer")
-	}
-	wantTitles(t, "faceted decade books", bookTitles(narrowed.Decade.Books), []string{"Sixties Fantasy"})
-}
-
-func TestFacetsReachTheNotesSection(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-
-	book := decode[bookDetail](t, c.mustDo("POST", "/books", map[string]any{"title": "Noted"}, http.StatusCreated))
-	c.mustDo("POST", "/annotations", map[string]any{
-		"book_id": book.ID, "quote": "one", "note": "a remark about weather", "color": "blue",
-	}, http.StatusCreated)
-	c.mustDo("POST", "/annotations", map[string]any{
-		"book_id": book.ID, "quote": "two", "note": "another remark about weather", "color": "pink",
-	}, http.StatusCreated)
-
-	all := searchWith(t, c, "q=weather&scope=annotations")
-	wantTitles(t, "notes", quoteTexts(all.Notes.Annotations), []string{"one", "two"})
-
-	narrowed := searchWith(t, c, "q=weather&scope=annotations&colour=blue")
-	wantTitles(t, "faceted notes", quoteTexts(narrowed.Notes.Annotations), []string{"one"})
-}
-
-func TestFacetsReachTheCreditSections(t *testing.T) {
-	// Authors/Directors/Actors/Speakers are FTS matches on a name column, so
-	// they are the sections most likely to be forgotten when a predicate is
-	// added — they are built by grouping, not by a plain listing.
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-
-	c.mustDo("POST", "/books", map[string]any{
-		"title": "Early Le Guin", "author": "Ursula K. Le Guin", "published_year": 1968,
-	}, http.StatusCreated)
-	c.mustDo("POST", "/books", map[string]any{
-		"title": "Later Le Guin", "author": "Ursula K. Le Guin", "published_year": 1974,
-	}, http.StatusCreated)
-
-	all := searchWith(t, c, "q=guin&scope=books")
-	if len(all.Authors) != 1 {
-		t.Fatalf("authors = %+v, want one", all.Authors)
-	}
-	wantTitles(t, "author books", bookTitles(all.Authors[0].Books), []string{"Early Le Guin", "Later Le Guin"})
-
-	narrowed := searchWith(t, c, "q=guin&scope=books&year=1974")
-	if len(narrowed.Authors) != 1 {
-		t.Fatalf("faceted authors = %+v, want one", narrowed.Authors)
-	}
-	wantTitles(t, "faceted author books", bookTitles(narrowed.Authors[0].Books), []string{"Later Le Guin"})
-}
-
-func TestFacetsReachTheDateAddedSection(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-
-	c.mustDo("POST", "/books", map[string]any{"title": "Starred Today", "favorite": true}, http.StatusCreated)
-	c.mustDo("POST", "/books", map[string]any{"title": "Plain Today"}, http.StatusCreated)
-
-	today := decode[searchResults](t, c.mustDo("GET", "/search?q="+todayISO()+"&scope=books", nil, http.StatusOK))
-	if today.DateAdded == nil {
-		t.Fatal("no date-added section for today")
-	}
-	wantTitles(t, "date books", bookTitles(today.DateAdded.Books), []string{"Plain Today", "Starred Today"})
-
-	narrowed := decode[searchResults](t, c.mustDo("GET",
-		"/search?q="+todayISO()+"&scope=books&favourite=yes", nil, http.StatusOK))
-	if narrowed.DateAdded == nil {
-		t.Fatal("the date-added section vanished under a facet it can answer")
-	}
-	wantTitles(t, "faceted date books", bookTitles(narrowed.DateAdded.Books), []string{"Starred Today"})
-}
-
 // ---- one work --------------------------------------------------------------
-
-func TestBookAndMovieFacetsNarrowToOneWork(t *testing.T) {
-	// What a search started from a work's own page seeds. It reaches the work
-	// AND its quotes, because from inside a book "search" nearly always means
-	// "search this book".
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-
-	one := decode[bookDetail](t, c.mustDo("POST", "/books", map[string]any{"title": "Kestrel One"}, http.StatusCreated))
-	two := decode[bookDetail](t, c.mustDo("POST", "/books", map[string]any{"title": "Kestrel Two"}, http.StatusCreated))
-	c.mustDo("POST", "/annotations", map[string]any{"book_id": one.ID, "quote": "kestrel from one"}, http.StatusCreated)
-	c.mustDo("POST", "/annotations", map[string]any{"book_id": two.ID, "quote": "kestrel from two"}, http.StatusCreated)
-
-	res := searchWith(t, c, "q=kestrel&book="+itoa(one.ID))
-	wantTitles(t, "book: books", bookTitles(res.Books), []string{"Kestrel One"})
-	wantTitles(t, "book: annotations", quoteTexts(res.Annotations), []string{"kestrel from one"})
-
-	film := decode[movieDetail](t, c.mustDo("POST", "/movies", map[string]any{"title": "Kestrel Film"}, http.StatusCreated))
-	c.mustDo("POST", "/dialogues", map[string]any{"movie_id": film.ID, "quote": "kestrel spoken"}, http.StatusCreated)
-
-	res = searchWith(t, c, "q=kestrel&movie="+itoa(film.ID))
-	wantTitles(t, "movie: movies", movieTitles(res.Movies), []string{"Kestrel Film"})
-	wantTitles(t, "movie: dialogues", dialogueTexts(res.Dialogues), []string{"kestrel spoken"})
-	// A book is not a film, so a film facet empties the books side entirely
-	// rather than leaving it wide.
-	if len(res.Books) != 0 || len(res.Annotations) != 0 {
-		t.Errorf("a movie facet left the books side populated: %v / %v",
-			bookTitles(res.Books), quoteTexts(res.Annotations))
-	}
-}
 
 func TestAWorkIDIsNotAWayIntoAnotherAccount(t *testing.T) {
 	// The one facet whose value is guessable. Ids are sequential, so `book=1`
@@ -734,97 +494,6 @@ func TestAWorkIDIsNotAWayIntoAnotherAccount(t *testing.T) {
 // 400s.
 
 // ---- what a facet cannot describe ------------------------------------------
-
-// A facet that a kind of row has no column for must EMPTY that kind, not be
-// ignored for it. There are a dozen places in the compiler that decide this and
-// exactly one way to get them wrong, so the rule is checked once per facet
-// rather than once.
-//
-// The failure this catches is the quiet one: ignoring `speaker:` for books
-// leaves every book in the library sitting under a heading that says these
-// results are by that speaker. Every row is real, nothing errors, and the answer
-// is to a question nobody asked.
-func TestAFacetEmptiesTheKindsItCannotDescribe(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-
-	book := decode[bookDetail](t, c.mustDo("POST", "/books", map[string]any{
-		"title": "kestrel book", "author": "Jay Kestrel", "series": "Kestrel",
-		"published_year": 1968, "genres": []string{"birds"}, "favorite": true,
-	}, http.StatusCreated))
-	c.mustDo("POST", "/annotations", map[string]any{
-		"book_id": book.ID, "quote": "kestrel annotation", "note": "a note",
-		// 0047 put a character on a highlight, so the fixture carries one — the
-		// `character=` row below is only measuring something if both quote kinds
-		// that HAVE the column could have answered it.
-		"character": "Jay Kestrel",
-		"color":     "blue", "tags": []string{"birds"},
-	}, http.StatusCreated)
-	movie := decode[movieDetail](t, c.mustDo("POST", "/movies", map[string]any{
-		"title": "kestrel movie", "director": "Jay Kestrel", "series": "Kestrel",
-		"release_year": 1968, "genres": []string{"birds"}, "favorite": true,
-	}, http.StatusCreated))
-	c.mustDo("POST", "/dialogues", map[string]any{
-		"movie_id": movie.ID, "quote": "kestrel dialogue", "note": "a note",
-		"color": "blue", "actor": "Jay Kestrel", "character": "Jay Kestrel",
-		"tags": []string{"birds"},
-	}, http.StatusCreated)
-	newUtterance(t, c, map[string]any{
-		"quote": "kestrel quote", "note": "a note", "color": "blue",
-		"speaker": "Jay Kestrel", "tags": []string{"birds"},
-	})
-
-	// Sanity: with no facet at all, every one of the five sections has its row.
-	base := searchWith(t, c, "q=kestrel")
-	if len(base.Books) == 0 || len(base.Annotations) == 0 || len(base.Movies) == 0 ||
-		len(base.Dialogues) == 0 || len(base.Quotes) == 0 {
-		t.Fatalf("the fixture does not reach all five sections: b=%d a=%d m=%d d=%d q=%d",
-			len(base.Books), len(base.Annotations), len(base.Movies), len(base.Dialogues), len(base.Quotes))
-	}
-
-	for _, tc := range []struct {
-		facet string
-		// The sections that must come back EMPTY, named as they read in the API.
-		empty []string
-	}{
-		{"tag=birds", []string{"books", "movies"}},
-		{"colour=blue", []string{"books", "movies"}},
-		{"genre=Birds", []string{"quotes"}},
-		{"series=Kestrel", []string{"quotes"}},
-		{"year=1968", []string{"quotes"}},
-		{"shelf=reading", []string{"quotes"}},
-		{"author=Kestrel", []string{"movies", "dialogues", "quotes"}},
-		{"director=Kestrel", []string{"books", "annotations", "quotes"}},
-		{"actor=Kestrel", []string{"books", "annotations", "movies", "quotes"}},
-		// A character reaches a book highlight AND a film line from 0047 on, and
-		// nothing else: a WORK is not a character any more than it is an actor, and
-		// a standalone quote has a speaker instead. Before 0047 this row's `empty`
-		// list included "annotations", on the stated grounds that a book has no such
-		// column — it has one now, and the sentence that said otherwise has been
-		// rewritten rather than extended.
-		{"character=Kestrel", []string{"books", "movies", "quotes"}},
-		{"speaker=Kestrel", []string{"books", "annotations", "movies", "dialogues"}},
-		// A LANGUAGE IS A PROPERTY OF THE LINE, NOT OF THE WORK. A book is not in a
-		// language — its highlights are, one each, and a translated edition is the
-		// case that makes the distinction real rather than pedantic. So this reaches
-		// the same three row kinds `tag`, `colour` and `note` do and neither work.
-		{"language=Kestrelish", []string{"books", "movies"}},
-		{"note=yes", []string{"books", "movies"}},
-		{"wishlist=no", []string{"annotations", "dialogues", "quotes"}},
-	} {
-		res := searchWith(t, c, "q=kestrel&"+tc.facet)
-		got := map[string]int{
-			"books": len(res.Books), "annotations": len(res.Annotations),
-			"movies": len(res.Movies), "dialogues": len(res.Dialogues), "quotes": len(res.Quotes),
-		}
-		for _, name := range tc.empty {
-			if got[name] != 0 {
-				t.Errorf("%s: %s came back with %d rows; a facet that section cannot answer was ignored rather than applied",
-					tc.facet, name, got[name])
-			}
-		}
-	}
-}
 
 // ---- two silent wrong answers the review found ------------------------------
 

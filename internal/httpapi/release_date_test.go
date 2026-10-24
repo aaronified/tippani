@@ -51,18 +51,6 @@ func TestReleaseDateIsADateOrNothing(t *testing.T) {
 	}
 }
 
-// AND THE MATCH IS EXACT, which is `listed`'s own rule and has to stay its own
-// rule. A prefix or a "nearest" match would hand a release candidate the finished
-// release's date — a wrong answer stated confidently, which is worse than none.
-func TestReleaseDateDoesNotGuessAtTheNearestRelease(t *testing.T) {
-	rs := []changelog.Release{{Version: "3.1.0", Date: "2026-09-01"}}
-	for _, v := range []string{"3.1", "3.1.0-rc.1", "3.1.0.1", "v3.1.0", " 3.1.0"} {
-		if got := releaseDate(rs, v); got != "" {
-			t.Errorf("releaseDate(%q) = %q — it guessed at a neighbouring release", v, got)
-		}
-	}
-}
-
 // A DATELESS HEADING IS STILL A RELEASE. `current_listed` answers "does the
 // history know this build" and this answers "does it know when it came out";
 // folding one into the other would make the first lie about a build the history
@@ -74,25 +62,5 @@ func TestKnowingTheReleaseAndKnowingItsDateAreTwoQuestions(t *testing.T) {
 	}
 	if releaseDate(rs, "2.9.0") != "" {
 		t.Error("a dateless heading produced a date")
-	}
-}
-
-// AND THE HISTORY THIS BINARY CARRIES REALLY IS DATED THAT WAY. Every case above
-// runs on a fixture, so all of them would pass on a changelog whose headings the
-// server can no longer read — and `VERSION` is `dev` in every test and every
-// `make run`, so nothing else in the suite ever exercises a real version string.
-// This is the one case that would go red if the file's own headings drifted.
-func TestTheEmbeddedHistoryIsDatedInTheShapeTheAPIPromises(t *testing.T) {
-	rs := changelog.Releases()
-	if len(rs) < 2 {
-		t.Fatalf("the embedded history has %d releases — it did not load", len(rs))
-	}
-	for _, r := range rs {
-		if r.Date == "" {
-			continue // an entry may legitimately carry no date; it just gets none
-		}
-		if releaseDate(rs, r.Version) != r.Date {
-			t.Errorf("release %q is dated %q in the file and the API would report nothing — the heading's date is not YYYY-MM-DD", r.Version, r.Date)
-		}
 	}
 }

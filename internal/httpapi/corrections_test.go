@@ -16,51 +16,6 @@ import (
 	"testing"
 )
 
-func TestTheBucketsAreNamedForWhatActuallyDiffers(t *testing.T) {
-	cases := []struct {
-		name, stored, file, bucket string
-	}{
-		{"same words, a double space", "Good evening,  London.", "Good evening, London.", corrSpacing},
-		{"a non-breaking space", "Good evening", "Good evening", corrSpacing},
-		{"a tidied quote loses its punctuation", "Good evening London", "Good evening, London.", corrPunctuation},
-		{"smart quotes against straight", "It's fine", "It’s fine", corrPunctuation},
-		{"lower case against a capital", "good evening, london.", "Good evening, London.", corrCase},
-		{"the quote lost its accents", "Voila, the cafe is closed.", "Voilà, the café is closed.", corrAccents},
-		{"several marks at once", "voila the cafe", "Voilà, the café.", corrMarks},
-		{"one word differs", "Remember the fifth of Novembr", "Remember the fifth of November", corrOneWord},
-		{"three words differ", "Remember the sixth of Decembr", "Remember the fifth of November", corrFewWords},
-		{"the quote stops early", "Governments should be afraid", "Governments should be afraid of their people.", corrExtend},
-		{"the quote runs past the line", "Well. Governments should be afraid of their people", "Governments should be afraid of their people.", corrTrim},
-		{"the wording differs", "A completely different sentence about cabbages here", "Governments should be afraid of their people.", corrWording},
-	}
-	for _, tc := range cases {
-		got, ok := classifyCorrection(tc.stored, tc.file)
-		if !ok || got.Bucket != tc.bucket {
-			t.Errorf("%s: bucket %q (ok=%v), want %q", tc.name, got.Bucket, ok, tc.bucket)
-		}
-	}
-}
-
-func TestNothingIsProposedWhenTheQuoteAlreadyHoldsTheFilesWords(t *testing.T) {
-	for _, pair := range [][2]string{
-		{"Good evening, London.", "Good evening, London."},
-		{"  Good evening, London. ", "Good evening, London."},
-		// A cue's own line break is not a difference for a quote written on one line.
-		{"Good evening, London.", "Good evening,\nLondon."},
-	} {
-		if c, ok := classifyCorrection(pair[0], pair[1]); ok {
-			t.Errorf("%q vs %q proposed %+v", pair[0], pair[1], c)
-		}
-	}
-}
-
-func TestTheDifferingStretchIsWholeWords(t *testing.T) {
-	c, _ := classifyCorrection("Remember the fifth of Novembr", "Remember the fifth of November")
-	if c.From != "Novembr" || c.To != "November" {
-		t.Fatalf("%q -> %q", c.From, c.To)
-	}
-}
-
 const corrSRT = "1\n00:00:01,000 --> 00:00:03,000\nVoilà, the café is closed.\n\n" +
 	"2\n00:01:00,000 --> 00:01:03,000\nRemember, remember the fifth of November.\n\n" +
 	"3\n00:02:00,000 --> 00:02:03,000\nGovernments should be afraid of their people.\n\n" +

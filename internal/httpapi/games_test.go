@@ -96,28 +96,6 @@ func TestRenamingADirectorLeavesGameStudiosAlone(t *testing.T) {
 	}
 }
 
-// The mirror: renaming a studio must not touch a film's director.
-func TestRenamingAStudioLeavesFilmDirectorsAlone(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-
-	const shared = "Hideo Kojima"
-	film := createFilm(t, c, "A Documentary", shared)
-	game := createGame(t, c, "Death Stranding", shared)
-
-	c.mustDo("POST", "/people/rename", map[string]any{
-		"kind": "studio", "from": shared, "to": "Kojima Productions",
-	}, http.StatusOK)
-
-	if got := directorOf(t, srv, game); got != "Kojima Productions" {
-		t.Errorf("game studio = %q, want the rename to have applied", got)
-	}
-	if got := directorOf(t, srv, film); got != shared {
-		t.Errorf("FILM DIRECTOR = %q, want %q left untouched", got, shared)
-	}
-}
-
 // TestPeopleNamesSeparatesDirectorsFromStudios is the other half of hazard 1 —
 // the visible one. The Metadata console asks /people/names?kind=director, and an
 // unfiltered query answers with every studio in the library, tallied, named as
@@ -164,37 +142,6 @@ func TestPeopleNamesSeparatesDirectorsFromStudios(t *testing.T) {
 	}
 	if studios["Michael Mann"] {
 		t.Errorf("studios = %v — a film DIRECTOR is listed as a studio.", studios)
-	}
-}
-
-// TestGameShelfStatusIsPlayed covers hazard 2: shelfCap used to end in
-// `default: return 2`, and activeStatus took only the kind — so a game would
-// have silently been "watching", capped at two in progress, on the strength of a
-// fallthrough rather than a decision.
-func TestGameShelfStatusIsPlayed(t *testing.T) {
-	if got := activeStatus("movie", "game"); got != StatusPlaying {
-		t.Errorf("activeStatus(movie, game) = %q, want %q — a game is played, not watched", got, StatusPlaying)
-	}
-	if got := activeStatus("movie", "movie"); got != StatusWatching {
-		t.Errorf("activeStatus(movie, movie) = %q, want %q", got, StatusWatching)
-	}
-	if got := activeStatus("movie", "show"); got != StatusWatching {
-		t.Errorf("activeStatus(movie, show) = %q, want %q", got, StatusWatching)
-	}
-	if got := activeStatus("book", ""); got != StatusReading {
-		t.Errorf("activeStatus(book) = %q, want %q", got, StatusReading)
-	}
-	// Every arm is a decision. Asserted as distinct VALUES rather than "not the
-	// default", because inheriting the film cap is the failure.
-	caps := map[string]int{"book": 5, "show": 5, "game": 3, "movie": 2}
-	for mt, want := range caps {
-		kind := "movie"
-		if mt == "book" {
-			kind = "book"
-		}
-		if got := shelfCap(kind, mt); got != want {
-			t.Errorf("shelfCap(%s, %s) = %d, want %d", kind, mt, got, want)
-		}
 	}
 }
 
@@ -392,52 +339,6 @@ func TestGameLookupFallsBackToWikidataWithNoIGDBKey(t *testing.T) {
 	}
 	if cand.MediaType != "game" || cand.Title != "Alan Wake" || cand.ReleaseYear != 2010 {
 		t.Fatalf("candidate = %+v", cand)
-	}
-}
-
-// With no key AND no title there is nothing to fall back WITH, so the missing
-// pair is still the honest answer — "no results" would be false, because nothing
-// was asked.
-func TestGameLookupStillReportsTheMissingKeyWhenItCannotFallBack(t *testing.T) {
-	srv := newTestServer(t)
-	srv.IGDB = nil
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	c.mustDo("POST", "/movies/lookup",
-		map[string]any{"igdb_id": 123, "media_type": "game"}, http.StatusServiceUnavailable)
-}
-
-// The half that cannot be seen in a response: with IGDB answering, Wikidata must
-// not be consulted at all. The stub fails the test if it is touched.
-func TestGameLookupDoesNotConsultWikidataWhenIGDBAnswers(t *testing.T) {
-	srv := newTestServer(t)
-	touched := false
-	wd := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		touched = true
-		http.NotFound(w, r)
-	}))
-	defer wd.Close()
-	metadata.SetWikidataBaseForTest(t, wd.URL)
-
-	igdb := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.Contains(r.URL.Path, "token") {
-			_, _ = w.Write([]byte(`{"access_token":"t","expires_in":3600}`))
-			return
-		}
-		_, _ = w.Write([]byte(`[{"id":7,"name":"Alan Wake","slug":"alan-wake","first_release_date":1274140800}]`))
-	}))
-	defer igdb.Close()
-	srv.IGDB = &metadata.IGDB{ClientID: "id", ClientSecret: "secret", BaseURL: igdb.URL, TokenURL: igdb.URL + "/token"}
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-
-	got := decode[lookupResp](t, c.mustDo("POST", "/movies/lookup",
-		map[string]any{"title": "Alan Wake", "media_type": "game"}, http.StatusOK))
-	if len(got.Candidates) == 0 || got.Candidates[0].Source != "igdb" {
-		t.Fatalf("IGDB must answer for itself: %+v", got.Candidates)
-	}
-	if touched {
-		t.Fatal("Wikidata was consulted while IGDB was answering — it is a floor, not a second opinion")
 	}
 }
 

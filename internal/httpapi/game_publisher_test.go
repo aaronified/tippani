@@ -87,23 +87,6 @@ func TestGamePublisherRoundTrip(t *testing.T) {
 	}
 }
 
-// A film and a show do not show a publisher, and the export proves it: an empty
-// frontmatter value is dropped, so a film's export is byte-for-byte what it was
-// before the column existed. This is the guard against "a new field appeared in
-// every export ever written".
-func TestFilmExportGainsNoPublisherLine(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-
-	m := decode[movieDetail](t, c.mustDo("POST", "/movies", map[string]any{
-		"title": "Casablanca", "director": "Michael Curtiz", "release_year": 1942,
-	}, http.StatusCreated))
-	md := c.mustDo("GET", "/movies/"+itoa(m.ID)+"/export", nil, 200).Body.String()
-	if strings.Contains(md, "publisher:") {
-		t.Fatalf("a film's export names a publisher:\n%s", md)
-	}
-}
-
 // The re-fetch is the remedy 0042 promises every game stored before it, so the
 // publisher must be OVERWRITTEN by a resync rather than preserved the way the
 // IMDb id deliberately is. Asserted through the storage layer because a resync

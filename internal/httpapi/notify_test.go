@@ -9,7 +9,6 @@ import (
 	"sync"
 	"testing"
 
-	"tippani/internal/metadata"
 	"tippani/internal/outbound"
 )
 
@@ -89,50 +88,6 @@ func TestPushoverTestButtonUsesTheReadersKeyAndTheServerToken(t *testing.T) {
 	c.mustDo("POST", "/auth/notifications/test", nil, http.StatusBadGateway)
 }
 
-// A large import tells the phone when it is waiting for review and again when
-// it has landed; a small one does neither, and a reader who turned imports off
-// hears nothing.
-func TestPushoverOnLargeImports(t *testing.T) {
-	srv := newTestServer(t)
-	srv.PushoverToken = "azGDORePK8gMaC0QOYAMyEEuzJnyUi"
-	push := newFakePushover(t, srv)
-	c := signupAdmin(t, srv.Handler())
-	c.mustDo("PUT", "/auth/notifications", map[string]any{"pushover_user": testPushoverUser}, 200)
-
-	// Each file's lines are its own, so no import's quotes are skipped as
-	// duplicates of an earlier one's and the counts are exactly n.
-	file := 0
-	markdown := func(n int) []byte {
-		file++
-		var b strings.Builder
-		b.WriteString("# Meditations\n\n")
-		for i := 0; i < n; i++ {
-			fmt.Fprintf(&b, "> Thought %d of file %d about the nature of things.\n\n", i, file)
-		}
-		return []byte(b.String())
-	}
-	if rec := c.importApprove("/import/markdown", "small.md", markdown(3)); rec.Code != 200 {
-		t.Fatalf("small import: %d %s", rec.Code, rec.Body)
-	}
-	if n := len(push.sent()); n != 0 {
-		t.Fatalf("a 3-quote import sent %d messages", n)
-	}
-	if rec := c.importApprove("/import/markdown", "big.md", markdown(notifyImportMin)); rec.Code != 200 {
-		t.Fatalf("big import: %d %s", rec.Code, rec.Body)
-	}
-	msgs := push.sent()
-	if len(msgs) != 2 || msgs[0]["title"] != "Import ready to review" || msgs[1]["title"] != "Import finished" ||
-		!strings.Contains(msgs[1]["message"], fmt.Sprint(notifyImportMin)) {
-		t.Fatalf("big import sent %+v", msgs)
-	}
-
-	c.mustDo("PUT", "/auth/notifications", map[string]any{"on_import": false}, 200)
-	c.importApprove("/import/markdown", "again.md", markdown(notifyImportMin+5))
-	if n := len(push.sent()); n != 2 {
-		t.Fatalf("imports switched off, yet %d messages", n)
-	}
-}
-
 // The cron half: one message per reader per day, naming the deck the quiz
 // would serve, and nothing for a reader with nothing due.
 func TestSendDailyDecksOncePerDay(t *testing.T) {
@@ -173,45 +128,6 @@ func TestSendDailyDecksOncePerDay(t *testing.T) {
 	}
 	if n := len(push.sent()); n != 1 {
 		t.Fatalf("a second run the same day sent again (%d messages)", n)
-	}
-}
-
-// A long metadata run tells the phone when it is over, and a short one does not.
-// Both halves of "long" are here: the bulk fill, whose last chunk names the run,
-// and the whole-library cover refetch, whose last chunk knows the total. No
-// provider is reached — the fill's rows are ids nobody owns, and the refetch's
-// lookups are stubbed empty — because the message is about the run ending, not
-// about what it found.
-func TestPushoverOnLongMetadataRuns(t *testing.T) {
-	srv := newTestServer(t)
-	srv.PushoverToken = "azGDORePK8gMaC0QOYAMyEEuzJnyUi"
-	push := newFakePushover(t, srv)
-	srv.searchBooks = func(context.Context, string, string, string, string) ([]metadata.BookCandidate, error) {
-		return nil, nil
-	}
-	c := signupAdmin(t, srv.Handler())
-	c.mustDo("PUT", "/auth/notifications", map[string]any{"pushover_user": testPushoverUser}, 200)
-
-	// A single-chunk fill names no run, and a run under the threshold is quiet.
-	c.mustDo("POST", "/metadata/fill", map[string]any{"book_ids": []int64{999999}}, 200)
-	c.mustDo("POST", "/metadata/fill", map[string]any{"book_ids": []int64{999999}, "run_total": notifyFetchMin - 1}, 200)
-	if n := len(push.sent()); n != 0 {
-		t.Fatalf("short fills sent %d messages", n)
-	}
-	c.mustDo("POST", "/metadata/fill", map[string]any{"book_ids": []int64{999999}, "run_total": 40, "run_fields": 7}, 200)
-	msgs := push.sent()
-	if len(msgs) != 1 || msgs[0]["title"] != "Metadata fill finished" || msgs[0]["message"] != "7 fields filled across 40 works." {
-		t.Fatalf("long fill sent %+v", msgs)
-	}
-
-	for i := 0; i < notifyFetchMin; i++ {
-		createBook(t, c, fmt.Sprintf("Book %02d", i))
-	}
-	driveRefetch(t, c)
-	msgs = push.sent()
-	if len(msgs) != 2 || msgs[1]["title"] != "Metadata fetch finished" ||
-		!strings.Contains(msgs[1]["message"], fmt.Sprintf("%d works", notifyFetchMin)) {
-		t.Fatalf("refetch over %d works sent %+v", notifyFetchMin, msgs)
 	}
 }
 

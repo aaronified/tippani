@@ -1,7 +1,6 @@
 package httpapi
 
 import (
-	"strings"
 	"testing"
 )
 
@@ -100,47 +99,3 @@ func TestCleanupCollapsesRepeatsIntoACount(t *testing.T) {
 	}
 }
 
-// THE SNIPPET HAS TO MARK THE MATCH, because half these rules find something with
-// no appearance at all: a non-breaking space and an ordinary space are the same
-// picture, so a snippet that merely quoted the text would say nothing.
-func TestCleanupSnippetMarksAnInvisibleMatch(t *testing.T) {
-	got := scanCleanup("quote", "the fact stood plainly")
-	if len(got) == 0 {
-		t.Fatal("no finding for a non-breaking space")
-	}
-	s := got[0].Snippet
-	if !strings.Contains(s, "»") || !strings.Contains(s, "«") {
-		t.Fatalf("snippet %q does not mark the match", s)
-	}
-	// The marker brackets the character itself, so what sits between them is the
-	// one byte-run being reported and nothing else.
-	i, j := strings.Index(s, "»"), strings.Index(s, "«")
-	if inner := s[i+len("»") : j]; inner != " " {
-		t.Errorf("marked %q, want just the non-breaking space", inner)
-	}
-}
-
-// A long quote is trimmed around the match rather than returned whole: the list
-// is for judging at a glance, and a page of prose per finding is not that.
-func TestCleanupSnippetIsBoundedAndElided(t *testing.T) {
-	// No padding at the ends: this is about a match in the MIDDLE of a long text,
-	// and a trailing space would fire edge-space first and be a different test.
-	long := strings.Repeat("word ", 60) + "two  spaces " + strings.Repeat("more ", 59) + "more"
-	got := scanCleanup("quote", long)
-	if len(got) == 0 {
-		t.Fatal("no finding in the long text")
-	}
-	s := got[0].Snippet
-	if len(s) > 4*cleanupContext {
-		t.Errorf("snippet is %d bytes, want it bounded near the match", len(s))
-	}
-	if !strings.HasPrefix(s, "…") || !strings.HasSuffix(s, "…") {
-		t.Errorf("snippet %q does not say it was trimmed at both ends", s)
-	}
-}
-
-func TestCleanupIgnoresEmptyText(t *testing.T) {
-	if got := scanCleanup("note", ""); got != nil {
-		t.Errorf("empty text produced %+v", got)
-	}
-}

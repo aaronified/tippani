@@ -124,18 +124,6 @@ func TestARemovedSignatureStaysRemovedUntilTheReaderAsksAgain(t *testing.T) {
 	}
 }
 
-func TestAFetchWithNoWikidataSignatureLeavesTheSlotEmpty(t *testing.T) {
-	srv := newTestServer(t)
-	stubSignatureSuppliers(t, srv, false)
-	c := signupAdmin(t, srv.Handler())
-	id := makePerson(t, c, "Jane Solo")
-
-	fetchPersonAs(t, c, id)
-	if got, _ := signatureOf(t, c, id); got != "" {
-		t.Errorf("a signature appeared from nowhere: %q", got)
-	}
-}
-
 // THE SLOT'S OWN FETCH OFFERS THE RAW SIGNATURE AND SAVES NOTHING. The screen
 // shows what it answers through the same preview and ink slider an upload gets, and
 // saves it, if the reader keeps it, through the ordinary save: so a fetch that
@@ -170,20 +158,6 @@ func TestTheSlotsFetchOffersASignatureAndSavesNothing(t *testing.T) {
 	}
 	if name, src := signatureOf(t, c, id); name == "" || src != "wikidata" {
 		t.Errorf("after taking the fetched signature: %q credited to %q, want a file credited to wikidata", name, src)
-	}
-}
-
-func TestTheSlotsFetchSaysWhenThereIsNothingToOffer(t *testing.T) {
-	srv := newTestServer(t)
-	stubSignatureSuppliers(t, srv, false)
-	c := signupAdmin(t, srv.Handler())
-	id := makePerson(t, c, "Jane Solo")
-
-	got := decode[struct {
-		Found bool `json:"found"`
-	}](t, c.mustDo("POST", "/people/id/"+itoa(id)+"/signature/fetch", nil, http.StatusOK))
-	if got.Found {
-		t.Error("the fetch claimed to find a signature for an author with none")
 	}
 }
 

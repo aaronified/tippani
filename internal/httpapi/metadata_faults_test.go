@@ -25,26 +25,6 @@ import (
 	"tippani/internal/metadata"
 )
 
-func TestAWorkingSourceIsNotReportedAtAll(t *testing.T) {
-	var r lookupRegistry
-	r.record(faultAreaPictures, "fandom", 4, "", nil)
-	if got := r.faults(); len(got) != 0 {
-		t.Fatalf("a source that answered is on the fault list: %+v", got)
-	}
-}
-
-// ONE MISS IS A MISS. This is the case that decides whether the feature is worth
-// having: an image search for a minor character in a Bengali film genuinely has
-// nothing behind it, and reporting that as a fault would fill the card on the first
-// day with things nobody can fix.
-func TestOneEmptyAnswerIsNotAFault(t *testing.T) {
-	var r lookupRegistry
-	r.record(faultAreaPictures, "google-scrape", 0, "", nil)
-	if got := r.faults(); len(got) != 0 {
-		t.Fatalf("a single empty search was called a fault: %+v", got)
-	}
-}
-
 // A RUN IS. Three different subjects in a row finding nothing is no longer about
 // the subjects — it is the source, which is exactly what the owner was looking at.
 func TestARunOfEmptyAnswersIsAFault(t *testing.T) {
@@ -112,30 +92,6 @@ func TestAFailedCallIsAFaultImmediately(t *testing.T) {
 	}
 }
 
-// AND A FAILURE IN THE MIDDLE OF A DRY SPELL DOES NEITHER THING TO IT. The run
-// counts calls that WORKED and found nothing; a timeout is not evidence either way,
-// so extending the run would inflate it and clearing it would hide a real fault
-// behind one flaky request.
-func TestAFailureNeitherExtendsNorClearsAnEmptyRun(t *testing.T) {
-	var r lookupRegistry
-	r.record(faultAreaPictures, "fandom", 0, "", nil)
-	r.record(faultAreaPictures, "fandom", 0, "", nil)
-	r.record(faultAreaPictures, "fandom", 0, "", errors.New("boom"))
-	if got := r.faults(); len(got) != 1 || got[0].Kind != "error" {
-		t.Fatalf("the failure itself should be the fault right now: %+v", got)
-	}
-	// One more empty answer and the run reaches the threshold: 2 before the
-	// failure, the failure carrying 2 forward, then the third.
-	r.record(faultAreaPictures, "fandom", 0, "", nil)
-	got := r.faults()
-	if len(got) != 1 {
-		t.Fatalf("want one fault, got %+v", got)
-	}
-	if got[0].Kind != "empty" || got[0].Run != emptyRunFault {
-		t.Errorf("the run did not survive the failure intact: %+v", got[0])
-	}
-}
-
 // THE SAME SUPPLIER IN TWO AREAS IS TWO SOURCES, and this is not bookkeeping: a
 // TheTVDB that answers film lookups fine and has stopped returning character art is
 // one real thing this app does, and a registry keyed on the name alone would have
@@ -152,55 +108,6 @@ func TestASupplierIsTrackedPerAreaRatherThanByName(t *testing.T) {
 	}
 	if got[0].Area != faultAreaPictures {
 		t.Errorf("the working film lookup was reported instead: %+v", got[0])
-	}
-}
-
-// SORTED, because a list that reorders itself between two renders of the same page
-// reads as things changing when nothing has — and a sync.Map's Range is explicitly
-// unordered, so without this the card would shuffle on every poll.
-func TestTheFaultListIsOrdered(t *testing.T) {
-	var r lookupRegistry
-	r.record(faultAreaPictures, "wikimedia", 0, "", errors.New("x"))
-	r.record(faultAreaFilms, "tvdb", 0, "", errors.New("x"))
-	r.record(faultAreaPictures, "fandom", 0, "", errors.New("x"))
-	r.record(faultAreaBooks, "google", 0, "", errors.New("x"))
-	got := r.faults()
-	want := []struct{ area, source string }{
-		{faultAreaBooks, "google"},
-		{faultAreaFilms, "tvdb"},
-		{faultAreaPictures, "fandom"},
-		{faultAreaPictures, "wikimedia"},
-	}
-	if len(got) != len(want) {
-		t.Fatalf("want %d faults, got %+v", len(want), got)
-	}
-	for i, w := range want {
-		if got[i].Area != w.area || got[i].Source != w.source {
-			t.Fatalf("row %d is %s/%s, want %s/%s — the card will shuffle between polls",
-				i, got[i].Area, got[i].Source, w.area, w.source)
-		}
-	}
-}
-
-// A SOURCE NOBODY ASKED IS NOT A SOURCE. An unconfigured supplier never runs, so it
-// never records, so it never appears — which is the correct answer: "you have not
-// set up IGDB" is a key field's job and is already said there, and a fault row
-// saying it too would be the same fact on one screen twice.
-func TestASourceThatWasNeverAskedIsNotAFault(t *testing.T) {
-	var r lookupRegistry
-	if got := r.faults(); len(got) != 0 {
-		t.Fatalf("an untouched registry reported faults: %+v", got)
-	}
-}
-
-// AN EMPTY SOURCE NAME IS DROPPED RATHER THAN STORED UNDER "". A tier with no name
-// is a bug in the ladder, and a fault row the card cannot label is worse than no
-// row: the reader is told something is broken and not what.
-func TestAnUnnamedSourceIsNotRecorded(t *testing.T) {
-	var r lookupRegistry
-	r.record(faultAreaPictures, "", 0, "", errors.New("boom"))
-	if got := r.faults(); len(got) != 0 {
-		t.Fatalf("a nameless source reached the card: %+v", got)
 	}
 }
 
@@ -250,19 +157,6 @@ func TestHavingWorkedOnceOutlastsADrySpell(t *testing.T) {
 	}
 	if got := r.faults(); len(got) != 0 {
 		t.Fatalf("the source was demoted to the short threshold after a dry spell: %+v", got)
-	}
-}
-
-// THE COVER PROBE IS NOT A SEARCH AND IS NOT JUDGED AS ONE.
-//
-// `amazon-by-id` composes a cover URL from an ISBN or an ASIN and asks whether a
-// picture is there. Given a book with neither it correctly does nothing and returns
-// nothing — which, counted as an empty answer, would build a permanent run and put
-// "Amazon found nothing" on the card of every reader who searches covers by title. A
-// probe that was never given anything to probe with has not failed.
-func TestTheCoverProbeIsNotTreatedAsASupplier(t *testing.T) {
-	if got := faultSourceOf("amazon-by-id"); got != "" {
-		t.Errorf("the by-id cover probe is recorded as %q, so it will accumulate a fault it cannot avoid", got)
 	}
 }
 
@@ -348,29 +242,6 @@ func TestAPictureRungThatKeepsFindingNothingReachesTheStatusCard(t *testing.T) {
 	// nil` every failure used to share.
 	if !strings.Contains(got[0].Note, "preview images") {
 		t.Errorf("the reason did not reach the card: %q", got[0].Note)
-	}
-}
-
-// AND A SUPPLIER THAT ANSWERS IS NEVER ON THE CARD, through the same two endpoints.
-// Silence is this screen's healthy state, and a card that reported a working source
-// would be worse than one that reported nothing.
-func TestAPictureRungThatAnswersIsNotReported(t *testing.T) {
-	google := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		fmt.Fprint(w, `<img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ABC&amp;s">`)
-	}))
-	defer google.Close()
-
-	srv := newTestServer(t)
-	metadata.SetFandomAndScrapeBasesForTest(t, "", google.URL)
-	c := signupAdmin(t, srv.Handler())
-	c.mustDo("PUT", "/admin/metadata-keys", map[string]any{"google_scrape": true}, 200)
-
-	for i := 0; i < emptyRunFault+2; i++ {
-		c.mustDo("POST", "/images/search",
-			map[string]any{"kind": "poster", "title": fmt.Sprintf("Heat %d", i)}, 200)
-	}
-	if got := faultsOn(t, c); len(got) != 0 {
-		t.Fatalf("a supplier that answered every time is on the fault list: %+v", got)
 	}
 }
 

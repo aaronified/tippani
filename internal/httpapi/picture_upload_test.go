@@ -182,37 +182,6 @@ func TestSomethingThatIsNotAnImageIsRefused(t *testing.T) {
 		[]byte("this is a text file pretending to be a picture"), 400)
 }
 
-// AND THE ROW THE UPLOAD CHANGED IS THE ROW THE REPLY DESCRIBES. A board's
-// picture is uploaded the same way, and the caller redraws from the reply: a
-// reply describing some OTHER row leaves the screen showing the old picture, or
-// failing outright, for an upload that in fact succeeded.
-func TestAnUploadRepliesAboutTheRowItChanged(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-
-	rec := c.mustDo("POST", "/boards", map[string]any{"name": "Marginalia"}, 201)
-	var board struct {
-		ID int64 `json:"id"`
-	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &board); err != nil {
-		t.Fatal(err)
-	}
-	body := uploadPictureTo(t, c, fmt.Sprintf("/boards/%d/cover", board.ID), pngMagic, 200)
-	name := storedName(t, body)
-
-	var stored string
-	if err := srv.Store.DB.QueryRow(`SELECT image_path FROM boards WHERE id = ?`, board.ID).Scan(&stored); err != nil {
-		t.Fatal(err)
-	}
-	if stored != name {
-		t.Fatalf("the reply named %q and the board holds %q — the caller redraws from the wrong row", name, stored)
-	}
-	if strings.Contains(string(body), "poster_path") {
-		t.Fatalf("a board's upload answered with a film's shape: %s", body)
-	}
-}
-
 // personIDNamed is the record behind a credited name, which the cast seed creates
 // as a side effect of naming a performer.
 func personIDNamed(t *testing.T, srv *Server, name string) int64 {

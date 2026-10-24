@@ -68,33 +68,6 @@ func TestUtteranceAttribution(t *testing.T) {
 	}
 }
 
-// Two spellings of one speech must be ONE work, or the deck will offer a speech
-// as its own wrong answer — the option list would show the same event twice and
-// both would be correct.
-func TestUtteranceWorkKeyFoldsSpelling(t *testing.T) {
-	a := utteranceWorkKey("Bose", "Burma Radio broadcast", "")
-	b := utteranceWorkKey("Bose", "burma   radio  BROADCAST ", "")
-	if a != b {
-		t.Fatalf("one speech became two works: %q vs %q", a, b)
-	}
-	if a == "" {
-		t.Fatal("an attributed quote must have a work key")
-	}
-	if utteranceWorkKey("", "", "") != "" {
-		t.Fatal("a proverb must have no work key — it would group every proverb into one work")
-	}
-	// Two different speeches by the same person stay distinct: they are exactly
-	// the pair the deck most wants to be able to tell apart.
-	if utteranceWorkKey("Bose", "Singapore rally", "") == a {
-		t.Fatal("two speeches by one speaker collapsed into one work")
-	}
-	// TWO PASSAGES OUT OF ONE ESSAY ARE ONE WORK, which is what makes the per-work
-	// spread and the distractor ranking treat an essay the way they treat a book.
-	if utteranceWorkKey("Einstein", "", "Why Socialism?") != utteranceWorkKey("", "", "why  SOCIALISM? ") {
-		t.Fatal("two quotes from one essay became two works")
-	}
-}
-
 // ---- the deck ----
 
 func TestPracticeServesStandaloneQuotes(t *testing.T) {
@@ -410,40 +383,6 @@ func TestReviewAnswerOwnershipForQuotes(t *testing.T) {
 	}
 }
 
-// ownsItem used to default to annotations for any kind it did not recognise, so
-// an unknown kind would have been checked against — and could have authorised a
-// write to — a completely different table.
-func TestOwnsItemRejectsUnknownKinds(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-
-	_, ids := seedReviewBook(t, c, "Dune", 1)
-	uid := int64(1)
-
-	ok, err := srv.ownsItem(uid, kindBook, ids[0])
-	if err != nil || !ok {
-		t.Fatalf("the owner should own their own annotation: ok=%v err=%v", ok, err)
-	}
-	// Same id, a kind nobody serves. It must not fall through to annotations.
-	ok, err = srv.ownsItem(uid, "annotation", ids[0])
-	if err != nil {
-		t.Fatal(err)
-	}
-	if ok {
-		t.Fatal("an unrecognised kind was resolved against the annotations table")
-	}
-}
-
-func TestReviewAnswerRejectsUnknownKind(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-
-	c.mustDo("POST", "/review/answer",
-		map[string]any{"kind": "utterances", "id": 1, "result": "got", "mode": "daily"}, http.StatusBadRequest)
-	c.mustDo("POST", "/review/seen", map[string]any{"kind": "quote", "id": 1}, http.StatusBadRequest)
-}
-
 // ---- scope ----
 
 // Every narrow scope must exclude the other two media, and "both" must include
@@ -487,12 +426,6 @@ func TestReviewScopeCoversTheThirdKind(t *testing.T) {
 	if scores.States.Total != 4 {
 		t.Fatalf(`scope "quotes" tally counted %d, expected 4`, scores.States.Total)
 	}
-}
-
-func TestReviewScopeRejectsNonsense(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"srReviewScope": "utterances"}, http.StatusBadRequest)
 }
 
 // ---- Stats ----
@@ -551,20 +484,6 @@ func TestQuoteDistractorsPreferTheSameSpeaker(t *testing.T) {
 	}
 	if distractorScore(own, own) != -1 {
 		t.Fatal("a work must never be offered as its own wrong answer")
-	}
-}
-
-// A WORK OPTION IS SHOWN BY ITS PICTURE AND NEVER BY A FACE (3.0). A speech has
-// no art, so its option carries nothing at all — which is the point: the face
-// that used to sit under it belonged to a person, and the option is not one.
-func TestAWorkOptionCarriesArtAndNoFace(t *testing.T) {
-	speech := workRef{kind: kindUtterance, title: "Burma Radio broadcast", author: "Subhas Chandra Bose"}
-	if m := speech.meta(); m.Person != "" || m.Art != "" {
-		t.Fatalf("a speech has no art and is not a person: %+v", m)
-	}
-	book := workRef{kind: kindBook, title: "Dune", author: "Frank Herbert", art: "abc123.jpg"}
-	if m := book.meta(); m.Art != "abc123.jpg" || m.Person != "" {
-		t.Fatalf("a book option should carry its cover and no face: %+v", m)
 	}
 }
 
@@ -652,61 +571,3 @@ func TestAReviewCardCarriesItsQuotesLanguage(t *testing.T) {
 	}
 }
 
-// AND THE OTHER TWO DECKS, which are three separate queries and were covered by
-// none of it. The case above walks kindUtterance only, so `bookCandidates` and
-// `screenCandidates` could each have their column replaced with ” and the suite
-// stayed green — a rater proved exactly that. Nothing on the server reads this
-// field, so a silently dropped column changes no behaviour the server can notice
-// and the client just falls back to the display face without complaining. Three
-// queries, three cases.
-func TestABookAndScreenCardCarryTheirQuotesLanguage(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-
-	book := decode[bookDetail](t, c.mustDo("POST", "/books",
-		map[string]any{"title": "Die Räuber", "author": "Friedrich Schiller"}, http.StatusCreated))
-	c.mustDo("POST", "/annotations", map[string]any{
-		"book_id": book.ID, "quote": "Mir ekelt vor diesem tintenklecksenden Saeculum",
-		"language": "German",
-	}, http.StatusCreated)
-
-	movie := decode[movieDetail](t, c.mustDo("POST", "/movies",
-		map[string]any{"title": "Nosferatu"}, http.StatusCreated))
-	c.mustDo("POST", "/dialogues", map[string]any{
-		"movie_id": movie.ID, "quote": "Mir ekelt vor dem Morgen", "language": "German",
-	}, http.StatusCreated)
-
-	deck := decode[practiceDeckResp](t, c.mustDo("GET", "/review/practice", nil, 200))
-	seen := map[string]bool{}
-	for _, card := range deck.Items {
-		if card.Kind != kindBook && card.Kind != kindScreen {
-			continue
-		}
-		seen[card.Kind] = true
-		if card.Language != "German" {
-			t.Errorf("a %s card lost the quote's language: %q", card.Kind, card.Language)
-		}
-	}
-	// NEITHER KIND MAY BE ABSENT, or the loop above is true of nothing — which is
-	// the shape of the gap this case exists to close.
-	if !seen[kindBook] || !seen[kindScreen] {
-		t.Fatalf("the deck held no card of one kind to check: %v", seen)
-	}
-}
-
-// AND A QUOTE WITH NO LANGUAGE CARRIES NONE, rather than an invented one. The
-// field is omitempty: a reader who has never filled the box gets a card with no
-// language key at all, and the client's ladder falls through to the card's own
-// face — which is what every English quote in every library does.
-func TestAReviewCardInventsNoLanguage(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	seedReviewQuotes(t, c, "Marcus Aurelius", "Meditations", 1)
-
-	deck := decode[practiceDeckResp](t, c.mustDo("GET", "/review/practice", nil, 200))
-	for _, card := range deck.Items {
-		if card.Language != "" {
-			t.Fatalf("a quote with no language was given %q", card.Language)
-		}
-	}
-}

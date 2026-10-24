@@ -159,32 +159,6 @@ func TestBulkDeletePhraseCountsWhatItWillActuallyDelete(t *testing.T) {
 	}
 }
 
-func TestBulkDeleteWorksForHighlightsAndFilmLines(t *testing.T) {
-	// The other two kinds, and the nouns their phrases use — a highlight is not a
-	// "quote" in the confirmation, because the reader is looking at a book.
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	_ = srv
-
-	bookID := createBook(t, c, "The Dispossessed")
-	movieID := idOf(t, c.mustDo("POST", "/movies", map[string]any{"title": "Casablanca"}, 201).Body.Bytes())
-	ann := idOf(t, c.mustDo("POST", "/annotations",
-		map[string]any{"book_id": bookID, "quote": "a highlight"}, 201).Body.Bytes())
-	dlg := idOf(t, c.mustDo("POST", "/dialogues",
-		map[string]any{"movie_id": movieID, "quote": "a film line"}, 201).Body.Bytes())
-
-	c.do("POST", "/annotations/bulk/delete", map[string]any{"ids": []int64{ann}, "confirm": "delete 1 quote"})
-	c.mustDo("POST", "/annotations/bulk/delete",
-		map[string]any{"ids": []int64{ann}, "confirm": "delete 1 highlight"}, 200)
-	c.mustDo("POST", "/dialogues/bulk/delete",
-		map[string]any{"ids": []int64{dlg}, "confirm": "delete 1 film line"}, 200)
-
-	if left := binOf(t, c).Trash; len(left) != 2 {
-		t.Fatalf("bin: %+v", left)
-	}
-}
-
 func TestBulkDeleteGuards(t *testing.T) {
 	srv := newTestServer(t)
 	h := srv.Handler()

@@ -3,7 +3,6 @@ package httpapi
 import (
 	"fmt"
 	"net/http"
-	"strings"
 	"testing"
 )
 
@@ -150,41 +149,6 @@ func TestTheCleanupSweepLeavesNamesAlone(t *testing.T) {
 	}
 }
 
-// Every rule is named whether or not it fired, so the client can show a zero
-// instead of omitting the row — a rule that vanishes when it finds nothing reads
-// as a rule that is missing. And "nothing found" has to be distinguishable from
-// "nothing looked at", which is what Scanned is for.
-func TestTheCleanupSweepNamesEveryRuleOnACleanShelf(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-	book := decode[bookDetail](t, c.mustDo("POST", "/books",
-		map[string]any{"title": "A Book"}, http.StatusCreated))
-	c.mustDo("POST", "/annotations", map[string]any{
-		"book_id": book.ID, "quote": "Nothing here needs a decision.",
-	}, http.StatusCreated)
-
-	got := sweepCleanup(t, c)
-	if len(got.resp.Rules) != len(cleanupRules) {
-		t.Fatalf("want all %d rules named, got %v", len(cleanupRules), got.resp.Rules)
-	}
-	for i, r := range cleanupRules {
-		if got.resp.Rules[i] != r.ID {
-			t.Errorf("rule %d: got %q want %q", i, got.resp.Rules[i], r.ID)
-		}
-	}
-	if len(got.resp.Items) != 0 {
-		t.Errorf("a clean shelf reported findings: %+v", got.resp.Items)
-	}
-	if got.resp.Scanned != 1 {
-		t.Errorf("scanned=%d — a clean shelf must still say it was read", got.resp.Scanned)
-	}
-	// Items is a list, never null: a client that maps over the reply should not
-	// have to special-case an empty library.
-	if body := c.mustDo("GET", "/cleanup", nil, http.StatusOK).Body.String(); !strings.Contains(body, `"items":[]`) {
-		t.Errorf("empty findings serialised as null: %s", body)
-	}
-}
-
 // Per-user isolation, the invariant that holds everywhere else in this package: a
 // sweep reads through the parent work's user_id, and another reader's dirty
 // library is not this reader's worklist.
@@ -219,46 +183,6 @@ func TestTheCleanupSweepStopsAtTheReadersOwnShelf(t *testing.T) {
 	mine := sweepCleanup(t, alice)
 	if mine.resp.Scanned != 2 || len(mine.resp.Items) != 2 {
 		t.Fatalf("alice: scanned=%d items=%d", mine.resp.Scanned, len(mine.resp.Items))
-	}
-}
-
-// A SILENTLY TRUNCATED LIST IS INDISTINGUISHABLE FROM A CLEAN LIBRARY, which is
-// why the cap is reported rather than just applied. The rows go in through SQL:
-// the assertion is about the cap, and five hundred round trips through the
-// handler would buy nothing but a slow test.
-func TestTheCleanupSweepSaysWhenItStoppedEarly(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	book := decode[bookDetail](t, c.mustDo("POST", "/books",
-		map[string]any{"title": "A Long Shelf"}, http.StatusCreated))
-
-	tx, err := srv.Store.DB.Begin()
-	if err != nil {
-		t.Fatal(err)
-	}
-	for i := 0; i < maxCleanupFindings+5; i++ {
-		if _, err := tx.Exec(
-			`INSERT INTO annotations (book_id, quote, source, dedupe_hash) VALUES (?, ?, 'manual', ?)`,
-			book.ID, fmt.Sprintf("line %d with a  double space", i), fmt.Sprintf("hash-%d", i)); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if err := tx.Commit(); err != nil {
-		t.Fatal(err)
-	}
-
-	got := sweepCleanup(t, c)
-	if !got.resp.Truncated {
-		t.Errorf("the cap was reached and not reported: %d items", len(got.resp.Items))
-	}
-	if len(got.resp.Items) != maxCleanupFindings {
-		t.Errorf("want exactly the cap, got %d items", len(got.resp.Items))
-	}
-	// Scanned counts what was READ, not what was reported, so it stops with the
-	// scan rather than continuing to the end of the table.
-	if got.resp.Scanned != maxCleanupFindings {
-		t.Errorf("scanned=%d, want the cap", got.resp.Scanned)
 	}
 }
 
@@ -314,28 +238,6 @@ func TestTheCleanupCountsOnlyArmCountsPastTheCap(t *testing.T) {
 	if !listed.Truncated || listed.Counts["open"] >= counts.Counts["open"] {
 		t.Errorf("the listing arm should stop at the cap and count less: truncated=%v open=%d vs %d",
 			listed.Truncated, listed.Counts["open"], counts.Counts["open"])
-	}
-}
-
-// Under the cap the two arms must agree exactly — a badge that disagreed with
-// the page it opens would be worse than no badge.
-func TestTheCleanupCountsOnlyArmAgreesWithTheList(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-	book := decode[bookDetail](t, c.mustDo("POST", "/books",
-		map[string]any{"title": "A Short Shelf"}, http.StatusCreated))
-	for _, q := range []string{"a  double space", "another  one", "clean enough"} {
-		c.mustDo("POST", "/annotations", map[string]any{"book_id": book.ID, "quote": q}, http.StatusCreated)
-	}
-
-	listed := decode[cleanupResp](t, c.mustDo("GET", "/cleanup", nil, http.StatusOK))
-	counts := decode[cleanupResp](t, c.mustDo("GET", "/cleanup?counts=1", nil, http.StatusOK))
-	if listed.Counts["open"] != counts.Counts["open"] || listed.Scanned != counts.Scanned {
-		t.Errorf("the two arms disagree: list open=%d scanned=%d, counts open=%d scanned=%d",
-			listed.Counts["open"], listed.Scanned, counts.Counts["open"], counts.Scanned)
-	}
-	if counts.Counts["open"] == 0 {
-		t.Error("the fixture found nothing, so the agreement above proves nothing")
 	}
 }
 

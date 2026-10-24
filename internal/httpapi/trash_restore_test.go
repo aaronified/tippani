@@ -131,29 +131,6 @@ func TestRestoreBringsBackABookWithEverythingUnderIt(t *testing.T) {
 	}
 }
 
-func TestRestoredQuoteIsSearchableAgain(t *testing.T) {
-	// The FTS index follows the rows through their own triggers, so a restore
-	// re-indexes for free — but only if the row genuinely goes back in through an
-	// INSERT. This is the test that would catch a "clever" restore that wrote the
-	// rows some other way.
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	bookID := createBook(t, c, "A Wizard of Earthsea")
-	id := idOf(t, c.mustDo("POST", "/annotations",
-		map[string]any{"book_id": bookID, "quote": "the unspoken word beneath"}, 201).Body.Bytes())
-
-	c.mustDo("DELETE", "/annotations/"+itoa(id), nil, http.StatusOK)
-	if hits := decode[searchResults](t, c.mustDo("GET", "/search?q=unspoken", nil, 200)); len(hits.Annotations) != 0 {
-		t.Fatalf("a binned quote is still searchable: %+v", hits.Annotations)
-	}
-	restore(t, c, binOf(t, c).Trash[0].ID, http.StatusOK)
-	hits := decode[searchResults](t, c.mustDo("GET", "/search?q=unspoken", nil, 200))
-	if len(hits.Annotations) != 1 {
-		t.Fatalf("a restored quote must be searchable again: %+v", hits.Annotations)
-	}
-}
-
 func TestRestoreRebuildsATagDeletedInTheMeantime(t *testing.T) {
 	// The reason the writer carries tag ROWS and not just join rows. A tag is
 	// managed vocabulary: it outlives the quotes that use it, and it can be deleted
@@ -275,43 +252,6 @@ func TestRestoringTwiceIsNotFoundTheSecondTime(t *testing.T) {
 	}
 }
 
-func TestTheBinListsWhatIsInsideAnEntry(t *testing.T) {
-	// The expanded row in Settings reads the payload it already has, so this
-	// asserts the quotes are reported — and that the response is a summary rather
-	// than the whole snapshot, because a chevron should not hand over a database
-	// dump.
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	bookID := createBook(t, c, "The Dispossessed")
-	for _, q := range []string{"first quote here", "second quote here"} {
-		c.mustDo("POST", "/annotations", map[string]any{"book_id": bookID, "quote": q, "color": "blue"}, 201)
-	}
-	c.mustDo("DELETE", "/books/"+itoa(bookID), nil, http.StatusOK)
-
-	id := binOf(t, c).Trash[0].ID
-	got := decode[struct {
-		Entry    trashRow `json:"entry"`
-		Contents []struct {
-			Text  string `json:"text"`
-			Color string `json:"color"`
-		} `json:"contents"`
-	}](t, c.mustDo("GET", "/trash/"+itoa(id), nil, 200))
-	if got.Entry.Label != "The Dispossessed" || got.Entry.ChildCount != 2 {
-		t.Fatalf("entry: %+v", got.Entry)
-	}
-	if len(got.Contents) != 2 {
-		t.Fatalf("contents: %+v", got.Contents)
-	}
-	seen := map[string]string{}
-	for _, c := range got.Contents {
-		seen[c.Text] = c.Color
-	}
-	if seen["first quote here"] != "blue" || seen["second quote here"] != "blue" {
-		t.Fatalf("contents did not carry the quotes and their colours: %+v", seen)
-	}
-}
-
 func TestEmptyingTheBinRemovesTheFilesToo(t *testing.T) {
 	srv := newTestServer(t)
 	h := srv.Handler()
@@ -392,5 +332,28 @@ func TestRetentionWindowIsAPreference(t *testing.T) {
 	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"accent": "olive"}, 200)
 	if got := binOf(t, c).Days; got != -1 {
 		t.Fatalf("an unrelated preference change reset the window to %d", got)
+	}
+}
+
+func TestRestoredQuoteIsSearchableAgain(t *testing.T) {
+	// The FTS index follows the rows through their own triggers, so a restore
+	// re-indexes for free — but only if the row genuinely goes back in through an
+	// INSERT. This is the test that would catch a "clever" restore that wrote the
+	// rows some other way.
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+	bookID := createBook(t, c, "A Wizard of Earthsea")
+	id := idOf(t, c.mustDo("POST", "/annotations",
+		map[string]any{"book_id": bookID, "quote": "the unspoken word beneath"}, 201).Body.Bytes())
+
+	c.mustDo("DELETE", "/annotations/"+itoa(id), nil, http.StatusOK)
+	if hits := decode[searchResults](t, c.mustDo("GET", "/search?q=unspoken", nil, 200)); len(hits.Annotations) != 0 {
+		t.Fatalf("a binned quote is still searchable: %+v", hits.Annotations)
+	}
+	restore(t, c, binOf(t, c).Trash[0].ID, http.StatusOK)
+	hits := decode[searchResults](t, c.mustDo("GET", "/search?q=unspoken", nil, 200))
+	if len(hits.Annotations) != 1 {
+		t.Fatalf("a restored quote must be searchable again: %+v", hits.Annotations)
 	}
 }

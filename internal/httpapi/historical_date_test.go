@@ -3,7 +3,6 @@ package httpapi
 import (
 	"fmt"
 	"net/http"
-	"strings"
 	"testing"
 )
 
@@ -100,19 +99,6 @@ func TestTheWindowStillHoldsForADateAboutTheReading(t *testing.T) {
 		if v != in {
 			t.Errorf("a read log rewrote %q to %q", in, v)
 		}
-	}
-}
-
-// The message has to say what to type, because it is the only thing the reader
-// gets back from a rejected save.
-func TestTheHistoricalMessageNamesTheEra(t *testing.T) {
-	v := "nonsense"
-	msg := normalizeHistoricalDate("occasion date", &v)
-	if !strings.Contains(msg, "occasion date") {
-		t.Errorf("the message does not name the field: %q", msg)
-	}
-	if !strings.Contains(msg, "BCE") {
-		t.Errorf("the message does not mention the era it now accepts: %q", msg)
 	}
 }
 

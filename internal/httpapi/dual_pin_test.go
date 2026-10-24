@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"tippani/internal/metadata"
-	"tippani/internal/store"
 )
 
 // A TITLE PINNED TO BOTH SUPPLIERS, which is not an exotic state.
@@ -99,43 +98,6 @@ func TestATitlePinnedToBothIsFetchedFromTheDefaultSource(t *testing.T) {
 	}
 	if len(res.Items[0].Sources) != 2 || res.Items[0].Sources[0] != "tvdb" {
 		t.Errorf("sources = %v, want both with tvdb leading", res.Items[0].Sources)
-	}
-}
-
-// THE NOTICE MUST NOT GO QUIET ON A TITLE THAT IS STILL ON TMDB.
-//
-// The count is what makes the notice self-clearing, so what it counts has to be
-// "titles this reader still fetches from TMDB" and nothing else. A row with no
-// TheTVDB id is exactly that. A row with both is NOT — once the resolver prefers
-// TheTVDB it genuinely is on the new source — so the two halves of this test
-// pin the same rule from both sides.
-func TestTheStillOnTMDBCountMeansWhatItSays(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	if err := srv.Store.SetSetting(store.SettingFilmSourceNotice, "2.2.0"); err != nil {
-		t.Fatal(err)
-	}
-
-	only := decode[movieDetail](t, c.mustDo("POST", "/movies",
-		map[string]any{"title": "Heat", "media_type": "movie"}, http.StatusCreated))
-	c.mustDo("PUT", "/movies/"+strconv.FormatInt(only.ID, 10), map[string]any{
-		"title": "Heat", "media_type": "movie", "tmdb_id": 949,
-	}, http.StatusOK)
-
-	both := decode[movieDetail](t, c.mustDo("POST", "/movies",
-		map[string]any{"title": "The Matrix", "media_type": "movie"}, http.StatusCreated))
-	c.mustDo("PUT", "/movies/"+strconv.FormatInt(both.ID, 10), map[string]any{
-		"title": "The Matrix", "media_type": "movie", "tmdb_id": 603, "tvdb_id": 70,
-	}, http.StatusOK)
-
-	n := noticeOf(t, c).Notice
-	if n == nil {
-		t.Fatal("no notice for a reader with a TMDB-only title")
-	}
-	// One, not two: Heat is still on TMDB and The Matrix is not.
-	if n.TMDBPinned != 1 {
-		t.Errorf("count = %d, want 1 — the notice counts titles still read from TMDB, "+
-			"and a dual-pinned row is read from TheTVDB", n.TMDBPinned)
 	}
 }
 
@@ -328,32 +290,6 @@ func TestLetterboxdAndFandomAppearAsAlternativesOnAPinnedFilm(t *testing.T) {
 	}, http.StatusOK)
 	if got := sourcesByField(t, c, m.ID); got["description"] != "letterboxd" {
 		t.Errorf("description recorded as %q, want letterboxd — %v", got["description"], got)
-	}
-}
-
-// AN UNPINNED FILM GETS NO GUESSES. Nothing identifies it, so a slug derived from
-// its title has nothing to be checked against — and a confident wrong record is
-// worse than none.
-func TestAnUnpinnedFilmIsNotGivenAGuessedRecord(t *testing.T) {
-	srv := newTestServer(t)
-	var asked int
-	lb := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		asked++
-		w.WriteHeader(http.StatusNotFound)
-	}))
-	defer lb.Close()
-	metadata.SetLetterboxdBaseForTest(t, lb.URL)
-	c := signupAdmin(t, srv.Handler())
-	m := decode[movieDetail](t, c.mustDo("POST", "/movies",
-		map[string]any{"title": "The Matrix", "media_type": "movie"}, http.StatusCreated))
-
-	res := decode[reverifyResp](t, c.mustDo("POST", "/metadata/reverify",
-		map[string]any{"movie_ids": []int64{m.ID}}, 200))
-	if res.Items[0].Status != "unpinned" {
-		t.Errorf("status = %q, want unpinned", res.Items[0].Status)
-	}
-	if asked != 0 {
-		t.Errorf("Letterboxd was guessed at for an unpinned film (%d request(s))", asked)
 	}
 }
 

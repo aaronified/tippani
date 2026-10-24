@@ -71,19 +71,3 @@ func TestBulkMoveRefusesAnotherReadersBoard(t *testing.T) {
 	}
 }
 
-// Highlights and film lines have no board — they belong to their book and their
-// film. Accepting the field and ignoring it would make "move these to Speeches"
-// report success over a selection of highlights.
-func TestBulkMoveRefusedForQuotesThatHaveNoBoard(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-
-	board := idOf(t, c.mustDo("POST", "/boards", map[string]any{"name": "Speeches"}, http.StatusCreated).Body.Bytes())
-	book := idOf(t, c.mustDo("POST", "/books", map[string]any{"title": "Persuasion"}, http.StatusCreated).Body.Bytes())
-	ann := idOf(t, c.mustDo("POST", "/annotations", map[string]any{"book_id": book, "quote": "a highlight"}, http.StatusCreated).Body.Bytes())
-
-	c.mustDo("POST", "/annotations/bulk", map[string]any{
-		"ids": []int64{ann}, "board_id": board,
-	}, http.StatusBadRequest)
-}

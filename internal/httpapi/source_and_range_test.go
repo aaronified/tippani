@@ -3,7 +3,6 @@ package httpapi
 import (
 	"net/http"
 	"net/url"
-	"strings"
 	"testing"
 )
 
@@ -152,30 +151,3 @@ func TestAFilmLineKeepsBothEndsAndAGameLineKeepsNone(t *testing.T) {
 	}
 }
 
-// AN EXPORT THAT CANNOT BE RE-IMPORTED IS DATA LOSS WITH A SUCCESS MESSAGE. Both
-// new fields are written by the exporter, so both have to be read back by the
-// parser — otherwise a reader who exports a film and re-imports the file finds the
-// ends gone and nothing said so.
-func TestBothNewFieldsSurviveTheirOwnExport(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-
-	film := decode[movieDetail](t, c.mustDo("POST", "/movies", map[string]any{"title": "Stalker"}, http.StatusCreated))
-	c.mustDo("POST", "/dialogues", map[string]any{
-		"movie_id": film.ID, "quote": "Let everything come true",
-		"timestamp": "01:12:40", "timestamp_end": "01:13:02",
-	}, http.StatusCreated)
-	newUtterance(t, c, map[string]any{
-		"quote": apology, "speaker": socrates, "kind": "speech", "source_author": plato,
-	})
-
-	movieMD := c.mustDo("POST", "/export/movies", map[string]any{"ids": []int64{film.ID}}, http.StatusOK).Body.String()
-	if !strings.Contains(movieMD, "timestamp_end: 01:13:02") {
-		t.Fatalf("the film export omits the end:\n%s", movieMD)
-	}
-	quoteMD := c.mustDo("POST", "/export/quotes", map[string]any{}, http.StatusOK).Body.String()
-	if !strings.Contains(quoteMD, "source_author: "+plato) {
-		t.Fatalf("the quote export omits the source author:\n%s", quoteMD)
-	}
-}

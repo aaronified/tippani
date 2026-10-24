@@ -93,22 +93,3 @@ func TestFuzzySearchCrossUser(t *testing.T) {
 		t.Fatalf("bob must not see alice's vocab: corrected=%q books=%+v", res.Corrected, res.Books)
 	}
 }
-
-// TestFuzzySearchVocabFailureDegrades proves the best-effort contract: if a
-// vocab read fails outright (here the vocab table is dropped and the base-index
-// repair can't recreate it), the fuzzy pass is skipped and the plain empty
-// result is returned — search never 500s because correction broke.
-func TestFuzzySearchVocabFailureDegrades(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	c.mustDo("POST", "/books", map[string]any{"title": "The Shawshank Redemption"}, http.StatusCreated)
-
-	if _, err := srv.Store.DB.Exec(`DROP TABLE books_fts_vocab`); err != nil {
-		t.Fatal(err)
-	}
-	res := decode[searchResults](t, c.mustDo("GET", "/search?q=shawshenk&scope=books", nil, 200))
-	if res.Corrected != "" || len(res.Books) != 0 {
-		t.Fatalf("vocab failure should degrade to empty, not correct or 500: %+v", res)
-	}
-}

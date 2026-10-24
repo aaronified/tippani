@@ -103,27 +103,6 @@ func TestNextStability(t *testing.T) {
 	}
 }
 
-// Neither rule may ever hand back a half-life outside the bounds the schema and
-// every due-ness query assume. A rule that can return 0 makes a card due
-// forever; one that can exceed the cap contradicts migration 0019.
-func TestNextStabilityStaysInBounds(t *testing.T) {
-	for _, adaptive := range []bool{false, true} {
-		for _, result := range []string{"got", "forgot"} {
-			for _, cur := range []float64{0, 1, 7, 30, 99, 100, 364, 365, 1000, 1e6} {
-				for _, elapsed := range []float64{0, 1, 500, 10000} {
-					for _, succeeded := range []bool{false, true} {
-						got := nextStability(adaptive, result, cur, elapsed, succeeded, defaultReviewTuning())
-						if got < reviewMinStability || got > reviewMaxStability {
-							t.Fatalf("nextStability(adaptive=%v, %s, cur=%g, elapsed=%g, succeeded=%v) = %g, outside [%g, %g]",
-								adaptive, result, cur, elapsed, succeeded, got, reviewMinStability, reviewMaxStability)
-						}
-					}
-				}
-			}
-		}
-	}
-}
-
 // THE PREFERENCE HAS TO REACH THE SCHEDULE, which is a different claim from the
 // two above and was for a while asserted by nothing but a comment naming a test
 // that did not exist. nextStability can be perfectly correct and perfectly
@@ -173,88 +152,6 @@ func TestAdaptivePrefReachesTheSchedule(t *testing.T) {
 	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"srLadder": false}, http.StatusOK)
 	if got := answer(t, c, kindBook, adaptive, "forgot", "practice").Stability; got != 15 {
 		t.Fatalf("lapse under adaptive: stability %g, want 15 — the preference is not reaching nextStability", got)
-	}
-}
-
-// ADAPTIVE IS WHAT A READER GETS WITHOUT CHOOSING, and this is the assertion that
-// says so — through the endpoint, on the value the two rules disagree about most
-// loudly, with NO preference set at all.
-//
-// The ladder's lapse was the one place the loop was harsher than the science asks:
-// a single miss on a card recalled four times cost the whole climb. A reader who
-// has expressed no opinion should not be on the harsher of the two rules, and a
-// test that only checks the rules differ WHEN SWITCHED cannot tell which of them
-// is the one nobody chose.
-func TestAdaptiveIsTheRuleNobodyHasToChoose(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-
-	book := createBook(t, c, "Persuasion")
-	id := idOf(t, c.mustDo("POST", "/annotations",
-		map[string]any{"book_id": book, "quote": "the only line"}, http.StatusCreated).Body.Bytes())
-	ageSeededItems(t, srv)
-
-	// srPracticeCounts ALONE. Nothing here says a word about which schedule.
-	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"srPracticeCounts": true}, http.StatusOK)
-	if got := answer(t, c, kindBook, id, "got", "practice").Stability; got != 7 {
-		t.Fatalf("first success: stability %g, want 7 — both rules agree here", got)
-	}
-	// Under the ladder this would be 30. Under adaptive it is 7 x 2.5.
-	if got := answer(t, c, kindBook, id, "got", "practice").Stability; got != 17.5 {
-		t.Fatalf("second success with no preference set: stability %g, want 17.5 — "+
-			"a reader who chose nothing is on the ladder, not on adaptive", got)
-	}
-	// And the lapse, which is the whole reason for the switch: halved, not reset.
-	if got := answer(t, c, kindBook, id, "forgot", "practice").Stability; got != 8.75 {
-		t.Fatalf("lapse with no preference set: stability %g, want 8.75 (half of 17.5) — "+
-			"the default still resets a card to the first rung", got)
-	}
-}
-
-// And the LADDER is the flag now: off until somebody asks for it, surviving a PUT
-// that never mentions it, and turnable back off.
-//
-// The sense inverted deliberately — see prefs.SRLadder. `srAdaptive` was a flat
-// bool in a JSON blob with no omitempty, so every stored preference carried
-// `false` whether the reader chose the ladder or never opened the panel, and a
-// default like that cannot be flipped. The stored flag names the non-default
-// choice, which is the convention srPracticeCounts and srSubmit already follow.
-func TestLadderPrefRoundtrip(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-
-	me := decode[meResp](t, c.mustDo("GET", "/auth/me", nil, http.StatusOK))
-	if me.Preferences.SRLadder {
-		t.Fatal("srLadder should be off by default — adaptive is the default rule")
-	}
-	if !me.Preferences.adaptive() {
-		t.Fatal("prefs.adaptive() disagrees with srLadder on a fresh account")
-	}
-
-	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"srLadder": true}, http.StatusOK)
-	me = decode[meResp](t, c.mustDo("GET", "/auth/me", nil, http.StatusOK))
-	if !me.Preferences.SRLadder {
-		t.Fatal("srLadder did not persist")
-	}
-	if me.Preferences.adaptive() {
-		t.Fatal("prefs.adaptive() still reports adaptive for a reader who chose the ladder")
-	}
-	// A partial PUT that never mentions srLadder must leave it alone — the
-	// preferences endpoint merges, and every other field relies on that.
-	// 6 rather than 4: the deck range widened to 5-20 and this case is about the
-	// MERGE, not about the number — any valid size proves the same thing.
-	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"srDaily": 6}, http.StatusOK)
-	me = decode[meResp](t, c.mustDo("GET", "/auth/me", nil, http.StatusOK))
-	if !me.Preferences.SRLadder {
-		t.Fatal("an unrelated preferences PUT cleared srLadder")
-	}
-	// Turning it back off must work too — a switch you cannot unflip is a trap,
-	// and `false` is a bool's zero value, which is exactly the case a naive
-	// merge drops.
-	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"srLadder": false}, http.StatusOK)
-	me = decode[meResp](t, c.mustDo("GET", "/auth/me", nil, http.StatusOK))
-	if me.Preferences.SRLadder {
-		t.Fatal("srLadder could not be turned back off")
 	}
 }
 

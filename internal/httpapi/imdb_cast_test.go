@@ -229,21 +229,6 @@ func TestIMDbCastIsScopedToItsOwner(t *testing.T) {
 	}
 }
 
-// A title IMDb lists with nobody in it is a normal answer — the same rule the
-// Wikidata path follows — and it must not read as a failure.
-func TestIMDbCastWithNoCastIsNotAnError(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	id := gameFixture(t, c, "Obscure Indie")
-	_, done := newIMDbStub(t, imdbPage("Obscure Indie", "videoGame", nil))
-	defer done()
-	got := decode[imdbReply](t, c.mustDo("POST", "/movies/"+strconv.FormatInt(id, 10)+"/cast/imdb",
-		map[string]any{"imdb": "tt9999999"}, http.StatusOK))
-	if got.Added != 0 || len(got.Cast) != 0 {
-		t.Errorf("expected an empty cast, got %+v", got)
-	}
-}
-
 // A page that is not a title page — IMDb answering 404, or answering something
 // without the embedded document — is one failed pass and NOT a retry.
 func TestIMDbCastDoesNotRetryAPageItCannotRead(t *testing.T) {

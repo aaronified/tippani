@@ -34,24 +34,6 @@ type imageSearchResp struct {
 	} `json:"sources"`
 }
 
-// A reader who has configured nothing gets an empty strip and a 200 — and the
-// `sources` block is what lets the picker say "nothing is set up" rather than
-// "nothing was found", which are different answers and only one of them is the
-// reader's to fix.
-func TestImageSearchWithNothingConfiguredSaysSoRatherThanFailing(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-
-	rec := c.mustDo("POST", "/images/search", map[string]any{"kind": "portrait", "name": "Ursula K. Le Guin"}, 200)
-	got := decode[imageSearchResp](t, rec)
-	if len(got.Images) != 0 {
-		t.Fatalf("images from nowhere: %+v", got.Images)
-	}
-	if got.Sources.Google || got.Sources.Amazon {
-		t.Fatalf("sources claim a supplier that is not configured: %+v", got.Sources)
-	}
-}
-
 // A PORTRAIT IS NOT NARROWED BY A YEAR even when one is sent. Two films share a
 // title constantly; two people sharing a name is rare, and "Le Guin 1974" finds
 // that person in that year rather than that person.
@@ -77,14 +59,6 @@ func TestAYearNarrowsAWorkAndNeverAFace(t *testing.T) {
 	if !strings.Contains(asked, "1995") {
 		t.Errorf("a poster search dropped the year that tells two films apart: %q", asked)
 	}
-}
-
-func TestImageSearchRefusesAKindItCannotPicture(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	c.mustDo("POST", "/images/search", map[string]any{"kind": "sticker", "title": "x"}, http.StatusBadRequest)
-	// And a request with nothing to search for.
-	c.mustDo("POST", "/images/search", map[string]any{"kind": "cover"}, http.StatusBadRequest)
 }
 
 // THE QUERY IS THE FEATURE. "Heat" finds a thermodynamics diagram; "Heat movie

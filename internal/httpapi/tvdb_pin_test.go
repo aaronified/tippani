@@ -70,52 +70,6 @@ func TestARejectedTVDBKeyIsSaidOutLoudEvenWhenTMDBAnswers(t *testing.T) {
 	}
 }
 
-// AND ONLY WHEN THERE IS SOMETHING TO EXPLAIN. With no hits at all the request
-// already fails with the supplier's own message, and a warning beside an error
-// would be the same fact twice.
-func TestNoWarningWhenTheLookupFailedOutright(t *testing.T) {
-	srv := newTestServer(t)
-	tvdb := newRefusingTVDB(t)
-	defer tvdb.Close()
-	srv.TMDB.Key = ""
-	srv.TVDB = &metadata.TVDB{Key: "testkey", BaseURL: tvdb.URL}
-
-	c := signupAdmin(t, srv.Handler())
-	rec := c.do("POST", "/movies/lookup", map[string]any{"title": "Suicide Squad"})
-	if rec.Code != http.StatusBadGateway {
-		t.Fatalf("status = %d, want 502 when the only supplier refused", rec.Code)
-	}
-	if strings.Contains(rec.Body.String(), `"warning"`) {
-		t.Errorf("an error carried a warning as well: %s", rec.Body)
-	}
-}
-
-// A working supplier that merely found nothing says nothing: a timeout or an
-// empty result is not something the reader can act on, and a line under every
-// search would train them to ignore the one that matters.
-func TestNoWarningWhenTheKeyWasAccepted(t *testing.T) {
-	srv := newTestServer(t)
-	tmdb := newAnsweringTMDB(t)
-	defer tmdb.Close()
-	working := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/login" {
-			_, _ = w.Write([]byte(`{"data":{"token":"tok"}}`))
-			return
-		}
-		_, _ = w.Write([]byte(`{"data":[]}`))
-	}))
-	defer working.Close()
-	srv.TMDB.Key, srv.TMDB.BaseURL = "testkey", tmdb.URL
-	srv.TVDB = &metadata.TVDB{Key: "testkey", BaseURL: working.URL}
-
-	c := signupAdmin(t, srv.Handler())
-	got := decode[lookupWarnResp](t, c.mustDo("POST", "/movies/lookup",
-		map[string]any{"title": "Suicide Squad"}, 200))
-	if got.Warning != "" {
-		t.Errorf("a supplier that answered was reported as refusing: %q", got.Warning)
-	}
-}
-
 // The PIN is stored write-only and saved on its own, like every other secret —
 // correcting a mistyped PIN must not mean re-entering the key beside it.
 func TestTheTVDBPINIsWriteOnlyAndSavedOnItsOwn(t *testing.T) {

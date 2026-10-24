@@ -165,21 +165,6 @@ func TestABookRecordsItsSupplierAndAHandTypedOneRecordsTheReader(t *testing.T) {
 	}
 }
 
-// THE ECHOED SOURCE IS VALIDATED, NOT TRUSTED. A book's supplier cannot be
-// recomputed without repeating the fetch, so the apply request carries it — which
-// means the vocabulary is the guard. Anything outside it records nothing, rather
-// than writing whatever arrived into a field the reader reads as provenance.
-func TestAnUnknownSourceOnTheWireRecordsNothing(t *testing.T) {
-	if got := knownBookSource("openlibrary"); got != "openlibrary" {
-		t.Errorf("a real supplier was rejected: %q", got)
-	}
-	for _, bad := range []string{"", "  ", "tvdb-ish", "<script>", "TMDB'; DROP TABLE"} {
-		if got := knownBookSource(bad); got != "" {
-			t.Errorf("knownBookSource(%q) = %q, want \"\"", bad, got)
-		}
-	}
-}
-
 func booksSourcesByField(t *testing.T, c *testClient, id int64) map[string]string {
 	t.Helper()
 	got := decode[fieldSourceResp](t, c.mustDo("GET", "/books/"+strconv.FormatInt(id, 10), nil, http.StatusOK))

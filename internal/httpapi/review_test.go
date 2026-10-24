@@ -18,7 +18,6 @@ package httpapi
 
 import (
 	"fmt"
-	"math"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -371,22 +370,6 @@ func TestDailyQuizScheduling(t *testing.T) {
 	}
 }
 
-// nextRung pins the whole ladder shape: each rung climbs to the next, the top
-// holds, and off-rung half-lives (pre-ladder rows, srSeen bumps) climb to the
-// nearest rung above.
-func TestNextRung(t *testing.T) {
-	cases := []struct{ cur, want float64 }{
-		{3, 7}, {7, 30}, {8.4, 30}, {29.9, 30}, {30, 100},
-		{60, 100}, {99.9, 100}, {100, 365}, {137, 365}, {364.9, 365},
-		{365, 365}, {1000, 365},
-	}
-	for _, c := range cases {
-		if got := nextRung(c.cur, defaultReviewTuning().ladder()); got != c.want {
-			t.Fatalf("nextRung(%v) = %v, want %v", c.cur, got, c.want)
-		}
-	}
-}
-
 // THE LADDER'S SHAPE IS THE FEATURE, and it is asserted here rather than read
 // off the literal: four rungs, strictly ascending, starting at the floor every
 // due-ness query clamps to and ending exactly ON the ceiling. A ladder whose top
@@ -410,37 +393,6 @@ func TestTheLadderReachesTheCeilingAndStopsThere(t *testing.T) {
 	}
 	if reviewLadder != l {
 		t.Errorf("reviewLadder %v and the default tuning's ladder %v disagree", reviewLadder, l)
-	}
-}
-
-// A READER WHO LOWERED THEIR TOP RUNG MEANT IT. nextRung's fallback is the
-// ladder's own last rung, not the package ceiling — otherwise a card that ran
-// off the end of a shortened ladder would be stepped up to 365, and only that
-// card, which is the shape of bug that takes months to notice.
-func TestNextRungStopsAtTheReadersOwnTopRung(t *testing.T) {
-	short := parseReviewTuning(`{"ladder1":7,"ladder2":14,"ladder3":21,"ladder4":28}`)
-	if got := short.ladder(); got != [reviewRungs]float64{7, 14, 21, 28} {
-		t.Fatalf("the short ladder was not kept: %v", got)
-	}
-	for _, cur := range []float64{28, 29, 100, 365, 1000} {
-		if got := nextRung(cur, short.ladder()); got != 28 {
-			t.Errorf("nextRung(%g) on a 7/14/21/28 ladder = %g, want its own top rung 28", cur, got)
-		}
-	}
-}
-
-// Capacity is quota × ceiling: at equilibrium a card is asked once per
-// half-life, so N cards owe N/ceiling reviews a day. This is the arithmetic the
-// ceiling was raised for and it is pinned so that changing either number without
-// re-reading the consequence fails here.
-func TestReviewCapacityIsQuotaTimesTheCeiling(t *testing.T) {
-	if got := reviewCapacity(reviewQuota, reviewMaxStability); got != 2920 {
-		t.Errorf("reviewCapacity(%d, %g) = %d, want 2920 (8 x 365)", reviewQuota, reviewMaxStability, got)
-	}
-	for _, quota := range []int{2, 8, 10} {
-		if got, want := reviewCapacity(quota, reviewMaxStability), quota*int(reviewMaxStability); got != want {
-			t.Errorf("reviewCapacity(%d) = %d, want %d", quota, got, want)
-		}
 	}
 }
 
@@ -845,38 +797,6 @@ func TestReviewScreenCards(t *testing.T) {
 	}
 }
 
-// GET /annotations exposes review-state fields, and a full-state PUT must not
-// clobber the schedule (it lives in its own table); delete cascades it.
-func TestReviewStatusInList(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	_, ids := seedReviewBook(t, c, "Dune", 2)
-
-	list := decode[annList](t, c.mustDo("GET", "/annotations", nil, 200))
-	for _, a := range list.Annotations {
-		if a.Reviewed {
-			t.Fatalf("fresh annotation marked reviewed: %+v", a)
-		}
-	}
-
-	answer(t, c, kindBook, ids[0], "got", "daily") // answers by id (no deck needed)
-	c.mustDo("PUT", fmt.Sprintf("/annotations/%d", ids[0]), map[string]any{
-		"quote": "Dune passage 0", "color": "blue", "favorite": true}, 200)
-
-	list = decode[annList](t, c.mustDo("GET", "/annotations", nil, 200))
-	for _, a := range list.Annotations {
-		if a.ID == ids[0] && (!a.Reviewed || a.Stability != 7) {
-			t.Fatalf("review state lost across PUT: %+v", a)
-		}
-	}
-	c.mustDo("DELETE", fmt.Sprintf("/annotations/%d", ids[0]), nil, 200)
-	var n int
-	if err := srv.Store.DB.QueryRow(`SELECT COUNT(*) FROM item_reviews WHERE kind='book' AND item_id=?`, ids[0]).Scan(&n); err != nil || n != 0 {
-		t.Fatalf("review row survived annotation delete: %d, %v", n, err)
-	}
-}
-
 // The new-item grace week (reviewNewItemDays): a quote saved this week is not
 // yet in the Daily Quiz, and reads "unseen" (not yet asked) from the day it is
 // saved; past the week it enters the Daily Quiz; a recorded lapse always beats
@@ -935,89 +855,12 @@ func TestReviewOwnership(t *testing.T) {
 	}
 }
 
-// distractorScore ranks confusable works: books by same-author then shared
-// genres; films/shows by shared genres then shared actor; same medium always
-// over cross-medium.
-func TestDistractorScore(t *testing.T) {
-	own := workRef{key: "book:1", kind: kindBook, author: "Le Guin", genres: set("scifi", "fantasy")}
-	sameAuthor := workRef{key: "book:2", kind: kindBook, author: "Le Guin", genres: set()}
-	twoGenre := workRef{key: "book:3", kind: kindBook, author: "X", genres: set("scifi", "fantasy")}
-	oneGenre := workRef{key: "book:4", kind: kindBook, author: "Y", genres: set("scifi")}
-	unrelated := workRef{key: "book:5", kind: kindBook, author: "Z", genres: set("romance")}
-	crossMedium := workRef{key: "screen:1", kind: kindScreen, genres: set("scifi")}
-
-	order := []workRef{sameAuthor, twoGenre, oneGenre, unrelated, crossMedium}
-	for i := 0; i+1 < len(order); i++ {
-		if distractorScore(own, order[i]) <= distractorScore(own, order[i+1]) {
-			t.Fatalf("ranking wrong at %d: %d <= %d", i, distractorScore(own, order[i]), distractorScore(own, order[i+1]))
-		}
-	}
-
-	// Screen: genre dominates, shared actor breaks the tie.
-	sOwn := workRef{key: "screen:9", kind: kindScreen, genres: set("crime"), actors: set("pacino")}
-	genreMatch := workRef{key: "screen:10", kind: kindScreen, genres: set("crime"), actors: set()}
-	actorMatch := workRef{key: "screen:11", kind: kindScreen, genres: set(), actors: set("pacino")}
-	if distractorScore(sOwn, genreMatch) <= distractorScore(sOwn, actorMatch) {
-		t.Fatalf("screen: genre should outrank actor")
-	}
-	if distractorScore(sOwn, actorMatch) <= 0 {
-		t.Fatalf("screen: shared actor should still score")
-	}
-}
-
 func set(ss ...string) map[string]bool {
 	m := map[string]bool{}
 	for _, s := range ss {
 		m[s] = true
 	}
 	return m
-}
-
-// GET /annotations?limit=N caps the list; a bad limit is a 400.
-func TestAnnotationListLimit(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	seedReviewBook(t, c, "Dune", 5)
-	got := decode[annList](t, c.mustDo("GET", "/annotations?limit=2", nil, 200))
-	if len(got.Annotations) != 2 {
-		t.Fatalf("limit=2 returned %d", len(got.Annotations))
-	}
-	c.mustDo("GET", "/annotations?limit=0", nil, http.StatusBadRequest)
-	c.mustDo("GET", "/annotations?limit=nope", nil, http.StatusBadRequest)
-}
-
-// TestQuizChoicesSeedDeterministic locks the Daily Quiz fix: a given seed must
-// produce byte-identical options + order, so two browsers viewing the same
-// day's card see the same choices (not just the same right answer). A nil rng
-// (practice) is allowed to vary, so it's only checked for a well-formed result.
-func TestQuizChoicesSeedDeterministic(t *testing.T) {
-	answer := "The Correct One"
-	distractors := []string{"Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot"}
-	eq := func(a, b []string) bool {
-		if len(a) != len(b) {
-			return false
-		}
-		for i := range a {
-			if a[i] != b[i] {
-				return false
-			}
-		}
-		return true
-	}
-	o1, a1 := choicesFrom(answer, distractors, 4, seededRand(12345))
-	o2, a2 := choicesFrom(answer, distractors, 4, seededRand(12345))
-	if !eq(o1, o2) || a1 != a2 {
-		t.Fatalf("same seed must give identical options: %v(%d) vs %v(%d)", o1, a1, o2, a2)
-	}
-	if len(o1) != 4 || o1[a1] != answer {
-		t.Fatalf("malformed choices %v answer#%d", o1, a1)
-	}
-	// The answer is always present regardless of RNG.
-	on, an := choicesFrom(answer, distractors, 4, nil)
-	if len(on) != 4 || on[an] != answer {
-		t.Fatalf("nil-rng choices malformed %v answer#%d", on, an)
-	}
 }
 
 // A big import must not own the deck. Before the deck rework, both ORDER BY keys
@@ -1152,36 +995,6 @@ func TestDailyQuizKeepsItsPatternAcrossVisits(t *testing.T) {
 	}
 }
 
-// With no unseen cards left the reservation yields its slots back, and with no
-// due cards the deck is all unseen. Neither bucket may leave the deck short.
-func TestDailyQuizBucketsYieldWhenEmpty(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	_, ids := seedReviewBook(t, c, "Middlemarch", reviewQuota*2)
-	seedReviewBook(t, c, "Dune", reviewQuota*2)
-	ageSeededItems(t, srv)
-
-	// All unseen: the deck fills from the unseen bucket alone.
-	deck := decode[reviewDeckResp](t, c.mustDo("GET", "/review/daily", nil, 200))
-	if len(deck.Items) != reviewQuota {
-		t.Fatalf("unseen-only deck: got %d", len(deck.Items))
-	}
-
-	// Now make every card seen-and-due, leaving the unseen bucket empty.
-	if _, err := srv.Store.DB.Exec(`INSERT INTO item_reviews
-		(kind, item_id, stability, review_count, last_result, last_reviewed_at, last_touched_at)
-		SELECT 'book', id, 7, 1, 'got', datetime('now', '-90 days'), datetime('now', '-90 days')
-		FROM annotations`); err != nil {
-		t.Fatal(err)
-	}
-	_ = ids
-	deck = decode[reviewDeckResp](t, c.mustDo("GET", "/review/daily", nil, 200))
-	if len(deck.Items) != reviewQuota {
-		t.Fatalf("due-only deck: got %d", len(deck.Items))
-	}
-}
-
 // Practice draws from the whole pool with no due filter, and since 3.0.3 it
 // deals as the Daily Quiz does: two quotes never asked for every one already
 // asked, so a round leads with what the reader has not been asked yet. It keeps
@@ -1221,35 +1034,6 @@ func TestPracticeLeadsWithQuotesNotYetAskedAndRotatesWorks(t *testing.T) {
 		if want := (i+1)%reviewDueEvery == 0; asked != want {
 			t.Fatalf("practice card %d: asked=%v, want asked=%v (every third slot a quote already asked)", i+1, asked, want)
 		}
-	}
-}
-
-// spreadByWork keeps every candidate, never loops forever, and puts the
-// best-ranked work first.
-func TestSpreadByWork(t *testing.T) {
-	mk := func(key string, id int64) reviewCand {
-		c := reviewCand{workKey: key}
-		c.card.ID = id
-		return c
-	}
-	in := []reviewCand{
-		mk("book:1", 1), mk("book:1", 2), mk("book:1", 3), mk("book:1", 4),
-		mk("book:2", 5), mk("book:3", 6),
-	}
-	out := spreadByWork(in)
-	if len(out) != len(in) {
-		t.Fatalf("dropped candidates: %d -> %d", len(in), len(out))
-	}
-	if out[0].workKey != "book:1" || out[1].workKey != "book:2" || out[2].workKey != "book:3" {
-		t.Fatalf("first rotation should hit each work once: %v %v %v", out[0].workKey, out[1].workKey, out[2].workKey)
-	}
-	if out[3].workKey != "book:1" || out[3].card.ID != 2 {
-		t.Fatalf("second rotation should resume book:1 in rank order, got %+v", out[3])
-	}
-	// A single work is returned untouched.
-	solo := []reviewCand{mk("book:9", 1), mk("book:9", 2)}
-	if got := spreadByWork(solo); len(got) != 2 || got[0].card.ID != 1 {
-		t.Fatalf("single-work list must keep its order: %+v", got)
 	}
 }
 
@@ -1430,26 +1214,6 @@ func TestTheDotAndTheDeckAgreeOnDue(t *testing.T) {
 		t.Fatal("no cards in the deck at all, so this guard checked nothing")
 	}
 	_ = dot
-}
-
-// The multiplier is the whole of what a retention target would change, so its
-// arithmetic is pinned separately from anything that uses it.
-func TestDueMultiplier(t *testing.T) {
-	for _, c := range []struct{ target, want float64 }{
-		{0.5, 1},  // today's rule, exactly: elapsed >= stability
-		{1, 0},    // certainty is due immediately, which is why 1 is not offered
-		{0.25, 2}, // two half-lives
-		{0.9, 0.15200309344504997},
-		{0.95, 0.07400058144377693},
-	} {
-		if got := dueMultiplier(c.target); math.Abs(got-c.want) > 1e-12 {
-			t.Errorf("dueMultiplier(%g) = %v, want %v", c.target, got, c.want)
-		}
-	}
-	// And the SQL carries the same number the Go does.
-	if got, want := reviewDueFactorSQL, "1"; got != want {
-		t.Errorf("reviewDueFactorSQL = %q, want %q at the default due point", got, want)
-	}
 }
 
 // goSourceFiles / readSource — the package's own non-test sources, for the

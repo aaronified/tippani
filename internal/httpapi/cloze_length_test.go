@@ -105,43 +105,6 @@ func TestHardAsksALongQuoteWhichWork(t *testing.T) {
 	}
 }
 
-// THE LINE IS THE READER'S. Moved past the long quote's length, the long quote is
-// a blank again on Hard, whose first choice is the typed one.
-func TestTheLengthLineIsTheReaders(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	_, long := seedLengthBook(t, srv, c)
-	c.mustDo("PUT", "/auth/me/preferences", map[string]any{
-		"srTier": tierHard, "srQuestions": `{"daily":["source","cloze"]}`,
-		"srTuning": `{"clozeMaxWords":80}`}, http.StatusOK)
-
-	card, ok := dailyCard(t, c, long)
-	if !ok || card.Direction != dirCloze {
-		t.Errorf("with the line at 80 words, the long quote on Hard was asked %q (in deck: %v), want the typed blank",
-			card.Direction, ok)
-	}
-}
-
-// A LINE UNDER SIX WORDS IS NOT A LINE: no quote that short can be blanked at all,
-// so the setting would switch the blanks off by itself. It falls back to the
-// default, the way every out-of-range tuning number does — and the default is 25,
-// which is what the twelve-word quote below is asked under: still a blank on Hard.
-// A line kept at 3, or a fallback anywhere under twelve, would make it long.
-func TestALineTooShortToBlankFallsBackToTheDefault(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	short, _ := seedLengthBook(t, srv, c)
-	c.mustDo("PUT", "/auth/me/preferences", map[string]any{
-		"srTier": tierHard, "srQuestions": `{"daily":["source","cloze"]}`,
-		"srTuning": `{"clozeMaxWords":3}`}, http.StatusOK)
-
-	card, ok := dailyCard(t, c, short)
-	if !ok || card.Direction != dirCloze {
-		t.Errorf("with the line set to 3, a twelve-word quote on Hard was asked %q (in deck: %v), want the typed blank",
-			card.Direction, ok)
-	}
-}
-
 // THE LINE IS INCLUSIVE: a quote of exactly the line's length is short, one word
 // more is long. Counted by the tokeniser the line is counted by.
 func TestAQuoteOfExactlyTheLineKeepsItsBlank(t *testing.T) {

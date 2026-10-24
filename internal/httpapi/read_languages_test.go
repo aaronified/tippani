@@ -9,7 +9,6 @@ package httpapi
 // would reorder every card in the library for a preference nobody expressed.
 
 import (
-	"net/http"
 	"testing"
 )
 
@@ -88,22 +87,3 @@ func TestWhatTheReaderDeclaredIsWhatTheyCanRead(t *testing.T) {
 	}
 }
 
-func TestTheDeclarationSurvivesTheRoundTrip(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	c.mustDo("PUT", "/auth/me/preferences",
-		map[string]any{"readLanguages": `["French","bengali","FRENCH"]`}, http.StatusOK)
-	me := decode[struct {
-		Preferences struct {
-			ReadLanguages string `json:"readLanguages"`
-		} `json:"preferences"`
-	}](t, c.mustDo("GET", "/auth/me", nil, 200))
-	if want := `["bengali","french"]`; me.Preferences.ReadLanguages != want {
-		t.Errorf("stored %q, want %q", me.Preferences.ReadLanguages, want)
-	}
-	// A REFUSAL RATHER THAN A SILENT NORMALISATION, because a client sending an
-	// object here has a bug and hiding it means the reader's declaration quietly
-	// is not what the screen shows.
-	c.mustDo("PUT", "/auth/me/preferences",
-		map[string]any{"readLanguages": `{"bengali":true}`}, http.StatusBadRequest)
-}

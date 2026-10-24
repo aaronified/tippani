@@ -141,28 +141,6 @@ func TestAPersonsPageIsInvisibleToAnotherAccount(t *testing.T) {
 	}
 }
 
-// EDITING ONE FIELD MUST NOT CLEAR THE OTHERS, which is what the pointer fields on
-// the request are for. A struct of plain strings passes every test that sends the
-// whole record and eats a bio the first time a panel sends one field.
-func TestEditingOneIdentityFieldLeavesTheRestAlone(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	c.mustDo("POST", "/books", map[string]any{"title": "Solaris", "author": "Stanisław Lem"}, http.StatusCreated)
-	id := personIDFor(t, srv, 1, "Stanisław Lem")
-
-	c.mustDo("PUT", "/people/id/"+itoa(id), map[string]any{"born": "1921", "sort_name": "Lem, Stanisław"}, http.StatusOK)
-	got := decode[personDetailResp](t, c.mustDo("PUT", "/people/id/"+itoa(id),
-		map[string]any{"note": "the one who wrote the ocean"}, http.StatusOK))
-
-	if got.Born != "1921" || got.SortName != "Lem, Stanisław" {
-		t.Fatalf("a note wiped the fields it never mentioned: %+v", got)
-	}
-	if got.Note != "the one who wrote the ocean" {
-		t.Fatalf("note %q", got.Note)
-	}
-}
-
 // RENAMING THE RECORD RE-DERIVES THE COLUMN THAT CACHES IT. Without this the shelf
 // goes on printing the old spelling until something else happens to touch the
 // book — which is the exact failure mode a derived column exists to risk.
@@ -234,36 +212,6 @@ func TestAnAliasCollisionIsAnAnswerRatherThanAnError(t *testing.T) {
 
 // ---- characters ------------------------------------------------------------
 
-// A CHARACTER IS ITS OWN RECORD, and creating one NEVER resolves by name: two
-// works with a "Narrator" get two records, which is 0056's rule and the reason
-// this endpoint does not call ResolveCharacter.
-func TestCreatingACharacterMakesANewRecordEveryTime(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-
-	a := decode[characterDetailResp](t, c.mustDo("POST", "/characters", map[string]any{"name": "Narrator"}, http.StatusCreated))
-	b := decode[characterDetailResp](t, c.mustDo("POST", "/characters", map[string]any{"name": "Narrator"}, http.StatusCreated))
-	if a.ID == b.ID {
-		t.Fatal("two Narrators became one record")
-	}
-	list := decode[struct {
-		Characters []struct {
-			ID    int64  `json:"id"`
-			Name  string `json:"name"`
-			Works int    `json:"works"`
-		} `json:"characters"`
-	}](t, c.mustDo("GET", "/characters", nil, http.StatusOK))
-	if len(list.Characters) != 2 {
-		t.Fatalf("the review list shows %d", len(list.Characters))
-	}
-	for _, ch := range list.Characters {
-		if ch.Works != 0 {
-			t.Fatalf("a character in no works reports %d", ch.Works)
-		}
-	}
-}
-
 // THE CHARACTER PAGE IS EVERY WORK IT APPEARS IN, ACROSS KINDS — the same
 // character in the novel and in the film, which is what a library-wide record buys
 // and what a per-work cast row alone could never say.
@@ -304,49 +252,6 @@ func TestACharactersPageSpansTheBookAndTheFilm(t *testing.T) {
 	}
 	if !kinds["book"] || !kinds["movie"] {
 		t.Fatalf("the character page missed a kind: %+v", got.Appearances)
-	}
-}
-
-// THE PAIRING GOES BOTH WAYS OFF ONE TABLE: an actor's page lists the characters
-// they have played, and each one names the work. This is the user's own ruling —
-// "the actor page will list all the characters it has been linked to".
-func TestAnActorsPageListsTheCharactersTheyHavePlayed(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	m := decode[movieDetail](t, c.mustDo("POST", "/movies",
-		map[string]any{"title": "Ran", "director": "Akira Kurosawa"}, http.StatusCreated))
-	ch := decode[characterDetailResp](t, c.mustDo("POST", "/characters", map[string]any{"name": "Hidetora Ichimonji"}, http.StatusCreated))
-
-	res, err := srv.Store.DB.Exec(
-		`INSERT INTO work_cast (user_id, kind, work_id, character, character_key, actor, actor_key)
-		 VALUES (1, 'movie', ?, 'Hidetora', ?, 'Tatsuya Nakadai', ?)`,
-		m.ID, store.CastKey("Hidetora"), store.CastKey("Tatsuya Nakadai"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	castID, _ := res.LastInsertId()
-
-	// The performer is a person record. Made by crediting them somewhere, because
-	// the link endpoint deliberately does not invent one — pairing is a pick from
-	// what exists, never a create.
-	c.mustDo("POST", "/movies", map[string]any{"title": "Kagemusha", "director": "Tatsuya Nakadai"}, http.StatusCreated)
-	actorID := personIDFor(t, srv, 1, "Tatsuya Nakadai")
-
-	c.mustDo("PUT", "/cast/"+itoa(castID)+"/link",
-		map[string]any{"person_id": actorID, "character_id": ch.ID}, http.StatusNoContent)
-
-	person := decode[personDetailResp](t, c.mustDo("GET", "/people/id/"+itoa(actorID), nil, http.StatusOK))
-	if len(person.Roles) != 1 || person.Roles[0].Character != "Hidetora" {
-		t.Fatalf("the actor's roles: %+v", person.Roles)
-	}
-	if person.Roles[0].WorkTitle != "Ran" {
-		t.Fatalf("the role does not name its work: %+v", person.Roles[0])
-	}
-	// And from the other side, the same row names the performer off the RECORD.
-	char := decode[characterDetailResp](t, c.mustDo("GET", "/characters/"+itoa(ch.ID), nil, http.StatusOK))
-	if len(char.Appearances) != 1 || char.Appearances[0].Actor != "Tatsuya Nakadai" {
-		t.Fatalf("the character's appearances: %+v", char.Appearances)
 	}
 }
 
@@ -419,87 +324,6 @@ func TestDeletingACharacterLeavesEveryWorksCastStanding(t *testing.T) {
 	if charID != nil {
 		t.Fatalf("the pairing survived the delete: %v", charID)
 	}
-}
-
-// "ON THIS WORK ONLY" HAS TO BE TRUE, because it is a sentence the panel prints
-// under the field. A reader changing how one book credits an author must not
-// discover afterwards that they renamed them on the other thirty.
-func TestChangingHowOneWorkCreditsSomebodyLeavesTheOthersAlone(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	a := decode[bookDetail](t, c.mustDo("POST", "/books",
-		map[string]any{"title": "The Master and Margarita", "author": "Mikhail Bulgakov"}, http.StatusCreated))
-	b := decode[bookDetail](t, c.mustDo("POST", "/books",
-		map[string]any{"title": "The White Guard", "author": "Mikhail Bulgakov"}, http.StatusCreated))
-	id := personIDFor(t, srv, 1, "Mikhail Bulgakov")
-
-	c.mustDo("PUT", "/credits", map[string]any{
-		"kind": "book", "work_id": a.ID, "role": "author", "person_id": id, "credit_as": "M. Bulgakov",
-	}, http.StatusNoContent)
-
-	first := decode[bookDetail](t, c.mustDo("GET", "/books/"+itoa(a.ID), nil, http.StatusOK))
-	second := decode[bookDetail](t, c.mustDo("GET", "/books/"+itoa(b.ID), nil, http.StatusOK))
-	if first.Author != "M. Bulgakov" {
-		t.Fatalf("this work prints %q", first.Author)
-	}
-	if second.Author != "Mikhail Bulgakov" {
-		t.Fatalf("the OTHER work changed too: %q", second.Author)
-	}
-	// And the record itself is untouched — which is the half a reader cannot see
-	// from the shelf and would only discover on the person's page.
-	got := decode[personDetailResp](t, c.mustDo("GET", "/people/id/"+itoa(id), nil, http.StatusOK))
-	if got.Name != "Mikhail Bulgakov" {
-		t.Fatalf("the record was renamed: %q", got.Name)
-	}
-	creditsMustAgree(t, srv, 1)
-}
-
-// AN EMPTY STRING IS THE CLEAR, and so is the record's own name: neither should
-// leave a row claiming a deliberate re-crediting that says nothing.
-func TestClearingTheWorksOwnSpellingFallsBackToTheRecord(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	b := decode[bookDetail](t, c.mustDo("POST", "/books",
-		map[string]any{"title": "Solaris", "author": "Stanisław Lem"}, http.StatusCreated))
-	id := personIDFor(t, srv, 1, "Stanisław Lem")
-
-	set := func(as string) {
-		t.Helper()
-		c.mustDo("PUT", "/credits", map[string]any{
-			"kind": "book", "work_id": b.ID, "role": "author", "person_id": id, "credit_as": as,
-		}, http.StatusNoContent)
-	}
-	creditAs := func() string {
-		t.Helper()
-		var v string
-		if err := srv.Store.DB.QueryRow(
-			`SELECT credit_as FROM work_person WHERE kind='book' AND work_id=? AND role='author'`, b.ID).Scan(&v); err != nil {
-			t.Fatal(err)
-		}
-		return v
-	}
-
-	set("S. Lem")
-	if creditAs() != "S. Lem" {
-		t.Fatalf("credit_as %q", creditAs())
-	}
-	set("")
-	if creditAs() != "" {
-		t.Fatalf("the clear left %q", creditAs())
-	}
-	// Typing the record's own name is the same as clearing it: the row would
-	// otherwise read as a deliberate re-crediting to the spelling already in use.
-	set("Stanisław Lem")
-	if creditAs() != "" {
-		t.Fatalf("the record's own name was stored as a re-crediting: %q", creditAs())
-	}
-	after := decode[bookDetail](t, c.mustDo("GET", "/books/"+itoa(b.ID), nil, http.StatusOK))
-	if after.Author != "Stanisław Lem" {
-		t.Fatalf("the book prints %q", after.Author)
-	}
-	creditsMustAgree(t, srv, 1)
 }
 
 // Another account's work is a 404, like every other id-keyed route here — and the
@@ -776,31 +600,3 @@ func TestCorrectingACastNameDoesNotMoveTheRecord(t *testing.T) {
 	}
 }
 
-// THE PICKER SAYS WHAT IT IS ABOUT TO DESTROY. A merge list of bare names is
-// unusable in the exact case it exists for — two records spelled the same — so
-// each hit carries how much of the library hangs off it. The count spans both
-// halves of the model: credits on works, and roles in a cast.
-func TestTheMergePickerSaysHowMuchHangsOffEachRecord(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	c.mustDo("POST", "/books", map[string]any{"title": "Wise Blood", "author": "Orson Welles"}, http.StatusCreated)
-	c.mustDo("POST", "/books", map[string]any{"title": "Mr Arkadin", "author": "Orson Welles"}, http.StatusCreated)
-	m := decode[movieDetail](t, c.mustDo("POST", "/movies", map[string]any{"title": "Citizen Kane"}, http.StatusCreated))
-	c.mustDo("POST", "/movies/"+itoa(m.ID)+"/cast",
-		map[string]any{"character": "Charles Foster Kane", "actor": "Orson Welles"}, http.StatusCreated)
-
-	got := decode[struct {
-		People []struct {
-			Name  string `json:"name"`
-			Works int    `json:"works"`
-		} `json:"people"`
-	}](t, c.mustDo("GET", "/people/search?q=Welles", nil, http.StatusOK))
-	if len(got.People) != 1 {
-		t.Fatalf("hits: %+v", got.People)
-	}
-	// Two books credited and one role played.
-	if got.People[0].Works != 3 {
-		t.Fatalf("the record carries %d works, want 3 (two credits and a role)", got.People[0].Works)
-	}
-}

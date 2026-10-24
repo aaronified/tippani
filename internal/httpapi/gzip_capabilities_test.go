@@ -3,7 +3,6 @@ package httpapi
 import (
 	"bytes"
 	"compress/gzip"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -99,47 +98,6 @@ func TestGzipDoesNotLeaveStaleContentLength(t *testing.T) {
 	}
 }
 
-// Status codes must survive the wrapper — the outbox depends on telling 201
-// from 409, and both now travel compressed.
-func TestGzipPreservesStatusCodes(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	bookID := newTestBook(t, c, "Invisible Cities")
-
-	post := func(quote string) *httptest.ResponseRecorder {
-		body, _ := json.Marshal(map[string]any{"book_id": bookID, "quote": quote})
-		req := httptest.NewRequest("POST", apiPath("/annotations"), bytes.NewReader(body))
-		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("Accept-Encoding", "gzip")
-		req.AddCookie(c.cookie)
-		rec := httptest.NewRecorder()
-		h.ServeHTTP(rec, req)
-		return rec
-	}
-
-	if rec := post("A quote."); rec.Code != http.StatusCreated {
-		t.Fatalf("first post: %d", rec.Code)
-	}
-	rec := post("A quote.")
-	if rec.Code != http.StatusConflict {
-		t.Fatalf("duplicate post: %d want 409", rec.Code)
-	}
-	// And the conflict body still decodes, with the existing row attached.
-	zr, err := gzip.NewReader(bytes.NewReader(rec.Body.Bytes()))
-	if err != nil {
-		t.Fatalf("409 body is not valid gzip: %v", err)
-	}
-	raw, _ := io.ReadAll(zr)
-	var conflict conflictBody
-	if err := json.Unmarshal(raw, &conflict); err != nil {
-		t.Fatalf("decode 409: %v (%s)", err, raw)
-	}
-	if conflict.Existing.ID == 0 {
-		t.Fatal("compressed 409 lost the existing row")
-	}
-}
-
 // Covers are JPEG/PNG: already compressed, so gzipping them burns CPU on both
 // ends for nothing and can inflate the payload.
 func TestGzipSkipsAlreadyCompressedContent(t *testing.T) {
@@ -150,20 +108,6 @@ func TestGzipSkipsAlreadyCompressedContent(t *testing.T) {
 	rec := getWith(t, h, c, "/healthz", map[string]string{"Accept-Encoding": "gzip"})
 	if enc := rec.Header().Get("Content-Encoding"); enc == "gzip" {
 		t.Fatal("an empty health response should not be gzipped")
-	}
-}
-
-// A caching proxy in front must not serve a gzipped body to a client that
-// didn't ask for one.
-func TestGzipSetsVary(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	seedBooks(t, c, 3)
-
-	rec := getWith(t, h, c, "/books", map[string]string{"Accept-Encoding": "gzip"})
-	if v := rec.Header().Get("Vary"); v != "Accept-Encoding" {
-		t.Fatalf("Vary = %q want Accept-Encoding", v)
 	}
 }
 

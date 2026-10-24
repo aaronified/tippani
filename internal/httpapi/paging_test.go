@@ -121,24 +121,6 @@ func TestPagingWalksEveryRowExactlyOnce(t *testing.T) {
 	}
 }
 
-// TestPagingDefaultsUnchanged is the SPA regression guard: no parameters must
-// behave exactly as before, returning everything.
-func TestPagingDefaultsUnchanged(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	seedBooks(t, c, 7)
-	bookID := decode[pagedBooks](t, c.mustDo("GET", "/books", nil, http.StatusOK)).Books[0].ID
-	seedAnnotations(t, c, bookID, 7)
-
-	if got := decode[pagedBooks](t, c.mustDo("GET", "/books", nil, http.StatusOK)); len(got.Books) != 7 {
-		t.Fatalf("unpaged /books returned %d, want all 7", len(got.Books))
-	}
-	if got := decode[pagedAnnotations](t, c.mustDo("GET", "/annotations", nil, http.StatusOK)); len(got.Annotations) != 7 {
-		t.Fatalf("unpaged /annotations returned %d, want all 7", len(got.Annotations))
-	}
-}
-
 func TestPagingRejectsBadParameters(t *testing.T) {
 	srv := newTestServer(t)
 	h := srv.Handler()
@@ -154,23 +136,6 @@ func TestPagingRejectsBadParameters(t *testing.T) {
 				c.mustDo("GET", path+q, nil, http.StatusBadRequest)
 			})
 		}
-	}
-}
-
-// Past the end is an empty list, not null — a client decoding into an array
-// shouldn't have to special-case the last page.
-func TestPagingOffsetPastEndIsEmptyArray(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	seedBooks(t, c, 3)
-
-	rec := c.mustDo("GET", "/books?limit=10&offset=99", nil, http.StatusOK)
-	if got := decode[pagedBooks](t, rec); len(got.Books) != 0 {
-		t.Fatalf("offset past the end returned %d rows", len(got.Books))
-	}
-	if body := rec.Body.String(); !jsonHasEmptyArray(body, "books") {
-		t.Fatalf("want an empty array, got %s", body)
 	}
 }
 

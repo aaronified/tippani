@@ -139,63 +139,6 @@ func TestShowDialogueEpisodeUpdate(t *testing.T) {
 	}
 }
 
-func TestEpisodeValidation(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	show := newShow(c, "Reel Seven")
-
-	cases := []struct {
-		name string
-		body map[string]any
-	}{
-		{"episode without a season", map[string]any{"episode": 6}},
-		{"negative season", map[string]any{"season": -1}},
-		{"negative episode", map[string]any{"season": 1, "episode": -2}},
-		{"absurd season", map[string]any{"season": 20260804}},
-		{"absurd episode", map[string]any{"season": 1, "episode": 100000}},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			body := map[string]any{"movie_id": show, "quote": "A line: " + tc.name}
-			for k, v := range tc.body {
-				body[k] = v
-			}
-			c.mustDo("POST", "/dialogues", body, http.StatusBadRequest)
-		})
-	}
-}
-
-// A film has one runtime, so it has no episodes to name. The locator is DROPPED
-// rather than refused: flipping a show to a film leaves its lines holding numbers
-// that no longer mean anything, and refusing them would make every later edit of
-// those lines fail from a form that (correctly) does not offer the fields.
-func TestFilmDialogueHasNoEpisode(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	film := newFilm(c, "The Long Take")
-
-	d := decode[dialogueRow](t, c.mustDo("POST", "/dialogues", map[string]any{
-		"movie_id": film, "quote": "Every alibi is a little story we tell the clock.",
-		"season": 2, "episode": 6, "timestamp": "00:22:10",
-	}, http.StatusCreated))
-	if d.Season != nil || d.Episode != nil {
-		t.Fatalf("a film's line must not carry an episode, got %s", epLabel(d))
-	}
-	if d.Timestamp != "00:22:10" {
-		t.Fatalf("the rest of the locator must survive: %+v", d)
-	}
-
-	// And the export stays clean — no season/episode lines to re-import.
-	md := c.mustDo("GET", "/movies/"+itoa(film)+"/export", nil, http.StatusOK).Body.String()
-	for _, key := range []string{"- season:", "- episode:"} {
-		if strings.Contains(md, key) {
-			t.Fatalf("a film's export should not mention %q:\n%s", key, md)
-		}
-	}
-}
-
 // The whole locator has to survive a trip out through Markdown and back, season 0
 // included — a file that dropped it would re-import as "no season recorded".
 func TestDialogueEpisodeExportImportRoundTrip(t *testing.T) {

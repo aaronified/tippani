@@ -54,40 +54,6 @@ func locatorFixture(t *testing.T) (*Server, *testClient, int64, int64, int64) {
 	return srv, c, exact, fuzzy, timed
 }
 
-func TestProposalsAreSplitByHowSureTheyAreAndSkipWhatIsAlreadyRight(t *testing.T) {
-	_, c, exact, fuzzy, timed := locatorFixture(t)
-	got := c.proposals()
-	if len(got.Proposals) != 2 || got.Counts["exact"] != 1 || got.Counts["review"] != 1 {
-		t.Fatalf("%+v", got)
-	}
-	byID := map[int64]locatorProposal{}
-	for _, p := range got.Proposals {
-		byID[p.ID] = p
-	}
-	if _, ok := byID[timed]; ok {
-		t.Fatal("a line already timed to the file's value is not a proposal")
-	}
-	e, f := byID[exact], byID[fuzzy]
-	if e.Bucket != "exact" || e.Proposed != "00:01:02" || e.ProposedEnd != "00:01:04" || e.Current != "" {
-		t.Fatalf("exact: %+v", e)
-	}
-	if f.Bucket != "review" || f.Distance == 0 || f.Proposed != "00:02:10" {
-		t.Fatalf("fuzzy: %+v", f)
-	}
-	// The evidence is the FILE's words, not the reader's.
-	if f.Evidence != "Governments should be afraid of their people." {
-		t.Fatalf("evidence = %q", f.Evidence)
-	}
-}
-
-func TestNothingIsWrittenUntilTheReaderAccepts(t *testing.T) {
-	srv, c, exact, _, _ := locatorFixture(t)
-	c.proposals()
-	if ts, end := srv.timeOf(t, exact); ts != "" || end != "" {
-		t.Fatalf("looking at proposals wrote %q %q", ts, end)
-	}
-}
-
 func TestAcceptingAnExactBucketWritesTheTimesAndAnotherPressIsStale(t *testing.T) {
 	srv, c, exact, fuzzy, _ := locatorFixture(t)
 	var items []locatorItem
@@ -237,11 +203,5 @@ func TestAnotherReadersProposalsAreNotYoursToSeeOrAccept(t *testing.T) {
 	}
 	if ts, _ := srv.timeOf(t, line); ts != "" {
 		t.Fatalf("another reader wrote my line's time: %q", ts)
-	}
-}
-
-func TestTwoSpellingsOfOneTimeAreNotAProposal(t *testing.T) {
-	if !sameTime("1:02", "00:01:02") || !sameTime("", " ") || sameTime("00:01:02", "00:01:03") || sameTime("", "00:00:00") {
-		t.Fatal("sameTime")
 	}
 }

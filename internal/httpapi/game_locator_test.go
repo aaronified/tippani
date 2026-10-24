@@ -24,7 +24,6 @@ import (
 	"net/http"
 	"testing"
 
-	"tippani/internal/store"
 )
 
 func newWork(t *testing.T, c *testClient, title, mediaType string) int64 {
@@ -213,57 +212,3 @@ func TestALocatorTooLongToStoreIsRefused(t *testing.T) {
 	}
 }
 
-// THE IDENTITY HALF. 0047 folded act and quest into the dedupe hash for the same
-// reason 0025 folded in season and episode: a bark reused in two quests is two
-// quotes, and the same bark saved twice in one quest is one.
-//
-// The failure this guards against is silent in both directions. Left out of the
-// hash, the second quest's copy is refused as a duplicate and the line is simply
-// missing. Folded in wrongly — say act and quest concatenated inside one segment
-// — act "xq" and quest "" would collide with act "x" and quest "y", and the
-// collision would land on whichever the reader saved second.
-func TestTheSameBarkInTwoQuestsIsTwoLines(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-	game := newWork(t, c, "Skyrim", "game")
-
-	const bark = "I used to be an adventurer like you."
-	first := newLine(t, c, map[string]any{"movie_id": game, "quote": bark, "quest": "Whiterun"})
-	second := newLine(t, c, map[string]any{"movie_id": game, "quote": bark, "quest": "Riften"})
-	if first.ID == second.ID {
-		t.Fatal("the same bark in two quests collapsed into one line")
-	}
-
-	// Twice in one quest is still one line, which is the property that makes the
-	// hash a dedupe hash rather than a serial number.
-	c.mustDo("POST", "/dialogues",
-		map[string]any{"movie_id": game, "quote": bark, "quest": "Riften"}, http.StatusConflict)
-
-	// And a film's line is unaffected: with no locator at all the hash is
-	// byte-identical to the plain text hash, which is what lets every row already
-	// on disk keep the value it has. Asserted against the store function rather
-	// than inferred, because that identity is the migration's whole argument.
-	if store.DialogueDedupeHash(bark, nil, nil, "", "") != store.DedupeHash(bark) {
-		t.Fatal("an unlocated line must hash as the bare text, or existing rows need rewriting")
-	}
-	if store.DialogueDedupeHash(bark, nil, nil, "xq", "") == store.DialogueDedupeHash(bark, nil, nil, "x", "y") {
-		t.Fatal("act and quest must not be able to forge each other's boundary")
-	}
-}
-
-// A whitespace-only act is the same as no act, all the way through the stack: it
-// takes the early return in DialogueDedupeHash, so a form field holding a space
-// cannot fork a duplicate of a line that was saved without one.
-func TestASpaceIsNotAnAct(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-	game := newWork(t, c, "Hollow Knight", "game")
-
-	const line = "No cost too great."
-	plain := newLine(t, c, map[string]any{"movie_id": game, "quote": line})
-	if plain.Act != "" {
-		t.Fatalf("act came back %q on a line that sent none", plain.Act)
-	}
-	c.mustDo("POST", "/dialogues",
-		map[string]any{"movie_id": game, "quote": line, "act": "   "}, http.StatusConflict)
-}

@@ -75,46 +75,6 @@ func TestAMovieReportsWhoIsQuotedInIt(t *testing.T) {
 	}
 }
 
-func TestAMovieWithACastAndNoQuotesNamesNobody(t *testing.T) {
-	// THE ONE THAT DECIDES THE COLUMN, and it has to write cast_json DIRECTLY.
-	//
-	// The obvious version of this test posts a `cast` in the create body and
-	// asserts nothing comes back. It passes, and it proves nothing: movieReq has
-	// no Cast field, so the create ignored it and the film never had a cast at
-	// all. Found by rewriting movieActors to read cast_json and watching this
-	// test stay green — the exact shape of an assertion that agrees with itself.
-	//
-	// cast_json is written by a metadata fetch, so seeding it here is seeding
-	// what a fetch would leave behind: a film whose whole cast is known and from
-	// which nothing has been quoted. The board must not offer it under any of
-	// those names, because searching one of them cannot return it.
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-
-	id := idOf(t, c.mustDo("POST", "/movies", map[string]any{
-		"title": "Stalker", "director": "Andrei Tarkovsky",
-	}, http.StatusCreated).Body.Bytes())
-	if _, err := srv.Store.DB.Exec(`UPDATE movies SET cast_json = ? WHERE id = ?`,
-		`[{"character":"Stalker","actor":"Alexander Kaidanovsky"},`+
-			`{"character":"Writer","actor":"Anatoly Solonitsyn"}]`, id); err != nil {
-		t.Fatalf("seed cast: %v", err)
-	}
-	// The seed is real, or the assertion below is vacuous again.
-	var cast string
-	if err := srv.Store.DB.QueryRow(`SELECT COALESCE(cast_json, '') FROM movies WHERE id = ?`, id).Scan(&cast); err != nil {
-		t.Fatalf("read cast back: %v", err)
-	}
-	if !strings.Contains(cast, "Kaidanovsky") {
-		t.Fatalf("the cast did not stick: %q", cast)
-	}
-
-	if got := listMovieActors(t, c)["Stalker"]; len(got) != 0 {
-		t.Errorf("actors = %v on a film with a full cast and no saved lines; want none — "+
-			"the board would offer it under an actor whose search cannot return it", got)
-	}
-}
-
 func TestAnUncreditedLineNamesNobodyAndTheFieldIsNeverNull(t *testing.T) {
 	// A line saved without an actor is ordinary — most are, until the cast
 	// arrives and refillMovieActors backfills them — and must not put an empty

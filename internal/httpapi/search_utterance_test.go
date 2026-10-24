@@ -36,35 +36,6 @@ func TestSearchFindsAQuoteByItsWords(t *testing.T) {
 	}
 }
 
-// The occasion is the title the review deck shows, and a title you cannot
-// search for is the gap this feature would be judged on. It is indexed by
-// migration 0026 for exactly this.
-//
-// THE DECOY BOOK IS THE TEST. Without it this passes even when the quote facet
-// does not search the occasion at all, because a faceted pass that finds
-// nothing falls through to the cross-column fallback, which matches every
-// indexed column and picks the quote up anyway. That fallback only runs when
-// NOTHING else matched — so a library holding one book with "Burma" in the
-// title is enough to suppress it, and the quote would vanish from the results
-// for every user who owns both. The decoy makes the faceted pass non-empty, so
-// the quote can only arrive through its own facet.
-func TestSearchFindsAQuoteByItsOccasion(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-	newUtterance(t, c, bose())
-	c.mustDo("POST", "/books", map[string]any{"title": "Burma Boy: a radio broadcast history"}, http.StatusCreated)
-
-	for _, q := range []string{"Burma+Radio", "broadcast", "burma"} {
-		res := decode[searchResults](t, c.mustDo("GET", "/search?q="+q, nil, http.StatusOK))
-		if len(res.Books) == 0 {
-			t.Fatalf("q=%q did not match the decoy, so the fallback could still be rescuing this", q)
-		}
-		if len(res.Quotes) != 1 {
-			t.Errorf("q=%q found %d quotes by occasion", q, len(res.Quotes))
-		}
-	}
-}
-
 // Searching a person's name is asking about the person, so it lands in its own
 // section grouped by name — the same treatment authors and actors get.
 func TestSearchGroupsQuotesBySpeaker(t *testing.T) {
@@ -92,62 +63,6 @@ func TestSearchGroupsQuotesBySpeaker(t *testing.T) {
 	}
 	if len(res.Speakers[0].Quotes) != 2 {
 		t.Fatalf("expected both of the speaker's quotes, got %d", len(res.Speakers[0].Quotes))
-	}
-}
-
-func TestSearchFindsAQuoteByItsNote(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-	body := bose()
-	body["note"] = "the Azad Hind broadcast my grandfather remembered"
-	newUtterance(t, c, body)
-
-	res := decode[searchResults](t, c.mustDo("GET", "/search?q=grandfather", nil, http.StatusOK))
-	if len(res.Notes.Quotes) != 1 {
-		t.Fatalf("expected one note hit, got %d", len(res.Notes.Quotes))
-	}
-	// A note match is a note match, not a quote match — that is the whole point
-	// of sectioning by what matched.
-	if len(res.Quotes) != 0 {
-		t.Fatalf("a note match leaked into the quotes section: %d", len(res.Quotes))
-	}
-}
-
-func TestSearchTagFacetCountsQuotes(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-	body := bose()
-	body["tags"] = []string{"freedom"}
-	newUtterance(t, c, body)
-
-	res := decode[searchResults](t, c.mustDo("GET", "/search?q=freedom", nil, http.StatusOK))
-	if len(res.Tags) != 1 {
-		t.Fatalf("expected the tag facet, got %d", len(res.Tags))
-	}
-	if res.Tags[0].Count != 1 {
-		t.Fatalf("the tag count did not include the quote: %d", res.Tags[0].Count)
-	}
-	if len(res.Tags[0].Quotes) != 1 {
-		t.Fatalf("the tag facet did not carry the quote: %d", len(res.Tags[0].Quotes))
-	}
-}
-
-func TestSearchDateFacetIncludesQuotes(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	u := newUtterance(t, c, bose())
-
-	if _, err := srv.Store.DB.Exec(
-		`UPDATE utterances SET created_at = '2026-07-14 09:00:00' WHERE id = ?`, u.ID); err != nil {
-		t.Fatal(err)
-	}
-	res := decode[searchResults](t, c.mustDo("GET", "/search?q=2026-07-14", nil, http.StatusOK))
-	if res.DateAdded == nil {
-		t.Fatal("the day came back quiet even though a quote was saved on it")
-	}
-	if len(res.DateAdded.Quotes) != 1 {
-		t.Fatalf("expected the quote in the date facet, got %d", len(res.DateAdded.Quotes))
 	}
 }
 

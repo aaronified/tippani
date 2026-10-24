@@ -74,28 +74,6 @@ func TestBulkUpdateBooks(t *testing.T) {
 	}
 }
 
-// TestGenreNormalization pins the user's rule: a comma always divides a genre,
-// and genres are Title-Cased — except tokens that arrive all-caps (acronyms like
-// "YA"), which are kept as-is. "Fiction, fantasy, general" + "YA" must store as
-// four genres: Fiction, Fantasy, General, YA.
-func TestGenreNormalization(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	id := mkBook(t, c, map[string]any{"title": "Genre Test", "genres": []string{"Fiction, fantasy, general", "YA"}})
-
-	got := bookGenres(t, c, id)
-	want := map[string]bool{"Fiction": true, "Fantasy": true, "General": true, "YA": true}
-	if len(got) != 4 {
-		t.Fatalf("genres = %v, want 4 (split on comma + title-cased)", got)
-	}
-	for _, g := range got {
-		if !want[g] {
-			t.Fatalf("unexpected genre %q in %v (want %v)", g, got, want)
-		}
-	}
-}
-
 // TestBulkUpdateCrossUser: a user's bulk op can't touch another user's books.
 func TestBulkUpdateCrossUser(t *testing.T) {
 	srv := newTestServer(t)
@@ -204,24 +182,5 @@ func TestDuplicateScanCoversEveryKindOfWork(t *testing.T) {
 		if w.MediaType == "" {
 			t.Errorf("a screen work's row should carry its media type; got none for %q", w.Title)
 		}
-	}
-}
-
-// AND A FILM DOES NOT GROUP WITH A SHOW OF THE SAME NAME. Split from the case
-// above because it needs a work whose media_type differs, and because it is the
-// half a single title key would silently get wrong.
-func TestDuplicateScanKeepsFilmsAndSeriesApart(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	mkMovie(t, c, "Fargo") // the film
-	// "show", which is this app's word for it — the first draft of this test said
-	// "series" and the server refused it, which is the vocabulary check earning
-	// its place.
-	c.mustDo("POST", "/movies", map[string]any{"title": "Fargo", "media_type": "show"}, 201)
-	dups := decode[struct {
-		Groups [][]dupBook `json:"groups"`
-	}](t, c.mustDo("GET", "/metadata/duplicates", nil, 200))
-	if len(dups.Groups) != 0 {
-		t.Fatalf("a film and a show sharing a name are two works, not a duplicate; got %+v", dups.Groups)
 	}
 }

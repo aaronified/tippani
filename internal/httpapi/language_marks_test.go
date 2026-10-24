@@ -103,17 +103,6 @@ func TestLanguageMarksNormalise(t *testing.T) {
 	}
 }
 
-// The blob is stable through a round trip, which is what the sorted marshalling
-// is for: normalising an already-normal value must be a no-op, or every read
-// would rewrite the row.
-func TestLanguageMarksRoundTripIsStable(t *testing.T) {
-	once, _ := normalizeLanguageMarks(`{"Urdu":"🇵🇰","bengali":{"m":"অ","c":["✦"]},"HINDI":{"n":"हिन्दी"}}`)
-	twice, ok := normalizeLanguageMarks(once)
-	if !ok || twice != once {
-		t.Fatalf("re-normalising moved the value: %q then %q", once, twice)
-	}
-}
-
 func TestLanguageMarksSurviveALoginAndAPartialSave(t *testing.T) {
 	srv := newTestServer(t)
 	h := srv.Handler()

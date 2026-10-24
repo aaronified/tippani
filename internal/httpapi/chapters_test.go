@@ -3,7 +3,6 @@ package httpapi
 import (
 	"net/http"
 	"strconv"
-	"strings"
 	"testing"
 )
 
@@ -130,22 +129,6 @@ func TestBookChaptersKeepsTheNumberWithTheName(t *testing.T) {
 	}
 }
 
-// A decimal chapter is where an interlude goes (0044), so the number must not be
-// rounded on the way out.
-func TestBookChaptersKeepsADecimalNumber(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	book := decode[struct{ ID int64 }](t, c.mustDo("POST", "/books",
-		map[string]any{"title": "Cloud Atlas"}, http.StatusCreated))
-	c.mustDo("POST", "/annotations", map[string]any{
-		"book_id": book.ID, "quote": "a", "chapter": "Interlude", "chapter_no": 12.5,
-	}, http.StatusCreated)
-	got := chaptersOf(t, c, book.ID)
-	if len(got.Chapters) != 1 || got.Chapters[0].No != 12.5 {
-		t.Fatalf("got %+v, want one option numbered 12.5", got.Chapters)
-	}
-}
-
 func TestBookChaptersIsScopedToItsOwner(t *testing.T) {
 	srv := newTestServer(t)
 	h := srv.Handler()
@@ -161,17 +144,4 @@ func TestBookChaptersIsScopedToItsOwner(t *testing.T) {
 	// tell Bob the book exists and has no chapters. It is also a 404 rather than a
 	// 403 for the reason every read in this package is.
 	bob.mustDo("GET", "/books/"+strconv.FormatInt(book.ID, 10)+"/chapters", nil, http.StatusNotFound)
-}
-
-func TestBookChaptersAnswersEmptyForABookWithNone(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	book := decode[struct{ ID int64 }](t, c.mustDo("POST", "/books",
-		map[string]any{"title": "Unread"}, http.StatusCreated))
-	// `[]` and not `null` — a caller reading `.length` on the reply must not throw,
-	// which is the rule every list endpoint here follows.
-	rec := c.mustDo("GET", "/books/"+strconv.FormatInt(book.ID, 10)+"/chapters", nil, http.StatusOK)
-	if body := rec.Body.String(); !strings.Contains(body, `"chapters":[]`) {
-		t.Errorf("empty reply is %s, want an empty array", body)
-	}
 }

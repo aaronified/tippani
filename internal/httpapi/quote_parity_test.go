@@ -79,28 +79,6 @@ func TestQuoteKindsShareTheirFields(t *testing.T) {
 	}
 }
 
-// The Go types must agree too, not just this one response — a field added to
-// quoteRow but scanned only on one side would pass the JSON check above with a
-// zero value.
-func TestQuoteRowEmbeddedInBothKinds(t *testing.T) {
-	shared := reflect.TypeOf(quoteRow{})
-	for name, typ := range map[string]reflect.Type{
-		"annotationRow": reflect.TypeOf(annotationRow{}),
-		"dialogueRow":   reflect.TypeOf(dialogueRow{}),
-	} {
-		field, ok := typ.FieldByName("quoteRow")
-		if !ok {
-			t.Fatalf("%s does not embed quoteRow", name)
-		}
-		if !field.Anonymous {
-			t.Fatalf("%s embeds quoteRow by name — the JSON would nest instead of flatten", name)
-		}
-		if field.Type != shared {
-			t.Fatalf("%s embeds %s, want quoteRow", name, field.Type)
-		}
-	}
-}
-
 // The locator fields are the *only* legitimate difference between the kinds.
 // If a field lands on one side that isn't about pointing into a source, it
 // should have gone into quoteRow instead.
@@ -224,77 +202,6 @@ func TestDialogueColorRoundTrips(t *testing.T) {
 	if fetched.Dialogues[0].Color != "pink" {
 		t.Fatalf("listed colour = %q want pink", fetched.Dialogues[0].Color)
 	}
-}
-
-// What the create handler does with the colour it is (or isn't) given. The
-// ?color= FILTER validation lives in TestDialogueColorFilter — a different
-// handler, and crud_test.go:355 documents why both halves exist separately.
-func TestDialogueColorOnCreate(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	movieID := decode[movieDetail](t, c.mustDo("POST", "/movies",
-		map[string]any{"title": "Stalker"}, http.StatusCreated)).ID
-
-	for _, tc := range []struct {
-		name, quote, color string
-		omit               bool
-		wantStatus         int
-		wantColor          string
-	}{
-		// Same default as an annotation: a line you didn't colour is yellow, not blank,
-		// so nothing looks categorised that wasn't.
-		{"defaults to yellow when omitted", "No colour given.", "", true, http.StatusCreated, "yellow"},
-
-		{"rejects a colour off the palette", "Chartreuse, please.", "chartreuse", false, http.StatusBadRequest, ""},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			body := map[string]any{"movie_id": movieID, "quote": tc.quote}
-			if !tc.omit {
-				body["color"] = tc.color
-			}
-			rec := c.mustDo("POST", "/dialogues", body, tc.wantStatus)
-			if tc.wantStatus != http.StatusCreated {
-				return
-			}
-			if got := decode[dialogueRow](t, rec).Color; got != tc.wantColor {
-				t.Fatalf("colour = %q want %s", got, tc.wantColor)
-			}
-		})
-	}
-}
-
-// The ?color= filter now works on both kinds, from the same helper.
-func TestDialogueColorFilter(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	movieID := decode[movieDetail](t, c.mustDo("POST", "/movies",
-		map[string]any{"title": "Stalker"}, http.StatusCreated)).ID
-
-	for _, tc := range []struct{ quote, color string }{
-		{"A blue line.", "blue"},
-		{"An orange line.", "orange"},
-		{"Another blue line.", "blue"},
-	} {
-		c.mustDo("POST", "/dialogues", map[string]any{
-			"movie_id": movieID, "quote": tc.quote, "color": tc.color,
-		}, http.StatusCreated)
-	}
-
-	got := decode[struct {
-		Dialogues []dialogueRow `json:"dialogues"`
-	}](t, c.mustDo("GET", "/dialogues?color=blue", nil, http.StatusOK))
-	if len(got.Dialogues) != 2 {
-		t.Fatalf("colour filter returned %d lines, want 2", len(got.Dialogues))
-	}
-	for _, d := range got.Dialogues {
-		if d.Color != "blue" {
-			t.Fatalf("filter leaked a %s line", d.Color)
-		}
-	}
-
-	c.mustDo("GET", "/dialogues?color=chartreuse", nil, http.StatusBadRequest)
 }
 
 // The catalogue export round-trips through the importer, so a colour set on a

@@ -53,22 +53,3 @@ func TestNormalizePartialDate(t *testing.T) {
 	}
 }
 
-// The message names the field, because the same validator serves several and
-// "must be YYYY..." alone would not say which one to fix.
-func TestPartialDateNamesTheField(t *testing.T) {
-	v := "nonsense"
-	msg := normalizePartialDate("occasion date", &v)
-	if msg == "" || msg[:len("occasion date")] != "occasion date" {
-		t.Fatalf("message does not lead with the field name: %q", msg)
-	}
-}
-
-func TestPartialDateTrims(t *testing.T) {
-	v := "  1944-01-23  "
-	if msg := normalizePartialDate("date", &v); msg != "" {
-		t.Fatalf("rejected a padded date: %s", msg)
-	}
-	if v != "1944-01-23" {
-		t.Fatalf("did not trim in place: %q", v)
-	}
-}

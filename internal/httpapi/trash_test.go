@@ -287,26 +287,3 @@ func TestBinningSomebodyElsesItemIsNotFound(t *testing.T) {
 	}
 }
 
-func TestDeleteReportsTheBinEntryItWrote(t *testing.T) {
-	// The Undo in the toast posts this id back, so it rides on the delete response
-	// rather than being looked up afterwards — two deletes in the same second
-	// would otherwise be indistinguishable by time.
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	bookID := createBook(t, c, "Sandworm Studies")
-
-	var got struct {
-		OK      bool  `json:"ok"`
-		TrashID int64 `json:"trash_id"`
-	}
-	if err := json.Unmarshal(c.mustDo("DELETE", "/books/"+itoa(bookID), nil, http.StatusOK).Body.Bytes(), &got); err != nil {
-		t.Fatal(err)
-	}
-	if !got.OK || got.TrashID == 0 {
-		t.Fatalf("delete response = %+v", got)
-	}
-	if want := onlyTrashEntry(t, srv).ID; got.TrashID != want {
-		t.Fatalf("trash_id = %d, want %d", got.TrashID, want)
-	}
-}

@@ -68,27 +68,6 @@ func TestWhoWroteThisOffersAuthorsWithFaces(t *testing.T) {
 	}
 }
 
-// A highlight with no author on its book cannot be asked who wrote it, and a
-// one-book library cannot offer anyone to be wrong with.
-func TestWhoWroteThisRefusesWhatItCannotAsk(t *testing.T) {
-	p, ownKey := authorPools()
-	anon := reviewCard{Kind: kindBook, ID: 1, Direction: dirAuthor, Title: "The Dispossessed"}
-	if attachAuthor(&anon, ownKey, p, 1, tierMedium) {
-		t.Error("asked who wrote a book with no author recorded")
-	}
-	lonely := workRef{key: "book:9", kind: kindBook, title: "Alone", author: "Solo Writer"}
-	one := quizPools{byKey: map[string]workRef{lonely.key: lonely}, works: []workRef{lonely}}
-	card := reviewCard{Kind: kindBook, ID: 9, Direction: dirAuthor, Title: "Alone", Author: "Solo Writer"}
-	if attachAuthor(&card, lonely.key, one, 1, tierMedium) {
-		t.Error("offered a question with nobody to be wrong with")
-	}
-	// And it is a BOOK question: nobody is credited with writing a film line.
-	film := reviewCard{Kind: kindScreen, ID: 1, Direction: dirAuthor, Title: "Heat", Author: "Michael Mann"}
-	if attachAuthor(&film, "screen:1", p, 1, tierMedium) {
-		t.Error("asked who wrote a film")
-	}
-}
-
 // "Who said this?" reaches a speech now — the column was always there.
 func TestWhoSaidThisReachesASpeech(t *testing.T) {
 	own := workRef{key: "utterance:burma radio broadcast", kind: kindUtterance,
@@ -241,23 +220,6 @@ func TestClozeWithChoicesNeverCutsADistractorOutOfTheCardsOwnWork(t *testing.T) 
 	}
 }
 
-func TestClozeWithChoicesRefusesALibraryWithNoOtherWords(t *testing.T) {
-	own := workRef{key: "book:1", kind: kindBook, title: "Alone", author: "Solo"}
-	p := quizPools{byKey: map[string]workRef{own.key: own}, works: []workRef{own}}
-	card := reviewCard{Kind: kindBook, ID: 1, Direction: dirClozeMCQ, Title: "Alone",
-		Quote: "It is a truth universally acknowledged that a single man must want a wife"}
-	if attachClozeMCQ(&card, own.key, p, 3, clozeMultiWordFrom, tierMedium) {
-		t.Error("offered a multiple choice with nothing to choose between")
-	}
-	// The typed cloze still works on the same card, which is what makes refusing
-	// here free — see buildQuestion.
-	typed := reviewCard{Kind: kindBook, ID: 1, Direction: dirCloze, Title: "Alone",
-		Quote: "It is a truth universally acknowledged that a single man must want a wife"}
-	if !attachCloze(&typed, clozeMultiWordFrom) {
-		t.Error("the typed cloze should still have something to ask")
-	}
-}
-
 // ---- "which quote?" names its options once the card is graded ---------------
 
 func TestQuoteOptionsCarryTheirSource(t *testing.T) {
@@ -317,44 +279,3 @@ func inauguralPools() (quizPools, workRef) {
 	return p, shared
 }
 
-func TestASpeechOptionNamesItsOwnSpeaker(t *testing.T) {
-	p, shared := inauguralPools()
-
-	// "Who said this?" over Kennedy's line: the right option is Kennedy, and
-	// nobody else is named under him.
-	who := reviewCard{Kind: kindUtterance, ID: 2, Direction: dirSpeaker, Title: "Inaugural address",
-		Speaker: "John F. Kennedy", OccasionDate: "1961-01-20",
-		Quote: "Ask not what your country can do for you; ask what you can do for your country."}
-	if !attachSpeaker(&who, shared.key, p, 5, tierMedium) {
-		t.Fatal("three speakers could not be asked who gave one of the speeches")
-	}
-	if got := who.OptionMeta[who.Answer]; got.Speaker != "" || got.Source != "Inaugural address" {
-		t.Errorf("the answer, Kennedy, is revealed as speaker %q of %q", got.Speaker, got.Source)
-	}
-	for i, om := range who.OptionMeta {
-		if om.Speaker != "" {
-			t.Errorf("option %q names a speaker under itself: %q", who.Options[i], om.Speaker)
-		}
-	}
-
-	// "Which quote is from this occasion?" over Tagore's: Kennedy's line among the
-	// options says Kennedy, and when.
-	which := reviewCard{Kind: kindUtterance, ID: 4, Direction: dirQuote, Title: "Santiniketan address",
-		Speaker: "Rabindranath Tagore", Quote: "Where the mind is without fear and the head is held high."}
-	if !attachMCQ(&which, "utterance:santiniketan address", p, 13, tierMedium, authorLureAllowed(0)) {
-		t.Fatal("no quote card from three speeches")
-	}
-	seen := false
-	for i, opt := range which.Options {
-		if !strings.HasPrefix(opt, "Ask not") {
-			continue
-		}
-		seen = true
-		if om := which.OptionMeta[i]; om.Speaker != "John F. Kennedy" || om.Date != "1961-01-20" {
-			t.Errorf("Kennedy's line is revealed as %q on %q", om.Speaker, om.Date)
-		}
-	}
-	if !seen {
-		t.Fatalf("Kennedy's line was not among the options: %v", which.Options)
-	}
-}

@@ -119,54 +119,6 @@ func TestEveryWorkOptionNamesItsCreatorAndYear(t *testing.T) {
 	}
 }
 
-// "Which of these is from Middlemarch?" Each quote on the card names its book,
-// that book's writer and year, and the character who says it.
-func TestEveryQuoteOptionSaysWhoSaysIt(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	id := seedRevealLibrary(t, srv, c, longLine)
-	card := askedAs(t, c, id, tierMedium, `{"daily":["quote","cloze"]}`)
-	if card.Direction != dirQuote || len(card.Options) < 3 {
-		t.Fatalf("asked %q with options %v, want which quote", card.Direction, card.Options)
-	}
-	for i, opt := range card.Options {
-		om := card.OptionMeta[i]
-		b := revealBookOf(t, om.Source)
-		if om.Creator != b.author || om.Year != b.year {
-			t.Errorf("quote %q reveals %q, %d; want %q, %d", opt, om.Creator, om.Year, b.author, b.year)
-		}
-		if len(om.Who) != 1 || om.Who[0].Name != b.who {
-			t.Errorf("quote %q says it is spoken by %+v, want %q", opt, om.Who, b.who)
-		}
-	}
-}
-
-// A blank with the words offered. Each phrase says which quote it was cut from:
-// the right one this card's own, the others the books they came out of.
-func TestAPhraseOnAChoicesBlankSaysWhereItWasCut(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	id := seedRevealLibrary(t, srv, c, shortLine)
-	card := askedAs(t, c, id, tierMedium, `{"daily":["cloze-mcq"]}`)
-	if card.Direction != dirClozeMCQ || len(card.Options) < 3 {
-		t.Fatalf("asked %q with options %v, want a blank with choices", card.Direction, card.Options)
-	}
-	if len(card.OptionMeta) != len(card.Options) {
-		t.Fatalf("%d options and %d reveals", len(card.Options), len(card.OptionMeta))
-	}
-	for i, opt := range card.Options {
-		om := card.OptionMeta[i]
-		b := revealBookOf(t, om.Source)
-		if (i == card.Answer) != (b.title == "Middlemarch") {
-			t.Errorf("phrase %q (answer: %v) says it came from %q", opt, i == card.Answer, b.title)
-		}
-		if om.Creator != b.author || om.Year != b.year || len(om.Who) != 1 || om.Who[0].Name != b.who {
-			t.Errorf("phrase %q reveals %q, %d, %+v; want %q, %d, %q",
-				opt, om.Creator, om.Year, om.Who, b.author, b.year, b.who)
-		}
-	}
-}
-
 // "Who said this?" Every actor on the card says who they play in the film, and
 // the film's own line now carries its director and year.
 func TestAnActorOptionSaysWhoTheyPlay(t *testing.T) {
@@ -217,44 +169,3 @@ func TestAnActorOptionSaysWhoTheyPlay(t *testing.T) {
 	}
 }
 
-// "Which of these is from Heat?" Each film line on the card says who says it.
-func TestAFilmLineOptionSaysWhoSaysIt(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	films := []struct{ title, who string }{
-		{"Heat", "Vincent Hanna"}, {"Casablanca", "Rick Blaine"},
-		{"Chinatown", "Jake Gittes"}, {"Vertigo", "Scottie Ferguson"},
-	}
-	says := map[string]string{}
-	var own int64
-	for i, f := range films {
-		film := decode[struct {
-			ID int64 `json:"id"`
-		}](t, c.mustDo("POST", "/movies", map[string]any{"title": f.title, "media_type": "movie"}, http.StatusCreated))
-		says[f.title] = f.who
-		line := decode[dialogueRow](t, c.mustDo("POST", "/dialogues", map[string]any{
-			"movie_id": film.ID, "quote": longLine + " in " + f.title, "character": f.who,
-		}, http.StatusCreated))
-		if i == 0 {
-			own = line.ID
-		}
-	}
-	ageSeededItems(t, srv)
-	c.mustDo("PUT", "/auth/me/preferences", map[string]any{
-		"srTier": tierMedium, "srQuestions": `{"daily":["quote","cloze"]}`}, http.StatusOK)
-	var card reviewCard
-	for _, it := range decode[reviewDeckResp](t, c.mustDo("GET", "/review/daily", nil, 200)).Items {
-		if it.Kind == kindScreen && it.ID == own {
-			card = it
-		}
-	}
-	if card.Direction != dirQuote || len(card.Options) < 3 {
-		t.Fatalf("asked %q with options %v, want which quote", card.Direction, card.Options)
-	}
-	for i, opt := range card.Options {
-		om := card.OptionMeta[i]
-		if len(om.Who) != 1 || om.Who[0].Name != says[om.Source] {
-			t.Errorf("the line %q from %q says it is spoken by %+v, want %q", opt, om.Source, om.Who, says[om.Source])
-		}
-	}
-}

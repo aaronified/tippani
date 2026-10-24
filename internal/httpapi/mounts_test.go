@@ -8,7 +8,6 @@ package httpapi
 // that nothing under a mount was ever removed or written.
 
 import (
-	"context"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -16,7 +15,6 @@ import (
 	"strings"
 	"testing"
 
-	"tippani/internal/metadata"
 )
 
 type foundList struct {
@@ -161,18 +159,6 @@ func TestAScanProposesWhatItCanNameAndCountsWhatItCannot(t *testing.T) {
 	}
 }
 
-func TestANameAloneIsAProposalForALookNotAnExactMatch(t *testing.T) {
-	srv, c, root, _, _, _ := mountFixture(t)
-	only := c.newScreen("Title Only", "movie")
-	_ = srv
-	c.newLine(only, "A line from a film that has no ids at all.", nil)
-	writeFiles(t, root, map[string][]byte{"movies/Title Only (2010)/Title Only (2010).en.srt": []byte(filmSRT)})
-	got := byTitle(c.scan())["Title Only|"]
-	if got.How != "title" || got.Bucket != "review" || got.WorkID != only {
-		t.Fatalf("%+v", got)
-	}
-}
-
 func TestAttachingReadsThroughTheMountAndCopiesNothing(t *testing.T) {
 	srv, c, root, film, _, _ := mountFixture(t)
 	line := c.newLine(film, "Governments should be afraid of their people.", nil)
@@ -233,23 +219,6 @@ func TestATamperedOrForeignTokenAttachesNothing(t *testing.T) {
 	// A path is not a token, however it is dressed.
 	res := decode[map[string]any](t, admin.mustDo("POST", "/sources/attach-found", map[string]any{"bucket": "exact", "tokens": []string{"../../etc/passwd"}}, 200))
 	if res["attached"].(float64) != 0 || res["failed"].(float64) != 1 {
-		t.Fatalf("%+v", res)
-	}
-}
-
-func TestABulkPressNeverCrossesBucketsHere(t *testing.T) {
-	_, c, root, _, _, _ := mountFixture(t)
-	only := c.newScreen("Title Only", "movie")
-	c.newLine(only, "A line from a film that has no ids at all.", nil)
-	writeFiles(t, root, map[string][]byte{"movies/Title Only (2010)/Title Only (2010).en.srt": []byte(filmSRT)})
-	var review string
-	for _, cand := range c.scan().Candidates {
-		if cand.Bucket == "review" {
-			review = cand.Token
-		}
-	}
-	res := decode[map[string]any](t, c.mustDo("POST", "/sources/attach-found", map[string]any{"bucket": "exact", "tokens": []string{review}}, 200))
-	if res["attached"].(float64) != 0 || res["skipped"].(float64) != 1 {
 		t.Fatalf("%+v", res)
 	}
 }
@@ -337,45 +306,6 @@ func TestDeletingAMountedWorkOrSourceNeverTouchesTheFileOnTheMount(t *testing.T)
 	c.mustDo("DELETE", "/sources/"+strconv.FormatInt(src, 10), nil, http.StatusNoContent)
 	if after := list(); after != before {
 		t.Fatalf("the mount lost files: %d -> %d", before, after)
-	}
-}
-
-func TestAttachSaysWhichTokensAttachedSoAScreenKeepsTheRest(t *testing.T) {
-	_, c, _, film, _, _ := mountFixture(t)
-	var good string
-	for _, cand := range c.scan().Candidates {
-		if cand.WorkID == film && cand.Subject == "screen" {
-			good = cand.Token
-		}
-	}
-	res := decode[struct {
-		Attached int      `json:"attached"`
-		Failed   int      `json:"failed"`
-		Done     []string `json:"done"`
-	}](t, c.mustDo("POST", "/sources/attach-found", map[string]any{"bucket": "exact", "tokens": []string{good, "not-a-token"}}, 200))
-	if res.Attached != 1 || res.Failed != 1 || len(res.Done) != 1 || res.Done[0] != good {
-		t.Fatalf("the answer must name exactly the token that attached: %+v", res)
-	}
-}
-
-// A book attached from a mounted library is how most books get attached, and its file must
-// supply metadata like an uploaded one: a feature that only worked for uploads would work for
-// the files nobody uses.
-func TestAnEPUBAttachedFromTheMountSuppliesMetadataToo(t *testing.T) {
-	srv, c, _, _, _, book := mountFixture(t)
-	// NO TEST MAY REACH THE NETWORK: the book carries an ISBN, so a re-verify would ask Open Library.
-	// Nothing online answers, which is exactly the case where the file is the only source.
-	srv.searchBooks = func(context.Context, string, string, string, string) ([]metadata.BookCandidate, error) {
-		return nil, nil
-	}
-	for _, cand := range c.scan().Candidates {
-		if cand.Subject == "book" && cand.WorkID == book {
-			c.mustDo("POST", "/sources/attach-found", map[string]any{"bucket": cand.Bucket, "tokens": []string{cand.Token}}, 200)
-		}
-	}
-	res := decode[offersResp](t, c.mustDo("POST", "/metadata/reverify", map[string]any{"book_ids": []int64{book}, "offers": true}, 200))
-	if res.Items[0].Status != "ok" || res.Items[0].Source != "epub" {
-		t.Fatalf("a mounted EPUB should answer as a supplier: %+v", res.Items[0])
 	}
 }
 

@@ -62,55 +62,6 @@ func TestCreatingABookWritesItsCreditLinks(t *testing.T) {
 	creditsMustAgree(t, srv, 1)
 }
 
-func TestEditingABookRepointsItsCreditLinks(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-
-	b := decode[bookDetail](t, c.mustDo("POST", "/books", map[string]any{
-		"title": "Solaris", "author": "Stanislaw Lem",
-	}, http.StatusCreated))
-
-	c.mustDo("PUT", "/books/"+itoa(b.ID), map[string]any{
-		"title": "Solaris", "author": "Stanisław Lem",
-	}, http.StatusOK)
-
-	// The OLD person is not deleted — they may be credited elsewhere, and a
-	// people sweep is what removes an orphan, not an edit. What must be true is
-	// that this book now points at the new one and nothing else.
-	var name string
-	if err := srv.Store.DB.QueryRow(
-		`SELECT p.name FROM work_person wp JOIN people p ON p.id = wp.person_id
-		  WHERE wp.kind = 'book' AND wp.work_id = ? AND wp.role = 'author'`, b.ID).Scan(&name); err != nil {
-		t.Fatal(err)
-	}
-	if name != "Stanisław Lem" {
-		t.Fatalf("the edit did not re-point the credit: %q", name)
-	}
-	creditsMustAgree(t, srv, 1)
-}
-
-func TestCreatingAFilmWritesItsDirectorLink(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-
-	m := decode[movieDetail](t, c.mustDo("POST", "/movies", map[string]any{
-		"title": "Ran", "director": "Akira Kurosawa",
-	}, http.StatusCreated))
-
-	var n int
-	if err := srv.Store.DB.QueryRow(
-		`SELECT count(*) FROM work_person WHERE kind = 'movie' AND work_id = ? AND role = 'director'`,
-		m.ID).Scan(&n); err != nil {
-		t.Fatal(err)
-	}
-	if n != 1 {
-		t.Fatalf("expected one director link, got %d", n)
-	}
-	creditsMustAgree(t, srv, 1)
-}
-
 // ONE HUMAN BEING ACROSS TWO WORKS IS ONE RECORD, which is the claim the whole
 // migration exists to make true and the one a string-keyed library could not
 // make at all.

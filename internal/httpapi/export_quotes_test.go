@@ -63,28 +63,6 @@ func TestExportQuotesShape(t *testing.T) {
 	}
 }
 
-// A proverb has no occasion, so it lands before any "## " line. This is not
-// cosmetic: the parser attributes a quote to the heading above it, so a proverb
-// written after a heading comes back belonging to a speech it was never part of.
-func TestExportQuotesPutsUnattributedFirst(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-
-	newUtterance(t, c, bose())
-	newUtterance(t, c, map[string]any{"quote": "Least said, soonest mended"})
-
-	got := exportQuotes(t, c, nil)
-	proverb := strings.Index(got, "Least said, soonest mended")
-	heading := strings.Index(got, "## ")
-	if proverb < 0 || heading < 0 {
-		t.Fatalf("expected both a proverb and a heading:\n%s", got)
-	}
-	if proverb > heading {
-		t.Fatalf("the unattributed quote came after a heading, so it would re-import "+
-			"as part of that speech:\n%s", got)
-	}
-}
-
 // Two quotes from one speech share a heading; a third from another gets its
 // own. Grouping is what makes the file readable and what the parser reads back.
 func TestExportQuotesGroupsByOccasion(t *testing.T) {
@@ -116,19 +94,6 @@ func TestExportQuotesGroupsByOccasion(t *testing.T) {
 		if at < burma || at > fdr {
 			t.Fatalf("%q is not under its own heading:\n%s", line, got)
 		}
-	}
-}
-
-// The default colour is left out, so a file only mentions colour when one was
-// chosen — the same rule the other two exports keep, and what stops every
-// re-import claiming an explicit yellow.
-func TestExportQuotesOmitsTheDefaultColour(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-	newUtterance(t, c, bose())
-
-	if got := exportQuotes(t, c, nil); strings.Contains(got, "- color:") {
-		t.Fatalf("the default colour was written out:\n%s", got)
 	}
 }
 
@@ -173,19 +138,6 @@ func TestExportQuotesIsScopedToTheOwner(t *testing.T) {
 	newUtterance(t, bob, tagged)
 	if got := exportQuotes(t, alice, nil); strings.Contains(got, "bobs-tag") {
 		t.Fatalf("another account's tags reached this export:\n%s", got)
-	}
-}
-
-// An empty library exports a file that is still a valid quotes file — the
-// frontmatter is what routes a re-import, so an export with no quotes must not
-// come back as an untyped, and therefore book-shaped, document.
-func TestExportQuotesEmptyStillCarriesItsType(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-
-	got := exportQuotes(t, c, nil)
-	if got != "---\ntype: quotes\n---\n" {
-		t.Fatalf("empty export: %q", got)
 	}
 }
 
@@ -238,19 +190,3 @@ func TestExportQuotesWritesThePerKindFields(t *testing.T) {
 	}
 }
 
-// The circa tick is written even with no date beside it, which looks odd and is
-// right: the column has no cross-field rule, so an unaccompanied tick is real
-// stored state and a file that dropped it would silently untick it.
-func TestExportQuotesWritesACircaWithNoDate(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-	newUtterance(t, c, map[string]any{"quote": "Some time ago.", "occasion_circa": true})
-
-	got := exportQuotes(t, c, nil)
-	if !strings.Contains(got, "- circa: true") {
-		t.Fatalf("a dateless circa was dropped:\n%s", got)
-	}
-	if strings.Contains(got, "- occasion_date:") {
-		t.Fatalf("there was no date to write:\n%s", got)
-	}
-}

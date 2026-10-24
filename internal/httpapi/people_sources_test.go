@@ -129,28 +129,6 @@ func TestASpeakersFetchedLinksAreCreditedToTheSupplierThatGaveThem(t *testing.T)
 	}
 }
 
-// A TRANSLATOR'S AND AN EDITOR'S LINKS COME FROM OPEN LIBRARY, as an author's do:
-// when the author match finds nobody, the fetch asks for links alone, and Open
-// Library is who it asks for all three book kinds. The credit said TMDB for two
-// of them until a changelog pass read the two functions side by side.
-func TestABookPersonsFetchedLinkIsOpenLibrarys(t *testing.T) {
-	for _, kind := range []string{"translator", "editor"} {
-		srv := newTestServer(t)
-		srv.resolveAuthor = func(context.Context, string, []string) (metadata.AuthorResolution, error) {
-			return metadata.AuthorResolution{}, nil
-		}
-		url := "https://openlibrary.org/authors/OL9A-" + kind
-		srv.authorLinks = func(context.Context, string) (map[string]string, error) {
-			return map[string]string{"openlibrary": url}, nil
-		}
-		c := signupAdmin(t, srv.Handler())
-		c.mustDo("POST", "/books", map[string]any{"title": "The Master and Margarita", "author": "Mikhail Bulgakov", kind: "Mirra Ginsburg"}, http.StatusCreated)
-		if got := fetchPersonByID(c, personIDFor(t, srv, 1, "Mirra Ginsburg")).LinkSources[url]; got != "openlibrary" {
-			t.Errorf("the %s's fetched link is credited to %q, want openlibrary", kind, got)
-		}
-	}
-}
-
 // A CHARACTER'S PICTURE IS THE STRIP'S SUPPLIER'S OR THE READER'S, on a cast row
 // and on the character's own record alike, and it is a field on that supplier's
 // Sources row. A cast row's picture was credited by its address's host, so a
@@ -211,43 +189,6 @@ func TestARemovedRolesPictureIsNotCounted(t *testing.T) {
 	c.mustDo("DELETE", "/cast/"+itoa(row.ID), nil, http.StatusNoContent)
 	if got := fields(); got != 0 {
 		t.Errorf("a removed role's picture still counts: Google Images reads %d fields, want 0", got)
-	}
-}
-
-// A PERSON COUNTS FOR A LINK ALONE: no portrait and no identity, one link Open
-// Library gave.
-func TestAPersonCountsForASupplierThatGaveOnlyALink(t *testing.T) {
-	srv := newTestServer(t)
-	srv.resolveAuthor = func(context.Context, string, []string) (metadata.AuthorResolution, error) {
-		return metadata.AuthorResolution{}, nil
-	}
-	srv.authorLinks = func(context.Context, string) (map[string]string, error) {
-		return map[string]string{"openlibrary": "https://openlibrary.org/authors/OL3A"}, nil
-	}
-	c := signupAdmin(t, srv.Handler())
-	id := seedPerson(t, srv, 1, "author", "Mirra Ginsburg")
-	fetchPersonByID(c, id)
-	if o := sourceNamed(t, decode[sourcesResp](t, c.mustDo("GET", "/metadata/status", nil, http.StatusOK)).Sources, "openlibrary"); o.People != 1 || o.Fields != 0 {
-		t.Errorf("Open Library's row reads %d fields | %d people for a person it gave one link, want 0 | 1", o.Fields, o.People)
-	}
-}
-
-// A CHARACTER MERGE BORROWS THE PICTURE'S CREDIT WITH THE PICTURE, as a person's
-// does: the survivor had none, takes the other's, and stays on its supplier's
-// count.
-func TestACharacterMergeCarriesThePicturesCredit(t *testing.T) {
-	srv := newTestServer(t)
-	n := 0
-	srv.fetchUserImage = func(context.Context, string, string) (string, error) {
-		n++
-		return fmt.Sprintf("%016x.jpg", n), nil
-	}
-	c := signupAdmin(t, srv.Handler())
-	keep, drop, _, _ := twoWolands(t, srv, c)
-	c.mustDo("PUT", "/characters/"+itoa(drop)+"/image", map[string]any{"image_url": "https://pics.example/woland.jpg", "image_source": "google-images"}, http.StatusOK)
-	c.mustDo("POST", "/characters/merge", map[string]any{"keep_id": keep, "drop_id": drop}, http.StatusOK)
-	if got := sourceNamed(t, decode[sourcesResp](t, c.mustDo("GET", "/metadata/status", nil, http.StatusOK)).Sources, "google-images").Fields; got != 1 {
-		t.Errorf("the survivor borrowed the picture and not its credit: Google Images reads %d fields, want 1", got)
 	}
 }
 

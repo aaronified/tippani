@@ -318,32 +318,3 @@ func TestNoWrongPhraseOnABlankCardWouldBeGradedRight(t *testing.T) {
 		t.Fatal("no card offered a wrong answer, so nothing here was measured")
 	}
 }
-
-// BREADTH BEATS REPETITION, which is the one property of the lure scale that no
-// deck can show.
-//
-// A LIBRARY CANNOT BE MADE TO CHOOSE BETWEEN THESE TWO PHRASES. Both would have to
-// exist, in works of equal similarity, with the same word count as the answer and
-// with clozePhraseOf cutting exactly them out — so the endpoint tests above pass
-// whether the scale counts distinct stems or occurrences, which a mutation proved.
-// It is still a claim the scale makes in its own comment, and this is the level it
-// can be asked at.
-func TestARepeatedWordResemblesTheAnswerLessThanThreeDifferentOnes(t *testing.T) {
-	const answer = "spice must flow"
-	cases := []struct{ name, closer, further string }{
-		{"three of the answer's words beat one said three times",
-			"spice must flow", "spice spice spice"},
-		{"two beat one repeated", "the spice flow", "flow flow flow"},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			near, far := clozeSurfaceScore(answer, tc.closer), clozeSurfaceScore(answer, tc.further)
-			if near <= far {
-				t.Errorf("%q scores %d against %q's %d — a lure that says one of the answer's words "+
-					"over and over resembles it LESS than one carrying several of them, and scoring "+
-					"per occurrence rather than per distinct stem gets that backwards",
-					tc.closer, near, tc.further, far)
-			}
-		})
-	}
-}

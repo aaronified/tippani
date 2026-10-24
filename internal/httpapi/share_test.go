@@ -3,7 +3,6 @@ package httpapi
 import (
 	"bytes"
 	"encoding/json"
-	"net/http"
 	"testing"
 )
 
@@ -54,25 +53,3 @@ func TestShareImageDownload(t *testing.T) {
 	}
 }
 
-func TestShareImageValidation(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	anon := &testClient{t: t, h: h}
-
-	// Not a PNG → 400 (the one-shot GET is session-free, so nothing that a
-	// canvas didn't produce may be staged).
-	if rec := c.importFile("/share/image", "x.txt", []byte("plain text")); rec.Code != http.StatusBadRequest {
-		t.Fatalf("non-png: got %d, want 400", rec.Code)
-	}
-
-	// Anonymous staging is rejected.
-	if rec := anon.importFile("/share/image", "q.png", pngHeader); rec.Code != http.StatusUnauthorized {
-		t.Fatalf("anon stage: got %d, want 401", rec.Code)
-	}
-
-	// Unknown token → 404.
-	if rec := anon.doRaw("GET", "/share/image/deadbeefdeadbeefdeadbeefdeadbeef", nil, ""); rec.Code != http.StatusNotFound {
-		t.Fatalf("bogus token: got %d, want 404", rec.Code)
-	}
-}

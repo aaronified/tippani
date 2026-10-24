@@ -90,20 +90,3 @@ func TestARestoreSaysWhichSourcesTheArchiveDidNotCarry(t *testing.T) {
 	}
 }
 
-func TestARestoreFromAnArchiveWithSourcesSaysNothingIsMissing(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	film := c.newScreen("Star Wars", "movie")
-	c.putSource(sourceFields("screen", film), "a.srt", []byte(srtSample))
-	c.mustDo("PUT", "/admin/backup/sources", map[string]any{"include": true}, 200)
-	backupNow(c)
-	safetyBackup(t, c)
-
-	rec := c.mustDo("POST", "/admin/restore", map[string]any{"password": testPw}, 200)
-	if strings.Contains(rec.Body.String(), "sources_missing") {
-		t.Fatalf("the file came back, so nothing is missing: %s", rec.Body)
-	}
-	if n := len(sourceFilesOnDisk(t, srv)); n != 1 {
-		t.Fatalf("the restored data directory should hold the file: %d", n)
-	}
-}

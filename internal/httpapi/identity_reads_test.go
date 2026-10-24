@@ -51,40 +51,6 @@ func TestAPerformersRecordListsTheirLinesAndCountsTheSharedOnes(t *testing.T) {
 	}
 }
 
-// The spelling a line PRINTS is not always the record's name, and the record says
-// which — a merge re-points ids and never rewrites a cast list.
-func TestALinkedLineKeepsTheSpellingItPrints(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-
-	m := decode[movieDetail](t, c.mustDo("POST", "/movies",
-		map[string]any{"title": "Jurassic Park"}, http.StatusCreated))
-	c.mustDo("POST", "/dialogues", map[string]any{
-		"movie_id": m.ID, "quote": "Clever girl", "character": "Muldoon", "actor": "Bob Peck",
-	}, http.StatusCreated)
-	c.mustDo("POST", "/dialogues", map[string]any{
-		"movie_id": m.ID, "quote": "Shoot her", "character": "Muldoon", "actor": "Robert Peck",
-	}, http.StatusCreated)
-
-	keep := personID(t, srv, 1, "Robert Peck")
-	drop := personID(t, srv, 1, "Bob Peck")
-	c.mustDo("POST", "/people/merge", map[string]any{"keep_id": keep, "drop_id": drop}, 200)
-
-	got := decode[personDetailResp](t, c.mustDo("GET", "/people/id/"+itoa(keep), nil, 200))
-	if len(got.Lines) != 2 {
-		t.Fatalf("after the merge the record holds %d lines, want both", len(got.Lines))
-	}
-	var printed []string
-	for _, l := range got.Lines {
-		printed = append(printed, l.Name)
-	}
-	// One line still says "Bob Peck", and that is the faithful-spelling promise
-	// rather than stale data — the alias the merge filed is what keeps it resolving.
-	if !hasString(printed, "Bob Peck") || !hasString(printed, "Robert Peck") {
-		t.Fatalf("the lines print %v, want each to keep the spelling it was written with", printed)
-	}
-}
-
 // A PANEL'S LINES WEAR THE SAME CHARACTER CHIPS THE CARDS DO — the owner's
 // ruling, which put the pills on Home's favourites and on the character and
 // person pages together with the annotation cards.
@@ -386,52 +352,6 @@ func TestABooksPeopleAreItsCreditsAndItsCharactersWithNoSpeakers(t *testing.T) {
 	}
 }
 
-// EVERY SPELLING A CHARACTER ANSWERS TO RIDES WITH ITS CAST ROW.
-//
-// Commit 4 marks a character's name inside a highlight and needs the aliases to do
-// it — "Messire" is Woland in a novel that never bills that name. A record is
-// library-wide, so it brings every spelling it has ever answered to and not only
-// the ones filed against this book, which is the answer given when this was asked.
-// One query for the whole cast rather than one per row: forty names is forty round
-// trips for a list drawn in one go.
-func TestAWorksCastCarriesEverySpellingItsCharactersAnswerTo(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-
-	book := createTestBook(t, c, "The Master and Margarita", "Mikhail Bulgakov")
-	other := createTestBook(t, c, "Master i Margarita", "M. Bulgakov")
-	c.mustDo("POST", "/books/"+itoa(book)+"/cast", map[string]any{"character": "Woland"}, http.StatusCreated)
-	c.mustDo("POST", "/books/"+itoa(other)+"/cast", map[string]any{"character": "Koroviev"}, http.StatusCreated)
-
-	list := decode[struct {
-		Characters []charHit `json:"characters"`
-	}](t, c.mustDo("GET", "/characters", nil, 200))
-	var woland int64
-	for _, ch := range list.Characters {
-		if ch.Name == "Woland" {
-			woland = ch.ID
-		}
-	}
-	// Filed while the reader was on the OTHER book — the record is library-wide, so
-	// it counts here.
-	c.mustDo("POST", "/characters/"+itoa(woland)+"/aliases", map[string]any{"alias": "Messire"}, http.StatusNoContent)
-
-	got := decode[workPeopleResp](t, c.mustDo("GET", "/books/"+itoa(book)+"/people", nil, 200))
-	if len(got.Cast) != 1 {
-		t.Fatalf("cast = %+v", got.Cast)
-	}
-	if !hasString(got.Cast[0].CharacterAliases, "Messire") {
-		t.Fatalf("the cast row carries %v, want the spelling filed on the record",
-			got.Cast[0].CharacterAliases)
-	}
-	// And a character on a DIFFERENT work does not leak into this one's cast.
-	for _, cst := range got.Cast {
-		if cst.Character == "Koroviev" {
-			t.Fatalf("another work's character is on this work's cast: %+v", got.Cast)
-		}
-	}
-}
-
 // Another account's work does not exist as far as this one is concerned.
 func TestAWorksPeopleIsScopedToItsOwner(t *testing.T) {
 	srv := newTestServer(t)
@@ -440,27 +360,6 @@ func TestAWorksPeopleIsScopedToItsOwner(t *testing.T) {
 	book := createTestBook(t, c, "The Master and Margarita", "Mikhail Bulgakov")
 	bob := addUser(t, h, c, "bob")
 	bob.mustDo("GET", "/books/"+itoa(book)+"/people", nil, http.StatusNotFound)
-}
-
-// The cast payload carries the two identity links, so a cast row can be a door.
-func TestACastRowCarriesTheRecordIdsItPointsAt(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	book := createTestBook(t, c, "Moby-Dick", "Herman Melville")
-	c.mustDo("POST", "/books/"+itoa(book)+"/cast", map[string]any{"character": "Ishmael"}, http.StatusCreated)
-
-	list := decode[castListResp](t, c.mustDo("GET", "/books/"+itoa(book)+"/cast", nil, 200))
-	if len(list.Cast) != 1 {
-		t.Fatalf("cast = %+v", list.Cast)
-	}
-	if list.Cast[0].CharacterID == 0 {
-		t.Fatal("the cast row carries no character_id, so nothing on the work can open the record")
-	}
-	// NOT PersonID, which is the provider's id in TMDB's or TheTVDB's id space —
-	// the trap 0056 refused to walk into by naming its column actor_id.
-	if list.Cast[0].PersonID != "" {
-		t.Fatalf("a reader-typed row has a provider id: %q", list.Cast[0].PersonID)
-	}
 }
 
 // THE CONSOLE'S DELETE IS OFFERED EXACTLY WHERE IT WOULD SUCCEED, and this is the

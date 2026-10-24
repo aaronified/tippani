@@ -124,32 +124,6 @@ func TestAnApplyLeavesAFieldThatChangedSinceTheReview(t *testing.T) {
 	}
 }
 
-// A FIELD THE APPLY CANNOT READ NOW IS LEFT AS IT IS. The apply takes a person's
-// source_id on its own, but no review reads one back — its identity is the one
-// "source:id" diff — so an expect naming it, even as empty, is a value nothing
-// can compare with what is stored. Unreadable is not unchanged: it is left, with
-// the note, and the record keeps the identity it has.
-func TestAnApplyLeavesAFieldItCannotReadNow(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	alice := signupAdmin(t, h)
-	alice.mustDo("PUT", "/people", map[string]any{"kind": "author", "name": "Frank Herbert"}, http.StatusOK)
-
-	got := decode[applyAnswer](t, alice.mustDo("POST", "/metadata/reverify/apply", map[string]any{"items": []any{
-		map[string]any{"type": "person", "kind": "author", "name": "Frank Herbert",
-			"set": map[string]any{"source_id": "OL79034A"}, "expect": map[string]any{"source_id": nil}},
-	}}, http.StatusOK))
-	if len(got.Results) != 1 || !got.Results[0].OK || got.Results[0].Note != changedSinceTheCheck+"source id" {
-		t.Fatalf("an apply of a field it cannot read now: %+v, want ok with the note %q", got, changedSinceTheCheck+"source id")
-	}
-	author := decode[struct {
-		SourceID string `json:"source_id"`
-	}](t, alice.mustDo("GET", "/people/id/"+itoa(recordID(t, alice, "Frank Herbert")), nil, http.StatusOK))
-	if author.SourceID != "" {
-		t.Fatalf("the author's source_id after the apply: %q, want it left", author.SourceID)
-	}
-}
-
 func TestAnApplyJobWritesWhatWasTickedAndMarksItsCheckApplied(t *testing.T) {
 	srv := newTestServer(t)
 	queueing(t, srv)

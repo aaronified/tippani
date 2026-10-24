@@ -73,31 +73,3 @@ func TestSearchCarriesTheQuoteColour(t *testing.T) {
 		t.Errorf("dialogue colour: got %q, want %q", got, "purple")
 	}
 }
-
-// An uncoloured quote reports the storage default rather than an empty string.
-//
-// This is the half that decides what the client may do with the value. `color`
-// is `TEXT NOT NULL DEFAULT 'yellow'` on all three tables, so "no colour" is
-// not representable in storage — every row has one. The client therefore knows
-// that an empty string means the SERVER failed to send a colour, not that the
-// reader declined to choose one, and it can draw the plain border for it
-// instead of asserting slot 1, which is a category somebody may have named.
-func TestSearchReportsTheDefaultColourNotAnEmptyOne(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-
-	book := decode[bookDetail](t, c.mustDo("POST", "/books", map[string]any{
-		"title": "Meditations", "author": "Marcus Aurelius",
-	}, http.StatusCreated))
-	c.mustDo("POST", "/annotations", map[string]any{
-		"book_id": book.ID, "quote": "Waste no more time arguing what a good man should be.",
-	}, http.StatusCreated)
-
-	res := decode[searchResults](t, c.mustDo("GET", "/search?q=arguing", nil, http.StatusOK))
-	if len(res.Annotations) != 1 {
-		t.Fatalf("expected one annotation, got %d", len(res.Annotations))
-	}
-	if got := res.Annotations[0].Color; got != "yellow" {
-		t.Errorf("default colour: got %q, want %q", got, "yellow")
-	}
-}

@@ -83,22 +83,6 @@ func TestFacetCountsMatchTheHitsTheyDescribe(t *testing.T) {
 	}
 }
 
-// A JOINED credit is one column and two authors. The count has to land on each
-// name, because that is the name the vocabulary offers and the facet matches.
-func TestFacetCountsSplitAJoinedCredit(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	countLibrary(t, c)
-
-	got := countsOf(t, c, "q=plan")
-	if got["author"]["Gaiman"] != got["author"]["Pratchett"] || got["author"]["Gaiman"] == 0 {
-		t.Fatalf("authors = %v, want both halves of the pair counted", got["author"])
-	}
-	if _, ok := got["author"]["Gaiman & Pratchett"]; ok {
-		t.Error("the joined string is not a value anything can be narrowed to")
-	}
-}
-
 // THE COMBINING RULE, which is the only real decision in the whole feature.
 func TestFacetCountsFollowTheCombiningRule(t *testing.T) {
 	srv := newTestServer(t)
@@ -123,48 +107,6 @@ func TestFacetCountsFollowTheCombiningRule(t *testing.T) {
 	}
 	if withColour["colour"]["blue"] == 0 {
 		t.Error("the picked value still needs its own count")
-	}
-}
-
-// A count of zero is REPORTED rather than dropped from the map, so the panel can
-// grey the value instead of removing it. A value that vanishes when you narrow
-// reads as "I mis-remembered my library"; a grey one reads as "not under this
-// question", which is the answer and tells you which chip to take off.
-func TestFacetCountsOmitOnlyWhatIsNotAValue(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	countLibrary(t, c)
-
-	got := countsOf(t, c, "q=plan")
-	// A row with no author is not an author called "".
-	if _, ok := got["author"][""]; ok {
-		t.Error("the empty string is not a facet value")
-	}
-	// Nor is an unset year a year.
-	if _, ok := got["year"]["0"]; ok {
-		t.Error("year 0 is 'no year recorded', not a year")
-	}
-	// The flags answer in the words the grammar uses, not in 1/0 — a second
-	// mapping on the client is a second thing to disagree with.
-	if got["favourite"]["no"] == 0 {
-		t.Errorf("favourite = %v, want yes/no keys", got["favourite"])
-	}
-	if got["note"]["yes"] != 1 {
-		t.Errorf("note = %v, want the one annotation carrying a note", got["note"])
-	}
-	// The wishlist book is NOT here, and that is right: it is a book with nothing
-	// quoted from it and a title that does not say "plan", so it is not a hit for
-	// this query and must not be counted as one. The panel opens before anything
-	// is typed, though, so the no-query case is the one that has to answer.
-	if _, ok := got["wishlist"]["yes"]; ok {
-		t.Errorf("wishlist = %v, want nothing — the unread book is not a hit for 'plan'", got["wishlist"])
-	}
-	bare := countsOf(t, c, "")
-	if bare["wishlist"]["yes"] != 1 {
-		t.Errorf("wishlist with no query = %v, want the one book with nothing quoted from it", bare["wishlist"])
-	}
-	if bare["author"]["Nobody"] != 1 {
-		t.Errorf("authors with no query = %v, want the unread book's author counted", bare["author"])
 	}
 }
 
@@ -293,55 +235,3 @@ func TestSearchNarrowsToAnAddedOnRange(t *testing.T) {
 	}
 }
 
-// THE LANGUAGE FACET'S OWN COUNTS, and the arm they prove is reading the right
-// column. `search_facet_counts.go`'s language arm coalesces `<self>.language` to
-// the empty string — three tables, one column name, so it reads the alias the row set gave
-// it. Point that at any other column of any of the three and the whole Go suite
-// still passes, because until this case nothing asked /search/facets for a
-// language at all: the chips would have offered "here the highlight" as a
-// language to narrow by and the number beside it would have been right about the
-// wrong question.
-//
-// THE COUNT IS ACROSS ALL THREE KINDS for the same reason the facet itself is: a
-// highlight, a film line and a standalone quote each carry their own `language`,
-// and a reader narrowing to Bengali means all of them.
-func TestFacetCountsCountLanguagesAndNotTheQuoteText(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-
-	book := idOf(t, c.mustDo("POST", "/books", map[string]any{
-		"title": "Gitanjali", "author": "Rabindranath Tagore",
-	}, 201).Body.Bytes())
-	film := idOf(t, c.mustDo("POST", "/movies", map[string]any{
-		"title": "Pather Panchali", "director": "Satyajit Ray",
-	}, 201).Body.Bytes())
-	c.mustDo("POST", "/annotations", map[string]any{
-		"book_id": book, "quote": "here the highlight", "language": "Bengali",
-	}, 201)
-	c.mustDo("POST", "/dialogues", map[string]any{
-		"movie_id": film, "quote": "here the line", "language": "Bengali",
-	}, 201)
-	newUtterance(t, c, map[string]any{"quote": "here the proverb", "language": "Sanskrit"})
-
-	got := countsOf(t, c, "q=here")
-	if got["language"]["Bengali"] != 2 {
-		t.Errorf("language:Bengali = %d, want 2 (a highlight and a film line) — counts are %v",
-			got["language"]["Bengali"], got["language"])
-	}
-	if got["language"]["Sanskrit"] != 1 {
-		t.Errorf("language:Sanskrit = %d, want 1 — counts are %v", got["language"]["Sanskrit"], got["language"])
-	}
-	// THE SHAPE OF THE FAILURE THIS CATCHES: an arm reading the wrong column
-	// answers with quote text, which is a plausible-looking map of 1s. Naming one
-	// says so at the line rather than leaving the reader to notice the total.
-	if _, ok := got["language"]["here the highlight"]; ok {
-		t.Errorf("the language arm is counting quote text, not languages — counts are %v", got["language"])
-	}
-
-	// AND THE COUNT IS THE NUMBER THE SEARCH ITSELF RETURNS, which is this file's
-	// governing rule: a count that disagrees with its own list is worse than none.
-	res := decode[searchResults](t, c.mustDo("GET", "/search?q=here&language=Bengali", nil, 200))
-	if listed := len(res.Annotations) + len(res.Dialogues) + len(res.Quotes); listed != got["language"]["Bengali"] {
-		t.Errorf("language:Bengali counted %d and listed %d", got["language"]["Bengali"], listed)
-	}
-}

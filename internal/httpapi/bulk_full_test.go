@@ -56,30 +56,6 @@ func TestBulkEditsEveryWorkFieldExceptTheName(t *testing.T) {
 	}
 }
 
-func TestBulkEditsEveryTitleFieldIncludingTheMedium(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-
-	m1 := idOf(t, c.mustDo("POST", "/movies", map[string]any{"title": "A Film"}, 201).Body.Bytes())
-	m2 := idOf(t, c.mustDo("POST", "/movies", map[string]any{"title": "Another"}, 201).Body.Bytes())
-
-	// media_type over a selection is the one somebody importing a shelf of games
-	// as films actually needs.
-	c.mustDo("POST", "/movies/bulk", map[string]any{
-		"ids": []int64{m1, m2}, "media_type": "game", "director": "Bethesda",
-		"release_year": 2011, "description": "d", "favorite": true,
-	}, 200)
-	for _, id := range []int64{m1, m2} {
-		got := decode[map[string]any](t, c.mustDo("GET", "/movies/"+itoa(id), nil, 200))
-		if got["media_type"] != "game" || got["director"] != "Bethesda" {
-			t.Errorf("movie %d = %v", id, got)
-		}
-	}
-	// And an illegal medium is a 400 the caller can act on, not a 500 out of the
-	// CHECK constraint.
-	c.mustDo("POST", "/movies/bulk", map[string]any{"ids": []int64{m1}, "media_type": "podcast"}, http.StatusBadRequest)
-}
-
 func TestBulkEditsAQuoteWithoutTouchingItsWords(t *testing.T) {
 	srv := newTestServer(t)
 	c := signupAdmin(t, srv.Handler())

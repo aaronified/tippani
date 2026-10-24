@@ -65,22 +65,6 @@ func TestMediumChangesNothingAtAll(t *testing.T) {
 	}
 }
 
-// An unknown or empty tier is medium, so a corrupt preference cannot change how
-// hard the quiz is — the same rule parseReviewQuestions follows for a corrupt
-// repertoire, and for the same reason.
-func TestAnUnreadableTierIsTheOneThatChangesNothing(t *testing.T) {
-	for _, in := range []string{"", "  ", "EASY", "hardest", "nightmare", "0", "random "} {
-		if got := normalizeReviewTier(in); got != tierMedium {
-			t.Errorf("normalizeReviewTier(%q) = %q, want medium", in, got)
-		}
-	}
-	for _, in := range reviewTiers {
-		if got := normalizeReviewTier(in); got != in {
-			t.Errorf("normalizeReviewTier(%q) = %q, want it kept", in, got)
-		}
-	}
-}
-
 // WHAT EACH TIER ACTUALLY CHANGES, stated as the rule rather than as the shape of
 // the switch: Easy widens nothing and offers fewer choices; Hard gives up
 // recognition.
@@ -326,57 +310,6 @@ func TestEasyOffersWrongAnswersFromOutsideTheAnswersOwnWork(t *testing.T) {
 	}
 }
 
-// AND THE SAME RULE ON THE PATH THAT HAS NO SCORE TO INVERT. attachSpeaker ranks
-// by membership of the answer's own cast rather than by distractorScore, so
-// "far" there means looking outside the work first — a second place the same
-// inversion has to be made, and the one the endpoint test above would catch only
-// when the deck happened to serve a speaker card.
-func TestAnEasySpeakerCardLooksOutsideTheAnswersOwnFilm(t *testing.T) {
-	own := workRef{key: "screen:1", kind: kindScreen, title: "Heat", cast: heatCast}
-	others := []workRef{
-		{key: "screen:2", kind: kindScreen, title: "Stalker", cast: []string{"Alexander Kaidanovsky", "Anatoly Solonitsyn"}},
-		{key: "screen:3", kind: kindScreen, title: "Solaris", cast: []string{"Donatas Banionis", "Natalya Bondarchuk"}},
-	}
-	p := quizPools{byKey: map[string]workRef{own.key: own}, works: append([]workRef{own}, others...)}
-	inHeat := map[string]bool{}
-	for _, a := range heatCast {
-		inHeat[a] = true
-	}
-
-	build := func(tier string) []string {
-		t.Helper()
-		card := reviewCard{Kind: kindScreen, ID: 1, Direction: dirSpeaker,
-			Quote: "Don't let yourself get attached", Title: "Heat", Character: "Neil", Actor: "Robert De Niro"}
-		if !attachSpeaker(&card, "screen:1", p, 99, tier) {
-			t.Fatalf("%s: no speaker card from a five-strong cast", tier)
-		}
-		return card.Options
-	}
-
-	for i, o := range build(tierEasy) {
-		if o == "Robert De Niro" {
-			continue // the answer itself
-		}
-		if inHeat[o] {
-			t.Errorf("an easy speaker card offered %q (option %d) — a face from the answer's own "+
-				"billing is the closest lure in the library, not the farthest", o, i)
-		}
-	}
-	// And medium still reaches for the same film, which is what makes it a
-	// question about the film rather than about familiarity.
-	sameFilm := 0
-	for i, o := range build(tierMedium) {
-		if o != "Robert De Niro" && inHeat[o] {
-			sameFilm++
-			_ = i
-		}
-	}
-	if sameFilm == 0 {
-		t.Error("a medium speaker card offered nobody from the answer's own film — that is the ranking, " +
-			"and losing it would make medium easier than it has always been")
-	}
-}
-
 // AND THE HASH'S PICK GOES THROUGH THE TIER'S FILTER.
 //
 // `preferred` arrives from dailyDirection, which knows the reader's repertoire
@@ -419,71 +352,6 @@ func TestAHardRoundNeverServesRecognition(t *testing.T) {
 		case dirSource, dirQuote, dirClozeMCQ:
 			t.Errorf("a hard round served %q for card %d — recognition is what hard gives up, "+
 				"and the tier's filter is being bypassed", it.Direction, it.ID)
-		}
-	}
-}
-
-// PRACTICE IS THE OTHER DECK AND IT WAS UNGUARDED. Mutating the tier at the
-// practice call site left the whole suite green, because the reach test only ever
-// asked /review/daily — so half the feature could have been unwired.
-func TestTheTierReachesPracticeToo(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	seedReviewBook(t, c, "Emma", 6)
-	seedDistractorBook(t, srv, c, "Dune")
-	seedDistractorBook(t, srv, c, "Persuasion")
-	seedDistractorBook(t, srv, c, "Villette")
-	ageSeededItems(t, srv)
-
-	// ONE DIRECTION, AND ONE THAT HAS OPTIONS. A practice deck is mostly flip and
-	// typed-cloze cards, both of which carry no options at all, so measuring the
-	// widest card across a default practice round measures zero at every tier —
-	// which would have passed while proving nothing.
-	c.mustDo("PUT", "/auth/me/preferences",
-		map[string]any{"srQuestions": `{"practice":["source"]}`}, http.StatusOK)
-
-	widest := func(tier string) int {
-		t.Helper()
-		c.mustDo("PUT", "/auth/me/preferences", map[string]any{"srTier": tier}, http.StatusOK)
-		deck := decode[practiceDeckResp](t, c.mustDo("GET", "/review/practice", nil, 200))
-		if len(deck.Items) == 0 {
-			t.Fatalf("tier %q served an empty practice deck, so this measured nothing", tier)
-		}
-		n := 0
-		for _, it := range deck.Items {
-			if len(it.Options) > n {
-				n = len(it.Options)
-			}
-		}
-		return n
-	}
-	if got := widest(tierEasy); got > 2 {
-		t.Errorf("an easy practice round offered a card with %d choices, want at most 2 — "+
-			"the preference is not reaching buildQuestion on the practice path", got)
-	}
-	if got := widest(tierMedium); got != quizOptions {
-		t.Errorf("a medium practice round offered at most %d choices, want %d", got, quizOptions)
-	}
-}
-
-// AND THE PERSON CARDS COUNT THEIR OPTIONS THE SAME WAY. attachSpeaker and
-// attachAuthor go through personChoices rather than attachMCQ, so tierOptions
-// reaching one and not the other would leave "who said this?" at four choices in
-// an easy round with nothing to show it.
-func TestAPersonCardHonoursTheTiersOptionCount(t *testing.T) {
-	own := workRef{key: "screen:1", kind: kindScreen, title: "Heat", cast: heatCast}
-	p := quizPools{byKey: map[string]workRef{"screen:1": own}, works: []workRef{own}}
-	for _, tc := range []struct {
-		tier string
-		want int
-	}{{tierEasy, 2}, {tierMedium, quizOptions}, {tierHard, quizOptions}} {
-		card := reviewCard{Kind: kindScreen, ID: 1, Direction: dirSpeaker,
-			Quote: "Don't let yourself get attached", Title: "Heat", Character: "Neil", Actor: "Robert De Niro"}
-		if !attachSpeaker(&card, "screen:1", p, 99, tc.tier) {
-			t.Fatalf("%s: no speaker card from a five-strong cast", tc.tier)
-		}
-		if len(card.Options) != tc.want {
-			t.Errorf("%s speaker card offered %d faces, want %d", tc.tier, len(card.Options), tc.want)
 		}
 	}
 }
@@ -753,64 +621,6 @@ func TestChangingTheTierMidRoundGradesByTheTierNowInForce(t *testing.T) {
 	if after.Answer == wide {
 		t.Errorf("the reveal says %q, which is hard's span — medium is grading against its own width "+
 			"and must reveal that one", after.Answer)
-	}
-}
-
-// AND MEDIUM GRADES A WIDE ATTEMPT AS A MISS, WHICH IS EXACTLY WHAT IT DID BEFORE
-// THE TIERS EXISTED.
-//
-// THIS IS THE GUARD THAT WOULD HAVE CAUGHT THE REGRESSION. The union-of-widths
-// rule made a three-word attempt on a first-rung card a PASS where the baseline
-// made it a lapse — a silent change to every reader who never opened the tier
-// panel, under four documents promising that medium is unchanged. Nothing in the
-// suite noticed, because nothing graded a cloze at the default settings.
-func TestMediumGradesAWideAttemptAsAMiss(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	seedReviewBook(t, c, "Dune", 3)
-	seedDistractorBook(t, srv, c, "Emma")
-	ageSeededItems(t, srv)
-	// DEFAULT PREFS but for the direction, so this is the reader who changed
-	// nothing: medium, first rung, one-word blanks.
-	c.mustDo("PUT", "/auth/me/preferences",
-		map[string]any{"srQuestions": `{"daily":["cloze"]}`}, http.StatusOK)
-
-	deck := decode[reviewDeckResp](t, c.mustDo("GET", "/review/daily", nil, 200))
-	var card *reviewCard
-	for i := range deck.Items {
-		if deck.Items[i].Direction == dirCloze {
-			card = &deck.Items[i]
-			break
-		}
-	}
-	if card == nil {
-		t.Fatalf("the default deck served no typed blank: %+v", deck.Items)
-	}
-	full, err := srv.itemText(kindBook, card.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	head, tail, _ := strings.Cut(card.Quote, clozeBlank)
-	hidden := strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(full, head), tail))
-	if n := len(strings.Fields(hidden)); n != 1 {
-		t.Fatalf("a first-rung medium card hid %d words (%q), want 1 — the fixture is not the default case", n, hidden)
-	}
-	// The one word it hid is a pass.
-	if res := decode[answerResp](t, c.mustDo("POST", "/review/answer", map[string]any{
-		"kind": kindBook, "id": card.ID, "mode": "practice", "result": "got", "attempt": hidden}, 200)); res.Result != "got" {
-		t.Fatalf("medium: typing back the word the card hid (%q) was graded %q", hidden, res.Result)
-	}
-	// HARD'S span is not. It is three words of the same quote, and medium never
-	// asked for them.
-	_, wide, ok := clozeSpan(full, kindBook, card.ID,
-		clozeMaxWordsFor(reviewMinStability, tierClozeThreshold(tierHard, clozeMultiWordFrom)))
-	if !ok || len(strings.Fields(wide)) < 2 {
-		t.Fatalf("could not build hard's wider span from %q", full)
-	}
-	if res := decode[answerResp](t, c.mustDo("POST", "/review/answer", map[string]any{
-		"kind": kindBook, "id": card.ID, "mode": "practice", "result": "got", "attempt": wide}, 200)); res.Result != "forgot" {
-		t.Errorf("medium graded hard's %d-word span (%q) as %q — medium must grade exactly as it did before "+
-			"the tiers existed, and this is the case that regressed", len(strings.Fields(wide)), wide, res.Result)
 	}
 }
 

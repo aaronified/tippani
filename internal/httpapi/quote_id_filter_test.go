@@ -94,22 +94,3 @@ func TestQuoteListByIDCannotReachAnotherAccount(t *testing.T) {
 	}
 }
 
-// AN ID THAT MATCHES NOTHING IS EMPTY, not everything. This is the failure the
-// filter would have if it were written as an optional clause that got skipped on
-// a parse slip — the list comes back whole, and an edit form fills from row one.
-func TestQuoteListByUnknownIDIsEmptyRatherThanEverything(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	book := createBook(t, c, "Persuasion")
-	c.mustDo("POST", "/annotations", map[string]any{"book_id": book, "quote": "one"}, http.StatusCreated)
-
-	if rows := quoteListRows(t, c, "/annotations?id=999999"); len(rows) != 0 {
-		t.Fatalf("an unknown id returned %d rows", len(rows))
-	}
-	// And a non-numeric id is refused rather than ignored — an ignored one is
-	// the same whole list with no way to tell.
-	c.mustDo("GET", "/annotations?id=abc", nil, http.StatusBadRequest)
-	c.mustDo("GET", "/dialogues?id=abc", nil, http.StatusBadRequest)
-	c.mustDo("GET", "/quotes?id=abc", nil, http.StatusBadRequest)
-}

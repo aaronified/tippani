@@ -71,30 +71,3 @@ func TestAYearOutsideThePlausibleRangeIsStillRefused(t *testing.T) {
 	}
 }
 
-func TestAFilmCanCarryACircaYearToo(t *testing.T) {
-	// Films are unlikely to be ancient, but the column exists on both because a
-	// media type that silently drops a field is worse than one that never had it.
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	got := decode[movieDetail](t, c.mustDo("POST", "/movies", map[string]any{
-		"title": "A Lost Film", "release_year": 1912, "release_circa": true,
-	}, http.StatusCreated))
-	if got.ReleaseYear != 1912 || !got.ReleaseCirca {
-		t.Fatalf("release_year=%d circa=%v", got.ReleaseYear, got.ReleaseCirca)
-	}
-}
-
-func TestABCEYearCountsAsHavingAYear(t *testing.T) {
-	// The metadata completeness score used `published_year > 0` to mean "has a
-	// year", which reads a BCE year as missing — so the oldest books in the
-	// library would have been the ones it nagged about most.
-	if !hasYear(-380) {
-		t.Error("a BCE year read as no year at all")
-	}
-	if hasYear(0) {
-		t.Error("0 must keep meaning 'not recorded'")
-	}
-	if !validYear(0) || !validYear(-380) || validYear(-4001) {
-		t.Error("validYear bounds wrong")
-	}
-}

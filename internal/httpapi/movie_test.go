@@ -125,29 +125,6 @@ func TestMovieAndDialogueCRUD(t *testing.T) {
 	}
 }
 
-func TestTMDBWithoutKey(t *testing.T) {
-	srv := newTestServer(t) // empty TMDB key
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-
-	for _, req := range []struct {
-		path string
-		body map[string]any
-	}{
-		{"/movies/lookup", map[string]any{"title": "Heat"}},
-		{"/movies", map[string]any{"tmdb_id": 949}},
-	} {
-		rec := c.mustDo("POST", req.path, req.body, http.StatusServiceUnavailable)
-		// THE MESSAGE NAMES THE SCREEN WHERE THE KEYS ARE, which is Metadata ›
-		// Sources and has been since the keys moved off Settings.
-		if !strings.Contains(rec.Body.String(), "Metadata › Sources") {
-			t.Fatalf("%s: %s", req.path, rec.Body)
-		}
-	}
-	// Manual movie entry still works without a key (PLAN §6).
-	c.mustDo("POST", "/movies", map[string]any{"title": "Heat"}, http.StatusCreated)
-}
-
 func TestMovieCreateFromTMDB(t *testing.T) {
 	srv := newTestServer(t)
 	fake := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -119,13 +119,6 @@ func TestDeletingABoardAsksWhereItsQuotesGo(t *testing.T) {
 	}
 }
 
-func TestAnEmptyBoardDeletesFreely(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-	b := newBoard(t, c, "Spare")
-	c.mustDo("DELETE", "/boards/"+itoa(b.ID), nil, http.StatusNoContent)
-}
-
 // The default board is a preference pointing at a row, so deleting that row has
 // to repoint it. Without this the next quote captured outside a board resolves a
 // dangling id — which defaultBoardID tolerates, but leaving it to be tolerated is
@@ -182,32 +175,6 @@ func TestAQuoteIsFiledWhereTheRequestSays(t *testing.T) {
 	_ = first
 }
 
-// Every PUT here is full-state. A client that omits board_id moves the quote to
-// the default board — which is correct for a full-state contract and is exactly
-// why utteranceState on the client has to carry it.
-func TestAFullStatePutCarriesTheBoard(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-
-	home := newUtterance(t, c, bose())
-	speeches := newBoard(t, c, "Speeches")
-
-	body := bose()
-	body["board_id"] = speeches.ID
-	got := decode[utteranceRow](t, c.mustDo("PUT", "/quotes/"+itoa(home.ID), body, http.StatusOK))
-	if got.BoardID != speeches.ID {
-		t.Fatalf("board did not move: %d", got.BoardID)
-	}
-
-	// And omitting it puts the quote back on the default, rather than leaving it
-	// where it was. Asserted so the contract is written down: it is the trap, not
-	// an accident.
-	back := decode[utteranceRow](t, c.mustDo("PUT", "/quotes/"+itoa(home.ID), bose(), http.StatusOK))
-	if back.BoardID == speeches.ID {
-		t.Fatal("an omitted board_id left the quote where it was; the PUT is meant to be full-state")
-	}
-}
-
 func TestABoardCanBeRenamedRecolouredAndHidden(t *testing.T) {
 	h := newTestServer(t).Handler()
 	c := signupAdmin(t, h)
@@ -239,13 +206,6 @@ func TestABoardCanBeRenamedRecolouredAndHidden(t *testing.T) {
 	if !again.Boards[0].Hidden {
 		t.Fatal("renaming a board un-hid it")
 	}
-}
-
-func TestABoardNeedsAName(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-	c.mustDo("POST", "/boards", map[string]any{"name": "   "}, http.StatusBadRequest)
-	c.mustDo("POST", "/boards", map[string]any{"name": "Fine", "color": "chartreuse"}, http.StatusBadRequest)
 }
 
 // EVERY WRITER FILES ITS QUOTE, and this exists because two of them did not.

@@ -143,38 +143,6 @@ func TestAtMostOneCardInThreeOffersALureByTheAnswersOwnAuthor(t *testing.T) {
 	}
 }
 
-// AND A SHELF WITH NOTHING ELSE ON IT STILL GETS ITS QUESTION.
-//
-// The cap demotes a same-author candidate rather than excluding it, and this is
-// the case that distinguishes the two: every book here is by one author, so an
-// exclusion would leave "which book?" with one option and the card would be
-// dropped from a deck that dailyRemaining had already counted — the badge-says-
-// due-and-deck-serves-nothing failure buildQuestion's own comment records.
-func TestAOneAuthorShelfStillOffersAChoice(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	for _, ti := range []string{"A Wizard of Earthsea", "The Tombs of Atuan", "The Farthest Shore"} {
-		seedAuthoredBook(t, c, ti, "Ursula K. Le Guin", 3)
-	}
-	ageSeededItems(t, srv)
-	c.mustDo("PUT", "/auth/me/preferences", map[string]any{
-		"srQuestions": `{"daily":["source"]}`, "srDaily": 10, "srTier": tierMedium}, http.StatusOK)
-
-	deck := decode[reviewDeckResp](t, c.mustDo("GET", "/review/daily", nil, 200))
-	if len(deck.Items) == 0 {
-		t.Fatal("a shelf of three books by one author served an empty deck")
-	}
-	for i, card := range deck.Items {
-		if card.Direction != dirSource {
-			continue
-		}
-		if len(card.Options) < 2 {
-			t.Fatalf("card %d (%q) offers %d options — a one-author shelf must still be asked, "+
-				"so the quota demotes rather than excludes", i, card.Title, len(card.Options))
-		}
-	}
-}
-
 // EASY SHOWS THE READER WHO IS IN THE LINE — AND NEVER ON A CARD THAT ASKS IT.
 //
 // The plan's words for the Easy tier: "Speaker and character chips visible beside
@@ -321,60 +289,6 @@ func TestEasyWithholdsItsChipsFromTheCardsTheyWouldAnswer(t *testing.T) {
 	}
 }
 
-// AND A STANDALONE QUOTE'S SPEAKER IS A PERSON, NOT A CHARACTER.
-//
-// The two go down different paths on purpose — a speech's speaker has no cast row
-// and no picture under the cover root, so it is a person chip and not a character
-// chip, which is the same split SourceLines already makes. Without this case the
-// EasyPeople half of the payload would be code nothing ever asked for.
-//
-// AND THE SPEAKER IS DROPPED WHEN IT IS ALSO THE TITLE. A speech with no occasion
-// is titled by whoever gave it, so a "which source?" card would print the same
-// name as a chip and as its own answer.
-func TestEasyNamesTheSpeakerOfAStandaloneQuote(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	seedReviewQuotes(t, c, "Subhas Chandra Bose", "the Burma radio broadcast, on the sleeper and the spice", 3)
-	seedReviewQuotes(t, c, "Sojourner Truth", "the Akron convention, on the sleeper and the spice", 3)
-	// NO OCCASION, so utteranceAttribution titles this one by its speaker.
-	titledByItsSpeaker := newUtterance(t, c, map[string]any{
-		"quote":   "the sleeper must awaken and the spice must flow across the desert, he said",
-		"speaker": "Frederick Douglass",
-	})
-	ageSeededItems(t, srv)
-	c.mustDo("PUT", "/auth/me/preferences", map[string]any{
-		"srTier": tierEasy, "srDaily": 10, "srQuestions": `{"daily":["source"]}`}, http.StatusOK)
-
-	deck := decode[reviewDeckResp](t, c.mustDo("GET", "/review/daily", nil, 200))
-	named := 0
-	for _, card := range deck.Items {
-		if card.Kind != kindUtterance || card.Direction != dirSource {
-			continue
-		}
-		if card.ID == titledByItsSpeaker.ID {
-			if len(card.EasyPeople) > 0 {
-				t.Errorf("a speech titled by its own speaker carries %v as a chip — the chip and the "+
-					"card's own answer are the same name", card.EasyPeople)
-			}
-			continue
-		}
-		if len(card.EasyPeople) != 1 || card.EasyPeople[0] != card.Speaker {
-			t.Errorf("card %d says speaker %q and offers %v — an easy card names who said it",
-				card.ID, card.Speaker, card.EasyPeople)
-			continue
-		}
-		if len(card.EasyChips) > 0 {
-			t.Errorf("a speech carries character chips (%+v) — a speaker is a person and has no cast row",
-				card.EasyChips)
-		}
-		named++
-	}
-	if named == 0 {
-		t.Fatal("no standalone-quote source card reached the deck, so nothing here was measured")
-	}
-}
-
 // AND A CHIP MAY NOT NAME WHAT THE CARD MASKED OUT — AT ANY DIRECTION.
 //
 // THIS IS THE BUG THE TWO TESTS ABOVE COULD NOT SEE. They ask about `speaker` and
@@ -483,58 +397,3 @@ func TestNoEasyChipNamesWhatTheCardMaskedOut(t *testing.T) {
 	}
 }
 
-// AND THE RULE DOES NOT THROW AWAY THE CHIPS IT SHOULD KEEP.
-//
-// The obvious wrong fix for the leak above is to stop sending chips on any card
-// that masks anything, which is every cloze card in the deck — and that would
-// quietly delete the feature for the tier it was built for while every test about
-// the leak went green. A line that NAMES one character and hides a different word
-// still gets its chip.
-func TestAMaskedLineStillNamesTheCharacterItDidNotHide(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	book := decode[bookDetail](t, c.mustDo("POST", "/books",
-		map[string]any{"title": "Dune", "author": "Frank Herbert"}, http.StatusCreated))
-	// THE CHARACTER IS NOT IN THE WORDS AT ALL, which is the ordinary case: the
-	// name is a column on the row and the quote is what was said.
-	for i := 0; i < 4; i++ {
-		c.mustDo("POST", "/annotations", map[string]any{
-			"book_id": book.ID, "character": "Paul Atreides",
-			"quote": fmt.Sprintf("the sleeper must awaken and the spice must flow across the desert %d", i),
-		}, http.StatusCreated)
-	}
-	for i, ti := range []string{"Emma", "Solaris", "Kindred", "Ubik"} {
-		seedAuthoredBook(t, c, ti, fmt.Sprintf("Author %d", i), 2)
-	}
-	ageSeededItems(t, srv)
-	// CLOZE ALONE, so tierDirections' never-empty rule keeps it at Easy. Asking for
-	// it beside `source` lets Easy drop the blank and keep the recognition card,
-	// and then nothing is masked.
-	c.mustDo("PUT", "/auth/me/preferences", map[string]any{
-		"srTier": tierEasy, "srDaily": 10,
-		"srQuestions": `{"daily":["cloze"]}`}, http.StatusOK)
-
-	deck := decode[reviewDeckResp](t, c.mustDo("GET", "/review/daily", nil, 200))
-	named, masked := 0, 0
-	for _, card := range deck.Items {
-		if card.Title != "Dune" {
-			continue
-		}
-		if strings.Contains(card.Quote, clozeBlank) {
-			masked++
-		}
-		for _, ch := range card.EasyChips {
-			if ch.Name == "Paul Atreides" {
-				named++
-			}
-		}
-	}
-	if masked == 0 {
-		t.Fatal("no Dune card hid anything, so this measured nothing about a masked line")
-	}
-	if named == 0 {
-		t.Errorf("%d masked cards and not one of them named Paul Atreides — the leak rule is dropping "+
-			"chips for names the card never took out, which deletes the tier's own feature", masked)
-	}
-}

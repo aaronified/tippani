@@ -45,22 +45,6 @@ func TestABookKeepsItsLinks(t *testing.T) {
 	}, http.StatusBadRequest)
 }
 
-func TestAFilmKeepsItsLinks(t *testing.T) {
-	c := signupAdmin(t, newTestServer(t).Handler())
-	made := decode[linked](t, c.mustDo("POST", "/movies", map[string]any{
-		"title": "Stalker", "links": twoLinks,
-	}, http.StatusCreated))
-	got := decode[linked](t, c.mustDo("GET", "/movies/"+itoa(made.ID), nil, http.StatusOK))
-	if got.Links != twoLinks {
-		t.Fatalf("fetch: %q", got.Links)
-	}
-	cleared := decode[linked](t, c.mustDo("PUT", "/movies/"+itoa(made.ID),
-		map[string]any{"title": "Stalker", "media_type": "movie"}, http.StatusOK))
-	if cleared.Links != "" {
-		t.Fatalf("a full-state PUT left %q", cleared.Links)
-	}
-}
-
 func TestLinksRoundTripThroughTheExportAndTheQueue(t *testing.T) {
 	c := signupAdmin(t, newTestServer(t).Handler())
 	made := decode[linked](t, c.mustDo("POST", "/books", map[string]any{

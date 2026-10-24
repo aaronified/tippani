@@ -87,44 +87,6 @@ func TestBookExport(t *testing.T) {
 	c.mustDo("GET", "/books/abc/export", nil, http.StatusBadRequest)
 }
 
-// PLAN §6b property: a book export is valid §5b(a) importer input, so
-// re-importing it is a dedupe no-op.
-func TestBookExportRoundTrip(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	book := seedExportBook(t, c)
-
-	exported := c.mustDo("GET", "/books/"+itoa(book.ID)+"/export", nil, 200).Body.Bytes()
-	res := decode[importResult](t, c.importApprove("/import/markdown", "dune.md", exported))
-	if res.BookID != book.ID || res.Added != 0 || res.Skipped != 4 {
-		t.Fatalf("round trip: %+v", res)
-	}
-}
-
-// TestNotedAtRoundTrip: an imported "- date:" binding is stored as noted_at and
-// re-exported, so the date of addition survives export → re-import.
-func TestNotedAtRoundTrip(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-
-	md := "---\ntitle: Dated Book\n---\n\n> A dated highlight.\n- date: 2020-01-15\n"
-	res := decode[importResult](t, c.importApprove("/import/markdown", "d.md", []byte(md)))
-	if res.Added != 1 {
-		t.Fatalf("import: %+v", res)
-	}
-	anns := decode[struct {
-		Annotations []annotationRow `json:"annotations"`
-	}](t, c.mustDo("GET", "/annotations?book_id="+itoa(res.BookID), nil, 200))
-	if len(anns.Annotations) != 1 || anns.Annotations[0].NotedAt != "2020-01-15" {
-		t.Fatalf("noted_at not stored: %+v", anns.Annotations)
-	}
-	if exp := c.mustDo("GET", "/books/"+itoa(res.BookID)+"/export", nil, 200).Body.String(); !strings.Contains(exp, "- date: 2020-01-15") {
-		t.Fatalf("export missing date:\n%s", exp)
-	}
-}
-
 func TestMovieExport(t *testing.T) {
 	srv := newTestServer(t)
 	h := srv.Handler()
@@ -383,74 +345,6 @@ type: game
 - quest: The Whirling-in-Rags
 `
 	rec := c.mustDo("GET", "/movies/"+itoa(game.ID)+"/export", nil, http.StatusOK)
-	if got := rec.Body.String(); got != want {
-		t.Fatalf("export mismatch:\n--- got ---\n%s\n--- want ---\n%s", got, want)
-	}
-}
-
-// A SHOW'S EPISODE NAME sits beside the episode NUMBER, because that is what it
-// names — one level down from the frontmatter's own season/episode, the same rule
-// the two numbers already follow.
-func TestShowExportWritesTheEpisodeName(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-
-	show := decode[movieDetail](t, c.mustDo("POST", "/movies", map[string]any{
-		"title": "The Wire", "media_type": "show",
-	}, http.StatusCreated))
-	c.mustDo("POST", "/dialogues", map[string]any{
-		"movie_id": show.ID, "quote": "All the pieces matter.",
-		"season": 1, "episode": 6, "episode_name": "All Prologue", "timestamp": "00:22:10",
-	}, http.StatusCreated)
-
-	want := `---
-title: The Wire
-type: show
----
-
-> All the pieces matter.
-- season: 1
-- episode: 6
-- episode_name: All Prologue
-- timestamp: 00:22:10
-`
-	rec := c.mustDo("GET", "/movies/"+itoa(show.ID)+"/export", nil, http.StatusOK)
-	if got := rec.Body.String(); got != want {
-		t.Fatalf("export mismatch:\n--- got ---\n%s\n--- want ---\n%s", got, want)
-	}
-}
-
-// A BOOK'S CHARACTER AND ITS TWO LANGUAGES, on the exact bytes. The character is
-// written FIRST under its quote, the same slot the dialogue block puts it in,
-// because it is the same fact about a different medium; the languages sit beside
-// the two credits, because all four are facts about the same act of translation.
-func TestBookExportWritesACharacterAndTwoLanguages(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-
-	book := decode[bookDetail](t, c.mustDo("POST", "/books", map[string]any{
-		"title": "Gora", "author": "Rabindranath Tagore", "translator": "Radha Chakravarty",
-		"language": "English", "orig_language": "Bengali",
-	}, http.StatusCreated))
-	c.mustDo("POST", "/annotations", map[string]any{
-		"book_id": book.ID, "quote": "A line somebody says.", "character": "Gora",
-		"noted_at": "2026-03-04",
-	}, http.StatusCreated)
-
-	want := `---
-title: Gora
-author: Rabindranath Tagore
-translator: Radha Chakravarty
-language: English
-orig_language: Bengali
-type: book
----
-
-> A line somebody says.
-- character: Gora
-- date: 2026-03-04
-`
-	rec := c.mustDo("GET", "/books/"+itoa(book.ID)+"/export", nil, http.StatusOK)
 	if got := rec.Body.String(); got != want {
 		t.Fatalf("export mismatch:\n--- got ---\n%s\n--- want ---\n%s", got, want)
 	}

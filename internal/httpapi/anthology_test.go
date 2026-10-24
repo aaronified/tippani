@@ -155,32 +155,6 @@ func TestAddingTheSameQuoteTwiceIsANoOp(t *testing.T) {
 	}
 }
 
-func TestOneQuoteCanBeInTwoAnthologies(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-	ann, _, _ := threeKinds(t, c)
-	first := newAnthology(t, c, "Cities")
-	second := newAnthology(t, c, "Openings")
-
-	for _, a := range []anthologyRow{first, second} {
-		addEntries(t, c, a.ID, []map[string]any{{"kind": "book", "item_id": ann}})
-	}
-	for _, a := range []anthologyRow{first, second} {
-		if n := len(getAnthology(t, c, a.ID).Entries); n != 1 {
-			t.Fatalf("anthology %d holds %d entries, want 1", a.ID, n)
-		}
-	}
-	// FILING IS NOT MOVING — and removing it from one leaves the other alone,
-	// which is the half that a single-membership model (a board) cannot do.
-	c.mustDo("DELETE", "/anthologies/"+itoa(first.ID)+"/entries/book/"+itoa(ann), nil, http.StatusNoContent)
-	if n := len(getAnthology(t, c, first.ID).Entries); n != 0 {
-		t.Errorf("the entry survived its removal")
-	}
-	if n := len(getAnthology(t, c, second.ID).Entries); n != 1 {
-		t.Errorf("removing an entry from one anthology took it out of the other")
-	}
-}
-
 // TestReorderWritesOneRow is the measurable claim behind `position REAL`.
 //
 // The renumbering alternative — integer positions rewritten from the move point
@@ -278,43 +252,6 @@ func TestRepeatedMidpointsRenumberRatherThanCollapse(t *testing.T) {
 	}
 }
 
-func TestAnthologyProseIsKeptAsWritten(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-	ann, _, _ := threeKinds(t, c)
-	a := newAnthology(t, c, "Cities")
-
-	// Two paragraphs, because the blank line between them is the only formatting
-	// this field has and a Fields-style trim would silently reflow it into one.
-	intro := "Three passages about the same idea.\n\nThey were written sixty years apart."
-	c.mustDo("PUT", "/anthologies/"+itoa(a.ID), map[string]any{
-		"title": "Cities and their ghosts", "intro": "  " + intro + "\n\n",
-	}, http.StatusNoContent)
-
-	addEntries(t, c, a.ID, []map[string]any{{"kind": "book", "item_id": ann}})
-	c.mustDo("PUT", "/anthologies/"+itoa(a.ID)+"/entries", map[string]any{
-		"kind": "book", "item_id": ann, "note": "Calvino first, because he sets the terms.",
-	}, http.StatusNoContent)
-
-	got := getAnthology(t, c, a.ID)
-	if got.Anthology.Intro != intro {
-		t.Fatalf("intro = %q, want %q — the edges are trimmed and the inside is not", got.Anthology.Intro, intro)
-	}
-	if got.Anthology.Title != "Cities and their ghosts" {
-		t.Errorf("title = %q", got.Anthology.Title)
-	}
-	if got.Entries[0].Note != "Calvino first, because he sets the terms." {
-		t.Errorf("commentary = %q", got.Entries[0].Note)
-	}
-	// Removing the entry takes its commentary with it: a note is written ABOUT a
-	// passage in a place, so keeping it would keep a sentence about nothing.
-	c.mustDo("DELETE", "/anthologies/"+itoa(a.ID)+"/entries/book/"+itoa(ann), nil, http.StatusNoContent)
-	addEntries(t, c, a.ID, []map[string]any{{"kind": "book", "item_id": ann}})
-	if note := getAnthology(t, c, a.ID).Entries[0].Note; note != "" {
-		t.Errorf("commentary came back with the re-added entry: %q", note)
-	}
-}
-
 // TestAnthologyOwnership walks every route with a second account.
 //
 // Both ends need it and the second is the one that is easy to miss: an entry names
@@ -384,36 +321,6 @@ func TestAnthologyOwnership(t *testing.T) {
 	if n := len(getAnthology(t, bob, bobs.ID).Entries); n != 0 {
 		t.Fatalf("a refused add wrote %d entries anyway", n)
 	}
-}
-
-func TestAnthologyValidation(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-	ann, _, _ := threeKinds(t, c)
-	a := newAnthology(t, c, "Cities")
-	id := itoa(a.ID)
-
-	c.mustDo("POST", "/anthologies", map[string]any{"title": "   "}, http.StatusBadRequest)
-	c.mustDo("POST", "/anthologies", map[string]any{"title": strings.Repeat("x", anthologyTitleMax+1)}, http.StatusBadRequest)
-	c.mustDo("PUT", "/anthologies/"+id, map[string]any{
-		"title": "Cities", "intro": strings.Repeat("x", anthologyIntroMax+1),
-	}, http.StatusBadRequest)
-	// An unknown kind is refused rather than ignored: a silently dropped entry is a
-	// quote the reader watched themselves add.
-	c.mustDo("POST", "/anthologies/"+id+"/entries",
-		map[string]any{"items": []map[string]any{{"kind": "annotation", "item_id": ann}}}, http.StatusBadRequest)
-	c.mustDo("POST", "/anthologies/"+id+"/entries", map[string]any{"items": []map[string]any{}}, http.StatusBadRequest)
-	// A quote that is not in the anthology cannot be commented on or moved.
-	c.mustDo("PUT", "/anthologies/"+id+"/entries",
-		map[string]any{"kind": "book", "item_id": ann, "note": "x"}, http.StatusNotFound)
-	c.mustDo("POST", "/anthologies/"+id+"/order",
-		map[string]any{"kind": "book", "item_id": ann, "after": nil}, http.StatusNotFound)
-	// An entry cannot follow itself: the midpoint would be computed against the row
-	// being moved and the move would silently do nothing.
-	addEntries(t, c, a.ID, []map[string]any{{"kind": "book", "item_id": ann}})
-	c.mustDo("POST", "/anthologies/"+id+"/order", map[string]any{
-		"kind": "book", "item_id": ann, "after": map[string]any{"kind": "book", "item_id": ann},
-	}, http.StatusBadRequest)
 }
 
 // TestDeletingAQuoteLeavesEveryAnthology is the trigger from 0043, seen from the

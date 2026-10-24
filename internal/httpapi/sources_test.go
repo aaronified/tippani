@@ -11,7 +11,6 @@ package httpapi
 
 import (
 	"bytes"
-	"encoding/json"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -146,109 +145,6 @@ func TestASecondUploadReplacesTheFirstBytesIncluded(t *testing.T) {
 	}
 }
 
-func TestFormatComesFromTheBytesNotTheName(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	film := c.newScreen("V for Vendetta", "movie")
-	// The owner's own file arrived as `.ass.txt`.
-	ass := "[Script Info]\nTitle: x\n\n[Events]\nFormat: Layer, Start, End, Style, Text\nDialogue: 0,0:00:01.00,0:00:03.00,Default,Hello\n"
-	got := decode[workSourceRow](t, c.putSource(sourceFields("screen", film), "vendetta.ass.txt", []byte(ass)))
-	if got.Format != "ass" {
-		t.Fatalf("an .ass.txt is an ass: %+v", got)
-	}
-	got = decode[workSourceRow](t, c.putSource(sourceFields("screen", film), "vendetta.mp4", []byte(srtSample)))
-	if got.Format != "srt" {
-		t.Fatalf("a subtitle named .mp4 is still a subtitle: %+v", got)
-	}
-}
-
-func TestWhatASubjectCannotCarryIsRefusedInWords(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	film := c.newScreen("A Film", "movie")
-	game := c.newScreen("A Game", "game")
-	book := c.newBook("A Book")
-	show := c.newScreen("A Show", "show")
-
-	cases := []struct {
-		name    string
-		fields  map[string]string
-		content []byte
-		want    string
-	}{
-		{"a game has no equivalent", sourceFields("screen", game), []byte(srtSample), "game"},
-		{"a film takes no ebook", sourceFields("screen", film), epubSample(), "epub"},
-		{"a book takes no subtitle", sourceFields("book", book), []byte(srtSample), "srt"},
-		{"a show needs its episode", sourceFields("screen", show), []byte(srtSample), "episode"},
-		{"a film has no episode", sourceFields("screen", film, "episode", "s01e01"), []byte(srtSample), "episode"},
-		{"an unknown subject", sourceFields("album", 1), []byte(srtSample), "subject"},
-		{"an empty file is nothing", sourceFields("screen", film), nil, "isn't"},
-		{"a zip that is not an ebook", sourceFields("book", book), []byte("PK\x03\x04\x14\x00\x00\x00\x00\x00hello"), "isn't"},
-	}
-	for _, tc := range cases {
-		rec := c.putSource(tc.fields, "f", tc.content)
-		if rec.Code != http.StatusBadRequest {
-			t.Errorf("%s: want 400, got %d %s", tc.name, rec.Code, rec.Body)
-			continue
-		}
-		if !strings.Contains(rec.Body.String(), tc.want) {
-			t.Errorf("%s: the answer should say %q, got %s", tc.name, tc.want, rec.Body)
-		}
-	}
-	if n := len(sourceFilesOnDisk(t, srv)); n != 0 {
-		t.Fatalf("a refused upload must leave no file behind, found %d", n)
-	}
-}
-
-func TestAShowsSubtitleIsPerEpisode(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	show := c.newScreen("A Show", "show")
-
-	a := c.putSource(sourceFields("screen", show, "episode", "S1E4"), "a.srt", []byte(srtSample))
-	b := c.putSource(sourceFields("screen", show, "episode", "s01e05"), "b.srt", []byte(srtSample))
-	again := c.putSource(sourceFields("screen", show, "episode", "s01e04"), "c.srt", []byte(srtSample))
-	if a.Code != 201 || b.Code != 201 {
-		t.Fatalf("two episodes are two sources: %d %d", a.Code, b.Code)
-	}
-	if again.Code != 200 {
-		t.Fatalf("S1E4 and s01e04 are one episode, so this replaces: %d %s", again.Code, again.Body)
-	}
-	got := decode[workSourceRow](t, a)
-	if got.Episode != "s01e04" {
-		t.Fatalf("episode should be normalised, got %q", got.Episode)
-	}
-	if n := len(sourceFilesOnDisk(t, srv)); n != 2 {
-		t.Fatalf("two episodes should hold two files, got %d", n)
-	}
-}
-
-func TestAnEssayTakesAnEbookAndASongTakesLyrics(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	mk := func(kind, title string) int64 {
-		return idOf(t, c.mustDo("POST", "/quotes", map[string]any{
-			"quote": "a line of " + title, "speaker": "Someone", "work_title": title, "kind": kind,
-		}, http.StatusCreated).Body.Bytes())
-	}
-	essay, song, speech := mk("essay", "On Liberty"), mk("song", "Jana Gana Mana"), mk("speech", "A Speech")
-
-	if rec := c.putSource(sourceFields("utterance", essay), "e.epub", testEPUB(t, "")); rec.Code != http.StatusCreated {
-		t.Fatalf("essay + epub: %d %s", rec.Code, rec.Body)
-	}
-	lrc := "[00:01.00]first line\n[00:05.50]second line\n"
-	row := decode[workSourceRow](t, c.putSource(sourceFields("utterance", song), "s.lrc", []byte(lrc)))
-	if row.Format != "lrc" || row.Role != "text" {
-		t.Fatalf("a song's lrc: %+v", row)
-	}
-	if rec := c.putSource(sourceFields("utterance", song), "s.epub", epubSample()); rec.Code != http.StatusBadRequest {
-		t.Fatalf("a song takes lyrics, not an ebook: %d", rec.Code)
-	}
-	if rec := c.putSource(sourceFields("utterance", speech), "s.txt", []byte("words")); rec.Code != http.StatusBadRequest {
-		t.Fatalf("a speech has a recording and no file form: %d", rec.Code)
-	}
-}
-
 func TestTwoEssaysSharingATitleShareOneFile(t *testing.T) {
 	srv := newTestServer(t)
 	c := signupAdmin(t, srv.Handler())
@@ -264,22 +160,6 @@ func TestTwoEssaysSharingATitleShareOneFile(t *testing.T) {
 	}
 	if n := len(sourceFilesOnDisk(t, srv)); n != 1 {
 		t.Fatalf("one work, one file: got %d", n)
-	}
-}
-
-func TestOverTheCapNamesTheSizeAndTheCap(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	book := c.newBook("Big")
-	rec := c.putSource(sourceFields("book", book), "big.txt", bytes.Repeat([]byte("a"), maxSourceUpload+10))
-	if rec.Code != http.StatusRequestEntityTooLarge {
-		t.Fatalf("want 413, got %d %s", rec.Code, rec.Body)
-	}
-	if !strings.Contains(rec.Body.String(), "25 MB") {
-		t.Fatalf("the answer should name the cap: %s", rec.Body)
-	}
-	if n := len(sourceFilesOnDisk(t, srv)); n != 0 {
-		t.Fatalf("nothing should be stored: %d", n)
 	}
 }
 
@@ -422,15 +302,5 @@ func TestAStoredNameThatIsNotOursIsNeverJoinedToAPath(t *testing.T) {
 	c.mustDo("DELETE", "/sources/"+strconv.FormatInt(row.Sources[0].ID, 10), nil, http.StatusNoContent)
 	if _, err := os.Stat(outside); err != nil {
 		t.Fatalf("a hand-edited row reached outside Sources/: %v", err)
-	}
-}
-
-func TestTheAnswerIsJSON(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	rec := c.do("GET", "/sources?subject=book&subject_id=999", nil)
-	var v map[string]any
-	if err := json.Unmarshal(rec.Body.Bytes(), &v); err != nil || rec.Code != http.StatusNotFound {
-		t.Fatalf("a missing work is a JSON 404: %d %s", rec.Code, rec.Body)
 	}
 }

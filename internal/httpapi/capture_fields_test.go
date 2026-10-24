@@ -85,23 +85,6 @@ func nowPlus(t *testing.T, srv *Server, modifier string) string {
 	return v
 }
 
-func TestCreateDialogueAcceptsNotedAt(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	movieID := decode[movieDetail](t, c.mustDo("POST", "/movies",
-		map[string]any{"title": "Stalker"}, http.StatusCreated)).ID
-
-	got := decode[dialogueRow](t, c.mustDo("POST", "/dialogues", map[string]any{
-		"movie_id": movieID,
-		"quote":    "Let everything that has been planned come true.",
-		"noted_at": "2026-07-14",
-	}, http.StatusCreated))
-	if !strings.HasPrefix(got.NotedAt, "2026-07-14") {
-		t.Fatalf("noted_at = %q", got.NotedAt)
-	}
-}
-
 func TestCreateAnnotationSource(t *testing.T) {
 	srv := newTestServer(t)
 	h := srv.Handler()

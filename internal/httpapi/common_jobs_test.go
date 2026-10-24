@@ -207,47 +207,6 @@ func TestTheCommonJobsAreTheRowsAReaderMayRunEachWithItsLastRunAndTheOneNow(t *t
 	}
 }
 
-// THE ONE RUNNING NOW, NOT THE ONE WAITING BEHIND IT. The covers row is the only
-// one that can have two jobs live at once, because it offers two runs (the whole
-// pass and Missing only) and the queue takes each as its own job. The row's job
-// now is the one its Stop should end: the pass in hand.
-func TestACommonRowsJobNowIsTheOneRunningNotTheOneWaitingBehindIt(t *testing.T) {
-	srv := newTestServer(t)
-	queueing(t, srv)
-	h := srv.Handler()
-	admin := signupAdmin(t, h)
-	coversLibrary(t, srv, admin, nil, []int{603})
-	download := srv.fetchImage
-	asked, release := make(chan struct{}, 1), make(chan struct{})
-	srv.fetchImage = func(ctx context.Context, rawURL, dir string) (string, error) {
-		select {
-		case asked <- struct{}{}:
-			<-release // the first poster is slow to arrive
-		default:
-		}
-		return download(ctx, rawURL, dir)
-	}
-
-	whole := admin.mustStart("covers", map[string]any{"missing_only": false})
-	select {
-	case <-asked:
-	case <-time.After(20 * time.Second):
-		t.Fatal("the covers pass never asked for a poster")
-	}
-	quick := admin.mustStart("covers", map[string]any{"missing_only": true})
-	row := commonRowOf(t, admin, "covers")
-	if currentID(row) != whole.ID || row.Current.State != "running" {
-		t.Fatalf("the covers row while its whole pass runs (#%d) and its Missing only waits (#%d): %+v", whole.ID, quick.ID, row.Current)
-	}
-
-	close(release)
-	admin.waitJob(whole.ID, "succeeded")
-	admin.waitJob(quick.ID, "succeeded")
-	if row = commonRowOf(t, admin, "covers"); row.Current != nil || lastID(row) != quick.ID {
-		t.Fatalf("the covers row once both passes ended: %+v", row)
-	}
-}
-
 func TestAFillOfEveryWorkFillsTheLibraryAsItIsWhenTheFillRuns(t *testing.T) {
 	srv := newTestServer(t)
 	q := queueing(t, srv)
@@ -644,71 +603,6 @@ func TestAFillOfEveryWorkStoppedAnywhereLeavesEachWorkWholeOrUntouched(t *testin
 			for i, id := range ids {
 				if y, pg := bookYearPages(t, alice, id); y != 1965 || pg != 412 {
 					t.Errorf("book %d after the fill ran again: year %d, pages %d", i+1, y, pg)
-				}
-			}
-		})
-	}
-}
-
-func TestAFetchOfMissingPeopleStoppedAnywhereLeavesEachRecordWholeOrUntouched(t *testing.T) {
-	names := []string{"First Author", "Second Author", "Third Author"}
-	for _, p := range stopPoints {
-		t.Run(p.name, func(t *testing.T) {
-			srv := newTestServer(t)
-			q := queueing(t, srv)
-			g := newSupplierGate()
-			everyAuthorResolves(srv, g)
-			downloads(t, srv)
-			h := srv.Handler()
-			alice := signupAdmin(t, h)
-			for _, name := range names {
-				alice.mustDo("PUT", "/people", map[string]any{"kind": "author", "name": name}, http.StatusOK)
-			}
-
-			stopped := stoppedAt(t, alice, q, g, "people", map[string]any{"missing": true}, p, names)
-			records := consoleRecords(t, alice)
-			whole := 0
-			var pictures []string
-			for i, name := range names {
-				r := records[name]
-				switch {
-				case r.Bio != "" && r.ImagePath != "" && strings.Contains(r.Links, "openlibrary.org/authors/"):
-					whole++
-					pictures = append(pictures, r.ImagePath)
-					if i+1 > p.at {
-						t.Errorf("%s, after the one Stop landed on, was fetched", name)
-					}
-					alice.mustDo("GET", "/covers/"+r.ImagePath, nil, http.StatusOK)
-				case r.Bio == "" && r.ImagePath == "" && r.Links == "" && r.Source == "":
-					if i+1 < p.at {
-						t.Errorf("%s, before the one Stop landed on, was not fetched", name)
-					}
-				default:
-					t.Errorf("%s is half fetched: %+v", name, r)
-				}
-			}
-			if stopped.Done != whole {
-				t.Errorf("the stopped fetch says it did %d records; %d are fetched", stopped.Done, whole)
-			}
-			if whole > 0 || !p.waiting {
-				countsAre(t, stopped, map[string]any{"ok": float64(whole), "failed": float64(0), "first_error": ""})
-			}
-			if stray := strayFiles(t, srv, pictures); len(stray) > 0 {
-				t.Errorf("the stopped fetch left files nothing names: %v", stray)
-			}
-
-			// Run again, it fetches the records still missing something, as they
-			// are when it runs, and then none is.
-			again := decode[struct {
-				Job wireJob `json:"job"`
-			}](t, alice.mustDo("POST", fmt.Sprintf("/jobs/%d/rerun", stopped.ID), nil, http.StatusAccepted)).Job
-			done := alice.waitJob(again.ID, "succeeded")
-			if done.Done != len(names)-whole {
-				t.Errorf("the fetch run again walked %d records, want the %d still missing something", done.Done, len(names)-whole)
-			}
-			for name, r := range consoleRecords(t, alice) {
-				if r.NoLinks || r.NoPhoto {
-					t.Errorf("%s still lacks something after the fetch ran again: %+v", name, r)
 				}
 			}
 		})

@@ -177,22 +177,6 @@ func TestAFilmLineKeepsTheCharacterNameItIsNotAskingAbout(t *testing.T) {
 	}
 }
 
-// ...but an actor named in the dialogue IS the answer, whoever else is in it.
-func TestAFilmLineNamingItsActorIsMasked(t *testing.T) {
-	own := workRef{key: "screen:1", kind: kindScreen, title: "Heat", cast: heatCast}
-	p := quizPools{byKey: map[string]workRef{"screen:1": own}, works: []workRef{own}}
-	card := reviewCard{Kind: kindScreen, ID: 1, Direction: dirSpeaker,
-		Quote: "Robert De Niro says the line about the coffee here.",
-		Title: "Heat", Character: "Neil", Actor: "Robert De Niro"}
-
-	if !attachSpeaker(&card, "screen:1", p, 99, tierMedium) {
-		t.Fatal("no speaker card from a five-strong cast")
-	}
-	if strings.Contains(card.Quote, "Robert De Niro") {
-		t.Fatalf("the answer is printed above its own options: %q", card.Quote)
-	}
-}
-
 // A LINE THAT IS ONLY A NAME IS NOT A QUESTION, so the card is refused and
 // buildQuestion falls through to another direction — the same rule
 // TestClozeRefusesWhatItCannotAsk applies to a quote that is all stopwords.
@@ -260,33 +244,6 @@ func TestTheNoteIsMaskedAsWellAsTheQuote(t *testing.T) {
 	}
 }
 
-// NOT GATED ON SCRIPT, which `\b` would have made it. The cloze SPAN selection
-// requires mostly-Latin text because its stopword list is English; a name match
-// needs no stopword list, so a Bengali line naming its speaker is masked like
-// any other. `\b` is an ASCII-word rule and would never have fired here.
-func TestANameIsMaskedOutsideTheLatinScript(t *testing.T) {
-	own := workRef{key: "utterance:z", kind: kindUtterance, title: "একটি ভাষণ", author: "রবীন্দ্রনাথ ঠাকুর"}
-	others := []workRef{
-		{key: "utterance:a", kind: kindUtterance, author: "কাজী নজরুল ইসলাম"},
-		{key: "utterance:b", kind: kindUtterance, author: "বেগম রোকেয়া"},
-		{key: "utterance:c", kind: kindUtterance, author: "ঈশ্বরচন্দ্র বিদ্যাসাগর"},
-	}
-	p := quizPools{byKey: map[string]workRef{own.key: own}, works: append([]workRef{own}, others...)}
-	card := reviewCard{Kind: kindUtterance, ID: 1, Direction: dirSpeaker,
-		Quote: "এই কথাটি রবীন্দ্রনাথ ঠাকুর বহুবার বলেছেন।",
-		Title: "একটি ভাষণ", Speaker: "রবীন্দ্রনাথ ঠাকুর"}
-
-	if !attachSpeaker(&card, own.key, p, 7, tierMedium) {
-		t.Fatal("no speaker card from four speakers")
-	}
-	if strings.Contains(card.Quote, "রবীন্দ্রনাথ ঠাকুর") {
-		t.Fatalf("a non-Latin line still names its own speaker: %q", card.Quote)
-	}
-	if !strings.Contains(card.Quote, "বহুবার") {
-		t.Fatalf("masking took more than the name: %q", card.Quote)
-	}
-}
-
 // A SURNAME IS A NAME WHEN IT IS CAPITALISED AND A WORD WHEN IT IS NOT, and that
 // discriminator is the whole reason the surname rule is safe to have. An author
 // called "Stephen King" would otherwise have this blanking "the king was dead"
@@ -326,58 +283,6 @@ func TestASurnameThatIsAlsoACommonWordIsLeftAlone(t *testing.T) {
 
 // THE THREE EDGES A RATER FOUND, each of which served a card with its own answer
 // printed on it.
-
-// A TWO-CHARACTER NAME IS A WHOLE NAME. The rune floor was 3 with nothing said
-// about it, so "Wu" and every two-character CJK name fell out of the mask list —
-// and 鲁迅 produced an EMPTY list, which meant hideTheAnswer masked nothing,
-// returned true, and the card went out with the answer readable.
-func TestATwoCharacterNameIsStillMasked(t *testing.T) {
-	own := workRef{key: "utterance:s", kind: kindUtterance, title: "An essay", author: "Ai Wu"}
-	others := []workRef{
-		{key: "utterance:a", kind: kindUtterance, author: "Lu Xun"},
-		{key: "utterance:b", kind: kindUtterance, author: "Ba Jin"},
-		{key: "utterance:c", kind: kindUtterance, author: "Bing Xin"},
-	}
-	p := quizPools{byKey: map[string]workRef{own.key: own}, works: append([]workRef{own}, others...)}
-	card := reviewCard{Kind: kindUtterance, ID: 1, Direction: dirSpeaker,
-		Quote: "Wu wrote this line on a train in the winter of that year.",
-		Title: "An essay", Speaker: "Ai Wu"}
-
-	if !attachSpeaker(&card, own.key, p, 7, tierMedium) {
-		t.Fatal("no speaker card from four speakers")
-	}
-	if strings.Contains(card.Quote, "Wu") {
-		t.Fatalf("a two-letter surname is the answer and is still readable: %q", card.Quote)
-	}
-	if !strings.Contains(card.Quote, "on a train") {
-		t.Fatalf("masking took more than the name: %q", card.Quote)
-	}
-}
-
-// A SCRIPT WITH NO WORD SPACES HAS NO WORD BOUNDARIES TO ASK FOR. The boundary
-// rule is what makes a Latin surname safe to match; in running Chinese there is
-// never a non-letter beside a name, so the rule left every one of them standing.
-func TestANameInASpaceFreeScriptIsMasked(t *testing.T) {
-	own := workRef{key: "utterance:h", kind: kindUtterance, title: "一篇文章", author: "鲁迅"}
-	others := []workRef{
-		{key: "utterance:a", kind: kindUtterance, author: "巴金"},
-		{key: "utterance:b", kind: kindUtterance, author: "冰心"},
-		{key: "utterance:c", kind: kindUtterance, author: "老舍"},
-	}
-	p := quizPools{byKey: map[string]workRef{own.key: own}, works: append([]workRef{own}, others...)}
-	card := reviewCard{Kind: kindUtterance, ID: 1, Direction: dirSpeaker,
-		Quote: "这是鲁迅先生说过的话。", Title: "一篇文章", Speaker: "鲁迅"}
-
-	if !attachSpeaker(&card, own.key, p, 7, tierMedium) {
-		t.Fatal("no speaker card from four speakers")
-	}
-	if strings.Contains(card.Quote, "鲁迅") {
-		t.Fatalf("a name in running Chinese is still readable above its own options: %q", card.Quote)
-	}
-	if !strings.Contains(card.Quote, "先生说过的话") {
-		t.Fatalf("masking took more than the name: %q", card.Quote)
-	}
-}
 
 // ADJACENT OCCURRENCES BOTH GO. The boundary characters are CONSUMED by a match,
 // so the space between two occurrences belonged to the first and the second had

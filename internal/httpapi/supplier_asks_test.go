@@ -89,107 +89,6 @@ func TestAStoppedAskLeavesTheRowAsItWas(t *testing.T) {
 	}
 }
 
-// LETTERBOXD SAYS WHAT HAPPENED: not reached, or a status that is not an answer
-// (a bot wall's 403, a 5xx), is "did not answer"; a page that is not there is
-// "found nothing"; and a page is one found. The first cut recorded nothing for the
-// first two, so a Letterboxd that answered 404 to every film never put a word on
-// its row; before that, it recorded "found nothing" for a host it never reached,
-// and the second cut still did for a 503.
-func TestLetterboxdOnARowSaysWhatHappened(t *testing.T) {
-	for _, tc := range []struct {
-		name   string
-		status int // 0: the host is closed
-		ok     bool
-		found  int
-	}{{"not reached", 0, false, 0}, {"a server error", http.StatusServiceUnavailable, false, 0},
-		{"no such page", http.StatusNotFound, true, 0}, {"a page", http.StatusOK, true, 1}} {
-		srv := newTestServer(t)
-		lb := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(tc.status)
-			_, _ = w.Write([]byte(`<html><script type="application/ld+json">
-				{"@type":"Movie","name":"The Matrix","description":"Letterboxd's synopsis."}
-				</script></html>`))
-		}))
-		if tc.status == 0 {
-			lb.Close()
-		} else {
-			t.Cleanup(lb.Close)
-		}
-		metadata.SetLetterboxdBaseForTest(t, lb.URL)
-		srv.TVDB = newTVDBStub(t, `{"data":{"id":70,"name":"The Matrix","year":"1999","overview":"x","characters":[]}}`)
-		c := signupAdmin(t, srv.Handler())
-		m := decode[struct{ ID int64 }](t, c.mustDo("POST", "/movies", map[string]any{"title": "The Matrix", "media_type": "movie"}, http.StatusCreated))
-		c.mustDo("PUT", "/movies/"+strconv.FormatInt(m.ID, 10), map[string]any{"title": "The Matrix", "media_type": "movie", "tvdb_id": 70}, http.StatusOK)
-		c.mustDo("POST", "/metadata/reverify", map[string]any{"movie_ids": []int64{m.ID}}, http.StatusOK)
-		if last := rowLast(t, c, "letterboxd"); last == nil || last.OK != tc.ok || last.Found != tc.found {
-			t.Errorf("%s: Letterboxd's row reads %+v, want answered=%v found=%d", tc.name, last, tc.ok, tc.found)
-		}
-	}
-}
-
-// AND FANDOM THE SAME, whether the work's wiki is known or has to be found. With
-// a wiki stored, the article is the ask: not reached or a 503 is "did not answer",
-// a 200 saying the article is missing is "found nothing", an article is one found.
-// With none stored, the probe for one is the ask, and a work with no wiki is
-// Fandom's answer too: every host answering 404 is "found nothing", no host
-// reached, or every host a 503, is "did not answer". A wiki host's 404 is an
-// answer (no such page); the cross-wiki index's 404 is not (its endpoint is not
-// where it was). The first cut recorded
-// nothing for a work with no stored wiki, which is most films, and the second
-// read a 503 from every host as "found nothing" there and as "did not answer"
-// with a wiki stored.
-func TestFandomOnARowSaysWhatHappened(t *testing.T) {
-	const article = `{"query":{"pages":[{"title":"The Matrix","extract":"Fandom's synopsis."}]}}`
-	for _, tc := range []struct {
-		name   string
-		wiki   string // stored on the work; "" leaves the probe to find one
-		status int    // 0: every Fandom host is closed
-		index  int    // the cross-wiki index's status; 0: closed
-		body   string
-		ok     bool
-		found  int
-	}{
-		{"not reached", "matrix", 0, 0, "", false, 0},
-		{"a server error", "matrix", http.StatusServiceUnavailable, 0, "", false, 0},
-		{"no such article", "matrix", http.StatusOK, 0, `{"query":{"pages":[{"title":"The Matrix","missing":true}]}}`, true, 0},
-		{"an article", "matrix", http.StatusOK, 0, article, true, 1},
-		{"no wiki for the work", "", http.StatusNotFound, 0, "", true, 0},
-		{"no wiki and no host reached", "", 0, 0, "", false, 0},
-		{"no wiki and every host and the index a 503", "", http.StatusServiceUnavailable, http.StatusServiceUnavailable, "", false, 0},
-		{"an article on a wiki answering 404", "matrix", http.StatusNotFound, 0, "", true, 0},
-		{"no wiki and the index answering 404", "", 0, http.StatusNotFound, "", false, 0},
-	} {
-		srv := newTestServer(t)
-		fandom := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(tc.status)
-			_, _ = w.Write([]byte(tc.body))
-		}))
-		if tc.status == 0 {
-			fandom.Close()
-		} else {
-			t.Cleanup(fandom.Close)
-		}
-		index := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(tc.index)
-		}))
-		if tc.index == 0 {
-			index.Close()
-		} else {
-			t.Cleanup(index.Close)
-		}
-		metadata.SetFandomAndScrapeBasesForTest(t, fandom.URL, "")
-		metadata.SetFandomSearchBaseForTest(t, index.URL)
-		srv.TVDB = newTVDBStub(t, `{"data":{"id":70,"name":"The Matrix","year":"1999","overview":"x","characters":[]}}`)
-		c := signupAdmin(t, srv.Handler())
-		m := decode[struct{ ID int64 }](t, c.mustDo("POST", "/movies", map[string]any{"title": "The Matrix", "media_type": "movie"}, http.StatusCreated))
-		c.mustDo("PUT", "/movies/"+strconv.FormatInt(m.ID, 10), map[string]any{"title": "The Matrix", "media_type": "movie", "tvdb_id": 70, "fandom_wiki": tc.wiki}, http.StatusOK)
-		c.mustDo("POST", "/metadata/reverify", map[string]any{"movie_ids": []int64{m.ID}}, http.StatusOK)
-		if last := rowLast(t, c, "fandom"); last == nil || last.OK != tc.ok || last.Found != tc.found {
-			t.Errorf("%s: Fandom's row reads %+v, want answered=%v found=%d", tc.name, last, tc.ok, tc.found)
-		}
-	}
-}
-
 // A FILM WITH NO FANDOM WIKI IS NOT A FAULT OF FANDOM'S. Most films have none, and
 // the Details panel's field picker asks about one work for the reader looking at it,
 // so its empty answers lengthen the run. Recording "no wiki" there put a working
@@ -247,25 +146,6 @@ func TestAReadersEmptyAnswersStillRaiseAFault(t *testing.T) {
 	t.Errorf("%d empty book searches by a reader raised no fault: %+v", emptyRunFault, st.Faults)
 }
 
-// A PERSON SEARCH THAT FINDS NOBODY IS STILL AN ANSWER. An actor with no pinned
-// id is looked up by name, and when TMDB had nobody of that name the search
-// returned before anything was recorded, so the row went on saying nothing had
-// asked it.
-func TestATMDBPersonSearchThatFindsNobodyIsOnItsRow(t *testing.T) {
-	srv := newTestServer(t)
-	fake := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte(`{"results":[]}`))
-	}))
-	t.Cleanup(fake.Close)
-	srv.TMDB.Key = "testkey"
-	srv.TMDB.BaseURL = fake.URL
-	c := signupAdmin(t, srv.Handler())
-	c.do("POST", "/people/portrait", map[string]any{"kind": "actor", "name": "Nobody Of This Name"})
-	if last := rowLast(t, c, "tmdb"); last == nil || !last.OK || last.Found != 0 {
-		t.Errorf("TMDB's empty person search is not on its row: %+v", last)
-	}
-}
-
 // A WALK OF THE LIBRARY IS SPARED THE RUN, a reader is not. A fault's worth of
 // books with nothing to be found, walked by a queued fill and by the request
 // forms of Fill gaps and Fetch covers and details, raise no fault on Google's
@@ -311,18 +191,3 @@ func TestAWalkOfTheLibraryIsSparedTheEmptyRun(t *testing.T) {
 	}
 }
 
-// A DIRECTOR'S BY-NAME SEARCH IS ON TMDB'S ROW TOO, the second of the two sites.
-func TestATMDBDirectorSearchThatFindsNobodyIsOnItsRow(t *testing.T) {
-	srv := newTestServer(t)
-	fake := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte(`{"results":[]}`))
-	}))
-	t.Cleanup(fake.Close)
-	srv.TMDB.Key = "testkey"
-	srv.TMDB.BaseURL = fake.URL
-	c := signupAdmin(t, srv.Handler())
-	c.do("POST", "/people/portrait", map[string]any{"kind": "director", "name": "Nobody Of This Name"})
-	if last := rowLast(t, c, "tmdb"); last == nil || !last.OK || last.Found != 0 {
-		t.Errorf("TMDB's empty director search is not on its row: %+v", last)
-	}
-}

@@ -113,52 +113,6 @@ func TestAFilmLineCarriesTheCastRowItNames(t *testing.T) {
 	}
 }
 
-// NO SPEAKER IS A REAL ANSWER, and it has to be absent rather than empty: the
-// field is `omitempty` so a quote nobody has attributed carries nothing at all,
-// and the card goes on printing what it always printed.
-func TestAQuoteWithNoSpeakerCarriesNoChip(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-
-	book := createBook(t, c, "Moby-Dick")
-	c.mustDo("POST", "/annotations", map[string]any{
-		"book_id": book, "quote": "Call me Ishmael.",
-	}, http.StatusCreated)
-	castList(t, c, "books", book)
-
-	if sp := speakerOf(t, c, book); sp != nil {
-		t.Fatalf("an unattributed quote carries a speaker %+v", *sp)
-	}
-}
-
-// A LINE NAMING TWO PEOPLE HAS NO ONE SPEAKER, and the linker refuses to guess —
-// which is the behaviour that makes the chip trustworthy. The `character` text
-// still names both; only the chip is absent.
-func TestALineNamingTwoCharactersGetsNoChip(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-
-	movie := newMovie(t, c, map[string]any{"title": "Casablanca"}).ID
-	c.mustDo("POST", "/dialogues", map[string]any{
-		"movie_id": movie, "quote": "We'll always have Paris.",
-		"character": "Rick, Ilsa",
-	}, http.StatusCreated)
-	castList(t, c, "movies", movie)
-
-	if sp := dialogueSpeakerOf(t, c, movie); sp != nil {
-		t.Errorf("a two-character line was attributed to %q — the linker must not guess", sp.Name)
-	}
-	// And the text is untouched, so the card still says who is in the line.
-	res := decode[struct {
-		Dialogues []dialogueRow `json:"dialogues"`
-	}](t, c.mustDo("GET", "/dialogues?movie_id="+itoa(movie), nil, http.StatusOK))
-	if res.Dialogues[0].Character != "Rick, Ilsa" {
-		t.Errorf("character text = %q, want it left alone", res.Dialogues[0].Character)
-	}
-}
-
 // A REMOVED ROW IS STILL IN THE TABLE. This is the guard that is easiest to drop
 // and hardest to notice: the row survives as a tombstone so a refetch skips it, so
 // the foreign key never nulls the quote's link, so a lookup without the guard

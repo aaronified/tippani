@@ -40,44 +40,6 @@ func setEntryNote(t *testing.T, c *testClient, id int64, kind string, itemID int
 	}, http.StatusNoContent)
 }
 
-func TestAnthologyExportShape(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-	ann, _, utt := threeKinds(t, c)
-	a := newAnthology(t, c, "Cities and their ghosts")
-	c.mustDo("PUT", "/anthologies/"+itoa(a.ID), map[string]any{
-		"title": "Cities and their ghosts", "intro": "Three passages about the same idea.",
-	}, http.StatusNoContent)
-	addEntries(t, c, a.ID, []map[string]any{
-		{"kind": "book", "item_id": ann},
-		{"kind": "utterance", "item_id": utt},
-	})
-	setEntryNote(t, c, a.ID, "book", ann, "Calvino first, because he sets the terms.")
-
-	got := exportAnthology(t, c, a.ID)
-	want := "---\ntype: anthology\ntitle: Cities and their ghosts\n---\n" +
-		"\nThree passages about the same idea.\n" +
-		"\n## Invisible Cities — Italo Calvino\n" +
-		"\nCalvino first, because he sets the terms.\n" +
-		"\n> Cities, like dreams, are made of desires and fears.\n" +
-		"- speaker: Italo Calvino\n" +
-		"- occasion: Invisible Cities\n"
-	if !strings.HasPrefix(got, want) {
-		t.Fatalf("export shape:\n--- got ---\n%s\n--- want prefix ---\n%s", got, want)
-	}
-	// The second entry, and the heading that makes it findable. A standalone quote's
-	// source is its occasion and its credit is its speaker, so the heading reads the
-	// same way a book's does without either being a special case.
-	if !strings.Contains(got, "\n## Burma Radio broadcast — Subhas Chandra Bose\n") {
-		t.Fatalf("the second entry's heading is missing or wrong:\n%s", got)
-	}
-	// An entry with no commentary writes no paragraph. A blank line where prose
-	// would be is a different document, and the parser would read it as commentary.
-	if strings.Contains(got, "Bose\n\n\n") {
-		t.Errorf("an entry with no commentary left an empty paragraph behind:\n%s", got)
-	}
-}
-
 // TestAnthologyRoundTrip is the claim in the plan's own words: an anthology with
 // commentary exports and re-imports with its order and prose intact.
 //

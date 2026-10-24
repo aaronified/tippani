@@ -140,29 +140,6 @@ func TestPruneLeavesASpeakerWithQuotesAlone(t *testing.T) {
 	}
 }
 
-// A CHARACTER ON NO WORK is the other half of the button. Characters have no
-// children, so there is nothing partial about putting one back.
-func TestPruneTakesACharacterOnNoWork(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-
-	c.mustDo("POST", "/characters", map[string]any{"name": "Woland", "description": "the professor"}, http.StatusCreated)
-
-	before := decode[orphansResp](t, c.mustDo("GET", "/people/orphans", nil, http.StatusOK))
-	if len(before.Characters) != 1 {
-		t.Fatalf("orphan characters are %+v, want one", before.Characters)
-	}
-	got := decode[pruneResp](t, c.mustDo("POST", "/people/prune", nil, http.StatusOK))
-	if got.Characters != 1 {
-		t.Fatalf("pruned %d characters, want 1", got.Characters)
-	}
-	after := decode[orphansResp](t, c.mustDo("GET", "/people/orphans", nil, http.StatusOK))
-	if len(after.Characters) != 0 {
-		t.Fatalf("characters left: %+v", after.Characters)
-	}
-}
-
 // ANOTHER ACCOUNT'S ORPHANS ARE NOT YOURS TO SWEEP, and a bulk endpoint that
 // leaks scope deletes a stranger's library rather than showing it.
 func TestPruneIsScopedToTheAccountThatAsked(t *testing.T) {

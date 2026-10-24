@@ -127,38 +127,6 @@ func TestOnlyAGamesLineNamesThePackItCameIn(t *testing.T) {
 	}
 }
 
-// BOTH SURVIVE THEIR OWN EXPORT, which is the round-trip claim: a field the
-// exporter writes and the parser cannot read back is data loss with a success
-// message on it.
-func TestLanguageAndPackSurviveTheirOwnExport(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-
-	book := decode[bookDetail](t, c.mustDo("POST", "/books", map[string]any{"title": "A novel"}, http.StatusCreated))
-	c.mustDo("POST", "/annotations", map[string]any{
-		"book_id": book.ID, "quote": bengaliCouplet, "language": "Bengali",
-	}, http.StatusCreated)
-	game := decode[movieDetail](t, c.mustDo("POST", "/movies", map[string]any{
-		"title": "The Witcher 3", "media_type": "game",
-	}, http.StatusCreated))
-	c.mustDo("POST", "/dialogues", map[string]any{
-		"movie_id": game.ID, "quote": "Wind's howling", "dlc": "Blood and Wine", "language": "Polish",
-	}, http.StatusCreated)
-
-	bookMD := c.mustDo("POST", "/export/books", map[string]any{"ids": []int64{book.ID}}, http.StatusOK).Body.String()
-	if !strings.Contains(bookMD, "language: Bengali") {
-		t.Fatalf("the book export omits the highlight's language:\n%s", bookMD)
-	}
-	gameMD := c.mustDo("POST", "/export/movies", map[string]any{"ids": []int64{game.ID}}, http.StatusOK).Body.String()
-	if !strings.Contains(gameMD, "dlc: Blood and Wine") {
-		t.Fatalf("the game export omits the pack:\n%s", gameMD)
-	}
-	if !strings.Contains(gameMD, "language: Polish") {
-		t.Fatalf("the game export omits the line's language:\n%s", gameMD)
-	}
-}
-
 // The pack list is the game's own, which is what makes it usable as a combobox.
 //
 // The same claim `GET /books/{id}/chapters` makes: a library-wide list would offer

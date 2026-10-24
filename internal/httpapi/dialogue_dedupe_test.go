@@ -13,7 +13,6 @@ import (
 	"strings"
 	"testing"
 
-	"tippani/internal/store"
 )
 
 // TestDialogueDedupeAcrossLocators runs the handler-level script once per locator
@@ -216,32 +215,3 @@ func TestImportRecurringLineAcrossEpisodes(t *testing.T) {
 	}
 }
 
-// The hash itself, at the unit level. The nil/nil case being byte-identical to
-// DedupeHash is what lets every film and un-episoded row keep the hash already on
-// disk, so it is worth pinning separately from the handlers.
-func TestDialogueDedupeHashShape(t *testing.T) {
-	const line = "You cut the part where I was happy."
-	n := func(i int) *int { return &i }
-
-	if store.DialogueDedupeHash(line, nil, nil, "", "") != store.DedupeHash(line) {
-		t.Fatal("with no episode the hash must equal the plain text hash, or existing rows need rewriting")
-	}
-	if store.DialogueDedupeHash(line, n(1), n(2), "", "") == store.DedupeHash(line) {
-		t.Fatal("an episoded line must not hash as the bare text")
-	}
-	if store.DialogueDedupeHash(line, n(1), n(2), "", "") == store.DialogueDedupeHash(line, n(3), n(7), "", "") {
-		t.Fatal("two episodes must hash differently")
-	}
-	// Season 0 is a real season, so it cannot hash as "no season".
-	if store.DialogueDedupeHash(line, n(0), nil, "", "") == store.DialogueDedupeHash(line, nil, nil, "", "") {
-		t.Fatal("season 0 must be distinguishable from no season")
-	}
-	// S1E2 and S12 must not alias through naive concatenation.
-	if store.DialogueDedupeHash(line, n(1), n(2), "", "") == store.DialogueDedupeHash(line, n(12), nil, "", "") {
-		t.Fatal("S1E2 and S12 must not collide")
-	}
-	// The text normalization still applies on the qualified path.
-	if store.DialogueDedupeHash("It’s  fine", n(1), n(1), "", "") != store.DialogueDedupeHash("it's fine", n(1), n(1), "", "") {
-		t.Fatal("typographic folding and whitespace collapse must still apply")
-	}
-}

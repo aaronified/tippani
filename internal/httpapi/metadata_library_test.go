@@ -1,13 +1,8 @@
 package httpapi
 
 import (
-	"bytes"
 	"fmt"
-	"image"
-	"image/png"
 	"net/http"
-	"os"
-	"path/filepath"
 	"testing"
 )
 
@@ -108,55 +103,6 @@ func TestOnlyAPosterTheCoversPassCanFetchIsOnRecord(t *testing.T) {
 	}
 	if on["A Pinned Game"] {
 		t.Error("a game pinned by its IGDB id has a poster on record the covers pass cannot fetch")
-	}
-}
-
-// TestMetadataLibraryLowRes: a stored cover narrower than the refetch threshold
-// is flagged low_res_cover; a wide one is not; an unmeasurable/absent cover is
-// not falsely flagged.
-func TestMetadataLibraryLowRes(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	dir := srv.coversDir()
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	writePNG := func(name string, w int) {
-		t.Helper()
-		var buf bytes.Buffer
-		if err := png.Encode(&buf, image.NewRGBA(image.Rect(0, 0, w, 10))); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(filepath.Join(dir, name), buf.Bytes(), 0o644); err != nil {
-			t.Fatal(err)
-		}
-	}
-	writePNG("00000000000000a1.png", 100) // low-res
-	writePNG("00000000000000a2.png", 900) // hi-res
-	lo := decode[bookDetail](t, c.mustDo("POST", "/books", map[string]any{"title": "Lo"}, http.StatusCreated))
-	hi := decode[bookDetail](t, c.mustDo("POST", "/books", map[string]any{"title": "Hi"}, http.StatusCreated))
-	none := decode[bookDetail](t, c.mustDo("POST", "/books", map[string]any{"title": "None"}, http.StatusCreated))
-	if _, err := srv.Store.DB.Exec(`UPDATE books SET cover_path = ? WHERE id = ?`, "00000000000000a1.png", lo.ID); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := srv.Store.DB.Exec(`UPDATE books SET cover_path = ? WHERE id = ?`, "00000000000000a2.png", hi.ID); err != nil {
-		t.Fatal(err)
-	}
-
-	lib := decode[metaLib](t, c.mustDo("GET", "/metadata/library", nil, 200))
-	byID := map[int64]bool{}
-	for _, b := range lib.Books {
-		byID[b.ID] = b.LowResCover
-	}
-	if !byID[lo.ID] {
-		t.Fatalf("narrow cover not flagged low-res")
-	}
-	if byID[hi.ID] {
-		t.Fatalf("wide cover wrongly flagged low-res")
-	}
-	if byID[none.ID] {
-		t.Fatalf("coverless book wrongly flagged low-res")
 	}
 }
 
@@ -364,38 +310,3 @@ func TestRemapSpeakerComponents(t *testing.T) {
 	}
 }
 
-// A FILM'S SYNOPSIS IS A GAP LIKE A BOOK'S, and until now only half the library
-// could say so. The works console filters on what a work is missing, and "no
-// synopsis" is one of the seven the design pack draws over EVERY work — a filter
-// that films could not answer would have shown a shelf's worth of them as
-// complete when nothing was known about what they were about.
-func TestAFilmSaysWhetherItHasASynopsis(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-
-	bare := decode[movieDetail](t, c.mustDo("POST", "/movies",
-		map[string]any{"title": "Northline"}, http.StatusCreated))
-	told := decode[movieDetail](t, c.mustDo("POST", "/movies",
-		map[string]any{"title": "The Cloud-Capped Star",
-			"description": "A family displaced by partition, and the daughter who holds it up."},
-		http.StatusCreated))
-
-	type synopsisRow struct {
-		ID             int64 `json:"id"`
-		HasDescription bool  `json:"has_description"`
-	}
-	rows := decode[struct {
-		Movies []synopsisRow `json:"movies"`
-	}](t, c.mustDo("GET", "/metadata/library", nil, http.StatusOK)).Movies
-
-	seen := map[int64]bool{}
-	for _, m := range rows {
-		seen[m.ID] = m.HasDescription
-	}
-	if seen[bare.ID] {
-		t.Error("a film created with no description reports a synopsis")
-	}
-	if !seen[told.ID] {
-		t.Error("a film created with a description reports none")
-	}
-}

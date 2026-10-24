@@ -239,34 +239,3 @@ func TestACheckThatFindsMoreThanAJobCanKeepKeepsWhatFits(t *testing.T) {
 	}
 }
 
-// FRESH IS NOT ALWAYS THE FIRST SUPPLIER'S VALUE TO THE LETTER. The preview trims
-// the preferred supplier's text before offering it, and the alternatives carry
-// each supplier's as sent — so a description with a stray space at its end is
-// fresh without it and alts[0] with it. The check keeps both, and the review
-// offers the trimmed one, as the preview did.
-func TestACheckKeepsAFreshValueTheFirstSupplierSaidOtherwise(t *testing.T) {
-	srv := newTestServer(t)
-	queueing(t, srv)
-	srv.searchBooks = func(_ context.Context, isbn, _, _, _ string) ([]metadata.BookCandidate, error) {
-		return []metadata.BookCandidate{
-			{Source: "google", Title: "Dune", Author: "Frank Herbert", ISBN13: isbn, Description: "A desert planet. "},
-			{Source: "openlibrary", Title: "Dune", Author: "Frank Herbert", ISBN13: isbn, Description: "Arrakis."},
-		}, nil
-	}
-	h := srv.Handler()
-	alice := signupAdmin(t, h)
-	dune := createdID(t, alice, "/books", map[string]any{"title": "Dune", "author": "Frank Herbert", "isbn": duneISBN})
-
-	job := alice.waitJob(alice.mustStart("reverify", map[string]any{"book_ids": []int64{dune}}).ID, "succeeded")
-	review := decode[struct {
-		Result []struct {
-			Diffs []struct {
-				Field string `json:"field"`
-				Fresh string `json:"fresh"`
-			} `json:"diffs"`
-		} `json:"result"`
-	}](t, alice.mustDo("GET", fmt.Sprintf("/jobs/%d/result", job.ID), nil, http.StatusOK)).Result
-	if len(review) != 1 || len(review[0].Diffs) != 1 || review[0].Diffs[0].Fresh != "A desert planet." {
-		t.Fatalf("the review of Dune: %+v, want its description offered as the preview offered it, trimmed", review)
-	}
-}

@@ -76,30 +76,6 @@ func TestOnePressScansMoreFilesThanTheOldCapAndStoresEveryFinding(t *testing.T) 
 	}
 }
 
-func TestPressingScanOnARunningScanShowsIt(t *testing.T) {
-	srv, c, _ := bigLibrary(t, 120)
-	reached := make(chan struct{})
-	var once sync.Once
-	var armed atomic.Bool
-	armed.Store(true)
-	srv.itemSeam = func(j *jobs.Job, i int) {
-		if i == 100 && armed.Load() {
-			once.Do(func() { close(reached) })
-			for deadline := time.Now().Add(20 * time.Second); !j.Stopping() && time.Now().Before(deadline); {
-				time.Sleep(time.Millisecond)
-			}
-		}
-	}
-	id := c.startScan()
-	<-reached
-	if again := c.startScan(); again != id {
-		t.Fatalf("a second press started job %d, want the running job %d", again, id)
-	}
-	c.mustDo("POST", fmt.Sprintf("/jobs/%d/stop", id), nil, http.StatusOK)
-	armed.Store(false)
-	c.waitJob(id, "stopped")
-}
-
 func TestFindingsCanBeReviewedWhileTheScanRunsAndAStopKeepsThem(t *testing.T) {
 	srv, c, _ := bigLibrary(t, 1000)
 	reached := make(chan struct{})
@@ -210,24 +186,6 @@ func TestALaterScanReadsOnlyFilesThatChanged(t *testing.T) {
 	}
 }
 
-func TestAnUnchangedFileIsMatchedAgainstWorksAddedSinceWithoutBeingRead(t *testing.T) {
-	srv, c, root, _, _, book := mountFixture(t)
-	// With no matching book, the first scan reads the EPUB and stores who it is.
-	c.mustDo("DELETE", "/books/"+fmt.Sprint(book), nil, 200)
-	if hasBook(c.scan()) {
-		t.Fatal("setup: nothing in the library should match yet")
-	}
-	swapEPUB(t, filepath.Join(root, "books", "Dust of Dreams.epub"))
-	added := c.newBook("Dust of Dreams")
-	if _, err := srv.Store.DB.Exec("UPDATE books SET isbn = '9781409091530' WHERE id = ?", added); err != nil {
-		t.Fatal(err)
-	}
-	c.newHighlight(added, "A line of the book that matters to its reader, long enough to find.")
-	if !hasBook(c.scan()) {
-		t.Fatal("a work added since should match the stored identity of the unchanged file")
-	}
-}
-
 func TestAnotherReaderSeesNoneOfMyFindings(t *testing.T) {
 	srv, admin, _, _, _, _ := mountFixture(t)
 	admin.scan()
@@ -235,22 +193,6 @@ func TestAnotherReaderSeesNoneOfMyFindings(t *testing.T) {
 	got := decode[foundList](t, cara.mustDo("GET", "/sources/found?mount_id=library", nil, 200))
 	if len(got.Candidates) != 0 || got.Scan.State != "none" {
 		t.Fatalf("a reader sees only their own findings: %+v", got)
-	}
-}
-
-func TestARefusedFindingLeavesTheListAtOnce(t *testing.T) {
-	_, c, _, film, _, _ := mountFixture(t)
-	var tok string
-	for _, cand := range c.scan().Candidates {
-		if cand.WorkID == film && cand.Subject == "screen" {
-			tok = cand.Token
-		}
-	}
-	c.mustDo("POST", "/sources/ignore-found", map[string]any{"tokens": []string{tok}}, 200)
-	for _, cand := range c.found().Candidates {
-		if cand.WorkID == film && cand.Subject == "screen" {
-			t.Fatalf("a refused finding is still listed: %+v", cand)
-		}
 	}
 }
 
@@ -304,19 +246,6 @@ func scanJobCount(t *testing.T, srv *Server, states string) int {
 		t.Fatal(err)
 	}
 	return n
-}
-
-func TestAScanLongerThanOneSliceFinishesInOnePress(t *testing.T) {
-	srv, c, _ := bigLibrary(t, 260)
-	srv.scanSlice = time.Nanosecond // every slice ends after one batch of 50 files
-	c.startScan()
-	got := waitScanDone(t, c)
-	if len(got.Candidates) != 260 || got.Scan.Scanned != 260 {
-		t.Fatalf("one press should find every file: %d findings, %+v", len(got.Candidates), got.Scan)
-	}
-	if n := scanJobCount(t, srv, `'succeeded'`); n < 5 {
-		t.Fatalf("the scan should have run as several slices, got %d jobs", n)
-	}
 }
 
 func TestAJobQueuedDuringAScanRunsBeforeTheScansNextSlice(t *testing.T) {

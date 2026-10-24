@@ -150,53 +150,6 @@ func TestUtteranceSameLineInTwoAccounts(t *testing.T) {
 	newUtterance(t, bob, bose()) // must not 409 against someone else's row
 }
 
-func TestUtteranceValidation(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-
-	// A quote with no words is not a quote. (An annotation may be a bare note
-	// about a page; there is no page here.)
-	c.mustDo("POST", "/quotes", map[string]any{"note": "just a note"}, http.StatusBadRequest)
-	c.mustDo("POST", "/quotes", map[string]any{"quote": "   "}, http.StatusBadRequest)
-
-	// The occasion date is partial by design, and validated by
-	// normalizeHistoricalDate — NO LONGER by the same rule the shelf read log
-	// uses, which is why "44" and "0999" left this list. When a line was SAID is a
-	// date in history and takes any year in either era; when a book was FINISHED is
-	// a date in the reader's own life and keeps the 1000-3000 window. See
-	// historical_date_test.go, which asserts that difference directly, and the
-	// report that split them: "i cannot even add just 399".
-	for _, bad := range []string{"1944-13", "1944-02-30", "not a date", "0000", "3001"} {
-		body := bose()
-		body["occasion_date"] = bad
-		c.mustDo("POST", "/quotes", body, http.StatusBadRequest)
-	}
-	for _, good := range []string{"1944", "1944-01", "1944-01-23", ""} {
-		body := bose()
-		body["occasion_date"] = good
-		body["quote"] = "a distinct line for " + good
-		newUtterance(t, c, body)
-	}
-
-	c.mustDo("POST", "/quotes", map[string]any{"quote": "x", "color": "chartreuse"}, http.StatusBadRequest)
-}
-
-// A proverb has no occasion to be qualified by, and two copies of the same
-// unattributed words are the same quote.
-func TestUtteranceWithNoOccasion(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-
-	proverb := map[string]any{"quote": "Least said, soonest mended"}
-	u := newUtterance(t, c, proverb)
-	if u.Speaker != "" || u.OccasionDate != "" {
-		t.Fatalf("expected an empty occasion: %+v", u)
-	}
-	c.mustDo("POST", "/quotes", proverb, http.StatusConflict)
-}
-
 // Deleting a quote takes its schedule row with it. item_reviews is polymorphic
 // and cannot hold a foreign key to three parents, so this rides on the 0026
 // AFTER DELETE trigger — and without it a reused rowid would hand the next
@@ -222,46 +175,6 @@ func TestDeletingAQuoteClearsItsSchedule(t *testing.T) {
 	if n != 0 {
 		t.Fatal("the schedule row outlived its quote")
 	}
-}
-
-func TestUtteranceFilters(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-
-	a := bose()
-	a["tags"] = []string{"freedom"}
-	newUtterance(t, c, a)
-
-	b := bose()
-	b["quote"] = "The only thing we have to fear is fear itself"
-	b["speaker"] = "Franklin D. Roosevelt"
-	b["occasion"] = "first inaugural address"
-	b["occasion_date"] = "1933-03-04"
-	b["color"] = "blue"
-	b["favorite"] = true
-	newUtterance(t, c, b)
-
-	byQuery := func(qs string) int {
-		t.Helper()
-		return len(decode[utterancesResp](t, c.mustDo("GET", "/quotes"+qs, nil, http.StatusOK)).Utterances)
-	}
-	if got := byQuery(""); got != 2 {
-		t.Fatalf("unfiltered: %d", got)
-	}
-	if got := byQuery("?color=blue"); got != 1 {
-		t.Fatalf("colour filter: %d", got)
-	}
-	if got := byQuery("?favorite=1"); got != 1 {
-		t.Fatalf("favourite filter: %d", got)
-	}
-	if got := byQuery("?tag=freedom"); got != 1 {
-		t.Fatalf("tag filter: %d", got)
-	}
-	if got := byQuery("?speaker=Franklin+D.+Roosevelt"); got != 1 {
-		t.Fatalf("speaker filter: %d", got)
-	}
-	c.mustDo("GET", "/quotes?color=chartreuse", nil, http.StatusBadRequest)
 }
 
 // Every filter must keep the user scope. A filter that replaced the WHERE

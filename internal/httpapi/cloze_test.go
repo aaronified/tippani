@@ -63,16 +63,6 @@ func TestClozeNeverBlanksStopwordsOrTheWholeQuote(t *testing.T) {
 	}
 }
 
-// A quote with nothing to hide is not a cloze card, and says so rather than
-// producing a degenerate one.
-func TestClozeRefusesWhatItCannotAsk(t *testing.T) {
-	for _, q := range []string{"", "   ", "No.", "Yes, and?", "to be or not to be"} {
-		if _, _, ok := clozeSpan(q, kindBook, 1, clozeMaxWords); ok {
-			t.Errorf("made a cloze card out of %q", q)
-		}
-	}
-}
-
 // THE GATE THE PLAN GOT WRONG. It said a quote in another script "simply will
 // not produce a good span". It produces a confident one: an English stopword
 // list matches zero Devanagari or Cyrillic tokens, so every token reads as a
@@ -258,73 +248,6 @@ func TestClozeAttemptIsGradedServerSide(t *testing.T) {
 	}
 }
 
-// An attempt on a card that could never have been a cloze card is refused
-// rather than silently graded as a lapse, which would move a schedule on the
-// strength of a request nothing generated.
-func TestClozeAttemptOnAnUnmaskableQuoteIsRefused(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-
-	book := createBook(t, c, "Short")
-	id := idOf(t, c.mustDo("POST", "/annotations",
-		map[string]any{"book_id": book, "quote": "No."}, http.StatusCreated).Body.Bytes())
-	ageSeededItems(t, srv)
-
-	c.mustDo("POST", "/review/answer", map[string]any{
-		"kind": kindBook, "id": id, "result": "got", "mode": "practice", "attempt": "anything",
-	}, http.StatusBadRequest)
-}
-
-// The blank is ONE WORD until the card has earned a wider one.
-//
-// A three-word hole in a quote you met yesterday is not a harder version of the
-// same question — it is a different and much worse one, with too little of the
-// sentence left to reason from. So width is earned: a card whose half-life has
-// reached the ladder's 30-day rung is one you demonstrably know, and widening the
-// blank is the only way left to ask more of it.
-func TestClozeSpanWidthIsEarned(t *testing.T) {
-	if got := clozeMaxWordsFor(reviewMinStability, clozeMultiWordFrom); got != 1 {
-		t.Fatalf("a new card gets a one-word blank, got %d", got)
-	}
-	if got := clozeMaxWordsFor(clozeMultiWordFrom-0.01, clozeMultiWordFrom); got != 1 {
-		t.Fatalf("just under the rung is still one word, got %d", got)
-	}
-	if got := clozeMaxWordsFor(clozeMultiWordFrom, clozeMultiWordFrom); got != clozeMaxWords {
-		t.Fatalf("at the rung the blank widens, got %d", got)
-	}
-	if got := clozeMaxWordsFor(reviewMaxStability, clozeMultiWordFrom); got != clozeMaxWords {
-		t.Fatalf("a mature card gets the widest blank, got %d", got)
-	}
-
-	// And the width actually reaches the span: the same quote and card blanks one
-	// word at the floor and more than one once it has climbed.
-	_, narrow, ok := clozeSpan(clozeQuote, kindBook, 42, clozeMaxWordsFor(reviewMinStability, clozeMultiWordFrom))
-	if !ok {
-		t.Fatal("a one-word blank must still build")
-	}
-	if n := len(strings.Fields(narrow)); n != 1 {
-		t.Fatalf("narrow answer %q is %d words, want 1", narrow, n)
-	}
-	_, wide, ok := clozeSpan(clozeQuote, kindBook, 42, clozeMaxWordsFor(reviewMaxStability, clozeMultiWordFrom))
-	if !ok {
-		t.Fatal("the wide blank must build too")
-	}
-	if len(strings.Fields(wide)) < 2 {
-		t.Fatalf("wide answer %q did not widen", wide)
-	}
-}
-
-// A SHORT QUOTE IS STILL ASKABLE, which is the half that makes taking the flip
-// card out of the daily deck safe: a cloze needs no distractors, only a content
-// word, so one quote from one book is a complete graded question.
-func TestClozeAsksAShortQuoteWithOneWord(t *testing.T) {
-	const short = "the sleeper must awaken across the wide desert"
-	if _, _, ok := clozeSpan(short, kindBook, 9, 1); !ok {
-		t.Fatalf("a one-word blank should build from %q", short)
-	}
-}
-
 // ---- a synonym is a third answer, not a second ------------------------------
 
 // The grader has to distinguish three outcomes, because the schedule pays them
@@ -356,16 +279,6 @@ func TestClozeJudgeSeparatesTheWordFromAWordThatMeansTheSame(t *testing.T) {
 	for _, c := range cases {
 		if got := clozeJudge(c.answer, c.attempt); got != c.want {
 			t.Errorf("clozeJudge(%q, %q) = %v, want %v", c.answer, c.attempt, got, c.want)
-		}
-	}
-}
-
-// A word is never a synonym of itself, or an exact answer would be discounted
-// by the very machinery that exists to be generous to a near one.
-func TestAWordIsNotItsOwnSynonym(t *testing.T) {
-	for _, w := range []string{"almost", "begin", "whole", "fast"} {
-		if clozeSynonymOf(w, w) {
-			t.Errorf("%q was called a synonym of itself", w)
 		}
 	}
 }

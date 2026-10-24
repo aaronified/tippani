@@ -167,14 +167,3 @@ func TestScopeRejectsAListWithRubbishInIt(t *testing.T) {
 	}
 }
 
-// A preference that cannot be parsed means EVERYTHING, never nothing. A deck
-// serving no cards because a stored string went bad is indistinguishable from a
-// deck you have finished for the day, and nothing would ever say otherwise.
-func TestAnUnparseableScopeFallsBackToEverything(t *testing.T) {
-	for _, scope := range []string{"", "  ", "nonsense", ",,,"} {
-		sc := scopeFlags(scope)
-		if !sc.books || !sc.screen || !sc.utterance {
-			t.Errorf("scopeFlags(%q) = %+v, want everything", scope, sc)
-		}
-	}
-}

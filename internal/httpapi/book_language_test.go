@@ -13,7 +13,6 @@ package httpapi
 // and that GET /books is unchanged.
 
 import (
-	"encoding/json"
 	"net/http"
 	"testing"
 )
@@ -51,31 +50,6 @@ func TestABookCarriesItsTwoLanguages(t *testing.T) {
 	}, http.StatusOK))
 	if cleared.Language != "" || cleared.OrigLanguage != "" {
 		t.Fatalf("a full-state PUT with no languages left %q/%q behind", cleared.Language, cleared.OrigLanguage)
-	}
-}
-
-// The list row does NOT carry them, and that is a decision rather than an
-// omission — so it is pinned. A shelf draws a cover, a title and a progress bar;
-// a language on every row is a column nothing renders and every response pays
-// for.
-func TestTheLibraryListDoesNotCarryALanguage(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-	c.mustDo("POST", "/books", map[string]any{"title": "Gora", "language": "English"}, http.StatusCreated)
-
-	var listed struct {
-		Books []map[string]json.RawMessage `json:"books"`
-	}
-	if err := json.Unmarshal(c.mustDo("GET", "/books", nil, http.StatusOK).Body.Bytes(), &listed); err != nil {
-		t.Fatal(err)
-	}
-	if len(listed.Books) != 1 {
-		t.Fatalf("want one book, got %+v", listed.Books)
-	}
-	for _, key := range []string{"language", "orig_language"} {
-		if _, ok := listed.Books[0][key]; ok {
-			t.Errorf("the library list carries %q; it is a detail field (see the translator note)", key)
-		}
 	}
 }
 

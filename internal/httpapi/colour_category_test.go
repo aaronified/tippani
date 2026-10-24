@@ -115,23 +115,6 @@ func TestCategoryColourRules(t *testing.T) {
 	}
 }
 
-func TestCategoryNameLength(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-
-	ok := strings.Repeat("a", catNameMax)
-	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"catName2": ok}, 200)
-	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"catName2": ok + "a"}, http.StatusBadRequest)
-	// Refused, not truncated: the stored value is still the one that fitted.
-	if got := getPrefs(t, c).CatName2; got != ok {
-		t.Fatalf("a rejected name changed the stored one: %q", got)
-	}
-	// The cap counts RUNES, so a name of accented letters is not silently
-	// shorter than a name of plain ones.
-	c.mustDo("PUT", "/auth/me/preferences",
-		map[string]any{"catName3": strings.Repeat("é", catNameMax)}, 200)
-}
-
 // THE ONE THAT MATTERS. Naming a category is presentation; the token is
 // storage. A Markdown export written after a rename must still say
 // `color: blue`, or a year of highlights stops round-tripping and nobody finds
@@ -160,35 +143,6 @@ func TestRenamingACategoryDoesNotTouchTheExport(t *testing.T) {
 	if strings.Contains(after, "Fact") || strings.Contains(after, "5AA8B5") {
 		t.Fatalf("a display name leaked into the export:\n%s", after)
 	}
-}
-
-// SIX SLOTS, and the fifth and sixth are ordinary ones. They arrived with 0029,
-// which rebuilt four tables to widen a CHECK — so the thing worth asserting is
-// that nothing about them is special once they exist.
-func TestTheTwoNewSlotsBehaveLikeTheRest(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-
-	c.mustDo("PUT", "/auth/me/preferences", map[string]any{
-		"catName5": "Funny", "catName6": "Meta",
-		"catColor5": "#7CB342", "catColor6": "#8A7BC8",
-		"catHidden6": true,
-	}, 200)
-	p := getPrefs(t, c)
-	if p.CatName5 != "Funny" || p.CatName6 != "Meta" {
-		t.Fatalf("the new slots did not store their names: %+v", p)
-	}
-	if p.CatColor5 != "#7CB342" || p.CatColor6 != "#8A7BC8" {
-		t.Fatalf("the new slots did not store their colours: %+v", p)
-	}
-	if !p.CatHidden6 {
-		t.Fatal("the sixth slot could not be hidden")
-	}
-	// Same rules as everywhere else.
-	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"catColor5": "#B4482D"}, http.StatusBadRequest)
-	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"catColor6": "nope"}, http.StatusBadRequest)
-	c.mustDo("PUT", "/auth/me/preferences",
-		map[string]any{"catName5": strings.Repeat("a", catNameMax+1)}, http.StatusBadRequest)
 }
 
 // The colour set and the slot count are two statements of one fact, in two

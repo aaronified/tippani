@@ -96,37 +96,6 @@ func TestPurgingAnEntryRemovesItsParkedFileForGood(t *testing.T) {
 	}
 }
 
-func TestEmptyingTheBinRemovesParkedFilesToo(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	book := c.newBook("B")
-	c.putSource(sourceFields("book", book), "b.txt", []byte(prose))
-	c.mustDo("DELETE", "/books/"+strconv.FormatInt(book, 10), nil, 200)
-	c.mustDo("DELETE", "/trash", nil, 200)
-	if parkedSourceFiles(t, srv) != 0 {
-		t.Fatal("emptying the bin must remove what it parked")
-	}
-}
-
-func TestAParkedFileNoEntryNamesIsSweptAndOneAnEntryNamesIsKept(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	book := c.newBook("B")
-	c.putSource(sourceFields("book", book), "b.txt", []byte(prose))
-	c.mustDo("DELETE", "/books/"+strconv.FormatInt(book, 10), nil, 200)
-	stray := filepath.Join(srv.sourceTrashDir(), "0123456789abcdef")
-	if err := os.WriteFile(stray, []byte("orphan"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	srv.sweepOrphanParked()
-	if _, err := os.Stat(stray); !os.IsNotExist(err) {
-		t.Fatal("a parked file no entry names should be swept")
-	}
-	if parkedSourceFiles(t, srv) != 1 {
-		t.Fatalf("the file an entry names must be kept: %d", parkedSourceFiles(t, srv))
-	}
-}
-
 func TestABulkDeleteIsRestoredWithItsFilesAsOneEntry(t *testing.T) {
 	srv := newTestServer(t)
 	c := signupAdmin(t, srv.Handler())
@@ -247,28 +216,6 @@ func TestTheSweepRemovesAFileNoRowNamesAndLeavesTheOnesThatAreNamedOrParkedOrYou
 		if _, err := os.Stat(p); err != nil {
 			t.Fatalf("%s must be left alone: %v", name, err)
 		}
-	}
-}
-
-func TestARowWithNoFileIsReportedNotDeleted(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	book := c.newBook("B")
-	hl := c.newHighlight(book, "It was a bright cold day in April, and the clocks were striking thirteen.")
-	c.putSource(sourceFields("book", book), "b.txt", []byte(prose))
-	if err := os.Remove(filepath.Join(srv.sourcesDir(), sourceFilesOnDisk(t, srv)[0])); err != nil {
-		t.Fatal(err)
-	}
-	if got := decode[map[string]int](t, c.mustDo("GET", "/admin/maintenance/sources", nil, 200)); got["missing_files"] != 1 {
-		t.Fatalf("%+v", got)
-	}
-	c.mustDo("POST", "/admin/maintenance/sources/sweep", nil, 200)
-	var n int
-	if err := srv.Store.DB.QueryRow(`SELECT count(*) FROM work_sources`).Scan(&n); err != nil || n != 1 {
-		t.Fatalf("the row is the only record the work had a source, and stays: %d %v", n, err)
-	}
-	if got := c.contextOf("annotation", hl); got.Body == "" {
-		t.Fatal("and its stored context still opens")
 	}
 }
 

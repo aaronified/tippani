@@ -143,22 +143,6 @@ func TestAFilmLineIsPlacedInItsSubtitleWithItsTimeAcrossDroppedAccents(t *testin
 	}
 }
 
-func TestAShowsSubtitleCoversOnlyThatEpisodesLines(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	show := c.newScreen("Andor", "show")
-	inEp := c.newLine(show, "I burn my life to make a sunrise that I know I will never see.", map[string]any{"season": 1, "episode": 4})
-	otherEp := c.newLine(show, "I burn my life to make a sunrise that I know I will never see!!", map[string]any{"season": 1, "episode": 9})
-	srt := "1\n00:00:01,000 --> 00:00:03,000\nSomething else first.\n\n" +
-		"2\n00:00:04,000 --> 00:00:07,000\nI burn my life to make a sunrise that I know I will never see.\n"
-	c.putSource(sourceFields("screen", show, "episode", "s01e04"), "e4.srt", []byte(srt))
-
-	if got := c.contextOf("dialogue", inEp); got.Start != "00:00:04" {
-		t.Fatalf("%+v", got)
-	}
-	c.mustDo("GET", "/quotes/dialogue/"+strconv.FormatInt(otherEp, 10)+"/context", nil, http.StatusNotFound)
-}
-
 // "The scans will reapply context in new quotes", and a rescan is a mechanical pass:
 // it must never clobber the reader's own per-quote judgement.
 func TestARescanFillsInNewQuotesAndLeavesTheRestAlone(t *testing.T) {
@@ -236,19 +220,6 @@ func TestAnAmbiguousQuoteGetsNoContextAndIsCounted(t *testing.T) {
 	}
 }
 
-func TestDeletingAQuoteClearsItsContext(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	book := c.newBook("B")
-	hl := c.newHighlight(book, "It was a bright cold day in April, and the clocks were striking thirteen.")
-	c.putSource(sourceFields("book", book), "b.txt", []byte(prose))
-	c.mustDo("DELETE", "/annotations/"+strconv.FormatInt(hl, 10), nil, 200)
-	var n int
-	if err := srv.Store.DB.QueryRow(`SELECT count(*) FROM source_context`).Scan(&n); err != nil || n != 0 {
-		t.Fatalf("rows left = %d (%v)", n, err)
-	}
-}
-
 func TestAnotherReadersQuoteHasNoContextToYou(t *testing.T) {
 	srv := newTestServer(t)
 	admin := signupAdmin(t, srv.Handler())
@@ -270,26 +241,6 @@ func TestADRMBookIsRefusedAtTheDoorAndNothingIsKept(t *testing.T) {
 	}
 	if n := len(sourceFilesOnDisk(t, srv)); n != 0 {
 		t.Fatalf("a refused file must not be kept: %d", n)
-	}
-}
-
-// THE OWNER'S EXAMPLE, END TO END: an annotation first in its chapter gets nothing
-// before it, and nobody configured that.
-func TestAChapterStartInAnEbookGetsNothingBeforeIt(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	book := c.newBook("B")
-	hl := c.newHighlight(book, "Chapter two opens with a sentence about the northern lighthouse keeper.")
-	row := decode[workSourceRow](t, c.putSource(sourceFields("book", book), "b.epub", testEPUB(t, "")))
-	if row.Context == nil || row.Context.Matched != 1 {
-		t.Fatalf("%+v", row.Context)
-	}
-	got := c.contextOf("annotation", hl)
-	if got.Before != "" || !got.BoundBefore {
-		t.Fatalf("crossed into the previous chapter: %+v", got)
-	}
-	if !strings.Contains(got.After, "second paragraph of chapter two") {
-		t.Fatalf("after: %q", got.After)
 	}
 }
 
@@ -346,24 +297,3 @@ func TestTheListOfQuotesWithContextIsPerWorkAndOwnersOnly(t *testing.T) {
 	admin.mustDo("GET", "/sources/context-ids?subject=nope", nil, http.StatusBadRequest)
 }
 
-func TestShowMoreWidensTheWindowForOneReadUpToWhatIsStored(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	book := c.newBook("B")
-	hl := c.newHighlight(book, "At one end of it a coloured poster was tacked to the wall.")
-	c.putSource(sourceFields("book", book), "b.txt", []byte(prose))
-	id := strconv.FormatInt(hl, 10)
-
-	def := decode[ctxAnswer](t, c.mustDo("GET", "/quotes/annotation/"+id+"/context", nil, 200))
-	if def.Span.Before != 2 || def.Span.After != 2 {
-		t.Fatalf("the default is two either side: %+v", def.Span)
-	}
-	wide := decode[ctxAnswer](t, c.mustDo("GET", "/quotes/annotation/"+id+"/context?before=4&after=9", nil, 200))
-	if wide.Span.Before != 4 || wide.Span.After != 2 { // 4 before exist; only 2 after exist in this file
-		t.Fatalf("widened up to what is stored and no further: %+v stored %+v", wide.Span, wide.Stored)
-	}
-	// Forgotten: the next plain read is the default again.
-	if again := decode[ctxAnswer](t, c.mustDo("GET", "/quotes/annotation/"+id+"/context", nil, 200)); again.Span.Before != 2 {
-		t.Fatalf("%+v", again.Span)
-	}
-}

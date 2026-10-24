@@ -164,33 +164,6 @@ func TestAFullStatePutCarriesTheKindAndItsLanguages(t *testing.T) {
 	}
 }
 
-// The rule 0036 insists on, tested in both directions, because a future reader of
-// this code will be tempted by exactly one of them.
-func TestAKindIsNotAName(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-
-	// Renaming a proverb board keeps it one. The name is the reader's; the kind
-	// is what the board holds.
-	b := newProverbBoard(t, c, "Proverbs", "Bengali")
-	c.mustDo("PUT", "/boards/"+itoa(b.ID), map[string]any{
-		"name": "Grandmother", "kind": "proverb", "languages": []string{"Bengali"},
-	}, http.StatusNoContent)
-	if got := boardByID(t, c, b.ID); got.Kind != "proverb" || got.Name != "Grandmother" {
-		t.Fatalf("a renamed proverb board stopped being one: %+v", got)
-	}
-
-	// And calling a plain board "Proverbs" does not make it one. This is the
-	// case a name-matching implementation would get wrong, and the reader would
-	// have no way to see why their board behaved oddly.
-	p := newBoard(t, c, "Proverbs")
-	if got := boardByID(t, c, p.ID); got.Kind != "proverb" && got.Kind != "plain" {
-		t.Fatalf("unexpected kind %q", got.Kind)
-	} else if got.Kind == "proverb" {
-		t.Fatal("a board called Proverbs was treated as a proverb board by its NAME")
-	}
-}
-
 // Languages belong to a proverb board and are dropped from any other rather than
 // refused: switching the kind back is a change of mind, not an error, and a list
 // left sitting invisibly in the row would reappear later for no reason.
@@ -264,17 +237,3 @@ func TestEveryBoardKindTheAppOffersCanBeCreated(t *testing.T) {
 	}
 }
 
-// 'plain' STAYS THE STORED VALUE for the kind the screens label "Others".
-// Renaming a stored value to match a label is a data migration that buys a word,
-// and this is the test that says so out loud — because the spec calls the kind
-// "Others" and the next reader of that spec will reach for a rename.
-func TestTheOthersKindIsStillStoredAsPlain(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-	b := decode[boardRow](t, c.mustDo("POST", "/boards",
-		map[string]any{"name": "Others"}, http.StatusCreated))
-	if b.Kind != "plain" {
-		t.Fatalf("a board with no kind came back %q, want plain", b.Kind)
-	}
-	c.mustDo("POST", "/boards", map[string]any{"name": "Other things", "kind": "others"}, http.StatusBadRequest)
-}

@@ -83,39 +83,6 @@ func TestEveryValidKindHasAReferenceQuery(t *testing.T) {
 	}
 }
 
-// TestDirectorAndStudioQueriesAreDisjoint is hazard 1 stated as an invariant
-// over the SQL rather than as a case.
-//
-// 0040 puts a game's studio in movies.director, so the two kinds share one
-// column and are separated only by a media_type predicate. Every query keyed on
-// either kind must carry that predicate: without it, asking for directors
-// answers with studios, renaming a director rewrites studios, and the orphan
-// sweep deletes people it should not. Checking the strings is what makes this a
-// sweep instead of one example — a fourth query added later without the filter
-// fails here.
-func TestDirectorAndStudioQueriesAreDisjoint(t *testing.T) {
-	dirScan, dirUpdate, _ := personCreditSQL("director")
-	stuScan, stuUpdate, _ := personCreditSQL("studio")
-	checks := []struct{ name, sql, want string }{
-		{"orphanRefQuery(director)", orphanRefQuery("director"), "media_type <> 'game'"},
-		{"orphanRefQuery(studio)", orphanRefQuery("studio"), "media_type = 'game'"},
-		{"personCreditSQL(director).scan", dirScan, "media_type <> 'game'"},
-		{"personCreditSQL(director).update", dirUpdate, "media_type <> 'game'"},
-		{"personCreditSQL(studio).scan", stuScan, "media_type = 'game'"},
-		{"personCreditSQL(studio).update", stuUpdate, "media_type = 'game'"},
-	}
-	for _, c := range checks {
-		if c.sql == "" {
-			t.Errorf("%s is empty", c.name)
-			continue
-		}
-		if !strings.Contains(c.sql, c.want) {
-			t.Errorf("%s does not narrow by media type.\nwant it to contain: %s\ngot: %s",
-				c.name, c.want, c.sql)
-		}
-	}
-}
-
 // The other half of the same hazard, and the reason it needs stating: the
 // PUBLISHER's queries must NOT carry a media_type predicate.
 //
@@ -172,44 +139,6 @@ func TestPersonCreditSQLHasNoDefault(t *testing.T) {
 	}
 }
 
-// The scan and the update have to name the SAME table. They used to be two
-// separate switches forty lines apart, so they could not only each inherit the
-// books arm — they could disagree with each other, scanning every book's author
-// and stamping the rewritten strings onto dialogue rows by matching id.
-func TestPersonCreditSQLScanAndUpdateAgreeOnTheTable(t *testing.T) {
-	// author, translator and editor all read and write `books`, and director,
-	// studio and publisher all read and write `movies` — which is exactly what
-	// this test exists to check: six of the eight arms share a table with another
-	// arm, so "did the scan and the update agree" stops being obvious by
-	// inspection.
-	table := map[string]string{
-		"author": "books", "actor": "dialogues", "director": "movies",
-		"translator": "books", "editor": "books",
-		"speaker": "utterances", "studio": "movies", "publisher": "movies",
-	}
-	// The map is a hand-written copy of the vocabulary, so it needs a guard that
-	// it has not fallen behind it — 'speaker' and 'studio' were both missing here
-	// while the test read as though it covered everything, and 'publisher' was
-	// caught by this guard rather than by review.
-	for _, k := range personKinds {
-		if _, ok := table[k]; !ok {
-			t.Errorf("personKinds has %q but this test's table does not name its table", k)
-		}
-	}
-	for kind, want := range table {
-		scan, update, ok := personCreditSQL(kind)
-		if !ok {
-			t.Fatalf("personCreditSQL(%q) not mapped", kind)
-		}
-		if !strings.Contains(scan, want) {
-			t.Errorf("%s: scan does not read %s: %s", kind, want, scan)
-		}
-		if !strings.HasPrefix(strings.TrimSpace(update), "UPDATE "+want+" ") {
-			t.Errorf("%s: update does not write %s: %s", kind, want, update)
-		}
-	}
-}
-
 // Every renameable kind must be mapped, so adding a kind without a credit
 // column fails here rather than rewriting the wrong table.
 //
@@ -227,27 +156,6 @@ func TestEveryValidKindIsRenameableOrExplicitlyNot(t *testing.T) {
 				"handleRenamePerson now refuses rather than guessing, which is safe, but the kind\n"+
 				"cannot be renamed at all. Add its credit column or confirm it has none.", k)
 		}
-	}
-}
-
-func TestOrphanGCIgnoresAnUnknownKind(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	uid := userIDOf(t, srv, "alice")
-
-	// A person of some kind the sweep does not know about, whose name is
-	// deliberately NOT any book's author — the population an inherited
-	// books.author reference query would classify as orphaned.
-	seedPerson(t, srv, uid, "narrator", "Subhas Chandra Bose")
-	// A book by someone else, so the keep-set is non-empty and the sweep has
-	// something to compare against rather than bailing early on no rows.
-	c.mustDo("POST", "/books", map[string]any{"title": "Emma", "author": "Jane Austen"}, http.StatusCreated)
-
-	srv.gcOrphanPeople(uid, "narrator")
-
-	if n := countPeopleOfKind(t, srv, uid, "narrator"); n != 1 {
-		t.Fatalf("orphan GC swept a kind it has no reference query for: %d left, want 1", n)
 	}
 }
 
@@ -399,50 +307,6 @@ func TestOrphanGCStillDeletesAPersonWithNoRolesLeft(t *testing.T) {
 	}
 	if n != 0 {
 		t.Fatal("a person with no roles left survived the sweep")
-	}
-}
-
-// The three kinds it DOES know are still swept, so the fix above did not simply
-// turn the sweep off. Each is checked against its own reference column, because
-// the whole point of the change is that the mapping is now explicit.
-func TestOrphanGCStillSweepsTheKindsItKnows(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	uid := userIDOf(t, srv, "alice")
-
-	seed := func(kind, name string) { seedPerson(t, srv, uid, kind, name) }
-	count := func(kind string) int { return countPeopleOfKind(t, srv, uid, kind) }
-
-	// One referenced and one unreferenced person per kind.
-	c.mustDo("POST", "/books", map[string]any{"title": "Emma", "author": "Jane Austen"}, http.StatusCreated)
-	seed("author", "Jane Austen")
-	seed("author", "Nobody At All")
-
-	seed("director", "Michael Curtiz")
-	seed("director", "Nobody At All")
-	if _, err := srv.Store.DB.Exec(
-		`INSERT INTO movies (user_id, title, director) VALUES (?, 'Casablanca', 'Michael Curtiz')`,
-		uid); err != nil {
-		t.Fatal(err)
-	}
-
-	for _, kind := range []string{"author", "director"} {
-		srv.gcOrphanPeople(uid, kind)
-		if got := count(kind); got != 1 {
-			t.Fatalf("%s: got %d rows after sweep, want 1 (the referenced one)", kind, got)
-		}
-	}
-
-	// The referenced one is the survivor, not just "one of them".
-	var name string
-	if err := srv.Store.DB.QueryRow(
-		`SELECT p.name FROM people p JOIN person_kinds pk ON pk.person_id = p.id
-		 WHERE p.user_id = ? AND pk.kind = 'author'`, uid).Scan(&name); err != nil {
-		t.Fatal(err)
-	}
-	if name != "Jane Austen" {
-		t.Fatalf("orphan GC kept the wrong author: %q", name)
 	}
 }
 

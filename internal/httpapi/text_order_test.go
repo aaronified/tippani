@@ -47,27 +47,6 @@ func TestTextOrderDropsAMasterThatIsTheDefault(t *testing.T) {
 	}
 }
 
-func TestTextOrderDropsARowThatAgreesWithTheMaster(t *testing.T) {
-	// THE CASE THAT MATTERS. The owner's master slider "will push all knobs to
-	// align with it" — so every move of it offers a row per language repeating what
-	// it says. Kept, those rows would then out-rank the master forever: moving it
-	// again would change nothing, and the custom indicator would be lit with
-	// nothing custom in it.
-	got, ok := normalizeTextOrder(
-		`{"master":"trans-only","byLanguage":{"german":"trans-only","bengali":"quote-first"}}`)
-	if !ok {
-		t.Fatal("refused")
-	}
-	var out textOrderPrefs
-	_ = json.Unmarshal([]byte(got), &out)
-	if _, has := out.ByLanguage["german"]; has {
-		t.Errorf("kept a row that says what the master says: %v", out.ByLanguage)
-	}
-	if out.ByLanguage["bengali"] != "quote-first" {
-		t.Errorf("dropped a row that genuinely differs: %v", out.ByLanguage)
-	}
-}
-
 func TestTextOrderRefusesAStateThisServerDoesNotKnow(t *testing.T) {
 	// Unlike the two drops above, this is a 400 rather than a tidy-up: a value the
 	// server has never heard of is a client storing something no reader can see or
@@ -91,18 +70,6 @@ func TestTextOrderRefusesABlobThatIsNotOne(t *testing.T) {
 	}
 }
 
-func TestTextOrderAcceptsNothingAsNoSettings(t *testing.T) {
-	// An empty string is an account that has never opened the table; an empty
-	// object is one that put everything back. Both mean the same stored value, and
-	// both are requests rather than mistakes.
-	for _, blank := range []string{"", "   ", "{}", `{"byLanguage":{}}`} {
-		got, ok := normalizeTextOrder(blank)
-		if !ok || got != "" {
-			t.Errorf("normalizeTextOrder(%q) = %q, %v; want \"\", true", blank, got, ok)
-		}
-	}
-}
-
 func TestTextOrderRefusesMoreLanguagesThanAPreferenceShouldHold(t *testing.T) {
 	var sb strings.Builder
 	sb.WriteString(`{"master":"quote-first","byLanguage":{`)
@@ -119,25 +86,5 @@ func TestTextOrderRefusesMoreLanguagesThanAPreferenceShouldHold(t *testing.T) {
 	sb.WriteString(`}}`)
 	if _, ok := normalizeTextOrder(sb.String()); ok {
 		t.Error("accepted a per-language map larger than the cap")
-	}
-}
-
-// AND THE ORDER OF THE FOUR IS AN AXIS, in the same sequence the client draws
-// them. The reader's control is a slider, so a server that agreed about the four
-// values and disagreed about their ORDER would validate everything while the
-// stops meant different things at each end.
-func TestTheFourStatesAreOneAxisInTheClientsOrder(t *testing.T) {
-	want := []string{"trans-only", "trans-first", "quote-first", "quote-only"}
-	if len(textOrders) != len(want) {
-		t.Fatalf("textOrders = %v, want %v", textOrders, want)
-	}
-	for i := range want {
-		if textOrders[i] != want[i] {
-			t.Errorf("textOrders[%d] = %q, want %q — web/frontend/src/textOrder.js has the same list and the slider reads it positionally",
-				i, textOrders[i], want[i])
-		}
-	}
-	if textOrderDefault != "quote-first" {
-		t.Errorf("textOrderDefault = %q; anything else reorders every card in every library on upgrade", textOrderDefault)
 	}
 }

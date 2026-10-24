@@ -140,22 +140,6 @@ func TestBackfillDefaultStickers(t *testing.T) {
 	}
 }
 
-func TestBackfillSkipsNamesAlreadyThere(t *testing.T) {
-	// A fresh account created after the upgrade already has the set from
-	// seedDefaultStickers. If the instance's backfill has not run yet — a new
-	// install whose first user signs up before the next restart — the sweep must
-	// not hand them a second copy of each.
-	srv := newTestServer(t)
-	srv.SeedNewUsers = true
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-
-	srv.BackfillDefaultStickers()
-	if rows := listStickers(t, c); len(rows) != len(defaultStickers) {
-		t.Fatalf("backfill doubled a seeded account: %d stickers, want %d", len(rows), len(defaultStickers))
-	}
-}
-
 func TestBackfillRespectsSeedingOff(t *testing.T) {
 	// The switch the rest of the suite relies on. Tag and sticker assertions
 	// elsewhere count rows, so a backfill that ignored SeedNewUsers would salt

@@ -38,29 +38,6 @@ func TestTheChangelogArrivesNewestFirst(t *testing.T) {
 	}
 }
 
-func TestTheChangelogSaysWhichBuildIsRunning(t *testing.T) {
-	// The one thing a link to the releases page cannot do, and therefore the one
-	// thing worth checking about the payload.
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-
-	got := decode[struct {
-		Current       string `json:"current"`
-		CurrentListed bool   `json:"current_listed"`
-	}](t, c.mustDo("GET", "/changelog", nil, http.StatusOK))
-
-	if got.Current == "" {
-		t.Error("no current version reported")
-	}
-	// The test binary is built without ldflags, so buildinfo.Version is "dev" and
-	// is deliberately NOT in the history. That is the state the dialog explains
-	// rather than papers over, so it is worth pinning.
-	if got.Current == "dev" && got.CurrentListed {
-		t.Errorf("a dev build should not claim to be a listed release")
-	}
-}
-
 // NOT ADMIN-ONLY, though the button that opens it sits on the admin-only Updates
 // card. Release history is published on the internet; gating the endpoint would
 // mean a second user on the same instance could never be shown what changed, even

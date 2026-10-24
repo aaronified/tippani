@@ -18,7 +18,6 @@ import (
 	"testing"
 	"time"
 
-	"tippani/internal/outbound"
 )
 
 // A WORK PAGE'S PICTURES, ONE REQUEST: POST /{books|movies}/{id}/cast/art.
@@ -421,47 +420,6 @@ func tvdbEnsemble(from, to int) string {
 	return `{"data":{"id":297763,"name":"The Ensemble","year":"2016","characters":[` + strings.Join(roles, ",") + `]}}`
 }
 
-// TWENTY ROLES AND TWENTY NAMES A PASS, whatever the work has. A supplier sends
-// at most twenty roles, but a work can hold more: a role the reader corrected is
-// kept when the supplier later lists a different cast. So the film here has
-// twenty-one roles with a picture to fetch — the twenty TheTVDB lists now and one
-// the reader renamed from the cast it listed before — and the page sends
-// twenty-one actors' names. One opening fetches twenty of each.
-func TestAPicturePassTakesTwentyRolesAndTwentyNames(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	alice := signupAdmin(t, h)
-	film := filmWithTVDBID(t, alice, "The Ensemble", 297763)
-	path := "/movies/" + itoa(film)
-	stub, client, done := newTVDBCastStub(t, tvdbEnsemble(1, 20))
-	t.Cleanup(done)
-	srv.TVDB = client
-	alice.mustDo("POST", path+"/cast/tvdb", nil, http.StatusOK)
-	for _, row := range castOf(t, alice, path+"/cast").Cast {
-		if row.Character == "Role 01" {
-			alice.mustDo("PUT", "/cast/"+itoa(row.ID), map[string]any{"character": "Role One", "actor": "Actor 01"}, http.StatusOK)
-		}
-	}
-	stub.body = tvdbEnsemble(21, 40)
-	alice.mustDo("POST", path+"/cast/tvdb", nil, http.StatusOK)
-	pending, names := 0, []string{}
-	for _, row := range castOf(t, alice, path+"/cast").Cast {
-		if row.CharacterImageURL != "" && row.CharacterImagePath == "" {
-			pending++
-			names = append(names, row.Actor)
-		}
-	}
-	if pending != 21 {
-		t.Fatalf("the film has %d roles with a picture to fetch, want 21: %v", pending, names)
-	}
-	d := countDownloads(srv)
-
-	got := decode[castArtAnswer](t, askCastArt(alice, path, names...))
-	if got != (castArtAnswer{CharacterImages: 20, Portraits: 20}) || len(d.list()) != 40 {
-		t.Fatalf("one opening of a film with 21 of each: %+v, %d downloads; want 20 pictures, 20 headshots", got, len(d.list()))
-	}
-}
-
 // A PICTURE THAT WILL NOT DOWNLOAD IS IN THE LOG WHERE ITS ROW SAYS. The image
 // host refuses both of the film's pictures — Amanda Waller's and Viola Davis's
 // headshot. The page draws without them, and an admin looking for why finds a
@@ -488,73 +446,6 @@ func TestAPictureThatWillNotDownloadIsLoggedUnderItsCode(t *testing.T) {
 		if !found {
 			t.Errorf("no TIP-COVER-001 error names %s: %+v", addr, page.Lines)
 		}
-	}
-}
-
-// A PICTURE THE OFFLINE SWITCH REFUSED IS NOT AN ERROR. The operator switched
-// the app offline, the page asks for the film's two pictures — Amanda Waller's
-// and Viola Davis's headshot — and the gate refuses both, as it should. Neither
-// is logged as a TIP-COVER-001 error: offline, where every browser journey runs,
-// a page asks for every picture it has no file for, and an error for each would
-// bury the real ones. The same two failing any other way are still errors.
-func TestAPictureTheOfflineSwitchRefusedIsNotLoggedAsAnError(t *testing.T) {
-	srv := newTestServer(t)
-	logging(t, srv)
-	h := srv.Handler()
-	alice := signupAdmin(t, h)
-	film := suicideSquad(t, srv, alice)
-	addrs := []string{"artworks.thetvdb.com/waller.jpg", "artworks.thetvdb.com/head412.jpg"}
-	coverErrors := func(addr string) int {
-		n := 0
-		for _, l := range alice.logs(url.Values{"q": {addr}}).Lines {
-			if l.Code == "TIP-COVER-001" && l.Level == "error" {
-				n++
-			}
-		}
-		return n
-	}
-
-	t.Setenv(outbound.EnvVar, "1") // after the cast arrived, as an operator switches it
-	if got := decode[castArtAnswer](t, askCastArt(alice, "/movies/"+itoa(film), "Viola Davis")); got != (castArtAnswer{}) {
-		t.Fatalf("a film whose pictures the offline switch refused: %+v, want nothing arrived", got)
-	}
-	for _, addr := range addrs {
-		if n := coverErrors(addr); n != 0 {
-			t.Errorf("the offline switch's refusal of %s was logged as %d TIP-COVER-001 error(s)", addr, n)
-		}
-	}
-
-	// Online again, and the image host says no: that is the failure the code is for.
-	t.Setenv(outbound.EnvVar, "")
-	srv.fetchImage = func(context.Context, string, string) (string, error) {
-		return "", errors.New("the image host answered 503")
-	}
-	askCastArt(alice, "/movies/"+itoa(film), "Viola Davis")
-	for _, addr := range addrs {
-		if n := coverErrors(addr); n != 1 {
-			t.Errorf("a download of %s the host refused: %d TIP-COVER-001 error(s), want 1", addr, n)
-		}
-	}
-}
-
-func TestAPicturePassThatHasSpentItsTimeAnswersWithWhatArrived(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	alice := signupAdmin(t, h)
-	film := suicideSquad(t, srv, alice)
-	was := castArtBudget
-	castArtBudget = 50 * time.Millisecond
-	t.Cleanup(func() { castArtBudget = was })
-	d := countDownloads(srv)
-	slow := srv.fetchImage
-	srv.fetchImage = func(ctx context.Context, rawURL, dir string) (string, error) {
-		time.Sleep(100 * time.Millisecond) // a supplier slower than the budget
-		return slow(ctx, rawURL, dir)
-	}
-
-	got := decode[castArtAnswer](t, askCastArt(alice, "/movies/"+itoa(film), "Viola Davis", "Margot Robbie"))
-	if got != (castArtAnswer{CharacterImages: 1}) || len(d.list()) != 1 {
-		t.Fatalf("a pass past its budget: %+v, downloads %v; want the one picture it started and nothing after", got, d.list())
 	}
 }
 

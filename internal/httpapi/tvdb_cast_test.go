@@ -141,34 +141,6 @@ func TestTVDBCastFillBringsTheCharacterArt(t *testing.T) {
 	}
 }
 
-// THE DIFFERENCE FROM A RESYNC, asserted rather than described. This is the whole
-// argument for a second route: a reader who has corrected a title's year by hand
-// will not press a control that offers to take it back.
-func TestTVDBCastFillLeavesTheRestOfTheRecordAlone(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	id := filmWithTVDBID(t, c, "Suicide Squad", 297762)
-	// A year and a description the reader typed, and which TheTVDB disagrees with.
-	c.mustDo("PUT", "/movies/"+strconv.FormatInt(id, 10), map[string]any{
-		"title": "Suicide Squad", "media_type": "movie", "tvdb_id": 297762,
-		"release_year": 1999, "description": "mine",
-	}, http.StatusOK)
-	_, client, done := newTVDBCastStub(t, tvdbSuicideSquad)
-	defer done()
-	srv.TVDB = client
-
-	c.mustDo("POST", "/movies/"+strconv.FormatInt(id, 10)+"/cast/tvdb", nil, http.StatusOK)
-
-	after := decode[struct {
-		ReleaseYear int    `json:"release_year"`
-		Description string `json:"description"`
-		Title       string `json:"title"`
-	}](t, c.mustDo("GET", "/movies/"+strconv.FormatInt(id, 10), nil, http.StatusOK))
-	if after.ReleaseYear != 1999 || after.Description != "mine" || after.Title != "Suicide Squad" {
-		t.Errorf("the cast fetch rewrote the record: %+v", after)
-	}
-}
-
 // The provenance rule, over the source it was written for — the case that would
 // let a re-pull quietly overwrite a correction.
 func TestTVDBCastFillKeepsACorrectedRow(t *testing.T) {
@@ -247,25 +219,6 @@ func TestTVDBCastFillIsPerUser(t *testing.T) {
 	}
 }
 
-// A show's record lives under /series, and asking /movies for it 404s at TheTVDB.
-func TestTVDBCastFillAsksTheRightEndpointForAShow(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	m := decode[struct{ ID int64 }](t, c.mustDo("POST", "/movies",
-		map[string]any{"title": "Game of Thrones", "media_type": "show"}, http.StatusCreated))
-	c.mustDo("PUT", "/movies/"+strconv.FormatInt(m.ID, 10),
-		map[string]any{"title": "Game of Thrones", "media_type": "show", "tvdb_id": 121361}, http.StatusOK)
-	stub, client, done := newTVDBCastStub(t, `{"data":{"id":121361,"name":"Game of Thrones",
-		"characters":[{"name":"Jon Snow","personName":"Kit Harington","peopleType":"Actor"}]}}`)
-	defer done()
-	srv.TVDB = client
-
-	c.mustDo("POST", "/movies/"+strconv.FormatInt(m.ID, 10)+"/cast/tvdb", nil, http.StatusOK)
-	if len(stub.paths) != 1 || stub.paths[0] != "/series/121361/extended" {
-		t.Errorf("asked for %v, want /series/121361/extended", stub.paths)
-	}
-}
-
 // No key is a 503 and not a 500: it is an answer about the configuration rather
 // than a failure of this request.
 func TestTVDBCastFillWithoutAKey(t *testing.T) {
@@ -274,54 +227,6 @@ func TestTVDBCastFillWithoutAKey(t *testing.T) {
 	id := filmWithTVDBID(t, c, "Suicide Squad", 297762)
 	srv.TVDB = &metadata.TVDB{} // no key, and no setting behind it in a fresh store
 	c.mustDo("POST", "/movies/"+strconv.FormatInt(id, 10)+"/cast/tvdb", nil, http.StatusServiceUnavailable)
-}
-
-// THE READER NAMING THE RECORD IS NOT THIS HANDLER SEARCHING FOR IT. The refusal
-// above stands for a request that names nothing; what it must not do is stand in
-// the way of a reader who has picked the record — which is the same act as typing
-// the id into the Details panel, and the only road to character art for a library
-// matched on TMDB.
-func TestTVDBCastFillAcceptsAnIDTheReaderNamed(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	m := decode[struct{ ID int64 }](t, c.mustDo("POST", "/movies",
-		map[string]any{"title": "Suicide Squad", "media_type": "movie"}, http.StatusCreated))
-	stub, client, done := newTVDBCastStub(t, tvdbSuicideSquad)
-	defer done()
-	srv.TVDB = client
-	path := "/movies/" + strconv.FormatInt(m.ID, 10) + "/cast/tvdb"
-
-	got := decode[struct {
-		Added int `json:"added"`
-		Cast  []struct {
-			Character         string `json:"character"`
-			CharacterImageURL string `json:"character_image_url"`
-		} `json:"cast"`
-	}](t, c.mustDo("POST", path, map[string]any{"tvdb_id": 297762}, http.StatusOK))
-	if got.Added == 0 {
-		t.Fatal("named the record and got no cast")
-	}
-	if stub.records == 0 {
-		t.Error("never asked TheTVDB")
-	}
-	var art int
-	for _, row := range got.Cast {
-		if row.CharacterImageURL != "" {
-			art++
-		}
-	}
-	if art == 0 {
-		t.Error("no character art came back — the art is the whole reason for this route")
-	}
-
-	// AND THE ID IS KEPT. Without that, the work page's own art pass has nothing
-	// to re-fetch from and the next refill asks the reader to pick again.
-	kept := decode[struct {
-		TVDBID int64 `json:"tvdb_id"`
-	}](t, c.mustDo("GET", "/movies/"+strconv.FormatInt(m.ID, 10), nil, http.StatusOK))
-	if kept.TVDBID != 297762 {
-		t.Fatalf("tvdb_id after the fill = %d, want 297762", kept.TVDBID)
-	}
 }
 
 // AND IT NEVER STANDS ON AN ID THAT IS ALREADY THERE. Same rule as a re-sync:

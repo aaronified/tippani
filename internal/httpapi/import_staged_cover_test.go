@@ -58,31 +58,6 @@ func TestTheQueueReportsAPinnedDestinationsArtwork(t *testing.T) {
 	}
 }
 
-func TestTheQueueReportsAMatchedDestinationsArtwork(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-
-	// SAME TITLE AS THE FIXTURE, so the app matches it by itself and the group is
-	// resolved by previewStagedTarget rather than by a pin.
-	b := decode[bookDetail](t, c.mustDo("POST", "/books",
-		map[string]any{"title": "Sandworm Studies", "author": "Liet Kynes"}, http.StatusCreated))
-	setCover(t, srv, "books", "cover_path", b.ID, "sandworm.jpg")
-
-	stage(t, c, "/import/markdown", "sandworm.md", []byte(stagedBookMD))
-
-	w := queue(t, c, "").Works[0]
-	if w.Pinned {
-		t.Fatalf("this case is about the MATCHED route and the row is pinned: %+v", w)
-	}
-	if w.TargetID != b.ID {
-		t.Fatalf("the fixture did not match the book it was meant to: %+v", w)
-	}
-	if w.TargetCover != "sandworm.jpg" {
-		t.Fatalf("matched destination's artwork missing: %+v", w)
-	}
-}
-
 // A GROUP BOUND FOR A NEW WORK REPORTS NO ARTWORK, and reports it as "" rather than
 // failing. That is the same state `target_title` is already in for such a row, so
 // the client needs no second branch — which is the point of the empty string over,

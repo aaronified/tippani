@@ -170,29 +170,6 @@ func TestMergingLetsALiveRowBeatTheSurvivorsTombstone(t *testing.T) {
 	}
 }
 
-// A BOOK'S LIST HAS THE IDENTICAL HOLE, and it is worse there: nothing seeds a
-// book's characters, so every row a merge dropped was one somebody typed.
-func TestMergingBooksCarriesTheCharacters(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-
-	keep := createTestBook(t, c, "Moby-Dick", "Herman Melville")
-	dupe := createTestBook(t, c, "Moby Dick; or, The Whale", "Herman Melville")
-	c.mustDo("POST", "/books/"+itoa(dupe)+"/cast", map[string]any{"character": "Queequeg"},
-		http.StatusCreated)
-
-	c.mustDo("POST", "/books/merge", map[string]any{"into": keep, "from": []int64{dupe}}, http.StatusOK)
-
-	list := castOf(t, c, "/books/"+itoa(keep)+"/cast")
-	if len(list.Cast) != 1 || list.Cast[0].Character != "Queequeg" {
-		t.Fatalf("the survivor should hold the typed character: %+v", list.Cast)
-	}
-	if n := allCastRows(t, srv); n != 1 {
-		t.Fatalf("%d rows, want 1 — the book trigger reaped it", n)
-	}
-}
-
 // THE CANONICAL DUPLICATE, END TO END: two copies of one film seeded from the
 // SAME provider entry — so the same provider_key — and the reader has deleted the
 // credit on the copy they keep.

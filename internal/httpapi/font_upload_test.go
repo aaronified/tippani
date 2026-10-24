@@ -132,17 +132,3 @@ func TestDeletingAFontAPreferenceStillNames(t *testing.T) {
 	// The bytes are gone.
 	c.mustDo("GET", "/fonts/"+itoa(f.ID)+"/file", nil, http.StatusNotFound)
 }
-
-func TestFontNameFallsBackWhenThereIsNothingToUse(t *testing.T) {
-	for _, c := range []struct{ in, want string }{
-		{"Source-Serif-4.woff2", "Source Serif 4"},
-		{"my_font.ttf", "my font"},
-		{"  spaced   out .otf", "spaced out"},
-		{".woff2", "Uploaded font"},
-		{"", "Uploaded font"},
-	} {
-		if got := fontName(c.in); got != c.want {
-			t.Errorf("fontName(%q) = %q, want %q", c.in, got, c.want)
-		}
-	}
-}

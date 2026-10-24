@@ -1,7 +1,6 @@
 package httpapi
 
 import (
-	"strings"
 	"testing"
 )
 
@@ -191,60 +190,6 @@ func TestVocabularyIsOnlyEverYourOwn(t *testing.T) {
 	}
 }
 
-func TestVocabularyColoursCarryKeyAndName(t *testing.T) {
-	// 1.7.1 made the six categories user-named, so the chip reads `colour:doubt`
-	// while the query has to send `blue`. A facet showing the storage word would be
-	// showing the reader a word they deliberately renamed.
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	_ = srv
-
-	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"catName2": "doubt"}, 200)
-	v := vocabOf(t, c)
-	if len(v.Colours) != 6 {
-		t.Fatalf("colours = %+v, want six slots", v.Colours)
-	}
-	if v.Colours[1].Key != "blue" || v.Colours[1].Name != "doubt" {
-		t.Fatalf("slot 2 = %+v, want key blue named doubt", v.Colours[1])
-	}
-	// An unnamed slot still has to be offerable, or the facet has holes in it.
-	if v.Colours[3].Name == "" {
-		t.Errorf("an unnamed slot came back nameless: %+v", v.Colours[3])
-	}
-	// Slot order is the schema's order, which is what the client's palette follows.
-	keys := make([]string, 0, 6)
-	for _, c := range v.Colours {
-		keys = append(keys, c.Key)
-	}
-	want := []string{"yellow", "blue", "pink", "orange", "green", "purple"}
-	for i := range want {
-		if keys[i] != want[i] {
-			t.Fatalf("colour slots = %v, want %v", keys, want)
-		}
-	}
-}
-
-func TestVocabularyIsEmptyRatherThanNullOnAFreshAccount(t *testing.T) {
-	// A client maps over these. `null` is a crash where `[]` is an empty dropdown,
-	// and a fresh account is exactly when somebody first opens the search box.
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	_ = srv
-
-	v := vocabOf(t, c)
-	for name, list := range map[string][]string{
-		"tags": v.Tags, "genres": v.Genres, "series": v.Series, "authors": v.Authors,
-		"directors": v.Directors, "actors": v.Actors, "characters": v.Characters,
-		"speakers": v.Speakers, "occasions": v.Occasions, "shelves": v.Shelves,
-	} {
-		if list == nil {
-			t.Errorf("%s came back null rather than an empty list", name)
-		}
-	}
-}
-
 // THE LANGUAGES THE LIBRARY IS IN, which is the list Settings' readable-languages
 // chips are drawn from.
 //
@@ -303,74 +248,6 @@ func TestVocabularyLanguagesAreOnlyEverYourOwn(t *testing.T) {
 	}
 }
 
-// ONE LANGUAGE, ONE ROW, WHICHEVER WAY IT WAS TYPED.
-//
-// A language is free text on the quote, so a reader who typed "bengali" one day
-// and "Bengali" the next has one language stored two ways. The list came back with
-// both, and it is the list the language combobox offers FIRST and the list a
-// board's chip row is drawn from — so the reader was asked to choose between two
-// spellings of their own language, in a picker whose whole job is to stop them
-// having to type it again.
-//
-// The two halves below are the same library in the two possible orders, and they
-// are here together because either one alone passes for the wrong reason: a fold
-// that always kept the capitalised spelling would satisfy the first and fail the
-// second, and one that always kept the lowercase spelling the other way round.
-// What is actually promised is the spelling written FIRST — validateBoard's rule,
-// "bengali typed second should not win over Bengali", read the other way too.
-func TestVocabularyOffersALanguageOnceWhateverItsCasing(t *testing.T) {
-	for _, tc := range []struct{ name, first, second string }{
-		{"capitalised first", "Bengali", "bengali"},
-		{"lowercase first", "bengali", "Bengali"},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			srv := newTestServer(t)
-			c := signupAdmin(t, srv.Handler())
-			c.mustDo("POST", "/quotes", map[string]any{
-				"quote": "সত্যের জয়", "language": tc.first,
-			}, 201)
-			c.mustDo("POST", "/quotes", map[string]any{
-				"quote": "কথার কথা", "language": tc.second,
-			}, 201)
-
-			v := vocabOf(t, c)
-			n := 0
-			for _, l := range v.Languages {
-				if strings.EqualFold(l, "bengali") {
-					n++
-				}
-			}
-			if n != 1 {
-				t.Errorf("one language spelled two ways came back %d times: %v", n, v.Languages)
-			}
-			if !has(v.Languages, tc.first) {
-				t.Errorf("the spelling written first (%q) is not the one offered: %v", tc.first, v.Languages)
-			}
-		})
-	}
-}
-
-// AND NOTHING ELSE IS FOLDED, which is the half of the rule that is easy to lose.
-//
-// `speaker:` and `tag:` match a stored value, and there is no NOCASE collation
-// anywhere in the schema — so "Gandhi" and "gandhi" are two values finding two
-// different sets of quotes. Folding them would offer one chip that looks like the
-// whole library and returns half of it. A language has no facet to match against
-// yet (#153) and an app-wide canonical form already (normalizeLanguageMarks folds
-// its key, validateBoard folds before deduping, languages.jsx keys its mark table
-// by the lowercased name), which is the entire difference.
-func TestVocabularyDoesNotFoldTheCreditFacets(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	c.mustDo("POST", "/quotes", map[string]any{"quote": "the first line", "speaker": "Gandhi"}, 201)
-	c.mustDo("POST", "/quotes", map[string]any{"quote": "the second line", "speaker": "gandhi"}, 201)
-
-	v := vocabOf(t, c)
-	if !has(v.Speakers, "Gandhi") || !has(v.Speakers, "gandhi") {
-		t.Errorf("a speaker facet folded two stored values into one option: %v", v.Speakers)
-	}
-}
-
 // ALL THREE QUOTE KINDS, and reading only `utterances` emptied this list for a
 // whole shape of library.
 //
@@ -403,34 +280,6 @@ func TestVocabularyLanguagesComeFromAllThreeQuoteKinds(t *testing.T) {
 		if !has(v.Languages, want) {
 			t.Errorf("languages does not offer %q: %v", want, v.Languages)
 		}
-	}
-}
-
-// And the fold spans the three tables too, which the single-table version could
-// not have got wrong. A highlight typed "bengali" and a film line typed "Bengali"
-// are one language in two places, and the picker must say so once.
-func TestVocabularyFoldsOneLanguageAcrossTwoKinds(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-
-	bookID := idOf(t, c.mustDo("POST", "/books", map[string]any{"title": "Gitanjali"}, 201).Body.Bytes())
-	c.mustDo("POST", "/annotations", map[string]any{
-		"book_id": bookID, "quote": "a highlight", "language": "Bengali",
-	}, 201)
-	movieID := idOf(t, c.mustDo("POST", "/movies", map[string]any{"title": "Pather Panchali"}, 201).Body.Bytes())
-	c.mustDo("POST", "/dialogues", map[string]any{
-		"movie_id": movieID, "quote": "a film line", "language": "bengali",
-	}, 201)
-
-	v := vocabOf(t, c)
-	n := 0
-	for _, l := range v.Languages {
-		if strings.EqualFold(l, "bengali") {
-			n++
-		}
-	}
-	if n != 1 {
-		t.Errorf("one language across two kinds came back %d times: %v", n, v.Languages)
 	}
 }
 

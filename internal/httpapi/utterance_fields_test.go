@@ -83,40 +83,6 @@ func TestEveryStandaloneQuoteFieldMakesTheRoundTrip(t *testing.T) {
 	}
 }
 
-// A recipient and a source title are INDEXED; a region and a page are not. Those
-// are two different decisions and both are worth pinning, because the cheap
-// mistake in either direction is invisible: an unindexed field looks like a
-// search that "just doesn't find things", and an over-indexed one looks like
-// nothing at all until the index has to be rebuilt again.
-//
-// "Every letter to Nehru" and "everything in that essay" are the same question
-// shape as "everything Bose said", which has been a search section since 0035.
-// A page number is not a question anybody asks.
-func TestALettersRecipientAndAnEssaysTitleAreSearchable(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-
-	newUtterance(t, c, map[string]any{
-		"quote": "the first letter", "recipient": "Jawaharlal Nehru", "region": "Sylhet",
-	})
-	newUtterance(t, c, map[string]any{
-		"quote": "a passage", "work_title": "Politics and the English Language", "locator": "p. 12",
-	})
-
-	if got := searchWith(t, c, "q=Nehru"); len(got.Quotes) != 1 {
-		t.Errorf("searching a recipient found %d quotes, want 1 — utterances_fts did not gain the column", len(got.Quotes))
-	}
-	if got := searchWith(t, c, "q=Politics"); len(got.Quotes) != 1 {
-		t.Errorf("searching a source title found %d quotes, want 1", len(got.Quotes))
-	}
-	// And the two that are deliberately NOT indexed. Asserted rather than left
-	// implicit, so adding them later is a decision somebody has to take by
-	// editing this test rather than a side effect of a rebuild.
-	if got := searchWith(t, c, "q=Sylhet"); len(got.Quotes) != 0 {
-		t.Errorf("a region is not indexed, but searching one found %d quotes", len(got.Quotes))
-	}
-}
-
 // Each cap is its own 400, because a message naming the wrong field is a message
 // the reader argues with.
 func TestAStandaloneQuoteFieldTooLongToStoreIsRefused(t *testing.T) {

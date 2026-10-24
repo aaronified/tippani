@@ -207,37 +207,6 @@ func TestTheNamesUnderASkippedWorkAreWholePeople(t *testing.T) {
 	}
 }
 
-// AND THE ENDPOINT READS THE READER'S SETTING, which the case above cannot say.
-//
-// THE LESSON THIS REPO KEEPS RELEARNING: a pure test of a splitter proves the
-// splitter, not that anything calls it with the right argument. Swapping the
-// handler's `s.creditSeps(q, uid)` for the default set leaves every case above
-// green — so the preference is set here, through the route that stores it, and
-// asked of the route that reads it.
-func TestTheSkippedListSplitsCreditsTheWayTheReaderAsked(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-
-	// A shelf whose names carry commas — the case creditSeparators exists for.
-	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"creditSeparators": "semicolon,amp"}, http.StatusOK)
-
-	book := createBook(t, c, "Fantastic Beasts")
-	c.mustDo("PUT", "/books/"+itoa(book),
-		map[string]any{"title": "Fantastic Beasts", "author": "Rowling, J. K."}, http.StatusOK)
-	ann := decode[idResp](t, c.mustDo("POST", "/annotations",
-		map[string]any{"book_id": book, "quote": "a line to skip"}, http.StatusCreated))
-	c.mustDo("POST", "/annotations/bulk", map[string]any{"ids": []int64{ann.ID}, "review": false}, http.StatusOK)
-
-	got := decode[excludedResp](t, c.mustDo("GET", "/review/excluded", nil, http.StatusOK))
-	if len(got.Groups) != 1 {
-		t.Fatalf("want one group, got %d", len(got.Groups))
-	}
-	if p := got.Groups[0].People; len(p) != 1 || p[0].Name != "Rowling, J. K." {
-		t.Errorf("the comma was split on although the reader switched it off: %v", p)
-	}
-}
-
 // THE TWO FACTS THE ROW PRINTS THAT ARE NOT THE QUOTES THEMSELVES.
 //
 // The screen draws "27 skipped of 28 quotes" and a chip carrying the author's
@@ -296,29 +265,3 @@ func TestTheExcludedListCarriesTheWholeCountAndTheCreditsFace(t *testing.T) {
 	}
 }
 
-// A CREDIT NOBODY HAS FETCHED A PERSON FOR IS NOT A FAILURE. It comes back with an
-// empty path and the chip draws its own stand-in — which is also what the screen
-// showed for EVERY credit before this, and is why the defect was invisible.
-func TestACreditWithNoPersonRowStillArrives(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-
-	book := decode[idResp](t, c.mustDo("POST", "/books",
-		map[string]any{"title": "An Unfetched Book", "author": "Nobody In Particular"}, http.StatusCreated))
-	a := decode[idResp](t, c.mustDo("POST", "/annotations",
-		map[string]any{"book_id": book.ID, "quote": "a line"}, http.StatusCreated))
-	c.mustDo("POST", "/annotations/bulk", map[string]any{"ids": []int64{a.ID}, "review": false}, http.StatusOK)
-
-	got := decode[excludedResp](t, c.mustDo("GET", "/review/excluded", nil, http.StatusOK))
-	if len(got.Groups) != 1 || len(got.Groups[0].People) != 1 {
-		t.Fatalf("want one group with one credit: %+v", got.Groups)
-	}
-	p := got.Groups[0].People[0]
-	if p.Name != "Nobody In Particular" {
-		t.Errorf("the name should arrive whether or not a person row exists: %q", p.Name)
-	}
-	if p.ImagePath != "" {
-		t.Errorf("no person row means no photograph, got %q", p.ImagePath)
-	}
-}

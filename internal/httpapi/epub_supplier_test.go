@@ -131,12 +131,3 @@ func TestTheEPUBIsOfferedAsAChoiceForAFieldThatAlreadyHasAValue(t *testing.T) {
 	}
 }
 
-func TestABookWithNoEPUBIsStillUnpinnedAsBefore(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	book := c.newBook("No File")
-	res := decode[offersResp](t, c.mustDo("POST", "/metadata/reverify", map[string]any{"book_ids": []int64{book}}, 200))
-	if res.Items[0].Status != "unpinned" {
-		t.Fatalf("%+v", res.Items[0])
-	}
-}

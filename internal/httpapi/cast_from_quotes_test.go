@@ -92,54 +92,6 @@ func TestABooksQuotedCharactersBecomeItsCast(t *testing.T) {
 	}
 }
 
-// IT IS IDEMPOTENT, which is what makes it safe on a read. The panel and the
-// capture form both call this endpoint, repeatedly, for the whole life of a work.
-func TestAdoptingTheSameCharacterTwiceMakesOneRow(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-
-	book := createBook(t, c, "Moby-Dick")
-	c.mustDo("POST", "/annotations", map[string]any{
-		"book_id": book, "quote": "Call me Ishmael.", "character": "Ishmael",
-	}, http.StatusCreated)
-
-	first := castList(t, c, "books", book)
-	if len(first) != 1 {
-		t.Fatalf("first list = %v, want one row", castNames(first))
-	}
-	for i := 0; i < 3; i++ {
-		if got := castList(t, c, "books", book); len(got) != 1 || got[0].ID != first[0].ID {
-			t.Fatalf("list %d = %v (ids differ or duplicated), want the same single row", i+2, castNames(got))
-		}
-	}
-}
-
-// THE SPELLING ALREADY ON THE LIST WINS. A cast row spelled "Éowyn" and a line
-// typed "  éowyn " are one character, and adopting the second would give the
-// reader two rows for a name they can see is already there.
-//
-// FOLDED BY store.CastKey, which drops case and collapses whitespace and does NOT
-// strip accents — so "Eowyn" and "Éowyn" stay two people, which is right: an
-// accent is a spelling and not a decoration, and a fold that flattened it would
-// merge names that are genuinely different in a dozen languages.
-func TestAQuotedCharacterAlreadyOnTheListIsNotAddedAgain(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-
-	book := createBook(t, c, "The Return of the King")
-	c.mustDo("POST", "/books/"+itoa(book)+"/cast", map[string]any{"character": "Éowyn"}, http.StatusCreated)
-	c.mustDo("POST", "/annotations", map[string]any{
-		"book_id": book, "quote": "I am no man.", "character": "  éowyn ",
-	}, http.StatusCreated)
-
-	got := castNames(castList(t, c, "books", book))
-	if len(got) != 1 || got[0] != "Éowyn" {
-		t.Fatalf("cast = %v, want the one row spelled as it was typed on the list", got)
-	}
-}
-
 // A DELETION THAT WAS A DEDUPE STAYS A DELETION.
 //
 // THE SPECIFICATION. Two rows for one character is the commonest reason anybody

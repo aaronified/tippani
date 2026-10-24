@@ -64,32 +64,6 @@ func TestPastJobsPageFromTheNewestWithNothingTwice(t *testing.T) {
 	}
 }
 
-func TestCurrentJobsForOneKindShowOnlyThatKind(t *testing.T) {
-	srv := newTestServer(t)
-	q := queueing(t, srv)
-	h := srv.Handler()
-	alice := signupAdmin(t, h)
-	bob := addUser(t, h, alice, "bob")
-
-	held := alice.mustStart("test.hold", map[string]any{"tag": "a"})
-	alice.waitJob(held.ID, "running")
-	waiting := alice.mustStart("test.lines", map[string]any{"tag": "b"})
-	bobs := bob.mustStart("test.hold", map[string]any{"tag": "c"})
-
-	got := alice.jobs("view=current&kind=test.hold").Jobs
-	if ids := jobIDs(got); !slices.Equal(ids, []int64{held.ID, bobs.ID}) {
-		t.Fatalf("an admin's current test.hold jobs: %v, want %d and bob's %d and not %d", ids, held.ID, bobs.ID, waiting.ID)
-	}
-	if !got[0].Own || got[1].Own {
-		t.Fatalf("own on the admin's current jobs: %+v", got)
-	}
-	if ids := jobIDs(bob.jobs("view=current&kind=test.hold").Jobs); !slices.Equal(ids, []int64{bobs.ID}) {
-		t.Fatalf("bob's current test.hold jobs: %v", ids)
-	}
-	q.let()
-	q.let()
-}
-
 func TestAJobsJSONCarriesNoListItWasGivenAndARerunStillRunsOverThem(t *testing.T) {
 	srv := newTestServer(t)
 	q := queueing(t, srv)

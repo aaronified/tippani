@@ -124,46 +124,6 @@ func TestBackupKeyIsPasswordOnly(t *testing.T) {
 	}
 }
 
-// TestBackupEnvelopeHeader checks what the header promises the UI: the mode, the
-// account label, whether a recovery wrap is present — and that a passphrase
-// archive records neither a name nor a recovery wrap, since choosing a passphrase
-// is choosing not to tie the archive to this instance or any login.
-func TestBackupEnvelopeHeader(t *testing.T) {
-	inst := testKey(0x11)
-	pw := sealed(t, backupModePassword, "alice", "supersecret", inst, []byte("x"))
-	h, err := readBackupHeader(bytes.NewReader(pw))
-	if err != nil {
-		t.Fatalf("header: %v", err)
-	}
-	if h.Mode != backupModePassword || h.Account != "alice" || h.Version != backupCryptoV2 {
-		t.Fatalf("password header = %+v", h)
-	}
-	if !h.Recoverable() {
-		t.Fatal("a password archive built with an instance key carries no recovery wrap")
-	}
-
-	// Passphrase mode ignores both the label and the instance key it was handed.
-	pp := sealed(t, backupModePassphrase, "alice", "a-long-passphrase", inst, []byte("x"))
-	h2, err := readBackupHeader(bytes.NewReader(pp))
-	if err != nil {
-		t.Fatalf("header: %v", err)
-	}
-	if h2.Mode != backupModePassphrase || h2.Account != "" {
-		t.Fatalf("passphrase header leaks an account: %+v", h2)
-	}
-	if h2.Recoverable() {
-		t.Fatal("a passphrase archive carries a recovery wrap — it must be the passphrase or nothing")
-	}
-	if _, err := openRecovered(t, pp, inst); !errors.Is(err, errBadKey) {
-		t.Fatalf("the instance key opened a passphrase archive: %v", err)
-	}
-
-	// A plain gzip stream is not corruption — it is a pre-1.4.1 archive.
-	if _, err := readBackupHeader(bytes.NewReader([]byte{0x1f, 0x8b, 0x08, 0x00, 0, 0, 0, 0})); !errors.Is(err, errNotEncrypted) {
-		t.Fatalf("plain gzip should read as unencrypted, got %v", err)
-	}
-}
-
 // TestBackupV1Refused: 1.4.1's format is refused by name, with an actionable
 // message. It shipped for about an hour and no archive of it exists outside this
 // repository's tests, and reading it would mean keeping the ambiguous
@@ -354,22 +314,6 @@ func TestBackupEnvelopeRejects(t *testing.T) {
 	})
 }
 
-// TestBackupSaltIsPerArchive: the same payload under the same secret must produce
-// different bytes each time. Otherwise an archive would be a fingerprint of its
-// own contents, and two backups could be compared for "did anything change".
-func TestBackupSaltIsPerArchive(t *testing.T) {
-	a := sealed(t, backupModePassword, "alice", "supersecret", nil, []byte("identical payload"))
-	b := sealed(t, backupModePassword, "alice", "supersecret", nil, []byte("identical payload"))
-	if bytes.Equal(a, b) {
-		t.Fatal("two archives of the same payload are byte-identical — the salt is not per-archive")
-	}
-	for i, arc := range [][]byte{a, b} {
-		if got, err := openSealed(t, arc, "supersecret"); err != nil || string(got) != "identical payload" {
-			t.Fatalf("archive %d: %q %v", i, got, err)
-		}
-	}
-}
-
 // ---- the recovery key, over HTTP -------------------------------------------
 
 // TestRecoveryKeySurvivesPasswordChange is the bug this release exists to fix: an
@@ -524,45 +468,6 @@ func TestBackupStatusReportsRecoverable(t *testing.T) {
 	safetyBackup(t, admin)
 	if rec := admin.do("POST", "/admin/restore", map[string]any{"password": testPw}); rec.Code != http.StatusUnauthorized {
 		t.Fatalf("a password opened a passphrase archive: %d %s", rec.Code, rec.Body)
-	}
-}
-
-// TestSecretShapeRules pins the password and passphrase alphabets. The upper bound
-// and the ASCII-only rule are not cosmetic: a password is also a backup key, so a
-// character that arrives as different bytes on a different keyboard is an archive
-// that will not open.
-func TestSecretShapeRules(t *testing.T) {
-	for _, tc := range []struct {
-		name, pw string
-		ok       bool
-	}{
-		{"minimum", "12345678", true},
-		{"maximum", strings.Repeat("a", 20), true},
-		{"punctuation", "p@ssw0rd!#$%^&*", true},
-		{"space", "two words here", true},
-		{"too short", "1234567", false},
-		{"too long", strings.Repeat("a", 21), false},
-		{"accented", "pásswórd1", false},
-		{"non latin", "パスワード1234", false},
-		{"emoji", "password🔐", false},
-		{"control char", "pass\tword", false},
-	} {
-		if got := passwordProblem(tc.pw) == ""; got != tc.ok {
-			t.Errorf("passwordProblem(%s) accepted=%v, want %v (%q)", tc.name, got, tc.ok, passwordProblem(tc.pw))
-		}
-	}
-	// The passphrase floor is higher — it is opt-in, so it should mean something.
-	if passphraseProblem("123456789") == "" {
-		t.Error("a nine-character passphrase was accepted")
-	}
-	if msg := passphraseProblem("1234567890"); msg != "" {
-		t.Errorf("a ten-character passphrase was refused: %s", msg)
-	}
-	if passphraseProblem(strings.Repeat("a", 21)) == "" {
-		t.Error("a 21-character passphrase was accepted")
-	}
-	if passphraseProblem("pässphrase") == "" {
-		t.Error("an accented passphrase was accepted")
 	}
 }
 

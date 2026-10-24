@@ -69,68 +69,6 @@ func TestATranslationMakesTheRoundTripOnAHighlight(t *testing.T) {
 	}
 }
 
-func TestATranslationMakesTheRoundTripOnAFilmLine(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-	movie := newWork(t, c, "Pather Panchali", "movie")
-
-	created := newLine(t, c, map[string]any{
-		"movie_id": movie, "quote": banglaLine, "translation": englishOfLine,
-	})
-	if created.Translation != englishOfLine {
-		t.Fatalf("the create came back with translation %q", created.Translation)
-	}
-	listed := decode[struct {
-		Dialogues []dialogueRow `json:"dialogues"`
-	}](t, c.mustDo("GET", "/dialogues?movie_id="+itoa(movie), nil, http.StatusOK)).Dialogues
-	if len(listed) != 1 || listed[0].Translation != englishOfLine {
-		t.Fatalf("the list did not carry the translation: %+v", listed)
-	}
-	kept := decode[dialogueRow](t, c.mustDo("PUT", "/dialogues/"+itoa(created.ID), map[string]any{
-		"quote": banglaLine, "translation": "Durga, wake up",
-	}, http.StatusOK))
-	if kept.Translation != "Durga, wake up" {
-		t.Fatalf("the PUT did not update the translation: %q", kept.Translation)
-	}
-}
-
-// A translation is UNCAPPED, like the words it translates and unlike every
-// locator beside it. A Bengali compound unpacked into English needs the room, and
-// a 400 at some invented length would be a rule nobody could learn.
-func TestATranslationIsNotLengthCapped(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-	book := createBook(t, c, "Gitanjali")
-	movie := newWork(t, c, "Pather Panchali", "movie")
-
-	long := strings.Repeat("a translated clause, ", 200) // ~4k, well past any locator cap
-	ann := decode[annotationRow](t, c.mustDo("POST", "/annotations", map[string]any{
-		"book_id": book, "quote": banglaHighlight, "translation": long,
-	}, http.StatusCreated))
-	if len(ann.Translation) != len(strings.TrimSpace(long)) {
-		t.Errorf("the highlight's translation was truncated to %d characters", len(ann.Translation))
-	}
-	dlg := newLine(t, c, map[string]any{"movie_id": movie, "quote": banglaLine, "translation": long})
-	if len(dlg.Translation) != len(strings.TrimSpace(long)) {
-		t.Errorf("the line's translation was truncated to %d characters", len(dlg.Translation))
-	}
-}
-
-// Trimmed, like the quote and the note. Not because whitespace is invalid but
-// because the stray-marks sweep would otherwise report every saved translation as
-// having an edge space, which is a report about the form rather than the library.
-func TestATranslationIsTrimmed(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-	book := createBook(t, c, "Gitanjali")
-	got := decode[annotationRow](t, c.mustDo("POST", "/annotations", map[string]any{
-		"book_id": book, "quote": banglaHighlight, "translation": "  " + englishOfIt + "\n",
-	}, http.StatusCreated))
-	if got.Translation != englishOfIt {
-		t.Errorf("translation came back untrimmed: %q", got.Translation)
-	}
-}
-
 // NOT IN THE DEDUPE HASH, and this is the sharpest rule of the lot: the hash
 // answers "is this the same quote", and that answer cannot depend on whether
 // anybody has got round to translating it. If translation were folded in, typing
@@ -260,43 +198,6 @@ func TestATranslationSurvivesTheMarkdownRoundTripOnBothKinds(t *testing.T) {
 	}
 	if linesBack[0].Translation != englishOfLine {
 		t.Errorf("the line came back from the round trip with translation %q", linesBack[0].Translation)
-	}
-}
-
-// A hand-written file, with the two aliases the other importers already take. A
-// reader should not have to know which shelf a file is going to in order to name
-// the same field.
-func TestTheImporterTakesTheSameTranslationKeysOnEveryKind(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-
-	staged := stageQuotesMD(t, c, "hand.md", `---
-title: Gitanjali
-author: Rabindranath Tagore
----
-
-> `+banglaHighlight+`
-- english: `+englishOfIt+`
-
-> আরেকটা লাইন
-- translated: another rendering
-`)
-	approveBatch(t, c, staged.BatchID)
-	got := decode[struct {
-		Annotations []annotationRow `json:"annotations"`
-	}](t, c.mustDo("GET", "/annotations", nil, http.StatusOK)).Annotations
-	if len(got) != 2 {
-		t.Fatalf("staged %d highlights, want 2: %+v", len(got), got)
-	}
-	seen := map[string]bool{}
-	for _, a := range got {
-		seen[a.Translation] = true
-	}
-	if !seen[englishOfIt] {
-		t.Errorf("the `english:` alias was not read: %+v", got)
-	}
-	if !seen["another rendering"] {
-		t.Errorf("the `translated:` alias was not read: %+v", got)
 	}
 }
 

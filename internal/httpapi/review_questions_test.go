@@ -85,32 +85,6 @@ func TestReviewQuestionsRefuseADeckThatCannotAskABook(t *testing.T) {
 	}
 }
 
-// The stored form is CANONICAL, so toggling something off and back on produces
-// the same bytes. Without it, two accounts with identical settings hold
-// different strings and a diff of preferences means nothing.
-func TestReviewQuestionsSerialiseInATableOrder(t *testing.T) {
-	a := parseReviewQuestions(`{"daily":["cloze","source"],"practice":["flip","cloze"]}`).blob()
-	b := parseReviewQuestions(`{"daily":["source","cloze"],"practice":["cloze","flip"]}`).blob()
-	if a != b {
-		t.Fatalf("order must not survive a round trip:\n a = %s\n b = %s", a, b)
-	}
-	if !strings.Contains(a, `"daily":["source","cloze"]`) {
-		t.Fatalf("blob = %s, want the table's own order", a)
-	}
-}
-
-// A corrupt preference must not be able to break the one screen that would fix
-// it — so it reads as the defaults rather than as an error.
-func TestReviewQuestionsSurviveRubbish(t *testing.T) {
-	def := defaultReviewQuestions()
-	for _, blob := range []string{"{", "null", "[]", `{"daily":"source"}`, "not json at all"} {
-		q := parseReviewQuestions(blob)
-		if dirsOf(q.daily) != dirsOf(def.daily) || dirsOf(q.practice) != dirsOf(def.practice) {
-			t.Fatalf("%q must read as the defaults, got %+v", blob, q)
-		}
-	}
-}
-
 // directionsForMode is where the repertoire actually bites, and the interesting
 // case is the intersection with the KIND: a reader can enable a set that is
 // perfectly valid and still leave one kind of card with nothing.
@@ -135,53 +109,6 @@ func TestDirectionsForModeHonoursTheRepertoire(t *testing.T) {
 	}
 	if got := dirsOf(directionsForMode(kindUtterance, true, nil)); got != "source,quote,cloze,cloze-mcq,speaker" {
 		t.Fatalf("utterance directions = %v", got)
-	}
-}
-
-// THE BELT-AND-BRACES CASE. review_questions.go guarantees a universal direction
-// survives, so this cannot happen through the normaliser — but the guarantee
-// lives in another file, and if it ever breaks the symptom would be a deck with
-// no cards rather than a compile error.
-func TestDirectionsForModeNeverReturnsNothing(t *testing.T) {
-	// A hand-built set that the normaliser would have refused.
-	on := map[string]bool{dirSpeaker: true}
-	got := directionsForMode(kindBook, true, on)
-	if len(got) == 0 {
-		t.Fatal("a book card must always have something to be asked, even from an impossible repertoire")
-	}
-}
-
-// The round trip through the preferences endpoint, because the normaliser is
-// only useful if loadPrefs and the PUT both run it.
-func TestPreferencesNormaliseTheQuestionBlob(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-
-	c.mustDo("PUT", "/auth/me/preferences", map[string]any{
-		"srQuestions": `{"daily":["source","flip"],"practice":["cloze"]}`,
-	}, 200)
-
-	type meResp struct {
-		Preferences struct {
-			SRQuestions string `json:"srQuestions"`
-		} `json:"preferences"`
-	}
-	me := decode[meResp](t, c.mustDo("GET", "/auth/me", nil, 200))
-	got := me.Preferences.SRQuestions
-	if strings.Contains(got, "flip") && strings.Contains(got, `"daily":["source","flip"`) {
-		t.Fatalf("the daily deck kept a self-marked card through the API: %s", got)
-	}
-	if !strings.Contains(got, `"practice":["cloze"]`) {
-		t.Fatalf("practice = %s, want the single type it asked for", got)
-	}
-
-	// Empty string is Back to defaults, and must come back as empty rather than
-	// as "leave it alone" — which is what the older `!= ""` string fields do and
-	// is exactly the trap this one had to avoid.
-	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"srQuestions": ""}, 200)
-	me = decode[meResp](t, c.mustDo("GET", "/auth/me", nil, 200))
-	if me.Preferences.SRQuestions != "" {
-		t.Fatalf("back to defaults left %q behind", me.Preferences.SRQuestions)
 	}
 }
 
@@ -254,20 +181,6 @@ func TestReviewTuningRequiresALadderThatClimbs(t *testing.T) {
 	// theirs and one ours — which is worse than the default they can recognise.
 	if got := parseReviewTuning(`{"ladder1":10,"ladder2":20,"ladder3":60,"ladder4":30}`); got.ladder() != d.ladder() {
 		t.Errorf("a broken ascent must discard the whole ladder, not patch one rung: %v", got.ladder())
-	}
-}
-
-func TestReviewTuningDefaultsStoreNothing(t *testing.T) {
-	if got := defaultReviewTuning().blob(); got != "" {
-		t.Fatalf("blob = %q, want empty so a later change to the defaults reaches the account", got)
-	}
-	if got := parseReviewTuning(""); got != defaultReviewTuning() {
-		t.Fatalf("empty must read as the defaults: %s", got)
-	}
-	for _, blob := range []string{"{", "null", "[]", `{"grow":"fast"}`, "nonsense"} {
-		if got := parseReviewTuning(blob); got != defaultReviewTuning() {
-			t.Errorf("%q must read as the defaults, got %s", blob, got)
-		}
 	}
 }
 

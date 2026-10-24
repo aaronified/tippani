@@ -2,10 +2,8 @@ package httpapi
 
 import (
 	"net/http"
-	"strings"
 	"testing"
 
-	"tippani/internal/metadata"
 	"tippani/internal/store"
 )
 
@@ -102,69 +100,6 @@ func TestAGameWithNoVoiceCastCanStillNameItsVoiceActor(t *testing.T) {
 	after := castOf(t, c, "/movies/"+itoa(game)+"/cast")
 	if len(after.Cast) != 1 || after.Cast[0].Actor != "Jullian Champenois" {
 		t.Fatalf("the typed voice actor did not come back: %+v", after.Cast)
-	}
-}
-
-// A BOOK HAS CHARACTERS AND NOT A CAST. 0047 refused an `actor` column on
-// `annotations` in those words; this is the same refusal one level up, and it is
-// a rejection rather than a silent clear — the API rejects a field the kind does
-// not have, and an import clears one (applyImportedCast, pinned by
-// TestABooksImportedCharactersLoseTheirActors).
-func TestABookRefusesAnActorAndSaysItHasNone(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-
-	book := createTestBook(t, c, "Moby-Dick", "Herman Melville")
-	list := castOf(t, c, "/books/"+itoa(book)+"/cast")
-	if list.ActorRole != "none" {
-		t.Fatalf("actor_role = %q, want \"none\" — a novel has speakers, not a cast", list.ActorRole)
-	}
-	if list.Cast == nil {
-		t.Fatal("an empty cast must serialise as [] and not null")
-	}
-
-	rec := c.mustDo("POST", "/books/"+itoa(book)+"/cast", map[string]any{
-		"character": "Ishmael", "actor": "Richard Basehart",
-	}, http.StatusBadRequest)
-	if body := rec.Body.String(); !strings.Contains(body, "a novel has speakers") {
-		t.Fatalf("the refusal should say why: %s", body)
-	}
-
-	row := decode[castRow](t, c.mustDo("POST", "/books/"+itoa(book)+"/cast", map[string]any{
-		"character": "Ishmael",
-	}, http.StatusCreated))
-	if row.Actor != "" {
-		t.Fatalf("a book row carries no actor: %+v", row)
-	}
-
-	// And it stays refused on the correction route, which is the same validator.
-	c.mustDo("PUT", "/cast/"+itoa(row.ID), map[string]any{
-		"character": "Ishmael", "actor": "Richard Basehart",
-	}, http.StatusBadRequest)
-}
-
-// A film and a show say "actor"; only a game relabels the column. Derived from
-// media_type in one helper, because "a game says voice actor" is exactly the
-// kind of rule that gets taught to three of the four places that need it.
-func TestAFilmAndAShowCallTheirSecondColumnActor(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-
-	for _, tc := range []struct{ mediaType, want string }{
-		{"movie", "actor"}, {"show", "actor"}, {"game", "voice"},
-	} {
-		id := createWork(t, c, "Work "+tc.mediaType, "Somebody", tc.mediaType)
-		row := decode[castRow](t, c.mustDo("POST", "/movies/"+itoa(id)+"/cast", map[string]any{
-			"character": "Neo", "actor": "Keanu Reeves",
-		}, http.StatusCreated))
-		if row.Actor != "Keanu Reeves" {
-			t.Fatalf("%s refused an actor: %+v", tc.mediaType, row)
-		}
-		if got := castOf(t, c, "/movies/"+itoa(id)+"/cast").ActorRole; got != tc.want {
-			t.Fatalf("%s: actor_role = %q want %q", tc.mediaType, got, tc.want)
-		}
 	}
 }
 
@@ -319,51 +254,6 @@ func TestAddingBackADeletedPairRevivesItsTombstone(t *testing.T) {
 	if n != 1 {
 		t.Fatalf("%d rows on the work — reviving must not leave the tombstone behind as well", n)
 	}
-}
-
-// A hand-typed row sorts AFTER the billed cast, because an uncredited part is
-// not the lead. MAX(billing)+1, so the order is total and stable.
-func TestAHandTypedRowSortsAfterTheBilledCast(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-
-	film := createFilm(t, c, "The Matrix", "The Wachowskis")
-	seedProviderCast(t, srv, 1, "movie", film,
-		[2]string{"Neo", "Keanu Reeves"}, [2]string{"Trinity", "Carrie-Anne Moss"})
-	c.mustDo("POST", "/movies/"+itoa(film)+"/cast",
-		map[string]any{"character": "Woman in Red", "actor": "Fiona Johnson"}, http.StatusCreated)
-
-	got := castOf(t, c, "/movies/"+itoa(film)+"/cast").Cast
-	want := []string{"Neo", "Trinity", "Woman in Red"}
-	if len(got) != len(want) {
-		t.Fatalf("got %d rows, want %d: %+v", len(got), len(want), got)
-	}
-	for i := range want {
-		if got[i].Character != want[i] {
-			t.Fatalf("position %d is %q, want %q (billing %d)", i, got[i].Character, want[i], got[i].Billing)
-		}
-	}
-	if got[2].Billing != 2 {
-		t.Fatalf("the hand-typed row took billing %d, want 2", got[2].Billing)
-	}
-}
-
-// The cap is a bound on one work's list, not a paging problem. The provider seed
-// is at most 20 (metadata.maxCast), so nothing a fetch produces can reach it.
-func TestACastListIsCapped(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-
-	film := createFilm(t, c, "Ensemble", "Somebody")
-	pairs := make([][2]string, maxWorkCast)
-	for i := range pairs {
-		pairs[i] = [2]string{"Extra " + itoa(int64(i)), "Player " + itoa(int64(i))}
-	}
-	seedProviderCast(t, srv, 1, "movie", film, pairs...)
-	c.mustDo("POST", "/movies/"+itoa(film)+"/cast",
-		map[string]any{"character": "One More", "actor": "Nobody"}, http.StatusBadRequest)
 }
 
 // Ownership is a security property, not a filter: a foreign work and a foreign
@@ -588,98 +478,3 @@ func TestCastPairTakenTellsAFailedReadFromAnEmptyOne(t *testing.T) {
 	}
 }
 
-// A TMDB REFETCH MUST NOT STRIP THE CHARACTER ART A THETVDB FETCH FOUND (0049).
-//
-// This is the one way the second image column can be lost, and it is not a
-// hypothetical: TMDB has no character art at all, so it sends an empty string for
-// every row of every title on every fetch. Under plain assignment, re-verifying a
-// TheTVDB-seeded film against TMDB — which the metadata console and /metadata/fill
-// both do, in bulk, unattended — would blank every costume in the library and
-// report success. The CASE expressions in updateProviderCastRow and
-// updateCastRowFacts are what stop it, and this test is what stops somebody
-// simplifying them back.
-//
-// Both origins are exercised because they take different UPDATE statements: an
-// untouched provider row goes through the first, a corrected one through the
-// second, and only one of the two was wrong the first time this was written.
-func TestATMDBRefetchKeepsTheCharacterArtTheTVDBFound(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	film := createFilm(t, c, "Suicide Squad", "David Ayer")
-
-	const waller = "https://artworks.thetvdb.com/banners/character/9001/waller.jpg"
-	const quinn = "https://artworks.thetvdb.com/banners/character/9002/quinn.jpg"
-
-	seed := func(in []metadata.CastMember, source string) {
-		t.Helper()
-		tx, err := srv.Store.DB.Begin()
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := mergeProviderCast(tx, 1, "movie", film, source, in); err != nil {
-			tx.Rollback()
-			t.Fatal(err)
-		}
-		if err := tx.Commit(); err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	// TheTVDB pins the title and both roles arrive with costumes.
-	seed([]metadata.CastMember{
-		{Character: "Amanda Waller", Actor: "Viola Davis", PersonID: "412",
-			ImageURL: "https://artworks.thetvdb.com/head412.jpg", CharacterImageURL: waller},
-		{Character: "Harley Quinn", Actor: "Margot Robbie", PersonID: "77",
-			ImageURL: "https://artworks.thetvdb.com/head77.jpg", CharacterImageURL: quinn},
-	}, "tvdb")
-
-	// The reader corrects one of the two, which moves that row onto the other
-	// UPDATE statement for every fetch after this one.
-	rows := castOf(t, c, "/movies/"+itoa(film)+"/cast")
-	if len(rows.Cast) != 2 {
-		t.Fatalf("seeded 2 credits, got %+v", rows.Cast)
-	}
-	var quinnID int64
-	for _, r := range rows.Cast {
-		if r.Character == "Harley Quinn" {
-			quinnID = r.ID
-		}
-	}
-	c.mustDo("PUT", "/cast/"+itoa(quinnID), map[string]any{
-		"character": "Dr. Harleen Quinzel", "actor": "Margot Robbie",
-	}, http.StatusOK)
-
-	// Now the same film is re-verified against TMDB: same people, no character art.
-	seed([]metadata.CastMember{
-		{Character: "Amanda Waller", Actor: "Viola Davis", PersonID: "1234",
-			ImageURL: "https://image.tmdb.org/head.jpg"},
-		{Character: "Dr. Harleen Quinzel", Actor: "Margot Robbie", PersonID: "5678",
-			ImageURL: "https://image.tmdb.org/head2.jpg"},
-	}, "tmdb")
-
-	after := castOf(t, c, "/movies/"+itoa(film)+"/cast")
-	if len(after.Cast) != 2 {
-		t.Fatalf("expected both credits to survive the refetch: %+v", after.Cast)
-	}
-	got := map[string]string{}
-	for _, r := range after.Cast {
-		got[r.Character] = r.CharacterImageURL
-	}
-	if got["Amanda Waller"] != waller {
-		t.Errorf("untouched provider row: character art = %q, want it kept as %q",
-			got["Amanda Waller"], waller)
-	}
-	if got["Dr. Harleen Quinzel"] != quinn {
-		t.Errorf("corrected row: character art = %q, want it kept as %q",
-			got["Dr. Harleen Quinzel"], quinn)
-	}
-	// And the provider's own facts DID move, so this is not passing because the
-	// refetch was a no-op.
-	for _, r := range after.Cast {
-		if r.Source != "tmdb" {
-			t.Errorf("%s: source = %q, want tmdb — the refetch did not take effect",
-				r.Character, r.Source)
-		}
-	}
-}

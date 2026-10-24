@@ -923,30 +923,6 @@ func TestAStopInAnApplyIsInstantAndLeavesEachItemWholeOrUntouched(t *testing.T) 
 	})
 }
 
-func TestAStopInAPeopleFetchIsInstantAndLeavesEachRecordWholeOrUntouched(t *testing.T) {
-	runKillCases(t, []killCase{
-		peopleCase("before its first record", false, 0, func(w *killWorld) { w.atItem(0, "before the first record") }),
-		every(peopleCase("inside Open Library's resolution", true, 1, func(w *killWorld) { w.authorAnswers("cut", "") })),
-		peopleCase("inside the portrait's download", true, 1, func(w *killWorld) { w.holdPicture.Store(ptr("Octavia-E.-Butler.png")) }),
-		peopleCase("inside the reference pages, the portrait arrived", true, 1, func(w *killWorld) { w.authorAnswers("", "cut") }),
-		peopleCase("between its records", false, 1, func(w *killWorld) { w.atItem(1, "between the records") }),
-		peopleCase("just before the write, the reference pages answered", true, 1, func(w *killWorld) { w.authorAnswers("", "late") }),
-	})
-}
-
-func TestAStopInACoversPassIsInstantAndLeavesEachWorkWholeOrUntouched(t *testing.T) {
-	runKillCases(t, []killCase{
-		coversCase("before its first work", false, 0, func(w *killWorld) { w.atItem(0, "before the first work") }),
-		every(coversCase("inside the book search", true, 1, func(w *killWorld) { w.bookAnswers(messiahISBN, "cut") })),
-		coversCase("inside the cover's download", true, 1, func(w *killWorld) { w.holdPicture.Store(ptr(messiahISBN + ".png")) }),
-		coversCase("between its works", false, 1, func(w *killWorld) { w.atItem(1, "between the works") }),
-		coversCase("just before the write, the search answered", true, 1, func(w *killWorld) { w.bookAnswers(messiahISBN, "late") }),
-		coversCase("just before the write, the cover arrived", true, 1, func(w *killWorld) { w.latePicture.Store(ptr(messiahISBN + ".png")) }),
-		coversFilmsCase("inside a film's poster download", func(w *killWorld) { w.holdPicture.Store(ptr("p604.jpg")) }),
-		coversFilmsCase("just before the write, a film's poster arrived", func(w *killWorld) { w.latePicture.Store(ptr("p604.jpg")) }),
-	})
-}
-
 func TestAStopInABackupIsInstantAndKeepsTheArchiveThereWas(t *testing.T) {
 	runKillCases(t, []killCase{
 		backupCase("before its snapshot", "snapshot", 1, 0),
@@ -1121,4 +1097,28 @@ func (w *killWorld) giveBack(name string) *testClient {
 	}
 	w.t.Fatalf("the deleted account %s is not in the admin's bin", name)
 	return nil
+}
+
+func TestAStopInAPeopleFetchIsInstantAndLeavesEachRecordWholeOrUntouched(t *testing.T) {
+	runKillCases(t, []killCase{
+		peopleCase("before its first record", false, 0, func(w *killWorld) { w.atItem(0, "before the first record") }),
+		every(peopleCase("inside Open Library's resolution", true, 1, func(w *killWorld) { w.authorAnswers("cut", "") })),
+		peopleCase("inside the portrait's download", true, 1, func(w *killWorld) { w.holdPicture.Store(ptr("Octavia-E.-Butler.png")) }),
+		peopleCase("inside the reference pages, the portrait arrived", true, 1, func(w *killWorld) { w.authorAnswers("", "cut") }),
+		peopleCase("between its records", false, 1, func(w *killWorld) { w.atItem(1, "between the records") }),
+		peopleCase("just before the write, the reference pages answered", true, 1, func(w *killWorld) { w.authorAnswers("", "late") }),
+	})
+}
+
+func TestAStopInACoversPassIsInstantAndLeavesEachWorkWholeOrUntouched(t *testing.T) {
+	runKillCases(t, []killCase{
+		coversCase("before its first work", false, 0, func(w *killWorld) { w.atItem(0, "before the first work") }),
+		every(coversCase("inside the book search", true, 1, func(w *killWorld) { w.bookAnswers(messiahISBN, "cut") })),
+		coversCase("inside the cover's download", true, 1, func(w *killWorld) { w.holdPicture.Store(ptr(messiahISBN + ".png")) }),
+		coversCase("between its works", false, 1, func(w *killWorld) { w.atItem(1, "between the works") }),
+		coversCase("just before the write, the search answered", true, 1, func(w *killWorld) { w.bookAnswers(messiahISBN, "late") }),
+		coversCase("just before the write, the cover arrived", true, 1, func(w *killWorld) { w.latePicture.Store(ptr(messiahISBN + ".png")) }),
+		coversFilmsCase("inside a film's poster download", func(w *killWorld) { w.holdPicture.Store(ptr("p604.jpg")) }),
+		coversFilmsCase("just before the write, a film's poster arrived", func(w *killWorld) { w.latePicture.Store(ptr("p604.jpg")) }),
+	})
 }

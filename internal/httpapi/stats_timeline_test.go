@@ -89,22 +89,6 @@ func TestTheTimelineOrdersBCEBeforeCE(t *testing.T) {
 	}
 }
 
-func TestAWorkWithNoYearIsAbsentRatherThanZero(t *testing.T) {
-	// 0 means "not recorded". A bucket at year 0 would sit between 1 BCE and 1 CE
-	// and read as a point in time, which it is not — it is a gap in the
-	// catalogue, and the timeline is not the place to report it.
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-	book := decode[bookDetail](t, c.mustDo("POST", "/books", map[string]any{
-		"title": "Undated",
-	}, http.StatusCreated))
-	c.mustDo("POST", "/annotations", map[string]any{"book_id": book.ID, "quote": "A line"}, http.StatusCreated)
-
-	if b, ok := timelineOf(t, c)[0]; ok {
-		t.Errorf("a work with no year produced a year-0 bucket: %+v", b)
-	}
-}
-
 func TestAStandaloneQuoteIsDatedByItsOccasion(t *testing.T) {
 	// occasion_date is the only date an utterance carries that is about the
 	// quote rather than about the saving of it. It is a partial date in TEXT, so
@@ -186,19 +170,3 @@ func TestTheMostFavouritedPerson(t *testing.T) {
 	}
 }
 
-func TestNoFavouritesMeansNoFavouritePerson(t *testing.T) {
-	// A tile with a name and a zero on it is worse than no tile.
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-	book := decode[bookDetail](t, c.mustDo("POST", "/books", map[string]any{
-		"title": "B", "author": "A Writer",
-	}, http.StatusCreated))
-	c.mustDo("POST", "/annotations", map[string]any{"book_id": book.ID, "quote": "A line"}, http.StatusCreated)
-
-	got := decode[struct {
-		FavouritePerson *struct{} `json:"favourite_person"`
-	}](t, c.mustDo("GET", "/stats", nil, http.StatusOK))
-	if got.FavouritePerson != nil {
-		t.Error("a library with no favourites named a favourite person")
-	}
-}

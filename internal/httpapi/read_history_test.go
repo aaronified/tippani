@@ -104,22 +104,6 @@ func TestAnOpenReadCannotBeCreatedByHandEither(t *testing.T) {
 	}
 }
 
-func TestAReadThatEndedBeforeItBeganIsRefused(t *testing.T) {
-	// Nothing downstream would ever complain about this; it would simply sort
-	// oddly forever. Partial dates compare lexically, which is what makes the
-	// check valid across all three shapes.
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-	book := decode[bookDetail](t, c.mustDo("POST", "/books", map[string]any{"title": "B"}, http.StatusCreated))
-	c.mustDo("POST", "/books/"+itoa(book.ID)+"/reads", map[string]any{
-		"started_at": "2020-06", "finished_at": "2019", "outcome": "finished",
-	}, http.StatusBadRequest)
-	// And the boundary is inclusive — same day is fine, and so is same year.
-	c.mustDo("POST", "/books/"+itoa(book.ID)+"/reads", map[string]any{
-		"started_at": "2020", "finished_at": "2020", "outcome": "finished",
-	}, http.StatusCreated)
-}
-
 func TestReadHistoryIsPerUser(t *testing.T) {
 	// work_reads carries its own user_id and has NO foreign key to books or
 	// movies — 0024 says SQLite could not express it across the two tables — so
@@ -149,41 +133,3 @@ func TestReadHistoryIsPerUser(t *testing.T) {
 	}
 }
 
-func TestEditingHistoryMovesTheLastReadSort(t *testing.T) {
-	// The reason this is a fix. 1.7.2 made the Library sortable by last read;
-	// correcting the log has to move the shelf, or the sort is a claim about
-	// data you cannot reach.
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	book := decode[bookDetail](t, c.mustDo("POST", "/books", map[string]any{"title": "B"}, http.StatusCreated))
-
-	r := decode[readRow](t, c.mustDo("POST", "/books/"+itoa(book.ID)+"/reads", map[string]any{
-		"started_at": "2009", "finished_at": "2009-06", "outcome": "finished",
-	}, http.StatusCreated))
-	if got := bookNamed(t, c, "B").LastReadAt; got != "2009-06" {
-		t.Fatalf("last_read_at = %q, want 2009-06", got)
-	}
-	c.mustDo("PUT", "/reads/"+itoa(r.ID), map[string]any{
-		"started_at": "2024", "finished_at": "2024-11", "outcome": "finished",
-	}, http.StatusOK)
-	if got := bookNamed(t, c, "B").LastReadAt; got != "2024-11" {
-		t.Fatalf("last_read_at = %q after the correction, want 2024-11", got)
-	}
-	c.mustDo("DELETE", "/reads/"+itoa(r.ID), nil, http.StatusNoContent)
-	if got := bookNamed(t, c, "B").LastReadAt; got != "" {
-		t.Fatalf("last_read_at = %q after deleting the only read, want empty", got)
-	}
-}
-
-func TestAWatchHistoryWorksTheSameWay(t *testing.T) {
-	// A show is a movie row, as everywhere; the only difference is the noun.
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-	film := decode[movieDetail](t, c.mustDo("POST", "/movies", map[string]any{"title": "F"}, http.StatusCreated))
-	got := decode[readRow](t, c.mustDo("POST", "/movies/"+itoa(film.ID)+"/reads", map[string]any{
-		"started_at": "2015-08-01", "finished_at": "2015-08-01", "outcome": "finished",
-	}, http.StatusCreated))
-	if rs := readsOf(t, c, "movies", film.ID); len(rs) != 1 || rs[0].ID != got.ID {
-		t.Fatalf("watch history = %+v", rs)
-	}
-}

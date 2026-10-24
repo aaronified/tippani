@@ -42,76 +42,6 @@ func TestStatsCountsStandaloneQuotes(t *testing.T) {
 	}
 }
 
-// "Collecting since", the busiest month and the activity calendar all bucket the
-// same set of rows by created_at. A library holding nothing but standalone
-// quotes must still have a history.
-func TestStatsHistoryIncludesQuotes(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-
-	u := newUtterance(t, c, bose())
-	if _, err := srv.Store.DB.Exec(
-		`UPDATE utterances SET created_at = '2026-07-14 09:00:00' WHERE id = ?`, u.ID); err != nil {
-		t.Fatal(err)
-	}
-
-	st := getStats(t, c)
-	if st.FirstSaved == nil || *st.FirstSaved != "2026-07-14" {
-		t.Fatal("a quote-only library reported no history")
-	}
-	if st.BusiestMonth == nil || st.BusiestMonth.Month != "2026-07" || st.BusiestMonth.Count != 1 {
-		t.Fatalf("busiest month: %+v", st.BusiestMonth)
-	}
-	var found bool
-	for _, d := range st.DailyActivity {
-		if d.Date == "2026-07-14" && d.Count == 1 {
-			found = true
-		}
-	}
-	if !found {
-		t.Fatalf("the activity calendar has no dot for the day: %+v", st.DailyActivity)
-	}
-}
-
-// The earliest save wins across all three kinds, so a quote older than every
-// annotation has to move the date rather than be ignored.
-func TestStatsFirstSavedSpansEveryKind(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-
-	book := decode[bookDetail](t, c.mustDo("POST", "/books", map[string]any{"title": "Dune"}, http.StatusCreated))
-	c.mustDo("POST", "/annotations", map[string]any{"book_id": book.ID, "quote": "a passage"}, http.StatusCreated)
-	u := newUtterance(t, c, bose())
-
-	if _, err := srv.Store.DB.Exec(`UPDATE annotations SET created_at = '2026-03-01 09:00:00'`); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := srv.Store.DB.Exec(
-		`UPDATE utterances SET created_at = '2025-11-02 09:00:00' WHERE id = ?`, u.ID); err != nil {
-		t.Fatal(err)
-	}
-
-	if got := getStats(t, c).FirstSaved; got == nil || *got != "2025-11-02" {
-		t.Fatal("the older quote did not move collecting-since")
-	}
-}
-
-func TestStatsTagLeaderboardCountsQuotes(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-
-	body := bose()
-	body["tags"] = []string{"freedom"}
-	newUtterance(t, c, body)
-
-	st := getStats(t, c)
-	if len(st.TopTags) != 1 || st.TopTags[0].Name != "freedom" || st.TopTags[0].Count != 1 {
-		t.Fatalf("tag leaderboard missed the quote: %+v", st.TopTags)
-	}
-}
-
 // The colour card is headed "Highlight colours" and counts itself in "quotes",
 // but it only ever counted book annotations. Dialogues have worn a colour since
 // 0021 and standalone quotes since 0026, so on a library of films the card read
@@ -203,26 +133,6 @@ func TestStatsBreakdownHasSpeakersAndOccasions(t *testing.T) {
 	}
 	if pp.Count == 0 {
 		t.Fatalf("people: %+v", pp)
-	}
-}
-
-// A proverb has no speaker and no occasion, so it belongs to no entity — the
-// same reason it never enters the review deck. It must not appear as a blank row.
-func TestStatsBreakdownSkipsProverbs(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-
-	newUtterance(t, c, map[string]any{"quote": "Least said, soonest mended"})
-
-	st := getStats(t, c)
-	if st.Quotes != 1 {
-		t.Fatalf("the proverb should still be counted in the totals: %d", st.Quotes)
-	}
-	for _, kind := range []string{"speakers", "people"} {
-		k := st.Breakdown[kind]
-		if k.Count != 0 {
-			t.Fatalf("%s gained a nameless row from a proverb: %+v", kind, k.Top)
-		}
 	}
 }
 

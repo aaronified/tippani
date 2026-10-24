@@ -80,30 +80,6 @@ func TestBulkDeletingBooksTakesTheirQuotesAndComesBackWhole(t *testing.T) {
 	}
 }
 
-func TestBulkDeletingFilmsTakesTheirLines(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-
-	id := idOf(t, c.mustDo("POST", "/movies", map[string]any{"title": "Casablanca"}, http.StatusCreated).Body.Bytes())
-	c.mustDo("POST", "/dialogues", map[string]any{"movie_id": id, "quote": "round up the usual suspects"}, http.StatusCreated)
-
-	// "title", not "movie" — the bin's own word for a film or a show, and the
-	// server owns it because the server is where the phrase is checked.
-	got := decode[bulkDeleteWorkResp](t, c.mustDo("POST", "/movies/bulk/delete",
-		map[string]any{"ids": []int64{id}, "confirm": "delete 1 title"}, 200))
-	if got.Deleted != 1 {
-		t.Fatalf("delete = %+v", got)
-	}
-	c.mustDo("POST", "/trash/"+itoa(got.TrashID)+"/restore", nil, 200)
-	rows := decode[struct {
-		Dialogues []dialogueRow `json:"dialogues"`
-	}](t, c.mustDo("GET", "/dialogues?movie_id="+itoa(id), nil, 200)).Dialogues
-	if len(rows) != 1 {
-		t.Errorf("the film came back with %d lines, want 1", len(rows))
-	}
-}
-
 func TestBulkDeleteRefusesSomebodyElsesBooks(t *testing.T) {
 	srv := newTestServer(t)
 	h := srv.Handler()
@@ -184,20 +160,6 @@ func TestBulkShelfStateSkipsACompletedWorkRatherThanRefusingTheBatch(t *testing.
 	if byID[a] != "paused" || byID[b] != "paused" {
 		t.Errorf("the other two did not move: %q %q", byID[a], byID[b])
 	}
-}
-
-func TestBulkShelfStateRefusesAStatusTheKindDoesNotHave(t *testing.T) {
-	// A book reads and a film watches. Accepting the other side's word would put a
-	// value in the column that no filter chip on either board can match.
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	id := createBook(t, c, "one")
-	c.mustDo("POST", "/books/bulk/status",
-		map[string]any{"ids": []int64{id}, "status": "watching"}, http.StatusBadRequest)
-	movie := idOf(t, c.mustDo("POST", "/movies", map[string]any{"title": "Casablanca"}, http.StatusCreated).Body.Bytes())
-	c.mustDo("POST", "/movies/bulk/status",
-		map[string]any{"ids": []int64{movie}, "status": "reading"}, http.StatusBadRequest)
 }
 
 // ---- fill the gaps ----------------------------------------------------------

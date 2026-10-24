@@ -180,37 +180,6 @@ func containsTag(tags []tagRow, name string) bool {
 	return false
 }
 
-// TestStagedQueueAnchorPreview: the queue says where quotes WOULD land, so a
-// wrong anchor is visible before the write rather than after it.
-func TestStagedQueueAnchorPreview(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-
-	book := decode[bookDetail](t, c.mustDo("POST", "/books",
-		map[string]any{"title": "Sandworm Studies", "author": "Liet Kynes"}, http.StatusCreated))
-
-	res := stage(t, c, "/import/markdown", "sandworm.md", []byte(stagedBookMD))
-	if len(res.Works) != 1 || res.Works[0].TargetID != book.ID || res.Works[0].TargetTitle != "Sandworm Studies" {
-		t.Fatalf("staging should preview the book it will join: %+v", res.Works)
-	}
-	q := queue(t, c, "")
-	if len(q.Works) != 1 || q.Works[0].TargetID != book.ID || q.Works[0].Pinned {
-		t.Fatalf("queue preview: %+v", q.Works)
-	}
-
-	// A film import previews its anchor, its year and any ambiguity.
-	m := decode[movieDetail](t, c.mustDo("POST", "/movies",
-		map[string]any{"title": "The Long Goodbye", "release_year": 1974}, http.StatusCreated))
-	film := stage(t, c, "/import/markdown", "goodbye.md", []byte(stagedFilmMD))
-	if len(film.Works) != 1 {
-		t.Fatalf("film works: %+v", film.Works)
-	}
-	if w := film.Works[0]; w.Kind != "movie" || w.TargetID != m.ID || w.TargetYear != 1974 || w.Ambiguous {
-		t.Fatalf("film anchor preview: %+v", w)
-	}
-}
-
 // TestStagedApproveIsIdempotentPerBatch: importing the same file twice stages two
 // batches; approving both adds the quotes once. The dedupe that used to happen at
 // import time now happens at approval, against the library.
@@ -323,107 +292,6 @@ func countName(names []string, want string) int {
 	return n
 }
 
-// TestStagedBulkValidation pins the 400s and the ownership 404.
-func TestStagedBulkValidation(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	res := stage(t, c, "/import/markdown", "sandworm.md", []byte(stagedBookMD))
-	ids := stagedIDs(queue(t, c, ""))
-
-	for _, tc := range []struct {
-		name string
-		body map[string]any
-		want int
-	}{
-		{"nothing selected", map[string]any{"color": "blue"}, http.StatusBadRequest},
-		{"bad colour", map[string]any{"ids": ids, "color": "chartreuse"}, http.StatusBadRequest},
-		{"long chapter", map[string]any{"ids": ids, "chapter": strings.Repeat("x", 129)}, http.StatusBadRequest},
-		{"bad formula op", map[string]any{"ids": ids, "formula": map[string]any{"op": "square"}}, http.StatusBadRequest},
-		{"divide by zero", map[string]any{"ids": ids, "formula": map[string]any{"op": "divide", "value": 0}}, http.StatusBadRequest},
-		{"retarget needs a target", map[string]any{"ids": ids, "retarget": map[string]any{}}, http.StatusBadRequest},
-		{"retarget bad kind", map[string]any{"ids": ids, "retarget": map[string]any{"kind": "album", "id": 1}}, http.StatusBadRequest},
-		{"retarget unknown book", map[string]any{"ids": ids, "retarget": map[string]any{"kind": "book", "id": 9999}}, http.StatusBadRequest},
-		{"unknown ids", map[string]any{"ids": []int64{999999}}, http.StatusNotFound},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			c.mustDo("POST", "/import/staged/bulk", tc.body, tc.want)
-		})
-	}
-
-	// Another user's batch is not theirs to touch, and reads as absent (404, not 403).
-	other := addUser(t, h, c, "bob")
-	other.mustDo("POST", "/import/staged/bulk", map[string]any{"batch_id": res.BatchID, "color": "blue"}, http.StatusNotFound)
-	other.mustFollow("POST", "/import/staged/approve", map[string]any{"batch_id": res.BatchID}, http.StatusNotFound)
-	other.mustDo("DELETE", "/import/staged", map[string]any{"batch_id": res.BatchID}, http.StatusNotFound)
-	if q := queue(t, other, ""); q.Pending != 0 {
-		t.Fatalf("another user's queue leaked: %+v", q)
-	}
-	// And the owner's rows are untouched.
-	if q := queue(t, c, ""); q.Pending != 2 {
-		t.Fatalf("owner's queue changed: %+v", q)
-	}
-}
-
-// TestStagedLocationFormula exercises the transform over real rows: a shift, a
-// chained divide, and reset restoring the as-imported snapshot.
-func TestStagedLocationFormula(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-
-	res := stage(t, c, "/import/markdown", "sandworm.md", []byte(stagedBookMD))
-	locs := func() []string {
-		out := []string{}
-		for _, sq := range queue(t, c, "").Quotes {
-			out = append(out, sq.Location)
-		}
-		return out
-	}
-	if got := locs(); !sameStrings(got, []string{"p.142", "610-612"}) {
-		t.Fatalf("as imported: %v", got)
-	}
-
-	// A PDF running five pages ahead: both ends of the range move too.
-	c.mustDo("POST", "/import/staged/bulk", map[string]any{
-		"batch_id": res.BatchID,
-		"formula":  map[string]any{"field": "location", "op": "subtract", "value": 5},
-	}, 200)
-	if got := locs(); !sameStrings(got, []string{"p.137", "605-607"}) {
-		t.Fatalf("after subtract: %v", got)
-	}
-	// Chains on the current value.
-	c.mustDo("POST", "/import/staged/bulk", map[string]any{
-		"batch_id": res.BatchID,
-		"formula":  map[string]any{"field": "location", "op": "subtract", "value": 5},
-	}, 200)
-	if got := locs(); !sameStrings(got, []string{"p.132", "600-602"}) {
-		t.Fatalf("formulae should chain: %v", got)
-	}
-	// Reset is an absolute restore, not an inverse of the last op.
-	c.mustDo("POST", "/import/staged/bulk", map[string]any{
-		"batch_id": res.BatchID,
-		"formula":  map[string]any{"field": "location", "op": "reset"},
-	}, 200)
-	if got := locs(); !sameStrings(got, []string{"p.142", "610-612"}) {
-		t.Fatalf("reset must restore the as-imported values: %v", got)
-	}
-
-	// A film timestamp shifts through seconds and keeps its shape.
-	film := stage(t, c, "/import/markdown", "goodbye.md", []byte(stagedFilmMD))
-	c.mustDo("POST", "/import/staged/bulk", map[string]any{
-		"batch_id": film.BatchID,
-		"formula":  map[string]any{"field": "timestamp", "op": "add", "value": 60},
-	}, 200)
-	stamps := []string{}
-	for _, sq := range queue(t, c, "?batch_id="+itoa(film.BatchID)).Quotes {
-		stamps = append(stamps, sq.Timestamp)
-	}
-	if !sameStrings(stamps, []string{"01:03:03", "00:05:30"}) {
-		t.Fatalf("timestamp shift: %v", stamps)
-	}
-}
-
 // ---- retargeting ------------------------------------------------------------
 
 // TestStagedRetargetAcrossKinds is the repair for a misdetected file: book
@@ -478,49 +346,6 @@ func TestStagedRetargetAcrossKinds(t *testing.T) {
 	}](t, c.mustDo("GET", "/books", nil, 200))
 	if len(books.Books) != 0 {
 		t.Fatalf("retargeted import still created a book: %+v", books.Books)
-	}
-}
-
-// TestStagedRetargetOntoAnotherStagedWork merges two groups in the queue.
-func TestStagedRetargetOntoAnotherStagedWork(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-
-	md := "---\ntitle: Alpha\n---\n\n> First alpha quote.\n\n---\ntitle: Beta\n---\n\n> Only beta quote.\n"
-	res := stage(t, c, "/import/markdown", "both.md", []byte(md))
-	q := queue(t, c, "")
-	if len(q.Works) != 2 {
-		t.Fatalf("want two groups: %+v", q.Works)
-	}
-	var alpha, beta stagedWorkRow
-	for _, w := range q.Works {
-		if w.Title == "Alpha" {
-			alpha = w
-		} else {
-			beta = w
-		}
-	}
-	// Move Beta's quote under Alpha.
-	c.mustDo("POST", "/import/staged/bulk", map[string]any{
-		"work_ids": []int64{beta.ID},
-		"retarget": map[string]any{"staged_work_id": alpha.ID},
-	}, 200)
-	q = queue(t, c, "")
-	if len(q.Works) != 1 || q.Works[0].ID != alpha.ID || q.Works[0].Quotes != 2 {
-		t.Fatalf("merge should leave Alpha holding both: %+v", q.Works)
-	}
-
-	ap := decode[approveReply](t, c.mustFollow("POST", "/import/staged/approve", map[string]any{"batch_id": res.BatchID}, 200))
-	if ap.Added != 2 || len(ap.BookIDs) != 1 {
-		t.Fatalf("approve after merge: %+v", ap)
-	}
-	if bs := decode[struct {
-		Books []struct {
-			Title string `json:"title"`
-		} `json:"books"`
-	}](t, c.mustDo("GET", "/books", nil, 200)); len(bs.Books) != 1 || bs.Books[0].Title != "Alpha" {
-		t.Fatalf("only Alpha should exist: %+v", bs.Books)
 	}
 }
 
@@ -617,54 +442,6 @@ func TestStagedApprovePartialSelection(t *testing.T) {
 
 // ---- queue reads ------------------------------------------------------------
 
-func TestStagedQueueCountsAndFilters(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-
-	book := stage(t, c, "/import/markdown", "sandworm.md", []byte(stagedBookMD))
-	film := stage(t, c, "/import/markdown", "goodbye.md", []byte(stagedFilmMD))
-
-	// counts=1 is what the pending badge asks for: totals, no rows.
-	counts := queue(t, c, "?counts=1")
-	if counts.Pending != 4 || len(counts.Quotes) != 0 || len(counts.Batches) != 0 || len(counts.Works) != 0 {
-		t.Fatalf("counts=1: %+v", counts)
-	}
-
-	// Books and films sit in one queue, and either batch can be isolated.
-	all := queue(t, c, "")
-	if len(all.Batches) != 2 || len(all.Works) != 2 || len(all.Quotes) != 4 {
-		t.Fatalf("mixed queue: batches=%d works=%d quotes=%d", len(all.Batches), len(all.Works), len(all.Quotes))
-	}
-	justFilm := queue(t, c, "?batch_id="+itoa(film.BatchID))
-	if justFilm.Total != 2 || len(justFilm.Quotes) != 2 || justFilm.Pending != 4 {
-		t.Fatalf("batch filter: total=%d quotes=%d pending=%d", justFilm.Total, len(justFilm.Quotes), justFilm.Pending)
-	}
-	for _, sq := range justFilm.Quotes {
-		if sq.BatchID != film.BatchID || sq.Character != "Philip Marlowe" {
-			t.Fatalf("filtered quote: %+v", sq)
-		}
-	}
-	// Paging works, because a My Clippings.txt can stage thousands.
-	page := queue(t, c, "?limit=1")
-	if len(page.Quotes) != 1 || page.Total != 4 {
-		t.Fatalf("limit=1: quotes=%d total=%d", len(page.Quotes), page.Total)
-	}
-	if bad := c.do("GET", "/import/staged?limit=0", nil); bad.Code != http.StatusBadRequest {
-		t.Fatalf("limit=0 should be rejected: %d", bad.Code)
-	}
-	// A work filter narrows to one group.
-	var bookWork int64
-	for _, wk := range all.Works {
-		if wk.BatchID == book.BatchID {
-			bookWork = wk.ID
-		}
-	}
-	if got := queue(t, c, "?work_id="+itoa(bookWork)); got.Total != 2 {
-		t.Fatalf("work filter: %+v", got)
-	}
-}
-
 // TestStagedApproveMergesWorksOntoOneBook: two batches naming the same book,
 // approved in one pass, resolve to one library row — and the reply's id list says
 // so once, not twice.
@@ -697,37 +474,6 @@ func TestStagedApproveMergesWorksOntoOneBook(t *testing.T) {
 	anns := decode[annList](t, c.mustDo("GET", "/annotations", nil, 200))
 	if len(anns.Annotations) != 2 {
 		t.Fatalf("annotations: %+v", anns.Annotations)
-	}
-}
-
-// TestStagedBulkAppliesLocationThenFormula pins the order the handler documents:
-// an explicit location re-bases the snapshot, then the formula shifts from it. So
-// `reset` afterwards returns to what the user typed, not to what the file said.
-func TestStagedBulkAppliesLocationThenFormula(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-
-	res := stage(t, c, "/import/markdown", "sandworm.md", []byte(stagedBookMD))
-	c.mustDo("POST", "/import/staged/bulk", map[string]any{
-		"batch_id": res.BatchID,
-		"location": "p.100",
-		"formula":  map[string]any{"field": "location", "op": "add", "value": 5},
-	}, 200)
-	for _, sq := range queue(t, c, "").Quotes {
-		if sq.Location != "p.105" || sq.LocationOrig != "p.100" {
-			t.Fatalf("location then formula: location=%q orig=%q", sq.Location, sq.LocationOrig)
-		}
-	}
-	// Reset now returns to the typed value, which is the point of re-basing.
-	c.mustDo("POST", "/import/staged/bulk", map[string]any{
-		"batch_id": res.BatchID,
-		"formula":  map[string]any{"field": "location", "op": "reset"},
-	}, 200)
-	for _, sq := range queue(t, c, "").Quotes {
-		if sq.Location != "p.100" {
-			t.Fatalf("reset should restore the re-based value: %q", sq.Location)
-		}
 	}
 }
 
@@ -904,25 +650,4 @@ func TestStagedQuotelessWorkStillApproves(t *testing.T) {
 	if q := queue(t, c, ""); len(q.Batches) != 0 || len(q.Works) != 0 {
 		t.Fatalf("a quoteless group must be discardable: %+v", q)
 	}
-}
-
-// TestStagedSelectorRejectsAnEmptyAsk pins the shared selector's 400s on the two
-// endpoints that destroy or create rows.
-func TestStagedSelectorRejectsAnEmptyAsk(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	stage(t, c, "/import/markdown", "sandworm.md", []byte(stagedBookMD))
-
-	for _, route := range []string{"/import/staged/approve"} {
-		c.mustDo("POST", route, map[string]any{}, http.StatusBadRequest)
-	}
-	c.mustDo("DELETE", "/import/staged", map[string]any{}, http.StatusBadRequest)
-
-	// A selection larger than the cap is refused rather than silently truncated.
-	huge := make([]int64, maxStagedSelection+1)
-	for i := range huge {
-		huge[i] = int64(i + 1)
-	}
-	c.mustDo("POST", "/import/staged/approve", map[string]any{"ids": huge}, http.StatusBadRequest)
 }

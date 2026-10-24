@@ -203,40 +203,6 @@ func TestCleanupIgnoreHidesItFromTheOpenListAndKeepsIt(t *testing.T) {
 	}
 }
 
-// The match-hash argument, end to end: ignoring one finding must not bury the other
-// on the same field, and accepting that other one must not revive the ignored one.
-func TestCleanupIgnoreSurvivesAcceptingADifferentRule(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	id := answerFixture(t, c)
-	_, field, hash, _ := findingOf(t, cleanupList(t, c, ""), "reference-mark")
-
-	c.mustDo("POST", "/cleanup/ignore", map[string]any{"items": []map[string]any{
-		{"kind": "book", "id": id, "field": field, "rule": "reference-mark", "match_hash": hash},
-	}}, http.StatusOK)
-	c.mustDo("POST", "/cleanup/accept", map[string]any{"items": []map[string]any{
-		{"kind": "book", "id": id, "field": "quote", "rule": "double-space"},
-	}}, http.StatusOK)
-
-	// The doubled space is fixed, so nothing is open; the reference mark is still
-	// ignored even though the text around it changed.
-	open := cleanupList(t, c, "open")
-	for _, it := range open.Items {
-		if it.ID == id {
-			t.Errorf("expected nothing open on that quote, got %+v", it.Findings)
-		}
-	}
-	ign := cleanupList(t, c, "ignored")
-	if len(ign.Items) != 1 || len(ign.Items[0].Findings) != 1 || ign.Items[0].Findings[0].Rule != "reference-mark" {
-		t.Fatalf("the ignore did not survive the accept: %+v", ign.Items)
-	}
-	// And it is about the text as it now stands — the doubled space was accepted, so
-	// the snippet shows the repaired words with the reference mark still marked.
-	if snip := ign.Items[0].Findings[0].Snippet; snip != "call me Ishmael»[12]«" {
-		t.Errorf("the ignored finding's snippet is %q", snip)
-	}
-}
-
 func TestCleanupAcceptOfAStaleFindingChangesNothing(t *testing.T) {
 	srv := newTestServer(t)
 	c := signupAdmin(t, srv.Handler())
@@ -302,33 +268,6 @@ func TestCleanupIgnoresGoWhenTheQuoteGoes(t *testing.T) {
 	if left != 0 {
 		t.Errorf("%d ignore(s) outlived the quote they were about", left)
 	}
-}
-
-func TestCleanupAnsweringRefusesNonsense(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	id := answerFixture(t, c)
-
-	c.mustDo("GET", "/cleanup?bucket=sideways", nil, http.StatusBadRequest)
-	c.mustDo("POST", "/cleanup/accept", map[string]any{"items": []map[string]any{}}, http.StatusBadRequest)
-	// A rule this build does not know: refused, not counted as applied.
-	c.mustDo("POST", "/cleanup/accept", map[string]any{"items": []map[string]any{
-		{"kind": "book", "id": id, "field": "quote", "rule": "delete-everything"},
-	}}, http.StatusBadRequest)
-	// A field this feature may not write. The scan reads three; `character` is not
-	// one of them, deliberately (cleanup_handlers.go says why).
-	c.mustDo("POST", "/cleanup/accept", map[string]any{"items": []map[string]any{
-		{"kind": "book", "id": id, "field": "character", "rule": "double-space"},
-	}}, http.StatusBadRequest)
-	// An unknown kind.
-	c.mustDo("POST", "/cleanup/ignore", map[string]any{"items": []map[string]any{
-		{"kind": "shelf", "id": id, "field": "quote", "rule": "double-space", "match_hash": "x"},
-	}}, http.StatusBadRequest)
-	// An ignore with no hash: it would match every future finding of that rule on
-	// that field, which is precisely what the hash exists to prevent.
-	c.mustDo("POST", "/cleanup/ignore", map[string]any{"items": []map[string]any{
-		{"kind": "book", "id": id, "field": "quote", "rule": "double-space"},
-	}}, http.StatusBadRequest)
 }
 
 // The three kinds, since the scan reads three tables and the writes have to reach

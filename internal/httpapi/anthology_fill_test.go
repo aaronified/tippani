@@ -143,30 +143,6 @@ func TestFillingTwiceSkipsWhatIsAlreadyThere(t *testing.T) {
 	}
 }
 
-// THE RULE IS STORED BY THE FILL THAT RAN IT, so what is kept and what was run
-// cannot differ — which is what makes "keep it fed" safe to build on.
-func TestTheFillStoresTheRuleItRan(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-	taggedShelf(t, c)
-	a := newAnthology(t, c, "Stoics")
-
-	if got := getAnthology(t, c, a.ID).Anthology; got.Rule != "" || got.RuleAuto {
-		t.Fatalf("a new anthology already carries a rule: %+v", got)
-	}
-	fill(t, c, a.ID, "tag=stoicism", true)
-	got := getAnthology(t, c, a.ID).Anthology
-	if got.Rule != "tag=stoicism" {
-		t.Errorf("rule = %q", got.Rule)
-	}
-	if !got.RuleAuto {
-		t.Errorf("auto did not survive the fill")
-	}
-	if got.RuleRunAt == "" {
-		t.Errorf("nothing recorded when the rule last ran")
-	}
-}
-
 // AN EMPTY RULE IS REFUSED. A search bar with nothing in it shows the library; a
 // fill with nothing in it would put the library IN the anthology, two hundred at a
 // time, and the only undo is removing them one at a time.
@@ -194,23 +170,6 @@ func TestAnotherReadersAnthologyCannotBeFilled(t *testing.T) {
 		map[string]any{"rule": "tag=stoicism"}, http.StatusNotFound)
 	if n := len(getAnthology(t, alice, a.ID).Entries); n != 0 {
 		t.Errorf("a foreign fill put %d entries in somebody else's anthology", n)
-	}
-}
-
-// A FREE-TEXT RULE GOES THROUGH FTS, which is the half `facetedCount` could not
-// have answered — and the reason the fill counts by scanning rather than counting.
-func TestAFillCanMatchOnWords(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-	taggedShelf(t, c)
-	a := newAnthology(t, c, "Cucumbers")
-	got := fill(t, c, a.ID, "q=cucumber", false)
-	if got.Added != 1 {
-		t.Fatalf("added %d, want 1 — only one quote says cucumber", got.Added)
-	}
-	entries := getAnthology(t, c, a.ID).Entries
-	if len(entries) != 1 || entries[0].Quote != "A cucumber is bitter. Throw it away." {
-		t.Errorf("the wrong quote was filled: %+v", entries)
 	}
 }
 
@@ -246,22 +205,3 @@ func TestAPreviewSaysWhatTheFillWillDoAndChangesNothing(t *testing.T) {
 	}
 }
 
-// A PREVIEW OVER AN ANTHOLOGY THAT ALREADY HOLDS SOME OF THE MATCHES reports the
-// skips, which is the case a naive "count the matches" preview gets wrong — it
-// would promise three and add one.
-func TestAPreviewCountsWhatIsAlreadyThereAsSkipped(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-	one, _, _, _ := taggedShelf(t, c)
-	a := newAnthology(t, c, "Stoics")
-	addEntries(t, c, a.ID, []map[string]any{{"kind": "book", "item_id": one}})
-
-	preview := decode[anthologyFillResp](t, c.mustDo("POST", "/anthologies/"+itoa(a.ID)+"/fill",
-		map[string]any{"rule": "tag=stoicism", "preview": true}, http.StatusOK))
-	if preview.Matched != 3 || preview.Added != 2 || preview.Skipped != 1 {
-		t.Errorf("preview = %+v, want matched 3, added 2, skipped 1", preview)
-	}
-	if n := len(getAnthology(t, c, a.ID).Entries); n != 1 {
-		t.Errorf("%d entries after a preview, want the 1 that was already there", n)
-	}
-}

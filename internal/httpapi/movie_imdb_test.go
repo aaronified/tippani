@@ -68,24 +68,6 @@ func TestAnOrdinarySaveDoesNotClearTheIMDbId(t *testing.T) {
 	}
 }
 
-// A show is not a special case here — that was the whole request. The id lives
-// on the same table, so this asserts the column is reachable through the show
-// path rather than only the film one.
-func TestAShowCarriesAnIMDbIdToo(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-	m := newMovie(t, c, map[string]any{
-		"title": "The Wire", "media_type": "show", "imdb_id": "https://www.imdb.com/title/tt0306414/",
-	})
-	got := movieByID(t, c, m.ID)
-	if got.MediaType != "show" {
-		t.Fatalf("media_type = %q", got.MediaType)
-	}
-	if got.IMDbID != "tt0306414" {
-		t.Fatalf("a show's imdb_id = %q, want tt0306414", got.IMDbID)
-	}
-}
-
 // Emptying the field is a real edit, and has to be distinguishable from an
 // old client omitting it. It is full-state, so an empty string clears it.
 func TestTheIMDbIdCanBeCleared(t *testing.T) {

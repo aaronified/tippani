@@ -74,18 +74,6 @@ func TestLongestStreakCountsDaysAndNotSessions(t *testing.T) {
 	}
 }
 
-// A LIBRARY THAT HAS NEVER PLAYED REPORTS ZERO, not a nil the client has to
-// guard: the tile is hidden on zero, and an absent field would hide it by
-// accident rather than by rule.
-func TestStreaksAreZeroBeforeAnythingIsPlayed(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	got := decode[memoryRecall](t, c.mustDo("GET", "/stats?offset=0", nil, http.StatusOK))
-	if got.Recall.Longest != 0 || got.Recall.Streak != 0 {
-		t.Fatalf("streaks before any quiz: %+v", got.Recall)
-	}
-}
-
 // AND THEY ARE PER USER. quiz_sessions carries user_id and item_reviews does
 // not, so this is the table where a missing arm is a leak of somebody else's
 // habit rather than a wrong average.

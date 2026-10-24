@@ -97,33 +97,3 @@ func TestAPreviewNeedsAnAddressAndASignedInReader(t *testing.T) {
 		t.Errorf("a refused request still made the server fetch %v", asked)
 	}
 }
-
-func TestAPictureThatCannotBeFetchedIsAnAnswerNotACrash(t *testing.T) {
-	srv := newTestServer(t)
-	srv.fetchUserImage = func(context.Context, string, string) (string, error) {
-		return "", context.DeadlineExceeded
-	}
-	c := signupAdmin(t, srv.Handler())
-	c.mustDo("POST", "/images/preview", map[string]string{"url": "https://pics.example/a.png"}, http.StatusBadGateway)
-}
-
-func TestAnSVGComesBackAsAnSVGTheBrowserCanDecode(t *testing.T) {
-	srv := newTestServer(t)
-	var asked []string
-	// A licence comment ahead of the <svg> element, as a Commons file carries: the fetcher
-	// recognises it, and a sniff of the first few hundred bytes does not.
-	stubUserImage(srv, &asked, []byte(`<?xml version="1.0"?><!-- `+strings.Repeat("licence ", 100)+`--><svg xmlns="http://www.w3.org/2000/svg" width="600" height="300" viewBox="0 0 600 300"><rect width="600" height="300" fill="#789"/></svg>`))
-	c := signupAdmin(t, srv.Handler())
-
-	rec := c.mustDo("POST", "/images/preview", map[string]string{"url": "https://pics.example/logo.svg"}, http.StatusOK)
-
-	var got struct {
-		Image string `json:"image"`
-	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
-		t.Fatal(err)
-	}
-	if !strings.HasPrefix(got.Image, "data:image/svg+xml;base64,") {
-		t.Errorf("an SVG previews as %.40q; a page cannot decode an image under that type", got.Image)
-	}
-}

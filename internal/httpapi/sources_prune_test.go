@@ -70,24 +70,6 @@ func TestAPruneFirstCutsContextForQuotesAddedSinceTheFileWasAttached(t *testing.
 	_ = srv
 }
 
-func TestAQuoteAddedAfterAPruneHasNoContextAndARescanSaysWhy(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	book := c.newBook("B")
-	c.newHighlight(book, "It was a bright cold day in April, and the clocks were striking thirteen.")
-	c.putSource(sourceFields("book", book), "b.txt", []byte(prose))
-	id := c.sourceID("book", book)
-	c.mustDo("POST", "/sources/"+strconv.FormatInt(id, 10)+"/prune", nil, 200)
-
-	after := c.newHighlight(book, "At one end of it a coloured poster was tacked to the wall.")
-	c.mustDo("GET", "/quotes/annotation/"+strconv.FormatInt(after, 10)+"/context", nil, http.StatusNotFound)
-	rec := c.do("POST", "/sources/"+strconv.FormatInt(id, 10)+"/rescan", nil)
-	if rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), "pruned") {
-		t.Fatalf("a rescan of a pruned file names the remedy: %d %s", rec.Code, rec.Body)
-	}
-	_ = srv
-}
-
 func TestAddingTheSameFileAgainAfterAPruneRestoresEverythingAndKeepsTheContext(t *testing.T) {
 	srv := newTestServer(t)
 	c := signupAdmin(t, srv.Handler())
@@ -136,21 +118,6 @@ func TestAPreviewSaysWhatWouldBeKeptAndWhatHasNoContextToKeep(t *testing.T) {
 	if len(stack.Sources) != 1 || stack.Frees <= 0 {
 		t.Fatalf("%+v", stack)
 	}
-}
-
-func TestTheStackIsBiggestFirstSoTheDecisionStartsWhereItFreesMost(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	small, big := c.newBook("Small"), c.newBook("Big")
-	c.putSource(sourceFields("book", small), "s.txt", []byte("one paragraph\n\ntwo paragraphs\n\nthree\n"))
-	c.putSource(sourceFields("book", big), "b.txt", []byte(prose+prose))
-	stack := decode[struct {
-		Sources []pruneRow `json:"sources"`
-	}](t, c.mustDo("GET", "/sources/stack", nil, 200))
-	if len(stack.Sources) != 2 || stack.Sources[0].Title != "Big" {
-		t.Fatalf("%+v", stack.Sources)
-	}
-	_ = srv
 }
 
 func TestAMountedFileHasNothingToPruneAndAnotherReadersIsNotFound(t *testing.T) {

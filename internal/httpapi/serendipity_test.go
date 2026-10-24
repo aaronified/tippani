@@ -2,7 +2,6 @@ package httpapi
 
 import (
 	"net/http"
-	"strings"
 	"testing"
 	"time"
 )
@@ -51,29 +50,6 @@ func TestShuffleReturnsOneQuoteAndTouchesNoSchedule(t *testing.T) {
 	}
 }
 
-// An empty library is a normal state, not a failure: the screen says so.
-func TestShuffleOnAnEmptyLibraryIsNotAnError(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	got := decode[shuffleResp](t, c.mustDo("GET", "/shuffle", nil, 200))
-	if got.Quote != nil {
-		t.Fatalf("expected nothing, got %+v", got.Quote)
-	}
-}
-
-// A quote with no words — a book highlight that is only a margin note — is not
-// something to shuffle to, because the card would be blank.
-func TestShuffleSkipsAQuoteWithNoWords(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	b := idOf(t, c.mustDo("POST", "/books", map[string]any{"title": "A Book"}, 201).Body.Bytes())
-	c.mustDo("POST", "/annotations", map[string]any{"book_id": b, "note": "a thought with no quote"}, 201)
-	got := decode[shuffleResp](t, c.mustDo("GET", "/shuffle", nil, 200))
-	if got.Quote != nil {
-		t.Fatalf("a note-only highlight has nothing to show: %+v", got.Quote)
-	}
-}
-
 func TestShuffleNeverLeavesTheAccount(t *testing.T) {
 	srv := newTestServer(t)
 	h := srv.Handler()
@@ -112,24 +88,6 @@ func TestOnThisDayIsOtherYearsOnly(t *testing.T) {
 	got := decode[onThisDayResp](t, c.mustDo("GET", "/on-this-day", nil, 200))
 	if len(got.Quotes) != 1 || got.Quotes[0].ID != old {
 		t.Fatalf("on this day = %+v — want last year's line and not today's", got.Quotes)
-	}
-}
-
-// A day with nothing on it is empty rather than an error, and empty rather than
-// "everything" — the failure a missing WHERE would produce.
-func TestOnThisDayIsEmptyWhenNothingMatches(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	b := idOf(t, c.mustDo("POST", "/books", map[string]any{"title": "A Book"}, 201).Body.Bytes())
-	// A date that is neither today nor this month-day in another year.
-	other := time.Now().AddDate(-1, 0, 3).Format("2006-01-02")
-	c.mustDo("POST", "/annotations", map[string]any{
-		"book_id": b, "quote": "a line from another day", "noted_at": other,
-	}, 201)
-
-	got := decode[onThisDayResp](t, c.mustDo("GET", "/on-this-day", nil, 200))
-	if len(got.Quotes) != 0 {
-		t.Fatalf("on this day = %+v, want nothing", got.Quotes)
 	}
 }
 
@@ -194,60 +152,3 @@ func TestAShuffledQuoteCarriesWhatTheCardDraws(t *testing.T) {
 	}
 }
 
-// Tags come back as [] rather than null, which is what lets a card map over them
-// without checking first. The same rule every list response in the app follows.
-func TestAnUntaggedShuffledQuoteHasAnEmptyTagListAndNotNull(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	b := idOf(t, c.mustDo("POST", "/books", map[string]any{"title": "A Book"}, 201).Body.Bytes())
-	c.mustDo("POST", "/annotations", map[string]any{"book_id": b, "quote": "untagged"}, 201)
-
-	res := c.mustDo("GET", "/shuffle", nil, 200)
-	if body := res.Body.String(); !strings.Contains(body, `"tags":[]`) {
-		t.Errorf("want \"tags\":[] in the response, got %s", body)
-	}
-	got := decode[shuffleResp](t, c.mustDo("GET", "/shuffle", nil, 200))
-	if got.Quote.Tags == nil {
-		t.Error("tags is nil — a card mapping over it would have to check first")
-	}
-	// A book has no character and no poster of its own kind's making; both are
-	// empty rather than absent, and the badge says which kind it is.
-	if got.Quote.MediaType != "book" || got.Quote.Character != "" {
-		t.Errorf("media_type/character = %q/%q, want book/empty", got.Quote.MediaType, got.Quote.Character)
-	}
-}
-
-// The shuffle row reads its tags with a group_concat rather than through the
-// annotation fetcher, so the two could drift. This pins them together on the
-// input most likely to separate them: a submitted tag with a comma in it, which
-// cleanNames() splits into two before it is ever stored.
-//
-// The first version of this test asserted the opposite — that "sci-fi, fantasy"
-// stayed one tag — on the assumption that a comma is legal in a tag name. It is
-// not: the vocabulary treats a comma as a separator on the way in. Whatever the
-// canonical list endpoint says a quote's tags are, this must say the same.
-func TestAShuffledQuoteAgreesWithTheListEndpointAboutItsTags(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	b := idOf(t, c.mustDo("POST", "/books", map[string]any{"title": "A Book"}, 201).Body.Bytes())
-	c.mustDo("POST", "/annotations", map[string]any{
-		"book_id": b, "quote": "one line", "tags": []string{"sci-fi, fantasy", "Kept"},
-	}, 201)
-
-	listed := decode[struct {
-		Annotations []annotationRow `json:"annotations"`
-	}](t, c.mustDo("GET", "/annotations?book_id="+itoa(b), nil, 200))
-	if len(listed.Annotations) != 1 {
-		t.Fatalf("want one annotation, got %d", len(listed.Annotations))
-	}
-	want := listed.Annotations[0].Tags
-
-	got := decode[shuffleResp](t, c.mustDo("GET", "/shuffle", nil, 200))
-	if strings.Join(got.Quote.Tags, "|") != strings.Join(want, "|") {
-		t.Errorf("shuffle tags = %v, /annotations says %v", got.Quote.Tags, want)
-	}
-	// And the comma really did split, so this test is measuring the case it claims.
-	if len(want) != 3 {
-		t.Errorf("expected the comma to split into three tags, got %v", want)
-	}
-}

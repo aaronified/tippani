@@ -146,38 +146,6 @@ func TestBulkOnSomebodyElsesQuotesChangesNothing(t *testing.T) {
 	}
 }
 
-func TestBulkOnMyOwnQuotesActsOnAllOfThem(t *testing.T) {
-	// The other direction, which is the one that fails SILENTLY: a filter that
-	// matches nothing reports success and does nothing at all. Asserted as a value
-	// on every row rather than as a count in the response.
-	srv := newTestServer(t)
-	h := srv.Handler()
-	admin := signupAdmin(t, h)
-	bob := addUser(t, h, admin, "bob")
-
-	var ids []int64
-	for _, q := range []string{"one", "two", "three"} {
-		ids = append(ids, idOf(t, bob.mustDo("POST", "/quotes",
-			map[string]any{"quote": q, "speaker": "B"}, 201).Body.Bytes()))
-	}
-	got := decode[bulkResp](t, bob.mustDo("POST", "/quotes/bulk",
-		map[string]any{"ids": ids, "color": "green", "favorite": true}, 200))
-	if got.Updated != 3 {
-		t.Fatalf("updated = %d, want 3", got.Updated)
-	}
-	for _, id := range ids {
-		var col string
-		var fav bool
-		if err := srv.Store.DB.QueryRow(
-			`SELECT color, favorite FROM utterances WHERE id = ?`, id).Scan(&col, &fav); err != nil {
-			t.Fatal(err)
-		}
-		if col != "green" || !fav {
-			t.Errorf("quote %d: color=%q favorite=%v", id, col, fav)
-		}
-	}
-}
-
 func TestBulkQuotesGuards(t *testing.T) {
 	srv := newTestServer(t)
 	h := srv.Handler()

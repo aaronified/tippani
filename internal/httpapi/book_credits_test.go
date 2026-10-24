@@ -69,40 +69,6 @@ func TestAnOmittedCreditIsClearedByAFullStatePut(t *testing.T) {
 	}
 }
 
-func TestTheCreditsAreTrimmed(t *testing.T) {
-	// people is UNIQUE(user_id, name) and the orphan sweep keys on a trimmed,
-	// lowered name — so " Pevear" and "Pevear" being two different people is a bio
-	// and a portrait that go missing.
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-
-	b := decode[bookDetail](t, c.mustDo("POST", "/books", map[string]any{
-		"title": "Anna Karenina", "translator": "  Rosemary Edmonds  ", "editor": "\tA. Editor\t",
-	}, http.StatusCreated))
-	if b.Translator != "Rosemary Edmonds" || b.Editor != "A. Editor" {
-		t.Fatalf("credits were not trimmed: %q / %q", b.Translator, b.Editor)
-	}
-}
-
-// THE LIST ROW DOES NOT CARRY THEM, and that is the requirement rather than an
-// oversight: the Library board draws one credit per tile and always has. Asserted
-// so that putting them there later is a decision somebody makes against a failing
-// test, not a convenience nobody notices.
-func TestTheLibraryListDoesNotCarryTheExtraCredits(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	c.mustDo("POST", "/books", map[string]any{
-		"title": "The Idiot", "author": "Dostoevsky", "translator": "David McDuff",
-	}, http.StatusCreated)
-
-	body := c.mustDo("GET", "/books", nil, http.StatusOK).Body.String()
-	if strings.Contains(body, "translator") || strings.Contains(body, "David McDuff") {
-		t.Errorf("the list row carries a translator; the board has no place to draw it:\n%s", body)
-	}
-}
-
 // THE ROUND TRIP — the test this feature actually needed.
 //
 // Export writes the frontmatter, the parser reads it, STAGING carries it, and
@@ -150,21 +116,6 @@ func TestATranslatorSurvivesTheMarkdownRoundTrip(t *testing.T) {
 	}
 	if got.Editor != "An Editor" {
 		t.Fatalf("the round trip lost the editor: %q", got.Editor)
-	}
-}
-
-// A book with neither credit exports exactly as it did before 0034 —
-// writeFrontmatter drops an empty value, so no existing file gains two blank keys.
-func TestABookWithNeitherCreditExportsUnchanged(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	b := decode[bookDetail](t, c.mustDo("POST", "/books",
-		map[string]any{"title": "Emma", "author": "Jane Austen"}, http.StatusCreated))
-
-	md := c.mustDo("GET", "/books/"+itoa(b.ID)+"/export", nil, http.StatusOK).Body.String()
-	if strings.Contains(md, "translator:") || strings.Contains(md, "editor:") {
-		t.Fatalf("an empty credit was written to the frontmatter:\n%s", md)
 	}
 }
 

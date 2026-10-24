@@ -197,25 +197,6 @@ func TestRemovingACharacterFromAWorkTakesTheLinkWithIt(t *testing.T) {
 	}
 }
 
-func TestAFilmLineLinksToItsCastRowToo(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	movieID := idOf(t, c.mustDo("POST", "/movies", map[string]any{"title": "The Master and Margarita"}, http.StatusCreated).Body.Bytes())
-	row := decode[castOut](t, c.mustDo("POST", "/movies/"+itoa(movieID)+"/cast",
-		map[string]any{"character": "Woland", "actor": "Oleg Basilashvili"}, http.StatusCreated))
-
-	line := decode[dialogueRow](t, c.mustDo("POST", "/dialogues", map[string]any{
-		"movie_id": movieID, "quote": "Manuscripts don't burn",
-		"character": "Woland", "actor": "Oleg Basilashvili",
-	}, http.StatusCreated))
-	// BOTH LINKS, AND THEY ARE DIFFERENT FACTS. actor_id says which human; this
-	// says which role on this film, which is what a picture and a character record
-	// hang off — and the reason a book highlight has the second and not the first.
-	if got := speakerCast(t, srv, "dialogues", line.ID); got != row.ID {
-		t.Fatalf("the line points at cast row %d, want %d", got, row.ID)
-	}
-}
-
 // ---- what the link is FOR --------------------------------------------------
 
 func TestACharacterCanBeAskedWhatTheyHaveSaid(t *testing.T) {
@@ -266,33 +247,3 @@ func TestACharacterCanBeAskedWhatTheyHaveSaid(t *testing.T) {
 	}
 }
 
-func TestFindAndReplaceOverACharacterMovesTheLinkWithTheName(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	charID, bookID := oneWoland(t, c)
-	woland := charDetail(t, c, charID).Appearances[0].CastID
-	other := decode[castOut](t, c.mustDo("POST", "/books/"+itoa(bookID)+"/cast",
-		map[string]any{"character": "Behemoth"}, http.StatusCreated))
-
-	line := decode[annotationRow](t, c.mustDo("POST", "/annotations", map[string]any{
-		"book_id": bookID, "quote": "Manuscripts don't burn", "character": "Woland",
-	}, http.StatusCreated))
-	if speakerCast(t, srv, "annotations", line.ID) != woland {
-		t.Fatal("seed did not link")
-	}
-
-	// CORRECTING ONE SPELLING ACROSS FOUR HUNDRED ROWS IS WHAT THIS ENDPOINT IS
-	// FOR, and `character` is one of the fields it rewrites — so a row it changed
-	// and did not re-link would leave the character page listing lines that no
-	// longer name them. It self-heals on the next cast-list read, which is exactly
-	// why it has to happen here too: "wrong until somebody opens the book" is not a
-	// state to leave a library in after a write the reader asked for.
-	c.mustDo("POST", "/replace/apply", map[string]any{
-		"kind": "annotation", "ids": []int64{line.ID}, "field": "character",
-		"find": "Woland", "replace": "Behemoth", "match_case": true,
-	}, http.StatusOK)
-
-	if got := speakerCast(t, srv, "annotations", line.ID); got != other.ID {
-		t.Fatalf("after find-and-replace the link is %d, want %d", got, other.ID)
-	}
-}

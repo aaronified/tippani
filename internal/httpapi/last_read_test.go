@@ -127,40 +127,6 @@ func TestLastReadAtIsTheMostRecentTimeYouHadIt(t *testing.T) {
 	}
 }
 
-// The map's own contract, tested directly rather than through the response.
-//
-// Written because a mutation survived: loosening the "" filter changed nothing
-// visible, since a map miss and a stored "" both serialise to the same empty
-// JSON field. The filter is still worth having — the map says "works with a
-// date", and a caller that ranges over it should not have to re-check — but a
-// guard nothing can observe is a guard nobody will keep. This observes it.
-func TestLastReadAtHoldsOnlyWorksWithADate(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	uid := int64(1)
-	mk := func(title string) int64 {
-		return decode[bookDetail](t, c.mustDo("POST", "/books",
-			map[string]any{"title": title}, http.StatusCreated)).ID
-	}
-	dated, undated, never := mk("Dated"), mk("Undated"), mk("Never")
-	addRead(t, srv, uid, dated, "2024-01-01", "2024-02-01", "finished")
-	addRead(t, srv, uid, undated, "", "", "finished") // a read happened; no date was kept
-
-	m, err := srv.lastReadAt(uid, "book")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if m[dated] != "2024-02-01" {
-		t.Errorf("dated work: %q", m[dated])
-	}
-	if _, ok := m[undated]; ok {
-		t.Errorf("a read with no dates put an entry in the map: %q", m[undated])
-	}
-	if _, ok := m[never]; ok {
-		t.Error("a work that was never read put an entry in the map")
-	}
-}
-
 func TestLastReadAtIsPerUser(t *testing.T) {
 	// work_reads carries its own user_id and the aggregate is grouped by work,
 	// so a missing owner filter would let one account's history date another

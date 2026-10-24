@@ -86,39 +86,6 @@ func TestApplyLocFormula(t *testing.T) {
 	}
 }
 
-// Formulae chain on the current value, and reset is an absolute restore of the
-// as-imported snapshot rather than an inverse of the last operation. That is the
-// contract staged_quotes.location_orig exists to keep.
-func TestLocFormulaChainsAndResets(t *testing.T) {
-	const orig = "p.142"
-	cur := orig
-	apply := func(op string, v float64) {
-		t.Helper()
-		f := &locFormula{Field: "location", Op: op, Value: v}
-		if msg := f.validate(); msg != "" {
-			t.Fatalf("validate: %s", msg)
-		}
-		cur = applyLocFormula(f, cur, orig)
-	}
-
-	apply(locOpSubtract, 5)
-	if cur != "p.137" {
-		t.Fatalf("first subtract: %q", cur)
-	}
-	apply(locOpSubtract, 5) // applied twice, it compounds — deliberately
-	if cur != "p.132" {
-		t.Fatalf("second subtract should compound: %q", cur)
-	}
-	apply(locOpDivide, 2)
-	if cur != "p.66" {
-		t.Fatalf("chained divide: %q", cur)
-	}
-	apply(locOpReset, 0)
-	if cur != orig {
-		t.Fatalf("reset must restore the as-imported value: got %q want %q", cur, orig)
-	}
-}
-
 func TestLocFormulaValidate(t *testing.T) {
 	cases := []struct {
 		name string

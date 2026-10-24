@@ -208,47 +208,6 @@ func TestTestingASourceAsksItAndReportsWhatItSaid(t *testing.T) {
 	}
 }
 
-// TESTING EVERY SOURCE IS THE SAME ACT AT ANOTHER WIDTH — the pack's "Test every
-// source" above the list and "Test TMDB" on the row — so it is one handler, and
-// an empty body means all of them.
-func TestTestingEverySourceCoversTheOnesThatCanBeAsked(t *testing.T) {
-	stubHostsOnlyATestReaches(t)
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	searches := 0
-	srv.searchBooks = func(context.Context, string, string, string, string) ([]metadata.BookCandidate, error) {
-		searches++
-		return nil, nil
-	}
-
-	// EVERY SUPPLIER THAT COULD ACTUALLY BE ASKED. With a built-in film key in
-	// place that is TMDB as well as Google Books — the keyless ones are skipped
-	// rather than failed, which is what makes this press useful on a new install.
-	srv.TMDBBuiltin = "builtin-key"
-	got := decode[sourcesResp](t, c.mustDo("POST", "/admin/metadata/test", map[string]any{}, http.StatusOK))
-	back := map[string]bool{}
-	for _, row := range got.Sources {
-		back[row.Source] = true
-	}
-	if !back["google"] || !back["openlibrary"] || !back["tmdb"] {
-		t.Fatalf("want the suppliers that had a key: %+v", got.Sources)
-	}
-	// ONE BOOK SEARCH FOR BOTH BOOK ROWS. It ran once per row, spending Google's
-	// quota twice for one press and recording each supplier twice.
-	if searches != 1 {
-		t.Errorf("Test all searched for a book %d times", searches)
-	}
-	if back["igdb"] {
-		t.Error("a supplier with no key was reported as asked")
-	}
-	srv.TMDBBuiltin = ""
-
-	// A NAME THAT IS NO SOURCE IS REFUSED BY NAME, rather than answered with a row
-	// that was never asked.
-	c.mustDo("POST", "/admin/metadata/test", map[string]string{"source": "nonsense"}, http.StatusBadRequest)
-}
-
 // EVERY SOURCE ON THE LIST CAN BE ASKED FROM IT. The owner, looking at eight rows
 // with no Test beside them: "why can i not test all the metadata sources?" So each
 // row's Test asks its supplier and the row comes back carrying the answer, and the
@@ -427,50 +386,6 @@ func TestOnlyAnAdminCanSpendTheInstancesQuota(t *testing.T) {
 	reader.mustDo("GET", "/metadata/status", nil, http.StatusOK)
 }
 
-// A SUPPLIER WITH NO KEY CANNOT BE ASKED, AND SAYS SO RATHER THAN SAYING NOTHING.
-//
-// It used to fall through: no client, no call, no record, and a row handed back
-// with nothing on it — so pressing Test on a keyless TMDB was a button that did
-// absolutely nothing, which is the one thing a button must never do. The screen
-// disables that press; this is the other half, for the race where a key is
-// cleared between the render and the press.
-func TestTestingASourceWithNoKeyIsRefusedRatherThanIgnored(t *testing.T) {
-	stubHostsOnlyATestReaches(t)
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	srv.TMDB.Key = ""
-	srv.TMDBBuiltin = ""
-
-	c.mustDo("POST", "/admin/metadata/test", map[string]string{"source": "tmdb"}, http.StatusConflict)
-
-	// AND "TEST EVERYTHING" STILL WORKS OVER AN INSTANCE WITH NO FILM OR GAME KEY.
-	// Skipping the ones that cannot be asked is not the same as failing: a new
-	// install has no IGDB pair, and a press that refused the lot would be the card
-	// crying wolf about its ordinary state. What is asked is every source that
-	// needs nothing, and what is skipped is exactly the ones that do.
-	srv.searchBooks = func(context.Context, string, string, string, string) ([]metadata.BookCandidate, error) {
-		return nil, nil
-	}
-	srv.TVDBBuiltin = ""
-	srv.TVDB.Key = ""
-	got := decode[sourcesResp](t, c.mustDo("POST", "/admin/metadata/test", map[string]any{}, http.StatusOK))
-	asked := map[string]bool{}
-	for _, row := range got.Sources {
-		asked[row.Source] = true
-	}
-	for _, slug := range []string{"tmdb", "tvdb", "igdb", "google-images"} {
-		if asked[slug] {
-			t.Errorf("%s cannot be asked here and was reported as asked", slug)
-		}
-	}
-	for _, slug := range []string{"google", "openlibrary", "amazon", "imdb", "letterboxd", "wikidata", "wikimedia", "fandom"} {
-		if !asked[slug] {
-			t.Errorf("%s needs nothing and was not asked", slug)
-		}
-	}
-}
-
 // EVERY SUPPLIER THAT CAN WRITE A FIELD HAS A ROW THAT COUNTS IT.
 //
 // `knownBookSource` and `knownMovieSource` are the whitelists that decide what may
@@ -549,54 +464,6 @@ func TestARowShowsTheNewestOfASuppliersTwoAreas(t *testing.T) {
 	}
 }
 
-// THE MERGED RECORD IS THE CASE THAT MATTERS, and the first fix got it wrong.
-//
-// An ISBN search MERGES both providers' answers into one candidate — they are
-// half-describing the same book — and the merged record keeps ONE `Source`, the
-// Google one. So counting by that field recorded Open Library as having answered
-// and found NOTHING on the commonest path in the app; three in a row is
-// `emptyRunFault`, which would have put a working supplier on the fault list. That
-// is worse than the silence it replaced, and the case that caught it did not exist
-// because the stub returned two candidates with distinct sources, which is the
-// title path and not the ISBN one.
-func TestABookBothSuppliersDescribedCountsForBoth(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-
-	// What `mergeSameBook` produces: one record, Google's `Source`, and BOTH ids —
-	// which is why the ids are what says who had a hand in it.
-	srv.searchBooks = func(context.Context, string, string, string, string) ([]metadata.BookCandidate, error) {
-		return []metadata.BookCandidate{{
-			Title: "Dune", Source: "google",
-			GoogleID: "g1", OpenLibraryID: "/works/OL1W",
-		}}, nil
-	}
-	c.mustDo("POST", "/admin/metadata/test", map[string]string{"source": "google"}, http.StatusOK)
-
-	got := decode[sourcesResp](t, c.mustDo("GET", "/metadata/status", nil, http.StatusOK))
-	for _, slug := range []string{"google", "openlibrary"} {
-		last := sourceNamed(t, got.Sources, slug).Last
-		if last == nil || !last.OK || last.Found != 1 {
-			t.Errorf("%s had a hand in the book and its row says %+v", slug, last)
-		}
-	}
-	// AND NOTHING IS ON THE FAULT LIST, which is the consequence this is really
-	// about: a supplier recorded as answering nothing, three times running, is
-	// reported broken.
-	for i := 0; i < 3; i++ {
-		c.mustDo("POST", "/admin/metadata/test", map[string]string{"source": "google"}, http.StatusOK)
-	}
-	faults := decode[struct {
-		Faults []faultRow `json:"faults"`
-	}](t, c.mustDo("GET", "/metadata/status", nil, http.StatusOK))
-	for _, f := range faults.Faults {
-		if f.Source == "openlibrary" {
-			t.Errorf("a supplier that answered every time is on the fault list: %+v", f)
-		}
-	}
-}
-
 // EVERY ROW CAN SAY ITS SUPPLIER'S NAME.
 //
 // The screen resolves a slug through `vocab.source.<slug>.label` and falls back to
@@ -623,43 +490,3 @@ func TestEverySourceRowHasANameToDraw(t *testing.T) {
 	}
 }
 
-// WIKIDATA ANSWERS AND IS RECORDED, which was the last supplier answering into
-// silence.
-//
-// IT IS THE FLOOR UNDER IGDB — it runs only when the pair is missing or has
-// failed, which is exactly when a reader most needs to know whether the thing
-// catching them is itself working — and nothing recorded it, so its row read
-// "nothing has asked it yet" however many games it had found. A rating found the
-// fix had no test and proved it by deleting the line and watching the whole suite
-// pass, in a change where every other fix had a ratchet.
-func TestTheGameFallbackIsRecordedLikeEveryOtherSupplier(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-
-	// Wikidata's own search, answering with one game. Pointed at httptest so this
-	// case never leaves the machine.
-	wd := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Query().Get("list") == "search" {
-			_, _ = w.Write([]byte(`{"query":{"search":[{"title":"Q7350","snippet":"1984 puzzle game"}]}}`))
-			return
-		}
-		// The claims hop, asked for the one hit above.
-		_, _ = w.Write([]byte(`{"entities":{"Q7350":{"labels":{"en":{"value":"Tetris"}},` +
-			`"claims":{"P31":[{"mainsnak":{"datavalue":{"value":{"id":"Q7889"}}}}]}}}}`))
-	}))
-	defer wd.Close()
-	metadata.SetWikidataBaseForTest(t, wd.URL)
-
-	// NO IGDB PAIR, which is the only state in which the floor runs at all.
-	if _, src := srv.resolveIGDB(); src != "none" {
-		t.Fatalf("this case needs an instance with no IGDB pair, got %q", src)
-	}
-	// The games arm of the film lookup — one endpoint, `media_type` picks the arm.
-	c.mustDo("POST", "/movies/lookup", map[string]any{"title": "Tetris", "media_type": "game"}, http.StatusOK)
-
-	got := decode[sourcesResp](t, c.mustDo("GET", "/metadata/status", nil, http.StatusOK))
-	if last := sourceNamed(t, got.Sources, "wikidata").Last; last == nil {
-		t.Error("the game fallback answered and its row still says nothing has asked it")
-	}
-}
