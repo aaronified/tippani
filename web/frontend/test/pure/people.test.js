@@ -140,7 +140,7 @@ describe('remap labels', () => {
 // the People fetch became one request (`POST /people/id/{id}/fetch`) and a job
 // that loops the same Go function. Its two cases — a fetch leaves the reader's
 // names alone, and an unnamed link stays unnamed — went with it, verbatim, to
-// `TestMergeLinksKeepsTheReadersNames` (internal/httpapi/merge_links_test.go),
+// `TestMergeLinksKeepsTheReadersNames` (internal/httpapi/merge_test.go),
 // beside the Go fold that replaced one splitting on whitespace, which shredded
 // every name. rules/link-fold-keeps-names.test.js goes red if the server folds
 // without that test, so the two cases cannot be lost again.

@@ -61,7 +61,7 @@ describe('reset reaches every section', () => {
 // are actually being served. Nothing errors, and the deck looks like a
 // preference you set.
 //
-// The Go side has the same table in review_mixed_test.go. Keeping both is the
+// The Go side has the same table in review_test.go. Keeping both is the
 // point — the agreement is what is being asserted, and one test cannot assert it
 // from only one side.
 describe('review scope', () => {

@@ -21,7 +21,7 @@
 // server.go routes the People row's Fetch, or jobs_kinds.go (the file the spec
 // names for the kinds' validation) registers the `people` job, the Go test
 // `TestMergeLinksKeepsTheReadersNames` has to be in
-// internal/httpapi/merge_links_test.go, carrying both cases. Both have been served
+// internal/httpapi/merge_test.go, carrying both cases. Both have been served
 // since 3.1.0, so the test must stay; a tree that served neither would have no
 // server fold to guard, and the rule would say so rather than invent one.
 //
@@ -41,7 +41,7 @@ import { describe, expect, it } from 'vitest'
 import { SRC } from '../src-files.js'
 
 const HTTPAPI = join(SRC, '..', '..', '..', 'internal', 'httpapi')
-const READ = ['server.go', 'jobs_kinds.go', 'merge_links_test.go']
+const READ = ['server.go', 'jobs_kinds.go', 'merge_test.go']
 
 // The two anchors that say the server folds links: the row's in-request Fetch, and
 // the job that loops the same function. Either alone is enough.
@@ -57,9 +57,9 @@ const UNNAMED_CASE = /example\.org\/essays/
 function obligation(files) {
   const folds = SERVES_FETCH.test(files['server.go'] || '') || REGISTERS_PEOPLE_JOB.test(files['jobs_kinds.go'] || '')
   if (!folds) return { folds: false, missing: [] }
-  const home = files['merge_links_test.go'] || ''
+  const home = files['merge_test.go'] || ''
   const missing = []
-  if (!TEST_NAME.test(home)) missing.push('TestMergeLinksKeepsTheReadersNames in merge_links_test.go')
+  if (!TEST_NAME.test(home)) missing.push('TestMergeLinksKeepsTheReadersNames in merge_test.go')
   else {
     if (!NAMED_CASE.test(home)) missing.push('the case where a named link keeps its name (“| The other one”)')
     if (!UNNAMED_CASE.test(home)) missing.push('the case where an unnamed link stays unnamed')
@@ -82,13 +82,13 @@ describe('the server’s link fold keeps the names a reader gave their links', (
       'server.go': 'mux.Handle("POST /people/id/{id}/fetch", s.requireAuth(s.handlePersonFetch))',
       'reverify_handlers.go': 'func mergePersonLinks(stored string, fetched map[string]string) string {',
     })
-    expect(r).toEqual({ folds: true, missing: ['TestMergeLinksKeepsTheReadersNames in merge_links_test.go'] })
+    expect(r).toEqual({ folds: true, missing: ['TestMergeLinksKeepsTheReadersNames in merge_test.go'] })
   })
 
   it('and for both of its cases, not just its name', () => {
     const r = obligation({
       'jobs_kinds.go': 'r.Register(jobs.Kind{Name:       "people", Run: s.runPeople})',
-      'merge_links_test.go': 'func TestMergeLinksKeepsTheReadersNames(t *testing.T) { stored := "https://www.imdb.com/name/nm0000123/ | The other one" }',
+      'merge_test.go': 'func TestMergeLinksKeepsTheReadersNames(t *testing.T) { stored := "https://www.imdb.com/name/nm0000123/ | The other one" }',
     })
     expect(r.missing).toEqual(['the case where an unnamed link stays unnamed'])
   })
