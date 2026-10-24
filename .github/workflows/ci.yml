@@ -291,8 +291,15 @@ jobs:
   # is broken, not a function. The browser is the runner's own Google Chrome, named
   # once in the job's env, and the step that checks for it says why it has to be
   # named.
+  # The journeys run as three shards on three runners at once. vitest deals the journey
+  # files out by --shard, so a new file needs no list to update, and every shard builds
+  # its own binary and drives its own browser.
   journeys:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     # NAMED ONCE, for the step that checks it and the harness that launches it.
     # The check step asks findBrowser itself which binary it would launch, so the
     # two cannot disagree however findBrowser orders its overrides. It sees this
@@ -360,8 +367,8 @@ jobs:
           # The rest, the root warning and the two starts, is a script so that a test
           # can run it against a stub Chrome (web/frontend/test/pure/sandbox-probe.test.js).
           bash scripts/sandbox-probe.sh
-      - name: the journeys
-        run: npm run journeys
+      - name: the journeys, shard ${{ matrix.shard }} of ${{ strategy.job-total }}
+        run: npm run journeys -- --shard=${{ matrix.shard }}/${{ strategy.job-total }}
         working-directory: web/frontend
       # WHAT A FAILING JOURNEY LEAVES BEHIND: a full-page screenshot of what the
       # reader was looking at, and what the server said while they looked. A red
@@ -370,7 +377,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: journey-failures
+          name: journey-failures-${{ matrix.shard }}
           path: web/frontend/journey-failures/
           if-no-files-found: ignore
 
