@@ -58,6 +58,52 @@ The files a work's quotes came from, which the app used to refuse to hold:
 - One press of Scan walks a whole library folder as a resumable job, in slices that do not block other jobs, with progress,
   findings and seen files kept in the database. See [ADR-0917](ADR-0917-A-Library-Scan-Is-One-Press-And-A-Job.md).
 
+## Next week (from 26 October 2026)
+
+Written on 25 October so the work can be picked up from this page alone, with no chat to read. Work it in this order. Each
+item is its own commit; the release comes after the first two.
+
+**Where things stand.** The latest release is **3.4.2**. `main` is ahead of it by the phone fix for the found-file row
+(`2c316041`), which is **not in any release yet**. CI is green on `main`. On the owner's NAS the scan now works from
+Metadata > Source files and finds EPUBs; the Locators section does not (item 3).
+
+1. **Release 3.4.3** with the found-file row fix, once item 2 is in. The changelog entry and the release are written by a
+   `sonnet`-tier agent ([Releasing](Releasing.md)).
+2. **UI review** ([#57](https://github.com/aaronified/tippani/issues/57)), starting with two concrete defects:
+   - [#60](https://github.com/aaronified/tippani/issues/60): on a phone the quote's bottom action bar uses two rows; it must
+     be one, with the extra actions behind the ⋯ menu.
+   - [#59](https://github.com/aaronified/tippani/issues/59): the context block on the quote edit forms must be collapsed by
+     default.
+   Then every screen at phone width, desktop width and the largest type size. The new source and context screens have had no
+   design pass.
+3. **Locators** ([#58](https://github.com/aaronified/tippani/issues/58)): chapters and locations did not come from the
+   owner's books after the scan found and attached an EPUB. The issue's comment lists four checks, in order. Start by
+   attaching an EPUB to a book that has highlights, pressing Rescan on the work, and looking at Checks > Times and places
+   from files.
+4. **Read quotes aloud** ([Plan: read aloud](Plan-Read-Aloud.md), issue
+   [#12](https://github.com/aaronified/tippani/issues/12)): the browser's own speech, no service. Nothing blocks it. The plan
+   was verified against `75e55ae` (28 September), so re-verify it first, as its first task says.
+5. **Anthology enhancements** ([Plan: anthology enhancements](Plan-Anthology-Enhancements.md)): the plan says it **builds after
+   [Episodes](Plan-Episodes.md)**, whose extended drag it uses, and Episodes is ahead of it in the queue. Decide first: do
+   Episodes before this, or give this plan its own drag. Re-verify the plan against the code either way, as it was written
+   against `75e55ae`.
+
+**Also open, not scheduled.** [#56](https://github.com/aaronified/tippani/issues/56): the dashboard widget should show library
+scan items (files found, scans running). The [Android app](Plan-Android-App.md) plan
+([#61](https://github.com/aaronified/tippani/issues/61)) is proposed and not queued; it waits for the owner's answers on its
+open questions.
+
+**Facts that save time**
+
+- The library scan is one job per folder, run in 60-second slices that queue the next slice. A stalled database write answers
+  a 503 "busy" (`TIP-JOBS-004`). A stuck request writes all goroutine stacks to the container log.
+- Local runs on Windows have known failures that are not bugs here: four `scratch-sweep` rules tests, three `store` migrate
+  tests and two `httpapi` tests (`TestAFailedFactoryResetLeavesSignInWorking`,
+  `TestARowShowsTheNewestOfASuppliersTwoAreas`) fail on Windows temp-directory behaviour. CI on Linux is the check for Go.
+- CI has shown load-related flakes: the Wikidata signature journey (it calls the real internet) and one Stop timing test.
+  Journeys do not retry on purpose; a journey that fails twice is a bug.
+- `web/dist` is rebuilt (`make frontend`) as its own last commit before a push; the generated glossary is `npm run glossary`.
+
 ## Known bugs
 
 These are the open [bug issues](https://github.com/aaronified/tippani/issues?q=is%3Aopen+label%3Abug).
@@ -76,6 +122,9 @@ These are the open [bug issues](https://github.com/aaronified/tippani/issues?q=i
   predicate that forgets a gap.
 - [#55](https://github.com/aaronified/tippani/issues/55): Metadata → Works puts the "all" pill last of fifteen, where the
   design pack puts it first.
+- [#58](https://github.com/aaronified/tippani/issues/58): the Locators section does not propose chapters or locations from the
+  attached EPUBs.
+- [#60](https://github.com/aaronified/tippani/issues/60): on a phone the quote's bottom action bar uses two rows.
 
 ## Still to build from the source-file work
 
