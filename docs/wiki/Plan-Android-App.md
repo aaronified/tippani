@@ -117,8 +117,10 @@ Tippani's and no token in the app.
   `from-app`; Support mail never becomes an issue; the sender's address is never copied; a log is never copied into the
   issue; filed mails are tagged in Gmail, never marked read. With no secrets set, the job does nothing and says so.
   Tests in Python, as Fluenough does.
-- **The owner sets up:** a Gmail address for reports (2-step verification, an app password, IMAP on) and the repository
-  secrets `FEEDBACK_GMAIL_ADDRESS` and `FEEDBACK_GMAIL_APP_PASSWORD`. The address goes into the app as a constant.
+- **The address is created: `tippanidev@gmail.com`.** It goes into the app as a constant and into the secret
+  `FEEDBACK_GMAIL_ADDRESS`. **Still for the owner:** turn on 2-step verification and IMAP for it, make an app password, and
+  add the repository secrets `FEEDBACK_GMAIL_ADDRESS` and `FEEDBACK_GMAIL_APP_PASSWORD` before the workflow can run. The
+  password is never written in the repository or the app.
 - The issue text is public. The form says so.
 
 ### 5. All of Tippani's functions

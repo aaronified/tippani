@@ -92,6 +92,11 @@ Metadata > Source files and finds EPUBs; the Locators section does not (item 3).
    Episodes before this, or give this plan its own drag. Re-verify the plan against the code either way, as it was written
    against `75e55ae`.
 
+**Email automation.** The report address `tippanidev@gmail.com` exists. It is for the bug-report flow in
+[the Android app plan](Plan-Android-App.md) (feature 4): the app opens the reader's mail app addressed to it, and a GitHub
+workflow reads the inbox and files issues. Use it when that work starts. The owner still has to turn on 2-step verification and
+IMAP, make an app password and add it as a repository secret; no password goes in the repository.
+
 **Also open, not scheduled.** [#56](https://github.com/aaronified/tippani/issues/56): the dashboard widget should show library
 scan items (files found, scans running). The [Android app](Plan-Android-App.md) plan
 ([#61](https://github.com/aaronified/tippani/issues/61)) is proposed and not queued; it waits for the owner's answers on its
