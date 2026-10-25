@@ -98,9 +98,8 @@ phone's UPI apps with the payee filled in. It takes `flutter_svg` and `url_launc
   values (the script draws filled squares; segno's stroked rows showed seams on a phone).
 - Replace Lexodle's hard-coded copy and its theme helper; keep the style of the rest of the app.
 - **Disclaimer (draft, for the owner to confirm).** Shown above the QR code:
-  "Tippani is free and has no ads. A donation is a voluntary gift to the developer. It does not buy anything, it is not
-  refundable, and no feature depends on it. Payments go straight to the payee by UPI. The app does not see, send or
-  store any payment details."
+  "Tippani is free and has no ads. Donating is voluntary, buys nothing and is not refundable. Reporting a bug helps just as
+  much."
 
 ### 4. Report a bug
 
