@@ -97,7 +97,8 @@ phone's UPI apps with the payee filled in. It takes `flutter_svg` and `url_launc
 - **Payee:** UPI ID `das.arani@pingpay`, name `Arani Das`, currency INR, no amount. Regenerate the QR from the same two
   values (the script draws filled squares; segno's stroked rows showed seams on a phone).
 - Replace Lexodle's hard-coded copy and its theme helper; keep the style of the rest of the app.
-- **Disclaimer (draft, for the owner to confirm).** Shown above the QR code:
+- **Text above the QR code (draft, for the owner to confirm).** The owner's line first, then the disclaimer:
+  "If you want to support development, or just want to buy me a cup of tea, donate."
   "Tippani is free and has no ads. Donating is voluntary, buys nothing and is not refundable. Reporting a bug helps just as
   much."
 
