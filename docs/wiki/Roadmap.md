@@ -80,6 +80,10 @@ Metadata > Source files and finds EPUBs; the Locators section does not (item 3).
    owner's books after the scan found and attached an EPUB. The issue's comment lists four checks, in order. Start by
    attaching an EPUB to a book that has highlights, pressing Rescan on the work, and looking at Checks > Times and places
    from files.
+   Together with it, [#62](https://github.com/aaronified/tippani/issues/62): works the scan did not match. A leading "The"
+   stops "Fires of Heaven" matching "The Fires of Heaven" (probably a bug); two books exist only as AZW3, which the scan does
+   not read; Chak De! India and Battlestar Galactica S04E20 have no subtitle file to find. The issue has the evidence and the
+   tasks.
 4. **Read quotes aloud** ([Plan: read aloud](Plan-Read-Aloud.md), issue
    [#12](https://github.com/aaronified/tippani/issues/12)): the browser's own speech, no service. Nothing blocks it. The plan
    was verified against `75e55ae` (28 September), so re-verify it first, as its first task says.
@@ -125,6 +129,8 @@ These are the open [bug issues](https://github.com/aaronified/tippani/issues?q=i
 - [#58](https://github.com/aaronified/tippani/issues/58): the Locators section does not propose chapters or locations from the
   attached EPUBs.
 - [#60](https://github.com/aaronified/tippani/issues/60): on a phone the quote's bottom action bar uses two rows.
+- [#62](https://github.com/aaronified/tippani/issues/62): some works get no file from the scan: a leading "The" in a title,
+  AZW3-only books, and works with no subtitle file.
 
 ## Still to build from the source-file work
 
