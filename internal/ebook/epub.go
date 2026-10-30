@@ -172,6 +172,14 @@ func Read(data []byte) ([]Paragraph, error) {
 	if len(out) == 0 {
 		return nil, ErrNoText
 	}
+	setPercents(out)
+	return out, nil
+}
+
+// setPercents fills each paragraph's Percent by the rule documented on Paragraph.Percent.
+// Every reader in this package (EPUB, MOBI, PDF) uses it, so a location means the same
+// thing whichever file it came from.
+func setPercents(out []Paragraph) {
 	runes := 0
 	for _, p := range out {
 		runes += utf8.RuneCountInString(p.Text)
@@ -181,7 +189,6 @@ func Read(data []byte) ([]Paragraph, error) {
 		out[i].Percent = before * 100 / runes
 		before += utf8.RuneCountInString(out[i].Text)
 	}
-	return out, nil
 }
 
 // encryptsText reports whether encryption.xml names any algorithm other than font
