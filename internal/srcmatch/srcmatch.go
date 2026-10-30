@@ -58,7 +58,10 @@ type Unit struct {
 //     letter altogether is handled by the edit budget, not here);
 //   - apostrophes vanish ("don't" and "dont" and "don’t"), while every other
 //     punctuation mark becomes a space, so "well—well" is two words;
-//   - what is left is letters and digits, single-spaced.
+//   - what is left is letters, digits and the vowel signs and tone marks that belong to
+//     a letter (a Bengali, Hindi or Thai word is not a row of fragments), single-spaced.
+//     A mark a text may or may not print (a combining accent, Arabic vowel points,
+//     Hebrew points) is dropped, so a decomposed "é" and a plain "e" are one letter.
 //
 // The owner's rule for fuzzy matching: "all punctuation, timestamp will be ignored".
 func Fold(s string) string {
@@ -70,6 +73,12 @@ func Fold(s string) string {
 		switch {
 		case r == '\'' || r == '`':
 			continue // joins, never splits
+		case unicode.IsMark(r):
+			if optionalMark(r) {
+				continue // joins, like an apostrophe: it was never a separator
+			}
+			b.WriteRune(r)
+			space = false
 		case unicode.IsLetter(r) || unicode.IsDigit(r):
 			b.WriteRune(base(r))
 			space = false
@@ -81,6 +90,14 @@ func Fold(s string) string {
 		}
 	}
 	return strings.TrimRight(b.String(), " ")
+}
+
+// optionalMark reports a combining mark that texts print or omit at will: the general
+// combining accents, Hebrew points and Arabic vowel points. Every other mark (an Indic
+// vowel sign, a virama, a Thai tone mark) is part of the word and stays.
+func optionalMark(r rune) bool {
+	return r >= 0x0300 && r <= 0x036F || r >= 0x0591 && r <= 0x05C7 ||
+		r >= 0x064B && r <= 0x065F || r == 0x0670 || r == 0x0640 // tatweel is not a mark but is padding
 }
 
 // base drops the accent from a Latin letter. A table rather than Unicode
@@ -127,6 +144,8 @@ var accentBase = func() map[rune]rune {
 	// Ligatures and the German sharp s fold to their first letter: the second is
 	// what a lossy file drops, and the budget absorbs it.
 	m['æ'], m['œ'], m['ß'] = 'a', 'o', 's'
+	// Russian prints ё and е as one letter, and most editions only ever print е.
+	m['ё'] = 'е'
 	return m
 }()
 
@@ -137,6 +156,52 @@ type Index struct {
 	hay    []rune
 	unitOf []int32            // rune offset → index in units
 	words  map[string][]int32 // folded word → rune offsets where it starts
+}
+
+// shingle is how many runes make one lookup key in a script written without spaces.
+const shingle = 4
+
+// spaceless reports a rune of a script that is written without spaces between words, so
+// a space-delimited "word" in it is a whole clause and can never be looked up by itself.
+func spaceless(r rune) bool {
+	return unicode.In(r, unicode.Han, unicode.Hiragana, unicode.Katakana, unicode.Thai, unicode.Lao,
+		unicode.Khmer, unicode.Myanmar)
+}
+
+// tokens hands fn the lookup keys of folded text and where each starts (base plus its
+// offset in rs). A word is a key. A word of a spaceless script that is long enough is
+// instead cut into overlapping runs of `shingle` runes, one every `stride` runes, so a
+// quote taken from the middle of a sentence still shares keys with the sentence. The
+// file is indexed at stride 2 and the quote looked up at stride 1: whatever the quote's
+// alignment, one of its keys is one the file holds.
+func tokens(rs []rune, base, stride int, fn func(w string, at int)) {
+	start := -1
+	emit := func(from, to int) {
+		cut := false
+		for _, r := range rs[from:to] {
+			if spaceless(r) {
+				cut = true
+				break
+			}
+		}
+		if !cut || to-from < shingle {
+			fn(string(rs[from:to]), base+from)
+			return
+		}
+		for i := from; i+shingle <= to; i += stride {
+			fn(string(rs[i:i+shingle]), base+i)
+		}
+	}
+	for k := 0; k <= len(rs); k++ {
+		inWord := k < len(rs) && rs[k] != ' '
+		if inWord && start < 0 {
+			start = k
+		}
+		if !inWord && start >= 0 {
+			emit(start, k)
+			start = -1
+		}
+	}
 }
 
 // NewIndex folds and indexes units. Units whose text folds to nothing (a line of
@@ -159,18 +224,9 @@ func NewIndex(units []Unit) *Index {
 			ix.unitOf = append(ix.unitOf, int32(i))
 		}
 		// Words, by their start offset within the haystack.
-		start := -1
-		for k := off; k <= len(ix.hay); k++ {
-			inWord := k < len(ix.hay) && ix.hay[k] != ' '
-			if inWord && start < 0 {
-				start = k
-			}
-			if !inWord && start >= 0 {
-				w := string(ix.hay[start:k])
-				ix.words[w] = append(ix.words[w], int32(start))
-				start = -1
-			}
-		}
+		tokens(ix.hay[off:], off, 2, func(w string, at int) {
+			ix.words[w] = append(ix.words[w], int32(at))
+		})
 	}
 	return ix
 }
@@ -282,18 +338,9 @@ func (ix *Index) candidates(q []rune) []region {
 		n   int // occurrences in the file
 	}
 	var ws []qw
-	start := -1
-	for k := 0; k <= m; k++ {
-		inWord := k < m && q[k] != ' '
-		if inWord && start < 0 {
-			start = k
-		}
-		if !inWord && start >= 0 {
-			w := string(q[start:k])
-			ws = append(ws, qw{w: w, off: start, n: len(ix.words[w])})
-			start = -1
-		}
-	}
+	tokens(q, 0, 1, func(w string, at int) {
+		ws = append(ws, qw{w: w, off: at, n: len(ix.words[w])})
+	})
 	// Rarest first, skipping words the file does not have at all (a typo or a dropped
 	// letter); a quote with no word in common falls through to nothing.
 	sort.SliceStable(ws, func(i, j int) bool { return ws[i].n < ws[j].n })
@@ -408,8 +455,8 @@ func (ix *Index) align(q []rune, r region, bud int) (Match, bool) {
 	}
 	// A verbatim hit that starts or ends inside a word is not the quote ("yes" is in
 	// "yesterday"). A fuzzy one may, since a dropped space is one of the deviations
-	// the budget exists for.
-	if bestD == 0 && !(ix.boundary(from-1) && ix.boundary(to)) {
+	// the budget exists for. A script written without spaces has no word edge to test.
+	if bestD == 0 && !(ix.edge(from, true) && ix.edge(to, false)) {
 		return Match{}, false
 	}
 	return Match{
@@ -420,8 +467,11 @@ func (ix *Index) align(q []rune, r region, bud int) (Match, bool) {
 	}, true
 }
 
-// boundary reports whether offset k in the haystack is a word edge: before the start,
-// after the end, or a space.
-func (ix *Index) boundary(k int) bool {
-	return k < 0 || k >= len(ix.hay) || ix.hay[k] == ' '
+// edge reports whether a match may start (start true) or end (false) at offset k: on a
+// word edge, or beside a rune of a script that has none.
+func (ix *Index) edge(k int, start bool) bool {
+	if start {
+		return k <= 0 || ix.hay[k-1] == ' ' || spaceless(ix.hay[k])
+	}
+	return k >= len(ix.hay) || ix.hay[k] == ' ' || spaceless(ix.hay[k-1])
 }
