@@ -36,7 +36,7 @@ import {
 } from './people.jsx'
 import { ShareDialog, bookShare, copyQuote, movieShare, quoteShare } from './share.jsx'
 import { deleteWithUndo } from './undo.jsx'
-import { actionsFor, atOverflow, atRow } from './actions.jsx'
+import { actionsFor, useRowSplit } from './actions.jsx'
 import { ANTHOLOGY_KIND, useGatherDoor } from './anthologyGather.jsx'
 import { useStickers } from './stickers.jsx'
 import {
@@ -1273,6 +1273,7 @@ export function FavouriteTile({
     remove: onDelete && (() => onDelete()),
   })
   const { cardProps, menuClass, menu } = useCardMenu(acts.map((x) => ({ ...x, onClick: x.run })))
+  const row = useRowSplit(acts)
   const isBook = f.kind === 'book'
   // A STANDALONE QUOTE IS THE ONE KIND WITH NO WORK, so the occasion it was said
   // on is the only thing its card can say about where it came from — and the one
@@ -1545,9 +1546,9 @@ export function FavouriteTile({
                   for. The two branches are exclusive, so the mark still draws
                   exactly once. */}
               <ReviewDot item={f.raw} />
-              <QuoteTools actions={atRow(acts)} />
+              <QuoteTools actions={row.tools} />
               <span className="ml-auto flex items-center">
-                <QuoteActions actions={atOverflow(acts)} />
+                <QuoteActions actions={row.menu} />
               </span>
             </div>
           )}
@@ -1621,7 +1622,7 @@ export function FavouriteTile({
                   Standing rather than hover-gated: this row only exists while the
                   tile is open, which is already the deliberate act the hover gate
                   waits for. */}
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-1">
+              <div className={'flex items-center gap-x-3 gap-y-1 pt-1 ' + (row.phone ? 'flex-nowrap' : 'flex-wrap')}>
                 {/* FIRST, for the reason AnnotationCard gives at the same place:
                     it is the card's state rather than something you do to the
                     card, and since the owner asked for the popup it is also the
@@ -1649,14 +1650,14 @@ export function FavouriteTile({
                 )}
                 {/* Un-hearting removes the tile — this IS the favourites list. */}
                 <Hearts value={!!f.raw.favorite} onChange={(v) => onPatch({ favorite: v })} />
-                <QuoteTools actions={atRow(acts)} alwaysVisible />
+                <QuoteTools actions={row.tools} alwaysVisible />
                 {/* `collapsible` because a Home tile is a masonry cell and often
                     narrower than 330px, where six dots become the named list. */}
                 <span className="card-colors is-visible shrink-0">
                   <ColorSwatches collapsible value={color} onChange={pickColor} ariaLabel={t('common.colour.category.aria')} />
                 </span>
                 <span className="ml-auto flex items-center">
-                  <QuoteActions actions={atOverflow(acts)} />
+                  <QuoteActions actions={row.menu} />
                 </span>
               </div>
             </div>
@@ -1857,6 +1858,7 @@ export function SerendipityCard({ q, onOpen, people = {}, seps, onOpenPerson, ac
       favourited: hearted,
     })
     : []
+  const row = useRowSplit(acts)
 
   // The same three-way as the badge above, and for the same reason: "Open this
   // film" on a game is the screen reader being told the wrong thing about the row
@@ -1941,9 +1943,9 @@ export function SerendipityCard({ q, onOpen, people = {}, seps, onOpenPerson, ac
           )}
           {acts.length > 0 && (
             <div className="mt-2 flex items-center gap-x-3">
-              <QuoteTools actions={atRow(acts)} />
+              <QuoteTools actions={row.tools} />
               <span className="ml-auto flex items-center">
-                <QuoteActions actions={atOverflow(acts)} />
+                <QuoteActions actions={row.menu} />
               </span>
             </div>
           )}

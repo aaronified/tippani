@@ -20,6 +20,7 @@ import {
   QuoteActions,
   QuoteTools,
   ReviewDot,
+  useIsMobileScreen,
 } from './ui.jsx'
 import { t } from './i18n.js'
 import { canTakeSource } from './sources.jsx'
@@ -320,6 +321,21 @@ export function actionsFor(kind, item, ctx = {}) {
 export const atRow = (actions) => actions.filter((a) => a.where === ROW)
 export const atOverflow = (actions) => actions.filter((a) => a.where === OVERFLOW)
 
+// useRowSplit — what stands in a card's action row and what sits behind the ⋯.
+//
+// ON A PHONE THE ROW IS ONE LINE (#60). Copy, share and in-context stood beside the
+// heart, the colour pick and the ⋯, and at 390px that is more than one line holds, so
+// the ⋯ dropped to a second row. Nothing is lost by it: the whole list is in the menu,
+// in the registry's order, so a thumb reaches the same actions one press later. On a
+// wider screen the row keeps its glyphs and the menu keeps the occasional ones.
+// Every quote row calls this one function, so two cards cannot split the list two ways.
+export function useRowSplit(acts) {
+  const phone = useIsMobileScreen()
+  return phone
+    ? { phone, tools: [], menu: acts }
+    : { phone, tools: atRow(acts), menu: atOverflow(acts) }
+}
+
 // ---------------------------------------------------------------------------
 // the row that draws the list
 // ---------------------------------------------------------------------------
@@ -366,8 +382,9 @@ export const atOverflow = (actions) => actions.filter((a) => a.where === OVERFLO
 // Only edit and delete are behind the ⋯, at every width (see QuoteActions), so
 // what a resting card shows is its ♥ and one quiet overflow glyph.
 export function ActionRow({ acts, item, color, onColor, onFavourite, actionsAlwaysVisible = false, className = '' }) {
+  const { phone, tools, menu } = useRowSplit(acts)
   return (
-    <div className={('mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 ' + className).trim()}>
+    <div className={('mt-1 flex items-center gap-x-3 gap-y-1 ' + (phone ? 'flex-nowrap' : 'flex-wrap') + ' ' + className).trim()}>
       {/* FIRST, BECAUSE IT IS THE CARD'S STATE — the same position the shelf chip
           takes on a work, and because a state read after four verbs reads as a
           fifth verb.
@@ -380,7 +397,7 @@ export function ActionRow({ acts, item, color, onColor, onFavourite, actionsAlwa
           the change is worse than none — the next reader trusts it. */}
       <ReviewDot item={item} />
       <Hearts value={!!item.favorite} onChange={onFavourite} />
-      <QuoteTools actions={atRow(acts)} alwaysVisible={actionsAlwaysVisible} />
+      <QuoteTools actions={tools} alwaysVisible={actionsAlwaysVisible} />
       {/* shrink-0: the colour dots are one atomic control — the row wraps the ⋯
           cluster to a second line before it splits or squeezes them. (Six of
           them since 1.7.1, collapsing to a single trigger below a 330px card.) */}
@@ -388,7 +405,7 @@ export function ActionRow({ acts, item, color, onColor, onFavourite, actionsAlwa
         <ColorSwatches value={color} onChange={onColor} ariaLabel={t('common.colour.category.aria')} collapsible />
       </span>
       <span className="ml-auto flex items-center">
-        <QuoteActions actions={atOverflow(acts)} />
+        <QuoteActions actions={menu} />
       </span>
     </div>
   )
