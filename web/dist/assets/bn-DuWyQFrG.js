@@ -7858,4 +7858,13 @@ corrections.skipped.one = {n}টি অন্য দলের ছিল, তা�
 corrections.skipped.other = {n}টি অন্য দলের ছিল, তাই বাদ গেছে
 corrections.duplicates.one = {n}টি ফাইলের শব্দে আগেই আছে, তাই ছোঁয়া হয়নি
 corrections.duplicates.other = {n}টি ফাইলের শব্দে আগেই আছে, তাই ছোঁয়া হয়নি
+speech.speak.label = জোরে পড়ুন
+speech.stop.label = পড়া থামান
+speech.rate.label = পড়ার গতি
+speech.rate.info.body = উদ্ধৃতি কত দ্রুত জোরে পড়া হবে। ভয়েসের মতোই এই ডিভাইসে রাখা হয়।
+speech.voice.label = {language}-এর ভয়েস
+speech.voice.info.body = এই ভাষার উদ্ধৃতি পড়ার ভয়েস। ভয়েস এই ডিভাইসের, তাই পছন্দটি অ্যাকাউন্টে নয়, এখানে রাখা হয়।
+speech.voice.default = ডিভাইসের ডিফল্ট
+cleanup.rule.citation-after-stop.label = দাঁড়ির পরের উদ্ধৃতি নম্বর
+cleanup.rule.citation-after-stop.body = দাঁড়ির সঙ্গে সরাসরি লেগে থাকা সংখ্যা, যেমন "so on.12": পৃষ্ঠা থেকে রয়ে যাওয়া উদ্ধৃতি-চিহ্ন। 3.14-এর মতো দশমিক ধরা হয় না।
 `;export{e as default};

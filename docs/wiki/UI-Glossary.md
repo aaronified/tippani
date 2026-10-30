@@ -7,7 +7,7 @@ It is generated from the glossary catalogue, `web/frontend/scripts/glossary/cata
 when a component has no entry, so a rename or a new control updates this page or fails the build. Each entry names the file
 that defines it.
 
-218 entries in 22 sections.
+219 entries in 22 sections.
 
 ## Shell
 
@@ -1654,6 +1654,12 @@ The queue. A list whose first bullet is a play mark and whose others are dots: o
 *Defined in:* IconStop — ui.jsx · Tabler `player-stop` · Settings › Jobs
 
 Stop a job. The rounded square every media control uses, unchanged from the pack. A job stops at once, leaves the item in hand untouched and is kept with its log, so this is not IconClose: nothing a Stop press touches is thrown away. It is drawn red, with its words kept, on Stop all and on a running job's row.
+
+### IconSpeaker
+
+*Defined in:* IconSpeaker — ui.jsx · Tabler `volume-2` · quote cards (SpeakButton), Settings › Language (SpeechFields)
+
+Read this quote aloud. A loudspeaker with two sound waves, in the top-right corner of a quote card, drawn by `SpeakButton`; while the quote is being read it becomes IconStop, and pressing it stops the reading. It reads only the main quote, the one the card shows in the big type, in the language stored on the quote or, with none stored, the one its script says. It is absent where the device has no speech voice, rather than a button that does nothing. Settings' `SpeechFields` choose the speed and a voice per language, on this device. It is not the watching glyph's play triangle, which means a show.
 
 ### IconRerun
 
