@@ -1659,7 +1659,7 @@ Stop a job. The rounded square every media control uses, unchanged from the pack
 
 *Defined in:* IconSpeaker — ui.jsx · Tabler `volume-2` · quote cards (SpeakButton), Settings › Language (SpeechFields)
 
-Read this quote aloud. A loudspeaker with two sound waves, in the top-right corner of a quote card, drawn by `SpeakButton`; while the quote is being read it becomes IconStop, and pressing it stops the reading. It reads only the main quote, the one the card shows in the big type, in the language stored on the quote or, with none stored, the one its script says. It is absent where the device has no speech voice, rather than a button that does nothing. Settings' `SpeechFields` choose the speed and a voice per language, on this device. It is not the watching glyph's play triangle, which means a show.
+Read this quote aloud. A loudspeaker with two sound waves, in the top-right corner of a quote card, drawn by `SpeakButton`; while the quote is being read it becomes IconStop, and pressing it stops the reading. It reads only the main quote, the one the card shows in the big type, in the language stored on the quote or, with none stored, the one its script says. It is absent where the device has no speech voice, rather than a button that does nothing. In a board's or an anthology's header, `ReadAloudRun` reads the whole page in order, and while it plays it offers IconNext (skip to the next passage) beside the stop. Settings' `SpeechFields` choose the speed and a voice per language, on this device. It is not the watching glyph's play triangle, which means a show.
 
 ### IconRerun
 
