@@ -416,8 +416,14 @@ func TestAScanOfAFolderThatDisappearsFailsAndSaysWhy(t *testing.T) {
 }
 
 // Presses at the same moment start one scan. The others are told it is running.
+//
+// THE LIBRARY HAS TO OUTLAST THE PRESSES. The rule is "no second scan while one is queued or
+// running", so a press that arrives after the first scan has finished starts a new one, and
+// should. With three files the scan could finish between two goroutines' presses, which made
+// this fail about one run in three for a reason that is not a bug. A thousand files keep the
+// first scan live for far longer than eight presses take.
 func TestPressesAtOnceStartOneScan(t *testing.T) {
-	srv, c, _ := bigLibrary(t, 3)
+	srv, c, _ := bigLibrary(t, 1000)
 	const presses = 8
 	codes := make([]int, presses)
 	ids := make([]int64, presses)
