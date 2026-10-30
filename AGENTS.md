@@ -12,3 +12,7 @@ The short version:
 - **Nothing under a mounted library folder is ever written**, and no test reaches the network.
 - Check your work with `go vet ./...`, `go test ./...`, and from `web/frontend`: `npm test`, `npm run lint:rules`,
   `node ../../scripts/wiki-check.mjs`, `node ../../scripts/doc-map-check.mjs`.
+
+**Picking up work.** The next jobs, where things stand, and the owner's parked questions are in
+[Roadmap: Next week](docs/wiki/Roadmap.md#next-week-from-26-october-2026). Read it before starting. As of 31 October 2026,
+`main` holds pushed but unreleased commits; the owner has said not to release, so do not tag or bump a version unless told.

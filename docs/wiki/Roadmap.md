@@ -60,30 +60,41 @@ The files a work's quotes came from, which the app used to refuse to hold:
 
 ## Next week (from 26 October 2026)
 
-Written on 25 October so the work can be picked up from this page alone, with no chat to read. Work it in this order. Each
-item is its own commit; the release comes after the first two.
+Updated on 31 October so the work can be picked up from this page alone, with no chat to read. Work it in this order. Each
+item is its own commit.
 
-**Where things stand.** The latest release is **3.4.2**. `main` is ahead of it by the phone fix for the found-file row
-(`2c316041`), which is **not in any release yet**. CI is green on `main`. On the owner's NAS the scan now works from
-Metadata > Source files and finds EPUBs; the Locators section does not (item 3).
+**Where things stand.** The latest release is **3.4.2**. `main` holds nine commits after it that are **pushed on 31 October but not in
+any release**: the found-file row fix (`2c316041`) and, on top of it, #58, #62 (leading article, AZW3), #60, #59, MOBI/AZW3 and
+PDF reading, and multi-language matching. The owner said not to release yet, so nothing was tagged or bumped. The last
+commit is the `web/dist` rebuild. Go tests pass apart from the Windows-only failures listed under "Facts that save time" and
+four in `cmd/tippani` and one in `updater` that say "not supported by windows" or fail on a path separator (not re-run on the
+old commit). Frontend tests (483) and both wiki checks pass.
 
-1. **Release 3.4.3** with the found-file row fix, once item 2 is in. The changelog entry and the release are written by a
-   `sonnet`-tier agent ([Releasing](Releasing.md)).
-2. **UI review** ([#57](https://github.com/aaronified/tippani/issues/57)), starting with two concrete defects:
-   - [#60](https://github.com/aaronified/tippani/issues/60): on a phone the quote's bottom action bar uses two rows; it must
-     be one, with the extra actions behind the ⋯ menu.
-   - [#59](https://github.com/aaronified/tippani/issues/59): the context block on the quote edit forms must be collapsed by
-     default.
-   Then every screen at phone width, desktop width and the largest type size. The new source and context screens have had no
-   design pass.
-3. **Locators** ([#58](https://github.com/aaronified/tippani/issues/58)): chapters and locations did not come from the
-   owner's books after the scan found and attached an EPUB. The issue's comment lists four checks, in order. Start by
-   attaching an EPUB to a book that has highlights, pressing Rescan on the work, and looking at Checks > Times and places
-   from files.
-   Together with it, [#62](https://github.com/aaronified/tippani/issues/62): works the scan did not match. A leading "The"
-   stops "Fires of Heaven" matching "The Fires of Heaven" (probably a bug); two books exist only as AZW3, which the scan does
-   not read; Chak De! India and Battlestar Galactica S04E20 have no subtitle file to find. The issue has the evidence and the
-   tasks.
+**Done this week** (each has an ADR):
+
+- [#58](https://github.com/aaronified/tippani/issues/58): a highlight keeps its own location and the file proposes the chapter
+  ([ADR-0919](ADR-0919-A-Highlight-Keeps-Its-Own-Location-And-The-File-Proposes-The-Chapter.md)).
+- AZW3, MOBI, AZW and PDF are source files; a leading article is ignored when matching titles
+  ([ADR-0918](ADR-0918-Kindle-Files-And-PDFs-Are-Source-Files-Read-By-Their-Text-Alone.md), part of
+  [#62](https://github.com/aaronified/tippani/issues/62)).
+- Quotes match in Bengali, Hindi, Thai, Japanese, Chinese, Russian, Arabic and accented text
+  ([ADR-0920](ADR-0920-A-Quote-Is-Matched-In-The-Script-It-Was-Written-In.md)).
+- [#60](https://github.com/aaronified/tippani/issues/60) (quote card action row is one line on a phone) and
+  [#59](https://github.com/aaronified/tippani/issues/59) (edit form context block starts folded), written by an agent
+  ([ADR-0921](ADR-0921-A-Quote-Card-s-Row-Is-One-Line-On-A-Phone.md),
+  [ADR-0922](ADR-0922-The-Context-Block-On-A-Quote-Form-Starts-Folded.md)). **Neither was checked in a browser at phone width**,
+  and `make controls` and `make typescale` were not run.
+
+**What is left, in order:**
+
+1. **Look at #60 and #59 on a phone** (390 px, largest type size), then the rest of the UI review
+   ([#57](https://github.com/aaronified/tippani/issues/57)): every screen at phone width, desktop width and the largest type
+   size. The new source and context screens have had no design pass.
+2. **Release 3.4.3**, only when the owner says. Push first; the changelog entry and the release are written by a `sonnet`-tier
+   agent ([Releasing](Releasing.md)). Two commit bodies (`2a989130`, `242013bb`) name ADR-0918 and ADR-0919 where the pages are
+   now 0921 and 0922; reword them before pushing if that matters.
+3. **Rest of [#62](https://github.com/aaronified/tippani/issues/62):** the Source files row does not say why a work has no
+   file. Chak De! India and Battlestar Galactica S04E20 have no subtitle file to find.
 4. **Read quotes aloud** ([Plan: read aloud](Plan-Read-Aloud.md), issue
    [#12](https://github.com/aaronified/tippani/issues/12)): the browser's own speech, no service. Nothing blocks it. The plan
    was verified against `75e55ae` (28 September), so re-verify it first, as its first task says.
@@ -91,6 +102,18 @@ Metadata > Source files and finds EPUBs; the Locators section does not (item 3).
    [Episodes](Plan-Episodes.md)**, whose extended drag it uses, and Episodes is ahead of it in the queue. Decide first: do
    Episodes before this, or give this plan its own drag. Re-verify the plan against the code either way, as it was written
    against `75e55ae`.
+
+**Questions for the owner**, kept until asked:
+
+1. Should there be an opt-in to replace a Kindle location with the file's percent? It is no longer offered.
+2. Should Kindle chapters come from the file's real contents index (INDX) instead of the nearest heading?
+3. Scanned PDFs have no text layer and are refused. Add OCR, or leave them refused?
+4. The #59 folded heading reads "In context" (an existing label), not the issue's "Context from <file>". Change it?
+5. Should the "why this work has no file" text be added to the Source files row (#62)?
+
+**Leftover housekeeping.** Two agent worktrees remain under `.claude/worktrees` (`agent-a5e3796460a78da5c`,
+`agent-a69f8257601ac30aa`) with their branches. A stash, `WIP on (no branch): 5f7832c Mobile UX fixes...`, pre-dates this work
+and was left alone.
 
 **Email automation.** The report address `tippanidev@gmail.com` exists. It is for the bug-report flow in
 [the Android app plan](Plan-Android-App.md) (feature 4): the app opens the reader's mail app addressed to it, and a GitHub
