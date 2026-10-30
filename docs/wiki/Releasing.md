@@ -13,7 +13,9 @@ How a release is cut. It is short because the pipeline does the publishing; a re
    not run.
 3. **A tag** `vX.Y.Z` on that commit.
 
-Pushing the tag does the rest. [`release.yml`](https://github.com/aaronified/tippani/blob/main/.github/workflows/release.yml) cuts the
+Pushing the tag does the rest. The tag can also be cut from the Actions tab: run `release` on main with the version (no `v`) and its
+prepare job checks the changelog section is on main, tags main's head and starts the image build (a tag pushed with the workflow's own
+token starts no other workflow), then the release job runs in the same run. It adds no commit and needs no key. [`release.yml`](https://github.com/aaronified/tippani/blob/main/.github/workflows/release.yml) cuts the
 GitHub Release with that version's changelog section as its notes, and
 [`docker-publish.yml`](https://github.com/aaronified/tippani/blob/main/.github/workflows/docker-publish.yml) publishes the multi-arch
 image to GHCR under the version and the moving series tags. The version the binary reports comes from the tag.

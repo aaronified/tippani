@@ -5,28 +5,108 @@ name: release
 # already publishes the GHCR image on the same tag; this adds the human-facing
 # Release entry so the Releases page stays in step with the tags (previously
 # releases were written by hand, which is why v0.4.x had images + tags but no
-# Release). Also runnable by hand (workflow_dispatch) against an existing tag to
-# backfill a release that was missed.
+# Release).
+#
+# THREE WAYS IN:
+#   - push a tag (git tag vX.Y.Z && git push origin vX.Y.Z): the release job alone, as before.
+#   - run it from the Actions tab on main with a VERSION (3.4.3, no "v"): the prepare job
+#     checks the changelog section is already on main, tags main's head, starts the image
+#     build, and the release job then runs in the same run. The release commit stays the
+#     hand-written `chore(release): X.Y.Z` of docs/wiki/Releasing.md, so unlike a flow that
+#     dates an [Unreleased] heading there is nothing to commit here and no key that can
+#     push to main.
+#   - run it with an existing TAG (v0.4.0) to backfill a Release that was missed.
+#
+# WHY THE PREPARE JOB STARTS THE IMAGE ITSELF. A tag pushed with GITHUB_TOKEN does not start
+# other workflows, so docker-publish.yml would never see it. It has a workflow_dispatch trigger
+# and builds whatever ref it is run on, so it is dispatched on the new tag.
 on:
   push:
     tags: ["v*"]
   workflow_dispatch:
     inputs:
+      version:
+        description: "Version to release, like 3.4.3 (no v). Run from main; its CHANGELOG.md section must already be there."
+        required: false
+        type: string
       tag:
-        description: "Existing tag to (re)publish a Release for, e.g. v0.4.0"
-        required: true
+        description: "Existing tag to (re)publish a Release for, e.g. v0.4.0 (leave the version empty)"
+        required: false
+        type: string
 
 permissions:
   contents: write
+  actions: write
+
+# One release at a time; a second waits rather than cancelling the first, which
+# may be half way through publishing.
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
+  # A run with a version only. Makes the tag the release job then publishes.
+  prepare:
+    if: github.event_name == 'workflow_dispatch' && inputs.version != ''
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check this run is from main and the version is new
+        env:
+          VERSION: ${{ inputs.version }}
+          TAG_INPUT: ${{ inputs.tag }}
+        run: |
+          if [ -n "$TAG_INPUT" ]; then
+            echo "::error::Give a version or an existing tag, not both."
+            exit 1
+          fi
+          if [ "$GITHUB_REF" != refs/heads/main ]; then
+            echo "::error::A release is cut from main, but this run is for '$GITHUB_REF'. Run it again and choose main under 'Use workflow from'."
+            exit 1
+          fi
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::The version '$VERSION' is not like 3.4.3 (three numbers, no leading v)."
+            exit 1
+          fi
+          if git ls-remote --exit-code --tags "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" "refs/tags/v$VERSION" >/dev/null 2>&1; then
+            echo "::error::The tag v$VERSION already exists. A tag is never moved: choose a higher version."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+
+      - name: Check the changelog section is on main
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          if ! grep -qF "## [$VERSION]" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no '## [$VERSION]' section on main. Write it and commit chore(release): $VERSION first (docs/wiki/Releasing.md)."
+            exit 1
+          fi
+
+      - name: Tag main and start the image build
+        env:
+          VERSION: ${{ inputs.version }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git tag -a "v$VERSION" -m "v$VERSION"
+          git push origin "v$VERSION"
+          gh workflow run docker-publish.yml --ref "v$VERSION"
+
   release:
+    needs: prepare
+    # prepare is skipped for a tag push and for a backfill; either is still a release.
+    if: ${{ !cancelled() && (needs.prepare.result == 'success' || needs.prepare.result == 'skipped') }}
     runs-on: ubuntu-latest
     steps:
       - name: Resolve tag
         id: tag
         run: |
           tag="${{ github.event.inputs.tag }}"
+          if [ -z "$tag" ] && [ -n "${{ github.event.inputs.version }}" ]; then tag="v${{ github.event.inputs.version }}"; fi
           tag="${tag:-$GITHUB_REF_NAME}"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
