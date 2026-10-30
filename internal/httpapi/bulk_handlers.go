@@ -693,9 +693,31 @@ func bulkSetShowPair(tx *sql.Tx, col string, val any, ids []int64) error {
 	if col == "episode" && val != nil {
 		where += ` AND season IS NOT NULL`
 	}
-	_, err := tx.Exec(
-		`UPDATE dialogues SET `+col+` = ?, updated_at = datetime('now') `+where, args...)
-	return err
+	if _, err := tx.Exec(
+		`UPDATE dialogues SET `+col+` = ?, updated_at = datetime('now') `+where, args...); err != nil {
+		return err
+	}
+	// The shows these lines are in may now name an episode they had no row for.
+	rows, err := tx.Query(`SELECT DISTINCT movie_id FROM dialogues WHERE id IN (`+inClause(len(ids))+`)`, args[1:]...)
+	if err != nil {
+		return err
+	}
+	var movies []int64
+	for rows.Next() {
+		var m int64
+		if err := rows.Scan(&m); err != nil {
+			rows.Close()
+			return err
+		}
+		movies = append(movies, m)
+	}
+	rows.Close()
+	for _, m := range movies {
+		if err := store.EnsureEpisodes(tx, m); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // nullableFromPtr / intFromPtr / boolIntFromPtr adapt an optional request field

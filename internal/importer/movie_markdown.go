@@ -307,6 +307,11 @@ func parseMovieFrontmatter(lines []string) (*MovieResult, error) {
 				cur.DLC = val
 			case "episode_name", "episode name":
 				cur.EpisodeName = val
+			// Where the episode sits in the show's other orders, as the export writes them.
+			case "episode_dvd", "episode dvd":
+				addEpisodePlace(cur, "dvd", val)
+			case "episode_custom", "episode custom":
+				addEpisodePlace(cur, "custom", val)
 			case "season", "episode", "ep":
 				// Shows only; the server drops these for a film. Either key accepts
 				// the combined "S2E5" people write by hand.

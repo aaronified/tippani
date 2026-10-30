@@ -280,3 +280,19 @@ func TestMovieMarkdownGameAndEpisodeNameBindings(t *testing.T) {
 		})
 	}
 }
+
+// The export writes where an episode sits in the show's other orders beside its name; the importer reads
+// them back into one value that staging can carry, and drops a value that is not a season and episode.
+func TestMovieMarkdownEpisodePlaces(t *testing.T) {
+	md := "---\ntitle: Andor\ntype: show\n---\n\n" +
+		"> One.\n- season: 1\n- episode: 2\n- episode_dvd: S2E1\n- episode_custom: 5x7\n\n" +
+		"> Two.\n- season: 1\n- episode: 3\n- episode_dvd: nonsense\n"
+	res, err := MovieMarkdownAll(strings.NewReader(md))
+	if err != nil {
+		t.Fatal(err)
+	}
+	d := res[0].Dialogues
+	if len(d) != 2 || d[0].EpisodePlaces != "dvd:2:1,custom:5:7" || d[1].EpisodePlaces != "" {
+		t.Fatalf("%+v", d)
+	}
+}

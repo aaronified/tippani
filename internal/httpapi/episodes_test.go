@@ -7,6 +7,7 @@ package httpapi
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"tippani/internal/store"
@@ -27,12 +28,11 @@ func TestAShowsEpisodesAreListedWithTheirQuoteCountsAndNameCandidates(t *testing
 	srv := newTestServer(t)
 	c := signupAdmin(t, srv.Handler())
 	show := c.newScreen("A Show", "show")
+	// Two lines of one episode that name it differently: the episode is left unnamed and both are offered.
 	c.newLine(show, "one", map[string]any{"season": 1, "episode": 1, "episode_name": "Pilot"})
-	c.newLine(show, "two", map[string]any{"season": 1, "episode": 1, "episode_name": "Pilot"})
-	if _, err := srv.Store.DB.Exec(`INSERT INTO episodes (movie_id, name, source) VALUES (?, '', '')`, show); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := srv.Store.DB.Exec(`INSERT INTO episode_orders (episode_id, kind, season, episode) VALUES (1, 'tv', 1, 1)`); err != nil {
+	c.newLine(show, "two", map[string]any{"season": 1, "episode": 1, "episode_name": "Opening"})
+	// The first line named the episode; the 3.5.0 pass leaves a disagreeing one unnamed, which is what this makes.
+	if _, err := srv.Store.DB.Exec(`UPDATE episodes SET name = '', source = '' WHERE movie_id = ?`, show); err != nil {
 		t.Fatal(err)
 	}
 	got := decode[episodesBody](t, c.mustDo("GET", "/movies/"+itoa(show)+"/episodes", nil, http.StatusOK))
@@ -40,7 +40,7 @@ func TestAShowsEpisodesAreListedWithTheirQuoteCountsAndNameCandidates(t *testing
 		t.Fatalf("%+v", got)
 	}
 	e := got.Episodes[0]
-	if e.Quotes != 2 || len(e.Candidates) != 1 || e.Candidates[0] != "Pilot" || e.Orders["tv"].Season != 1 {
+	if e.Name != "" || e.Quotes != 2 || len(e.Candidates) != 2 || e.Candidates[0] != "Opening" || e.Candidates[1] != "Pilot" || e.Orders["tv"].Season != 1 {
 		t.Fatalf("%+v", e)
 	}
 }
@@ -62,24 +62,21 @@ func (c *testClient) putEpisodes(show int64, body map[string]any, want int) *htt
 	return c.mustDo("PUT", "/movies/"+itoa(show)+"/episodes", body, want)
 }
 
-// A show with two episodes, each with a line, and the episodes made the way the 3.5.0 pass makes them.
+// A show with two episodes, each with a line. Adding a line makes its episode, so the ids are read back.
 func showWithTwoEpisodes(t *testing.T, srv *Server, c *testClient) (show int64, e1, e2, l1, l2 int64) {
 	t.Helper()
 	show = c.newScreen("A Show", "show")
 	l1 = c.newLine(show, "first line", map[string]any{"season": 1, "episode": 1})
 	l2 = c.newLine(show, "second line", map[string]any{"season": 1, "episode": 2})
-	mk := func(season, episode int) int64 {
-		res, err := srv.Store.DB.Exec(`INSERT INTO episodes (movie_id, name, source) VALUES (?, '', '')`, show)
-		if err != nil {
-			t.Fatal(err)
-		}
-		id, _ := res.LastInsertId()
-		if _, err := srv.Store.DB.Exec(`INSERT INTO episode_orders (episode_id, kind, season, episode) VALUES (?, 'tv', ?, ?)`, id, season, episode); err != nil {
+	idOfEpisode := func(episode int) int64 {
+		var id int64
+		if err := srv.Store.DB.QueryRow(`SELECT e.id FROM episodes e JOIN episode_orders o ON o.episode_id = e.id AND o.kind = 'tv'
+			WHERE e.movie_id = ? AND o.season = 1 AND o.episode = ?`, show, episode).Scan(&id); err != nil {
 			t.Fatal(err)
 		}
 		return id
 	}
-	return show, mk(1, 1), mk(1, 2), l1, l2
+	return show, idOfEpisode(1), idOfEpisode(2), l1, l2
 }
 
 func lineRow(t *testing.T, srv *Server, id int64) (season, episode int, hash string) {
@@ -128,8 +125,12 @@ func TestARenumberedQuoteThatWouldMeetAnotherIsRefusedAndNothingChanges(t *testi
 	srv := newTestServer(t)
 	c := signupAdmin(t, srv.Handler())
 	show, e1, _, l1, _ := showWithTwoEpisodes(t, srv, c)
-	// A line already in 1/3 (no episode of its own yet) with the same words as the one in 1/1.
+	// A line already in 1/3 with the same words as the one in 1/1, and no episode row for it: what a line
+	// predating the episode tables looks like (a new line always makes its episode now).
 	c.newLine(show, "first line", map[string]any{"season": 1, "episode": 3})
+	if _, err := srv.Store.DB.Exec(`DELETE FROM episodes WHERE id IN (SELECT episode_id FROM episode_orders WHERE kind = 'tv' AND season = 1 AND episode = 3)`); err != nil {
+		t.Fatal(err)
+	}
 	_, _, before := lineRow(t, srv, l1)
 	resp := decode[struct {
 		Collisions int `json:"collisions"`
@@ -389,5 +390,114 @@ func TestASeriesShowingItsCustomOrderListsAndLabelsLinesInThatOrder(t *testing.T
 	c.mustDo("PUT", "/movies/"+itoa(show), map[string]any{"title": "A Show", "media_type": "show", "episode_order": "tv"}, http.StatusOK)
 	if got := list(); got[0].ID != l1 || got[0].ShownSeason != nil {
 		t.Fatalf("%+v", got)
+	}
+}
+
+// A line added, moved or imported into an episode the show has no row for makes that row, so the list a
+// reader opens is never missing the episode a quote came from.
+func TestALineInANewEpisodeMakesTheEpisodeRow(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	show := c.newScreen("A Show", "show")
+	episodes := func() episodesBody {
+		return decode[episodesBody](t, c.mustDo("GET", "/movies/"+itoa(show)+"/episodes", nil, http.StatusOK))
+	}
+	if n := len(episodes().Episodes); n != 0 {
+		t.Fatalf("a show with no lines has %d episodes", n)
+	}
+	// added
+	l := c.newLine(show, "one", map[string]any{"season": 1, "episode": 1, "episode_name": "Pilot"})
+	got := episodes()
+	if len(got.Episodes) != 1 || got.Episodes[0].Name != "Pilot" || got.Episodes[0].Quotes != 1 {
+		t.Fatalf("added: %+v", got)
+	}
+	// moved by an edit
+	c.mustDo("PUT", "/dialogues/"+itoa(l), map[string]any{"movie_id": show, "quote": "one", "season": 2, "episode": 7}, http.StatusOK)
+	got = episodes()
+	if len(got.Episodes) != 2 {
+		t.Fatalf("moved: %+v", got)
+	}
+	// set in bulk
+	b := c.newLine(show, "two", map[string]any{"season": 1, "episode": 1})
+	c.mustDo("POST", "/dialogues/bulk", map[string]any{"ids": []int64{b}, "season": "3"}, http.StatusOK)
+	if got = episodes(); len(got.Episodes) != 3 {
+		t.Fatalf("bulk: %+v", got)
+	}
+}
+
+// A file's lines in episodes the show has no row for come in with their episodes, named from the lines.
+func TestImportingAShowsLinesMakesItsEpisodeRows(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	md := "---\ntitle: Imported Show\ntype: show\nyear: 2022\n---\n\n" +
+		"> One way out.\n- season: 1\n- episode: 3\n- episode_name: The Way\n\n" +
+		"> Another line.\n- season: 2\n- episode: 1\n"
+	rec := c.importFile("/import/markdown", "show.md", []byte(md))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("%d %s", rec.Code, rec.Body)
+	}
+	batch := decode[struct {
+		BatchID int64 `json:"batch_id"`
+	}](t, rec).BatchID
+	c.follow("POST", "/import/staged/approve", map[string]any{"batch_id": batch})
+	var show int64
+	if err := srv.Store.DB.QueryRow(`SELECT id FROM movies WHERE title = 'Imported Show'`).Scan(&show); err != nil {
+		t.Fatalf("the show was not made: %v", err)
+	}
+	got := decode[episodesBody](t, c.mustDo("GET", "/movies/"+itoa(show)+"/episodes", nil, http.StatusOK))
+	names := map[int]string{}
+	for _, e := range got.Episodes {
+		names[e.Orders["tv"].Season*100+e.Orders["tv"].Episode] = e.Name
+	}
+	if len(got.Episodes) != 2 || names[103] != "The Way" || names[201] != "" {
+		t.Fatalf("%+v", got.Episodes)
+	}
+}
+
+// A show exported with all three orders and imported by another reader brings the names and the dvd and
+// custom places back: the file is the one carrier a library has between servers.
+func TestAShowsEpisodeOrdersSurviveExportAndImport(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	alice := signupAdmin(t, h)
+	bob := addUser(t, h, alice, "bob")
+	show, e1, e2, _, _ := showWithTwoEpisodes(t, srv, alice)
+	alice.putEpisodes(show, map[string]any{"order": "custom", "episodes": []map[string]any{
+		{"id": e1, "name": "Pilot", "season": 5, "episode": 7}, {"id": e2, "season": 5, "episode": 1}}}, http.StatusOK)
+	if _, err := srv.Store.DB.Exec(`INSERT INTO episode_orders (episode_id, kind, season, episode) VALUES (?, 'dvd', 2, 1), (?, 'dvd', 2, 2)`, e1, e2); err != nil {
+		t.Fatal(err)
+	}
+	file := alice.mustDo("GET", "/movies/"+itoa(show)+"/export", nil, http.StatusOK).Body.String()
+	for _, want := range []string{"episode_name: Pilot", "episode_dvd: S2E1", "episode_custom: S5E7"} {
+		if !strings.Contains(file, want) {
+			t.Fatalf("the export lacks %q:\n%s", want, file)
+		}
+	}
+
+	rec := bob.importFile("/import/markdown", "show.md", []byte(file))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("%d %s", rec.Code, rec.Body)
+	}
+	batch := decode[struct {
+		BatchID int64 `json:"batch_id"`
+	}](t, rec).BatchID
+	bob.follow("POST", "/import/staged/approve", map[string]any{"batch_id": batch})
+	var imported int64
+	if err := srv.Store.DB.QueryRow(`SELECT m.id FROM movies m JOIN users u ON u.id = m.user_id WHERE u.username = 'bob'`).Scan(&imported); err != nil {
+		t.Fatalf("bob has no show: %v", err)
+	}
+	got := decode[episodesBody](t, bob.mustDo("GET", "/movies/"+itoa(imported)+"/episodes", nil, http.StatusOK))
+	if len(got.Episodes) != 2 || !got.HasDVD {
+		t.Fatalf("%+v", got)
+	}
+	var pilot bool
+	for _, e := range got.Episodes {
+		if e.Name == "Pilot" && e.Orders["tv"].Episode == 1 && e.Orders["dvd"].Season == 2 && e.Orders["dvd"].Episode == 1 &&
+			e.Orders["custom"].Season == 5 && e.Orders["custom"].Episode == 7 {
+			pilot = true
+		}
+	}
+	if !pilot {
+		t.Fatalf("names and orders did not survive the round trip: %+v", got.Episodes)
 	}
 }

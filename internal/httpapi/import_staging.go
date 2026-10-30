@@ -436,12 +436,12 @@ func stageQuotes(tx *sql.Tx, workID int64, anns []importer.Annotation, dialogues
 		INSERT OR IGNORE INTO staged_quotes
 		  (staged_work_id, quote, note, translation, language, color, favorite, chapter, chapter_no, location, location_orig,
 		   character, actor, timestamp, timestamp_orig, timestamp_end, season, episode,
-		   act, quest, dlc, episode_name, tags, noted_at, dedupe_hash)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		   act, quest, dlc, episode_name, episode_places, tags, noted_at, dedupe_hash)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	staged := 0
 	add := func(quote, note, translation, language, color string, favorite bool, chapter string, chapterNo float64,
 		location, character, actor, timestamp, timestampEnd string,
-		season, episode *int, act, quest, dlc, episodeName string, tags []string, notedAt string) error {
+		season, episode *int, act, quest, dlc, episodeName, episodePlaces string, tags []string, notedAt string) error {
 		if color == "" {
 			color = "yellow" // Kindle and IMDb sources carry no colour (PLAN §3)
 		}
@@ -478,7 +478,7 @@ func stageQuotes(tx *sql.Tx, workID int64, anns []importer.Annotation, dialogues
 			season, episode,
 			// Plain strings, NOT nullable(): these are NOT NULL DEFAULT '' (0047), and
 			// nullable("") is nil, which is a NOT NULL violation rather than a default.
-			act, quest, dlc, episodeName,
+			act, quest, dlc, episodeName, episodePlaces,
 			joinTags(tags), nullable(notedAt), hash)
 		if err != nil {
 			return err
@@ -519,13 +519,13 @@ func stageQuotes(tx *sql.Tx, workID int64, anns []importer.Annotation, dialogues
 		// game is repaired by the media-type gate at approval rather than by inventing
 		// a locator here.
 		if err := add(a.Quote, a.Note, a.Translation, a.Language, a.Color, a.Favorite, a.Chapter, a.ChapterNo, a.Location,
-			a.Character, "", "", "", nil, nil, "", "", "", "", a.Tags, a.NotedAt); err != nil {
+			a.Character, "", "", "", nil, nil, "", "", "", "", "", a.Tags, a.NotedAt); err != nil {
 			return 0, err
 		}
 	}
 	for _, d := range dialogues {
 		if err := add(d.Quote, d.Note, d.Translation, d.Language, d.Color, d.Favorite, "", 0, "", d.Character, d.Actor, d.Timestamp, d.TimestampEnd,
-			d.Season, d.Episode, d.Act, d.Quest, d.DLC, d.EpisodeName, d.Tags, d.NotedAt); err != nil {
+			d.Season, d.Episode, d.Act, d.Quest, d.DLC, d.EpisodeName, d.EpisodePlaces, d.Tags, d.NotedAt); err != nil {
 			return 0, err
 		}
 	}
@@ -682,6 +682,8 @@ type stagedQuoteRow struct {
 	// on the file's — writeMovieDialogues owns that gate — so the queue holds
 	// whatever the file said and shows it before anybody commits to it.
 	EpisodeName string `json:"episode_name"`
+	// 0089: "dvd:2:1,custom:5:7". Carried through the queue for approval; not shown or edited there.
+	EpisodePlaces string `json:"-"`
 	// 0071. Which pack a game's line came in. Beside episode_name for the reason
 	// that field gives: the queue holds whatever the file said, and the
 	// DESTINATION's media type decides at approval which locators survive.
@@ -1695,7 +1697,7 @@ func loadStagedForApproval(tx *sql.Tx, picked stagedSelection) ([]stagedWorkForA
 			       COALESCE(q.chapter, ''), COALESCE(q.chapter_no, 0), COALESCE(q.location, ''), COALESCE(q.character, ''),
 			       COALESCE(q.actor, ''), COALESCE(q.timestamp, ''), q.season, q.episode,
 			       q.episode_name, q.act, q.quest, COALESCE(q.tags, ''),
-			       COALESCE(q.noted_at, ''),
+			       COALESCE(q.noted_at, ''), q.episode_places,
 			       COALESCE(q.speaker, ''), COALESCE(q.occasion, ''), COALESCE(q.occasion_date, ''),
 			       COALESCE(q.place, ''), COALESCE(q.medium, ''), COALESCE(q.kind, ''),
 			       COALESCE(q.category, 'other'), COALESCE(q.language, ''), COALESCE(q.translation, ''),
@@ -1714,7 +1716,7 @@ func loadStagedForApproval(tx *sql.Tx, picked stagedSelection) ([]stagedWorkForA
 			var tags string
 			if err := rows.Scan(&sq.ID, &sq.StagedWorkID, &sq.Quote, &sq.Note, &sq.Color, &sq.Favorite,
 				&sq.Chapter, &sq.ChapterNo, &sq.Location, &sq.Character, &sq.Actor, &sq.Timestamp,
-				&sq.Season, &sq.Episode, &sq.EpisodeName, &sq.Act, &sq.Quest, &tags, &sq.NotedAt,
+				&sq.Season, &sq.Episode, &sq.EpisodeName, &sq.Act, &sq.Quest, &tags, &sq.NotedAt, &sq.EpisodePlaces,
 				&sq.Speaker, &sq.Occasion, &sq.OccasionDate, &sq.Place, &sq.Medium, &sq.Kind,
 				&sq.Category, &sq.Language, &sq.Translation,
 				&sq.Region, &sq.Recipient, &sq.WorkTitle, &sq.Locator, &sq.OccasionCirca,
@@ -1820,10 +1822,11 @@ func stagedAsDialogues(quotes []stagedQuoteRow) []importer.Dialogue {
 			Timestamp: q.Timestamp, TimestampEnd: q.TimestampEnd, // 0070
 			Season: q.Season, Episode: q.Episode,
 			EpisodeName: q.EpisodeName, Act: q.Act, Quest: q.Quest, // 0047
-			DLC:         q.DLC,         // 0071
-			Language:    q.Language,    // 0071
-			Translation: q.Translation, // 0051
-			Color:       q.Color, Tags: q.Tags, Favorite: q.Favorite,
+			EpisodePlaces: q.EpisodePlaces, // 0089
+			DLC:           q.DLC,           // 0071
+			Language:      q.Language,      // 0071
+			Translation:   q.Translation,   // 0051
+			Color:         q.Color, Tags: q.Tags, Favorite: q.Favorite,
 			NotedAt: q.NotedAt,
 		})
 	}

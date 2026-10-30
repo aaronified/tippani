@@ -396,6 +396,13 @@ func (s *Server) renderMovieExport(m *movieDetail) (string, error) {
 		olog.Warnf(olog.CodeExportRowScan, "[export] movie dialogue row iteration failed: %v", err)
 		return "", err
 	}
+	// WHERE EACH EPISODE SITS IN THE SHOW'S OTHER ORDERS (0088), keyed by the tv place the lines hold, so
+	// a file carries all three orders and an import can put them back. Empty for a film and for a show
+	// whose episodes have only the tv order, which leaves every export written before this byte-identical.
+	places, err := s.exportEpisodePlaces(m.ID)
+	if err != nil {
+		return "", err
+	}
 	tags, err := s.exportTags(m.ID, "dialogue", "movie_id")
 	if err != nil {
 		return "", err
@@ -449,6 +456,11 @@ func (s *Server) renderMovieExport(m *movieDetail) (string, error) {
 			// normalizeLocator), so writeBinding drops the lines and a film's export
 			// is byte-for-byte what it was.
 			writeBinding(&sb, "episode_name", d.EpisodeName)
+			if d.Season != nil && d.Episode != nil {
+				p := places[episodePlace{Season: *d.Season, Episode: *d.Episode}]
+				writeBinding(&sb, "episode_dvd", p.dvd)
+				writeBinding(&sb, "episode_custom", p.custom)
+			}
 			writeBinding(&sb, "act", d.Act)
 			writeBinding(&sb, "quest", d.Quest)
 			// 0071. WHICH PACK the act and the quest are inside — Blood and Wine, Far
@@ -832,4 +844,39 @@ func chapterHeading(no float64, name string) string {
 // whitespace either way, so a hand-written file may use whichever it likes.
 func linksFrontmatter(links string) string {
 	return strings.Join(strings.Fields(links), " ")
+}
+
+type exportedPlaces struct{ dvd, custom string }
+
+// exportEpisodePlaces reads each episode's dvd and custom place of a show as the "S2E1" the importer
+// reads back, keyed by its tv place.
+func (s *Server) exportEpisodePlaces(movie int64) (map[episodePlace]exportedPlaces, error) {
+	rows, err := s.Store.DB.Query(`
+		SELECT t.season, t.episode, o.kind, o.season, o.episode
+		FROM episodes e
+		JOIN episode_orders t ON t.episode_id = e.id AND t.kind = 'tv'
+		JOIN episode_orders o ON o.episode_id = e.id AND o.kind IN ('dvd', 'custom')
+		WHERE e.movie_id = ?`, movie)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[episodePlace]exportedPlaces{}
+	for rows.Next() {
+		var tv episodePlace
+		var kind string
+		var season, episode int
+		if err := rows.Scan(&tv.Season, &tv.Episode, &kind, &season, &episode); err != nil {
+			return nil, err
+		}
+		p := out[tv]
+		label := "S" + strconv.Itoa(season) + "E" + strconv.Itoa(episode)
+		if kind == "dvd" {
+			p.dvd = label
+		} else {
+			p.custom = label
+		}
+		out[tv] = p
+	}
+	return out, rows.Err()
 }

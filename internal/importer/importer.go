@@ -209,6 +209,25 @@ func parseSeasonEpisode(val string) (season, episode int, ok bool) {
 // Either key may carry the combined "S2E5" form, in which case it sets both —
 // that is how people write it, and a hand-written file that says it once on one
 // line should not need to say it twice.
+// addEpisodePlace records one other-order place of a line's episode: kind is dvd or custom, val the
+// "S2E1" (or "2x1") the export wrote. A value that is not a season and an episode is dropped, never
+// guessed, and a kind already recorded is kept.
+func addEpisodePlace(d *Dialogue, kind, val string) {
+	s, e, ok := parseSeasonEpisode(val)
+	if !ok {
+		return
+	}
+	for _, have := range strings.Split(d.EpisodePlaces, ",") {
+		if strings.HasPrefix(have, kind+":") {
+			return
+		}
+	}
+	if d.EpisodePlaces != "" {
+		d.EpisodePlaces += ","
+	}
+	d.EpisodePlaces += kind + ":" + strconv.Itoa(s) + ":" + strconv.Itoa(e)
+}
+
 func applyEpisodeBinding(d *Dialogue, key, val string) {
 	if s, e, ok := parseSeasonEpisode(val); ok {
 		d.Season, d.Episode = &s, &e
@@ -411,12 +430,16 @@ type Dialogue struct {
 	// writeMovieDialogues is where that gate lives; a parser only reports what the
 	// file said.
 	EpisodeName string
-	Act         string
-	Quest       string
-	Note        string
-	Color       string // "" = the importer leaves it to the server default (yellow)
-	Translation string // 0051; see Annotation.Translation for why it is not the note
-	Language    string // 0071; see Annotation.Language
+	// EpisodePlaces are where the episode sits in the show's other orders, as the export writes them
+	// (episode_dvd: S2E1, episode_custom: S5E7), kept as "dvd:2:1,custom:5:7" so one text column
+	// carries them through staging. Applied on approval, to an episode that has no place there yet.
+	EpisodePlaces string
+	Act           string
+	Quest         string
+	Note          string
+	Color         string // "" = the importer leaves it to the server default (yellow)
+	Translation   string // 0051; see Annotation.Translation for why it is not the note
+	Language      string // 0071; see Annotation.Language
 	// 0071. WHICH PACK the act and quest below are inside — games only, cleared for
 	// every other medium by the destination's media type (writeMovieDialogues).
 	DLC      string

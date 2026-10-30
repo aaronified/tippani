@@ -4,8 +4,11 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
+	"strings"
 
 	"tippani/internal/importer"
 	"tippani/internal/metadata"
@@ -456,5 +459,53 @@ func writeMovieDialogues(tx *sql.Tx, uid, movieID int64, dialogues []importer.Di
 			}
 		}
 	}
+	// An episode the file names that the show has no row for yet gets one, named from its lines.
+	if err := store.EnsureEpisodes(tx, movieID); err != nil {
+		return 0, 0, err
+	}
+	if err := applyEpisodePlaces(tx, movieID, dialogues); err != nil {
+		return 0, 0, err
+	}
 	return added, enriched, nil
+}
+
+// applyEpisodePlaces writes where a file says an episode sits in the show's dvd and custom orders, onto
+// the episode its lines name. It only fills: a place the show already has in that order is the reader's
+// or the supplier's and is kept, and so is any place another episode already holds there, because two
+// episodes cannot share one.
+func applyEpisodePlaces(tx *sql.Tx, movieID int64, dialogues []importer.Dialogue) error {
+	for _, d := range dialogues {
+		if d.EpisodePlaces == "" || d.Season == nil || d.Episode == nil {
+			continue
+		}
+		var epID int64
+		err := tx.QueryRow(`SELECT e.id FROM episodes e JOIN episode_orders o ON o.episode_id = e.id AND o.kind = 'tv'
+			WHERE e.movie_id = ? AND o.season = ? AND o.episode = ?`, movieID, *d.Season, *d.Episode).Scan(&epID)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				continue
+			}
+			return err
+		}
+		for _, part := range strings.Split(d.EpisodePlaces, ",") {
+			f := strings.Split(part, ":")
+			if len(f) != 3 || (f[0] != "dvd" && f[0] != "custom") {
+				continue
+			}
+			season, e1 := strconv.Atoi(f[1])
+			episode, e2 := strconv.Atoi(f[2])
+			if e1 != nil || e2 != nil || season < 0 || episode < 0 {
+				continue
+			}
+			if _, err := tx.Exec(`INSERT INTO episode_orders (episode_id, kind, season, episode)
+				SELECT ?, ?, ?, ? WHERE NOT EXISTS (
+				  SELECT 1 FROM episode_orders o JOIN episodes e ON e.id = o.episode_id
+				  WHERE e.movie_id = ? AND o.kind = ? AND o.season = ? AND o.episode = ?)
+				ON CONFLICT (episode_id, kind) DO NOTHING`,
+				epID, f[0], season, episode, movieID, f[0], season, episode); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }

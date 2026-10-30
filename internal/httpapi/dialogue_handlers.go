@@ -667,6 +667,11 @@ func (s *Server) handleCreateDialogue(w http.ResponseWriter, r *http.Request) {
 		internalError(w, r, "link dialogue speaker", err)
 		return
 	}
+	if err := store.EnsureEpisodes(tx, req.MovieID); err != nil {
+		internalError(w, r, "dialogue episode", err)
+		return
+	}
+
 	if err := tx.Commit(); err != nil {
 		internalError(w, r, "commit tx", err)
 		return
@@ -887,6 +892,16 @@ func (s *Server) handleUpdateDialogue(w http.ResponseWriter, r *http.Request) {
 	// said" all hang off. See store/quote_cast.go.
 	if err := store.SyncQuoteCast(tx, uid, "movie", id, s.creditSeps(tx, uid)); err != nil {
 		internalError(w, r, "link dialogue speaker", err)
+		return
+	}
+	// A line moved into an episode the show has no row for makes that row.
+	var movie int64
+	if err := tx.QueryRow(`SELECT movie_id FROM dialogues WHERE id = ?`, id).Scan(&movie); err != nil {
+		internalError(w, r, "dialogue movie", err)
+		return
+	}
+	if err := store.EnsureEpisodes(tx, movie); err != nil {
+		internalError(w, r, "dialogue episode", err)
 		return
 	}
 	if err := tx.Commit(); err != nil {
