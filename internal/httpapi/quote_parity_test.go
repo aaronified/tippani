@@ -158,9 +158,12 @@ func TestQuoteKindsDifferOnlyByLocator(t *testing.T) {
 	// Contrast `language`, which arrived in the same migration and went straight
 	// onto quoteRow, because "what is this line in" is a question every kind can
 	// answer.
+	//
+	// ShownSeason and ShownEpisode (0088) are the same argument as Season and Episode: where a show's
+	// episode sits in the order the series shows (dvd or custom). A book has no episodes.
 	wantDlg := []string{
 		"Act", "Actor", "Character", "CharacterImages", "DLC", "Episode", "EpisodeName",
-		"MovieID", "Quest", "Season", "SpeakerCast", "Timestamp", "TimestampEnd",
+		"MovieID", "Quest", "Season", "ShownEpisode", "ShownSeason", "SpeakerCast", "Timestamp", "TimestampEnd",
 	}
 
 	if got := own(reflect.TypeOf(annotationRow{})); !reflect.DeepEqual(got, wantAnn) {
