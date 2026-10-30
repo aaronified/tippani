@@ -29,8 +29,8 @@ builds.
 
 A plan the owner has not placed in the queue yet.
 
-- [Android app](Plan-Android-App.md): a Flutter client with photo capture and on-device text recognition, page and chapter from the
-  header and footer, update check, donation, bug reports by mail, and the rest of Tippani's functions in phases.
+- [Android app](Plan-Android-App.md): a Flutter client with every web feature. P1 is server-backed: it reads offline from a synced
+  cache, writes online, and marks unfinished features Upcoming. P2 makes it autonomous, with the server keeping sync, backup, context and locators.
 
 ## Partly built
 

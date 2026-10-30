@@ -375,9 +375,9 @@ The work that isn't the OCR call itself — which is thirty lines — is what ma
 
 Two notes on where the work belongs. The text cleanup above should live **server-side and shared** rather than in the app, because every import source produces some of it; that is §7. And the photo the correction screen already holds beside the text is worth **keeping, attached to the quote**: one nullable path column on an image pipeline that already stores covers, posters, portraits and stickers, and it keeps the evidence next to the transcription for the next time you doubt a line.
 
-The server half of this is done — device tokens and pairing, list paging, gzip, the capabilities handshake (a revision behind anthologies and locales), `noted_at` on create so a queued capture keeps its real date, and duplicate `409`s that make a retried flush idempotent. What remains is the app, and it is the largest single item on this page.
+Most of the server half is done — device tokens and pairing by typed code, list paging, gzip, the capabilities handshake (a revision behind anthologies and locales), `noted_at` on create so a queued capture keeps its real date, and duplicate `409`s that make a retried flush idempotent. What remains is the app, plus the server work its plan lists, and it is the largest single item on this page.
 
-The feature list, what is reused from the other apps, the signing and release set-up and the open questions are in [the plan](Plan-Android-App.md).
+The feature-by-feature inventory, the phases (P1 server-backed with offline reading, P2 autonomous), the server work still needed (a snapshot read for the cache, the pairing QR, then sync and a per-user backup), the signing and release set-up and the open questions are in [the plan](Plan-Android-App.md).
 
 **Android only.** Flutter compiles for iOS and the Dart here stays platform-agnostic, but building and signing for iOS needs a Mac, and I don't have one — so no `ios/` directory ships rather than an unbuildable one rotting in the tree. A fork with a Mac adds it with `flutter create --platforms=ios .` and a signing config; the README says Android and does not imply otherwise.
 
