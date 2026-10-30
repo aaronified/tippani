@@ -10436,6 +10436,8 @@ export function IconRoleStudio({ size = ICON_SIZE }) { return <svg {...studioBox
 
 // Read aloud: a loudspeaker with sound waves (IconStop, above, is its stop). It does not resemble the watching glyph's
 // play triangle, which means a show.
+// Next passage in a read-aloud run: Tabler `player-skip-forward`.
+export function IconNext({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M4 5v14l12 -7z" /><path d="M20 5v14" /></svg> }
 export function IconSpeaker({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M6 15h-2a1 1 0 0 1 -1 -1v-4a1 1 0 0 1 1 -1h2l3.5 -4.5a.8 .8 0 0 1 1.5 .5v14a.8 .8 0 0 1 -1.5 .5l-3.5 -4.5" /><path d="M15 8a5 5 0 0 1 0 8" /><path d="M17.7 5a9 9 0 0 1 0 14" /></svg> }
 
 export function IconTour({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M14.5 6.5l3 -2.9a2.05 2.05 0 0 1 2.9 2.9l-2.9 3l2.5 7.5l-2.5 2.55l-3.5 -6.55l-3 3v3l-2 2l-1.5 -4.5l-4.5 -1.5l2 -2h3l3 -3l-6.5 -3.5l2.5 -2.5l7.5 2.5"/></svg> }

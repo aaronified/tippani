@@ -5,6 +5,7 @@
 // on a phone and a desktop. Quote capture is NOT here any more — it's the
 // "Capture quote" tab of the single ＋ Add surface (top bar + drawer).
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { SpeakButton } from './speak.jsx'
 import { coverImgURL, errText, json } from './api.js'
 import { QUOTE_TEXT, languageClass } from './fonts.js'
 import { chapterLabel, episodeLabel } from './text.js'
@@ -1363,6 +1364,7 @@ export function FavouriteTile({
       style={{ padding: '12px 15px' }}
       {...cardProps}
     >
+      <SpeakButton id={`fav:${meta.actionKind}:${f.raw?.id}`} text={f.text} language={f.raw?.language} />
       <FormModal open={editing} onClose={onEditCancel} title={meta.editTitle} maxWidth={520}>
         {/* One form per kind, picked from the table rather than by a ternary
             that only had room for two of them. `show` is meaningless to the
@@ -1880,6 +1882,7 @@ export function SerendipityCard({ q, onOpen, people = {}, seps, onOpenPerson, ac
 
   return (
     <HandCard colorBar={q.color || 'yellow'} style={{ padding: '12px 15px' }}>
+      <SpeakButton id={`serendipity:${q.kind}:${q.id}`} text={q.quote} language={q.language} />
       <div className="flex gap-3.5">
         <div className="shrink-0">
           {onOpen ? (

@@ -25,6 +25,7 @@ import { forgetDailyDeck } from './daily.js'
 import { keepAnswer } from './answerQueue.js'
 import { CreditFaces, DEFAULT_CREDIT_SEPS, splitCredits, usePeople } from './credits.jsx'
 import { REVIEW_BULK_KIND } from './bulkOps.jsx'
+import { SpeakButton } from './speak.jsx'
 import {
   ClampMore,
   ErrorText,
@@ -153,11 +154,14 @@ function isFlipCard(card) {
 export function QuoteBlock({ card }) {
   return (
     <blockquote
+      className="relative"
       style={{
         borderLeft: `4px solid ${categoryVar(card.color) || 'var(--accent-ui)'}`,
-        padding: '2px 0 2px 12px',
+        padding: '2px 2.5em 2px 12px',
       }}
     >
+      {/* WHAT THE CARD ASKS: a cloze blank is a short pause, never a word, and the note is not read. */}
+      <SpeakButton id={`review:${card.id ?? card.quote}`} text={(card.quote || card.note || '').replaceAll(CLOZE_BLANK, ', ')} language={card.language} />
       {/* THE FACE THE READER SET FOR THIS LANGUAGE, on the surface that shows a
           quote more often than any other. The deck is the one place the same
           German line was still drawing in the display face after the per-language

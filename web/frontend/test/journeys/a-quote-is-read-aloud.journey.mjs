@@ -25,7 +25,11 @@ const FAKE = () => {
   // An assignment is ignored: the real one is an accessor on window.
   Object.defineProperty(globalThis, 'speechSynthesis', { configurable: true, value: {
     getVoices: () => [{ name: 'Fake', lang: 'en-US', default: true, localService: true }],
-    speak: (u) => spoken.push({ text: u.text, lang: u.lang, rate: u.rate }),
+    speak: (u) => {
+      spoken.push({ text: u.text, lang: u.lang, rate: u.rate })
+      // A run moves on when the browser says an utterance ended; a test that wants that says so.
+      if (globalThis.__autoend) setTimeout(() => u.onend && u.onend(), 0)
+    },
     cancel: () => { state.cancels += 1 },
     addEventListener() {},
     removeEventListener() {},
@@ -60,4 +64,27 @@ it('pressing it again stops the reading', async () => {
   await app.page.click('button[aria-label="Stop reading"]')
   await app.page.waitForSelector('button[aria-label="Read aloud"]')
   expect(await app.page.evaluate(() => globalThis.__speech.cancels)).toBeGreaterThan(1)
+})
+
+// A RUN: "Read aloud" in an anthology's header reads its passages in the order the page draws them.
+// The button is found by its words among the cards' own speakers, which carry an accessible name
+// and no text.
+it('an anthology is read aloud passage by passage, in order', async () => {
+  await app.page.evaluateOnNewDocument(FAKE)
+  await app.goto('/anthologies')
+  await app.press('New anthology')
+  await app.type('Title', 'Everything hopeful')
+  await app.press('What goes in it')
+  await app.press('A tag')
+  await app.type('A tag', 'Hope')
+  await app.press('Save')
+  await app.press('Create')
+  await app.press('Everything hopeful')
+  await app.see('Lantern sedge compass against harbour')
+  await app.page.evaluate(() => { globalThis.__autoend = true })
+  await app.page.evaluate(() => [...document.querySelectorAll('button')].find((b) => b.innerText.trim().toLowerCase() === 'read aloud').click())
+  await app.page.waitForFunction(() => globalThis.__spoken.length >= 2)
+  const spoken = (await app.page.evaluate(() => globalThis.__spoken)).map((x) => x.text)
+  expect(spoken.some((x) => x.includes('Lantern sedge compass against harbour'))).toBe(true)
+  expect(new Set(spoken).size, 'each passage is read once').toBe(spoken.length)
 })

@@ -8231,3 +8231,5 @@ speech.voice.info.body = The voice used to read quotes in this language. Voices 
 speech.voice.default = Device default
 cleanup.rule.citation-after-stop.label = Citation numbers after a full stop
 cleanup.rule.citation-after-stop.body = A number stuck straight onto a full stop, like "so on.12": a citation marker left behind by the page. Decimals like 3.14 are not flagged.
+speech.run.label = Read aloud
+speech.run.next.label = Next

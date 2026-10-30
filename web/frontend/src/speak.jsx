@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { FieldIconButton, IconSpeaker, IconStop, Select } from './ui.jsx'
+import { FieldIconButton, GhostButton, IconNext, IconSpeaker, IconStop, Select } from './ui.jsx'
 import { PrefRow } from './prefRow.jsx'
-import { RATES, saveSpeechSettings, speak, speechSettings, stopSpeaking, useSpeaking, useVoices } from './speech.js'
+import { RATES, saveSpeechSettings, skipSpeaking, speak, speakAll, speechSettings, stopSpeaking, useSpeaking, useVoices } from './speech.js'
 import { displayName } from './iso639.js'
 import { localeActive, t } from './i18n.js'
 
@@ -75,6 +75,28 @@ export function SpeechFields() {
           }
         />
       ))}
+    </>
+  )
+}
+
+// ReadAloudRun — "Read aloud" in a board's or an anthology's header: reads `segments()` in order.
+// While it plays the same place shows next and stop. `segments` is a function so the page's order
+// and switches are read at the press, not when the header drew. Absent where there is no voice.
+export function ReadAloudRun({ id, segments, disabled = false }) {
+  const voices = useVoices()
+  const playing = useSpeaking() === id
+  if (!voices.length) return null
+  if (!playing) {
+    return (
+      <GhostButton icon={<IconSpeaker />} onClick={() => speakAll(id, segments())} disabled={disabled}>
+        {t('speech.run.label')}
+      </GhostButton>
+    )
+  }
+  return (
+    <>
+      <GhostButton icon={<IconNext />} onClick={skipSpeaking}>{t('speech.run.next.label')}</GhostButton>
+      <GhostButton icon={<IconStop />} onClick={stopSpeaking}>{t('speech.stop.label')}</GhostButton>
     </>
   )
 }

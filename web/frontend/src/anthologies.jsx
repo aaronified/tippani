@@ -108,6 +108,7 @@ export { ANTHOLOGY_KIND, AddToAnthologyDialog, workRule, worksRule } from './ant
 import { gatherInto, useAnthologies } from './anthologyGather.jsx'
 import { actionsFor } from './actions.jsx'
 import { useInContext } from './sources.jsx'
+import { ReadAloudRun, SpeakButton } from './speak.jsx'
 export { gatherInto, useAnthologies }
 
 // exportHref is a plain URL rather than a helper call, because this export is the
@@ -1251,6 +1252,23 @@ function locatorOf(entry) {
 }
 // ---------------------------------------------------------------------------
 
+// What a read-aloud run says, in the order the page draws it: the intro, then for each entry its note,
+// the passage, and its attribution. What the anthology's switches hide is not spoken.
+function anthologySegments(anthology, rows) {
+  const f = anthology || {}
+  const out = []
+  if (anthology?.intro) out.push({ text: anthology.intro })
+  for (const e of rows) {
+    if (!f.hide_commentary && e.note) out.push({ text: e.note })
+    out.push({ text: e.quote, language: e.language })
+    const credit = f.hide_credit ? '' : e.credit
+    const source = f.hide_source ? '' : e.source
+    const line = [credit, source].filter(Boolean).join(', ')
+    if (line) out.push({ text: line })
+  }
+  return out
+}
+
 // piece and then the piece speaks. The attribution sits under it, and where the
 // quote has a parent work the credit is a doorway into it — a CONTENT LINK, so it
 // is never gated on which sections are switched on.
@@ -1268,7 +1286,9 @@ function AnthologyEntry({ entry, fields = {}, first, last, onNote, onMove, onRem
     .filter((a) => a.id === 'inContext')
     .map((a) => ({ id: a.id, icon: a.icon, label: a.label, onClick: a.run }))
   return (
-    <Card className="mt-3">
+    <Card className="mt-3 relative">
+      {/* THE PASSAGE ONLY: the note and the attribution are not read by a single card. */}
+      <SpeakButton id={`anthology:${entry.kind}:${entry.item_id}`} text={entry.quote} language={entry.language} />
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           {!fields.hide_commentary && entry.note && <p className="anthology-prose">{entry.note}</p>}
@@ -1586,6 +1606,7 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
                 anthology and editing it is what you do to one. Disabled while it
                 is empty: a round over nothing is the one case the dialog can only
                 answer with "nothing here". */}
+            <ReadAloudRun id={`anthology:${id}`} segments={() => anthologySegments(anthology, rows)} disabled={!anthology || rows.length === 0} />
             <GhostButton
               icon={<IconPractise />}
               onClick={() => practise({ anthology: id, label: anthology?.title || t('anthologies.read.title.fallback') })}

@@ -19,6 +19,7 @@ import { LanguageMark } from './languages.jsx'
 import { json, errText, downloadPost } from './api.js'
 import { t } from './i18n.js'
 import { QuoteContext } from './sources.jsx'
+import { ReadAloudRun } from './speak.jsx'
 import { ProseArea } from './proseField.jsx'
 import { usePersonOpener } from './personOpen.jsx'
 // THE ONE SOURCE FOR WHAT A KIND CARRIES, read here as well as by the add
@@ -1182,6 +1183,13 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
         </div>
       )}
       {starters}
+      {/* THE BOARD IN THE ORDER IT SHOWS ITS QUOTES: `shown` is the filtered, sorted list. Each quote's
+          own text is read, not its translation. */}
+      {shown.length > 0 && (
+        <div className="no-print mb-2 flex flex-wrap gap-2">
+          <ReadAloudRun id={`board:${boardId}`} segments={() => shown.map((u) => ({ text: u.quote, language: u.language }))} />
+        </div>
+      )}
       <WorkListScaffold
       mobile={mobile}
       onBack={onClose}

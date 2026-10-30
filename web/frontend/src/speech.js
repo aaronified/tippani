@@ -73,22 +73,44 @@ const emit = (key) => { playing = key; listeners.forEach((f) => f()) }
 
 export function stopSpeaking() {
   if (!speechAvailable()) return
+  queue = []
+  current = null
   globalThis.speechSynthesis.cancel()
   emit(null)
 }
 
-export function speak(key, text, stored) {
-  if (!speechAvailable() || !String(text || '').trim()) return
+// One quote, or a run of segments ({ text, language }) read in order. Starting one stops any
+// other, and the control that started it shows stop while it plays.
+export function speakAll(key, segments) {
+  if (!speechAvailable()) return
   globalThis.speechSynthesis.cancel()
-  const lang = speechLanguage(text, stored)
+  queue = segments.filter((x) => String(x?.text || '').trim())
+  if (!queue.length) return emit(null)
+  next(key)
+}
+export const speak = (key, text, stored) => speakAll(key, [{ text, language: stored }])
+
+// Leave the passage being read for the next one in the run.
+export function skipSpeaking() {
+  if (!speechAvailable() || playing == null) return
+  const key = playing
+  current = null
+  globalThis.speechSynthesis.cancel()
+  next(key)
+}
+
+function next(key) {
+  const seg = queue.shift()
+  if (!seg) { current = null; emit(null); return }
+  const lang = speechLanguage(seg.text, seg.language)
   const { rate, voices } = speechSettings()
-  const u = new globalThis.SpeechSynthesisUtterance(text)
+  const u = new globalThis.SpeechSynthesisUtterance(seg.text)
   const voice = pickVoice(globalThis.speechSynthesis.getVoices(), lang, voices[lang])
   if (voice) { u.voice = voice; u.lang = voice.lang } else u.lang = lang
   u.rate = rate
   // A cancelled utterance fires end/error after the next one has started, so only the
-  // utterance that is still current clears the state.
-  const done = () => { if (playing === key && current === u) emit(null) }
+  // utterance that is still current moves the run on.
+  const done = () => { if (current === u) next(key) }
   u.onend = done
   u.onerror = done
   current = u
@@ -96,6 +118,7 @@ export function speak(key, text, stored) {
   globalThis.speechSynthesis.speak(u)
 }
 let current = null
+let queue = []
 
 export const useSpeaking = () => useSyncExternalStore(
   (f) => { listeners.add(f); return () => listeners.delete(f) },
