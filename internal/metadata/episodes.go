@@ -23,9 +23,13 @@ import (
 
 // Episode is one episode of a show.
 type Episode struct {
-	Season, Number          int // the TV order
-	Name, Overview, AirDate string
-	DVDSeason, DVDNumber    int // the DVD order, 0 when the supplier has none for it
+	Season    int    `json:"season"` // the TV order
+	Number    int    `json:"number"`
+	Name      string `json:"name"`
+	Overview  string `json:"overview"`
+	AirDate   string `json:"air_date"`
+	DVDSeason int    `json:"dvd_season"` // the DVD order, 0 when the supplier has none for it
+	DVDNumber int    `json:"dvd_number"`
 }
 
 const (

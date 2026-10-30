@@ -124,6 +124,7 @@ func (s *Server) reverifyStoredNow(uid int64, head reverifyHead) (map[string]any
 		if cast, err := loadCastMembers(s.Store.DB, "movie", head.ID); err == nil {
 			now["cast"] = cast
 		}
+		now["episodes"] = s.storedEpisodes(head.ID)
 		return now, nil
 	case "person":
 		p, ok := s.getPersonFold(uid, strings.TrimSpace(head.Kind), strings.TrimSpace(head.Name))

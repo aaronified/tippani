@@ -5,6 +5,7 @@ package httpapi
 // already held lines (run directly through the store, since the server has booted by then).
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -17,6 +18,7 @@ type episodesBody struct {
 	Order    string `json:"order"`
 	HasDVD   bool   `json:"has_dvd"`
 	Episodes []struct {
+		New        bool                                     `json:"new"`
 		Name       string                                   `json:"name"`
 		Quotes     int                                      `json:"quotes"`
 		Candidates []string                                 `json:"candidates"`
@@ -286,9 +288,13 @@ func newEpisodeTMDB(t *testing.T, names map[int]*string, failSeasons *bool) *htt
 				http.Error(w, "down", http.StatusInternalServerError)
 				return
 			}
-			_, _ = w.Write([]byte(`{"episodes":[
-				{"episode_number":1,"season_number":1,"name":"` + *names[1] + `","overview":"It begins."},
-				{"episode_number":2,"season_number":1,"name":"` + *names[2] + `"}]}`))
+			var eps []string
+			for n := 1; n <= 9; n++ {
+				if name, ok := names[n]; ok {
+					eps = append(eps, fmt.Sprintf(`{"episode_number":%d,"season_number":1,"name":%q}`, n, *name))
+				}
+			}
+			_, _ = w.Write([]byte(`{"episodes":[` + strings.Join(eps, ",") + `]}`))
 		case "/tv/77/episode_groups":
 			_, _ = w.Write([]byte(`{"results":[{"id":"d","type":3,"episode_count":2}]}`))
 		case "/tv/episode_group/d":
@@ -516,5 +522,98 @@ func TestSavingEpisodesCanSwitchTheOrderTheSeriesShowsInTheSameStep(t *testing.T
 	c.putEpisodes(show, map[string]any{"order": "custom", "show": "tv", "episodes": []map[string]any{}}, http.StatusOK)
 	if got := decode[episodesBody](t, c.mustDo("GET", "/movies/"+itoa(show)+"/episodes", nil, http.StatusOK)); got.Order != "tv" {
 		t.Fatalf("order = %q", got.Order)
+	}
+}
+
+// A re-verify offers a show's episodes as ONE row ("N new, M renamed"), and approving it writes exactly
+// that list, keeping a name the reader wrote.
+func TestReverifyOffersAShowsEpisodesAsOneRowAndApprovingWritesThem(t *testing.T) {
+	one, two := "Pilot", "Second"
+	failing := false
+	fake := newEpisodeTMDB(t, map[int]*string{1: &one, 2: &two}, &failing)
+	defer fake.Close()
+	srv := newTestServer(t)
+	srv.TMDB.Key, srv.TMDB.BaseURL = "k", fake.URL
+	c := signupAdmin(t, srv.Handler())
+	show := idOf(t, c.mustDo("POST", "/movies", map[string]any{"source": "tmdb", "source_id": "77", "media_type": "show"}, http.StatusCreated).Body.Bytes())
+	var e1 int64
+	srv.Store.DB.QueryRow(`SELECT e.id FROM episodes e JOIN episode_orders o ON o.episode_id = e.id AND o.kind = 'tv' WHERE e.movie_id = ? AND o.episode = 1`, show).Scan(&e1)
+	c.putEpisodes(show, map[string]any{"order": "tv", "episodes": []map[string]any{{"id": e1, "name": "My Pilot", "season": 1, "episode": 1}}}, http.StatusOK)
+
+	// Nothing differs yet: no row.
+	prev := decode[reverifyResp](t, c.mustDo("POST", "/metadata/reverify", map[string]any{"movie_ids": []int64{show}}, http.StatusOK))
+	if diffFields(t, prev, 0)["episodes"] {
+		t.Fatalf("an unchanged show offered episodes: %+v", prev.Items[0].Diffs)
+	}
+
+	// The supplier renames both and adds a third.
+	one, two = "Supplier Pilot", "Supplier Second"
+	prev = decode[reverifyResp](t, c.mustDo("POST", "/metadata/reverify", map[string]any{"movie_ids": []int64{show}}, http.StatusOK))
+	var fresh any
+	for _, d := range prev.Items[0].Diffs {
+		if d.Field == "episodes" {
+			fresh = d.Fresh
+		}
+	}
+	m, ok := fresh.(map[string]any)
+	if !ok || m["renamed"] != float64(1) || m["new"] != float64(0) {
+		t.Fatalf("the row should say one renamed (the reader's own name is left): %+v", fresh)
+	}
+	c.mustDo("POST", "/metadata/reverify/apply", map[string]any{"items": []map[string]any{{"type": "movie", "id": show, "set": map[string]any{"episodes": fresh}}}}, http.StatusOK)
+	got := decode[episodesBody](t, c.mustDo("GET", "/movies/"+itoa(show)+"/episodes", nil, http.StatusOK))
+	names := map[int]string{}
+	for _, e := range got.Episodes {
+		names[e.Orders["tv"].Episode] = e.Name
+	}
+	if names[1] != "My Pilot" || names[2] != "Supplier Second" {
+		t.Fatalf("%v", names)
+	}
+}
+
+// A refetch that brings an episode the reader's custom order has never placed puts it right after the
+// episode before it in tv order, wherever that one sits in custom, shifts the later ones along, and marks
+// it new until the dialog is next saved.
+func TestARefetchPlacesANewEpisodeAfterItsNeighbourInTheCustomOrderAndMarksItNew(t *testing.T) {
+	one, two := "One", "Two"
+	failing := false
+	names := map[int]*string{1: &one, 2: &two}
+	fake := newEpisodeTMDB(t, names, &failing)
+	defer fake.Close()
+	srv := newTestServer(t)
+	srv.TMDB.Key, srv.TMDB.BaseURL = "k", fake.URL
+	c := signupAdmin(t, srv.Handler())
+	show := idOf(t, c.mustDo("POST", "/movies", map[string]any{"source": "tmdb", "source_id": "77", "media_type": "show"}, http.StatusCreated).Body.Bytes())
+	idOfEp := func(n int) int64 {
+		var id int64
+		srv.Store.DB.QueryRow(`SELECT e.id FROM episodes e JOIN episode_orders o ON o.episode_id = e.id AND o.kind = 'tv' WHERE e.movie_id = ? AND o.episode = ?`, show, n).Scan(&id)
+		return id
+	}
+	// The reader's order puts One second: One = 1/2, Two = 1/1.
+	c.putEpisodes(show, map[string]any{"order": "custom", "show": "custom", "episodes": []map[string]any{
+		{"id": idOfEp(1), "season": 1, "episode": 2}, {"id": idOfEp(2), "season": 1, "episode": 1}}}, http.StatusOK)
+
+	three := "Three"
+	names[3] = &three
+	c.mustDo("PUT", "/movies/"+itoa(show), map[string]any{"title": "A Fetched Show", "media_type": "show", "source": "tmdb", "source_id": "77"}, http.StatusOK)
+
+	custom := map[string]int{}
+	isNew := map[string]bool{}
+	for _, e := range decode[episodesBody](t, c.mustDo("GET", "/movies/"+itoa(show)+"/episodes", nil, http.StatusOK)).Episodes {
+		custom[e.Name] = e.Orders["custom"].Episode
+		isNew[e.Name] = e.New
+	}
+	// Three follows Two in tv, and Two sits at 1 in custom, so Three takes 2 and One moves to 3.
+	if custom["Three"] != 2 || custom["One"] != 3 || custom["Two"] != 1 {
+		t.Fatalf("custom places = %v", custom)
+	}
+	if !isNew["Three"] || isNew["One"] {
+		t.Fatalf("new marks = %v", isNew)
+	}
+	// Saving the dialog clears the mark.
+	c.putEpisodes(show, map[string]any{"order": "custom", "episodes": []map[string]any{}}, http.StatusOK)
+	for _, e := range decode[episodesBody](t, c.mustDo("GET", "/movies/"+itoa(show)+"/episodes", nil, http.StatusOK)).Episodes {
+		if e.New {
+			t.Fatalf("%s is still new after a save", e.Name)
+		}
 	}
 }

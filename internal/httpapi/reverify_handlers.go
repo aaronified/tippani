@@ -893,6 +893,16 @@ func (s *Server) reverifyMovie(ctx context.Context, uid, id int64, tmdb *metadat
 	if len(det.Cast) > 0 && !sameCast(stored, det.Cast) {
 		d = append(d, fieldDiff{Field: "cast", Stored: stored, Fresh: det.Cast})
 	}
+	// A SHOW'S EPISODES ARE ONE ROW, ("12 new, 3 renamed"), ticked or not like any other field. Fresh
+	// carries the list itself so an approval writes exactly what was reviewed; the counts are what
+	// the screen says. Nothing differing is no row.
+	if det.MediaType == "show" || mediaType == "show" {
+		if eps := s.freshEpisodes(ctx, det, tmdb, tvdb); len(eps) > 0 {
+			if fresh, stored, ok := s.episodeDiff(id, eps); ok {
+				d = append(d, fieldDiff{Field: "episodes", Stored: stored, Fresh: fresh})
+			}
+		}
+	}
 	if det.PosterURL != "" && (poster == "" || s.coverWidth(poster) < lowResCoverWidth) {
 		d = append(d, fieldDiff{Field: "poster", Stored: st["poster"], Fresh: det.PosterURL})
 	}
@@ -1368,7 +1378,7 @@ var reverifyBookFields = map[string]bool{
 var reverifyMovieFields = map[string]bool{
 	"title": true, "director": true, "description": true, "release_year": true,
 	"genres": true, "series": true, "cast": true, "poster": true, "tmdb_id": true, "tvdb_id": true,
-	"igdb_id": true,
+	"igdb_id": true, "episodes": true,
 }
 
 func (s *Server) applyReverifyBook(ctx context.Context, uid, id int64, set map[string]json.RawMessage, source string, sources map[string]string) (note string, err error) {
@@ -1685,6 +1695,10 @@ func (s *Server) applyReverifyMovie(ctx context.Context, uid, id int64, set map[
 	if derr != nil {
 		return "", derr
 	}
+	episodes, hasEpisodes, derr := decodeSet[episodeFresh](set, "episodes")
+	if derr != nil {
+		return "", derr
+	}
 	posterURL, hasPoster, derr := decodeSet[string](set, "poster")
 	if derr != nil {
 		return "", derr
@@ -1708,7 +1722,7 @@ func (s *Server) applyReverifyMovie(ctx context.Context, uid, id int64, set map[
 		s.removeCoverFile(newPoster)
 		return "", errStoppedItem
 	}
-	if len(cols) == 0 && !hasGenres {
+	if len(cols) == 0 && !hasGenres && !hasEpisodes {
 		s.removeCoverFile(newPoster)
 		if note != "" {
 			// Poster-only approval whose download failed — degrade to the note.
@@ -1751,6 +1765,15 @@ func (s *Server) applyReverifyMovie(ctx context.Context, uid, id int64, set map[
 		s.removeCoverFile(newPoster)
 		olog.Errorf(olog.CodeMetaReverifyApply, "[meta] re-verify movie %d credits failed: %v", id, cerr)
 		return "", errors.New("write failed")
+	}
+	if hasEpisodes {
+		var src string
+		_ = tx.QueryRow(`SELECT CASE WHEN COALESCE(tvdb_id, 0) <> 0 AND COALESCE(tmdb_id, 0) = 0 THEN 'tvdb' ELSE 'tmdb' END FROM movies WHERE id = ?`, id).Scan(&src)
+		if eerr := writeEpisodes(tx, id, src, episodes.Episodes); eerr != nil {
+			s.removeCoverFile(newPoster)
+			olog.Errorf(olog.CodeMetaReverifyApply, "[meta] re-verify movie %d episodes failed: %v", id, eerr)
+			return "", errors.New("write failed")
+		}
 	}
 	if hasGenres {
 		capped := cleanNames(genres)

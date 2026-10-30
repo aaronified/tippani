@@ -11,7 +11,9 @@ package httpapi
 // that is the reader's, and a series that is not is 404 — never 403 — like every other work.
 
 import (
+	"context"
 	"database/sql"
+	"errors"
 	"net/http"
 	"sort"
 	"strings"
@@ -30,13 +32,15 @@ type episodePlace struct {
 }
 
 type episodeRow struct {
-	ID       int64                   `json:"id"`
-	Name     string                  `json:"name"`
-	Overview string                  `json:"overview"`
-	AirDate  string                  `json:"air_date"`
-	Source   string                  `json:"source"`
-	Quotes   int                     `json:"quotes"`
-	Orders   map[string]episodePlace `json:"orders"`
+	ID       int64  `json:"id"`
+	Name     string `json:"name"`
+	Overview string `json:"overview"`
+	AirDate  string `json:"air_date"`
+	Source   string `json:"source"`
+	// New is an episode a refetch added since the dialog was last saved.
+	New    bool                    `json:"new,omitempty"`
+	Quotes int                     `json:"quotes"`
+	Orders map[string]episodePlace `json:"orders"`
 	// Candidates are the names this episode's lines carry when it has none of its own, for the
 	// reader to pick one. Empty once the episode is named.
 	Candidates []string `json:"candidates,omitempty"`
@@ -76,14 +80,14 @@ func (s *Server) handleGetEpisodes(w http.ResponseWriter, r *http.Request) {
 	out := episodesAnswer{Order: order, Episodes: []episodeRow{}}
 	byID := map[int64]*episodeRow{}
 
-	rows, err := s.Store.DB.Query(`SELECT id, name, overview, air_date, source FROM episodes WHERE movie_id = ? ORDER BY id`, id)
+	rows, err := s.Store.DB.Query(`SELECT id, name, overview, air_date, source, is_new FROM episodes WHERE movie_id = ? ORDER BY id`, id)
 	if err != nil {
 		internalError(w, r, "episodes: list", err)
 		return
 	}
 	for rows.Next() {
 		var e episodeRow
-		if err := rows.Scan(&e.ID, &e.Name, &e.Overview, &e.AirDate, &e.Source); err != nil {
+		if err := rows.Scan(&e.ID, &e.Name, &e.Overview, &e.AirDate, &e.Source, &e.New); err != nil {
 			rows.Close()
 			internalError(w, r, "episodes: scan", err)
 			return
@@ -172,10 +176,11 @@ func (s *Server) handleGetEpisodes(w http.ResponseWriter, r *http.Request) {
 }
 
 type episodePutItem struct {
-	ID      int64  `json:"id"`
-	Name    string `json:"name"`
-	Season  int    `json:"season"`
-	Episode int    `json:"episode"`
+	ID int64 `json:"id"`
+	// Name is a pointer: absent leaves the name alone, an empty string clears it.
+	Name    *string `json:"name"`
+	Season  int     `json:"season"`
+	Episode int     `json:"episode"`
 }
 
 type episodePutReq struct {
@@ -304,7 +309,9 @@ func (s *Server) handlePutEpisodes(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		h.newPlace = episodePlace{Season: it.Season, Episode: it.Episode}
-		names[it.ID] = strings.TrimSpace(it.Name)
+		if it.Name != nil {
+			names[it.ID] = strings.TrimSpace(*it.Name)
+		}
 	}
 	seen := map[episodePlace]bool{}
 	for _, h := range eps {
@@ -364,6 +371,11 @@ func (s *Server) handlePutEpisodes(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
+	}
+	// Any save of the dialog is the reader having looked: the new marks go.
+	if _, err := tx.Exec(`UPDATE episodes SET is_new = 0 WHERE movie_id = ? AND is_new = 1`, id); err != nil {
+		internalError(w, r, "episodes: clear new", err)
+		return
 	}
 	if req.Show != nil {
 		v := *req.Show
@@ -503,6 +515,18 @@ func writeEpisodes(tx *sql.Tx, movie int64, source string, eps []metadata.Episod
 	rows.Close()
 	// An answer with no dvd place at all is no evidence the supplier dropped its grouping (the call that
 	// finds it may simply have failed), so the stored dvd order is only pruned when this one has some.
+	// In tv order, so each new episode finds the one before it already placed.
+	eps = append([]metadata.Episode(nil), eps...)
+	sort.SliceStable(eps, func(i, j int) bool {
+		if eps[i].Season != eps[j].Season {
+			return eps[i].Season < eps[j].Season
+		}
+		return eps[i].Number < eps[j].Number
+	})
+	var hasCustom bool
+	_ = tx.QueryRow(`SELECT EXISTS (SELECT 1 FROM episode_orders o JOIN episodes e ON e.id = o.episode_id
+		WHERE e.movie_id = ? AND o.kind = 'custom')`, movie).Scan(&hasCustom)
+	refetch := len(have) > 0
 	anyDVD := false
 	for _, e := range eps {
 		if e.DVDSeason > 0 || e.DVDNumber > 0 {
@@ -522,6 +546,18 @@ func writeEpisodes(tx *sql.Tx, movie int64, source string, eps []metadata.Episod
 			if _, err := tx.Exec(`INSERT INTO episode_orders (episode_id, kind, season, episode) VALUES (?, 'tv', ?, ?)`,
 				h.id, e.Season, e.Number); err != nil {
 				return err
+			}
+			// An episode a refetch adds to a show that already has some is marked new, and where the
+			// reader has a custom order it is placed in it, right after the episode before it.
+			if refetch {
+				if _, err := tx.Exec(`UPDATE episodes SET is_new = 1 WHERE id = ?`, h.id); err != nil {
+					return err
+				}
+				if hasCustom {
+					if err := placeInCustom(tx, movie, h.id, p); err != nil {
+						return err
+					}
+				}
 			}
 		} else {
 			if h.source != "reader" && e.Name != "" && e.Name != h.name {
@@ -547,4 +583,105 @@ func writeEpisodes(tx *sql.Tx, movie int64, source string, eps []metadata.Episod
 		}
 	}
 	return nil
+}
+
+// episodeFresh is the "episodes" row of a re-verify: the list a supplier gave and what it changes, so
+// an approval writes exactly what was reviewed and the screen can say "12 new, 3 renamed".
+type episodeFresh struct {
+	Episodes []metadata.Episode `json:"episodes"`
+	New      int                `json:"new"`
+	Renamed  int                `json:"renamed"`
+}
+
+// episodeStored is what the show holds now, as the review's stored column.
+type episodeStored struct {
+	Count int `json:"count"`
+}
+
+func (s *Server) storedEpisodes(movie int64) episodeStored {
+	var n int
+	_ = s.Store.DB.QueryRow(`SELECT COUNT(*) FROM episodes WHERE movie_id = ?`, movie).Scan(&n)
+	return episodeStored{Count: n}
+}
+
+// freshEpisodes asks the supplier the details came from for the show's episodes. Best-effort: a supplier
+// that will not answer is no row, never a failed check.
+func (s *Server) freshEpisodes(ctx context.Context, det *metadata.MovieDetails, tmdb *metadata.TMDB, tvdb *metadata.TVDB) []metadata.Episode {
+	if det == nil {
+		return nil
+	}
+	switch det.Source {
+	case "tmdb":
+		if tmdb != nil && det.TMDBID != 0 {
+			if eps, err := tmdb.Episodes(ctx, det.TMDBID, det.Raw); err == nil {
+				return eps
+			}
+		}
+	case "tvdb":
+		if tvdb != nil {
+			if eps, err := tvdb.Episodes(ctx, det.SourceID); err == nil {
+				return eps
+			}
+		}
+	}
+	return nil
+}
+
+// episodeDiff compares a supplier's list with the show's: episodes it has none of, and names it would
+// change (never a name the reader wrote). ok is false when nothing would change.
+func (s *Server) episodeDiff(movie int64, eps []metadata.Episode) (episodeFresh, episodeStored, bool) {
+	type held struct{ name, source string }
+	have := map[episodePlace]held{}
+	rows, err := s.Store.DB.Query(`SELECT o.season, o.episode, e.name, e.source FROM episodes e
+		JOIN episode_orders o ON o.episode_id = e.id AND o.kind = 'tv' WHERE e.movie_id = ?`, movie)
+	if err != nil {
+		return episodeFresh{}, episodeStored{}, false
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var p episodePlace
+		var h held
+		if rows.Scan(&p.Season, &p.Episode, &h.name, &h.source) == nil {
+			have[p] = h
+		}
+	}
+	fresh := episodeFresh{Episodes: eps}
+	for _, e := range eps {
+		h, ok := have[episodePlace{Season: e.Season, Episode: e.Number}]
+		switch {
+		case !ok:
+			fresh.New++
+		case h.source != "reader" && e.Name != "" && e.Name != h.name:
+			fresh.Renamed++
+		}
+	}
+	if fresh.New == 0 && fresh.Renamed == 0 {
+		return episodeFresh{}, episodeStored{}, false
+	}
+	return fresh, episodeStored{Count: len(have)}, true
+}
+
+// placeInCustom gives a new episode a place in the reader's custom order: the number after the one the
+// previous tv episode holds there, in that episode's season, shifting the later ones along by one. With
+// no previous episode that has a custom place it takes its own tv place, if that is free.
+func placeInCustom(tx *sql.Tx, movie, id int64, tv episodePlace) error {
+	var season, episode int
+	err := tx.QueryRow(`
+		SELECT c.season, c.episode + 1 FROM episodes e
+		JOIN episode_orders t ON t.episode_id = e.id AND t.kind = 'tv'
+		JOIN episode_orders c ON c.episode_id = e.id AND c.kind = 'custom'
+		WHERE e.movie_id = ? AND e.id <> ? AND (t.season < ? OR (t.season = ? AND t.episode < ?))
+		ORDER BY t.season DESC, t.episode DESC LIMIT 1`, movie, id, tv.Season, tv.Season, tv.Episode).Scan(&season, &episode)
+	if errors.Is(err, sql.ErrNoRows) {
+		season, episode = tv.Season, tv.Episode
+	} else if err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`UPDATE episode_orders SET episode = episode + 1
+		WHERE kind = 'custom' AND season = ? AND episode >= ?
+		  AND episode_id IN (SELECT id FROM episodes WHERE movie_id = ? AND id <> ?)`, season, episode, movie, id); err != nil {
+		return err
+	}
+	_, err = tx.Exec(`INSERT INTO episode_orders (episode_id, kind, season, episode) VALUES (?, 'custom', ?, ?)`, id, season, episode)
+	return err
 }
