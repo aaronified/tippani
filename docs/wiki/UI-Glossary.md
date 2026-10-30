@@ -428,7 +428,7 @@ Drawn as two whole marks with daylight between them rather than as the overlappi
 
 *Defined in:* IconSourceFile — ui.jsx · SourceFilesConsole — SourceFilesConsole.jsx · SourceSection / QuoteContext / ContextBody — sources.jsx · useLibraryScan — libraryScan.js
 
-**The file a work’s quotes came from, and the lines around a quote in it.** IconSourceFile, a page with a folded corner, marks **Metadata › Source files**: every work with quotes, its file (name, kind, uploaded or in a library folder), how many of its quotes have context, and the library folders with their Scan. A work’s details panel shows the same rows for one work, and the quote edit form shows the stored context under the quote, with the quote marked. Every failed request is said where its answer would have been, with a way to try again.
+**The file a work’s quotes came from, and the lines around a quote in it.** IconSourceFile, a page with a folded corner, marks **Metadata › Source files**: every work with quotes, its file (name, kind, uploaded or in a library folder), how many of its quotes have context, and the library folders with their Scan. A work’s details panel shows the same rows for one work, and the quote edit form has the stored context under the quote, folded until In context is pressed, and open it shows the quote marked. Every failed request is said where its answer would have been, with a way to try again.
 
 ## Buttons & inputs
 
