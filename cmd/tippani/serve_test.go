@@ -419,6 +419,8 @@ func TestTheCommandLineLeavesALiveServersRunningJobRunning(t *testing.T) {
 	if err := json.Unmarshal(srv.send("POST", "/api/books", map[string]any{"title": "Meditations"}, http.StatusCreated), &book); err != nil {
 		t.Fatal(err)
 	}
+	// A new work starts exempt from review (ADR-0918), so alice opts this one in, as a reader does.
+	srv.send("POST", "/api/books/bulk", map[string]any{"ids": []int64{book.ID}, "review": true}, http.StatusOK)
 	srv.send("POST", "/api/annotations", map[string]any{"book_id": book.ID,
 		"quote": "You have power over your mind, not outside events. Realize this, and you will find strength."}, http.StatusCreated)
 	srv.send("PUT", "/api/auth/notifications", map[string]any{"pushover_user": "ualice", "app_token": "tapp"}, http.StatusOK)
