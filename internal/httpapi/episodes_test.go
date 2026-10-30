@@ -272,3 +272,76 @@ func TestAShowWithTwoEpisodeSubtitlesCanBeDeletedAndComesBack(t *testing.T) {
 		t.Fatalf("%d source files came back, want 2", files)
 	}
 }
+
+// A fake TMDB with one show whose episode names the test can change between fetches.
+func newEpisodeTMDB(t *testing.T, names map[int]*string, failSeasons *bool) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/tv/77":
+			_, _ = w.Write([]byte(`{"id":77,"name":"A Fetched Show","first_air_date":"2002-02-02","seasons":[{"season_number":1}]}`))
+		case "/tv/77/season/1":
+			if *failSeasons {
+				http.Error(w, "down", http.StatusInternalServerError)
+				return
+			}
+			_, _ = w.Write([]byte(`{"episodes":[
+				{"episode_number":1,"season_number":1,"name":"` + *names[1] + `","overview":"It begins."},
+				{"episode_number":2,"season_number":1,"name":"` + *names[2] + `"}]}`))
+		case "/tv/77/episode_groups":
+			_, _ = w.Write([]byte(`{"results":[{"id":"d","type":3,"episode_count":2}]}`))
+		case "/tv/episode_group/d":
+			_, _ = w.Write([]byte(`{"groups":[{"order":1,"episodes":[
+				{"season_number":1,"episode_number":2,"order":0},{"season_number":1,"episode_number":1,"order":1}]}]}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+}
+
+func TestAddingAndRefetchingAShowKeepsTheReadersNamesAndEveryEpisode(t *testing.T) {
+	one, two := "Pilot", "Second"
+	failing := false
+	fake := newEpisodeTMDB(t, map[int]*string{1: &one, 2: &two}, &failing)
+	defer fake.Close()
+	srv := newTestServer(t)
+	srv.TMDB.Key, srv.TMDB.BaseURL = "k", fake.URL
+	c := signupAdmin(t, srv.Handler())
+
+	show := idOf(t, c.mustDo("POST", "/movies", map[string]any{"source": "tmdb", "source_id": "77", "media_type": "show"}, http.StatusCreated).Body.Bytes())
+	got := decode[episodesBody](t, c.mustDo("GET", "/movies/"+itoa(show)+"/episodes", nil, http.StatusOK))
+	if len(got.Episodes) != 2 || !got.HasDVD {
+		t.Fatalf("a fetched show has episodes and a dvd order: %+v", got)
+	}
+	byName := map[string]int{}
+	for i, e := range got.Episodes {
+		byName[e.Name] = i
+	}
+	pilot := got.Episodes[byName["Pilot"]]
+	if pilot.Orders["tv"].Episode != 1 || pilot.Orders["dvd"].Episode != 2 {
+		t.Fatalf("pilot's places: %+v", pilot.Orders)
+	}
+
+	// The reader names episode one; the supplier then renames both and the series is fetched again.
+	var e1 int64
+	srv.Store.DB.QueryRow(`SELECT e.id FROM episodes e JOIN episode_orders o ON o.episode_id = e.id AND o.kind = 'tv' WHERE e.movie_id = ? AND o.episode = 1`, show).Scan(&e1)
+	c.putEpisodes(show, map[string]any{"order": "custom", "episodes": []map[string]any{{"id": e1, "name": "My Pilot", "season": 1, "episode": 1}}}, http.StatusOK)
+	one, two = "Supplier Pilot", "Supplier Second"
+	c.mustDo("PUT", "/movies/"+itoa(show), map[string]any{"title": "A Fetched Show", "media_type": "show", "source": "tmdb", "source_id": "77"}, http.StatusOK)
+	names := map[int]string{}
+	got = decode[episodesBody](t, c.mustDo("GET", "/movies/"+itoa(show)+"/episodes", nil, http.StatusOK))
+	for _, e := range got.Episodes {
+		names[e.Orders["tv"].Episode] = e.Name
+	}
+	if names[1] != "My Pilot" || names[2] != "Supplier Second" {
+		t.Fatalf("a refetch must keep the reader's name and take the supplier's other: %v", names)
+	}
+
+	// A supplier that will not answer for the seasons must not empty the show.
+	failing = true
+	c.mustDo("PUT", "/movies/"+itoa(show), map[string]any{"title": "A Fetched Show", "media_type": "show", "source": "tmdb", "source_id": "77"}, http.StatusOK)
+	got = decode[episodesBody](t, c.mustDo("GET", "/movies/"+itoa(show)+"/episodes", nil, http.StatusOK))
+	if len(got.Episodes) != 2 || !got.HasDVD {
+		t.Fatalf("a failed episode fetch emptied the show: %+v", got)
+	}
+}

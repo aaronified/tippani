@@ -16,6 +16,7 @@ import (
 	"sort"
 	"strings"
 
+	"tippani/internal/metadata"
 	"tippani/internal/store"
 )
 
@@ -445,4 +446,87 @@ func renumberTV(tx *sql.Tx, movie int64, moves map[episodePlace]episodePlace, co
 		}
 	}
 	return n, 0, "", 0
+}
+
+// writeEpisodes merges a supplier's episode list into a show, inside the caller's transaction.
+//
+//   - An episode is found by its tv place. One the show lacks is made, with the supplier's name,
+//     overview and air date and its tv order row; one with no quotes is kept like any other.
+//   - A NAME THE READER WROTE IS NEVER OVERWRITTEN: `source` says who wrote it, and only a name the
+//     supplier or the lines wrote is replaced. The overview and air date fill in where empty.
+//   - The dvd order is the supplier's to publish, so it is rewritten each time and removed from an
+//     episode the supplier no longer places there. The reader's custom order is not touched.
+//
+// An empty list changes nothing: a supplier that would not answer must not empty a show.
+func writeEpisodes(tx *sql.Tx, movie int64, source string, eps []metadata.Episode) error {
+	if len(eps) == 0 {
+		return nil
+	}
+	type held struct {
+		id     int64
+		name   string
+		source string
+	}
+	have := map[episodePlace]held{}
+	rows, err := tx.Query(`SELECT e.id, e.name, e.source, o.season, o.episode FROM episodes e
+		JOIN episode_orders o ON o.episode_id = e.id AND o.kind = 'tv' WHERE e.movie_id = ?`, movie)
+	if err != nil {
+		return err
+	}
+	for rows.Next() {
+		var h held
+		var p episodePlace
+		if err := rows.Scan(&h.id, &h.name, &h.source, &p.Season, &p.Episode); err != nil {
+			rows.Close()
+			return err
+		}
+		have[p] = h
+	}
+	rows.Close()
+	// An answer with no dvd place at all is no evidence the supplier dropped its grouping (the call that
+	// finds it may simply have failed), so the stored dvd order is only pruned when this one has some.
+	anyDVD := false
+	for _, e := range eps {
+		if e.DVDSeason > 0 || e.DVDNumber > 0 {
+			anyDVD = true
+		}
+	}
+	for _, e := range eps {
+		p := episodePlace{Season: e.Season, Episode: e.Number}
+		h, ok := have[p]
+		if !ok {
+			res, err := tx.Exec(`INSERT INTO episodes (movie_id, name, overview, air_date, source) VALUES (?, ?, ?, ?, ?)`,
+				movie, e.Name, e.Overview, e.AirDate, source)
+			if err != nil {
+				return err
+			}
+			h.id, _ = res.LastInsertId()
+			if _, err := tx.Exec(`INSERT INTO episode_orders (episode_id, kind, season, episode) VALUES (?, 'tv', ?, ?)`,
+				h.id, e.Season, e.Number); err != nil {
+				return err
+			}
+		} else {
+			if h.source != "reader" && e.Name != "" && e.Name != h.name {
+				if _, err := tx.Exec(`UPDATE episodes SET name = ?, source = ? WHERE id = ?`, e.Name, source, h.id); err != nil {
+					return err
+				}
+			}
+			if _, err := tx.Exec(`UPDATE episodes SET overview = CASE WHEN overview = '' THEN ? ELSE overview END,
+				air_date = CASE WHEN air_date = '' THEN ? ELSE air_date END WHERE id = ?`, e.Overview, e.AirDate, h.id); err != nil {
+				return err
+			}
+		}
+		if e.DVDNumber > 0 || e.DVDSeason > 0 {
+			if _, err := tx.Exec(`INSERT INTO episode_orders (episode_id, kind, season, episode) VALUES (?, 'dvd', ?, ?)
+				ON CONFLICT (episode_id, kind) DO UPDATE SET season = excluded.season, episode = excluded.episode`,
+				h.id, e.DVDSeason, e.DVDNumber); err != nil {
+				return err
+			}
+		} else if anyDVD {
+			if _, err := tx.Exec(`DELETE FROM episode_orders WHERE episode_id = ? AND kind = 'dvd'`, h.id); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }

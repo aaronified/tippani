@@ -191,7 +191,10 @@ type MovieDetails struct {
 	Genres        []string
 	Series        string       // franchise/collection name, where the source has it
 	Cast          []CastMember // top 20 in billing order
-	PosterURL     string
+	// Episodes is a show's episode list from the same supplier, empty for anything else or when the
+	// supplier would not give it. See episodes.go.
+	Episodes  []Episode
+	PosterURL string
 	// PosterThumbURL is the same art at picker size. A details fetch is normally
 	// on its way to storage and so wants PosterURL (full size), but a lookup
 	// pinned to a supplier id shows its record in the same grid of thumbnails as

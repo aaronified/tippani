@@ -567,6 +567,11 @@ func (s *Server) createMovieFromSource(w http.ResponseWriter, r *http.Request, s
 		internalError(w, r, "create movie: record field sources", err)
 		return
 	}
+	if err := writeEpisodes(tx, id, d.Source, d.Episodes); err != nil {
+		s.removeCoverFile(posterPath)
+		internalError(w, r, "create movie: episodes", err)
+		return
+	}
 	if err := tx.Commit(); err != nil {
 		s.removeCoverFile(posterPath)
 		internalError(w, r, "create movie: commit", err)
@@ -700,6 +705,15 @@ func (s *Server) fetchSourceDetails(ctx context.Context, source, sourceID, media
 			}
 			return nil, "TheTVDB lookup failed", http.StatusBadGateway
 		}
+		if show {
+			// The same fetch as the show's details, best-effort: a list that cannot be had leaves the
+			// show with the episodes it has and says why in the log.
+			if eps, eerr := tvdb.Episodes(ctx, sourceID); eerr != nil {
+				olog.Warnf(olog.CodeMetaLookupFailed, "[movie] tvdb episodes source_id=%s failed: %v", sourceID, eerr)
+			} else {
+				d.Episodes = eps
+			}
+		}
 		return d, "", 0
 	default: // "tmdb"
 		tmdb, _ := s.resolveTMDB()
@@ -722,6 +736,13 @@ func (s *Server) fetchSourceDetails(ctx context.Context, source, sourceID, media
 				return nil, "TMDB rejected the key — re-check it in Metadata › Sources", http.StatusBadGateway
 			}
 			return nil, "TMDB lookup failed", http.StatusBadGateway
+		}
+		if show {
+			if eps, eerr := tmdb.Episodes(ctx, id, d.Raw); eerr != nil {
+				olog.Warnf(olog.CodeMetaLookupFailed, "[movie] tmdb episodes source_id=%s failed: %v", sourceID, eerr)
+			} else {
+				d.Episodes = eps
+			}
 		}
 		return d, "", 0
 	}
@@ -1310,6 +1331,10 @@ func (s *Server) resyncMovieFromSource(w http.ResponseWriter, r *http.Request, i
 	if err != nil {
 		log.Printf("[movies] resync %d: refill actors: %v", id, err)
 		failErr("resync movie: refill actors", err)
+		return
+	}
+	if err := writeEpisodes(tx, id, d.Source, d.Episodes); err != nil {
+		failErr("resync movie: episodes", err)
 		return
 	}
 	if err := tx.Commit(); err != nil {
