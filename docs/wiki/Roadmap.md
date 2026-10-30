@@ -58,39 +58,41 @@ The files a work's quotes came from, which the app used to refuse to hold:
 - One press of Scan walks a whole library folder as a resumable job, in slices that do not block other jobs, with progress,
   findings and seen files kept in the database. See [ADR-0917](ADR-0917-A-Library-Scan-Is-One-Press-And-A-Job.md).
 
-## Next week (from 26 October 2026)
+## Next steps (from 30 October 2026)
 
-Written on 25 October so the work can be picked up from this page alone, with no chat to read. Work it in this order. Each
-item is its own commit; the release comes after the first two.
+Written on 30 October so the work can be picked up from this page alone. All of the work below is on branch
+`claude/claude-kit-setup-8vfokb` (24 commits ahead of `main`, **not merged and no pull request open**), head `0b1021e`;
+the full `go test ./...` and the frontend unit, rules and glossary checks pass there. The latest release is still
+**3.4.2**. Work it in this order, one commit per item.
 
-**Where things stand.** The latest release is **3.4.2**. `main` is ahead of it by the phone fix for the found-file row
-(`2c316041`), which is **not in any release yet**. CI is green on `main`. On the owner's NAS the scan now works from
-Metadata > Source files and finds EPUBs; the Locators section does not (item 3).
+1. **Merge the branch, then release 3.5.0.** The release workflow and the CI sharding (the `all checks` job) only run from
+   `main`, and nothing in them has been run. The changelog entry and the release are written by a `sonnet`-tier agent
+   ([Releasing](Releasing.md)). The **Changelog still has no entry** for any of what the branch adds: read aloud, the
+   Episodes dialog and everything under it, the new Checks rule, and new works starting exempt from review.
+2. **Locators** ([#58](https://github.com/aaronified/tippani/issues/58)): chapters and locations did not come from the
+   owner's books. Not reproduced: the matcher found every highlight on a synthetic novel, so it needs the real EPUB and
+   highlights. Its four checks are in the issue. Together with it [#62](https://github.com/aaronified/tippani/issues/62).
+3. **The context block on a phone** and [#59](https://github.com/aaronified/tippani/issues/59) (collapse it by default):
+   on a phone with a file attached the edit form shows the block when a quote has stored context, so a missing block is
+   missing data, the same cause as item 2. Then [#60](https://github.com/aaronified/tippani/issues/60).
+4. **Episodes, what is left** ([Plan: episodes](Plan-Episodes.md)): dragging an episode into another season's group (today
+   you type the season), and checking the TMDB and TheTVDB calls against the live services, which were only tested against
+   served fixtures. Then fold the plan into an ADR and delete the page, as the plans index says.
+5. **The Android app** ([Plan: Android app](Plan-Android-App.md), [#61](https://github.com/aaronified/tippani/issues/61)):
+   the plan is written and verified; the nine owner questions on it are open, the first three decide the first build.
+6. **Characters marked inside a quote's text**, with their images, from the work's cast, and quizzes that avoid naming
+   them. Not planned yet: it needs the owner's answers on how a name is matched, how it renders, and what a quiz hides.
+7. **Anthology enhancements** ([Plan: anthology enhancements](Plan-Anthology-Enhancements.md)): it needed Episodes' drag,
+   which exists now (`reorder.js` scrolls at its edge and answers Alt and the arrow keys). Re-verify the plan first.
 
-1. **Release 3.4.3** with the found-file row fix, once item 2 is in. The changelog entry and the release are written by a
-   `sonnet`-tier agent ([Releasing](Releasing.md)).
-2. **UI review** ([#57](https://github.com/aaronified/tippani/issues/57)), starting with two concrete defects:
-   - [#60](https://github.com/aaronified/tippani/issues/60): on a phone the quote's bottom action bar uses two rows; it must
-     be one, with the extra actions behind the ⋯ menu.
-   - [#59](https://github.com/aaronified/tippani/issues/59): the context block on the quote edit forms must be collapsed by
-     default.
-   Then every screen at phone width, desktop width and the largest type size. The new source and context screens have had no
-   design pass.
-3. **Locators** ([#58](https://github.com/aaronified/tippani/issues/58)): chapters and locations did not come from the
-   owner's books after the scan found and attached an EPUB. The issue's comment lists four checks, in order. Start by
-   attaching an EPUB to a book that has highlights, pressing Rescan on the work, and looking at Checks > Times and places
-   from files.
-   Together with it, [#62](https://github.com/aaronified/tippani/issues/62): works the scan did not match. A leading "The"
-   stops "Fires of Heaven" matching "The Fires of Heaven" (probably a bug); two books exist only as AZW3, which the scan does
-   not read; Chak De! India and Battlestar Galactica S04E20 have no subtitle file to find. The issue has the evidence and the
-   tasks.
-4. **Read quotes aloud** ([Plan: read aloud](Plan-Read-Aloud.md), issue
-   [#12](https://github.com/aaronified/tippani/issues/12)): the browser's own speech, no service. Nothing blocks it. The plan
-   was verified against `75e55ae` (28 September), so re-verify it first, as its first task says.
-5. **Anthology enhancements** ([Plan: anthology enhancements](Plan-Anthology-Enhancements.md)): the plan says it **builds after
-   [Episodes](Plan-Episodes.md)**, whose extended drag it uses, and Episodes is ahead of it in the queue. Decide first: do
-   Episodes before this, or give this plan its own drag. Re-verify the plan against the code either way, as it was written
-   against `75e55ae`.
+**What changed in how the app behaves, for whoever tests it.** A work the reader adds starts **exempt from review**
+([ADR-0918](ADR-0918-A-New-Work-Starts-Exempt-From-Review.md)), so a fresh library has an empty quiz until works are
+included. The test server keeps works in (`Server.NewWorksInQuiz`), and a test that runs a real server has to opt its
+work in.
+
+**Not verified, not done.** The kit's rater pass was not run on any of this commit range (the kit is not installed in a
+cloud session). Read aloud has not been tried on a real device with real voices. The release workflow and the CI changes
+have never run.
 
 **Email automation.** The report address `tippanidev@gmail.com` exists. It is for the bug-report flow in
 [the Android app plan](Plan-Android-App.md) (feature 4): the app opens the reader's mail app addressed to it, and a GitHub

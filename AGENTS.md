@@ -12,3 +12,6 @@ The short version:
 - **Nothing under a mounted library folder is ever written**, and no test reaches the network.
 - Check your work with `go vet ./...`, `go test ./...`, and from `web/frontend`: `npm test`, `npm run lint:rules`,
   `node ../../scripts/wiki-check.mjs`, `node ../../scripts/doc-map-check.mjs`.
+
+**Where the work stands** is the roadmap's [Next steps](docs/wiki/Roadmap.md#next-steps-from-30-october-2026): what is on the
+working branch, what is not merged, and what to do first. A plan in the wiki is the queue; do not reorder it.
