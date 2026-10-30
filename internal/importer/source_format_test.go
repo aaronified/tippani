@@ -35,3 +35,25 @@ func TestSourceFormatReadsTheBytes(t *testing.T) {
 		}
 	}
 }
+
+func TestAKindleBookAndAPdfAreRecognisedByTheirBytesNotTheirNames(t *testing.T) {
+	mobi := make([]byte, 100)
+	copy(mobi[60:], "BOOKMOBI")
+	for name, tc := range map[string]struct {
+		data []byte
+		want string
+	}{
+		"a Palm database holding a book":         {mobi, "mobi"},
+		"a PDF":                                  {[]byte("%PDF-1.7\n1 0 obj\n<<>>\nendobj\n"), "pdf"},
+		"a PDF with junk before the header":      {append([]byte("\r\n\r\n"), []byte("%PDF-1.4\n")...), "pdf"},
+		"a text that only mentions the PDF mark": {[]byte("A line of prose, then, much later, the word %PDF- in the middle of it."), "txt"},
+		"a Palm database that is not a book":     {append(make([]byte, 60), append([]byte("TEXtREAd"), make([]byte, 40)...)...), ""},
+	} {
+		if got := SourceFormat(tc.data); got != tc.want {
+			t.Errorf("%s: %q, want %q", name, got, tc.want)
+		}
+	}
+	if SourceRole("mobi") != RoleText || SourceRole("pdf") != RoleText {
+		t.Error("an ebook is a text source, whatever its container")
+	}
+}

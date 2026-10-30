@@ -16,6 +16,10 @@ const (
 	SourceFormatASS  = "ass"
 	SourceFormatLRC  = "lrc"
 	SourceFormatEPUB = "epub"
+	// SourceFormatMOBI is the Kindle container: MOBI, AZW and AZW3 are one format
+	// by their bytes, and a file's extension never decides which it is.
+	SourceFormatMOBI = "mobi"
+	SourceFormatPDF  = "pdf"
 	SourceFormatTXT  = "txt"
 
 	// RoleSubtitle is a timed track: the position of a line is a timestamp.
@@ -33,12 +37,16 @@ var (
 	lrcLine = regexp.MustCompile(`(?m)^\s*\[\d{1,3}:\d{2}(?:[.:]\d{1,3})?\]`)
 )
 
+// blankSpace is what may precede a PDF's mark.
+const blankSpace = "\x00\r\n\t "
+
 // SourceFormat answers what these bytes are as a source file, or "" when they are
-// none of the six. It decides the format and nothing else: which subject may carry
+// none of the eight. It decides the format and nothing else: which subject may carry
 // which format is the caller's, because it knows the subject.
 //
 // ORDER IS SPECIFICITY. A format with a mark its writer always emits goes first
-// (the EPUB's zip mimetype, WEBVTT, the SSA section headers); a timed-line shape
+// (the EPUB's zip mimetype, a Palm database's "BOOKMOBI", a PDF's "%PDF-", WEBVTT, the
+// SSA section headers); a timed-line shape
 // (SRT, LRC) next; plain text last, since every other format is also text and
 // would be claimed by it.
 func SourceFormat(data []byte) string {
@@ -50,6 +58,14 @@ func SourceFormat(data []byte) string {
 			return SourceFormatEPUB
 		}
 		return ""
+	}
+	if len(data) >= 68 && string(data[60:68]) == "BOOKMOBI" {
+		return SourceFormatMOBI
+	}
+	// A PDF opens with its mark, after at most some blank space: a text that merely
+	// mentions "%PDF-" is still text.
+	if bytes.HasPrefix(bytes.TrimLeft(data[:min(len(data), 1024)], blankSpace), []byte("%PDF-")) {
+		return SourceFormatPDF
 	}
 	if !LooksLikeText(data) {
 		return ""
@@ -80,7 +96,7 @@ func SourceRole(format string) string {
 	switch format {
 	case SourceFormatSRT, SourceFormatVTT, SourceFormatASS:
 		return RoleSubtitle
-	case SourceFormatEPUB, SourceFormatTXT, SourceFormatLRC:
+	case SourceFormatEPUB, SourceFormatMOBI, SourceFormatPDF, SourceFormatTXT, SourceFormatLRC:
 		return RoleText
 	}
 	return ""

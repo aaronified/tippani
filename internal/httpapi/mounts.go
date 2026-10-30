@@ -312,7 +312,7 @@ func (s *Server) scanLibrary(uid int64) (books, movies []scanWork, haveBook map[
 	for brows.Next() {
 		var b scanWork
 		if brows.Scan(&b.id, &b.title, &b.author, &b.isbn, &b.asin) == nil {
-			b.foldedT, b.foldedA = srcmatch.Fold(b.title), srcmatch.Fold(b.author)
+			b.foldedT, b.foldedA = foldTitle(b.title), srcmatch.Fold(b.author)
 			books = append(books, b)
 		}
 	}
@@ -328,7 +328,7 @@ func (s *Server) scanLibrary(uid int64) (books, movies []scanWork, haveBook map[
 	for mrows.Next() {
 		var m scanWork
 		if mrows.Scan(&m.id, &m.title, &m.year, &m.media, &m.tmdb, &m.tvdb) == nil {
-			m.foldedT = srcmatch.Fold(m.title)
+			m.foldedT = foldTitle(m.title)
 			movies = append(movies, m)
 		}
 	}
@@ -404,7 +404,7 @@ func (s *Server) matchSubtitle(mountID, rel string, movies []scanWork, have map[
 		}
 	}
 	if hit == nil {
-		ft := srcmatch.Fold(n.Title)
+		ft := foldTitle(n.Title)
 		for i := range movies {
 			m := &movies[i]
 			if m.media != want || m.foldedT != ft || ft == "" {
@@ -457,16 +457,52 @@ type epubIdentity struct {
 	ASINs   []string `json:"a,omitempty"`
 }
 
-// readEPUBIdentity opens one EPUB through the mount and reads its metadata.
-// It reads through a handle, not the whole file: the zip directory and package document
-// are a few kilobytes at the end of a file that may be tens of megabytes.
+// bookExts are the extensions of an ebook a scan reads the identity of. MOBI, AZW and AZW3 are
+// one container (the bytes decide, never the name), so they share a reader.
+var bookExts = map[string]bool{".epub": true, ".mobi": true, ".azw": true, ".azw3": true}
+
+// bookFileFormat is the word a found ebook is shown under: what the file is, not what it is named.
+func bookFileFormat(rel string) string {
+	switch strings.ToLower(path.Ext(rel)) {
+	case ".mobi", ".azw", ".azw3":
+		return importer.SourceFormatMOBI
+	case ".pdf":
+		return importer.SourceFormatPDF
+	}
+	return importer.SourceFormatEPUB
+}
+
+// pdfIdentity is what a PDF is judged on: its file name. A PDF's own title and author are
+// whatever the program that made it wrote ("Microsoft Word - draft"), and reading one means
+// opening the whole file, which for a library of scanned books is gigabytes to learn nothing.
+// "Title - Author (Year).pdf" gives a title and an author; a bare "Title.pdf" gives a title.
+// A PDF is therefore only ever proposed for review, never as an exact match.
+func pdfIdentity(rel string) epubIdentity {
+	stem := strings.TrimSuffix(path.Base(rel), path.Ext(rel))
+	if i := strings.LastIndex(stem, " ("); i > 0 && strings.HasSuffix(stem, ")") {
+		if y, err := strconv.Atoi(stem[i+2 : len(stem)-1]); err == nil && y > 0 {
+			stem = stem[:i]
+		}
+	}
+	title, author, _ := strings.Cut(stem, " - ")
+	return epubIdentity{Title: strings.TrimSpace(title), Creator: strings.TrimSpace(author)}
+}
+
+// readEPUBIdentity opens one ebook through the mount and reads its metadata.
+// It reads through a handle, not the whole file: an EPUB's zip directory and package document,
+// and a MOBI's record table and header record, are a few kilobytes of a file that may be tens
+// of megabytes.
 func readEPUBIdentity(root *mount.Root, rel string) (epubIdentity, error) {
 	f, size, err := root.OpenReader(rel)
 	if err != nil {
 		return epubIdentity{}, err
 	}
 	defer f.Close()
-	meta, err := ebook.ReadMetaAt(f, size)
+	read := ebook.ReadMetaAt
+	if bookFileFormat(rel) == importer.SourceFormatMOBI {
+		read = ebook.ReadMOBIMetaAt
+	}
+	meta, err := read(f, size)
 	if err != nil {
 		return epubIdentity{}, err
 	}
@@ -494,7 +530,7 @@ func (s *Server) matchEPUB(meta epubIdentity, mountID, rel string, books []scanW
 		}
 	}
 	if hit == nil {
-		ft := srcmatch.Fold(meta.Title)
+		ft := foldTitle(meta.Title)
 		fa := srcmatch.Fold(meta.Creator)
 		for i := range books {
 			b := &books[i]
@@ -518,9 +554,30 @@ func (s *Server) matchEPUB(meta epubIdentity, mountID, rel string, books []scanW
 	if how == "id" {
 		bucket = bucketExact
 	}
-	c := foundCandidate{Mount: mountID, Rel: rel, Format: "epub", Subject: sourceBook, WorkID: hit.id, Title: hit.title, How: how, Bucket: bucket}
+	c := foundCandidate{Mount: mountID, Rel: rel, Format: bookFileFormat(rel), Subject: sourceBook, WorkID: hit.id, Title: hit.title, How: how, Bucket: bucket}
 	c.Token = s.signFound(foundToken{Mount: mountID, Rel: rel, Subject: sourceBook, ID: hit.id, Bucket: bucket})
 	return c, true
+}
+
+// leadingArticles are the words a title may begin with or leave out: "The Fires of Heaven"
+// on a book's spine, "Fires of Heaven" in a library, one work. Both sides of a comparison
+// lose theirs, so neither has to agree about it.
+var leadingArticles = map[string]bool{
+	"the": true, "a": true, "an": true, // English
+	"le": true, "la": true, "les": true, // French
+	"el": true, "los": true, "las": true, // Spanish
+	"der": true, "die": true, "das": true, // German
+	"il": true, // Italian
+}
+
+// foldTitle is srcmatch.Fold with a leading article removed. A title that is only an
+// article ("The") is left whole.
+func foldTitle(s string) string {
+	f := srcmatch.Fold(s)
+	if first, rest, ok := strings.Cut(f, " "); ok && leadingArticles[first] && rest != "" {
+		return rest
+	}
+	return f
 }
 
 func containsFold(list []string, v string) bool {

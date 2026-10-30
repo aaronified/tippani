@@ -355,7 +355,7 @@ export function SourceSection({ kind, item, quotes = 0, version, addAct, onChang
   )
 }
 
-const KIND_OF = { srt: 'subtitle', vtt: 'subtitle', ass: 'subtitle', epub: 'epub', txt: 'text', lrc: 'lyrics' }
+const KIND_OF = { srt: 'subtitle', vtt: 'subtitle', ass: 'subtitle', epub: 'epub', mobi: 'mobi', pdf: 'pdf', txt: 'text', lrc: 'lyrics' }
 
 const sizeOf = (n) => (n >= 1 << 20 ? `${(n / (1 << 20)).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`)
 

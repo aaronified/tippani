@@ -77,7 +77,7 @@ type sourceSubject struct {
 // sourceFormatsFor is the table from the plan, "What can carry a source".
 var (
 	subtitleFormats = map[string]bool{importer.SourceFormatSRT: true, importer.SourceFormatVTT: true, importer.SourceFormatASS: true}
-	textFormats     = map[string]bool{importer.SourceFormatEPUB: true, importer.SourceFormatTXT: true}
+	textFormats     = map[string]bool{importer.SourceFormatEPUB: true, importer.SourceFormatMOBI: true, importer.SourceFormatPDF: true, importer.SourceFormatTXT: true}
 	lyricFormats    = map[string]bool{importer.SourceFormatTXT: true, importer.SourceFormatLRC: true}
 )
 
@@ -327,8 +327,13 @@ func (s *Server) handlePutSource(w http.ResponseWriter, r *http.Request) {
 	units, unit, perr := sourceUnits(format, data)
 	if perr != nil {
 		msg := "that file could not be read: " + perr.Error()
-		if errors.Is(perr, ebook.ErrDRM) {
+		switch {
+		case errors.Is(perr, ebook.ErrDRM):
 			msg = "that ebook is DRM-protected, and its text cannot be read"
+		case errors.Is(perr, ebook.ErrNoText) && format == importer.SourceFormatPDF:
+			msg = "that PDF has no text to read: it is a scan or pictures only, and this app does not read text out of images"
+		case errors.Is(perr, ebook.ErrUnsupported):
+			msg = "that ebook is compressed in a way this app cannot read (" + strings.TrimPrefix(perr.Error(), ebook.ErrUnsupported.Error()+": ") + ")"
 		}
 		writeErr(w, http.StatusUnprocessableEntity, msg)
 		return

@@ -65,8 +65,15 @@ func sourceUnits(format string, data []byte) (units []srcmatch.Unit, unit string
 			units = append(units, srcmatch.Unit{Text: c.Text, Start: c.Start, End: c.End})
 		}
 		return units, unitCue, nil
-	case importer.SourceFormatEPUB:
-		ps, err := ebook.Read(data)
+	case importer.SourceFormatEPUB, importer.SourceFormatMOBI, importer.SourceFormatPDF:
+		read := ebook.Read
+		switch format {
+		case importer.SourceFormatMOBI:
+			read = ebook.ReadMOBI
+		case importer.SourceFormatPDF:
+			read = ebook.ReadPDF
+		}
+		ps, err := read(data)
 		if err != nil {
 			return nil, "", err
 		}

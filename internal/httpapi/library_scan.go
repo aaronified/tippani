@@ -65,7 +65,7 @@ const (
 )
 
 // scanExts are the extensions a scan reports.
-var scanExts = map[string]bool{".srt": true, ".vtt": true, ".ass": true, ".epub": true}
+var scanExts = map[string]bool{".srt": true, ".vtt": true, ".ass": true, ".epub": true, ".mobi": true, ".azw": true, ".azw3": true, ".pdf": true}
 
 // Verdicts a seen file carries (library_scan_files.verdict).
 const (
@@ -378,7 +378,13 @@ func (sc *libraryScan) judge(f mount.Found) scanRow {
 	}
 	var c foundCandidate
 	matched := false
-	if strings.ToLower(path.Ext(f.Rel)) == ".epub" {
+	if strings.ToLower(path.Ext(f.Rel)) == ".pdf" {
+		// Judged by its name, so nothing is opened and nothing is stored to be re-read.
+		id := pdfIdentity(f.Rel)
+		b, _ := json.Marshal(id)
+		row.meta = string(b)
+		c, matched = sc.s.matchEPUB(id, sc.mountID, f.Rel, sc.books, sc.haveBook, sc.quoted, sc.ignored)
+	} else if bookExts[strings.ToLower(path.Ext(f.Rel))] {
 		id, verdict, meta := sc.epubIdentityOf(f)
 		row.verdict, row.meta = verdict, meta
 		if verdict == verdictOK {

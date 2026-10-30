@@ -528,15 +528,18 @@ function ClippingsNotice({ row }) {
 
 // ---- a file that is not an import ------------------------------------------------
 
+// The formats of a book's own file: an EPUB, a Kindle container (MOBI, AZW, AZW3) or a PDF.
+const EBOOK_FORMATS = new Set(['epub', 'mobi', 'pdf'])
+
 // What the row says about a source file, by what it is. A lyrics file is a song's
 // text, and a song is a standalone quote with no work row, so it is attached from
 // the song's own page rather than chosen here.
 const sourceAskKey = (format) =>
-  format === 'epub' ? 'import.row.source.ebook' : format === 'lrc' ? 'import.row.source.lyrics' : 'import.row.source.subtitle'
+  EBOOK_FORMATS.has(format) ? 'import.row.source.ebook' : format === 'lrc' ? 'import.row.source.lyrics' : 'import.row.source.subtitle'
 
 // The kinds of work this file can be attached to from here: a subtitle to a film or
 // show (never a game: "games have no equivalent"), an ebook to a book.
-const sourceKinds = (format) => (format === 'epub' ? ['book'] : format === 'lrc' ? [] : ['screen'])
+const sourceKinds = (format) => (EBOOK_FORMATS.has(format) ? ['book'] : format === 'lrc' ? [] : ['screen'])
 
 // SourceAsk — "which work is this the file of?" It is the one case where the content
 // cannot decide: a subtitle names no film inside itself, so the reader is asked
