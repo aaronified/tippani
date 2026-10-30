@@ -11,8 +11,12 @@ package httpapi
 // that is the reader's, and a series that is not is 404 — never 403 — like every other work.
 
 import (
+	"database/sql"
 	"net/http"
 	"sort"
+	"strings"
+
+	"tippani/internal/store"
 )
 
 // episodeOrderKinds are the three orders a series can show. The column is free text and a
@@ -164,4 +168,281 @@ func (s *Server) handleGetEpisodes(w http.ResponseWriter, r *http.Request) {
 		return a.Episode < b.Episode
 	})
 	writeJSON(w, http.StatusOK, out)
+}
+
+type episodePutItem struct {
+	ID      int64  `json:"id"`
+	Name    string `json:"name"`
+	Season  int    `json:"season"`
+	Episode int    `json:"episode"`
+}
+
+type episodePutReq struct {
+	// Order is the one being saved: tv or custom. dvd is as the provider published it and is refused.
+	Order string `json:"order"`
+	// Confirm is the reader's yes to renumbering the tv order, which rewrites the lines that sit in
+	// the episodes that move. Without it a tv save that would move lines answers 409 with the count.
+	Confirm  bool             `json:"confirm"`
+	Episodes []episodePutItem `json:"episodes"`
+}
+
+// handlePutEpisodes: PUT /movies/{id}/episodes — a full-state save of ONE order and the names.
+//
+//   - custom touches no line: it is only where each episode sits in the reader's own numbering.
+//   - tv is the order the lines are stored in, so changing a place rewrites and rehashes the lines
+//     in that episode, in one transaction, and refuses the whole save when a rehashed line would
+//     meet one that already holds its hash. The boot repair skips such a row; this does not.
+//   - dvd is read-only and refused.
+//
+// An episode's name is written on the episode and on each of its lines, so a line's export and the
+// import binding keep saying what the episode is called.
+func (s *Server) handlePutEpisodes(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathID(r)
+	if !ok {
+		writeErr(w, http.StatusBadRequest, "invalid movie id")
+		return
+	}
+	var req episodePutReq
+	if !decodeBody(w, r, &req) {
+		return
+	}
+	uid := userID(r)
+	var mediaType string
+	if err := s.Store.DB.QueryRow(`SELECT media_type FROM movies WHERE id = ? AND user_id = ?`, id, uid).Scan(&mediaType); err != nil || mediaType != "show" {
+		writeErr(w, http.StatusNotFound, "movie not found")
+		return
+	}
+	switch req.Order {
+	case "tv", "custom":
+	case "dvd":
+		writeErr(w, http.StatusBadRequest, "the dvd order is read-only: copy it to custom to change it")
+		return
+	default:
+		writeErr(w, http.StatusBadRequest, "order must be tv or custom")
+		return
+	}
+
+	tx, err := s.Store.DB.Begin()
+	if err != nil {
+		internalError(w, r, "episodes: begin", err)
+		return
+	}
+	defer tx.Rollback()
+
+	// What the series holds now: each episode's place in the order being saved, and its tv place.
+	type held struct {
+		name     string
+		cur, tv  episodePlace
+		hasTV    bool
+		newPlace episodePlace
+	}
+	eps := map[int64]*held{}
+	rows, err := tx.Query(`SELECT id, name FROM episodes WHERE movie_id = ?`, id)
+	if err != nil {
+		internalError(w, r, "episodes: list", err)
+		return
+	}
+	for rows.Next() {
+		var eid int64
+		h := &held{}
+		if err := rows.Scan(&eid, &h.name); err != nil {
+			rows.Close()
+			internalError(w, r, "episodes: scan", err)
+			return
+		}
+		eps[eid] = h
+	}
+	rows.Close()
+	orows, err := tx.Query(`SELECT o.episode_id, o.kind, o.season, o.episode FROM episode_orders o JOIN episodes e ON e.id = o.episode_id
+		WHERE e.movie_id = ? AND o.kind IN ('tv', ?)`, id, req.Order)
+	if err != nil {
+		internalError(w, r, "episodes: orders", err)
+		return
+	}
+	for orows.Next() {
+		var eid int64
+		var kind string
+		var p episodePlace
+		if err := orows.Scan(&eid, &kind, &p.Season, &p.Episode); err != nil {
+			orows.Close()
+			internalError(w, r, "episodes: orders scan", err)
+			return
+		}
+		if h := eps[eid]; h != nil {
+			if kind == "tv" {
+				h.tv, h.hasTV = p, true
+			}
+			if kind == req.Order {
+				h.cur = p
+			}
+		}
+	}
+	orows.Close()
+
+	// The new places, and every pair in the order unique once they are in.
+	for _, h := range eps {
+		h.newPlace = h.cur
+	}
+	names := map[int64]string{}
+	for _, it := range req.Episodes {
+		h := eps[it.ID]
+		if h == nil {
+			writeErr(w, http.StatusBadRequest, "an episode in the list is not this series'")
+			return
+		}
+		if it.Season < 0 || it.Episode < 0 {
+			writeErr(w, http.StatusBadRequest, "season and episode cannot be negative")
+			return
+		}
+		h.newPlace = episodePlace{Season: it.Season, Episode: it.Episode}
+		names[it.ID] = strings.TrimSpace(it.Name)
+	}
+	seen := map[episodePlace]bool{}
+	for _, h := range eps {
+		if seen[h.newPlace] {
+			writeErr(w, http.StatusBadRequest, "two episodes would sit in the same place")
+			return
+		}
+		seen[h.newPlace] = true
+	}
+
+	moved := 0
+	if req.Order == "tv" {
+		n, status, msg, extra := renumberTV(tx, id, func() map[episodePlace]episodePlace {
+			m := map[episodePlace]episodePlace{}
+			for _, h := range eps {
+				if h.hasTV && h.newPlace != h.tv {
+					m[h.tv] = h.newPlace
+				}
+			}
+			return m
+		}(), req.Confirm)
+		if status != 0 {
+			writeJSON(w, status, map[string]any{"error": msg, "moves": n, "collisions": extra})
+			return
+		}
+		moved = n
+	}
+	for eid, h := range eps {
+		if h.newPlace == h.cur {
+			continue
+		}
+		if _, err := tx.Exec(`INSERT INTO episode_orders (episode_id, kind, season, episode) VALUES (?, ?, ?, ?)
+			ON CONFLICT (episode_id, kind) DO UPDATE SET season = excluded.season, episode = excluded.episode`,
+			eid, req.Order, h.newPlace.Season, h.newPlace.Episode); err != nil {
+			internalError(w, r, "episodes: save order", err)
+			return
+		}
+	}
+	for eid, name := range names {
+		h := eps[eid]
+		if name == h.name {
+			continue
+		}
+		if _, err := tx.Exec(`UPDATE episodes SET name = ?, source = 'reader' WHERE id = ?`, name, eid); err != nil {
+			internalError(w, r, "episodes: save name", err)
+			return
+		}
+		// The lines of this episode, by the tv place it holds now.
+		tvp := h.tv
+		if req.Order == "tv" {
+			tvp = h.newPlace
+		}
+		if h.hasTV {
+			if _, err := tx.Exec(`UPDATE dialogues SET episode_name = ? WHERE movie_id = ? AND season = ? AND episode = ?`,
+				name, id, tvp.Season, tvp.Episode); err != nil {
+				internalError(w, r, "episodes: name the lines", err)
+				return
+			}
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		internalError(w, r, "episodes: commit", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]int{"moved": moved})
+}
+
+// renumberTV moves the lines of each episode in `moves` (old tv place -> new) and rehashes them. It
+// returns the number of lines that move, and a non-zero status with a message when the save has to be
+// refused: unconfirmed (409 with the count) or a collision (409, naming how many lines would collide).
+// Nothing is written on a refusal. Moves are applied in two passes so that two episodes swapping
+// places never meet each other's hash half way.
+func renumberTV(tx *sql.Tx, movie int64, moves map[episodePlace]episodePlace, confirm bool) (n int, status int, msg string, collisions int) {
+	if len(moves) == 0 {
+		return 0, 0, "", 0
+	}
+	type line struct {
+		id         int64
+		quote      string
+		act, quest string
+		season, ep int
+		hash       string
+		newHash    string
+		moves      bool
+	}
+	rows, err := tx.Query(`SELECT id, quote, act, quest, season, episode, dedupe_hash FROM dialogues
+		WHERE movie_id = ?`, movie)
+	if err != nil {
+		return 0, http.StatusInternalServerError, "could not read the lines", 0
+	}
+	var lines []*line
+	for rows.Next() {
+		l := &line{}
+		var season, ep sql.NullInt64
+		if err := rows.Scan(&l.id, &l.quote, &l.act, &l.quest, &season, &ep, &l.hash); err != nil {
+			rows.Close()
+			return 0, http.StatusInternalServerError, "could not read the lines", 0
+		}
+		l.season, l.ep = int(season.Int64), int(ep.Int64)
+		if season.Valid && ep.Valid {
+			if to, ok := moves[episodePlace{l.season, l.ep}]; ok {
+				l.moves = true
+				s2, e2 := to.Season, to.Episode
+				l.newHash = store.DialogueDedupeHash(l.quote, &s2, &e2, l.act, l.quest)
+				l.season, l.ep = s2, e2
+				n++
+			}
+		}
+		lines = append(lines, l)
+	}
+	rows.Close()
+	if n == 0 {
+		return 0, 0, "", 0
+	}
+	if !confirm {
+		return n, http.StatusConflict, "renumbering the tv order moves quotes: confirm to go on", 0
+	}
+	final := map[string]int{}
+	for _, l := range lines {
+		h := l.hash
+		if l.moves {
+			h = l.newHash
+		}
+		final[h]++
+	}
+	for _, c := range final {
+		if c > 1 {
+			collisions += c - 1
+		}
+	}
+	if collisions > 0 {
+		return n, http.StatusConflict, "a renumbered quote would meet one that already has its place: nothing was changed", collisions
+	}
+	for _, l := range lines {
+		if l.moves {
+			if _, err := tx.Exec(`UPDATE dialogues SET dedupe_hash = 'moving:' || id WHERE id = ?`, l.id); err != nil {
+				return 0, http.StatusInternalServerError, "could not renumber", 0
+			}
+		}
+	}
+	for _, l := range lines {
+		if l.moves {
+			if _, err := tx.Exec(`UPDATE dialogues SET season = ?, episode = ?, dedupe_hash = ?, updated_at = datetime('now') WHERE id = ?`,
+				l.season, l.ep, l.newHash, l.id); err != nil {
+				return 0, http.StatusInternalServerError, "could not renumber", 0
+			}
+		}
+	}
+	return n, 0, "", 0
 }

@@ -52,6 +52,10 @@ type movieReq struct {
 	// clear it by omission if it were full-state. nil leaves it; an empty string
 	// hands the question back to the medium.
 	CastRole *string `json:"cast_role"`
+	// EpisodeOrder is which of a show's orders is shown (tv, dvd or custom; "" is tv). A POINTER for
+	// CastRole's reason: one screen has the control, and the edit form's full-state save must leave
+	// it alone instead of resetting it to tv. See episodes.go.
+	EpisodeOrder *string `json:"episode_order"`
 	// IMDbID is full-state like the ordinary fields rather than a pointer like
 	// the two above, and the difference is what each id is FOR. Those two are
 	// what a re-sync pulls from, so an old client omitting one must not wipe it;
@@ -1108,6 +1112,22 @@ func (s *Server) handleUpdateMovie(w http.ResponseWriter, r *http.Request) {
 			`UPDATE movies SET cast_role = ?, updated_at = datetime('now') WHERE id = ? AND user_id = ?`,
 			v, id, uid); err != nil {
 			failErr("update movie: set cast role", err)
+			return
+		}
+	}
+	if req.EpisodeOrder != nil {
+		v := strings.TrimSpace(*req.EpisodeOrder)
+		if v != "" && v != "tv" && v != "dvd" && v != "custom" {
+			fail(http.StatusBadRequest, "an episode order is tv, dvd or custom")
+			return
+		}
+		if v == "tv" {
+			v = ""
+		}
+		if _, err := tx.Exec(
+			`UPDATE movies SET episode_order = ?, updated_at = datetime('now') WHERE id = ? AND user_id = ?`,
+			v, id, uid); err != nil {
+			failErr("update movie: set episode order", err)
 			return
 		}
 	}

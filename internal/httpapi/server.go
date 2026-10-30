@@ -474,6 +474,7 @@ func (s *Server) Handler() http.Handler {
 	// The same question one medium over (0071) — see chapters_handler.go.
 	mux.Handle("GET /movies/{id}/packs", s.requireAuth(s.handleMoviePacks))
 	mux.Handle("GET /movies/{id}/episodes", s.requireAuth(s.handleGetEpisodes))
+	mux.Handle("PUT /movies/{id}/episodes", s.requireAuth(s.handlePutEpisodes))
 	mux.Handle("POST /books/{id}/cast", s.requireAuth(s.handleAddCast("book")))
 	mux.Handle("GET /movies/{id}/cast", s.requireAuth(s.handleListCast("movie")))
 	// Everyone attached to one work — its credits by role, its cast with each

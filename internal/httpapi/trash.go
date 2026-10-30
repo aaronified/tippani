@@ -269,6 +269,28 @@ func collectWork(tx *sql.Tx, uid int64, kind string, id int64) (*collected, erro
 		}
 	}
 
+	// A SHOW'S EPISODES AND THEIR ORDERS (0088): the reader's own names and a custom numbering that
+	// exist nowhere else, so a deleted show that comes back without them has lost something. They go
+	// back with their ids, which the series' own row keeps too.
+	if kind == "movie" {
+		eps, err := queryMaps(tx, `SELECT * FROM episodes WHERE movie_id = ?`, id)
+		if err != nil {
+			return nil, err
+		}
+		if len(eps) > 0 {
+			out.Payload["episodes"] = eps
+			if ph, args, ok := inList(ids(eps, "id")); ok {
+				ords, err := queryMaps(tx, `SELECT * FROM episode_orders WHERE episode_id IN `+ph, args...)
+				if err != nil {
+					return nil, err
+				}
+				if len(ords) > 0 {
+					out.Payload["episode_orders"] = ords
+				}
+			}
+		}
+	}
+
 	// THE FILE THE WORK'S QUOTES CAME FROM, and what was read from it. A delete the bin can take
 	// back must take back EVERYTHING: Undo returning the work and its quotes but not the file
 	// (and so not the context cut from it) would be a restore that quietly lost something. The
@@ -291,7 +313,7 @@ func collectWork(tx *sql.Tx, uid int64, kind string, id int64) (*collected, erro
 			}
 		}
 		if ph, args, ok := inList(ids(srcs, "id")); ok {
-			ctxRows, err := queryMaps(tx, `SELECT * FROM source_context WHERE source_id IN (`+ph+`)`, args...)
+			ctxRows, err := queryMaps(tx, `SELECT * FROM source_context WHERE source_id IN `+ph, args...)
 			if err != nil {
 				return nil, err
 			}
@@ -950,6 +972,10 @@ var accountTables = []string{
 	"genres", "tags", "stickers", "people", "person_kinds", "characters",
 	"person_alias", "character_alias",
 	"books", "movies",
+	// A show's episodes and where each sits in its orders (0088), straight after the series they hang
+	// off. Neither has a user_id, so the account bin reaches them through the series. Ids are kept on
+	// restore like every other row's: AUTOINCREMENT never hands one out twice.
+	"episodes", "episode_orders",
 	// work_cast BEFORE the quote tables, and this moved. It used to sit with
 	// work_reads on the ground that "nothing walks to them" — true of both when
 	// that was written, and no longer true of this one: a quote's speaker points at
@@ -1101,6 +1127,13 @@ func (s *Server) binAccount(tx *sql.Tx, adminID, targetID int64, username string
 			rows, err = queryMaps(tx,
 				`SELECT * FROM dialogue_tags WHERE dialogue_id IN
 				   (SELECT d.id FROM dialogues d JOIN movies m ON m.id = d.movie_id WHERE m.user_id = ?)`, targetID)
+		case "episodes":
+			rows, err = queryMaps(tx,
+				`SELECT * FROM episodes WHERE movie_id IN (SELECT id FROM movies WHERE user_id = ?)`, targetID)
+		case "episode_orders":
+			rows, err = queryMaps(tx,
+				`SELECT * FROM episode_orders WHERE episode_id IN
+				   (SELECT e.id FROM episodes e JOIN movies m ON m.id = e.movie_id WHERE m.user_id = ?)`, targetID)
 		case "anthology_entries":
 			// Polymorphic on one side and a real foreign key on the other, so it is
 			// reached through the ANTHOLOGY rather than through the three parents: an
