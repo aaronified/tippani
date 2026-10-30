@@ -34,6 +34,7 @@ import { RESTART_FAILED, RESTART_NEW, RESTART_SAME, waitForRestart } from './upd
 import { LanguagePicker } from './locale.jsx'
 import { languageMarksState } from './languages.jsx'
 import { languageFor, scriptOf } from './iso639.js'
+import { SpeechFields } from './speak.jsx'
 import { cachedVocabulary, primeSearchVocabulary } from './vocabulary.js'
 import { lockedOff, parseQuestions, parseTuning, questionsBlob, questionsFor, REVIEW_DECKS, REVIEW_TIERS, taxonomy, toggle as toggleQuestion, TUNING_FIELDS, tuningBlob, tuningProblem } from './quiz.js'
 import { createPortal } from 'react-dom'
@@ -5886,6 +5887,7 @@ function Appearance({ prefs, onPreferences, part = 'all', onGo = null, compact =
             <TextSizeField prefs={prefs} onPreferences={onPreferences} />
             <QuoteReadingFields prefs={prefs} onPreferences={onPreferences} />
             <ContextGlobalFields />
+            <SpeechFields />
           </PrefGroup>
         </PrefColumns>
       )}

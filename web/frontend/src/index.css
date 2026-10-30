@@ -12197,3 +12197,9 @@ button.work-pill:hover { color: var(--ink); border-color: var(--ink-border); }
 .frame-note { position: relative; color: var(--faint); }
 .frame-note.is-problem { color: var(--danger); }
 .frame-presets { display: flex; flex-wrap: wrap; gap: var(--row); }
+
+/* READ ALOUD — the speaker in a card's top-right corner. Absolutely positioned so it costs the card no
+   layout, and the pick mark steps aside to its left where both exist. */
+.card-speak { position: absolute; top: 6px; inset-inline-end: 8px; z-index: 2; display: inline-flex; }
+.hand-card:has(.card-speak) .card-pick,
+.film-frame:has(.card-speak) .card-pick { inset-inline-end: 3em; right: auto; }

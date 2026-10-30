@@ -39,6 +39,7 @@ import { QUOTE_TEXT, languageClass } from './fonts.js'
 import { t } from './i18n.js'
 import { ProseArea } from './proseField.jsx'
 import { quoteTexts } from './text.js'
+import { SpeakButton } from './speak.jsx'
 import { useTextOrder } from './textOrderHost.jsx'
 import { usePersonOpener } from './personOpen.jsx'
 import {
@@ -1994,6 +1995,7 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
       {selection && (
         <PickMark picked={picked} label={t('common.dialogue.pick.label')} onChange={() => selection.toggle(d.id, selectKind)} />
       )}
+      <SpeakButton id={`${selectKind}:${d.id}`} text={frameBody} language={frameBody === d.quote ? d.language : ''} />
       {frameBody &&
         (sticker ? (
           <FlowQuote

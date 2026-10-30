@@ -12,6 +12,7 @@ import { deleteWithUndo } from './undo.jsx'
 import { ActionRow, actionsFor } from './actions.jsx'
 import { ANTHOLOGY_KIND, useGatherDoor } from './anthologyGather.jsx'
 import { QuoteContext, contextKind, useInContext } from './sources.jsx'
+import { SpeakButton } from './speak.jsx'
 import { selectionClick, selectionMenuItems, useSelection } from './selection.jsx'
 import { facetValue, facetValues, publishSearchSeed, seedableChips, withFacet, withFacetValues } from './facets.js'
 import { SelectionBar } from './SelectionBar.jsx'
@@ -1354,6 +1355,9 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
           onChange={() => selection.toggle(a.id, selectKind)}
         />
       )}
+      {/* THE MAIN QUOTE ONLY: what the big type shows, which the reader's text order decides. The stored
+          language describes the quote, so it is passed only when the quote is what is being read. */}
+      <SpeakButton id={`${selectKind}:${a.id}`} text={body} language={body === a.quote ? a.language : ''} />
       {!editInline && (
         <FormModal open={editing} onClose={() => setEditingId(null)} title={t('common.quote.edit.title')}>
           {editForm}
