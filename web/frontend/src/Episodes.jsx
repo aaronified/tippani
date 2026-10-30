@@ -337,6 +337,7 @@ function SeasonGroup({ season, list, typed, editable, names, setName, setPlace, 
               value={names[e.id] ?? ''}
               onChange={(ev) => setName(e.id, ev.target.value)}
             />
+            {e.new && <span className="tp-chip">{t('episodes.new')}</span>}
             <Tally n={e.quotes} word={t('unit.quote', { count: e.quotes })} icon={<IconQuote />} />
             {!(names[e.id] ?? '') && e.candidates?.length > 0 && (
               <span className="episode-candidates">

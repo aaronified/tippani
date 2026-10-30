@@ -49,11 +49,13 @@ import { t } from './i18n.js'
 //                in the body is the reader scrolling. From the smallest anchor a
 //                downward release dismisses, through the same guarded exit as the
 //                ✕ — so unsaved typing asks its question before the sheet goes
+//   drag-reorder reorder.js's `useRowReorder`: a held grip moves a row, scrolling the list at its
+//                edge (the Episodes dialog and Settings' section order)
 //
 // A drawing's presence in GESTURES is not permission to show it. This is.
-export const IMPLEMENTED = ['long-press', 'swipe-left', 'swipe-up', 'swipe-down']
+export const IMPLEMENTED = ['long-press', 'swipe-left', 'swipe-up', 'swipe-down', 'drag-reorder']
 
-// The seven. `label` is what the gesture is called, never an instruction.
+// The eight. `label` is what the gesture is called, never an instruction.
 export const GESTURES = [
   'long-press',
   'swipe-left',
@@ -62,6 +64,7 @@ export const GESTURES = [
   'swipe-down',
   'pinch-in',
   'pinch-out',
+  'drag-reorder',
 ]
 
 // Keys, not words: this table is built at import, before the language is known,
@@ -74,6 +77,7 @@ export const GESTURE_LABEL = {
   'swipe-down': 'vocab.gesture.swipe-down.label',
   'pinch-in': 'vocab.gesture.pinch-in.label',
   'pinch-out': 'vocab.gesture.pinch-out.label',
+  'drag-reorder': 'vocab.gesture.drag-reorder.label',
 }
 
 // THE PINCH PAIR READS BACKWARDS FROM THE FILE NAMES, on purpose. A pinch IN — two
@@ -123,6 +127,17 @@ const ART = {
       <path d="M13,22.48,7.82,17.34a2,2,0,0,1,2.86-2.86L12,15.8V6.36a2,2,0,0,1,1.74-2,1.92,1.92,0,0,1,2.08,1.9V12l5,.72a1.91,1.91,0,0,1,1.64,1.89h0a17.18,17.18,0,0,1-1.82,7.71l-.09.18"/>
       <polyline points="7.23 7.21 4.36 10.07 1.5 7.21"/>
       <line x1="4.36" y1="0.52" x2="4.36" y2="10.07"/>
+    </>
+  ),
+  // drag-reorder — the swipe-down hand holding one of two rows, with the pair of arrows a held row
+  // moves along. Drawn for the Episodes dialog's grip and every list that reorders (useRowReorder).
+  'drag-reorder': (
+    <>
+      <path d="M13,22.48,7.82,17.34a2,2,0,0,1,2.86-2.86L12,15.8V6.36a2,2,0,0,1,1.74-2,1.92,1.92,0,0,1,2.08,1.9V12l5,.72a1.91,1.91,0,0,1,1.64,1.89h0a17.18,17.18,0,0,1-1.82,7.71l-.09.18"/>
+      <rect x="1.5" y="1.5" width="9" height="3" rx="1"/>
+      <rect x="1.5" y="7" width="9" height="3" rx="1"/>
+      <polyline points="14 3.5 16.5 1 19 3.5"/>
+      <polyline points="14 8 16.5 10.5 19 8"/>
     </>
   ),
   // pinch-in — atlas/zoom-out

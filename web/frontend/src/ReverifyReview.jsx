@@ -62,6 +62,7 @@ const FIELD_KEYS = {
   poster: 'common.field.poster.label',
   director: 'common.field.director.label',
   cast: 'common.field.cast.label',
+  episodes: 'common.field.episodes.label',
   portrait: 'common.field.portrait.label',
   bio: 'common.field.bio.label',
   born: 'common.field.born.label',
@@ -100,6 +101,8 @@ const itemKey = (it) => (it.type === 'person' ? `person:${it.kind}:${it.name}` :
 // defaults to ticked; overwrites default to unticked.
 function emptyStored(v) {
   if (v == null || v === '' || v === 0) return true
+  // A show with no episodes yet being given some is a pure fill.
+  if (v && typeof v === 'object' && !Array.isArray(v) && v.count === 0) return true
   return Array.isArray(v) && v.length === 0
 }
 
@@ -117,6 +120,17 @@ export function ValueCell({ field, value, fresh }) {
         loading="lazy"
         style={{ width: 68, aspectRatio: '2 / 3', objectFit: 'cover', borderRadius: 6, border: '1px solid var(--ink-border)' }}
       />
+    )
+  }
+  // A SHOW'S EPISODES, ONE ROW: what is held now as a count, and what the supplier would change as
+  // "12 new, 3 renamed". Fresh also carries the list itself, which an approval sends back whole.
+  if (field === 'episodes') {
+    return (
+      <span className="block" style={{ fontSize: 'var(--type-ui-13)' }}>
+        {value.count != null
+          ? t('reverify.episodes.stored', { n: value.count })
+          : t('reverify.episodes.fresh', { new: value.new, renamed: value.renamed })}
+      </span>
     )
   }
   if (field === 'genres') {
