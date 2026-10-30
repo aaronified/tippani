@@ -104,9 +104,14 @@ export function editBudget(n) {
 // import, and which Movies.jsx imports by way of works.jsx. A one-line pure
 // formatter was the only thing standing between those two facts and an import
 // cycle, so it moved to the module that imports nothing.
+// A SERIES SHOWING ITS DVD OR CUSTOM ORDER sends where the line's episode sits in it (shown_season,
+// shown_episode); those are what is printed, falling back to the stored tv pair where the server sent
+// none (a film, a series on tv, an episode the shown order does not place).
 export function episodeLabel(d) {
-  if (d?.season == null) return ''
-  return d.episode == null ? `S${d.season}` : `S${d.season}E${d.episode}`
+  const season = d?.shown_season ?? d?.season
+  if (season == null) return ''
+  const episode = d?.shown_season != null ? d.shown_episode : d.episode
+  return episode == null ? `S${season}` : `S${season}E${episode}`
 }
 
 // chapterLabel is what a chapter is CALLED anywhere the interface prints one, and

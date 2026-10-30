@@ -345,3 +345,49 @@ func TestAddingAndRefetchingAShowKeepsTheReadersNamesAndEveryEpisode(t *testing.
 		t.Fatalf("a failed episode fetch emptied the show: %+v", got)
 	}
 }
+
+// The order a series shows decides how its lines are labelled and in what order they are listed: a
+// custom view that only renamed episodes would list them in the tv order under custom numbers.
+func TestASeriesShowingItsCustomOrderListsAndLabelsLinesInThatOrder(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	show, e1, e2, l1, l2 := showWithTwoEpisodes(t, srv, c)
+
+	type line struct {
+		ID           int64 `json:"id"`
+		Season       *int  `json:"season"`
+		Episode      *int  `json:"episode"`
+		ShownSeason  *int  `json:"shown_season"`
+		ShownEpisode *int  `json:"shown_episode"`
+	}
+	list := func() []line {
+		return decode[struct {
+			Dialogues []line `json:"dialogues"`
+		}](t, c.mustDo("GET", "/dialogues?movie_id="+itoa(show), nil, http.StatusOK)).Dialogues
+	}
+	if got := list(); len(got) != 2 || got[0].ID != l1 || got[0].ShownSeason != nil {
+		t.Fatalf("on tv the order is the stored one and nothing is shown: %+v", got)
+	}
+
+	// custom puts the second episode first, in another season.
+	c.putEpisodes(show, map[string]any{"order": "custom", "episodes": []map[string]any{
+		{"id": e1, "season": 2, "episode": 5}, {"id": e2, "season": 2, "episode": 1}}}, http.StatusOK)
+	c.mustDo("PUT", "/movies/"+itoa(show), map[string]any{"title": "A Show", "media_type": "show", "episode_order": "custom"}, http.StatusOK)
+	got := list()
+	if len(got) != 2 || got[0].ID != l2 || got[1].ID != l1 {
+		t.Fatalf("the list did not follow the custom order: %+v", got)
+	}
+	if got[0].ShownSeason == nil || *got[0].ShownSeason != 2 || *got[0].ShownEpisode != 1 || *got[0].Episode != 2 {
+		t.Fatalf("shown place or stored place wrong: %+v", got[0])
+	}
+	// The lines themselves were not touched: tv is still what they hold.
+	if s, e, _ := lineRow(t, srv, l2); s != 1 || e != 2 {
+		t.Fatalf("a shown order changed a stored line: %d/%d", s, e)
+	}
+
+	// Back to tv, and everything reads as before.
+	c.mustDo("PUT", "/movies/"+itoa(show), map[string]any{"title": "A Show", "media_type": "show", "episode_order": "tv"}, http.StatusOK)
+	if got := list(); got[0].ID != l1 || got[0].ShownSeason != nil {
+		t.Fatalf("%+v", got)
+	}
+}

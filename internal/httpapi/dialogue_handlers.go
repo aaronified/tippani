@@ -411,6 +411,11 @@ type dialogueRow struct {
 	gameRef
 	// See dialogueReq.EpisodeName for why this is not inside episodeRef.
 	EpisodeName string `json:"episode_name"`
+	// WHERE THIS LINE'S EPISODE SITS IN THE ORDER THE SERIES SHOWS (dvd or custom), when that is not
+	// the tv order the line stores. Absent for a film, for a series on tv, and for an episode the shown
+	// order does not place, where the label falls back to Season and Episode above.
+	ShownSeason  *int `json:"shown_season,omitempty"`
+	ShownEpisode *int `json:"shown_episode,omitempty"`
 	// EVERY CHARACTER NAMED ON THIS LINE, in the order they are named, each with
 	// the picture stored for them or an empty path when there is none (0050;
 	// cast_images.go says why the server resolves this and not the client, and why
@@ -434,14 +439,15 @@ type dialogueRow struct {
 // column beside them: they are NOT NULL with an empty-string default, so the empty
 // string is what a row predating the columns actually holds and there is no NULL
 // for a COALESCE to catch. Wrapping them anyway would read as though there were.
-const dialogueCols = `d.id, d.movie_id, d.quote, COALESCE(d.note, ''), d.translation, d.language, d.color, COALESCE(d.character, ''),
+var dialogueCols = `d.id, d.movie_id, d.quote, COALESCE(d.note, ''), d.translation, d.language, d.color, COALESCE(d.character, ''),
 	COALESCE(d.actor, ''), COALESCE(d.timestamp, ''), d.timestamp_end, d.season, d.episode,
 	d.act, d.quest, d.dlc, d.episode_name,
 	d.favorite, d.sticker_id, d.sticker_x, d.sticker_y,
 	COALESCE(d.noted_at, ''), d.created_at, d.updated_at,
 	r.item_id IS NOT NULL, COALESCE(r.stability, 0), COALESCE(r.last_reviewed_at, ''), COALESCE(r.last_result, ''),
 	d.review_excluded, m.review_excluded,
-	COALESCE(d.speaker_cast_id, 0)`
+	COALESCE(d.speaker_cast_id, 0),
+	` + shownPlace("d.", "season") + `, ` + shownPlace("d.", "episode")
 
 // dialogueOrder is the one true dialogue order, used by the list and the export
 // so a file reads in the order the screen shows: through the run, then through
@@ -467,9 +473,33 @@ func dialogueOrder(p string) string {
 	if p != "" {
 		p += "."
 	}
-	return ` ORDER BY (` + p + `season IS NULL), ` + p + `season, (` + p + `episode IS NULL), ` + p + `episode,
+	// THE ORDER A SERIES SHOWS (dvd or custom) decides the sort as well as the label: a dvd view that
+	// only renamed the episodes would list them in the tv order under dvd numbers. Where the series
+	// shows tv, or the shown order does not place an episode, the stored pair is used, so the order
+	// is byte-for-byte what it always was. The subquery names its outer table (`dialogues` when the
+	// query has no alias) because an unqualified movie_id inside it would bind to episodes.
+	outer := p
+	if outer == "" {
+		outer = "dialogues."
+	}
+	season := `COALESCE(` + shownPlace(outer, "season") + `, ` + p + `season)`
+	episode := `COALESCE(` + shownPlace(outer, "episode") + `, ` + p + `episode)`
+	return ` ORDER BY (` + season + ` IS NULL), ` + season + `, (` + episode + ` IS NULL), ` + episode + `,
 		` + p + `act, ` + p + `quest,
 		(` + p + `timestamp IS NULL), ` + p + `timestamp, ` + p + `id`
+}
+
+// shownPlace is the SQL for where a line's episode sits in the order its series shows: col is
+// "season" or "episode", p the dialogues table's qualifier ("d." or "dialogues."). NULL when the
+// series shows tv (movies.episode_order is ”), when the line has no episode, or when the shown
+// order does not place that episode.
+func shownPlace(p, col string) string {
+	return `(SELECT o.` + col + ` FROM movies mv
+		JOIN episodes ep ON ep.movie_id = mv.id
+		JOIN episode_orders tv ON tv.episode_id = ep.id AND tv.kind = 'tv'
+		JOIN episode_orders o ON o.episode_id = ep.id AND o.kind = mv.episode_order
+		WHERE mv.id = ` + p + `movie_id AND mv.episode_order <> ''
+		  AND tv.season = ` + p + `season AND tv.episode = ` + p + `episode)`
 }
 
 // dialogueReviewJoin attaches the per-line review row (kind='screen') that
@@ -492,7 +522,7 @@ func (s *Server) fetchDialogue(uid, id int64) (*dialogueRow, error) {
 			&d.Favorite, &d.StickerID, &d.StickerX, &d.StickerY,
 			&d.NotedAt, &d.CreatedAt, &d.UpdatedAt,
 			&d.Reviewed, &d.Stability, &d.LastReviewedAt, &d.LastResult,
-			&d.ReviewExcluded, &d.WorkReviewExcluded, &castID)
+			&d.ReviewExcluded, &d.WorkReviewExcluded, &castID, &d.ShownSeason, &d.ShownEpisode)
 	if err != nil {
 		return nil, err
 	}
@@ -707,7 +737,7 @@ func (s *Server) handleListDialogues(w http.ResponseWriter, r *http.Request) {
 			&d.Favorite, &d.StickerID, &d.StickerX, &d.StickerY,
 			&d.NotedAt, &d.CreatedAt, &d.UpdatedAt,
 			&d.Reviewed, &d.Stability, &d.LastReviewedAt, &d.LastResult,
-			&d.ReviewExcluded, &d.WorkReviewExcluded, &castID); err != nil {
+			&d.ReviewExcluded, &d.WorkReviewExcluded, &castID, &d.ShownSeason, &d.ShownEpisode); err != nil {
 			// See annotation_handlers: never silently drop a row — a scan error is a
 			// SELECT/struct drift and would present as an unexplained empty list.
 			olog.Warnf(olog.CodeDlgRowScan, "[dialogues] list row scan failed (schema/query drift?): %v", err)
