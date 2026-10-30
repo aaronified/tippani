@@ -501,3 +501,20 @@ func TestAShowsEpisodeOrdersSurviveExportAndImport(t *testing.T) {
 		t.Fatalf("names and orders did not survive the round trip: %+v", got.Episodes)
 	}
 }
+
+func TestSavingEpisodesCanSwitchTheOrderTheSeriesShowsInTheSameStep(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	show, e1, e2, _, _ := showWithTwoEpisodes(t, srv, c)
+	c.putEpisodes(show, map[string]any{"order": "custom", "show": "custom", "episodes": []map[string]any{
+		{"id": e1, "season": 1, "episode": 2}, {"id": e2, "season": 1, "episode": 1}}}, http.StatusOK)
+	got := decode[episodesBody](t, c.mustDo("GET", "/movies/"+itoa(show)+"/episodes", nil, http.StatusOK))
+	if got.Order != "custom" {
+		t.Fatalf("order = %q", got.Order)
+	}
+	c.putEpisodes(show, map[string]any{"order": "custom", "show": "nonsense", "episodes": []map[string]any{}}, http.StatusBadRequest)
+	c.putEpisodes(show, map[string]any{"order": "custom", "show": "tv", "episodes": []map[string]any{}}, http.StatusOK)
+	if got := decode[episodesBody](t, c.mustDo("GET", "/movies/"+itoa(show)+"/episodes", nil, http.StatusOK)); got.Order != "tv" {
+		t.Fatalf("order = %q", got.Order)
+	}
+}

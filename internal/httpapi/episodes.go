@@ -183,7 +183,11 @@ type episodePutReq struct {
 	Order string `json:"order"`
 	// Confirm is the reader's yes to renumbering the tv order, which rewrites the lines that sit in
 	// the episodes that move. Without it a tv save that would move lines answers 409 with the count.
-	Confirm  bool             `json:"confirm"`
+	Confirm bool `json:"confirm"`
+	// Show is which order the series shows afterwards (tv, dvd or custom), written in the same
+	// transaction so the dialog's one press cannot leave places saved and the view unchanged. nil
+	// leaves it.
+	Show     *string          `json:"show"`
 	Episodes []episodePutItem `json:"episodes"`
 }
 
@@ -223,6 +227,10 @@ func (s *Server) handlePutEpisodes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if req.Show != nil && *req.Show != "" && *req.Show != "tv" && *req.Show != "dvd" && *req.Show != "custom" {
+		writeErr(w, http.StatusBadRequest, "an episode order is tv, dvd or custom")
+		return
+	}
 	tx, err := s.Store.DB.Begin()
 	if err != nil {
 		internalError(w, r, "episodes: begin", err)
@@ -355,6 +363,16 @@ func (s *Server) handlePutEpisodes(w http.ResponseWriter, r *http.Request) {
 				internalError(w, r, "episodes: name the lines", err)
 				return
 			}
+		}
+	}
+	if req.Show != nil {
+		v := *req.Show
+		if v == "tv" {
+			v = ""
+		}
+		if _, err := tx.Exec(`UPDATE movies SET episode_order = ?, updated_at = datetime('now') WHERE id = ? AND user_id = ?`, v, id, uid); err != nil {
+			internalError(w, r, "episodes: show order", err)
+			return
 		}
 	}
 	if err := tx.Commit(); err != nil {
