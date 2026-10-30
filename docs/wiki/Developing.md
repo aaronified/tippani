@@ -765,7 +765,9 @@ schedule, and by hand (`workflow_dispatch`: `gh workflow run ci.yml`). Its jobs:
 | `race-nightly` | Every package but `internal/httpapi` under `-race`, on the schedule and on a run by hand, one job per package so a race or a timeout in one does not hide another. |
 | `race-nightly-httpapi` | `internal/httpapi` under `-race`, on the schedule and on a run by hand, split ten ways by test name because the package does not fit an hour raced. Each shard lists the tests from the race binary and fails unless every test it was dealt ran. |
 | `journeys` | `npm run journeys` in the runner's Google Chrome, with its sandbox on. A failing journey uploads what the reader saw and what the server said. Runs as three shards on three runners at once (`vitest --shard`), each with its own binary and browser. |
-| `frontend` | `npm test`, `npm run lint:rules`, `npm run build`, `git diff --exit-code -- web/dist web/dist-inputs.json`, `npm run glossary:check` and `iso6393-data.mjs --check`. It checks out the whole history, which the citation guard in `lint:rules` reads. |
+| `frontend-tests` | `npm test`, dealt over three shards (`--shard=N/3`), like `go-httpapi` and `journeys`. |
+| `frontend` | `npm run lint:rules`, `npm run build`, `git diff --exit-code -- web/dist web/dist-inputs.json`, `npm run glossary:check` and `iso6393-data.mjs --check`. It checks out the whole history, which the citation guard in `lint:rules` reads. |
+| `ci` | One name for "everything passed": needs the jobs above and fails on any failed, cancelled or skipped one, so a required check names this and not every shard. |
 | `docs` | `doc-map-check.mjs`, `site-links.mjs` on its three fixture sites under `scripts/testdata/site-links/`, and `wiki-check.mjs`. (The glossary check moved into the `frontend` job, which is where a fresh `web/dist` and `node_modules` exist.) |
 
 The other five workflows are described in [`.github/`](#github) above.
