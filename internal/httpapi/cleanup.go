@@ -81,6 +81,13 @@ var (
 	// numeral is the false positive, and the reader can see that at a glance.
 	cleanupReferenceMark = regexp.MustCompile(`[\x{00b9}\x{00b2}\x{00b3}\x{2070}-\x{209f}]|\[\d{1,3}\]|\p{L}\d{1,3}\b`)
 
+	// A citation marker left after a sentence: digits welded to a full stop that follows a letter or a
+	// closing mark, as in "…and so on.12 The next sentence". The owner's rule: any number right
+	// after a full stop with no space. The character before the stop is part of the match, and
+	// what keeps "3.14", "v2.0" and ".5" out of it: a digit, a space or nothing before the stop is
+	// a decimal or a version, not a citation. No lookbehind in RE2, so the fix hands the letter back.
+	cleanupCitationAfterStop = regexp.MustCompile(`[\p{L}\p{M}"'”’»)\]!?]\.\d+`)
+
 	// A pronunciation gloss: IPA between slashes, IPA-only characters, or the
 	// word a dictionary prints before one.
 	cleanupPronunciation = regexp.MustCompile(`/[^/\n]{2,40}/|[\x{0250}-\x{02af}\x{02b0}-\x{02ff}]|\((?i:pronoun|pron\.)[^)\n]*\)`)
@@ -103,6 +110,7 @@ var cleanupRules = []cleanupRule{
 	{ID: "double-space", find: rangesOf(cleanupDoubleSpace)},
 	{ID: "space-before-punctuation", find: rangesOf(cleanupSpaceBeforePunct)},
 	{ID: "reference-mark", find: rangesOf(cleanupReferenceMark)},
+	{ID: "citation-after-stop", find: rangesOf(cleanupCitationAfterStop)},
 	{ID: "pronunciation", find: rangesOf(cleanupPronunciation)},
 	{ID: "hyphen-break", find: rangesOf(cleanupHyphenBreak)},
 	{ID: "repeated-punctuation", find: rangesOf(cleanupRepeatedPunct)},

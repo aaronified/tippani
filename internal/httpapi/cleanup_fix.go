@@ -92,6 +92,9 @@ var cleanupFix = map[string]func(string) string{
 	// `reference-mark` AND `pronunciation` ARE DELIBERATELY ABSENT, and that is the
 	// most important thing in this file. See cleanupUnfixable below for what they
 	// did when they were here.
+	// The digits go; the character before the stop and the stop itself stay, so the sentence ends
+	// as it did. The reader sees the rewrite beside the find before accepting each one.
+	"citation-after-stop": func(m string) string { return strings.TrimRight(m, "0123456789") },
 	// A word split by a line break and rejoined with the hyphen still inside it.
 	// Both shapes are handled by dropping everything that is not a letter: `a- b`
 	// becomes `ab`, and `a-\n` becomes `a` so the next line joins on.

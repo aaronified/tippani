@@ -331,6 +331,8 @@ func TestCleanupFindsWhatAPageLeavesBehind(t *testing.T) {
 		{"a footnote index welded to the last word", "the end of conscience12", "reference-mark"},
 		{"a superscript reference", "a matter of conscience¹", "reference-mark"},
 		{"a bracketed reference", "a matter of conscience [12] and no more", "reference-mark"},
+		{"a citation number welded to a full stop", "and so on.12 The next sentence", "citation-after-stop"},
+		{"a citation after a closing quote", "he said “no”.3 Then left", "citation-after-stop"},
 		{"a justified line's double space", "two  spaces here", "double-space"},
 		{"a space before a full stop", "the end .", "space-before-punctuation"},
 		{"a non-breaking space from HTML", "one two", "invisible"},
@@ -375,6 +377,8 @@ func TestCleanupLeavesRealWritingAlone(t *testing.T) {
 		{"a Devanagari conjunct", "क्षमा करें"},
 		{"a quoted aside in brackets", "the fact [as he put it] stood"},
 		{"a date", "on 2026-08-24 it rained"},
+		{"a decimal", "pi is about 3.14 here"},
+		{"a version number", "since 2.0.1 it is faster"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

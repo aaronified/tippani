@@ -67,6 +67,12 @@ func TestCleanupFixRewritesExactlyWhatWasFound(t *testing.T) {
 			want: "call me Ishmael, then",
 		},
 		{
+			name: "a citation number after a full stop goes and the stop stays",
+			rule: "citation-after-stop",
+			in:   "and so on.12 The next sentence",
+			want: "and so on. The next sentence",
+		},
+		{
 			name: "a word broken across a line is joined",
 			rule: "hyphen-break",
 			in:   "conti- nuation of the thought",
