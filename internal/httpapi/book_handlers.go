@@ -344,8 +344,9 @@ func (s *Server) handleCreateBook(w http.ResponseWriter, r *http.Request) {
 		INSERT INTO books (id, updated_at, user_id, title, author, translator, editor, isbn, asin, cover_path,
 		                   description, published_year, published_circa, language, orig_language,
 		                   google_id, openlibrary_id, source_metadata,
-		                   series, series_index, favorite, subtitle, publisher, pages, links, text_order)
-		VALUES (?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
+		                   series, series_index, favorite, subtitle, publisher, pages, links, text_order,
+		                   review_excluded)
+		VALUES (?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
 		id, uid, req.Title, nullable(req.Author), req.Translator, req.Editor, nullable(req.ISBN), nullable(req.ASIN),
 		nullable(coverPath), nullable(req.Description), nullableInt(req.PublishedYear), req.PublishedCirca,
 		// Plain strings — NOT NULL DEFAULT '' (0047), so nullable("") would be the
@@ -355,7 +356,7 @@ func (s *Server) handleCreateBook(w http.ResponseWriter, r *http.Request) {
 		nullable(req.Series), nullableFloat(req.SeriesIndex), req.Favorite,
 		// 0061's three, plain values on NOT NULL DEFAULT columns like the languages
 		// above them.
-		req.Subtitle, req.Publisher, req.Pages, req.Links, req.TextOrder)
+		req.Subtitle, req.Publisher, req.Pages, req.Links, req.TextOrder, s.newWorkExcluded())
 	if err != nil {
 		s.removeCoverFile(coverPath)
 		internalError(w, r, "insert book", err)

@@ -480,7 +480,7 @@ func findImportBook(tx *sql.Tx, uid int64, b importer.Book) (int64, error) {
 
 // upsertImportBook finds or creates the import target, returning the row id and
 // whether it had to be created.
-func upsertImportBook(tx *sql.Tx, uid int64, b importer.Book, seps metadata.CreditSeps) (int64, bool, error) {
+func upsertImportBook(tx *sql.Tx, uid int64, b importer.Book, seps metadata.CreditSeps, excluded int) (int64, bool, error) {
 	isbn := metadata.NormalizeISBN(b.ISBN)
 	id, err := findImportBook(tx, uid, b)
 	if err != nil {
@@ -552,13 +552,13 @@ func upsertImportBook(tx *sql.Tx, uid int64, b importer.Book, seps metadata.Cred
 	if _, err := tx.Exec(
 		`INSERT INTO books (id, updated_at, user_id, title, author, translator, editor,
 		                    language, orig_language, subtitle, publisher, pages, links,
-		                    isbn, asin, series, series_index)
-		 VALUES (?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		                    isbn, asin, series, series_index, review_excluded)
+		 VALUES (?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		id, uid, b.Title, nullable(b.Author), b.Translator, b.Editor,
 		b.Language, b.OrigLanguage, // plain strings: NOT NULL DEFAULT '' (0047)
 		b.Subtitle, b.Publisher, b.Pages, b.Links, // and 0061's and 0062's
 		nullable(isbn), nullable(b.ASIN),
-		nullable(b.Series), nullableFloat(b.SeriesIndex)); err != nil {
+		nullable(b.Series), nullableFloat(b.SeriesIndex), excluded); err != nil {
 		return 0, false, err
 	}
 	if err := recordFilled(tx, uid, "book", id, nil, store.SourceImport, "", nil); err != nil {

@@ -51,6 +51,9 @@ func newTestServer(t *testing.T) *Server {
 	}
 	srv := New(st, fstest.MapFS{}, dir, false, false)
 	srv.SeedNewUsers = false // keep tag assertions deterministic; TestSeedDefaultTags flips this on
+	// A new work starts exempt from review in the product; the suite's decks assume a work is in, so the
+	// test server keeps them in and a few tests flip this to prove the product default.
+	srv.NewWorksInQuiz = true
 
 	// NO TEST IN THIS PACKAGE MAY REACH THE REAL WIKIPEDIA, and one silently did.
 	//

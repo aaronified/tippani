@@ -408,11 +408,12 @@ func (s *Server) handleCreateMovie(w http.ResponseWriter, r *http.Request) {
 	}
 	if _, err := tx.Exec(`
 		INSERT INTO movies (id, updated_at, user_id, title, director, release_year, release_circa, description,
-		                    media_type, series, series_index, favorite, imdb_id, publisher, links, text_order)
-		VALUES (?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		                    media_type, series, series_index, favorite, imdb_id, publisher, links, text_order,
+		                    review_excluded)
+		VALUES (?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		id, uid, req.Title, nullable(req.Director), nullableInt(req.ReleaseYear), req.ReleaseCirca,
 		nullable(req.Description), req.MediaType, nullable(req.Series),
-		nullableFloat(req.SeriesIndex), req.Favorite, normaliseIMDb(req.IMDbID), req.Publisher, req.Links, req.TextOrder); err != nil {
+		nullableFloat(req.SeriesIndex), req.Favorite, normaliseIMDb(req.IMDbID), req.Publisher, req.Links, req.TextOrder, s.newWorkExcluded()); err != nil {
 		internalError(w, r, "create movie: insert", err)
 		return
 	}
@@ -521,12 +522,13 @@ func (s *Server) createMovieFromSource(w http.ResponseWriter, r *http.Request, s
 	}
 	res, err := tx.Exec(`
 		INSERT INTO movies (id, updated_at, user_id, title, director, release_year, tmdb_id, tvdb_id, igdb_id,
-		                    media_type, poster_path, description, series, cast_json, source_metadata, imdb_id, publisher)
-		VALUES (?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
+		                    media_type, poster_path, description, series, cast_json, source_metadata, imdb_id, publisher,
+		                    review_excluded)
+		VALUES (?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
 		id, uid, d.Title, nullable(d.Director), nullableInt(d.ReleaseYear),
 		nullableInt64(d.TMDBID), nullableInt64(d.TVDBID), nullableInt64(d.IGDBID), d.MediaType,
 		nullable(posterPath), nullable(d.Overview), nullable(d.Series), castJSON, string(d.Raw), d.IMDbID,
-		d.Publisher)
+		d.Publisher, s.newWorkExcluded())
 	if err != nil {
 		s.removeCoverFile(posterPath)
 		internalError(w, r, "create movie: insert", err)

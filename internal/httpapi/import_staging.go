@@ -1362,7 +1362,7 @@ func (s *Server) approveWork(ctx context.Context, uid int64, n int, pw plannedWo
 	}
 
 	var mine approvalTally // what this work adds, kept only if it commits
-	destKind, destID, created, anchor, err := resolveApprovalTarget(tx, uid, work, s.creditSeps(tx, uid))
+	destKind, destID, created, anchor, err := resolveApprovalTarget(tx, uid, work, s.creditSeps(tx, uid), s.newWorkExcluded())
 	if err != nil {
 		return refused(err, "approve staged: resolve target")
 	}
@@ -1739,7 +1739,7 @@ func loadStagedForApproval(tx *sql.Tx, picked stagedSelection) ([]stagedWorkForA
 // since been deleted falls back to resolving by parsed identity rather than
 // failing the approval. The destination's kind — not the staged work's — is what
 // selects the locator set, which is how retargeting across kinds works.
-func resolveApprovalTarget(tx *sql.Tx, uid int64, work stagedWorkForApproval, seps metadata.CreditSeps) (kind string, id int64, created bool, anchor importMovieResult, err error) {
+func resolveApprovalTarget(tx *sql.Tx, uid int64, work stagedWorkForApproval, seps metadata.CreditSeps, excluded int) (kind string, id int64, created bool, anchor importMovieResult, err error) {
 	if work.TargetID != 0 {
 		table, col := "books", "published_year"
 		if work.TargetKind != "book" {
@@ -1771,10 +1771,10 @@ func resolveApprovalTarget(tx *sql.Tx, uid int64, work stagedWorkForApproval, se
 		return stagedKindQuotes, 0, false, importMovieResult{}, nil
 	}
 	if work.Kind == "book" {
-		id, created, err := upsertImportBook(tx, uid, work.book(), seps)
+		id, created, err := upsertImportBook(tx, uid, work.book(), seps, excluded)
 		return "book", id, created, importMovieResult{Anchored: !created}, err
 	}
-	got, err := upsertImportMovie(tx, uid, work.header())
+	got, err := upsertImportMovie(tx, uid, work.header(), excluded)
 	return importMediaType(work.Kind), got.ID, got.Created, got, err
 }
 

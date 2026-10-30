@@ -37,12 +37,17 @@ type Server struct {
 	CookieSecure bool // set true when your reverse proxy terminates TLS
 	TrustedProxy bool // read client IP from X-Forwarded-For (only behind your own proxy)
 	SeedNewUsers bool // seed the starter tag/sticker vocabulary on user creation (v3); off in tests
-	Static       fs.FS
-	DataDir      string         // covers/posters live in <DataDir>/MediaCover (PLAN §6)
-	TMDB         *metadata.TMDB // Key = env-provided key; resolveTMDB falls through to settings/built-in
-	TMDBBuiltin  string         // built-in app key, the last fallback before 503 (defaultTMDBKey in cmd/tippani)
-	TVDBBuiltin  string         // ditto for TheTVDB, the default film/show source (defaultTVDBKey)
-	TVDB         *metadata.TVDB // Key = env-provided TheTVDB key; resolveTVDB falls through to settings (no built-in)
+	// NewWorksInQuiz is the opposite of the default. A work the reader adds starts EXEMPT from review
+	// (review_excluded = 1) and so do the quotes it gets, because a quotation library is for keeping
+	// and the reader opts in to what they want to practise. The zero value is the default; the test
+	// server sets this so the suite's decks, which assume a work is in, keep meaning what they say.
+	NewWorksInQuiz bool
+	Static         fs.FS
+	DataDir        string         // covers/posters live in <DataDir>/MediaCover (PLAN §6)
+	TMDB           *metadata.TMDB // Key = env-provided key; resolveTMDB falls through to settings/built-in
+	TMDBBuiltin    string         // built-in app key, the last fallback before 503 (defaultTMDBKey in cmd/tippani)
+	TVDBBuiltin    string         // ditto for TheTVDB, the default film/show source (defaultTVDBKey)
+	TVDB           *metadata.TVDB // Key = env-provided TheTVDB key; resolveTVDB falls through to settings (no built-in)
 	// IGDB is the games supplier (0040). Unlike the others it needs a PAIR of
 	// credentials — a Twitch client id and secret — so resolveIGDB treats them
 	// as one setting that is either complete or absent.

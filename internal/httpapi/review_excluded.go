@@ -276,3 +276,12 @@ func (s *Server) fillExcludedFaces(uid int64, groups []excludedGroup) {
 		}
 	}
 }
+
+// newWorkExcluded is the review_excluded value a work gets when it is created: 1 (exempt) unless the
+// server is set the other way. Quotes added later inherit it from the work at insert.
+func (s *Server) newWorkExcluded() int {
+	if s.NewWorksInQuiz {
+		return 0
+	}
+	return 1
+}

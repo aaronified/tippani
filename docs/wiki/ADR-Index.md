@@ -1116,5 +1116,6 @@ My asks of 28 September, as the build was being merged, and my answers to the tw
 - [ADR-0915](ADR-0915-Corrections-Come-From-The-File-As-Proposals.md): Corrections come from the file, as proposals
 - [ADR-0916](ADR-0916-A-Books-Location-Is-A-Percent-Of-This-File.md): A book's location is a percent of this file, never a page
 - [ADR-0917](ADR-0917-A-Library-Scan-Is-One-Press-And-A-Job.md): A library scan is one press and a job
+- [ADR-0918](ADR-0918-A-New-Work-Starts-Exempt-From-Review.md): A new work starts exempt from review
 
 See also: [Design decisions](Design-decisions.md) · [Home](Home.md)

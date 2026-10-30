@@ -123,7 +123,7 @@ func anchorMovie(matches []movieDupHint, importedYear int) importMovieResult {
 // upsertImportMovie finds or creates the film/show to attach dialogues to: it
 // anchors to the best pre-existing same-title row when there is one, otherwise it
 // creates a bare row that a later TMDB/TVDB lookup can enrich.
-func upsertImportMovie(tx *sql.Tx, uid int64, m importer.MovieHeader) (importMovieResult, error) {
+func upsertImportMovie(tx *sql.Tx, uid int64, m importer.MovieHeader, excluded int) (importMovieResult, error) {
 	mediaType := importMediaType(m.MediaType)
 	got, err := findImportMovie(tx, uid, m.Title, mediaType, m.Year)
 	if err != nil {
@@ -137,9 +137,9 @@ func upsertImportMovie(tx *sql.Tx, uid int64, m importer.MovieHeader) (importMov
 		return importMovieResult{}, err
 	}
 	if _, err := tx.Exec(
-		`INSERT INTO movies (id, updated_at, user_id, title, release_year, media_type)
-		 VALUES (?, datetime('now'), ?, ?, ?, ?)`,
-		id, uid, m.Title, nullableInt(m.Year), mediaType); err != nil {
+		`INSERT INTO movies (id, updated_at, user_id, title, release_year, media_type, review_excluded)
+		 VALUES (?, datetime('now'), ?, ?, ?, ?, ?)`,
+		id, uid, m.Title, nullableInt(m.Year), mediaType, excluded); err != nil {
 		return importMovieResult{}, err
 	}
 	if err := recordFilled(tx, uid, "movie", id, nil, store.SourceImport, "", nil); err != nil {

@@ -484,3 +484,42 @@ func trunc(s string) string {
 	}
 	return strings.TrimSpace(s[:40]) + "…"
 }
+
+// THE PRODUCT DEFAULT. The test server keeps new works in the quiz so the rest of the suite's decks mean
+// what they say; this is the one place the real default is exercised. A work the reader adds starts
+// exempt from review, and so does every quote it gets, because a quotation library is for keeping and
+// the reader opts in to what they want to practise. Including the work brings its quotes in, and a
+// quote added afterwards follows the work.
+func TestANewWorkStartsExemptFromReviewAndTheReaderOptsIn(t *testing.T) {
+	srv := newTestServer(t)
+	srv.NewWorksInQuiz = false
+	c := signupAdmin(t, srv.Handler())
+
+	book := createBook(t, c, "A Fresh Book")
+	film := c.newScreen("A Fresh Film", "movie")
+	c.mustDo("POST", "/annotations", map[string]any{"book_id": book, "quote": "a line to keep"}, http.StatusCreated)
+	c.newLine(film, "a film line to keep", nil)
+	if got := reviewTotal(t, c); got != 0 {
+		t.Fatalf("new works are in the quiz: %d cards in reach, want 0", got)
+	}
+
+	// Opting a work in brings what it holds and what it gets later.
+	c.mustDo("POST", "/books/bulk", map[string]any{"ids": []int64{book}, "review": true}, 200)
+	if got := reviewTotal(t, c); got != 1 {
+		t.Fatalf("after including the book: %d, want 1", got)
+	}
+	c.mustDo("POST", "/annotations", map[string]any{"book_id": book, "quote": "another line"}, http.StatusCreated)
+	if got := reviewTotal(t, c); got != 2 {
+		t.Fatalf("a highlight added to an included book: %d, want 2", got)
+	}
+
+	// A work that arrives through an import starts the same way.
+	rec := c.importFile("/import/markdown", "show.md", []byte("---\ntitle: Imported Show\ntype: show\n---\n\n> A line.\n- season: 1\n- episode: 1\n"))
+	batch := decode[struct {
+		BatchID int64 `json:"batch_id"`
+	}](t, rec).BatchID
+	c.follow("POST", "/import/staged/approve", map[string]any{"batch_id": batch})
+	if got := reviewTotal(t, c); got != 2 {
+		t.Fatalf("an imported work is in the quiz: %d, want still 2", got)
+	}
+}
