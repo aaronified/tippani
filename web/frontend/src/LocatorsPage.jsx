@@ -118,7 +118,7 @@ export default function LocatorsPage({ embedded = false, onOpenBook, onOpenMovie
                   const place = p.kind === 'annotation'
                   const open = place ? onOpenBook : onOpenMovie
                   const proposed = place
-                    ? [p.proposed, p.proposed_chapter !== p.current_chapter && p.proposed_chapter].filter(Boolean).join(' · ')
+                    ? [p.proposed !== p.current && p.proposed, p.proposed_chapter !== p.current_chapter && p.proposed_chapter].filter(Boolean).join(' · ')
                     : range(p.proposed, p.proposed_end)
                   return (
                     <div key={`${p.kind}:${p.id}`} className="flex flex-wrap items-start gap-3" data-testid="locator-row">

@@ -29,8 +29,9 @@ package httpapi
 // and the chapter its table of contents names. The proposal is that percent as the
 // highlight's `location` ("42%") and, only where the highlight has no chapter yet, the
 // chapter's name. It is a location in THIS file's text, not a page and not a Kindle
-// location, and says so on screen. A highlight that already has a location is never
-// exact: its proposal is a replacement, one press each, with the old value shown.
+// location, and says so on screen. A highlight that already has a location keeps it (a
+// Kindle location or a printed page is not comparable with a percent of this file): its
+// proposal is the chapter alone.
 
 import (
 	"database/sql"
@@ -77,11 +78,9 @@ type locatorProposal struct {
 	Evidence string `json:"evidence"`
 	Bucket   string `json:"bucket"`
 	Distance int    `json:"distance"`
-	// A book highlight's chapter, now and proposed (the file's own table of contents), and
-	// whether the proposal REPLACES a location the reader already has.
+	// A book highlight's chapter, now and proposed (the file's own table of contents).
 	CurrentChapter  string `json:"current_chapter,omitempty"`
 	ProposedChapter string `json:"proposed_chapter,omitempty"`
-	Replaces        bool   `json:"replaces,omitempty"`
 }
 
 // locKey names one proposal: a dialogue's id and an annotation's id are two sequences.
@@ -237,21 +236,27 @@ func (s *Server) loadPlaceProposals(uid int64, only map[locKey]bool, ignored map
 		if only != nil && !only[locKey{kindAnnotation, p.ID}] {
 			continue
 		}
+		// A location the reader already has is theirs and stays: a Kindle location or a
+		// printed page is a different scale from a percent of this file, and neither is
+		// worth losing for the other. The proposal then carries that same location back
+		// unchanged and is only about the chapter, so it can be accepted in bulk.
 		p.Proposed = strconv.Itoa(pct) + "%"
+		if strings.TrimSpace(p.Current) != "" {
+			p.Proposed = p.Current
+		}
 		// The reader's own chapter is theirs: the file names one only where there is none.
 		p.ProposedChapter = p.CurrentChapter
 		if p.CurrentChapter == "" {
 			p.ProposedChapter = chapter
 		}
-		if strings.TrimSpace(p.Current) == p.Proposed && p.ProposedChapter == p.CurrentChapter {
-			continue // already says what the file says
+		if p.Current == p.Proposed && p.ProposedChapter == p.CurrentChapter {
+			continue // already says what the file says, or has nothing to add
 		}
 		if ignored[ignoreKey(kindAnnotation, p.ID, locatorHash(p))] {
 			continue
 		}
-		p.Replaces = strings.TrimSpace(p.Current) != "" && strings.TrimSpace(p.Current) != p.Proposed
 		p.Bucket = bucketReview
-		if p.Distance == 0 && !p.Replaces {
+		if p.Distance == 0 {
 			p.Bucket = bucketExact
 		}
 		out = append(out, p)

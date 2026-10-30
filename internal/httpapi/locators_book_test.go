@@ -141,7 +141,7 @@ func TestAnEbooksHighlightIsProposedItsPercentAndChapterAndNothingIsWrittenYet(t
 		t.Fatalf("no proposal for the exact highlight: %+v", f.c.proposals())
 	}
 	if p.Bucket != "exact" || p.Distance != 0 || p.Proposed != percentBefore(bookParagraphs(), 3) ||
-		p.ProposedChapter != "Chapter One: Arrival" || p.Current != "" || p.Replaces {
+		p.ProposedChapter != "Chapter One: Arrival" || p.Current != "" {
 		t.Fatalf("%+v", p)
 	}
 	if p.WorkTitle != "The Keeper" || p.Evidence != bookCh1[2] {
@@ -201,44 +201,47 @@ func TestAcceptingTheExactGroupWritesLocationAndChapterAndAgainIsStale(t *testin
 	}
 }
 
-// A location the reader already wrote is theirs: the file's number is a different unit
-// (a percent of this file), so it is a replacement shown as one, one press each, and
-// never part of an accept-all.
-func TestAHighlightWithALocationIsAReplacementOnePressAndNeverBulk(t *testing.T) {
+// A location the reader already wrote is theirs, and a Kindle location or a page is a
+// different scale from a percent of this file. The file therefore proposes only the
+// chapter, the location comes back unchanged, and a chapter-only proposal with an exact
+// match is as safe to accept together as any other exact one.
+func TestAHighlightWithALocationKeepsItAndIsProposedOnlyItsChapter(t *testing.T) {
+	f := placeFixtureOf(t)
+	if _, err := f.srv.Store.DB.Exec(`UPDATE annotations SET location = '8856' WHERE id = ?`, f.exact); err != nil {
+		t.Fatal(err)
+	}
+	p, ok := f.c.proposalFor("annotation", f.exact)
+	if !ok || p.Current != "8856" || p.Proposed != "8856" || p.ProposedChapter != "Chapter One: Arrival" || p.Bucket != "exact" {
+		t.Fatalf("%+v %v", p, ok)
+	}
+	res := decode[map[string]int](t, f.c.mustDo("POST", "/locators/accept", map[string]any{"bucket": "exact", "items": []locatorItem{bookItem(p)}}, 200))
+	if res["applied"] != 1 {
+		t.Fatalf("%+v", res)
+	}
+	if loc, ch := f.srv.placeOf(t, f.exact); loc != "8856" || ch != "Chapter One: Arrival" {
+		t.Fatalf("the reader's location was lost or the chapter not filled: %q %q", loc, ch)
+	}
+	if _, again := f.c.proposalFor("annotation", f.exact); again {
+		t.Fatal("a highlight with its location and its chapter is still being proposed something")
+	}
+}
+
+// Edited between looking and pressing: stale, and the edit stands.
+func TestAChapterProposalIsStaleWhenTheLocationMovedUnderIt(t *testing.T) {
 	f := placeFixtureOf(t)
 	if _, err := f.srv.Store.DB.Exec(`UPDATE annotations SET location = 'p. 12' WHERE id = ?`, f.exact); err != nil {
 		t.Fatal(err)
 	}
-	p, ok := f.c.proposalFor("annotation", f.exact)
-	if !ok || !p.Replaces || p.Current != "p. 12" || p.Bucket != "review" {
-		t.Fatalf("%+v %v", p, ok)
-	}
-	res := decode[map[string]int](t, f.c.mustDo("POST", "/locators/accept", map[string]any{"bucket": "exact", "items": []locatorItem{bookItem(p)}}, 200))
-	if res["applied"] != 0 || res["skipped"] != 1 {
-		t.Fatalf("%+v", res)
-	}
-	if loc, _ := f.srv.placeOf(t, f.exact); loc != "p. 12" {
-		t.Fatalf("overwrote the reader's page by a bulk press: %q", loc)
-	}
-	// Edited again between looking and pressing: stale, and the edit stands.
+	p, _ := f.c.proposalFor("annotation", f.exact)
 	if _, err := f.srv.Store.DB.Exec(`UPDATE annotations SET location = 'loc 99' WHERE id = ?`, f.exact); err != nil {
 		t.Fatal(err)
 	}
-	res = decode[map[string]int](t, f.c.mustDo("POST", "/locators/accept", map[string]any{"bucket": "review", "items": []locatorItem{bookItem(p)}}, 200))
+	res := decode[map[string]int](t, f.c.mustDo("POST", "/locators/accept", map[string]any{"bucket": "exact", "items": []locatorItem{bookItem(p)}}, 200))
 	if res["applied"] != 0 || res["stale"] != 1 {
 		t.Fatalf("%+v", res)
 	}
 	if loc, _ := f.srv.placeOf(t, f.exact); loc != "loc 99" {
 		t.Fatalf("overwrote a later edit: %q", loc)
-	}
-	// A fresh look, accepted one at a time, does replace it.
-	p, _ = f.c.proposalFor("annotation", f.exact)
-	res = decode[map[string]int](t, f.c.mustDo("POST", "/locators/accept", map[string]any{"bucket": "review", "items": []locatorItem{bookItem(p)}}, 200))
-	if res["applied"] != 1 {
-		t.Fatalf("%+v", res)
-	}
-	if loc, _ := f.srv.placeOf(t, f.exact); loc != percentBefore(bookParagraphs(), 3) {
-		t.Fatalf("stored %q", loc)
 	}
 }
 
