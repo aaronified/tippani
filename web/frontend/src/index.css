@@ -12203,3 +12203,15 @@ button.work-pill:hover { color: var(--ink); border-color: var(--ink-border); }
 .card-speak { position: absolute; top: 6px; inset-inline-end: 8px; z-index: 2; display: inline-flex; }
 .hand-card:has(.card-speak) .card-pick,
 .film-frame:has(.card-speak) .card-pick { inset-inline-end: 3em; right: auto; }
+
+/* THE EPISODES DIALOG — one row per episode: grip, season, episode, name, how many quotes. Sizes are em
+   so the type dials reach them; the name takes what is left and wraps below on a narrow screen. */
+.episode-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5em; padding: 0.15em 0; }
+.episode-row[data-dragging="1"] { opacity: .5; }
+.episode-row[data-drop="1"] { box-shadow: 0 -2px 0 var(--accent-ui); }
+.episode-num { width: 4.2em; min-width: 0; text-align: center; }
+.episode-name { flex: 1 1 12em; min-width: 0; }
+.episode-code { min-width: 4.5em; font-family: var(--font-mono, inherit); }
+.episode-candidates { display: flex; flex-wrap: wrap; gap: 0.4em; flex-basis: 100%; }
+.episodes-form { display: flex; flex-direction: column; gap: var(--row); }
+.episodes-group { display: flex; flex-direction: column; gap: 0.4em; }

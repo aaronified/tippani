@@ -8,16 +8,30 @@
 // Pointer events are one API for mouse, pen and touch, which is what they were
 // added for.
 //
-// WHAT IT DOES NOT DO. It does not animate, does not build a drag image and does
-// not scroll the page when you reach its edge. A list of four to six rows fits on
-// any screen this app runs on, so none of that is load-bearing here; a longer list
-// would need the edge-scroll and should say so when it arrives.
+// WHAT IT DOES NOT DO. It does not animate and does not build a drag image.
 //
-// THE KEYBOARD IS NOT THIS FILE'S JOB. A grip is a pointer affordance, and a
-// keyboard reader gets the up/down buttons — which is why those stay on the desk
-// and why the grip carries `aria-hidden` on its glyph but a real label on its
-// button.
-import { useCallback, useRef, useState } from 'react'
+// IT SCROLLS WHEN YOU HOLD A ROW AT THE EDGE of whatever scrolls the list (the nearest scrollable
+// ancestor, or the page), because the Episodes dialog lists a show of hundreds of episodes and a
+// list that cannot be dragged past its first screen cannot be sorted. The scroll runs on the
+// frame clock while a drag is held, so keeping the pointer still at the edge keeps scrolling.
+//
+// AND THE KEYBOARD IS THIS FILE'S JOB NOW. Every grip answers Alt+ArrowUp and Alt+ArrowDown by moving
+// its row one place, so a list that can be dragged can also be sorted without a pointer. The up/down
+// buttons Settings draws stay where they are: they say what they do in words, and the grip is the
+// affordance for a long move.
+import { useCallback, useEffect, useRef, useState } from 'react'
+
+// How near an edge (px) a held row starts the list scrolling, and how far each frame moves it.
+const EDGE = 48
+const STEP = 14
+
+function scroller(el) {
+  for (let n = el?.parentElement; n; n = n.parentElement) {
+    const o = getComputedStyle(n).overflowY
+    if ((o === 'auto' || o === 'scroll') && n.scrollHeight > n.clientHeight) return n
+  }
+  return null
+}
 
 export function useRowReorder(onMove) {
   // The list element, so the rows can be measured. A ref rather than a query, so
@@ -26,6 +40,25 @@ export function useRowReorder(onMove) {
   const from = useRef(-1)
   const [dragging, setDragging] = useState(-1)
   const [over, setOver] = useState(-1)
+  const pointerY = useRef(0)
+  const frame = useRef(0)
+
+  // The edge-scroll loop: runs only while a row is held, and re-slots the drop target as the list moves.
+  const tick = useCallback(() => {
+    if (from.current < 0) return
+    const box = scroller(listRef.current)
+    const rect = box ? box.getBoundingClientRect() : { top: 0, bottom: window.innerHeight }
+    const y = pointerY.current
+    let dy = 0
+    if (y < rect.top + EDGE) dy = -STEP
+    else if (y > rect.bottom - EDGE) dy = STEP
+    if (dy) {
+      if (box) box.scrollBy(0, dy)
+      else window.scrollBy(0, dy)
+    }
+    frame.current = requestAnimationFrame(tick)
+  }, [])
+  useEffect(() => () => cancelAnimationFrame(frame.current), [])
 
   // WHICH ROW IS UNDER THE POINTER, by measuring rather than by hit-testing. A
   // hit test returns whatever is painted at that point, which during a drag is
@@ -47,6 +80,9 @@ export function useRowReorder(onMove) {
     if (e.button != null && e.button !== 0) return
     e.preventDefault()
     from.current = i
+    pointerY.current = e.clientY
+    cancelAnimationFrame(frame.current)
+    frame.current = requestAnimationFrame(tick)
     setDragging(i)
     setOver(i)
     // CAPTURE, so the drag survives the pointer leaving the grip — which it does
@@ -56,11 +92,13 @@ export function useRowReorder(onMove) {
 
   const onPointerMove = useCallback((e) => {
     if (from.current < 0) return
+    pointerY.current = e.clientY
     const to = slotAt(e.clientY)
     if (to >= 0) setOver(to)
   }, [slotAt])
 
   const end = useCallback(() => {
+    cancelAnimationFrame(frame.current)
     const a = from.current
     from.current = -1
     setDragging(-1)
@@ -79,6 +117,14 @@ export function useRowReorder(onMove) {
       onPointerMove,
       onPointerUp: end,
       onPointerCancel: end,
+      // Alt+ArrowUp / Alt+ArrowDown: one place, for a reader with no pointer.
+      onKeyDown: (e) => {
+        if (!e.altKey || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return
+        e.preventDefault()
+        const rows = listRef.current?.querySelectorAll('[data-row-index]').length ?? 0
+        const to = e.key === 'ArrowUp' ? i - 1 : i + 1
+        if (to >= 0 && to < rows) onMove(i, to)
+      },
       'data-dragging': dragging === i ? '1' : undefined,
     }),
     // Spread onto the row.

@@ -55,6 +55,7 @@ import {
 import { actionsFor } from './actions.jsx'
 import { ANTHOLOGY_KIND, useGatherDoor, workRule } from './anthologyGather.jsx'
 import { useSourceDoor } from './sources.jsx'
+import { useEpisodesDoor } from './Episodes.jsx'
 import { usePractice } from './review.jsx'
 import { deletePhrase, useBulkOps } from './bulkOps.jsx'
 import { selectionClick, selectionMenuItems } from './selection.jsx'
@@ -1133,7 +1134,9 @@ export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps, sel
   const { practise, practiceDialog } = usePractice(t(kind === 'book' ? 'nav.tab.library.label' : 'nav.tab.movies.label'))
   const gather = useGatherDoor()
   const source = useSourceDoor()
+  const episodes = useEpisodesDoor(onChanged)
   const acts = actionsFor(kind, item, {
+    episodes: episodes.open,
     // NOT gated on onChanged: a source file is stored beside the work and this tile
     // draws nothing of it, so there is nothing for a reload to catch up with.
     addSource: () => source.add(kind, item),
@@ -1302,6 +1305,7 @@ export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps, sel
         {practiceDialog}
         {gather.node}
         {source.node}
+        {episodes.node}
       </>
     )
   }
@@ -1318,6 +1322,7 @@ export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps, sel
       {practiceDialog}
       {gather.node}
       {source.node}
+      {episodes.node}
     </div>
   )
 }

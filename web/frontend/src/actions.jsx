@@ -1,4 +1,5 @@
 import {
+  IconWatching,
   ColorSwatches,
   Hearts,
   IconAnthology,
@@ -146,6 +147,18 @@ export function actionsFor(kind, item, ctx = {}) {
       single: true,
       available: isWork && !!ctx.addSource && canTakeSource(kind, item),
       run: () => ctx.addSource(item),
+    },
+    {
+      id: 'episodes',
+      label: t('common.action.episodes.label'),
+      where: OVERFLOW,
+      icon: <IconWatching />,
+      tooltip: t('common.action.episodes.tip'),
+      // A SHOW'S EPISODES: their names and the three orders. Shows only, and absent where the surface
+      // cannot open the dialog — a film or a game has none to name.
+      single: true,
+      available: isWork && kind === 'movie' && item?.media_type === 'show' && !!ctx.episodes,
+      run: () => ctx.episodes(item),
     },
     {
       id: 'inContext',

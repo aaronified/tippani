@@ -36,6 +36,7 @@ import { PasteLink, WorkLinks, linkRows, providerURL } from './workLinks.jsx'
 import { t } from './i18n.js'
 import { actionsFor } from './actions.jsx'
 import { SourceSection, useSourceDoor } from './sources.jsx'
+import { useEpisodesDoor } from './Episodes.jsx'
 import { KINDS } from './workKinds.js'
 import { BookLookupPicker, CoverControls, CoverPreview, MovieLookupPicker, hiResPoster, idNum } from './CoverPicker.jsx'
 import {
@@ -1365,6 +1366,9 @@ function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, gen
   const [sourceVersion, setSourceVersion] = useState(0)
   const source = useSourceDoor(() => setSourceVersion((v) => v + 1))
   const sourceAct = actionsFor(kind, item, { addSource: () => source.add(kind, item) }).find((a) => a.id === 'sourceAdd')
+  // A SHOW'S EPISODES, from the registry's own entry so this door and the card's menu cannot drift.
+  const episodes = useEpisodesDoor(onChanged)
+  const episodesAct = actionsFor(kind, item, { episodes: episodes.open }).find((a) => a.id === 'episodes')
   // THE SEARCH DOOR IS READ FROM THE SHELL, not threaded through the seven
   // callers that open this sheet — the same lesson `onOpenWork` and `onSearch`
   // both taught on the identity panels: "a capability that has to be re-threaded
@@ -1596,11 +1600,18 @@ function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, gen
           <IconMetadata />
           <span>{t('common.work.fetch.label')}</span>
         </GhostButton>
+        {episodesAct && (
+          <GhostButton type="button" onClick={episodesAct.run}>
+            {episodesAct.icon}
+            <span>{episodesAct.label}</span>
+          </GhostButton>
+        )}
         <InfoDot
           title={t('common.work.lookup.info.title')}
           text={t(kind === 'book' ? 'book.fetch.info.body' : 'film.fetch.info.body')}
         />
         {source.node}
+        {episodes.node}
         <span className="flex-1" />
         {onDelete && (
           <FieldIconButton
