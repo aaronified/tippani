@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
-import { FormModal, Field, GhostButton, IconCheck, IconClose, IconDelete, InfoDot, MonoLabel, Slider, toast, useConfirm, useFilePick } from './ui.jsx'
+import { FormModal, Field, GhostButton, IconCheck, IconChevron, IconClose, IconDelete, InfoDot, MonoLabel, Slider, toast, useConfirm, useFilePick } from './ui.jsx'
 import { json, putUpload } from './api.js'
 import { registerSessionCache } from './sessionCaches.js'
 import { t } from './i18n.js'
@@ -567,7 +567,10 @@ export function useInContext(kind, workId, id) {
 // ContextBody — what the dialog shows, as a block the edit form holds too. `origin` is
 // the file's name. `onMissing` is called when the quote has no stored context; without
 // it, that is shown as an error, which is what the dialog wants.
-export function ContextBody({ kind, id, origin = '', onMissing, onFound, onError }) {
+// `collapsed` hides the lines but keeps them loaded, so the form can fetch once and the
+// reader opens them without a wait. A failure to load stays showing either way: it is one
+// line with a Try again, and hiding it would hide that anything went wrong.
+export function ContextBody({ kind, id, origin = '', onMissing, onFound, onError, collapsed = false }) {
   const [ctx, setCtx] = useState(null)
   const [error, setError] = useState('')
   const [more, setMore] = useState(null) // { before, after } or null for the default
@@ -612,7 +615,7 @@ export function ContextBody({ kind, id, origin = '', onMissing, onFound, onError
     <>
       {error && <LoadFailed text={error} onRetry={() => setTick((n) => n + 1)} />}
       {ctx && (
-        <div className="flex flex-col gap-3" data-testid="context-panel">
+        <div hidden={collapsed}><div className="flex flex-col gap-3" data-testid="context-panel">
           {ctx.bound_before && <p className="microcopy">{t(unit === 'cue' ? 'context.bound.before.cue' : 'context.bound.before.paragraph')}</p>}
           {split(ctx.before).map((p, i) => (
             <p key={`b${i}`} style={{ color: 'var(--soft)' }}>{p}</p>
@@ -676,7 +679,7 @@ export function ContextBody({ kind, id, origin = '', onMissing, onFound, onError
               )}
             </div>
           )}
-        </div>
+        </div></div>
       )}
     </>
   )
@@ -690,6 +693,9 @@ export function ContextBody({ kind, id, origin = '', onMissing, onFound, onError
 export function QuoteContext({ kind, id, subject, workId, episode = '' }) {
   const [file, setFile] = useState(null)
   const [state, setState] = useState('') // '' loading, 'found', 'missing', 'error'
+  // COLLAPSED UNTIL ASKED FOR (#59). The edit form is for the quote's own fields, and the
+  // lines around it are a reference; open by default they pushed the fields down a phone.
+  const [open, setOpen] = useState(false)
   useEffect(() => {
     setFile(null)
     if (!id || !workId) return undefined
@@ -706,7 +712,14 @@ export function QuoteContext({ kind, id, subject, workId, episode = '' }) {
   const shown = state === 'found' || state === 'error' || (state === 'missing' && file)
   return (
     <section className="flex flex-col gap-2" aria-label={t('context.title')} hidden={!shown}>
-      {shown && <MonoLabel className="block">{t('context.title')}</MonoLabel>}
+      {state === 'found' ? (
+        <button type="button" className="tp-link self-start inline-flex items-center gap-1" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+          <MonoLabel className="block">{t('context.title')}</MonoLabel>
+          <IconChevron open={open} size={16} />
+        </button>
+      ) : (
+        shown && <MonoLabel className="block">{t('context.title')}</MonoLabel>
+      )}
       {state === 'missing' ? (
         file && <p className="microcopy">{t('context.missing', { name: file.name })}</p>
       ) : (
@@ -714,6 +727,7 @@ export function QuoteContext({ kind, id, subject, workId, episode = '' }) {
           kind={kind}
           id={id}
           origin={file?.name || ''}
+          collapsed={!open}
           onFound={() => setState('found')}
           onMissing={() => setState('missing')}
           onError={() => setState('error')}

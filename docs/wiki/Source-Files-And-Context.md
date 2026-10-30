@@ -37,9 +37,10 @@ Limits: 25 MB per file. A work with a mounted file keeps no copy: the row points
   the reason the last scan of a folder failed, and links to Settings > Server (to add folders) and to Checks.
 - **A work's details panel** shows the same rows for that one work, a file the last scan found for it, a line while a scan is
   running with a link to the jobs card, and the context size rule. A show lists its episode files on Metadata > Source files.
-- **The quote edit form** shows the stored context under the quote text: the lines before and after with the quote marked, which
-  file it came from, **Show more**, and the size adjustment for this quote with **Reset to inherited**. A quote the file could not
-  place gets one line saying so, and only when the work has a file.
+- **The quote edit form** has the stored context under the quote text, **folded until you open it** (press **In context**; it
+  folds again the same way). Open, it shows the lines before and after with the quote marked, which file it came from,
+  **Show more**, and the size adjustment for this quote with **Reset to inherited**. A quote the file could not place gets one
+  line saying so, and only when the work has a file; that line and a failed load stay showing while the rest is folded.
 - **In context** is on every quote card that has stored context: Library, Catalogue, Quotes boards, search results, Home's
   favourites and shuffle, and anthologies. The quiz card does not offer it, because the lines around a quote would give away the
   answer.

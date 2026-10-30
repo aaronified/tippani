@@ -48,8 +48,22 @@ beforeEach(() => {
 })
 
 describe('the edit form', () => {
+  it('keeps the context folded until it is opened, then shows it, and folds it again', async () => {
+    form()
+    const door = await screen.findByRole('button', { name: 'In context' })
+    expect(door.getAttribute('aria-expanded')).toBe('false')
+    // Folded: the lines are loaded but not on offer, so nothing inside them can be pressed.
+    expect(screen.queryByRole('button', { name: 'Show more' })).toBeNull()
+    fireEvent.click(door)
+    expect(door.getAttribute('aria-expanded')).toBe('true')
+    expect(screen.getByRole('button', { name: 'Show more' })).toBeTruthy()
+    fireEvent.click(door)
+    expect(screen.queryByRole('button', { name: 'Show more' })).toBeNull()
+  })
+
   it('shows the lines around the quote, names the file, and Show more widens it', async () => {
     form()
+    fireEvent.click(await screen.findByRole('button', { name: 'In context' }))
     expect(await screen.findByText(/It was a bright cold day in April, and the clocks/)).toBeTruthy()
     expect(screen.getByText(BEFORE[2])).toBeTruthy()
     expect(screen.queryByText(BEFORE[0])).toBeNull()
