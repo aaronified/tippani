@@ -141,8 +141,8 @@ These are the open [bug issues](https://github.com/aaronified/tippani/issues?q=i
 
 What is left of [Plan: work source files](Plan-Work-Source-Files.md) and [Plan: locators from files](Plan-Locators-From-Files.md):
 a bulk-editor screen for the per-quote context span fields (the endpoint exists), corrections for ambiguous matches, an undo for an
-accepted correction, a per-file "skip the mark buckets" and a note about the file itself, and book locations from MOBI/AZW3 files
-and from an EPUB's page list of publisher pages.
+accepted correction, a per-file "skip the mark buckets" and a note about the file itself, and book locations from an EPUB's page list of
+publisher pages (MOBI, AZW3 and PDF are built: [ADR-0918](ADR-0918-Kindle-Files-And-PDFs-Are-Source-Files-Read-By-Their-Text-Alone.md)).
 
 ## The backlog
 

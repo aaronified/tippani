@@ -1116,5 +1116,8 @@ My asks of 28 September, as the build was being merged, and my answers to the tw
 - [ADR-0915](ADR-0915-Corrections-Come-From-The-File-As-Proposals.md): Corrections come from the file, as proposals
 - [ADR-0916](ADR-0916-A-Books-Location-Is-A-Percent-Of-This-File.md): A book's location is a percent of this file, never a page
 - [ADR-0917](ADR-0917-A-Library-Scan-Is-One-Press-And-A-Job.md): A library scan is one press and a job
+- [ADR-0918](ADR-0918-Kindle-Files-And-PDFs-Are-Source-Files-Read-By-Their-Text-Alone.md): Kindle files and PDFs are source files, read by their text alone
+- [ADR-0919](ADR-0919-A-Highlight-Keeps-Its-Own-Location-And-The-File-Proposes-The-Chapter.md): A highlight keeps its own location, and the file proposes the chapter
+- [ADR-0920](ADR-0920-A-Quote-Is-Matched-In-The-Script-It-Was-Written-In.md): A quote is matched in the script it was written in
 
 See also: [Design decisions](Design-decisions.md) · [Home](Home.md)

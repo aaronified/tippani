@@ -80,12 +80,20 @@ changed).
 
 ## Places in a book
 
-For a book with an attached EPUB, the section of **Checks** now titled **Times and places from files** also proposes where each
-highlight sits: the **chapter** (from the EPUB's own contents list) and a **percent through**, such as "42%". The percent is of
-this file's text. It is never a page number and never a Kindle location, because those are counted differently and would not match.
-Highlights found in exactly one place are grouped and accepted together; a fuzzy match is one press each; a highlight that already
-has a location goes to the one-press group, so it is never overwritten in bulk. Only EPUB is read; MOBI and AZW3 are not. See
-[ADR-0916](ADR-0916-A-Books-Location-Is-A-Percent-Of-This-File.md).
+For a book with an attached ebook, the section of **Checks** now titled **Times and places from files** also proposes where each
+highlight sits: the **chapter** and a **percent through**, such as "42%". The percent is of this file's text. It is never a page
+number and never a Kindle location, because those are counted differently and would not match. Highlights found in exactly one
+place are grouped and accepted together; a fuzzy match is one press each.
+
+**A highlight that already has a location keeps it.** Kindle imports write one, and it is the better number. For those the file
+proposes the chapter alone, and an exact match can be accepted together like any other. A chapter you typed is never replaced. See
+[ADR-0916](ADR-0916-A-Books-Location-Is-A-Percent-Of-This-File.md) and
+[ADR-0919](ADR-0919-A-Highlight-Keeps-Its-Own-Location-And-The-File-Proposes-The-Chapter.md).
+
+**Which files are read.** EPUB, the Kindle container (MOBI, AZW and AZW3: one format, recognised by its bytes) and PDF. See
+[ADR-0918](ADR-0918-Kindle-Files-And-PDFs-Are-Source-Files-Read-By-Their-Text-Alone.md). A quote and its file have to be in the
+same script; matching is tested on Bengali, Hindi, Russian, French, Arabic, Japanese, Chinese and Thai
+([ADR-0920](ADR-0920-A-Quote-Is-Matched-In-The-Script-It-Was-Written-In.md)).
 
 ## How much context shows
 
