@@ -33,6 +33,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **An anthology's name no longer runs under its menu button**, and at the largest text size the
+  names are no longer broken in the middle of a word: there is one wide column.
+
+- **"Scan for duplicate works" on Metadata fits its card at the largest text size.** It hung out
+  of the card's edge on a phone.
+
+- **Times and places from files no longer repeats the quote**, and the arrows on it and on Found
+  files have spaces around them. The file's own words are shown only where they differ from the
+  quote.
+
 - **Checks no longer asks to swap a highlight's Kindle location for a percent.** A highlight
   that already has a location keeps it, and the file proposes only the chapter, which can be
   accepted together when the match was word for word. Before, hundreds of highlights each asked
