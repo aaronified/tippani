@@ -29,6 +29,10 @@ some other way.
   `gh workflow run docker-publish.yml --ref vX.Y.Z`; that workflow reads the tag from the ref, so the image is the one a pushed tag
   would build. The workflow gained `actions: write` for this.
 
+**Keeping the file cuttable.** AGENTS.md and CONTRIBUTING.md say how to add an entry (the tool, under [Unreleased], never a version
+  heading). The same test file also reads the real CHANGELOG.md: it must open with one [Unreleased] heading, every release must be
+  [X.Y.Z] - YYYY-MM-DD, and a cut must leave the older releases as they were. A hand edit that breaks any of that fails the suite.
+
 **Why this shape.** The pieces that can go wrong in a way a person reads (what the section looks like, what is refused) are in a
 script with tests (`web/frontend/test/rules/a-release-is-cut-from-the-unreleased-section.test.js`), because the workflow itself
 cannot be run from a checkout. The commit and the tag are one push so a refused push leaves nothing half done. `main` has no branch

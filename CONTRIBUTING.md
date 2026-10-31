@@ -27,6 +27,16 @@ node scripts/wiki-check.mjs && node scripts/doc-map-check.mjs
   [index](docs/wiki/ADR-Index.md). It says why, and what was turned down. Pages are never renumbered.
 - **Documentation lives in the wiki** (`docs/wiki/`), as Markdown with `Page-Name.md` links. The UI glossary is generated:
   `make glossary`. `CHANGELOG.md` is the one document elsewhere, because the app shows it.
+- **A change a user can see gets a changelog entry**, under `## [Unreleased]` at the top of `CHANGELOG.md`, and nowhere else:
+
+  ```bash
+  node scripts/changelog-entry.mjs Fixed "**What no longer happens.** Why, in a sentence or two (#123)."
+  ```
+
+  The section is `Added`, `Changed` or `Fixed`. The tool finds the position, creates `[Unreleased]` and the section if they are
+  missing, and checks the result before writing it, so do not edit the file by hand for this. Never add a version heading and
+  never touch a released section: the release workflow moves `[Unreleased]` under the version
+  ([Releasing](docs/wiki/Releasing.md)). A test fails if the file stops being something the release can cut.
 - **Rebuild `web/dist`** (`make frontend`) as the last commit of a change that touches the frontend.
 - **Both languages.** A new string goes into the English and the Bengali locale files, with the same keys.
 - **Commit messages** are Conventional Commits (`feat(scope): ...`, `fix(scope): ...`) and say why.

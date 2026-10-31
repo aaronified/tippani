@@ -5,6 +5,7 @@
 // of either, the cut refuses, because a Release whose notes are a stub is the thing this exists
 // to stop. The workflow itself cannot run here, so the part that can go wrong in a way a person
 // reads is this one.
+import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { describe, expect, it } from 'vitest'
@@ -81,5 +82,35 @@ describe('cutting a release from the changelog', () => {
     const r = cutRelease(md, '3.5.0', '2026-10-31')
     expect(r.md).toContain('- **First line.** Second\n  line of the same bullet.')
     expect(r.entries).toBe(1)
+  })
+})
+
+// THE REAL FILE, because the cut above is only as good as what it is given. People and agents
+// edit CHANGELOG.md; this is what says, in the same run as everything else, that the file is
+// still something the release workflow can cut. AGENTS.md and CONTRIBUTING.md tell them how to
+// keep it so.
+describe('CHANGELOG.md, as the release will find it', () => {
+  const real = readFileSync(join(process.cwd(), '../../CHANGELOG.md'), 'utf8').replaceAll('\r\n', '\n')
+  const headings = real.split('\n').filter((l) => l.startsWith('## '))
+
+  it('opens with an Unreleased section, which is where an entry goes', () => {
+    expect(headings[0]).toBe('## [Unreleased]')
+    expect(headings.filter((h) => /^## \[Unreleased\]/i.test(h))).toHaveLength(1)
+  })
+
+  it('names every release as [X.Y.Z] - YYYY-MM-DD, so the release notes can be found by version', () => {
+    const bad = headings.slice(1).filter((h) => !/^## \[[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?\] - [0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(h))
+    expect(bad).toEqual([])
+  })
+
+  it('can be cut now, with or without anything under Unreleased, and leaves the older releases as they were', () => {
+    const olderReleases = (md) => md.slice(md.indexOf('\n## [', md.indexOf('## [Unreleased]') + 1) + 1)
+    const r = cutRelease(real, '999.0.0', '2030-01-01', ['fix(test): a fix to cut with'])
+    expect(r.md).toContain('## [999.0.0] - 2030-01-01')
+    // everything from the first release that was already out is byte for byte what it was
+    const firstOld = real.split('\n').find((l, i, all) => l.startsWith('## [') && i > all.findIndex((x) => x.startsWith('## [Unreleased]')) && !/Unreleased/.test(l))
+    const fromOld = (md) => md.slice(md.indexOf(`\n${firstOld}\n`) + 1)
+    expect(fromOld(r.md)).toBe(fromOld(real))
+    expect(olderReleases(real).length).toBeGreaterThan(1000)
   })
 })
