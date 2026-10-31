@@ -1122,5 +1122,6 @@ My asks of 28 September, as the build was being merged, and my answers to the tw
 - [ADR-0921](ADR-0921-A-Quote-Card-s-Row-Is-One-Line-On-A-Phone.md): A quote card's action row is one line on a phone
 - [ADR-0922](ADR-0922-The-Context-Block-On-A-Quote-Form-Starts-Folded.md): The context block on a quote's edit form starts folded
 - [ADR-0923](ADR-0923-The-First-UI-Review-Pass-Is-Measured-On-A-Phone-Screen-By-Screen.md): The first UI review pass is measured on a phone, screen by screen
+- [ADR-0924](ADR-0924-The-Release-Workflow-Cuts-The-Version-From-The-Unreleased-Changelog.md): The release workflow cuts the version from the Unreleased changelog
 
 See also: [Design decisions](Design-decisions.md) · [Home](Home.md)

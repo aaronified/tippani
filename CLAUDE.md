@@ -537,7 +537,7 @@ running (`dockerd &` if not already up in this environment).
   `dist`, so a commit between two rebuilds is red there; every PUSHED head is not, and that
   is the line held.
 - Docs that go stale with a change and belong in the same PR: `CHANGELOG.md` (user-visible
-  changes), `docs/wiki/UI-Glossary.md` (interface renames; regenerate with `make glossary`), `docs/wiki/How-this-was-written.md` (verification changes),
+  changes, under `## [Unreleased]` with `node scripts/changelog-entry.mjs`; the release workflow moves them under the version), `docs/wiki/UI-Glossary.md` (interface renames; regenerate with `make glossary`), `docs/wiki/How-this-was-written.md` (verification changes),
   `docs/wiki/Design-decisions.md` (design departures).
 
 ## Standing UI rules
