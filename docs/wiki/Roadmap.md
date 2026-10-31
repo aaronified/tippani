@@ -88,13 +88,15 @@ old commit). Frontend tests (483) and both wiki checks pass.
 **What is left, in order:**
 
 1. **Finish the UI review** ([#57](https://github.com/aaronified/tippani/issues/57)). #60 and #59 were checked on a phone and
-   hold, and three layout faults on the source screens were fixed ([ADR-0923](ADR-0923-The-First-UI-Review-Pass-Is-Measured-On-A-Phone-Screen-By-Screen.md)).
-   Still to do: capture the screens that pass skipped (Catalogue, Stats, Anthologies, Bin, Profile, a show, a work's source
-   section), run `typescale` and `metadata-layout` in Firefox, look at Film detail's "Ascending" (a control the phone check says
-   does nothing), and see Locators with a proposal on screen.
-2. **Release 3.4.3**, only when the owner says. Push first; the changelog entry and the release are written by a `sonnet`-tier
-   agent ([Releasing](Releasing.md)). Two commit bodies (`2a989130`, `242013bb`) name ADR-0918 and ADR-0919 where the pages are
-   now 0921 and 0922; reword them before pushing if that matters.
+   hold, and six layout faults were fixed ([ADR-0923](ADR-0923-The-First-UI-Review-Pass-Is-Measured-On-A-Phone-Screen-By-Screen.md)).
+   Still to do: run the Firefox harnesses (`typescale`, `metadata-layout`, `frame-scroll`, `panel-depth`) on Zen with
+   `MOZ_NO_REMOTE=1`, compare `controls.mjs`'s phone counts with `controls-baseline.json` (138 under the touch floor and 14 with a
+   glyph and words were printed from Edge; they were not compared), find out why its desktop pass dies with "detached Frame", and
+   capture what the pass skipped: a work's source section, an episode's file, the Add surface.
+2. **Release.** 3.5.0 is cut by the `release` workflow, which makes the tag, the changelog section and the image build from a
+   version typed into it ([ADR-0924](ADR-0924-The-Release-Workflow-Cuts-The-Version-From-The-Unreleased-Changelog.md),
+   [Releasing](Releasing.md)). Its first real run is its test. Two commit bodies (`2a989130`, `242013bb`) name ADR-0918 and
+   ADR-0919 where the pages are now 0921 and 0922.
 3. **Rest of [#62](https://github.com/aaronified/tippani/issues/62):** the Source files row does not say why a work has no
    file. Chak De! India and Battlestar Galactica S04E20 have no subtitle file to find.
 4. **Read quotes aloud** ([Plan: read aloud](Plan-Read-Aloud.md), issue
