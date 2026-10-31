@@ -16,9 +16,9 @@ run by hand ([ADR-0924](ADR-0924-The-Release-Workflow-Cuts-The-Version-From-The-
 
 > Actions > release > Run workflow, from `main`, version `3.5.0` (or `v3.5.0`; both are the same version).
 
-It moves the section under `## [Unreleased]` beneath `## [3.5.0] - <today>`, commits that, tags the commit, pushes the commit and
-the tag together, starts the image build, and publishes the GitHub Release with that section as its notes. Nothing needs to be done
-first except the checks below.
+It moves the section under `## [Unreleased]` beneath `## [3.5.0] - <today>`, commits that, tags the commit, pushes the commit to `main` (with the `RELEASE_DEPLOY_KEY` deploy key, which the ruleset on `main` lets through, [ADR-0927](ADR-0927-Main-Is-Protected-And-The-Release-Pushes-With-A-Deploy-Key.md)) and then the tag, starts the image build, and publishes the GitHub Release with that section as its notes. `web/dist` is rebuilt first
+from the source, as its own `chore(dist): rebuild (release)` commit ahead of the release commit (nothing is committed when it came
+out the same), so the tag always carries the dist its source makes. Nothing needs to be done first except the checks below.
 
 **Writing the notes is writing under `## [Unreleased]`, as each change is made**, with `node scripts/changelog-entry.mjs <Section>
 "<entry>"` (it creates `[Unreleased]` and the section if they are missing). If nothing is under `[Unreleased]` when the release
@@ -52,15 +52,19 @@ the changelog says so rather than pretending. The workflow does not choose: the 
   folded into an ADR and its page deleted), the [ADRs](ADR-Index.md) for any decision made, the [UI glossary](UI-Glossary.md)
   (`make glossary`), [Developing](Developing.md)'s file map (`node scripts/doc-map-check.mjs`) and its CI table, and every wiki link
   (`node scripts/wiki-check.mjs`).
-- `web/dist` is rebuilt (`make frontend`) as the last commit before a push, and committed with `web/dist-inputs.json`.
-- `## [Unreleased]` says what the release changes. Read it: it becomes the notes.
+- `web/dist` needs nothing done to it. Pull requests do not rebuild it and CI does not check it: the release rebuilds it from the
+  source before it tags ([ADR-0926](ADR-0926-The-Release-Regenerates-Dist-And-Pull-Requests-Do-Not-Carry-It.md)).
+- `## [Unreleased]` says what the release changes. Read it: it becomes the notes. Each merged pull request put its own entries
+  there ([CONTRIBUTING](https://github.com/aaronified/tippani/blob/main/CONTRIBUTING.md)).
 
 ## If it fails
 
 - **Before the push** (the version is not a version, nothing to release, a section for it already exists): nothing was changed.
   Fix the cause and run it again.
-- **The push is refused** because `main` moved while it ran: the commit and the tag are one atomic push, so neither landed. Run it
-  again.
+- **The push is refused** because `main` moved while it ran: nothing was tagged. Run it again. If it is refused by the ruleset, the
+  deploy key is missing or no longer a bypass actor (Settings, Rules, and the `RELEASE_DEPLOY_KEY` secret).
+- **The commit landed but the tag did not:** the re-run stops because the section exists. Tag that commit by hand (`git tag -a vX.Y.Z
+  <sha> -m vX.Y.Z && git push origin vX.Y.Z`) and run the workflow again with the version to publish the Release.
 - **After the push** (the Release step or the image build fails): the tag exists, so run it again with the same version. That
   republishes the Release from the tag, and `gh workflow run docker-publish.yml --ref vX.Y.Z` rebuilds the image.
 

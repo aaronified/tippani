@@ -1123,5 +1123,8 @@ My asks of 28 September, as the build was being merged, and my answers to the tw
 - [ADR-0922](ADR-0922-The-Context-Block-On-A-Quote-Form-Starts-Folded.md): The context block on a quote's edit form starts folded
 - [ADR-0923](ADR-0923-The-First-UI-Review-Pass-Is-Measured-On-A-Phone-Screen-By-Screen.md): The first UI review pass is measured on a phone, screen by screen
 - [ADR-0924](ADR-0924-The-Release-Workflow-Cuts-The-Version-From-The-Unreleased-Changelog.md): The release workflow cuts the version from the Unreleased changelog
+- [ADR-0925](ADR-0925-Work-Goes-Through-Pull-Requests-And-The-Release-Rebuilds-Dist.md): Work goes through pull requests, each with its changelog entries, and the release rebuilds dist
+- [ADR-0926](ADR-0926-The-Release-Regenerates-Dist-And-Pull-Requests-Do-Not-Carry-It.md): The release regenerates dist, and pull requests do not carry it
+- [ADR-0927](ADR-0927-Main-Is-Protected-And-The-Release-Pushes-With-A-Deploy-Key.md): Main is protected, and the release pushes to it with a deploy key
 
 See also: [Design decisions](Design-decisions.md) · [Home](Home.md)
