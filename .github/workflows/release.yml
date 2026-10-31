@@ -1,39 +1,130 @@
 name: release
 
-# Cut a GitHub Release whenever a version tag (v*) is pushed, using that
-# version's CHANGELOG.md section as the release notes. The docker workflow
-# already publishes the GHCR image on the same tag; this adds the human-facing
-# Release entry so the Releases page stays in step with the tags (previously
-# releases were written by hand, which is why v0.4.x had images + tags but no
-# Release). Also runnable by hand (workflow_dispatch) against an existing tag to
-# backfill a release that was missed.
+# Cut a version and publish its GitHub Release, using the version's CHANGELOG.md section as the notes.
+# The docker workflow publishes the GHCR image for the same tag.
+#
+# THREE WAYS IN, and one result:
+#
+#   1. Run it by hand with a version, 3.5.0 or v3.5.0, from the branch under "Use workflow from"
+#      (main). When that version has no tag yet, this workflow cuts it: it moves the changelog's
+#      "## [Unreleased]" section under "## [3.5.0] - <today>" (scripts/release-changelog.mjs), commits
+#      that as "chore(release): 3.5.0", tags the commit v3.5.0, pushes both, starts the image build, and
+#      publishes the Release. Nothing else is needed first. If nothing is under [Unreleased], the notes are
+#      built from the feat and fix commit subjects since the last tag, and the run says so; if there is
+#      nothing of either it stops before it touches anything.
+#   2. Push a tag v3.5.0 yourself (the changelog section already written and committed). The Release is
+#      published and the docker workflow, which also listens for tags, builds the image.
+#   3. Run it by hand with a version that already has a tag (or from a tag): the Release is republished,
+#      to backfill one that was missed. Nothing is cut or pushed.
+#
+# WHY THE IMAGE BUILD IS STARTED EXPLICITLY. A tag pushed with this workflow's own token starts no other
+# workflow (GitHub does this on purpose, so a workflow cannot start a loop of itself), so the docker
+# workflow's tag trigger never fires for a tag cut here. `gh workflow run` is the one thing the token may
+# start, and docker-publish.yml reads the tag from the ref it is run on, so it builds the same image a
+# pushed tag would.
+#
+# THE RELEASE COMMIT IS NOT RUN THROUGH CI, for the same reason, so the commit before it is the one CI
+# judged. It changes CHANGELOG.md and nothing else. Look at CI on main before running this
+# (Releasing.md): a tag on a red commit publishes a red image.
+#
+# IF MAIN MOVED while this ran, the push is refused (it is one atomic push of the commit and the tag, so
+# neither lands) and nothing is published. Run it again.
 on:
   push:
     tags: ["v*"]
   workflow_dispatch:
     inputs:
-      tag:
-        description: "Existing tag to (re)publish a Release for, e.g. v0.4.0"
-        required: true
+      version:
+        description: "The version to release, such as 3.5.0 or v3.5.0. With no tag yet it is cut from the chosen branch; with a tag, its Release is republished"
+        required: false
+        type: string
 
 permissions:
   contents: write
+  # to start docker-publish.yml for a tag this workflow made (see above)
+  actions: write
 
 jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - name: Resolve tag
+      # First, so a run that cannot release fails in seconds. The version is the one typed, or the tag
+      # pushed. Whether its tag exists decides what happens next: `mode=new` cuts it, `mode=existing`
+      # publishes what is already tagged.
+      - name: Work out the version
         id: tag
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          tag="${{ github.event.inputs.tag }}"
-          tag="${tag:-$GITHUB_REF_NAME}"
+          set -euo pipefail
+          if [ -n "${INPUT_VERSION:-}" ]; then
+            tag="v${INPUT_VERSION#v}"
+          elif [ "$GITHUB_REF_TYPE" = tag ]; then
+            tag="$GITHUB_REF_NAME"
+          else
+            echo "::error::Give a version (such as 3.5.0 or v3.5.0) when running this from a branch, or push a tag like v3.5.0, or run it from an existing tag."
+            exit 1
+          fi
+          if ! [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
+            echo "::error::'$tag' is not a version like 3.5.0 or v3.5.0."
+            exit 1
+          fi
+          # Only a 404 means "no such tag". Any other failure is not an answer, and treating it as one
+          # would cut a version that exists.
+          if out=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${tag}" 2>&1); then
+            mode=existing
+          elif printf '%s' "$out" | grep -q 'HTTP 404'; then
+            mode=new
+          else
+            echo "::error::Could not check whether ${tag} exists: ${out}"
+            exit 1
+          fi
+          if [ "$mode" = new ] && [ "$GITHUB_REF_TYPE" != branch ]; then
+            echo "::error::${tag} has no tag yet, so it is cut from a branch. Run this from main, not from a tag."
+            exit 1
+          fi
+          case "$tag" in *-*) prerelease=true ;; *) prerelease=false ;; esac
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
+          echo "${tag}: mode=${mode}"
 
+      # A tag that exists is checked out as it is. A new one starts from the branch the run was started
+      # on, with every tag, so the cut can find the previous release.
       - uses: actions/checkout@v5
         with:
-          ref: ${{ steps.tag.outputs.tag }}
+          ref: ${{ steps.tag.outputs.mode == 'existing' && steps.tag.outputs.tag || github.ref }}
+          fetch-depth: 0
+
+      - name: Cut the version (changelog, commit, tag)
+        if: steps.tag.outputs.mode == 'new'
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+          VERSION: ${{ steps.tag.outputs.version }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          prev=$(git describe --tags --abbrev=0 --match 'v*' 2>/dev/null || true)
+          node scripts/release-changelog.mjs "$VERSION"
+          git add CHANGELOG.md
+          git commit -q \
+            -m "chore(release): ${VERSION}" \
+            -m "Cut by the release workflow. The notes are the changelog's [Unreleased] section moved under ${VERSION}, or the feat and fix commit subjects when it was empty. Range: ${prev:+${prev}..}HEAD."
+          git tag -a "$TAG" -m "$TAG"
+          # One push, so the commit and the tag land together or not at all.
+          git push --atomic origin "HEAD:refs/heads/${BRANCH}" "refs/tags/${TAG}"
+          echo "cut ${TAG} at $(git rev-parse --short HEAD)"
+
+      - name: Start the image build for the new tag
+        if: steps.tag.outputs.mode == 'new'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: gh workflow run docker-publish.yml --ref "$TAG"
 
       - name: Extract changelog section
         run: |
@@ -124,7 +215,9 @@ jobs:
           if gh release view "$tag" >/dev/null 2>&1; then
             gh release edit "$tag" --title "$tag" --notes-file notes.md
           else
-            gh release create "$tag" --title "$tag" --notes-file notes.md --verify-tag
+            pre=''
+            [ '${{ steps.tag.outputs.prerelease }}' = true ] && pre='--prerelease'
+            gh release create "$tag" --title "$tag" --notes-file notes.md --verify-tag $pre
           fi
 
       - name: Attach the scan reports and the SBOM
