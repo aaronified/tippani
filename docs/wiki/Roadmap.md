@@ -87,9 +87,11 @@ old commit). Frontend tests (483) and both wiki checks pass.
 
 **What is left, in order:**
 
-1. **Look at #60 and #59 on a phone** (390 px, largest type size), then the rest of the UI review
-   ([#57](https://github.com/aaronified/tippani/issues/57)): every screen at phone width, desktop width and the largest type
-   size. The new source and context screens have had no design pass.
+1. **Finish the UI review** ([#57](https://github.com/aaronified/tippani/issues/57)). #60 and #59 were checked on a phone and
+   hold, and three layout faults on the source screens were fixed ([ADR-0923](ADR-0923-The-First-UI-Review-Pass-Is-Measured-On-A-Phone-Screen-By-Screen.md)).
+   Still to do: capture the screens that pass skipped (Catalogue, Stats, Anthologies, Bin, Profile, a show, a work's source
+   section), run `typescale` and `metadata-layout` in Firefox, look at Film detail's "Ascending" (a control the phone check says
+   does nothing), and see Locators with a proposal on screen.
 2. **Release 3.4.3**, only when the owner says. Push first; the changelog entry and the release are written by a `sonnet`-tier
    agent ([Releasing](Releasing.md)). Two commit bodies (`2a989130`, `242013bb`) name ADR-0918 and ADR-0919 where the pages are
    now 0921 and 0922; reword them before pushing if that matters.
