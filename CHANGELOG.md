@@ -57,6 +57,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Metadata > Source files sat centred while a short one sat left, and the heading on Checks left
   its info dot on a line of its own.
 
+### Internal
+
+- **The release workflow rebuilds web/dist before it tags**, as its own commit when the source
+  has moved past it, so a tag never carries a stale build for the people who build from it.
+
+- **Work goes through pull requests**, each with its own changelog entries under [Unreleased]
+  and a pull request template that says so. Nothing is pushed to main directly.
+
 ## [3.4.2] - 2026-10-25
 
 ### Fixed
