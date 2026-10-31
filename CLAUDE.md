@@ -527,7 +527,7 @@ running (`dockerd &` if not already up in this environment).
   like `feat(cast): ...`. Subject says what changed; body says why, and the rejected
   alternative — see `git log` for the house style.
 - Comments explain why, not what.
-- **ONE COMMIT PER FEATURE OR FIX, AND `web/dist/` IS REBUILT ONCE PER PUSH.** The owner's:
+- **ONE COMMIT PER FEATURE OR FIX. (`web/dist/` is no longer rebuilt by pull requests: the release workflow regenerates it, owner, 31 October 2026, ADR-0926. The paragraph below is the older rule.)** The owner's:
   *"keep committing individual features and fixes"*, then *"you dont need to rebuild web/dist
   for each … only do that when you are pushing the commits"*. So feature commits carry
   source, tests and docs, and the last commit before every push is `chore(dist): rebuild`,

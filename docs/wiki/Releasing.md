@@ -17,9 +17,9 @@ run by hand ([ADR-0924](ADR-0924-The-Release-Workflow-Cuts-The-Version-From-The-
 > Actions > release > Run workflow, from `main`, version `3.5.0` (or `v3.5.0`; both are the same version).
 
 It moves the section under `## [Unreleased]` beneath `## [3.5.0] - <today>`, commits that, tags the commit, pushes the commit and
-the tag together, starts the image build, and publishes the GitHub Release with that section as its notes. If `web/dist` has fallen
-behind its source it is rebuilt first, as its own `chore(dist): rebuild (release)` commit ahead of the release commit, so the tag
-always carries the dist its source makes. Nothing needs to be done first except the checks below.
+the tag together, starts the image build, and publishes the GitHub Release with that section as its notes. `web/dist` is rebuilt first
+from the source, as its own `chore(dist): rebuild (release)` commit ahead of the release commit (nothing is committed when it came
+out the same), so the tag always carries the dist its source makes. Nothing needs to be done first except the checks below.
 
 **Writing the notes is writing under `## [Unreleased]`, as each change is made**, with `node scripts/changelog-entry.mjs <Section>
 "<entry>"` (it creates `[Unreleased]` and the section if they are missing). If nothing is under `[Unreleased]` when the release
@@ -53,9 +53,8 @@ the changelog says so rather than pretending. The workflow does not choose: the 
   folded into an ADR and its page deleted), the [ADRs](ADR-Index.md) for any decision made, the [UI glossary](UI-Glossary.md)
   (`make glossary`), [Developing](Developing.md)'s file map (`node scripts/doc-map-check.mjs`) and its CI table, and every wiki link
   (`node scripts/wiki-check.mjs`).
-- `web/dist` is rebuilt (`make frontend`) as the last commit of each pull request that touches the frontend, and committed with
-  `web/dist-inputs.json`. That is what CI checks. The release rebuilds it again if it is stale, which makes it a safety net and not
-  the way it is kept current.
+- `web/dist` needs nothing done to it. Pull requests do not rebuild it and CI does not check it: the release rebuilds it from the
+  source before it tags ([ADR-0926](ADR-0926-The-Release-Regenerates-Dist-And-Pull-Requests-Do-Not-Carry-It.md)).
 - `## [Unreleased]` says what the release changes. Read it: it becomes the notes. Each merged pull request put its own entries
   there ([CONTRIBUTING](https://github.com/aaronified/tippani/blob/main/CONTRIBUTING.md)).
 

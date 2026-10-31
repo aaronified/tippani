@@ -16,9 +16,9 @@ npm run dev                   # Vite dev server, proxies /api to 127.0.0.1:8080
 ## How a change goes in
 
 All work goes through a pull request, from a branch off `main`, including a change by the maintainer or by an agent. Nothing is
-pushed to `main` directly. A pull request is one change with its commits (a test, the fix, the docs, the `web/dist` rebuild last)
-and its one set of `[Unreleased]` changelog entries, and it is merged when CI is green. The version is cut later, from what the
-merged pull requests left under `[Unreleased]`.
+pushed to `main` directly. A pull request is one change with its commits (a test, the fix, the docs) and its one set of
+`[Unreleased]` changelog entries. CI runs on it and has to be green, then it gets a review by Sonnet, then the owner merges it.
+The version is cut later, from what the merged pull requests left under `[Unreleased]`.
 
 ## Before you open a pull request
 
@@ -46,9 +46,9 @@ node scripts/wiki-check.mjs && node scripts/doc-map-check.mjs
   writing it, so do not edit the file by hand for this. Never add a version heading and never touch a released section: the
   release workflow moves `[Unreleased]` under the version ([Releasing](docs/wiki/Releasing.md)), and what is there becomes the
   release notes. A test fails if the file stops being something the release can cut.
-- **Rebuild `web/dist`** (`make frontend`) as the last commit of a pull request that touches the frontend. If `main` moved and
-  `web/dist` conflicts, take either side, rebase, and rebuild: it is generated, so the rebuild is the resolution. CI rebuilds and
-  diffs it, which is the check; the release workflow rebuilds it again before it tags, so a tag never carries a stale one.
+- **Do not rebuild or commit `web/dist`.** It is a generated build, and the release workflow regenerates it before it tags, so a
+  pull request neither carries it nor is checked for it ([ADR-0926](docs/wiki/ADR-0926-The-Release-Regenerates-Dist-And-Pull-Requests-Do-Not-Carry-It.md)).
+  `make frontend` is still how you build it to look at the app.
 - **Both languages.** A new string goes into the English and the Bengali locale files, with the same keys.
 - **Commit messages** are Conventional Commits (`feat(scope): ...`, `fix(scope): ...`) and say why.
 

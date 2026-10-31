@@ -4,6 +4,7 @@ Source of truth: this wiki page.
 
 - **Area:** [Later decisions, in the order they were made](ADR-Index.md#later-decisions)
 - **Status:** Accepted
+- **Refined by:** [ADR-0926](ADR-0926-The-Release-Regenerates-Dist-And-Pull-Requests-Do-Not-Carry-It.md) (pull requests no longer carry dist)
 - **Refines:** [ADR-0924](ADR-0924-The-Release-Workflow-Cuts-The-Version-From-The-Unreleased-Changelog.md)
 
 **What was wrong.** Commits went straight to `main`, and the changelog was written from them at release time. With the release

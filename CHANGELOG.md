@@ -59,8 +59,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Internal
 
-- **The release workflow rebuilds web/dist before it tags**, as its own commit when the source
-  has moved past it, so a tag never carries a stale build for the people who build from it.
+- **The release workflow regenerates web/dist before it tags**, as its own commit when it came out
+  different, so a tag carries the build its source makes. Pull requests no longer rebuild or commit
+  web/dist, and CI no longer checks it.
 
 - **Work goes through pull requests**, each with its own changelog entries under [Unreleased]
   and a pull request template that says so. Nothing is pushed to main directly.
