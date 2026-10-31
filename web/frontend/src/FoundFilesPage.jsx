@@ -76,15 +76,15 @@ export default function FoundFilesPage({ embedded = false }) {
                     )}
                   </div>
                   {list.map((c) => (
-                    <div key={c.token} className="flex flex-wrap items-start gap-3" data-testid="found-row">
-                      <div className="min-w-0 flex-1 flex flex-col gap-1">
+                    <div key={c.token} className="flex flex-col gap-2" data-testid="found-row">
+                      <div className="min-w-0 flex flex-col gap-1">
                         <p>
                           <b>{c.title}</b>
                           {c.episode ? ` · ${c.episode.toUpperCase()}` : ''}
-                          <span className="import-arrow"><IconArrow size={12} /></span>
+                          <span className="import-arrow"><IconArrow size={12} /></span>{' '}
                           <span className="microcopy">{t(`found.kind.${c.format}`)}</span>
                         </p>
-                        <p className="microcopy" style={{ color: 'var(--soft)' }}>{c.rel}</p>
+                        <p className="microcopy" style={{ color: 'var(--soft)', overflowWrap: 'anywhere' }}>{c.rel}</p>
                         <p className="microcopy">{t(`found.how.${c.how}`)}</p>
                       </div>
                       <div className="flex items-center gap-2">

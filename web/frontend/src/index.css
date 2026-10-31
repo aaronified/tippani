@@ -6526,6 +6526,10 @@
     flex-wrap: wrap;
     margin: 0 0 10px;
   }
+  /* The heading and its count take whatever the control leaves, and wrap inside that. With the
+     heading's own width as its basis the pair filled the line and pushed a lone info dot onto a
+     line of its own on a phone. */
+  .section-header > .ph-left { flex: 1 1 14rem; min-width: 0; }
   .section-header h2 {
     font-family: var(--font-ui);
     font-style: var(--font-ui-style);
@@ -6574,6 +6578,9 @@
     color: var(--soft);
     text-decoration: underline;
     text-underline-offset: 3px;
+    /* A link is a button, and a button centres what wraps. A long title or a sentence that
+       runs onto a second line then sits in the middle of a left-aligned screen. */
+    text-align: left;
   }
   .tp-link:hover { color: var(--ink); }
   .tp-link-danger { color: var(--error); }
