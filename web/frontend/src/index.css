@@ -8982,9 +8982,7 @@ html[data-theme="dark"] .mobile-sheet-footer {
    on one of them. */
 .board-grid {
   display: grid;
-  /* The floor is the larger of 150px and nine rems, so a reader who has turned the type up gets
-     fewer, wider tiles and not two columns of names broken in the middle of a word. */
-  grid-template-columns: repeat(auto-fill, minmax(max(150px, 9rem), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: 12px;
 }
 .board-tile {
@@ -9078,9 +9076,6 @@ html[data-theme="dark"] .board-cover {
   font-size: var(--type-display-17);
   line-height: 1.25;
   overflow-wrap: anywhere;
-  /* The tile's menu button is 44px and sits over the top right corner, so the name keeps
-     out from under it: a long name ran beneath the button and was half hidden by it. */
-  padding-right: 36px;
 }
 .board-tile-count { font-family: var(--font-mono);
  font-weight: var(--font-mono-weight);
@@ -11185,9 +11180,7 @@ html[data-theme="dark"] .has-sticky-rail .meta-rail-row.is-stuck {
    went red on a panel header this rule has nothing to do with, reporting
    `1 1 8em` where the slot declares `0 0`. The same mistake was made with
    `.skipped-work-people > *` and caught the same way. */
-.section-index-verbs > .tp-btn { flex: 1 1 8em; min-width: 0; max-width: 100%; white-space: normal; }
-/* The verb may be narrower than its own words. At the top type size "Scan for duplicate works" is
-   wider than the card it sits in, and a button that cannot shrink hangs out of the card's edge. */
+.section-index-verbs > .tp-btn { flex: 1 1 8em; }
 /* WHAT A METADATA DOOR CARRIES: its open issues as pills (each a door into the
    console filtered to that issue), then its verbs — or, for Languages and
    Categories, the languages in their marks and the colours by name. One strip

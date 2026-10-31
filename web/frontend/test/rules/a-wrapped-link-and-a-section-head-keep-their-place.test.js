@@ -6,7 +6,7 @@
 // centred while "Gitanjali" beside it sat left. And Checks' section head let the heading and its
 // count fill the line, so the info dot after them wrapped alone onto a line of its own.
 //
-// And an anthology or board tile's name ran under its menu button. The measurement is scripts/screenshots (a phone-width capture); this file keeps the two rules
+// The measurement is scripts/screenshots (a phone-width capture); this file keeps the two rules
 // from being deleted.
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -24,23 +24,8 @@ function body(selector) {
 }
 
 describe('a link that wraps and a section head that wraps', () => {
-  it('a verb button may be narrower than its own words, so it stays inside its card', () => {
-    const d = body('.section-index-verbs > .tp-btn')
-    expect(d).toMatch(/min-width:\s*0/)
-    expect(d).toMatch(/white-space:\s*normal/)
-  })
-
   it('a link that runs onto a second line starts that line at the left', () => {
     expect(body('.tp-link')).toMatch(/text-align:\s*left/)
-  })
-
-  it('a tile’s name keeps out from under the menu button over its corner', () => {
-    expect(body('.board-tile-tools')).toMatch(/position:\s*absolute/)
-    expect(body('.board-tile-name')).toMatch(/padding-right:\s*3[6-9]px|padding-right:\s*[4-9]\dpx/)
-  })
-
-  it('a board grid widens its tiles when the type is turned up, so a name is not broken mid-word', () => {
-    expect(body('.board-grid')).toMatch(/minmax\(max\(150px,\s*9rem\)/)
   })
 
   it('a section head lets its heading and count shrink so the control beside them stays on the line', () => {

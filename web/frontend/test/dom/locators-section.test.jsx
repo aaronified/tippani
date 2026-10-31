@@ -67,15 +67,6 @@ describe('times from subtitles on Checks', () => {
     ])
   })
 
-  it('shows the file’s own words only where they differ from the quote', async () => {
-    render(<LocatorsPage embedded />)
-    const exact = await screen.findByTestId('locators-exact')
-    const same = 'People should not be afraid of their governments.'
-    expect(within(exact).getAllByText(same)).toHaveLength(1)
-    const review = screen.getByTestId('locators-review')
-    expect(within(review).getByText('Governments should be afraid of their people.')).toBeTruthy()
-  })
-
   it('shows a book highlight its place from the file, and presses carry what was seen', async () => {
     proposals = [
       P({

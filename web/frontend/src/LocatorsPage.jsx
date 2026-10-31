@@ -131,11 +131,11 @@ export default function LocatorsPage({ embedded = false, onOpenBook, onOpenMovie
                           {p.season || p.episode ? ` · S${p.season}E${p.episode}` : ''}
                         </p>
                         <p className="microcopy">
-                          {t('locators.now')}: {p.current ? range(p.current, p.current_end) : t(place ? 'locators.none.place' : 'locators.none')}{' '}
-                          <span className="import-arrow"><IconArrow size={12} /></span>{' '}
+                          {t('locators.now')}: {p.current ? range(p.current, p.current_end) : t(place ? 'locators.none.place' : 'locators.none')}
+                          <span className="import-arrow"><IconArrow size={12} /></span>
                           {t('locators.file.says')}: <b>{proposed}</b>
                         </p>
-                        {p.evidence && p.evidence !== p.quote && <p className="microcopy" style={{ color: 'var(--soft)' }}>{p.evidence}</p>}
+                        <p className="microcopy" style={{ color: 'var(--soft)' }}>{p.evidence}</p>
                       </div>
                       <div className="flex items-center gap-2">
                         <IconButton
