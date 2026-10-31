@@ -8,7 +8,8 @@ name: release
 #   1. Run it by hand with a version, 3.5.0 or v3.5.0, from the branch under "Use workflow from"
 #      (main). When that version has no tag yet, this workflow cuts it: it moves the changelog's
 #      "## [Unreleased]" section under "## [3.5.0] - <today>" (scripts/release-changelog.mjs), commits
-#      that as "chore(release): 3.5.0", tags the commit v3.5.0, pushes both, starts the image build, and
+#      that as "chore(release): 3.5.0" (after a "chore(dist): rebuild (release)" commit if web/dist had
+#      fallen behind its source), tags the commit v3.5.0, pushes both, starts the image build, and
 #      publishes the Release. Nothing else is needed first. If nothing is under [Unreleased], the notes are
 #      built from the feat and fix commit subjects since the last tag, and the run says so; if there is
 #      nothing of either it stops before it touches anything.
@@ -24,7 +25,8 @@ name: release
 # pushed tag would.
 #
 # THE RELEASE COMMIT IS NOT RUN THROUGH CI, for the same reason, so the commit before it is the one CI
-# judged. It changes CHANGELOG.md and nothing else. Look at CI on main before running this
+# judged. It changes CHANGELOG.md and nothing else (a dist rebuild, if one was needed, is the commit
+# before it). Look at CI on main before running this
 # (Releasing.md): a tag on a red commit publishes a red image.
 #
 # IF MAIN MOVED while this ran, the push is refused (it is one atomic push of the commit and the tag, so
@@ -97,6 +99,36 @@ jobs:
         with:
           ref: ${{ steps.tag.outputs.mode == 'existing' && steps.tag.outputs.tag || github.ref }}
           fetch-depth: 0
+
+      # THE TAG CARRIES THE DIST ITS SOURCE MAKES. web/dist is a committed build that `go build` embeds,
+      # and CI's "web/dist matches the source" check is the gate on it. The release commit changes
+      # CHANGELOG.md, which is not a dist input, so it can never make dist stale. But a head that was
+      # merged with a stale dist would be tagged as it is, and everyone who builds from the tag would
+      # get the old UI. So the SPA is rebuilt here, from the lockfile, and any difference is committed
+      # on its own ahead of the release commit. Where dist is already current this commits nothing.
+      # (The Docker image does not depend on this: its Dockerfile builds the SPA itself.) CI's check
+      # passes on a dist committed from Windows, so the build is the same on this runner.
+      - uses: actions/setup-node@v5
+        if: steps.tag.outputs.mode == 'new'
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/frontend/package-lock.json
+
+      - name: Rebuild web/dist if the source has moved past it
+        if: steps.tag.outputs.mode == 'new'
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          (cd web/frontend && npm ci && npm run build)
+          if git diff --quiet -- web/dist web/dist-inputs.json && [ -z "$(git ls-files --others --exclude-standard -- web/dist)" ]; then
+            echo "web/dist is current: nothing to commit"
+          else
+            git add -A web/dist web/dist-inputs.json
+            git commit -q -m "chore(dist): rebuild (release)" -m "Rebuilt by the release workflow because the source had moved past the committed dist."
+            echo "web/dist was stale and has been rebuilt"
+          fi
 
       - name: Cut the version (changelog, commit, tag)
         if: steps.tag.outputs.mode == 'new'
