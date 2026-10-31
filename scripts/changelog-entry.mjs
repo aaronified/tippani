@@ -92,19 +92,35 @@ if (!section || !text) {
 }
 
 const bullet = wrap(text)
-const primary = readFileSync(join(ROOT, FILE), 'utf8')
+const original = readFileSync(join(ROOT, FILE), 'utf8')
 
-// THE POSITION, FOUND. The newest release is the first `## `; the section is the
-// first `### <name>` after it; the insertion point is just past that heading's own
-// newline, whatever comes next.
-const relAt = primary.indexOf('\n## ')
-if (relAt < 0) throw new Error('no release heading in CHANGELOG.md')
-const secAt = primary.indexOf(`\n### ${section}\n`, relAt)
-if (secAt < 0) {
-  console.error(`the newest release has no "### ${section}" section — add the heading first, or name an existing one`)
-  process.exit(1)
+// WHERE AN ENTRY GOES: the `## [Unreleased]` section, which the release workflow moves under a
+// version (scripts/release-changelog.mjs). It is made above the newest release if the file has
+// none yet, and so is the `### <section>` inside it. Both are added to the text first so that the
+// position below is found the same way whether or not they were there.
+let primary = original
+if (!/^## \[Unreleased\]/m.test(primary)) {
+  const first = primary.indexOf('\n## ')
+  if (first < 0) throw new Error('no release heading in CHANGELOG.md')
+  primary = primary.slice(0, first + 1) + '## [Unreleased]\n\n' + primary.slice(first + 1)
 }
-const at = secAt + `\n### ${section}\n`.length
+
+// THE POSITION, FOUND. The section is the first `### <name>` inside Unreleased; the insertion
+// point is just past that heading's own newline, whatever comes next.
+const relAt = primary.indexOf('\n## [Unreleased]')
+if (relAt < 0) throw new Error('no Unreleased heading in CHANGELOG.md')
+const nextRel = primary.indexOf('\n## ', relAt + 1)
+const relEnd = nextRel < 0 ? primary.length : nextRel
+let secAt = primary.indexOf(`\n### ${section}\n`, relAt)
+if (secAt < 0 || secAt >= relEnd) {
+  // No such section in Unreleased yet: it is added at the end of Unreleased's own text.
+  const body = primary.slice(0, relEnd).replace(/\n+$/, '')
+  primary = `${body}\n\n### ${section}\n\n` + primary.slice(relEnd).replace(/^\n+/, '')
+  secAt = primary.indexOf(`\n### ${section}\n`, relAt)
+}
+let at = secAt + `\n### ${section}\n`.length
+// Past the blank line that follows the heading, so the entry sits among its neighbours and not above a gap.
+while (primary[at] === '\n') at++
 
 const before = parseEntries(primary, section)
 const next = primary.slice(0, at) + bullet + '\n\n' + primary.slice(at)

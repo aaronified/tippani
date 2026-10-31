@@ -128,6 +128,13 @@ func parse(md string) []Release {
 		case strings.HasPrefix(line, "## "):
 			flushRelease()
 			v, d := splitHeading(strings.TrimPrefix(line, "## "))
+			// "## [Unreleased]" holds what the next release will say, written as the changes
+			// are made (scripts/changelog-entry.mjs) and moved under a version by the release
+			// workflow. It is not a release: with cur left nil its sections and bullets belong
+			// to nothing and are skipped, as the preamble's are.
+			if strings.EqualFold(v, "Unreleased") {
+				continue
+			}
 			cur = &Release{Version: v, Date: d, Sections: []Section{}}
 
 		case strings.HasPrefix(line, "### "):

@@ -134,6 +134,24 @@ func TestAHeadingWithoutBracketsOrADateStillYieldsARelease(t *testing.T) {
 	}
 }
 
+// WHAT THE NEXT RELEASE WILL SAY IS NOT A RELEASE. Entries are written under
+// "## [Unreleased]" as changes are made, and the release workflow moves them under a
+// version. Until then the app's Changelog screen must show the releases and not a card
+// called Unreleased, and Latest() must stay the newest version that was actually cut.
+func TestUnreleasedNotesAreNotARelease(t *testing.T) {
+	rs := parse("# Changelog\n\n## [Unreleased]\n\n### Added\n\n- Not out yet.\n  Second line.\n\n## [1.2.3] - 2026-01-02\n\n### Fixed\n\n- Out.\n")
+	if len(rs) != 1 || rs[0].Version != "1.2.3" {
+		t.Fatalf("Unreleased was shown as a release: %+v", rs)
+	}
+	if len(rs[0].Sections) != 1 || rs[0].Sections[0].Title != "Fixed" || len(rs[0].Sections[0].Entries) != 1 || rs[0].Sections[0].Entries[0] != "Out." {
+		t.Fatalf("what is under Unreleased leaked into the release below it: %+v", rs[0])
+	}
+	// and an empty one, which is what the file holds straight after a release
+	if rs := parse("## [Unreleased]\n\n## [1.2.3] - 2026-01-02\n\n### Fixed\n\n- Out.\n"); len(rs) != 1 || rs[0].Version != "1.2.3" {
+		t.Fatalf("an empty Unreleased heading changed the releases: %+v", rs)
+	}
+}
+
 func TestThePreambleIsNotMistakenForARelease(t *testing.T) {
 	// The real file opens with "# Changelog" and two paragraphs of prose, one of
 	// them containing links. None of it belongs to a version.
@@ -238,7 +256,10 @@ func TestEveryBulletSurvivesTheParse(t *testing.T) {
 	// `Fatalf` naming no line at all. Kept in on both sides, they agree.
 	var want []block
 	for _, b := range blocks {
-		if b.title != "" {
+		// "## [Unreleased]" is skipped by the parser on purpose (it is not a release), so the
+		// parser is not asked to agree with it. Its bullets are still held to the shape checks
+		// above, which run over the whole file.
+		if b.title != "" && !strings.EqualFold(b.release, "Unreleased") {
 			want = append(want, b)
 		}
 	}
