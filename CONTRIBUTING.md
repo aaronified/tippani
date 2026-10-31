@@ -13,6 +13,13 @@ npm run dev                   # Vite dev server, proxies /api to 127.0.0.1:8080
 
 [Developing](docs/wiki/Developing.md) maps the whole repository: where a change goes, and how to know it worked.
 
+## How a change goes in
+
+All work goes through a pull request, from a branch off `main`, including a change by the maintainer or by an agent. Nothing is
+pushed to `main` directly. A pull request is one change with its commits (a test, the fix, the docs, the `web/dist` rebuild last)
+and its one set of `[Unreleased]` changelog entries, and it is merged when CI is green. The version is cut later, from what the
+merged pull requests left under `[Unreleased]`.
+
 ## Before you open a pull request
 
 ```bash
@@ -27,17 +34,21 @@ node scripts/wiki-check.mjs && node scripts/doc-map-check.mjs
   [index](docs/wiki/ADR-Index.md). It says why, and what was turned down. Pages are never renumbered.
 - **Documentation lives in the wiki** (`docs/wiki/`), as Markdown with `Page-Name.md` links. The UI glossary is generated:
   `make glossary`. `CHANGELOG.md` is the one document elsewhere, because the app shows it.
-- **A change a user can see gets a changelog entry**, under `## [Unreleased]` at the top of `CHANGELOG.md`, and nowhere else:
+- **Every pull request carries its own changelog entries**, one set, under `## [Unreleased]` at the top of `CHANGELOG.md`, and
+  nowhere else:
 
   ```bash
   node scripts/changelog-entry.mjs Fixed "**What no longer happens.** Why, in a sentence or two (#123)."
   ```
 
-  The section is `Added`, `Changed` or `Fixed`. The tool finds the position, creates `[Unreleased]` and the section if they are
-  missing, and checks the result before writing it, so do not edit the file by hand for this. Never add a version heading and
-  never touch a released section: the release workflow moves `[Unreleased]` under the version
-  ([Releasing](docs/wiki/Releasing.md)). A test fails if the file stops being something the release can cut.
-- **Rebuild `web/dist`** (`make frontend`) as the last commit of a change that touches the frontend.
+  The section is `Added`, `Changed` or `Fixed` for what a user can see, and `Internal` for what they cannot (tooling, tests,
+  CI). The tool finds the position, creates `[Unreleased]` and the section if they are missing, and checks the result before
+  writing it, so do not edit the file by hand for this. Never add a version heading and never touch a released section: the
+  release workflow moves `[Unreleased]` under the version ([Releasing](docs/wiki/Releasing.md)), and what is there becomes the
+  release notes. A test fails if the file stops being something the release can cut.
+- **Rebuild `web/dist`** (`make frontend`) as the last commit of a pull request that touches the frontend. If `main` moved and
+  `web/dist` conflicts, take either side, rebase, and rebuild: it is generated, so the rebuild is the resolution. CI rebuilds and
+  diffs it, which is the check; the release workflow rebuilds it again before it tags, so a tag never carries a stale one.
 - **Both languages.** A new string goes into the English and the Bengali locale files, with the same keys.
 - **Commit messages** are Conventional Commits (`feat(scope): ...`, `fix(scope): ...`) and say why.
 
