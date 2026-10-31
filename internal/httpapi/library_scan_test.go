@@ -416,8 +416,23 @@ func TestAScanOfAFolderThatDisappearsFailsAndSaysWhy(t *testing.T) {
 }
 
 // Presses at the same moment start one scan. The others are told it is running.
+//
+// THE SCAN IS HELD OPEN while the presses are answered. A scan of three small files finishes in
+// a few milliseconds, so without this a press that reached the server after it had finished
+// was a press on an idle folder and rightly started a second scan; the test then failed one
+// run in twenty, and on a loaded CI runner far more. "At the same moment" is what is being
+// tested, so the moment is made to last.
 func TestPressesAtOnceStartOneScan(t *testing.T) {
 	srv, c, _ := bigLibrary(t, 3)
+	release := make(chan struct{})
+	var once sync.Once
+	open := func() { once.Do(func() { close(release) }) }
+	t.Cleanup(open)
+	srv.itemSeam = func(j *jobs.Job, i int) {
+		if i == 0 {
+			<-release
+		}
+	}
 	const presses = 8
 	codes := make([]int, presses)
 	ids := make([]int64, presses)
@@ -434,6 +449,7 @@ func TestPressesAtOnceStartOneScan(t *testing.T) {
 		}()
 	}
 	wg.Wait()
+	open()
 	started := 0
 	for i, code := range codes {
 		switch code {
@@ -447,8 +463,8 @@ func TestPressesAtOnceStartOneScan(t *testing.T) {
 			t.Fatalf("press %d named no job", i)
 		}
 	}
-	if started > 1 {
-		t.Fatalf("%d presses started a scan, want at most 1", started)
+	if started != 1 {
+		t.Fatalf("%d presses started a scan, want exactly 1", started)
 	}
 	waitScanDone(t, c)
 	var n int
