@@ -90,9 +90,9 @@ old commit). Frontend tests (483) and both wiki checks pass.
 1. **Finish the UI review** ([#57](https://github.com/aaronified/tippani/issues/57)). #60 and #59 were checked on a phone and
    hold, and six layout faults were fixed ([ADR-0923](ADR-0923-The-First-UI-Review-Pass-Is-Measured-On-A-Phone-Screen-By-Screen.md)).
    Still to do: run the Firefox harnesses (`typescale`, `metadata-layout`, `frame-scroll`, `panel-depth`) on Zen with
-   `MOZ_NO_REMOTE=1`, compare `controls.mjs`'s phone counts with `controls-baseline.json` (138 under the touch floor and 14 with a
-   glyph and words were printed from Edge; they were not compared), find out why its desktop pass dies with "detached Frame", and
-   capture what the pass skipped: a work's source section, an episode's file, the Add surface.
+   `MOZ_NO_REMOTE=1`; record `controls-baseline.json` again on a run that matches CI (its glyph-with-words ceiling of 9 fails on
+   3.4.2 as well as now, with 14); find out why `controls.mjs`'s desktop pass dies with "detached Frame" under Edge; and capture
+   what the pass skipped: a work's source section, an episode's file, the Add surface.
 2. **Release.** 3.5.0 is cut by the `release` workflow, which makes the tag, the changelog section and the image build from a
    version typed into it ([ADR-0924](ADR-0924-The-Release-Workflow-Cuts-The-Version-From-The-Unreleased-Changelog.md),
    [Releasing](Releasing.md)). Its first real run is its test. Two commit bodies (`2a989130`, `242013bb`) name ADR-0918 and

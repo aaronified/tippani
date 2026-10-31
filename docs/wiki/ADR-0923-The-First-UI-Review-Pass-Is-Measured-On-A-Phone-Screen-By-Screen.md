@@ -56,10 +56,14 @@ layout) and one behaviour (`test/dom/locators-section.test.jsx`).
 **Not covered, and why.**
 
 - The desktop pass of `controls.mjs` failed on every surface here with "Attempted to use detached Frame", which is not understood,
-  so only its phone pass is read. The touch-floor and glyph-with-words counts it printed (138 and 14) are not compared with
-  `controls-baseline.json`, and the baseline was **not** changed; a comparison against the 3.4.2 build was started to say which
-  counts are new.
-- The Firefox harnesses (`typescale`, `metadata-layout`, `frame-scroll`, `panel-depth`) were not run.
+  so only its phone pass is read.
+- **Its phone counts were compared with the 3.4.2 build, run the same way on the same machine, and nothing regressed.** Controls
+  under the 44 px floor: 149 then, 138 now. Controls drawing a glyph and its words: 14 then, 14 now, the same ones. The one control
+  that "does nothing" is the same Film detail "Ascending". Both builds exceed the recorded ceiling on the glyph-with-words count
+  (9), so `controls-baseline.json` was recorded somewhere else or on other data; it was **not** changed, and its two ratchets will
+  go on failing here until it is recorded again on a run that matches CI.
+- The Firefox harnesses (`typescale`, `metadata-layout`, `frame-scroll`, `panel-depth`) were not run. `controls.mjs` is a
+  Chrome-engine harness, so Zen was never going to run it.
 - Not captured: the work details' source section, an episode's file, the Add surface.
 
 See also: [Source files and context](Source-Files-And-Context.md) · [ADR index](ADR-Index.md) · [Home](Home.md)
