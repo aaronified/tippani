@@ -80,7 +80,7 @@ export default function FoundFilesPage({ embedded = false }) {
                       <div className="min-w-0 flex flex-col gap-1">
                         <p>
                           <b>{c.title}</b>
-                          {c.episode ? ` · ${c.episode.toUpperCase()}` : ''}
+                          {c.episode ? ` · ${c.episode.toUpperCase()}` : ''}{' '}
                           <span className="import-arrow"><IconArrow size={12} /></span>{' '}
                           <span className="microcopy">{t(`found.kind.${c.format}`)}</span>
                         </p>
