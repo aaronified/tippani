@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.5.0] - 2026-10-31
+
 ### Added
 
 - **Kindle books and PDFs can be source files.** MOBI, AZW and AZW3 files are read, and so is a
