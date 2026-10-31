@@ -29,8 +29,8 @@ name: release
 # before it). Look at CI on main before running this
 # (Releasing.md): a tag on a red commit publishes a red image.
 #
-# IF MAIN MOVED while this ran, the push is refused (it is one atomic push of the commit and the tag, so
-# neither lands) and nothing is published. Run it again.
+# IF MAIN MOVED while this ran, the branch push is refused, nothing is tagged and nothing is published.
+# Run it again.
 on:
   push:
     tags: ["v*"]
@@ -136,6 +136,8 @@ jobs:
           TAG: ${{ steps.tag.outputs.tag }}
           VERSION: ${{ steps.tag.outputs.version }}
           BRANCH: ${{ github.ref_name }}
+          DEPLOY_KEY: ${{ secrets.RELEASE_DEPLOY_KEY }}
+          REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
@@ -147,8 +149,26 @@ jobs:
             -m "chore(release): ${VERSION}" \
             -m "Cut by the release workflow. The notes are the changelog's [Unreleased] section moved under ${VERSION}, or the feat and fix commit subjects when it was empty. Range: ${prev:+${prev}..}HEAD."
           git tag -a "$TAG" -m "$TAG"
-          # One push, so the commit and the tag land together or not at all.
-          git push --atomic origin "HEAD:refs/heads/${BRANCH}" "refs/tags/${TAG}"
+          # main is protected by a ruleset that lets only the RELEASE_DEPLOY_KEY deploy key bypass it (the
+          # Actions token cannot be made a bypass actor on a personal repo, ADR-0927). So the commit goes
+          # to the branch with that key, and the tag with the Actions token, which keeps a tag push from
+          # starting a second run of this workflow and of docker-publish (started explicitly below).
+          # Two pushes, branch first: if the tag push fails the branch has the release commit and no tag,
+          # and a re-run stops at "a section for it already exists" before it changes anything, so tag
+          # that commit by hand. With no secret set it falls back to the token, which works only while
+          # main is unprotected.
+          if [ -n "${DEPLOY_KEY:-}" ]; then
+            keyfile=$(mktemp)
+            printf '%s\n' "$DEPLOY_KEY" > "$keyfile"
+            chmod 600 "$keyfile"
+            GIT_SSH_COMMAND="ssh -i $keyfile -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new" \
+              git push "git@github.com:${REPO}.git" "HEAD:refs/heads/${BRANCH}"
+            rm -f "$keyfile"
+          else
+            echo "::warning::RELEASE_DEPLOY_KEY is not set, pushing with the Actions token (fails if main is protected)."
+            git push origin "HEAD:refs/heads/${BRANCH}"
+          fi
+          git push origin "refs/tags/${TAG}"
           echo "cut ${TAG} at $(git rev-parse --short HEAD)"
 
       - name: Start the image build for the new tag

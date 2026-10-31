@@ -63,6 +63,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   different, so a tag carries the build its source makes. Pull requests no longer rebuild or commit
   web/dist, and CI no longer checks it.
 
+- **Main is protected by a ruleset, and the release pushes to it with a deploy key**, so a change can
+  only reach main through a pull request with green CI.
+
 - **Work goes through pull requests**, each with its own changelog entries under [Unreleased]
   and a pull request template that says so. Nothing is pushed to main directly.
 
