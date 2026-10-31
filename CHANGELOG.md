@@ -5,6 +5,46 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Kindle books and PDFs can be source files.** MOBI, AZW and AZW3 files are read, and so is a
+  PDF that has a text layer, so a highlight can be placed in them and given a chapter. A library
+  scan attaches a Kindle file by the ISBN inside it and a PDF by its file name, which always
+  goes to review. A protected Kindle file, one compressed with HUFF/CDIC, a scanned PDF with no
+  text layer and Amazon's KFX are refused, and the message says why (#62).
+
+- **A title is matched without its leading article.** "Fires of Heaven" now finds "The Fires of
+  Heaven", and the same goes for the French, Spanish, German and Italian articles (#62).
+
+- **Quotes are found in more languages.** Bengali, Hindi, Thai, Japanese, Chinese, Russian,
+  Arabic and accented text are matched in the file they came from. Bengali, Hindi and Thai words
+  were being cut into fragments, and a Japanese, Chinese or Thai quote taken from the middle of
+  a sentence was not found at all. A quote and its file still have to be in the same script.
+
+### Changed
+
+- **A quote card's action row is one line on a phone.** Copy, share and "in context" move behind
+  the ⋯ menu at phone width (#60).
+
+- **The context block on a quote's edit form starts folded**, headed "In context" with a chevron
+  to open it (#59).
+
+### Fixed
+
+- **Checks no longer asks to swap a highlight's Kindle location for a percent.** A highlight
+  that already has a location keeps it, and the file proposes only the chapter, which can be
+  accepted together when the match was word for word. Before, hundreds of highlights each asked
+  to replace their location one press at a time, with the chapter tied to the same press (#58).
+
+- **A found file's path has the width of its card on a phone.** It had been squeezed into a
+  narrow column beside the two buttons, one word per line.
+
+- **A wrapped link and a section heading keep their place on a phone.** A long work title on
+  Metadata > Source files sat centred while a short one sat left, and the heading on Checks left
+  its info dot on a line of its own.
+
 ## [3.4.2] - 2026-10-25
 
 ### Fixed
