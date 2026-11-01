@@ -205,3 +205,18 @@ func TestAnotherReadersProposalsAreNotYoursToSeeOrAccept(t *testing.T) {
 		t.Fatalf("another reader wrote my line's time: %q", ts)
 	}
 }
+
+// A press for a whole big library is far past the 64 KiB a route gets by default: accept all failed with
+// "invalid JSON body" for anyone with a few hundred proposals.
+func TestAcceptAndIgnoreTakeAPressLargerThanTheDefaultBodyCap(t *testing.T) {
+	_, c, _, _, _ := locatorFixture(t)
+	items := make([]locatorItem, 1500)
+	for i := range items {
+		items[i] = locatorItem{ID: int64(900000 + i), Proposed: "00:01:02", ProposedEnd: "00:01:04", Current: "", CurrentEnd: ""}
+	}
+	res := decode[map[string]int](t, c.mustDo("POST", "/locators/accept", map[string]any{"bucket": "exact", "items": items}, 200))
+	if res["stale"] != len(items) || res["applied"] != 0 {
+		t.Fatalf("a long press should be read and found stale, got %v", res)
+	}
+	c.mustDo("POST", "/locators/ignore", map[string]any{"items": items}, 200)
+}

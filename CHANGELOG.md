@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Accept all on Checks no longer fails with "invalid JSON body" when a library has a few hundred
+  proposed times or places: the press was larger than the 64 KiB a route is given, and the
+  locator routes now take the 5000 items they already allowed.
+
 ## [3.6.1] - 2026-11-01
 
 ### Internal

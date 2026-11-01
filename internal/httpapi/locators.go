@@ -283,6 +283,11 @@ func (s *Server) handleLocatorProposals(w http.ResponseWriter, r *http.Request) 
 	})
 }
 
+// maxLocatorBody IS SIZED FOR THE 5000 ITEMS THE ROUTES ALLOW. "Accept all" sends one item per row (about 250 bytes
+// each, more with a long chapter name), so the 64 KiB every other route gets refused anything past roughly 260 rows
+// as "invalid JSON body", on exactly the big libraries the button is for.
+const maxLocatorBody = 4 << 20
+
 // locatorItem is one row of an accept or ignore press: what the reader SAW, so the
 // server can tell whether it is still true.
 type locatorItem struct {
@@ -307,7 +312,7 @@ func (s *Server) handleLocatorAccept(w http.ResponseWriter, r *http.Request) {
 		Bucket string        `json:"bucket"`
 		Items  []locatorItem `json:"items"`
 	}
-	if !decodeBody(w, r, &req) {
+	if !decodeBodyMax(w, r, &req, maxLocatorBody) {
 		return
 	}
 	if req.Bucket != bucketExact && req.Bucket != bucketReview {
@@ -397,7 +402,7 @@ func (s *Server) handleLocatorIgnore(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Items []locatorItem `json:"items"`
 	}
-	if !decodeBody(w, r, &req) {
+	if !decodeBodyMax(w, r, &req, maxLocatorBody) {
 		return
 	}
 	if len(req.Items) == 0 || len(req.Items) > 5000 {
