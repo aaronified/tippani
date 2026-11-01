@@ -3080,6 +3080,24 @@
     padding-bottom: 6px;
   }
   .cleanup-group-head .cleanup-work { display: block; }
+  /* Metadata > Source files: the works in two columns on a wide screen; the cards are the grid items, so
+     a long one never splits across the columns. The folders card above is outside this and stays full width. */
+  .source-works {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--row);
+    align-items: start;
+  }
+  @media (min-width: 1100px) {
+    .source-works { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  .mount-list { margin: 0; padding: 0; list-style: none; }
+  .mount-row {
+    display: flex; align-items: center; gap: 10px; width: 100%;
+    padding: 9px 10px; border: 0; border-bottom: 1px solid var(--line);
+    background: none; color: inherit; text-align: left; cursor: pointer;
+  }
+  .mount-row:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 8%, transparent); }
   .cleanup-fold {
     flex: none;
     display: inline-flex;

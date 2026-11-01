@@ -774,3 +774,87 @@ func (s *Server) mountedState(uid, id int64) string {
 	}
 	return "mounted"
 }
+
+// ---- choosing a file by hand ----------------------------------------------------
+
+// maxBrowseEntries bounds one folder's listing, so a folder of a hundred thousand names does not
+// become one response.
+const maxBrowseEntries = 2000
+
+// handleBrowseMount: GET /sources/browse?mount=ID&path=REL. One folder of a mounted library, for a
+// reader who knows which file belongs to a work and wants to say so without the scan finding it. It
+// reports only names and relative paths, never the operator's path, and only folders and the file
+// types a work can take. The path is checked as a walk's is: still under the root, no symlink out.
+func (s *Server) handleBrowseMount(w http.ResponseWriter, r *http.Request) {
+	root, _, err := s.mountByID(r.URL.Query().Get("mount"))
+	if err != nil {
+		writeErr(w, http.StatusNotFound, "that folder is not set up")
+		return
+	}
+	rel := strings.Trim(r.URL.Query().Get("path"), "/")
+	ents, err := root.List(rel, scanExts)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "that folder cannot be read")
+		return
+	}
+	truncated := false
+	if len(ents) > maxBrowseEntries {
+		ents, truncated = ents[:maxBrowseEntries], true
+	}
+	type entry struct {
+		Name string `json:"name"`
+		Rel  string `json:"rel"`
+		Dir  bool   `json:"dir"`
+		Size int64  `json:"size,omitempty"`
+	}
+	out := make([]entry, 0, len(ents))
+	for _, e := range ents {
+		out = append(out, entry{e.Name, e.Rel, e.Dir, e.Size})
+	}
+	parent := ""
+	if i := strings.LastIndexByte(rel, '/'); i >= 0 {
+		parent = rel[:i]
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"path": rel, "parent": parent, "root": rel == "", "entries": out, "truncated": truncated})
+}
+
+// handleAttachMounted: POST /sources/attach-mounted {mount, rel, subject, id, episode}. The reader
+// chose this file for this work. It goes through the same attach as a scan's proposal, so the
+// checks are the same: the work is theirs, it takes this kind of file, it has none yet, and the file
+// is read through the mount and never copied.
+func (s *Server) handleAttachMounted(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Mount   string `json:"mount"`
+		Rel     string `json:"rel"`
+		Subject string `json:"subject"`
+		ID      int64  `json:"id"`
+		Episode string `json:"episode"`
+	}
+	if !decodeBody(w, r, &req) {
+		return
+	}
+	uid := userID(r)
+	subj, serr := s.resolveSourceSubject(uid, req.Subject, req.ID, req.Episode)
+	if serr != nil {
+		writeErr(w, serr.status, serr.msg)
+		return
+	}
+	if _, _, err := s.mountByID(req.Mount); err != nil || req.Rel == "" {
+		writeErr(w, http.StatusBadRequest, "choose a file in one of the folders")
+		return
+	}
+	var held int
+	_ = s.Store.DB.QueryRow(
+		`SELECT COUNT(*) FROM work_sources WHERE user_id = ? AND subject = ? AND subject_id = ? AND subject_key = ?`,
+		uid, subj.Subject, subj.ID, subj.Key).Scan(&held)
+	if held > 0 {
+		writeErr(w, http.StatusConflict, "this work already has a file; remove it first to attach another")
+		return
+	}
+	st, ok := s.attachFound(uid, foundToken{Mount: req.Mount, Rel: req.Rel, Subject: subj.Subject, ID: subj.ID, Key: subj.Key})
+	if !ok {
+		writeErr(w, http.StatusUnprocessableEntity, "that file cannot be read as a source for this work")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"attached": 1, "context": st})
+}
