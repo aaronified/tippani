@@ -9,6 +9,7 @@ import {
   FilterChip,
   GhostButton,
   IconCheck,
+  IconChevron,
   IconClose,
   IconHighlight,
   IconDialogue,
@@ -23,6 +24,7 @@ import {
   toast,
   useIsMobileScreen,
   useScreenBar,
+  useScreenSearch,
   IconArrow,
 } from './ui.jsx'
 import { ContextDialog, contextSubject, useHasContext } from './sources.jsx'
@@ -119,6 +121,19 @@ export default function CleanupPage({ onOpenBook, onOpenMovie, onOpenQuotes, emb
   // local edit: accepting can turn out to be stale or a duplicate, and the server's
   // second answer is the only honest one.
   const [nonce, setNonce] = useState(0)
+  // THE SHELL'S FIELD NARROWS THIS PAGE. Search always means "within what you are looking at"; the pill's
+  // cross is the way out to the library (ADR-0831).
+  const [q, setQ] = useState('')
+  useScreenSearch({ key: 'checks-marks', label: t('shell.search.where.marks'), onQuery: setQ })
+  // The works folded shut, by group key. A folded work's finds are not on screen, so they are not part of
+  // what Select all or a bulk press reaches (see shownFinds).
+  const [folded, setFolded] = useState(() => new Set())
+  const toggleFold = (key) =>
+    setFolded((s) => {
+      const next = new Set(s)
+      next.has(key) ? next.delete(key) : next.add(key)
+      return next
+    })
 
   useEffect(() => {
     let stale = false
@@ -212,10 +227,20 @@ export default function CleanupPage({ onOpenBook, onOpenMovie, onOpenQuotes, emb
 
   // MEMOISED FOR THE REASON `items` ABOVE GIVES: it feeds `shownFinds`, and a memo
   // keyed on a list rebuilt every render is a memo that never holds.
-  const shown = useMemo(
-    () => (rule === 'all' ? items : items.filter((it) => it.findings.some((f) => f.rule === rule))),
-    [items, rule],
-  )
+  // AND BY WHAT WAS TYPED: a work's title or a rule's name keeps everything under it; otherwise a quote stays
+  // when one of its finds' own words (the marked snippet) has the text.
+  const shown = useMemo(() => {
+    const byRule = rule === 'all' ? items : items.filter((it) => it.findings.some((f) => f.rule === rule))
+    const needle = q.trim().toLowerCase()
+    if (!needle) return byRule
+    const has = (s) => String(s || '').toLowerCase().includes(needle)
+    return byRule.filter(
+      (it) =>
+        has(it.work_title) ||
+        has(t(KIND_LABELS[it.kind])) ||
+        it.findings.some((f) => has(f.snippet) || has(f.after_snippet) || has(t(`cleanup.rule.${f.rule}.label`))),
+    )
+  }, [items, rule, q])
 
   // GROUPED BY WORK, the way a reader thinks of them: "the three things wrong in Moby-Dick",
   // not forty rows that each repeat the title. The server's order (book, screen, quote, by
@@ -238,13 +263,16 @@ export default function CleanupPage({ onOpenBook, onOpenMovie, onOpenQuotes, emb
   // half above behaves with its own `shownIds`.
   const shownFinds = useMemo(() => {
     const out = []
-    for (const it of shown) {
-      for (const f of rule === 'all' ? it.findings : it.findings.filter((x) => x.rule === rule)) {
-        out.push({ it, f, key: targetKey(it, f) })
+    for (const g of groups) {
+      if (folded.has(g.key)) continue
+      for (const it of g.items) {
+        for (const f of rule === 'all' ? it.findings : it.findings.filter((x) => x.rule === rule)) {
+          out.push({ it, f, key: targetKey(it, f) })
+        }
       }
     }
     return out
-  }, [shown, rule])
+  }, [groups, folded, rule])
   const picked = shownFinds.filter((x) => sel.has(x.key))
   const n = picked.length
   const allShownPicked = shownFinds.length > 0 && n === shownFinds.length
@@ -379,7 +407,7 @@ export default function CleanupPage({ onOpenBook, onOpenMovie, onOpenQuotes, emb
             <EmptyState>{bucket === 'ignored' ? t('cleanup.state.none-ignored') : t('cleanup.state.clean')}</EmptyState>
           )}
           {data !== null && items.length > 0 && shown.length === 0 && (
-            <EmptyState>{t('cleanup.state.clean-rule')}</EmptyState>
+            <EmptyState>{q.trim() ? t('cleanup.state.no-match', { q: q.trim() }) : t('cleanup.state.clean-rule')}</EmptyState>
           )}
 
           {data?.truncated && (
@@ -453,6 +481,7 @@ export default function CleanupPage({ onOpenBook, onOpenMovie, onOpenQuotes, emb
             <ul className="cleanup-groups">
               {groups.map((g) => {
                 const label = g.title || t('cleanup.row.no-work.label')
+                const shut = folded.has(g.key)
                 return (
                   <li key={g.key} className="cleanup-group">
                     {/* THE POSTER IS THE WAY INTO THE WORK, and the only one. The old row had a
@@ -461,6 +490,15 @@ export default function CleanupPage({ onOpenBook, onOpenMovie, onOpenQuotes, emb
                         being the work. A group with no picture (a book without a cover, the
                         standalone quotes) draws its kind's glyph and is not a door. */}
                     <div className="cleanup-group-head">
+                      <button
+                        type="button"
+                        className="cleanup-fold"
+                        aria-expanded={!shut}
+                        aria-label={t(shut ? 'cleanup.group.unfold.aria' : 'cleanup.group.fold.aria', { label })}
+                        onClick={() => toggleFold(g.key)}
+                      >
+                        <IconChevron open={!shut} size={18} />
+                      </button>
                       {g.kind !== 'quote' ? (
                         <Tooltip label={t('cleanup.row.open.tip')} side="top">
                           <button
@@ -482,7 +520,7 @@ export default function CleanupPage({ onOpenBook, onOpenMovie, onOpenQuotes, emb
                         </MonoLabel>
                       </div>
                     </div>
-                    <ul className="cleanup-quotes">
+                    {!shut && <ul className="cleanup-quotes">
                       {g.items.map((it) => {
                         // Filtered inside the row too, so picking a rule shows that rule's
                         // finds rather than every find on a quote that happens to have one.
@@ -581,7 +619,7 @@ export default function CleanupPage({ onOpenBook, onOpenMovie, onOpenQuotes, emb
                           </li>
                         )
                       })}
-                    </ul>
+                    </ul>}
                   </li>
                 )
               })}

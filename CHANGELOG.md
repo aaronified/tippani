@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   proposed times or places: the press was larger than the 64 KiB a route is given, and the
   locator routes now take the 5000 items they already allowed.
 
+### Added
+
+- Stray marks on Checks: the top bar's search now searches inside that page (a work's title, a
+  rule's name, or the marked words of a find), and each work's group can be folded shut with the
+  arrow at its head. A folded work is left out of Select all.
+
 ## [3.6.1] - 2026-11-01
 
 ### Internal

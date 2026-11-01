@@ -3080,6 +3080,18 @@
     padding-bottom: 6px;
   }
   .cleanup-group-head .cleanup-work { display: block; }
+  .cleanup-fold {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px;
+    border: 0;
+    background: none;
+    border-radius: 6px;
+    color: var(--soft);
+    cursor: pointer;
+  }
   .cleanup-poster {
     flex: none;
     display: inline-flex;

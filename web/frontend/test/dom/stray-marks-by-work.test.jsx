@@ -7,7 +7,7 @@
 // said "open where this quote lives"; it is gone, because the poster is that door.
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 
 const CALLS = []
 
@@ -39,6 +39,11 @@ vi.mock('../../src/api.js', async (orig) => ({
 }))
 
 const { default: CleanupPage } = await import('../../src/CleanupPage.jsx')
+const { currentScreenSearch } = await import('../../src/ui.jsx')
+
+const groupsOf = () => screen.queryAllByRole('listitem').filter((li) => li.className === 'cleanup-group')
+// What the shell's field does on a keystroke.
+const typeInBar = (v) => act(() => currentScreenSearch().onQuery(v))
 
 beforeEach(() => {
   CALLS.length = 0
@@ -80,5 +85,33 @@ describe('stray marks, grouped by work', () => {
     await screen.findByRole('button', { name: 'Open Moby-Dick' })
     fireEvent.click(screen.getAllByRole('button', { name: 'Edit' })[0])
     await waitFor(() => expect(CALLS).toContainEqual(['GET', '/annotations?id=7']))
+  })
+
+  it('is searched by the shell\'s field: the page names itself as the context and narrows to what was typed', async () => {
+    render(<CleanupPage embedded onOpenBook={() => {}} onOpenMovie={() => {}} onOpenQuotes={() => {}} />)
+    await screen.findByRole('button', { name: 'Open Moby-Dick' })
+    expect(currentScreenSearch()).toMatchObject({ key: 'checks-marks', label: 'stray marks' })
+    typeInBar('ishmael')
+    expect(groupsOf()).toHaveLength(1)
+    expect(screen.getAllByRole('checkbox').length).toBeGreaterThan(0)
+    typeInBar('moby')
+    expect(groupsOf()).toHaveLength(1)
+    expect(within(groupsOf()[0]).getAllByRole('checkbox')).toHaveLength(2)
+    typeInBar('zzz')
+    expect(groupsOf()).toHaveLength(0)
+    expect(screen.getByText(/No stray marks match/)).toBeTruthy()
+    typeInBar('')
+    expect(groupsOf()).toHaveLength(2)
+  })
+
+  it('folds a work shut and open again, and a folded work is not reached by Select all', async () => {
+    render(<CleanupPage embedded onOpenBook={() => {}} onOpenMovie={() => {}} onOpenQuotes={() => {}} />)
+    await screen.findByRole('button', { name: 'Open Moby-Dick' })
+    expect(screen.getAllByRole('button', { name: 'Edit' })).toHaveLength(3)
+    fireEvent.click(screen.getByRole('button', { name: 'Hide the quotes of Moby-Dick' }))
+    expect(screen.getAllByRole('button', { name: 'Edit' })).toHaveLength(1)
+    expect(screen.getByText(/select all 1$/i)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Show the quotes of Moby-Dick' }))
+    expect(screen.getAllByRole('button', { name: 'Edit' })).toHaveLength(3)
   })
 })
