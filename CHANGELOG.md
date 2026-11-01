@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.6.1] - 2026-11-01
+
 ### Internal
 
 - **The Wikidata signature journey waits for its Fetch button to be enabled.** The button is off
