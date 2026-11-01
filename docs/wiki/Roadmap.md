@@ -102,7 +102,7 @@ old commit). Frontend tests (483) and both wiki checks pass.
 4. **Read quotes aloud** ([Plan: read aloud](Plan-Read-Aloud.md), issue
    [#12](https://github.com/aaronified/tippani/issues/12)): the browser's own speech, no service. Nothing blocks it. The plan
    was verified against `75e55ae` (28 September), so re-verify it first, as its first task says.
-5. **Anthology enhancements** ([Plan: anthology enhancements](Plan-Anthology-Enhancements.md)): in progress as separate pull requests. Done: removed entries with a way back (0088), sections and grouping (0089), drag and Move to… (the owner chose, 1 November 2026, to give the anthologies their own drag and let Episodes reuse it: it is `reorder.js`). Front matter is done too (0090). Left: reading mode, print polish, work identity in the Markdown, the import re-link by identifier, and the group headers in the export. The plan's ticks say which.
+5. **Anthology enhancements** ([Plan: anthology enhancements](Plan-Anthology-Enhancements.md)): in progress as separate pull requests. Done: removed entries with a way back (0088), sections and grouping (0089), drag and Move to… (the owner chose, 1 November 2026, to give the anthologies their own drag and let Episodes reuse it: it is `reorder.js`). Front matter is done too (0090). Reading mode, print and Save PDF are done. Left: the Add-waiting preview, work identity in the Markdown, the import re-link by identifier, and the group headers in the export. The plan's ticks say which.
 
 **Questions for the owner**, kept until asked:
 

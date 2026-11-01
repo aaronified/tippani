@@ -37,6 +37,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **An anthology has a reading mode, and prints and saves better.** Read opens it as a document
+  over the whole app, in book type, closed by its ✕ or Escape. The printed copy has a running
+  title and page numbers (where the browser draws them), and Save PDF uses the browser's own
+  print so the text stays selectable, named after the anthology.
+
 - **An anthology can have a cover, an epigraph and a dedication.** They open the page and the
   printed copy; the cover is the EPUB's cover and the other two are in the EPUB too. Markdown
   carries the epigraph and the dedication and leaves the cover out, and an imported anthology

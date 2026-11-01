@@ -2,7 +2,7 @@
 
 Source of truth: this wiki page.
 
-Partly built: the removed-entry memory and the Removed list (0088), sections with grouping (0089), drag with Move to…, and front matter (0090) are done; the rest is not. Verified against `75e55ae` (main, 28 September 2026; its code is `ee4be1f`'s).
+Partly built: the removed-entry memory and the Removed list (0088), sections with grouping (0089), drag with Move to…, front matter (0090), reading mode, print and Save PDF are done; the rest is not. Verified against `75e55ae` (main, 28 September 2026; its code is `ee4be1f`'s).
 Builds after `episodes.md`, whose extended drag it uses. Each citation is `path:line` and the
 text at that line. Tasks, one per ask:
 
@@ -43,11 +43,11 @@ text at that line. Tasks, one per ask:
 - [x] (done: page, print and EPUB; the cover is the EPUB cover) Use the front matter on the reading view (`anthologies.jsx:1377`
       `function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {`), in
       print, and in EPUB, the cover as the EPUB cover.
-- [ ] Add a continuous-scroll reading mode in book typography, with the app's chrome hidden.
-- [ ] Improve print: page breaks at sections, a running title, and page numbers where the
+- [x] (done) Add a continuous-scroll reading mode in book typography, with the app's chrome hidden.
+- [x] (done: sections and front matter break pages, a running title, page numbers by @page where the browser draws them) Improve print: page breaks at sections, a running title, and page numbers where the
       browser allows, in the reading view's own print rules (`index.css:10636`
       `.anthology-read { max-width: none; }`).
-- [ ] Add a separate "Save PDF" (the browser's own PDF output is fine) whose text stays
+- [x] (done) Add a separate "Save PDF" (the browser's own PDF output is fine) whose text stays
       selectable.
 - [ ] Not in this plan, at the owner's choice: publishing a read-only link, and saved searches.
 
@@ -112,9 +112,9 @@ Decided while planning, so the build needs nothing further:
       portraits are (`export_anthology_epub.go:346`
       `// THE NAME IS VALIDATED BEFORE IT IS OPENED.`). Markdown carries the epigraph and the
       dedication and leaves the cover out, as it leaves every image out.
-- [ ] The reading mode is a full-screen view from the anthology page, closed by its ✕ or
+- [x] (done) The reading mode is a full-screen view from the anthology page, closed by its ✕ or
       Escape; the type dials still apply.
-- [ ] "Save PDF" opens the browser's print with the print stylesheet, so the text stays text.
+- [x] (done) "Save PDF" opens the browser's print with the print stylesheet, so the text stays text.
 - [ ] Keys in `en.txt` and `bn.txt` together.
 - [ ] Tests: a fill after a removal adds nothing back; bringing one back restores its note and
       place; a drag and a Move to… land in the same place; a section drag carries its run;
