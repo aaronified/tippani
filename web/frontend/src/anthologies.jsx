@@ -70,6 +70,7 @@ import {
   IconEdit,
   IconExport,
   IconPlus,
+  IconReset,
   useScreenBar,
   IconQuiz, IconPractise, IconPrint, IconReading, IconSearch,
   MonoLabel,
@@ -1402,6 +1403,10 @@ function AnthologyEntry({ entry, fields = {}, first, last, onNote, onMove, onRem
 function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
   const [anthology, setAnthology] = useState(null)
   const [entries, setEntries] = useState(null)
+  // WHAT WAS TAKEN OUT (0088), listed under the entries with a way back. Null until read; a
+  // failed read leaves it empty rather than hiding the anthology behind a second error.
+  const [removed, setRemoved] = useState([])
+  const [showRemoved, setShowRemoved] = useState(false)
   const [error, setError] = useState('')
   const [editing, setEditing] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -1427,6 +1432,8 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
     // opinion about it.
     setEntries(r.data.entries || [])
     setError('')
+    const gone = await json('GET', `/anthologies/${id}/removed`)
+    setRemoved(gone.ok ? gone.data.removed || [] : [])
   }, [id])
   useEffect(() => {
     reload()
@@ -1504,6 +1511,13 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
     const r = await json('DELETE', `/anthologies/${id}/entries/${entry.kind}/${entry.item_id}`)
     if (!r.ok) return setError(errText(r, t('error.remove.entry')))
     toast(t('anthologies.toast.entry-removed'))
+    await reload()
+  }
+
+  async function restore(item) {
+    const r = await json('POST', `/anthologies/${id}/removed/${item.kind}/${item.item_id}`)
+    if (!r.ok) return setError(errText(r, t('error.restore.entry')))
+    toast(t('anthologies.toast.entry-restored'))
     await reload()
   }
 
@@ -1686,6 +1700,46 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
         />
       ))}
 
+      {/* WHAT WAS REMOVED, folded by default: it is the exception, and an anthology page is a
+          document first. `.no-print` because a printed anthology is the document, and a list of
+          what is not in it is not part of it. */}
+      {removed.length > 0 && (
+        <section className="mt-6 no-print" data-testid="anthology-removed">
+          <button
+            type="button"
+            className="tp-link tp-link-icon"
+            aria-expanded={showRemoved}
+            onClick={() => setShowRemoved((v) => !v)}
+          >
+            <IconChevron open={showRemoved} size={18} />
+            <span>{t('anthologies.removed.heading', { n: removed.length })}</span>
+          </button>
+          {showRemoved && (
+            <Card className="mt-2">
+              <p className="microcopy">{t('anthologies.removed.note')}</p>
+              <ul className="anthology-removed-list">
+                {removed.map((x) => (
+                  <li key={`${x.kind}:${x.item_id}`} className="anthology-removed-row">
+                    <div className="min-w-0 flex-1">
+                      <p className="anthology-removed-quote" dir="auto">{x.quote}</p>
+                      <p className="microcopy">{[x.source, x.credit].filter(Boolean).join(' · ')}</p>
+                    </div>
+                    <GhostButton
+                      icon={<IconReset />}
+                      keepLabel
+                      aria-label={t('anthologies.removed.restore.aria')}
+                      onClick={() => restore(x)}
+                    >
+                      {t('anthologies.removed.restore.label')}
+                    </GhostButton>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
+        </section>
+      )}
+
       {entries != null && rows.length === 0 && (
         <Card className="mt-3">
           <p className="microcopy">
@@ -1715,7 +1769,9 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
             // THE TOAST CARRIES THE NUMBERS because the screen behind it is about to
             // change by that much, and a reader who pressed Fill over an anthology
             // of two hundred cannot count what arrived.
-            toast(t('anthologies.rule.filled', { added: res.added, skipped: res.skipped }))
+            toast(res.removed
+              ? t('anthologies.rule.filled-removed', { added: res.added, skipped: res.skipped, removed: res.removed })
+              : t('anthologies.rule.filled', { added: res.added, skipped: res.skipped }))
             reload()
           }}
         />

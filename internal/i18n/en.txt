@@ -2838,6 +2838,12 @@ anthologies.rule.preview.action = What would this take?
 anthologies.rule.preview = {matched} match. {added} would be added, {skipped} are already here.
 anthologies.rule.capped = Two hundred at a time; press again for the rest.
 anthologies.rule.filled = {added} added, {skipped} already here
+anthologies.rule.filled-removed = {added} added, {skipped} already here, {removed} left out because you removed them
+anthologies.removed.heading = Removed ({n})
+anthologies.removed.note = Taken out of this anthology. A rule will not put them back.
+anthologies.removed.restore.label = Bring back
+anthologies.removed.restore.aria = Bring this passage back into the anthology
+anthologies.toast.entry-restored = brought back
 # THE COUNT IS THE CONTROL, so this string is a verb and not a report: the only
 # thing to do with "12 waiting" is take them, and a label that only announced
 # would need a button beside it saying what this one already says.
@@ -2895,6 +2901,7 @@ error.save.anthology = could not save that anthology
 error.delete.anthology = could not delete that anthology
 error.save.note = could not save that note
 error.remove.entry = could not remove that entry
+error.restore.entry = could not bring that entry back
 error.move.entry = could not move that entry
 error.validate.anthology-title-required = Give the anthology a title
 

@@ -793,6 +793,8 @@ func wantShapes() []tableShape {
 				// anthology it was in. Left behind, it renders as a gap the reader
 				// cannot delete because nothing on screen represents it.
 				"anthology_entries_book_del",
+				// 0088's: a deleted highlight takes its anthology removals with it, as above.
+				"anthology_removed_book_del",
 				// 0052's, the fourth table of that shape: an ignored cleanup finding is
 				// the reader's answer about THIS quote's words, so a deleted highlight has
 				// to take its answers with it. Nothing on any screen would ever show the
@@ -912,6 +914,7 @@ func wantShapes() []tableShape {
 				// 0064's, beside it: the log a deleted line takes with it.
 				"item_recalls_screen_del",
 				"anthology_entries_screen_del", // 0043 — see annotations above
+				"anthology_removed_screen_del", // 0088 — see annotations above
 				"cleanup_ignores_screen_del",   // 0052 — see annotations above
 			},
 		},

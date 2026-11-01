@@ -483,6 +483,18 @@ func collectAnthologyEntries(tx *sql.Tx, out *collected, entryKind string, itemI
 	if len(rows) > 0 {
 		out.Payload["anthology_entries"] = append(out.Payload["anthology_entries"], rows...)
 	}
+	// AND WHERE IT WAS TAKEN OUT OF (0088): a quote's removals travel with it, or binning and
+	// restoring one would let the next fill put it back into an anthology that had refused it.
+	gone, err := queryMaps(tx, `
+		SELECT x.* FROM anthology_removed x
+		JOIN anthologies an ON an.id = x.anthology_id
+		WHERE x.kind = ? AND x.item_id IN `+marks, append([]any{entryKind}, args...)...)
+	if err != nil {
+		return err
+	}
+	if len(gone) > 0 {
+		out.Payload["anthology_removed"] = append(out.Payload["anthology_removed"], gone...)
+	}
 	return nil
 }
 
@@ -979,7 +991,7 @@ var accountTables = []string{
 	// commentary on every entry — which is the only thing in this snapshot that
 	// exists nowhere else in the library: a quote can be re-highlighted, and a
 	// sentence somebody wrote about why it sits third cannot.
-	"anthologies", "anthology_entries",
+	"anthologies", "anthology_entries", "anthology_removed",
 	// The file a work's quotes came from, and what was read from it (0083, 0084). After the
 	// works and the three quote tables, before nothing that references them by key: the rows
 	// point at a work by a polymorphic pair, and source_context points at its source by a
@@ -1109,6 +1121,11 @@ func (s *Server) binAccount(tx *sql.Tx, adminID, targetID int64, username string
 			// against a quote the caller does not own — see quoteOwned).
 			rows, err = queryMaps(tx,
 				`SELECT * FROM anthology_entries WHERE anthology_id IN (SELECT id FROM anthologies WHERE user_id = ?)`,
+				targetID)
+		case "anthology_removed":
+			// Reached through the anthology, like its entries: the table has no user_id.
+			rows, err = queryMaps(tx,
+				`SELECT * FROM anthology_removed WHERE anthology_id IN (SELECT id FROM anthologies WHERE user_id = ?)`,
 				targetID)
 		case "utterance_tags":
 			rows, err = queryMaps(tx,

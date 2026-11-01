@@ -1081,6 +1081,11 @@ func (s *Server) handleAddAnthologyEntries(w http.ResponseWriter, r *http.Reques
 			return
 		}
 		if n, _ := res.RowsAffected(); n > 0 {
+			// Added by hand, so it is no longer something that was taken out.
+			if err := forgetRemoval(tx, id, it.Kind, it.ItemID); err != nil {
+				internalError(w, r, "clear removal", err)
+				return
+			}
 			added++
 			next++
 		} else {
@@ -1177,22 +1182,44 @@ func (s *Server) handleRemoveAnthologyEntry(w http.ResponseWriter, r *http.Reque
 		writeErr(w, http.StatusNotFound, "anthology not found")
 		return
 	}
-	// The commentary goes with the entry, and that is worth being deliberate about:
-	// a note is written ABOUT a passage in a place, so keeping it after the passage
-	// leaves would be keeping a sentence about nothing. The quote itself is
-	// untouched — an anthology never owned it.
-	res, err := s.Store.DB.Exec(`DELETE FROM anthology_entries
-	                             WHERE anthology_id = ? AND kind = ? AND item_id = ?`, id, kind, itemID)
+	// THE PASSAGE IS REMEMBERED AS REMOVED, with its place and its commentary (0088), so a rule
+	// that fills this anthology does not put it back and the reader can. Both writes are one
+	// transaction: a passage in neither table, or in both, would be a state nothing explains. The
+	// quote itself is untouched — an anthology never owned it.
+	tx, err := s.Store.DB.Begin()
 	if err != nil {
-		internalError(w, r, "remove entry", err)
+		internalError(w, r, "begin tx", err)
 		return
 	}
-	if n, _ := res.RowsAffected(); n == 0 {
+	defer tx.Rollback()
+	var pos float64
+	var note string
+	err = tx.QueryRow(`SELECT position, note FROM anthology_entries
+	                   WHERE anthology_id = ? AND kind = ? AND item_id = ?`, id, kind, itemID).Scan(&pos, &note)
+	if err == sql.ErrNoRows {
 		writeErr(w, http.StatusNotFound, "that quote is not in this anthology")
 		return
 	}
-	if _, err := s.Store.DB.Exec(`UPDATE anthologies SET updated_at = datetime('now') WHERE id = ?`, id); err != nil {
+	if err != nil {
+		internalError(w, r, "read entry", err)
+		return
+	}
+	if _, err := tx.Exec(`DELETE FROM anthology_entries
+	                      WHERE anthology_id = ? AND kind = ? AND item_id = ?`, id, kind, itemID); err != nil {
+		internalError(w, r, "remove entry", err)
+		return
+	}
+	if _, err := tx.Exec(`INSERT OR REPLACE INTO anthology_removed (anthology_id, kind, item_id, position, note)
+	                      VALUES (?, ?, ?, ?, ?)`, id, kind, itemID, pos, note); err != nil {
+		internalError(w, r, "remember removal", err)
+		return
+	}
+	if _, err := tx.Exec(`UPDATE anthologies SET updated_at = datetime('now') WHERE id = ?`, id); err != nil {
 		internalError(w, r, "touch anthology", err)
+		return
+	}
+	if err := tx.Commit(); err != nil {
+		internalError(w, r, "commit removal", err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -1429,7 +1456,14 @@ func addAnthologyEntry(tx *sql.Tx, anthologyID int64, kind string, itemID int64,
 	if len([]rune(note)) > anthologyNoteMax {
 		note = string([]rune(note)[:anthologyNoteMax])
 	}
-	_, err := tx.Exec(`INSERT OR IGNORE INTO anthology_entries (anthology_id, position, kind, item_id, note)
-	                   VALUES (?, ?, ?, ?, ?)`, anthologyID, next, kind, itemID, note)
-	return err
+	res, err := tx.Exec(`INSERT OR IGNORE INTO anthology_entries (anthology_id, position, kind, item_id, note)
+	                     VALUES (?, ?, ?, ?, ?)`, anthologyID, next, kind, itemID, note)
+	if err != nil {
+		return err
+	}
+	// An import names the passage on purpose, which is as deliberate as adding it by hand.
+	if n, _ := res.RowsAffected(); n > 0 {
+		return forgetRemoval(tx, anthologyID, kind, itemID)
+	}
+	return nil
 }

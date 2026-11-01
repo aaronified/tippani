@@ -35,6 +35,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   from the file and the attached-files prune; each section folds away and filters with the same
   pills, where Corrections from the file used to have a filter style of its own.
 
+### Added
+
+- **An anthology remembers what you took out of it.** A rule that fills an anthology no longer
+  puts back a passage you removed. The anthology lists them under Removed, and Bring back puts
+  one in the place it was taken from, with its commentary.
+
 ## [3.5.0] - 2026-10-31
 
 ### Added

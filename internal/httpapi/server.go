@@ -598,6 +598,8 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /anthologies/{id}/entries", s.requireAuth(s.handleAddAnthologyEntries))
 	mux.Handle("PUT /anthologies/{id}/entries", s.requireAuth(s.handleAnthologyEntryNote))
 	mux.Handle("DELETE /anthologies/{id}/entries/{kind}/{itemID}", s.requireAuth(s.handleRemoveAnthologyEntry))
+	mux.Handle("GET /anthologies/{id}/removed", s.requireAuth(s.handleListAnthologyRemoved))
+	mux.Handle("POST /anthologies/{id}/removed/{kind}/{itemID}", s.requireAuth(s.handleRestoreAnthologyEntry))
 	mux.Handle("POST /anthologies/{id}/order", s.requireAuth(s.handleReorderAnthology))
 	mux.Handle("GET /anthologies/{id}/export", s.requireAuth(s.handleExportAnthology))
 	// The second format for the same document. A separate path rather than a
