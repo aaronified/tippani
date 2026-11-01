@@ -194,8 +194,8 @@ func stageUtterances(tx *sql.Tx, workID int64, us []importer.Utterance) (int, er
 		   speaker, occasion, occasion_date, place, medium, kind,
 		   category, language, translation,
 		   region, recipient, work_title, locator, source_author, occasion_circa, dedupe_hash,
-		   anthology, anthology_note, anthology_intro, anthology_section, anthology_section_prose)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		   anthology, anthology_note, anthology_intro, anthology_section, anthology_section_prose, anthology_epigraph, anthology_dedication)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	staged := 0
 	for _, u := range us {
 		color := u.Color
@@ -245,7 +245,8 @@ func stageUtterances(tx *sql.Tx, workID int64, us []importer.Utterance) (int, er
 			// why these ride on the same row rather than needing a table: a staged
 			// quote either names an anthology or it does not.
 			strings.TrimSpace(u.Anthology), trimProse(u.AnthologyNote), trimProse(u.AnthologyIntro),
-			strings.TrimSpace(u.AnthologySection), trimProse(u.AnthologySectionProse))
+			strings.TrimSpace(u.AnthologySection), trimProse(u.AnthologySectionProse),
+			trimProse(u.AnthologyEpigraph), trimProse(u.AnthologyDedication))
 		if err != nil {
 			return 0, err
 		}
@@ -419,6 +420,20 @@ func fileInAnthology(tx *sql.Tx, uid int64, u importer.Utterance, itemID int64) 
 		if _, err := tx.Exec(`UPDATE anthologies SET intro = ? WHERE id = ? AND intro = ''`,
 			trimProse(u.AnthologyIntro), anthologyID); err != nil {
 			return err
+		}
+	}
+	// THE FRONT MATTER FOLLOWS THE INTRODUCTION'S RULE: written on the anthology this import made, in
+	// the columns that are still empty, and never over what the reader has written since.
+	if made {
+		if e := trimProse(u.AnthologyEpigraph); e != "" {
+			if _, err := tx.Exec(`UPDATE anthologies SET epigraph = ? WHERE id = ? AND epigraph = ''`, e, anthologyID); err != nil {
+				return err
+			}
+		}
+		if d := trimProse(u.AnthologyDedication); d != "" {
+			if _, err := tx.Exec(`UPDATE anthologies SET dedication = ? WHERE id = ? AND dedication = ''`, d, anthologyID); err != nil {
+				return err
+			}
 		}
 	}
 	// Every imported quote is an utterance, whatever it was when it was exported —

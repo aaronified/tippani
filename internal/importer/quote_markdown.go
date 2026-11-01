@@ -84,6 +84,10 @@ type Utterance struct {
 	// and the prose under that heading. Empty on every entry that does not open one.
 	AnthologySection      string
 	AnthologySectionProse string
+	// 0090. The anthology's epigraph and dedication, carried on every entry of the same file like the
+	// introduction and written only when approval creates the anthology.
+	AnthologyEpigraph   string
+	AnthologyDedication string
 }
 
 // QuoteMarkdownAll parses a standalone-quote export. It returns a flat list

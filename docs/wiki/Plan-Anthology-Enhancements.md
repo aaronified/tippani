@@ -2,7 +2,7 @@
 
 Source of truth: this wiki page.
 
-Partly built: the removed-entry memory and the Removed list (0088), sections with grouping (0089), and drag with Move to… are done; the rest is not. Verified against `75e55ae` (main, 28 September 2026; its code is `ee4be1f`'s).
+Partly built: the removed-entry memory and the Removed list (0088), sections with grouping (0089), drag with Move to…, and front matter (0090) are done; the rest is not. Verified against `75e55ae` (main, 28 September 2026; its code is `ee4be1f`'s).
 Builds after `episodes.md`, whose extended drag it uses. Each citation is `path:line` and the
 text at that line. Tasks, one per ask:
 
@@ -39,8 +39,8 @@ text at that line. Tasks, one per ask:
       `func AnthologyMarkdown(r io.Reader) (Anthology, error) {`), re-link an entry to a work
       already in the library only on an exact match; otherwise keep it standalone, and say
       which in the import summary.
-- [ ] Add optional front matter to an anthology: cover image, epigraph and dedication.
-- [ ] Use the front matter on the reading view (`anthologies.jsx:1377`
+- [x] (done, 0090) Add optional front matter to an anthology: cover image, epigraph and dedication.
+- [x] (done: page, print and EPUB; the cover is the EPUB cover) Use the front matter on the reading view (`anthologies.jsx:1377`
       `function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {`), in
       print, and in EPUB, the cover as the EPUB cover.
 - [ ] Add a continuous-scroll reading mode in book typography, with the app's chrome hidden.
@@ -93,7 +93,7 @@ Decided while planning, so the build needs nothing further:
       `"anthologies", "anthology_entries",`); and the account bin's per-table query
       (`trash.go:1048` `case "anthology_entries":`), since neither new table has a
       `user_id`. Sections belong to an anthology, not a quote, so they travel at the last two.
-- [ ] The cover file is one of the reader's images: listed with them (`admin_handlers.go:325`
+- [x] (done) The cover file is one of the reader's images: listed with them (`admin_handlers.go:325`
       `func (s *Server) userCoverFiles(id int64) []string {`) and removed when the
       anthology is (`anthology_handlers.go:972`
       `func (s *Server) handleDeleteAnthology(w http.ResponseWriter, r *http.Request) {`).
@@ -108,7 +108,7 @@ Decided while planning, so the build needs nothing further:
       (`export_anthology.go:30` `// THE HEADING IS AN ENTRY DELIMITER THAT HAPPENS TO READ AS AN ATTRIBUTION.`),
       and import reads it back as a section; in EPUB each section opens a chapter; in print
       each starts a page.
-- [ ] The cover is an upload, stored like every other image and embedded in the EPUB the way its
+- [x] (done) The cover is an upload, stored like every other image and embedded in the EPUB the way its
       portraits are (`export_anthology_epub.go:346`
       `// THE NAME IS VALIDATED BEFORE IT IS OPENED.`). Markdown carries the epigraph and the
       dedication and leaves the cover out, as it leaves every image out.

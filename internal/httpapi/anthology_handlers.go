@@ -86,6 +86,11 @@ type anthologyRow struct {
 	// GroupBy is how the page groups consecutive passages under a header (0089): "", work, person or
 	// character. A display setting with its own endpoint, for the rule columns' reason.
 	GroupBy string `json:"group_by"`
+	// Front matter (0090): a cover picture, and the reader's epigraph and dedication. Written through
+	// the front route and the cover upload, never the full-state PUT.
+	CoverPath  string `json:"cover_path,omitempty"`
+	Epigraph   string `json:"epigraph,omitempty"`
+	Dedication string `json:"dedication,omitempty"`
 }
 
 // anthologyFields is what this anthology shows — and therefore what it exports,
@@ -858,8 +863,9 @@ func (s *Server) handleGetAnthology(w http.ResponseWriter, r *http.Request) {
 		internalError(w, r, "get anthology", err)
 		return
 	}
-	if err := s.Store.DB.QueryRow(`SELECT group_by FROM anthologies WHERE id = ?`, id).Scan(&a.GroupBy); err != nil {
-		internalError(w, r, "get anthology grouping", err)
+	if err := s.Store.DB.QueryRow(`SELECT group_by, COALESCE(cover_path, ''), epigraph, dedication FROM anthologies WHERE id = ?`, id).
+		Scan(&a.GroupBy, &a.CoverPath, &a.Epigraph, &a.Dedication); err != nil {
+		internalError(w, r, "get anthology front matter", err)
 		return
 	}
 	entries, err := s.entriesFor(uid, id)
@@ -992,6 +998,8 @@ func (s *Server) handleDeleteAnthology(w http.ResponseWriter, r *http.Request) {
 	// The entries go with it by declared foreign key (ON DELETE CASCADE), which is
 	// the one cascade in this feature the schema can express: an entry has exactly
 	// one anthology, even though it has three possible parents on the other side.
+	var cover sql.NullString
+	_ = s.Store.DB.QueryRow(`SELECT cover_path FROM anthologies WHERE id = ? AND user_id = ?`, id, uid).Scan(&cover)
 	res, err := s.Store.DB.Exec(`DELETE FROM anthologies WHERE id = ? AND user_id = ?`, id, uid)
 	if err != nil {
 		internalError(w, r, "delete anthology", err)
@@ -1001,6 +1009,8 @@ func (s *Server) handleDeleteAnthology(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusNotFound, "anthology not found")
 		return
 	}
+	// The cover is one of the reader's images and goes with the anthology (0090).
+	s.removeCoverFile(cover.String)
 	w.WriteHeader(http.StatusNoContent)
 }
 
