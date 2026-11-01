@@ -19,10 +19,17 @@ package importer
 //
 //	frontmatter          type: anthology, and the anthology's title
 //	prose                everything before the first "## " is the INTRODUCTION
+//	# anything           opens a SECTION: a heading the reader wrote, with prose under it
 //	## anything          opens an entry
 //	prose                the commentary that introduces this entry
 //	> the quote          the passage itself
 //	- key: value         its attribution, the same bindings the quotes format uses
+//
+// A SECTION RIDES ON THE ENTRY IT OPENS (0089), because the staging queue is per quote: the "# "
+// heading and the prose under it become the title and prose of the section that begins at the next
+// entry. A heading with no entry after it has nothing to ride on and is dropped, and so is the
+// earlier of two headings with no entry between them: both are said in the importer's summary by
+// the count of entries, which does not include them.
 //
 // WHAT THE ROUND TRIP LOSES, stated because it is a real loss and not an
 // oversight: an entry that was a book highlight comes back as a STANDALONE quote.
@@ -103,6 +110,10 @@ func AnthologyMarkdown(r io.Reader) (Anthology, error) {
 		qlines  []string   // the current quote's lines
 		inQuote bool
 		started bool // has the first "## " been seen? before it, prose is the intro
+
+		// The section being read: its heading, and whether its prose is still being collected.
+		secTitle string
+		inSec    bool
 	)
 
 	// paragraph joins the prose buffer the way a Markdown reader would: a blank
@@ -144,6 +155,19 @@ func AnthologyMarkdown(r io.Reader) (Anthology, error) {
 
 	for _, line := range lines[i:] {
 		switch {
+		case strings.HasPrefix(line, "# "):
+			// A section heading. Whatever entry was being built is complete, and the prose
+			// buffered so far belongs to the introduction (before anything) or to nothing.
+			if !started {
+				out.Intro = paragraph()
+				started = true
+			} else {
+				flush()
+			}
+			prose = nil
+			secTitle = strings.TrimSpace(strings.TrimPrefix(line, "# "))
+			inSec = secTitle != ""
+
 		case strings.HasPrefix(line, "## "):
 			// A heading closes the previous entry and opens the next. Any prose
 			// still buffered belongs to whatever came before it: the introduction
@@ -155,8 +179,16 @@ func AnthologyMarkdown(r io.Reader) (Anthology, error) {
 			} else {
 				flush()
 			}
+			var secProse string
+			if inSec {
+				secProse = paragraph()
+			}
 			prose = nil
 			cur = &Utterance{}
+			if inSec {
+				cur.AnthologySection, cur.AnthologySectionProse = secTitle, secProse
+				inSec = false
+			}
 
 		case strings.HasPrefix(line, ">"):
 			if cur == nil {

@@ -75,6 +75,7 @@ import {
   IconQuiz, IconPractise, IconPrint, IconReading, IconSearch,
   MonoLabel,
   MoreMenu,
+  Select,
   PageHeader,
   toast,
   Toggle,
@@ -1399,10 +1400,103 @@ function AnthologyEntry({ entry, fields = {}, first, last, onNote, onMove, onRem
   )
 }
 
+// ---- SECTIONS (0089) -------------------------------------------------------------------------
+//
+// A heading the reader writes, with optional prose under it, among the passages. It is a slot in
+// the same order as an entry and moves through the same route: the page reads both as "slots".
+
+const slotRef = (slot) => (slot.type === 'section' ? { kind: 'section', item_id: slot.section.id } : entryRef(slot.entry))
+const sameSlot = (a, b) => a.type === b.type && (a.type === 'section' ? a.section.id === b.section.id : sameEntry(a.entry, b.entry))
+
+// The name an entry is grouped under, or '' when it has none to give. Display only: grouping
+// reorders nothing, and a reader's section ends a run.
+function groupKey(entry, by) {
+  if (by === 'work') return entry.work_id ? `w:${entry.work_id}` : entry.source ? `s:${entry.source}` : ''
+  if (by === 'person') return entry.person_name || entry.credit || ''
+  if (by === 'character') return entry.character_name || ''
+  return ''
+}
+const groupLabel = (entry, by) =>
+  (by === 'work' ? entry.source : by === 'person' ? entry.person_name || entry.credit : entry.character_name) ||
+  t('anthologies.group.unknown')
+
+function SectionFields({ title, setTitle, prose, setProse, error, busy, onSubmit }) {
+  const host = useFormHost(busy ? t('common.action.save.busy') : !title.trim() ? t('anthologies.section.heading.required') : '')
+  return (
+    <form id={host?.formId} className="anthology-form" onSubmit={(e) => { e.preventDefault(); onSubmit() }}>
+      <Field
+        label={t('anthologies.section.heading.label')}
+        value={title}
+        maxLength={200}
+        autoFocus
+        onChange={(e) => setTitle(e.target.value)}
+      />
+      <label className="tp-field">
+        <MonoLabel>{t('anthologies.section.text.label')}</MonoLabel>
+        <ProseArea className="tp-input" rows={4} value={prose} maxLength={4000} onChange={(e) => setProse(e.target.value)} />
+      </label>
+      <ErrorText>{error}</ErrorText>
+    </form>
+  )
+}
+
+// `initial` is null for a new section. The tick is the form's save, armed by how many of the two
+// fields differ from what the section already holds.
+function SectionDialog({ initial, onSave, onCancel }) {
+  const [title, setTitle] = useState(initial?.title || '')
+  const [prose, setProse] = useState(initial?.prose || '')
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+  const dirty = Number(title !== (initial?.title || '')) + Number(prose !== (initial?.prose || ''))
+  async function submit() {
+    if (!title.trim()) return setError(t('anthologies.section.heading.required'))
+    setBusy(true)
+    const msg = await onSave({ title: title.trim(), prose })
+    setBusy(false)
+    if (msg) setError(msg)
+  }
+  return (
+    <FormModal
+      open
+      title={t(initial ? 'anthologies.section.form.edit.title' : 'anthologies.section.form.add.title')}
+      onClose={onCancel}
+      dirty={dirty}
+    >
+      <SectionFields title={title} setTitle={setTitle} prose={prose} setProse={setProse} error={error} busy={busy} onSubmit={submit} />
+    </FormModal>
+  )
+}
+
+function AnthologySectionBlock({ section, first, last, onEdit, onDelete, onMove }) {
+  return (
+    <div className="anthology-section" data-testid="anthology-section">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <h2 className="anthology-section-title">{section.title}</h2>
+          {section.prose && <p className="anthology-prose">{section.prose}</p>}
+        </div>
+        <MoreMenu
+          ariaLabel={t('anthologies.section.more.aria')}
+          items={[
+            { id: 'edit', icon: <IconEdit />, label: t('common.action.edit.label'), onClick: () => onEdit(section) },
+            ...(first ? [] : [{ id: 'up', icon: <IconChevron open />, label: t('common.action.move-up.label'), onClick: () => onMove(section, 'up') }]),
+            ...(last ? [] : [{ id: 'down', icon: <IconChevron />, label: t('common.action.move-down.label'), onClick: () => onMove(section, 'down') }]),
+            { id: 'delete', icon: <IconDelete />, label: t('common.action.delete.label'), danger: true, onClick: () => onDelete(section) },
+          ]}
+        />
+      </div>
+    </div>
+  )
+}
+
 // AnthologyPage — /anthologies/{id}, the thing being read.
 function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
   const [anthology, setAnthology] = useState(null)
   const [entries, setEntries] = useState(null)
+  // The reader's own headings (0089), in the entries' position space.
+  const [sections, setSections] = useState([])
+  const [sectioning, setSectioning] = useState(null) // {section} while the dialog is open; section null = a new one
+  const [unsectioning, setUnsectioning] = useState(null)
   // WHAT WAS TAKEN OUT (0088), listed under the entries with a way back. Null until read; a
   // failed read leaves it empty rather than hiding the anthology behind a second error.
   const [removed, setRemoved] = useState([])
@@ -1431,6 +1525,7 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
     // stored positions, and re-sorting here would be this screen having a second
     // opinion about it.
     setEntries(r.data.entries || [])
+    setSections(r.data.sections || [])
     setError('')
     const gone = await json('GET', `/anthologies/${id}/removed`)
     setRemoved(gone.ok ? gone.data.removed || [] : [])
@@ -1525,22 +1620,59 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
   // SERVER COMPUTES THE POSITION — a client that sent one would be inventing a
   // number the server may renumber out from under it — so this sends neighbours and
   // re-reads the whole list afterwards.
-  async function move(entry, dir) {
-    const rows = entries || []
-    const i = rows.findIndex((e) => sameEntry(e, entry))
+  // OVER SLOTS, NOT ENTRIES (0089): a passage moves past a heading in one step, and a heading
+  // moves past a passage, because the order they share is one list.
+  async function move(item, dir) {
+    const here = { type: item.kind ? 'entry' : 'section', entry: item.kind ? item : undefined, section: item.kind ? undefined : item }
+    const i = slots.findIndex((sl) => sameSlot(sl, here))
     if (i < 0) return
-    const after = dir === 'up' ? rows[i - 2] || null : rows[i + 1]
+    const after = dir === 'up' ? slots[i - 2] || null : slots[i + 1]
     if (dir === 'up' && i === 0) return
     if (dir === 'down' && !after) return
     const r = await json('POST', `/anthologies/${id}/order`, {
-      ...entryRef(entry),
-      after: after ? entryRef(after) : null,
+      ...slotRef(here),
+      after: after ? slotRef(after) : null,
     })
     if (!r.ok) return setError(errText(r, t('error.move.entry')))
     await reload()
   }
 
   const rows = entries || []
+  // ENTRIES AND SECTIONS IN ONE RUN, by position. Both lists arrive in order, so this is a merge and
+  // not a second opinion about the order; a heading sorts before a passage at the same position.
+  const slots = useMemo(() => {
+    const all = [
+      ...rows.map((entry) => ({ type: 'entry', entry, pos: entry.position })),
+      ...sections.map((section) => ({ type: 'section', section, pos: section.position })),
+    ]
+    return all.sort((a, b) => a.pos - b.pos || (a.type === 'section' ? -1 : 1) - (b.type === 'section' ? -1 : 1))
+  }, [rows, sections])
+  const groupBy = anthology?.group_by || ''
+
+  async function saveSection(fields) {
+    const editing = sectioning?.section
+    const r = editing
+      ? await json('PUT', `/anthologies/${id}/sections/${editing.id}`, fields)
+      : await json('POST', `/anthologies/${id}/sections`, fields)
+    if (!r.ok) return errText(r, t('error.save.section'))
+    setSectioning(null)
+    await reload()
+    return null
+  }
+
+  async function deleteSection(section) {
+    const r = await json('DELETE', `/anthologies/${id}/sections/${section.id}`)
+    setUnsectioning(null)
+    if (!r.ok) return setError(errText(r, t('error.delete.section')))
+    await reload()
+  }
+
+  async function setGrouping(value) {
+    const r = await json('PUT', `/anthologies/${id}/grouping`, { group_by: value })
+    if (!r.ok) return setError(errText(r, t('error.save.grouping')))
+    await reload()
+  }
+
   // THE ANTHOLOGY'S NAME GOES TO THE SHELL, because the page's own heading is off
   // the screen: `.page-header h1` is visually hidden on the grounds that the
   // breadcrumb names the page on a desk and the shell header on a phone. Both of
@@ -1685,20 +1817,69 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
         </Card>
       )}
 
-      {rows.map((entry, i) => (
-        <AnthologyEntry
-          key={`${entry.kind}:${entry.item_id}`}
-          entry={entry}
-          fields={anthology || {}}
-          first={i === 0}
-          last={i === rows.length - 1}
-          onNote={setNoting}
-          onMove={move}
-          onRemove={remove}
-          onOpenBook={onOpenBook}
-          onOpenMovie={onOpenMovie}
-        />
-      ))}
+      {/* HOW THE PASSAGES ARE GROUPED, and the way to add a heading. Furniture, so not printed. */}
+      {anthology && (
+        <div className="anthology-tools no-print">
+          <GhostButton icon={<IconPlus />} onClick={() => setSectioning({ section: null })}>
+            {t('anthologies.section.add.label')}
+          </GhostButton>
+          <label className="flex items-center gap-2">
+            <MonoLabel>{t('anthologies.group.label')}</MonoLabel>
+            <Select
+              ariaLabel={t('anthologies.group.label')}
+              value={groupBy}
+              onChange={setGrouping}
+              options={[
+                ['', t('anthologies.group.none')],
+                ['work', t('anthologies.group.work')],
+                ['person', t('anthologies.group.person')],
+                ['character', t('anthologies.group.character')],
+              ]}
+            />
+          </label>
+        </div>
+      )}
+
+      {slots.map((slot, i) => {
+        if (slot.type === 'section') {
+          return (
+            <AnthologySectionBlock
+              key={`section:${slot.section.id}`}
+              section={slot.section}
+              first={i === 0}
+              last={i === slots.length - 1}
+              onEdit={(s) => setSectioning({ section: s })}
+              onDelete={setUnsectioning}
+              onMove={move}
+            />
+          )
+        }
+        const entry = slot.entry
+        // A GROUP HEADER STARTS A RUN: the entry's key differs from the entry before it, or a
+        // heading of the reader's sits between them. An entry with no key to group by gets none.
+        const prev = slots[i - 1]
+        const key = groupKey(entry, groupBy)
+        const header =
+          groupBy && key && (!prev || prev.type === 'section' || groupKey(prev.entry, groupBy) !== key)
+            ? groupLabel(entry, groupBy)
+            : null
+        return (
+          <div key={`${entry.kind}:${entry.item_id}`}>
+            {header && <h3 className="anthology-group" data-testid="anthology-group">{header}</h3>}
+            <AnthologyEntry
+              entry={entry}
+              fields={anthology || {}}
+              first={i === 0}
+              last={i === slots.length - 1}
+              onNote={setNoting}
+              onMove={move}
+              onRemove={remove}
+              onOpenBook={onOpenBook}
+              onOpenMovie={onOpenMovie}
+            />
+          </div>
+        )
+      })}
 
       {/* WHAT WAS REMOVED, folded by default: it is the exception, and an anthology page is a
           document first. `.no-print` because a printed anthology is the document, and a list of
@@ -1777,6 +1958,17 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
         />
       )}
       {noting && <EntryNoteDialog entry={noting} onSave={saveNote} onCancel={() => setNoting(null)} />}
+      {sectioning && <SectionDialog initial={sectioning.section} onSave={saveSection} onCancel={() => setSectioning(null)} />}
+      {unsectioning && (
+        <ConfirmDialog
+          open
+          title={t('anthologies.section.delete.title', { title: unsectioning.title })}
+          confirmLabel={t('common.action.delete.label')}
+          onConfirm={() => deleteSection(unsectioning)}
+          onCancel={() => setUnsectioning(null)}
+          body={<p>{t('anthologies.section.delete.body')}</p>}
+        />
+      )}
       {/* The round belongs to this page and unmounts with it — usePractice is a
           hook rather than a global for exactly that reason: a round left running
           behind a screen the reader navigated away from would keep posting grades

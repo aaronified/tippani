@@ -88,7 +88,12 @@ func (s *Server) handleExportAnthologyEPUB(w http.ResponseWriter, r *http.Reques
 		internalError(w, r, "render anthology epub", err)
 		return
 	}
-	book, err := s.renderAnthologyEPUB(id, title, intro, fields, entries)
+	sections, err := sectionsFor(s.Store.DB, id)
+	if err != nil {
+		internalError(w, r, "render anthology epub", err)
+		return
+	}
+	book, err := s.renderAnthologyEPUB(id, title, intro, fields, entries, sections)
 	if err != nil {
 		internalError(w, r, "render anthology epub", err)
 		return
@@ -113,7 +118,7 @@ func epubIdentifier(id int64) string {
 // renderAnthologyEPUB writes the whole book. The entry order is the anthology's,
 // which is the whole point of an anthology and the one thing a format conversion
 // must not touch.
-func (s *Server) renderAnthologyEPUB(id int64, title, intro string, f anthologyFields, entries []anthologyEntryRow) ([]byte, error) {
+func (s *Server) renderAnthologyEPUB(id int64, title, intro string, f anthologyFields, entries []anthologyEntryRow, sections []anthologySectionRow) ([]byte, error) {
 	uid := epubIdentifier(id)
 	var buf bytes.Buffer
 	z := zip.NewWriter(&buf)
@@ -157,13 +162,13 @@ func (s *Server) renderAnthologyEPUB(id int64, title, intro string, f anthologyF
 			return nil, err
 		}
 	}
-	if err := add("OEBPS/anthology.xhtml", epubBody(title, intro, f, entries, images)); err != nil {
+	if err := add("OEBPS/anthology.xhtml", epubBody(title, intro, f, entries, sections, images)); err != nil {
 		return nil, err
 	}
 	if err := add("OEBPS/content.opf", epubOPF(title, uid, images)); err != nil {
 		return nil, err
 	}
-	if err := add("OEBPS/toc.ncx", epubNCX(title, uid, entries, f)); err != nil {
+	if err := add("OEBPS/toc.ncx", epubNCX(title, uid, entries, sections, f)); err != nil {
 		return nil, err
 	}
 	if err := z.Close(); err != nil {
@@ -189,6 +194,8 @@ const epubContainer = `<?xml version="1.0" encoding="UTF-8"?>
 const epubStyle = `body { margin: 0 1em; }
 h1 { font-size: 1.4em; margin: 1.2em 0 .6em; }
 h2 { font-size: 1.05em; font-weight: normal; font-style: italic; margin: 1.8em 0 .4em; }
+h1.section { page-break-before: always; margin: 1.2em 0 .6em; }
+p.section { margin: .4em 0; }
 p.commentary { margin: .4em 0; }
 blockquote { margin: .6em 0 .4em 0; padding-left: .9em; border-left: 3px solid #999; }
 p.attribution { margin: .2em 0 0; font-size: .85em; }
@@ -219,7 +226,7 @@ func epubOPF(title, bookID string, images []epubImage) string {
 `
 }
 
-func epubNCX(title, bookID string, entries []anthologyEntryRow, f anthologyFields) string {
+func epubNCX(title, bookID string, entries []anthologyEntryRow, sections []anthologySectionRow, f anthologyFields) string {
 	var sb strings.Builder
 	sb.WriteString(`<?xml version="1.0" encoding="UTF-8"?>
 <ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
@@ -227,10 +234,23 @@ func epubNCX(title, bookID string, entries []anthologyEntryRow, f anthologyField
   <docTitle><text>` + xmlText(title) + `</text></docTitle>
   <navMap>
 `)
+	// Sections and entries in one run, by position: a section is a chapter in the contents (0089).
+	play, next := 0, 0
+	point := func(label, anchor string) {
+		play++
+		sb.WriteString(`    <navPoint id="n` + strconv.Itoa(play) + `" playOrder="` + strconv.Itoa(play) + `">` +
+			`<navLabel><text>` + xmlText(label) + `</text></navLabel>` +
+			`<content src="anthology.xhtml#` + anchor + `"/></navPoint>` + "\n")
+	}
 	for i, e := range entries {
-		sb.WriteString(`    <navPoint id="n` + strconv.Itoa(i+1) + `" playOrder="` + strconv.Itoa(i+1) + `">` +
-			`<navLabel><text>` + xmlText(anthologyHeading(e, i, f)) + `</text></navLabel>` +
-			`<content src="anthology.xhtml#e` + strconv.Itoa(i+1) + `"/></navPoint>` + "\n")
+		for next < len(sections) && sections[next].Position < e.Position {
+			point(sections[next].Title, "s"+strconv.Itoa(next+1))
+			next++
+		}
+		point(anthologyHeading(e, i, f), "e"+strconv.Itoa(i+1))
+	}
+	for ; next < len(sections); next++ {
+		point(sections[next].Title, "s"+strconv.Itoa(next+1))
 	}
 	sb.WriteString("  </navMap>\n</ncx>\n")
 	return sb.String()
@@ -244,7 +264,7 @@ func epubNCX(title, bookID string, entries []anthologyEntryRow, f anthologyField
 // "Ursula K. Le Guin · Parnassus Press · 1968" — rather than as `- key: value`
 // lines, because those are a machine's format and this file is read by a person on
 // a device with no way to ask what a key means.
-func epubBody(title, intro string, f anthologyFields, entries []anthologyEntryRow, images []epubImage) string {
+func epubBody(title, intro string, f anthologyFields, entries []anthologyEntryRow, sections []anthologySectionRow, images []epubImage) string {
 	var sb strings.Builder
 	sb.WriteString(`<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html>
@@ -264,7 +284,12 @@ func epubBody(title, intro string, f anthologyFields, entries []anthologyEntryRo
 			sb.WriteString(`<p class="intro">` + xmlText(para) + "</p>\n")
 		}
 	}
+	next := 0
 	for i, e := range entries {
+		for next < len(sections) && sections[next].Position < e.Position {
+			writeEpubSection(&sb, sections[next], next+1)
+			next++
+		}
 		sb.WriteString(`<h2 id="e` + strconv.Itoa(i+1) + `">` + xmlText(anthologyHeading(e, i, f)) + "</h2>\n")
 		if f.shows("commentary") && strings.TrimSpace(e.Note) != "" {
 			for _, para := range strings.Split(strings.TrimRight(e.Note, "\n"), "\n\n") {
@@ -302,8 +327,22 @@ func epubBody(title, intro string, f anthologyFields, entries []anthologyEntryRo
 			sb.WriteString(`<p class="attribution">` + xmlText(line) + "</p>\n")
 		}
 	}
+	for ; next < len(sections); next++ {
+		writeEpubSection(&sb, sections[next], next+1)
+	}
 	sb.WriteString("</body>\n</html>\n")
 	return sb.String()
+}
+
+// writeEpubSection is a reader's heading as a chapter opener, with the prose under it.
+func writeEpubSection(sb *strings.Builder, x anthologySectionRow, n int) {
+	sb.WriteString(`<h1 class="section" id="s` + strconv.Itoa(n) + `">` + xmlText(x.Title) + "</h1>\n")
+	for _, para := range strings.Split(strings.TrimRight(x.Prose, "\n"), "\n\n") {
+		if strings.TrimSpace(para) == "" {
+			continue
+		}
+		sb.WriteString(`<p class="section">` + xmlText(para) + "</p>\n")
+	}
 }
 
 // epubAttribution is every switched-on field this entry has a value for, in

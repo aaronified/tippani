@@ -77,7 +77,12 @@ func (s *Server) handleExportAnthology(w http.ResponseWriter, r *http.Request) {
 		internalError(w, r, "render anthology export", err)
 		return
 	}
-	serveMarkdown(w, sanitizeFilename(title)+".md", renderAnthologyExport(title, intro, fields, entries))
+	sections, err := sectionsFor(s.Store.DB, id)
+	if err != nil {
+		internalError(w, r, "render anthology export", err)
+		return
+	}
+	serveMarkdown(w, sanitizeFilename(title)+".md", renderAnthologyExportSections(title, intro, fields, entries, sections))
 }
 
 // THE FIELD SWITCHES ARE A FILTER, NOT A SECOND RENDERER (0045). writeQuoteBlock
@@ -96,6 +101,26 @@ func (s *Server) handleExportAnthology(w http.ResponseWriter, r *http.Request) {
 // too. With both hidden it falls back to the entry's position, which is what the
 // delimiter has always been for — a section with no heading is unparseable.
 func renderAnthologyExport(title, intro string, f anthologyFields, entries []anthologyEntryRow) string {
+	return renderAnthologyExportSections(title, intro, f, entries, nil)
+}
+
+// writeSection is a reader's heading and the prose under it, one level above the entries' own
+// ("# " where an entry is "## "), which is what lets the importer tell the two apart (0089).
+func writeSection(sb *strings.Builder, x anthologySectionRow) {
+	sb.WriteString("\n# ")
+	sb.WriteString(strings.Join(strings.Fields(x.Title), " "))
+	sb.WriteString("\n")
+	if strings.TrimSpace(x.Prose) != "" {
+		sb.WriteString("\n")
+		sb.WriteString(strings.TrimRight(x.Prose, "\n"))
+		sb.WriteString("\n")
+	}
+}
+
+// renderAnthologyExportSections is the export with the reader's sections placed among the entries
+// by position. The sections are in position order, as sectionsFor reads them; a section after the
+// last entry is written after it, though an import cannot carry it (it has no entry to ride on).
+func renderAnthologyExportSections(title, intro string, f anthologyFields, entries []anthologyEntryRow, sections []anthologySectionRow) string {
 	var sb strings.Builder
 	// `title` is in the frontmatter because the importer needs it before it reads a
 	// single entry: it is what an approved import resolves to a row.
@@ -105,7 +130,12 @@ func renderAnthologyExport(title, intro string, f anthologyFields, entries []ant
 		sb.WriteString(strings.TrimRight(intro, "\n"))
 		sb.WriteString("\n")
 	}
+	next := 0
 	for i, e := range entries {
+		for next < len(sections) && sections[next].Position < e.Position {
+			writeSection(&sb, sections[next])
+			next++
+		}
 		sb.WriteString("\n## ")
 		sb.WriteString(anthologyHeading(e, i, f))
 		sb.WriteString("\n")
@@ -161,6 +191,9 @@ func renderAnthologyExport(title, intro string, f anthologyFields, entries []ant
 			}
 			writeFavorite(&sb, e.Favorite)
 		})
+	}
+	for ; next < len(sections); next++ {
+		writeSection(&sb, sections[next])
 	}
 	return sb.String()
 }

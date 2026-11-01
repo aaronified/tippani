@@ -37,6 +37,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **An anthology can have sections, and can be grouped.** Add a heading of your own, with text
+  under it, anywhere among the passages; a passage moves past it and it moves past a passage.
+  Group the passages by work, person or character and each run gets a header, which a section of
+  yours ends. Sections come out in the Markdown and the EPUB (a chapter each, and a new page in
+  print), and an imported anthology file keeps its headings.
+
 - **An anthology remembers what you took out of it.** A rule that fills an anthology no longer
   puts back a passage you removed. The anthology lists them under Removed, and Bring back puts
   one in the place it was taken from, with its commentary.
