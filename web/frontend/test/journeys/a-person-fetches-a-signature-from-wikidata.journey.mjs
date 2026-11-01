@@ -56,7 +56,11 @@ it.skipIf(!reachable)('Fetch from Wikidata offers the signature it found, and ke
   // that does nothing, and on a slow runner the picture is not there yet: the failure CI kept showing.
   await app.gone('loading…')
   await app.see('Signature — Rabindranath Tagore')
-  await app.see('No signature yet') // still: nothing is kept until the tick
+  // NOT "No signature yet" HERE. This line used to check that nothing is kept until the tick, but the
+  // person's panel is underneath the dialog, and whether its words are in the page while the dialog is
+  // open depends on layering and timing: it passed on a pull request and failed on the same code on main.
+  // Nothing kept is still shown by the steps around it: "No signature yet" before Fetch, and after Save it
+  // goes while "Remove signature" arrives.
 
   await app.press('Save')
   await app.see('Remove signature')
