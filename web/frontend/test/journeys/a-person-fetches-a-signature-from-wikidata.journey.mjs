@@ -49,6 +49,14 @@ it.skipIf(!reachable)('Fetch from Wikidata offers the signature it found, and ke
   await app.press('Rabindranath Tago…')
   await app.see('No signature yet')
 
+  // THE BUTTON IS OFF WHILE THE PANEL IS BUSY, and on this server (online, for this file alone) the panel is busy
+  // for as long as its own portrait lookup takes, which on a CI runner can be many seconds. A press on a
+  // disabled button sends nothing, and the dialog this journey is waiting for never opens: the failure CI kept
+  // showing, with no signature request in the server's log. A reader waits for the button to come alive.
+  await app.page.waitForFunction(
+    () => [...document.querySelectorAll('button')].some((b) => /fetch from wikidata/i.test(b.innerText) && !b.disabled),
+    { timeout: 60000 },
+  )
   await app.press('Fetch from Wikidata')
   // The dialog opens on the CLEANED signature and keeps nothing until it is saved.
   await app.see('Ink strength')

@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Internal
 
+- **The Wikidata signature journey waits for its Fetch button to be enabled.** The button is off
+  while the person's panel is busy with its own lookup, so a press on a slow runner sent
+  nothing.
+
 - **The back-key journey waits for the phone to arrive before it reads the address.** Going back
   is asynchronous, so on a busy runner it read the screen it had just left; it was the flaky
   `journeys (3)` on three runs.
