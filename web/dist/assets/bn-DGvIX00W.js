@@ -1223,6 +1223,7 @@ shell.search.context.leave.aria = এখন {where} খোঁজা হচ্ছ
 # the bar and the screen cannot come to disagree about what a place is called.
 shell.search.where.settings = সেটিংস
 shell.search.where.works = বই আর ছবি
+shell.search.where.marks = বাড়তি চিহ্ন
 shell.search.where.characters = এই লাইব্রেরির চরিত্র
 shell.search.where.people = এই লাইব্রেরির মানুষ
 # The system logs card in Settings › Jobs takes the bar while that section is open.
@@ -4345,6 +4346,9 @@ cleanup.row.times = ×{n}
 cleanup.row.open.tip = কাজটি খুলুন
 cleanup.row.open.aria = {label} খুলুন
 cleanup.row.no-work.label = আলাদা উক্তি
+cleanup.state.no-match = “{q}” মেলে এমন বাড়তি চিহ্ন নেই
+cleanup.group.fold.aria = {label}-এর উক্তি লুকান
+cleanup.group.unfold.aria = {label}-এর উক্তি দেখান
 cleanup.filter.all.label = সব
 error.cleanup.generic = গ্রন্থাগার পড়া গেল না
 
@@ -7860,6 +7864,13 @@ files.filter.none = ফাইল নেই
 files.filter.has = ফাইল আছে
 files.filter.found = ফোল্ডারে পাওয়া
 files.empty = মেলে এমন কোনো কাজ নেই।
+files.attach.folder = ফোল্ডার থেকে জুড়ুন
+files.pick.title = {title}-এর জন্য ফাইল বেছে নিন
+files.pick.up = এক ধাপ উপরে
+files.pick.empty = এই ফোল্ডারে কোনো কাজের ব্যবহারযোগ্য কিছু নেই।
+files.pick.failed = ফোল্ডারটি পড়া গেল না।
+files.pick.truncated = শুধু প্রথম কয়েকটি নাম দেখানো হয়েছে; ছোট করতে একটি উপ-ফোল্ডার খুলুন।
+files.pick.need-episode = আগে বলুন কোন পর্ব, যেমন s01e04।
 files.kind.book = বই
 files.kind.film = ফিল্ম
 files.kind.show = শো
