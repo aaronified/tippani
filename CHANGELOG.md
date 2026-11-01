@@ -37,6 +37,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Passages and headings in an anthology can be dragged into place, or moved to a numbered
+  passage.** Each has a grip beside it that works with a finger or a mouse, and the page scrolls
+  when you hold near its edge; the arrow keys step it a place. A heading takes the passages
+  under it with it.
+
 - **An anthology can have sections, and can be grouped.** Add a heading of your own, with text
   under it, anywhere among the passages; a passage moves past it and it moves past a passage.
   Group the passages by work, person or character and each run gets a header, which a section of

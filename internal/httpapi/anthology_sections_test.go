@@ -328,3 +328,65 @@ func TestTheEPUBOpensAChapterAtEachSection(t *testing.T) {
 		t.Errorf("a section does not start a page")
 	}
 }
+
+// A SECTION MOVES AS A CHAPTER DOES: the heading and the passages under it, up to the next heading.
+
+func fourBook(t *testing.T, c *testClient) (anthologyRow, [4]int64) {
+	t.Helper()
+	a, b, cq, d := taggedShelf(t, c)
+	an := newAnthology(t, c, "Chapters")
+	addEntries(t, c, an.ID, []map[string]any{
+		{"kind": "book", "item_id": a}, {"kind": "book", "item_id": b},
+		{"kind": "book", "item_id": cq}, {"kind": "book", "item_id": d},
+	})
+	return an, [4]int64{a, b, cq, d}
+}
+
+func book(id int64) string { return "book:" + itoa(id) }
+
+func TestASectionMovesWithThePassagesUnderIt(t *testing.T) {
+	c := signupAdmin(t, newTestServer(t).Handler())
+	an, q := fourBook(t, c)
+	s1 := addSection(t, c, an.ID, "One", map[string]any{"kind": "book", "item_id": q[0]})
+	s2 := addSection(t, c, an.ID, "Two", map[string]any{"kind": "book", "item_id": q[2]})
+	// a, [One] b c, [Two] d
+	c.mustDo("POST", "/anthologies/"+itoa(an.ID)+"/order", map[string]any{
+		"kind": "section", "item_id": s1.ID, "after": map[string]any{"kind": "book", "item_id": q[3]},
+	}, http.StatusOK)
+
+	want := []string{book(q[0]), "section:" + itoa(s2.ID), book(q[3]), "section:" + itoa(s1.ID), book(q[1]), book(q[2])}
+	if got := slotOrder(sectioned(t, c, an.ID)); !equalStrings(got, want) {
+		t.Errorf("order = %v, want %v (the heading and its two passages move together)", got, want)
+	}
+}
+
+func TestASectionMovesToTheTopWithItsPassages(t *testing.T) {
+	c := signupAdmin(t, newTestServer(t).Handler())
+	an, q := fourBook(t, c)
+	addSection(t, c, an.ID, "One", map[string]any{"kind": "book", "item_id": q[0]})
+	s2 := addSection(t, c, an.ID, "Two", map[string]any{"kind": "book", "item_id": q[2]})
+
+	c.mustDo("POST", "/anthologies/"+itoa(an.ID)+"/order", map[string]any{
+		"kind": "section", "item_id": s2.ID, "after": nil,
+	}, http.StatusOK)
+
+	order := slotOrder(sectioned(t, c, an.ID))
+	if len(order) != 6 || order[0] != "section:"+itoa(s2.ID) || order[1] != book(q[3]) {
+		t.Errorf("the second chapter did not come first with its passage: %v", order)
+	}
+}
+
+func TestASectionCannotMoveIntoThePassagesUnderIt(t *testing.T) {
+	c := signupAdmin(t, newTestServer(t).Handler())
+	an, q := fourBook(t, c)
+	s1 := addSection(t, c, an.ID, "One", map[string]any{"kind": "book", "item_id": q[0]})
+	before := slotOrder(sectioned(t, c, an.ID))
+
+	c.mustDo("POST", "/anthologies/"+itoa(an.ID)+"/order", map[string]any{
+		"kind": "section", "item_id": s1.ID, "after": map[string]any{"kind": "book", "item_id": q[2]},
+	}, http.StatusBadRequest)
+
+	if got := slotOrder(sectioned(t, c, an.ID)); !equalStrings(got, before) {
+		t.Errorf("a refused move changed the order: %v became %v", before, got)
+	}
+}

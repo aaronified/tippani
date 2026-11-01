@@ -12330,3 +12330,31 @@ button.work-pill:hover { color: var(--ink); border-color: var(--ink-border); }
   .anthology-section { break-before: page; page-break-before: always; }
   .anthology-section:first-child { break-before: auto; page-break-before: auto; }
 }
+
+/* DRAGGING A PASSAGE OR A HEADING: a grip beside each slot, and a line where it will land. */
+.anthology-slot { display: flex; align-items: flex-start; gap: 6px; position: relative; }
+.anthology-slot-body { flex: 1 1 auto; min-width: 0; }
+.anthology-grip {
+  flex: none;
+  margin-top: 14px;
+  padding: 6px 2px;
+  border: 0;
+  background: none;
+  color: var(--faint);
+  cursor: grab;
+  touch-action: none;
+}
+.anthology-grip:focus-visible { outline: 2px solid var(--accent-ui); border-radius: 4px; }
+.anthology-slot[data-dragging] { opacity: 0.45; }
+.anthology-slot.is-drop-before::before,
+.anthology-slot.is-drop-after::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--accent-ui);
+}
+.anthology-slot.is-drop-before::before { top: -2px; }
+.anthology-slot.is-drop-after::after { bottom: -2px; }

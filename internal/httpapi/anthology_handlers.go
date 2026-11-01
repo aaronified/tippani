@@ -1283,6 +1283,33 @@ func (s *Server) handleReorderAnthology(w http.ResponseWriter, r *http.Request) 
 		writeErr(w, http.StatusNotFound, "anthology not found")
 		return
 	}
+	// A SECTION MOVES WITH THE PASSAGES UNDER IT (0089), as moving a chapter would: its run is the
+	// heading and every slot after it up to the next heading. The same route, because a heading is a
+	// slot like any other; the difference is only how many rows it writes.
+	if body.Kind == slotSection {
+		pos, err := moveSectionRun(tx, id, body.ItemID, body.After)
+		switch {
+		case err == errNoSuchSlot:
+			writeErr(w, http.StatusNotFound, "that section or the slot it should follow is not in this anthology")
+			return
+		case err == errIntoOwnRun:
+			writeErr(w, http.StatusBadRequest, "a section cannot move into the passages under it")
+			return
+		case err != nil:
+			internalError(w, r, "move section", err)
+			return
+		}
+		if _, err := tx.Exec(`UPDATE anthologies SET updated_at = datetime('now') WHERE id = ?`, id); err != nil {
+			internalError(w, r, "touch anthology", err)
+			return
+		}
+		if err := tx.Commit(); err != nil {
+			internalError(w, r, "commit reorder", err)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"position": pos})
+		return
+	}
 	var moving float64
 	if err := tx.QueryRow(`SELECT position FROM anthology_slots
 	                       WHERE anthology_id = ? AND kind = ? AND item_id = ?`,

@@ -50,6 +50,7 @@ import { ProseArea } from './proseField.jsx'
 import { categoryVar } from './theme.js'
 import { usePractice } from './review.jsx'
 import { SignatureInk } from './signature.jsx'
+import { useRowReorder } from './reorder.js'
 // THE SEARCH SCREEN'S OWN BOX, imported rather than rebuilt. See RuleDialog below:
 // a second way to ask one question is how two screens get to disagree about what
 // an author is.
@@ -71,6 +72,7 @@ import {
   IconExport,
   IconPlus,
   IconReset,
+  IconGrip,
   useScreenBar,
   IconQuiz, IconPractise, IconPrint, IconReading, IconSearch,
   MonoLabel,
@@ -1256,7 +1258,7 @@ function locatorOf(entry) {
 // piece and then the piece speaks. The attribution sits under it, and where the
 // quote has a parent work the credit is a doorway into it — a CONTENT LINK, so it
 // is never gated on which sections are switched on.
-function AnthologyEntry({ entry, fields = {}, first, last, onNote, onMove, onRemove, onOpenBook, onOpenMovie }) {
+function AnthologyEntry({ entry, fields = {}, first, last, onNote, onMove, onMoveTo, onRemove, onOpenBook, onOpenMovie }) {
   const openWork =
     entry.work_id && entry.kind === 'book'
       ? onOpenBook
@@ -1391,6 +1393,7 @@ function AnthologyEntry({ entry, fields = {}, first, last, onNote, onMove, onRem
             // to wonder about.
             ...(first ? [] : [{ id: 'up', icon: <IconChevron open />, label: t('common.action.move-up.label'), onClick: () => onMove(entry, 'up') }]),
             ...(last ? [] : [{ id: 'down', icon: <IconChevron />, label: t('common.action.move-down.label'), onClick: () => onMove(entry, 'down') }]),
+            ...(onMoveTo ? [{ id: 'move-to', icon: <IconChevron />, label: t('anthologies.move-to.label'), onClick: () => onMoveTo(entry) }] : []),
             { id: 'remove', icon: <IconDelete />, label: t('common.action.remove.label'), danger: true, onClick: () => onRemove(entry) },
           ]}
         />
@@ -1463,6 +1466,35 @@ function SectionDialog({ initial, onSave, onCancel }) {
       dirty={dirty}
     >
       <SectionFields title={title} setTitle={setTitle} prose={prose} setProse={setProse} error={error} busy={busy} onSubmit={submit} />
+    </FormModal>
+  )
+}
+
+// MOVE TO… a numbered passage, for the anthology too long to drag across.
+function MoveToFields({ n, setN, max, onSubmit }) {
+  const valid = Number.isInteger(n) && n >= 1 && n <= max
+  const host = useFormHost(valid ? '' : t('anthologies.move-to.field', { max }))
+  return (
+    <form id={host?.formId} className="anthology-form" onSubmit={(e) => { e.preventDefault(); if (valid) onSubmit() }}>
+      <p className="microcopy">{t('anthologies.move-to.body')}</p>
+      <Field
+        label={t('anthologies.move-to.field', { max })}
+        type="number"
+        min={1}
+        max={max}
+        value={Number.isFinite(n) ? n : ''}
+        autoFocus
+        onChange={(e) => setN(e.target.value === '' ? Number.NaN : Number(e.target.value))}
+      />
+    </form>
+  )
+}
+
+function MoveToDialog({ max, current, onMove, onCancel }) {
+  const [n, setN] = useState(current)
+  return (
+    <FormModal open title={t('anthologies.move-to.title')} onClose={onCancel} dirty={n !== current ? 1 : 0}>
+      <MoveToFields n={n} setN={setN} max={max} onSubmit={() => onMove(n)} />
     </FormModal>
   )
 }
@@ -1622,19 +1654,79 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
   // re-reads the whole list afterwards.
   // OVER SLOTS, NOT ENTRIES (0089): a passage moves past a heading in one step, and a heading
   // moves past a passage, because the order they share is one list.
-  async function move(item, dir) {
-    const here = { type: item.kind ? 'entry' : 'section', entry: item.kind ? item : undefined, section: item.kind ? undefined : item }
-    const i = slots.findIndex((sl) => sameSlot(sl, here))
-    if (i < 0) return
-    const after = dir === 'up' ? slots[i - 2] || null : slots[i + 1]
-    if (dir === 'up' && i === 0) return
-    if (dir === 'down' && !after) return
+  //
+  // A DRAG, THE STEP KEYS, THE MENU AND "MOVE TO…" ARE ONE MOVE AND ONE REQUEST (0089): each works
+  // out which slot the thing should follow and calls sendMove, so they cannot land in different
+  // places. A heading carries the passages under it, which the server does; the client only has to
+  // not offer a target inside them.
+  async function sendMove(here, after) {
     const r = await json('POST', `/anthologies/${id}/order`, {
       ...slotRef(here),
       after: after ? slotRef(after) : null,
     })
     if (!r.ok) return setError(errText(r, t('error.move.entry')))
     await reload()
+  }
+
+  // Where the run of the section at index i ends: the next heading, or the end of the list.
+  const runEnd = (i) => {
+    let j = i + 1
+    while (j < slots.length && slots[j].type !== 'section') j++
+    return j
+  }
+
+  async function move(item, dir) {
+    const here = { type: item.kind ? 'entry' : 'section', entry: item.kind ? item : undefined, section: item.kind ? undefined : item }
+    const i = slots.findIndex((sl) => sameSlot(sl, here))
+    if (i < 0) return
+    if (here.type === 'section') {
+      // A CHAPTER STEPS PAST THE WHOLE OF ITS NEIGHBOUR: up to before the previous heading, down to the
+      // end of the next one. A heading with no heading to pass does not move.
+      if (dir === 'up') {
+        let k = i - 1
+        while (k >= 0 && slots[k].type !== 'section') k--
+        if (k < 0 && i === 0) return
+        return sendMove(here, k <= 0 ? null : slots[k - 1])
+      }
+      const j = runEnd(i)
+      if (j >= slots.length) return
+      return sendMove(here, slots[runEnd(j) - 1])
+    }
+    const after = dir === 'up' ? slots[i - 2] || null : slots[i + 1]
+    if (dir === 'up' && i === 0) return
+    if (dir === 'down' && !after) return
+    return sendMove(here, after)
+  }
+
+  // The drag is index to index (useRowReorder): slot a is dropped where slot b is. Moving down it
+  // lands after b, moving up before b, which is after the one above b.
+  function dragMove(a, b) {
+    const here = slots[a]
+    if (!here) return
+    if (here.type === 'section' && b > a && b < runEnd(a)) return // into its own passages
+    return sendMove(here, b > a ? slots[b] : b - 1 >= 0 ? slots[b - 1] : null)
+  }
+  const reorder = useRowReorder(dragMove)
+
+  // MOVE TO… A NUMBER: the entry becomes the Nth passage, headings not counted. Right after the
+  // (N-1)th other passage, or, for the first, before the first other passage.
+  const [moving, setMoving] = useState(null)
+  async function moveTo(entry, n) {
+    const others = slots.filter((sl) => sl.type === 'entry' && !sameEntry(sl.entry, entry))
+    if (others.length === 0) return
+    const target = Math.min(Math.max(n, 1), others.length + 1)
+    const here = { type: 'entry', entry }
+    let after
+    if (target === 1) {
+      const at = slots.findIndex((sl) => sameSlot(sl, others[0]))
+      after = at > 0 ? slots[at - 1] : null
+      // the slot before the first passage may be the moving one itself, which is no place to follow
+      if (after && sameSlot(after, here)) after = at > 1 ? slots[at - 2] : null
+    } else {
+      after = others[target - 2]
+    }
+    setMoving(null)
+    await sendMove(here, after)
   }
 
   const rows = entries || []
@@ -1840,18 +1932,49 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
         </div>
       )}
 
+      <div ref={reorder.listRef}>
       {slots.map((slot, i) => {
+        // EVERY SLOT HAS A GRIP, which is the phone's only way to drag and the desk's quickest. The
+        // arrow keys step it a place; the menu has the same moves for a reader who wants words.
+        const dropSide = reorder.dragging >= 0 && reorder.over === i && reorder.dragging !== i
+          ? (reorder.over > reorder.dragging ? 'after' : 'before')
+          : ''
+        const grip = (
+          <button
+            type="button"
+            className="anthology-grip no-print"
+            aria-label={t('anthologies.drag.aria')}
+            {...reorder.gripProps(i)}
+            onKeyDown={(e) => {
+              if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                e.preventDefault()
+                move(slot.type === 'section' ? slot.section : slot.entry, e.key === 'ArrowUp' ? 'up' : 'down')
+              }
+            }}
+          >
+            <IconGrip />
+          </button>
+        )
+        const slotProps = {
+          className: `anthology-slot${dropSide ? ` is-drop-${dropSide}` : ''}`,
+          key: slot.type === 'section' ? `section:${slot.section.id}` : `${slot.entry.kind}:${slot.entry.item_id}`,
+          ...reorder.rowProps(i),
+        }
         if (slot.type === 'section') {
           return (
-            <AnthologySectionBlock
-              key={`section:${slot.section.id}`}
-              section={slot.section}
-              first={i === 0}
-              last={i === slots.length - 1}
-              onEdit={(s) => setSectioning({ section: s })}
-              onDelete={setUnsectioning}
-              onMove={move}
-            />
+            <div {...slotProps}>
+              {grip}
+              <div className="anthology-slot-body">
+                <AnthologySectionBlock
+                  section={slot.section}
+                  first={i === 0}
+                  last={i === slots.length - 1}
+                  onEdit={(s) => setSectioning({ section: s })}
+                  onDelete={setUnsectioning}
+                  onMove={move}
+                />
+              </div>
+            </div>
           )
         }
         const entry = slot.entry
@@ -1864,22 +1987,27 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
             ? groupLabel(entry, groupBy)
             : null
         return (
-          <div key={`${entry.kind}:${entry.item_id}`}>
-            {header && <h3 className="anthology-group" data-testid="anthology-group">{header}</h3>}
-            <AnthologyEntry
-              entry={entry}
-              fields={anthology || {}}
-              first={i === 0}
-              last={i === slots.length - 1}
-              onNote={setNoting}
-              onMove={move}
-              onRemove={remove}
-              onOpenBook={onOpenBook}
-              onOpenMovie={onOpenMovie}
-            />
+          <div {...slotProps}>
+            {grip}
+            <div className="anthology-slot-body">
+              {header && <h3 className="anthology-group" data-testid="anthology-group">{header}</h3>}
+              <AnthologyEntry
+                entry={entry}
+                fields={anthology || {}}
+                first={i === 0}
+                last={i === slots.length - 1}
+                onNote={setNoting}
+                onMove={move}
+                onMoveTo={setMoving}
+                onRemove={remove}
+                onOpenBook={onOpenBook}
+                onOpenMovie={onOpenMovie}
+              />
+            </div>
           </div>
         )
       })}
+      </div>
 
       {/* WHAT WAS REMOVED, folded by default: it is the exception, and an anthology page is a
           document first. `.no-print` because a printed anthology is the document, and a list of
@@ -1958,6 +2086,14 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
         />
       )}
       {noting && <EntryNoteDialog entry={noting} onSave={saveNote} onCancel={() => setNoting(null)} />}
+      {moving && (
+        <MoveToDialog
+          max={slots.filter((sl) => sl.type === 'entry').length}
+          current={slots.filter((sl) => sl.type === 'entry').findIndex((sl) => sameEntry(sl.entry, moving)) + 1}
+          onMove={(n) => moveTo(moving, n)}
+          onCancel={() => setMoving(null)}
+        />
+      )}
       {sectioning && <SectionDialog initial={sectioning.section} onSave={saveSection} onCancel={() => setSectioning(null)} />}
       {unsectioning && (
         <ConfirmDialog
