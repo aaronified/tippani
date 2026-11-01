@@ -2786,6 +2786,12 @@ anthologies.rule.preview.action = কী কী আসবে?
 anthologies.rule.preview = {matched}টা মিলেছে। {added}টা যোগ হবে, {skipped}টা আগে থেকেই আছে।
 anthologies.rule.capped = একবারে দুশো; বাকিটার জন্য আবার চাপুন।
 anthologies.rule.filled = {added}টা যোগ হল, {skipped}টা আগে থেকেই ছিল
+anthologies.rule.filled-removed = {added}টা যোগ হল, {skipped}টা আগে থেকেই ছিল, {removed}টা আপনি সরিয়েছিলেন বলে বাদ থাকল
+anthologies.removed.heading = সরানো ({n})
+anthologies.removed.note = এই সংকলন থেকে সরানো। কোনো নিয়ম এগুলো আর ফিরিয়ে আনবে না।
+anthologies.removed.restore.label = ফিরিয়ে আনুন
+anthologies.removed.restore.aria = এই অংশটি সংকলনে ফিরিয়ে আনুন
+anthologies.toast.entry-restored = ফিরিয়ে আনা হয়েছে
 anthologies.rule.waiting = বাকি {n}টা যোগ করুন
 anthologies.rule.empty = রুলে মেলানোর মতো কিছু দিন।
 
@@ -2827,6 +2833,7 @@ error.save.anthology = সংকলনটা সেভ করা গেল ন�
 error.delete.anthology = সংকলনটা মোছা গেল না
 error.save.note = নোটটা সেভ করা গেল না
 error.remove.entry = এন্ট্রিটা সরানো গেল না
+error.restore.entry = এন্ট্রিটা ফিরিয়ে আনা গেল না
 error.move.entry = এন্ট্রিটার জায়গা বদলানো গেল না
 error.validate.anthology-title-required = সংকলনটার একটা নাম দিন
 

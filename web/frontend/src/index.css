@@ -12284,3 +12284,27 @@ button.work-pill:hover { color: var(--ink); border-color: var(--ink-border); }
   text-align: left;
   cursor: pointer;
 }
+
+/* WHAT WAS REMOVED FROM AN ANTHOLOGY: a quote and where it is from, and the way back. */
+.anthology-removed-list {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.anthology-removed-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+.anthology-removed-row:first-child { border-top: none; padding-top: 0; }
+.anthology-removed-quote {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--font-quote-base);
+  font-size: var(--type-display-13);
+}

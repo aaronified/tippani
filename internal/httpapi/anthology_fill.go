@@ -88,6 +88,10 @@ type anthologyFillResp struct {
 	// THAN FOLDED INTO Added, because "found 40, added 0" and "found 40, added 0,
 	// all 40 were already here" are the same number and completely different news.
 	Skipped int `json:"skipped"`
+	// Removed is how many of the matches were passed over because the reader took them out of this
+	// anthology earlier (0088). Reported for the reason Skipped is: "added 0" after a removal is
+	// different news from "added 0, all were here".
+	Removed int `json:"removed,omitempty"`
 	// Capped says the cap was reached, so `matched - added` is work still to do
 	// rather than work that was refused. The Kindle-clippings habit: report what you
 	// did not take rather than truncate quietly.
@@ -105,6 +109,8 @@ type fillExec interface {
 	QueryRow(string, ...any) *sql.Row
 	Exec(string, ...any) (sql.Result, error)
 }
+
+// (appendFill also asks isRemoved of this handle: a passage the reader removed stays removed.)
 
 // anthologyFillItem is one candidate: the entry vocabulary, not the search's.
 type anthologyFillItem struct {
@@ -289,6 +295,16 @@ func appendFill(db fillExec, uid, id int64, items []anthologyFillItem) (antholog
 		// redundant scope stays: the day it stops being redundant is the day an entry
 		// points somewhere it should not.
 		if !quoteOwned(db, uid, it.Kind, it.ItemID) {
+			continue
+		}
+		// A PASSAGE THE READER TOOK OUT STAYS OUT. This is what the removal is for: a rule can run
+		// again at any time, and without this it would put back whatever was removed.
+		gone, err := isRemoved(db, id, it.Kind, it.ItemID)
+		if err != nil {
+			return res, err
+		}
+		if gone {
+			res.Removed++
 			continue
 		}
 		r, err := db.Exec(

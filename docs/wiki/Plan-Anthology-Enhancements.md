@@ -2,19 +2,19 @@
 
 Source of truth: this wiki page.
 
-Not built. Verified against `75e55ae` (main, 28 September 2026; its code is `ee4be1f`'s).
+Partly built: the removed-entry memory and the Removed list are done (migration 0088, in [Unreleased]); the rest is not. Verified against `75e55ae` (main, 28 September 2026; its code is `ee4be1f`'s).
 Builds after `episodes.md`, whose extended drag it uses. Each citation is `path:line` and the
 text at that line. Tasks, one per ask:
 
 - [ ] Re-verify before the first edit, then correct what moved:
       `git diff --stat 75e55ae..HEAD -- internal/store/migrations internal/httpapi internal/importer/anthology_markdown.go web/frontend/src/anthologies.jsx web/frontend/src/index.css`,
       then `git grep -n` each quoted anchor below.
-- [ ] Remember a removed entry per anthology, so a rule never re-adds it. Today a removal is a
+- [x] (done, 0088) Remember a removed entry per anthology, so a rule never re-adds it. Today a removal is a
       plain delete (`anthology_handlers.go:1162`
       `func (s *Server) handleRemoveAnthologyEntry(w http.ResponseWriter, r *http.Request) {`)
       and a fill inserts whatever is not already there (`anthology_fill.go:295`
       `` `INSERT OR IGNORE INTO anthology_entries (anthology_id, position, kind, item_id) VALUES (?, ?, ?, ?)`, ``).
-- [ ] Show a "Removed (n)" list on the anthology, where a removed entry can be brought back.
+- [x] (done) Show a "Removed (n)" list on the anthology, where a removed entry can be brought back.
 - [ ] Reorder entries by dragging a handle, on desktop and phone, with the drag `episodes.md`
       extends. Today an entry has move up and move down only (`anthologies.jsx:1366`
       `...(first ? [] : [{ id: 'up', icon: <IconChevron open />,`).
@@ -80,12 +80,12 @@ Decided while planning, so the build needs nothing further:
       in the fill (`anthology_fill.go:278`
       `` `SELECT COALESCE(MAX(position), 0) + 1 FROM anthology_entries WHERE anthology_id = ?`, id).Scan(&next); err != nil { ``),
       and the reorder's own lookup.
-- [ ] A removal lasts until it is brought back or the anthology is deleted, because a rule can
+- [x] (done) A removal lasts until it is brought back or the anthology is deleted, because a rule can
       run again at any time. A removed quote added back by hand leaves the removed list, so
       the two rows never both exist. The quote-delete triggers (`0043_anthologies.sql:105`
       `CREATE TRIGGER anthology_entries_book_del AFTER DELETE ON annotations BEGIN`) clear
       removed rows as they clear entries.
-- [ ] Removed rows travel wherever entries do, at all four sites: the bin's snapshot of a
+- [x] (done; the cover and section tables are later slices) Removed rows travel wherever entries do, at all four sites: the bin's snapshot of a
       quote (`trash.go:445` `SELECT e.* FROM anthology_entries e`); the restore's guard that
       drops an entry whose anthology is gone (`trash_handlers.go:387`
       `func anthologyStillThere(tx *sql.Tx, row map[string]any) bool {`), or a restore
