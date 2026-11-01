@@ -1,18 +1,18 @@
-import { useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { errText, json } from './api.js'
 import { t } from './i18n.js'
 import {
   BulkBar,
   Card,
+  Cover,
   EmptyState,
-  FieldIconButton,
   FilterChip,
   GhostButton,
   IconCheck,
   IconClose,
   IconHighlight,
   IconDialogue,
-  IconOpen,
+  IconEdit,
   IconQuote,
   IconRefresh,
   IconReset,
@@ -25,6 +25,11 @@ import {
   useScreenBar,
   IconArrow,
 } from './ui.jsx'
+import { ContextDialog, contextSubject, useHasContext } from './sources.jsx'
+
+// Loaded when a quote is first opened for editing: the three forms live in screens this
+// page otherwise never touches.
+const QuoteEditDialog = lazy(() => import('./QuoteEditDialog.jsx'))
 
 // Stray marks — every quote in the library, read once, and what a page left
 // behind in it.
@@ -77,12 +82,39 @@ const KIND_ICONS = {
   quote: <IconQuote />,
 }
 
+// The context route's word for a sweep kind (see contextKind in sources.jsx, which takes the
+// selection's word instead).
+const CONTEXT_KIND = { book: 'annotation', screen: 'dialogue', quote: 'utterance' }
+
+// What a reader can do with the QUOTE, as opposed to with one of its finds: change its words
+// (the same form the work's page opens) and, when the file it came from is attached and has
+// the lines around it, read it in context. The context door appears only when there is some.
+function QuoteDoors({ it, onEdit, onContext }) {
+  const has = useHasContext(contextSubject(CONTEXT_KIND[it.kind]), it.work_id, it.id)
+  return (
+    <div className="cleanup-doors">
+      <button type="button" className="tp-link tp-link-icon" onClick={onEdit}>
+        <IconEdit />
+        <span>{t('common.action.edit.label')}</span>
+      </button>
+      {has && (
+        <button type="button" className="tp-link tp-link-icon" onClick={onContext}>
+          <IconQuote />
+          <span>{t('context.title')}</span>
+        </button>
+      )}
+    </div>
+  )
+}
+
 export default function CleanupPage({ onOpenBook, onOpenMovie, onOpenQuotes, embedded = false }) {
   const mobile = useIsMobileScreen()
   const [data, setData] = useState(null) // null = still reading
   const [rule, setRule] = useState('all')
   const [bucket, setBucket] = useState('open')
   const [busy, setBusy] = useState(false)
+  const [editing, setEditing] = useState(null) // {kind, id}: a quote open in its edit form
+  const [viewing, setViewing] = useState(null) // {kind, id}: a quote open in its context
   // Bumped by an answer, which is what re-runs the sweep. A refetch rather than a
   // local edit: accepting can turn out to be stale or a duplicate, and the server's
   // second answer is the only honest one.
@@ -185,6 +217,20 @@ export default function CleanupPage({ onOpenBook, onOpenMovie, onOpenQuotes, emb
     [items, rule],
   )
 
+  // GROUPED BY WORK, the way a reader thinks of them: "the three things wrong in Moby-Dick",
+  // not forty rows that each repeat the title. The server's order (book, screen, quote, by
+  // id) already keeps a work's quotes together, but a Map is what makes that a fact here
+  // instead of a coincidence. Standalone quotes have no work and share one group.
+  const groups = useMemo(() => {
+    const out = new Map()
+    for (const it of shown) {
+      const key = it.kind === 'quote' ? 'quote' : `${it.kind}:${it.work_id}`
+      if (!out.has(key)) out.set(key, { key, kind: it.kind, id: it.work_id, title: it.work_title, cover: it.work_cover, items: [] })
+      out.get(key).items.push(it)
+    }
+    return [...out.values()]
+  }, [shown])
+
   // THE FINDINGS ACTUALLY ON SCREEN, flattened, and the list below draws from the
   // same `found` rule filter — so a selection made under one rule chip is neither
   // acted on nor silently lost when the chip changes: it stays in the Set and
@@ -242,18 +288,9 @@ export default function CleanupPage({ onOpenBook, onOpenMovie, onOpenQuotes, emb
     ],
   })
 
-  // Where a row's quote lives. A book highlight and a film line open their work;
-  // a standalone quote has none, so it opens the board list it is filed on.
-  //
-  // NOT A DEEP LINK TO THE QUOTE ITSELF, and deliberately not: nothing else in
-  // this app can focus one quote inside a work, and inventing that mechanism for
-  // the one screen that never edits anything is the wrong place to start. The
-  // snippet is what finds the line once you are there.
-  function open(it) {
-    if (it.kind === 'book') return onOpenBook(it.work_id)
-    if (it.kind === 'screen') return onOpenMovie(it.work_id)
-    return onOpenQuotes()
-  }
+  // THE POSTER OPENS THE WORK (see the group header below). A book highlight and a film line
+  // each have one; a standalone quote has none, so its group is not a door.
+  // NOT A DEEP LINK TO THE QUOTE ITSELF: Edit and In context are the doors to the quote.
 
   return (
     <section className="space-y-6" data-screen-label="cleanup">
@@ -412,116 +449,155 @@ export default function CleanupPage({ onOpenBook, onOpenMovie, onOpenQuotes, emb
             )}
           </BulkBar>
 
-          {shown.length > 0 && (
-            <ul className="cleanup-list">
-              {shown.map((it) => {
-                const label = it.work_title || t('cleanup.row.no-work.label')
-                // Filtered inside the row too, so picking a rule shows that rule's
-                // finds rather than every find on a quote that happens to have one.
-                const found = rule === 'all' ? it.findings : it.findings.filter((f) => f.rule === rule)
+          {groups.length > 0 && (
+            <ul className="cleanup-groups">
+              {groups.map((g) => {
+                const label = g.title || t('cleanup.row.no-work.label')
                 return (
-                  <li key={`${it.kind}-${it.id}`} className="cleanup-row">
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                      <span className="cleanup-kind">{KIND_ICONS[it.kind]}</span>
-                      <MonoLabel>{t(KIND_LABELS[it.kind])}</MonoLabel>
-                      <span className="cleanup-work">{label}</span>
-                      <span className="ml-auto">
-                        <FieldIconButton
-                          icon={<IconOpen />}
-                          ariaLabel={t('cleanup.row.open.aria', { label })}
-                          tooltip={t('cleanup.row.open.tip')}
-                          onClick={() => open(it)}
-                        />
-                      </span>
+                  <li key={g.key} className="cleanup-group">
+                    {/* THE POSTER IS THE WAY INTO THE WORK, and the only one. The old row had a
+                        button of its own on the far end that said what it did in a tooltip
+                        and nowhere else; a work's picture at the head of its group says it by
+                        being the work. A group with no picture (a book without a cover, the
+                        standalone quotes) draws its kind's glyph and is not a door. */}
+                    <div className="cleanup-group-head">
+                      {g.kind !== 'quote' ? (
+                        <Tooltip label={t('cleanup.row.open.tip')} side="top">
+                          <button
+                            type="button"
+                            className="cleanup-poster"
+                            aria-label={t('cleanup.row.open.aria', { label })}
+                            onClick={() => (g.kind === 'book' ? onOpenBook(g.id) : onOpenMovie(g.id))}
+                          >
+                            <Cover path={g.cover} title={g.title} />
+                          </button>
+                        </Tooltip>
+                      ) : (
+                        <span className="cleanup-poster cleanup-poster-none" aria-hidden="true">{KIND_ICONS.quote}</span>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <span className="cleanup-work">{label}</span>
+                        <MonoLabel>
+                          {t(KIND_LABELS[g.kind])} · {t('common.count.phrase', { n: g.items.length, noun: t('unit.quote', { count: g.items.length }) })}
+                        </MonoLabel>
+                      </div>
                     </div>
-                    <ul className="cleanup-finds">
-                      {found.map((f, i) => (
-                        <li key={`${f.rule}-${f.field}-${i}`}>
-                          {/* THE TICK LEADS THE FIND, on the line that names the
-                              rule, because that line is what the reader is judging
-                              — the snippet below it is the evidence for it. */}
-                          <label className="flex items-center gap-2">
-                            <input
-                              type="checkbox"
-                              checked={sel.has(targetKey(it, f))}
-                              onChange={() => toggleKey(targetKey(it, f))}
-                              aria-label={t('cleanup.row.pick.aria', { rule: t(`cleanup.rule.${f.rule}.label`) })}
+                    <ul className="cleanup-quotes">
+                      {g.items.map((it) => {
+                        // Filtered inside the row too, so picking a rule shows that rule's
+                        // finds rather than every find on a quote that happens to have one.
+                        const found = rule === 'all' ? it.findings : it.findings.filter((f) => f.rule === rule)
+                        return (
+                          <li key={`${it.kind}-${it.id}`} className="cleanup-row">
+                            <QuoteDoors
+                              it={it}
+                              onEdit={() => setEditing({ kind: it.kind, id: it.id })}
+                              onContext={() => setViewing({ kind: CONTEXT_KIND[it.kind], id: it.id })}
                             />
-                          <p className="microcopy">
-                            {[
-                              t(`cleanup.rule.${f.rule}.label`),
-                              t(`cleanup.field.${f.field}.label`),
-                              f.count > 1 && t('cleanup.row.times', { n: f.count }),
-                            ]
-                              .filter(Boolean)
-                              .join(' · ')}
-                          </p>
-                          </label>
-                          {/* THE SNIPPET IS THE EVIDENCE. Half these rules find
-                              something with no appearance at all, so the
-                              guillemets the server marks the find with are the
-                              only thing to see — and the CSS keeps whitespace
-                              rather than collapsing it, which is what makes two
-                              spaces look like two. */}
-                          <p className="cleanup-snippet">{f.snippet}</p>
-                          {/* AND WHAT IT WOULD BECOME, in the same context and marked
-                              the same way. Both lines come from the server, produced by
-                              the function that does the writing — so what is on screen
-                              is what will happen, rather than a diff this page computed
-                              and hoped matched. The first version drew the whole
-                              rewritten field here, unmarked, which in a long quote left
-                              the reader comparing two paragraphs by eye. A rule with no
-                              rewrite in this build sends no snippet, and then there is
-                              nothing to accept. */}
-                          {f.after_snippet && (
-                            <p className="cleanup-after">
-                              <span className="cleanup-arrow" aria-hidden="true"><IconArrow size={14} /></span>
-                              {f.after_snippet}
-                            </p>
-                          )}
-                          <div className="cleanup-answers">
-                            {bucket === 'open' ? (
-                              <>
-                                {f.after_snippet && (
-                                  <GhostButton
-                                    icon={<IconCheck />}
-                                    keepLabel
-                                    disabled={busy}
-                                    onClick={() => accept([target(it, f)])}
-                                  >
-                                    {t('cleanup.accept.label')}
-                                  </GhostButton>
-                                )}
-                                <Tooltip label={t('cleanup.ignore.tip')}>
-                                  <GhostButton
-                                    icon={<IconClose />}
-                                    keepLabel
-                                    disabled={busy}
-                                    onClick={() => setIgnored([target(it, f)], true)}
-                                  >
-                                    {t('cleanup.ignore.label')}
-                                  </GhostButton>
-                                </Tooltip>
-                              </>
-                            ) : (
-                              <GhostButton
-                                icon={<IconReset />}
-                                keepLabel
-                                disabled={busy}
-                                onClick={() => setIgnored([target(it, f)], false)}
-                              >
-                                {t('cleanup.restore.label')}
-                              </GhostButton>
-                            )}
-                          </div>
-                        </li>
-                      ))}
+
+                            <ul className="cleanup-finds">
+                              {found.map((f, i) => (
+                                <li key={`${f.rule}-${f.field}-${i}`}>
+                                  {/* THE TICK LEADS THE FIND, on the line that names the
+                                      rule, because that line is what the reader is judging
+                                      — the snippet below it is the evidence for it. */}
+                                  <label className="flex items-center gap-2">
+                                    <input
+                                      type="checkbox"
+                                      checked={sel.has(targetKey(it, f))}
+                                      onChange={() => toggleKey(targetKey(it, f))}
+                                      aria-label={t('cleanup.row.pick.aria', { rule: t(`cleanup.rule.${f.rule}.label`) })}
+                                    />
+                                  <p className="microcopy">
+                                    {[
+                                      t(`cleanup.rule.${f.rule}.label`),
+                                      t(`cleanup.field.${f.field}.label`),
+                                      f.count > 1 && t('cleanup.row.times', { n: f.count }),
+                                    ]
+                                      .filter(Boolean)
+                                      .join(' · ')}
+                                  </p>
+                                  </label>
+                                  {/* THE SNIPPET IS THE EVIDENCE. Half these rules find
+                                      something with no appearance at all, so the
+                                      guillemets the server marks the find with are the
+                                      only thing to see — and the CSS keeps whitespace
+                                      rather than collapsing it, which is what makes two
+                                      spaces look like two. */}
+                                  <p className="cleanup-snippet">{f.snippet}</p>
+                                  {/* AND WHAT IT WOULD BECOME, in the same context and marked
+                                      the same way. Both lines come from the server, produced by
+                                      the function that does the writing — so what is on screen
+                                      is what will happen, rather than a diff this page computed
+                                      and hoped matched. The first version drew the whole
+                                      rewritten field here, unmarked, which in a long quote left
+                                      the reader comparing two paragraphs by eye. A rule with no
+                                      rewrite in this build sends no snippet, and then there is
+                                      nothing to accept. */}
+                                  {f.after_snippet && (
+                                    <p className="cleanup-after">
+                                      <span className="cleanup-arrow" aria-hidden="true"><IconArrow size={14} /></span>
+                                      {f.after_snippet}
+                                    </p>
+                                  )}
+                                  <div className="cleanup-answers">
+                                    {bucket === 'open' ? (
+                                      <>
+                                        {f.after_snippet && (
+                                          <GhostButton
+                                            icon={<IconCheck />}
+                                            keepLabel
+                                            disabled={busy}
+                                            onClick={() => accept([target(it, f)])}
+                                          >
+                                            {t('cleanup.accept.label')}
+                                          </GhostButton>
+                                        )}
+                                        <Tooltip label={t('cleanup.ignore.tip')}>
+                                          <GhostButton
+                                            icon={<IconClose />}
+                                            keepLabel
+                                            disabled={busy}
+                                            onClick={() => setIgnored([target(it, f)], true)}
+                                          >
+                                            {t('cleanup.ignore.label')}
+                                          </GhostButton>
+                                        </Tooltip>
+                                      </>
+                                    ) : (
+                                      <GhostButton
+                                        icon={<IconReset />}
+                                        keepLabel
+                                        disabled={busy}
+                                        onClick={() => setIgnored([target(it, f)], false)}
+                                      >
+                                        {t('cleanup.restore.label')}
+                                      </GhostButton>
+                                    )}
+                                  </div>
+                                </li>
+                              ))}
+                            </ul>
+                          </li>
+                        )
+                      })}
                     </ul>
                   </li>
                 )
               })}
             </ul>
           )}
+          {editing && (
+            <Suspense fallback={null}>
+              <QuoteEditDialog
+                kind={editing.kind}
+                id={editing.id}
+                onClose={() => setEditing(null)}
+                onSaved={() => { setEditing(null); setNonce((n) => n + 1) }}
+              />
+            </Suspense>
+          )}
+          {viewing && <ContextDialog kind={viewing.kind} id={viewing.id} onClose={() => setViewing(null)} />}
         </div>
       </Card>
     </section>

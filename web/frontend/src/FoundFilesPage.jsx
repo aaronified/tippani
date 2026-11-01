@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import { t } from './i18n.js'
+import { BucketFilter, livePill } from './bucketFilter.jsx'
 import { Card, GhostButton, IconArrow, IconButton, IconCheck, IconClose, InfoDot, SectionHead } from './ui.jsx'
 import { LoadFailed, goTo } from './sources.jsx'
 import { useLibraryScan } from './libraryScan.js'
@@ -14,7 +16,8 @@ import { useLibraryScan } from './libraryScan.js'
 // The reads, the polling and the presses are useLibraryScan's (libraryScan.js), shared with
 // Metadata > Source files.
 
-export default function FoundFilesPage({ embedded = false }) {
+export default function FoundFilesPage({ embedded = false, open = true, onToggle }) {
+  const [pill, setPill] = useState('all')
   const { mounts, found, scanning, busy, loadError, badLines, sum, attach, refuse, retry, reload } = useLibraryScan()
   if (!mounts) return null
   // No folders and nothing failed: the section draws nothing, as before.
@@ -23,6 +26,8 @@ export default function FoundFilesPage({ embedded = false }) {
     ['exact', (found || []).filter((c) => c.bucket === 'exact')],
     ['review', (found || []).filter((c) => c.bucket === 'review')],
   ].filter(([, list]) => list.length > 0)
+  const active = livePill(pill, groups.map(([b]) => b))
+  const shown = active === 'all' ? groups : groups.filter(([b]) => b === active)
   const unclaimed = scanning ? 0 : sum('unclaimed')
   // ONLY WHAT THE SCAN LEFT TO DECIDE. The scan itself, the folders and the coverage are
   // Metadata > Source files; this section draws nothing when there is nothing to decide.
@@ -42,7 +47,10 @@ export default function FoundFilesPage({ embedded = false }) {
           title={t('found.title')}
           counts={groups.length ? t('found.waiting', { n: (found || []).length, count: (found || []).length }) : ''}
           right={<InfoDot title={t('found.info.title')} text={t('found.info.body')} />}
+          open={open}
+          onToggle={onToggle}
         />
+        {open && (<>
         {loadError && <LoadFailed text={loadError} onRetry={reload} />}
         {scanning && (
           <p className="microcopy">
@@ -58,10 +66,15 @@ export default function FoundFilesPage({ embedded = false }) {
           </p>
         )}
         {!scanning && unclaimed === 0 && <p className="microcopy">{toFiles}</p>}
+        <BucketFilter
+          options={groups.map(([b, list]) => [b, t(`found.${b}.title`), list.length])}
+          value={active}
+          onChange={setPill}
+        />
         {groups.length > 0 && (
           <Card>
             <div className="flex flex-col gap-6">
-              {groups.map(([bucket, list]) => (
+              {shown.map(([bucket, list]) => (
                 <div key={bucket} className="flex flex-col gap-3" data-testid={`found-${bucket}`}>
                   <div className="flex flex-wrap items-center gap-2">
                     <h3 className="mono-label">{t(`found.${bucket}.title`)}</h3>
@@ -111,6 +124,7 @@ export default function FoundFilesPage({ embedded = false }) {
             </div>
           </Card>
         )}
+        </>)}
       </section>
     </>
   )

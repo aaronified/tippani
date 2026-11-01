@@ -4345,6 +4345,10 @@ error.empty.bin = could not empty
 # descriptive rather than an instruction, and there is no "fix all" to name.
 # ---------------------------------------------------------------------------
 checks.title = Checks
+checks.tab.aria = Checks sections
+checks.tab.imports.label = Imports
+checks.tab.marks.label = Stray marks
+checks.tab.files.label = Files
 cleanup.title = Stray marks
 # Beside the title: how many quotes were read, so “nothing found” is
 # distinguishable from “nothing looked at”.
@@ -4384,7 +4388,7 @@ cleanup.field.translation.label = in the translation
 # beside it marks the find with guillemets, because half these rules find
 # something that has no appearance at all.
 cleanup.row.times = ×{n}
-cleanup.row.open.tip = Open where this quote lives
+cleanup.row.open.tip = Open this work
 cleanup.row.open.aria = Open {label}
 cleanup.row.no-work.label = a quote of its own
 cleanup.filter.all.label = All

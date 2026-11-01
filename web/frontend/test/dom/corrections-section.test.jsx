@@ -1,8 +1,8 @@
 // CORRECTIONS FROM THE FILE, a section of Checks.
 //
 // WHAT THIS KNOWS: the addresses the section reads and presses, the words on screen, and
-// what a person can do. Buckets show their count before they open; applying a bucket
-// sends what the reader saw; a quote the reader edited is marked; either verb is one
+// what a person can do. Each bucket is a filter pill with its count, and the quotes are listed
+// beside the file's words; applying a bucket sends what the reader saw; a quote the reader edited is marked; either verb is one
 // press; and the section draws NOTHING when no quote differs from its file.
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -53,11 +53,15 @@ beforeEach(() => {
 })
 
 describe('corrections from the file on Checks', () => {
-  it('names each bucket with its count before it opens, and draws nothing when nothing differs', async () => {
+  it('names each bucket with its count on a pill that narrows the list, and draws nothing when nothing differs', async () => {
     render(<CorrectionsPage embedded />)
     await screen.findByText(/Accents · 2/)
     expect(screen.getByText(/One word differs · 1/)).toBeTruthy()
-    expect(screen.queryByText('Voilà, the café is closed.')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /^One word differs/ }))
+    expect(screen.queryByText(/Accents · 2/)).toBeNull()
+    expect(screen.getByText(/One word differs · 1/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'All' }))
+    expect(screen.getByText(/Accents · 2/)).toBeTruthy()
 
     cleanup()
     list = { buckets: [], proposals: [], wrong_file: [] }
@@ -65,9 +69,9 @@ describe('corrections from the file on Checks', () => {
     await waitFor(() => expect(empty.container.textContent).toBe(''))
   })
 
-  it('opens a bucket to the quote beside the file\'s words and marks the one the reader edited', async () => {
+  it('lists the quote beside the file\'s words and marks the one the reader edited', async () => {
     render(<CorrectionsPage embedded />)
-    fireEvent.click(await screen.findByRole('button', { name: /Accents · 2/ }))
+    await screen.findByText(/Accents · 2/)
     expect(screen.getAllByText('Voilà,').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Voila,').length).toBeGreaterThan(0)
     expect(screen.getAllByTestId('correction-edited')).toHaveLength(1)
@@ -76,7 +80,7 @@ describe('corrections from the file on Checks', () => {
   it('applies a bucket in one press, sending what the reader saw and that it is bulk', async () => {
     render(<CorrectionsPage embedded />)
     const group = await screen.findByTestId('corrections-accents')
-    fireEvent.click(group.querySelectorAll('button')[1]) // "Take the file's 2"
+    fireEvent.click(group.querySelectorAll('button')[0]) // "Take the file's 2"
     await waitFor(() => expect(sent).toHaveLength(1))
     expect(sent[0].path).toBe('/corrections/accept')
     expect(sent[0].body.bucket).toBe('accents')
@@ -92,7 +96,7 @@ describe('corrections from the file on Checks', () => {
 
   it('keeps the reader\'s words for one quote with its own press, which is not bulk', async () => {
     render(<CorrectionsPage embedded />)
-    fireEvent.click(await screen.findByRole('button', { name: /One word differs · 1/ }))
+    fireEvent.click(await screen.findByRole('button', { name: /^One word differs/ }))
     fireEvent.click(await screen.findByRole('button', { name: 'Keep my words for this quote' }))
     await waitFor(() => expect(sent).toHaveLength(1))
     expect(sent[0].path).toBe('/corrections/ignore')

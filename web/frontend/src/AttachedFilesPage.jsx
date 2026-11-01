@@ -21,7 +21,7 @@ import { LoadFailed, QUICK_MS, READ_MS, invalidateContext, sourceFail } from './
 
 const size = (n) => (n >= 1 << 20 ? `${(n / (1 << 20)).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`)
 
-export default function AttachedFilesPage({ embedded = false }) {
+export default function AttachedFilesPage({ embedded = false, open = true, onToggle }) {
   const [data, setData] = useState(null)
   const [busy, setBusy] = useState(false)
   const [loadError, setLoadError] = useState('')
@@ -71,7 +71,10 @@ export default function AttachedFilesPage({ embedded = false }) {
           title={t('attached.title')}
           counts={t('attached.counts', { n: data.sources.length, frees: size(data.frees) })}
           right={<InfoDot title={t('attached.info.title')} text={t('attached.info.body')} />}
+          open={open}
+          onToggle={onToggle}
         />
+        {open && (
         <Card>
           <div className="flex flex-col gap-4">
             {data.sources.map((s) => (
@@ -98,6 +101,7 @@ export default function AttachedFilesPage({ embedded = false }) {
             ))}
           </div>
         </Card>
+        )}
       </section>
       {confirmDialog}
     </>

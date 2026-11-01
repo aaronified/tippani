@@ -19,9 +19,10 @@
 // routes, so an old bookmark still opens the page it named, and both take an
 // `embedded` flag that gives up the page header and the back link — the only two
 // things a section cannot keep when it stops being a screen.
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { t } from './i18n.js'
-import { PageHeader } from './ui.jsx'
+import { IconHighlight, IconImport, IconSourceFile, PageHeader } from './ui.jsx'
+import { SectionRail } from './sectionRail.jsx'
 
 const StagingPage = lazy(() => import('./StagingPage.jsx'))
 const CleanupPage = lazy(() => import('./CleanupPage.jsx'))
@@ -30,57 +31,84 @@ const CorrectionsPage = lazy(() => import('./CorrectionsPage.jsx'))
 const FoundFilesPage = lazy(() => import('./FoundFilesPage.jsx'))
 const AttachedFilesPage = lazy(() => import('./AttachedFilesPage.jsx'))
 
-export default function ChecksPage({ onPending, onOpenBook, onOpenMovie, onApproved, onOpenQuotes }) {
+// THREE TABS, the same rail Settings and Metadata draw (a row of tabs on a desk, an index
+// list on a phone). It was one long page of six sections; the three below are what a
+// reader actually comes to do, and the file sections belong together because every one of
+// them is about what a file says.
+//
+//   Imports      what is waiting to be approved. First: a queue somebody is waiting on is
+//                more urgent than a sweep that found a stray bracket.
+//   Stray marks  quotes carrying something the page left in them.
+//   Files        what the files in your library folders have to say: files found for works,
+//                times and places they propose, and where a quote differs from the file's
+//                own words. Each section folds away and filters the same way.
+const TABS = [
+  ['imports', 'checks.tab.imports.label', <IconImport />],
+  ['marks', 'checks.tab.marks.label', <IconHighlight />],
+  ['files', 'checks.tab.files.label', <IconSourceFile />],
+]
+
+// The Files tab's sections, each folded or open by itself. All open to begin with: what is
+// here is what the last scan left to decide, and a section that draws nothing is not here.
+function FilesTab({ onOpenBook, onOpenMovie }) {
+  const [shut, setShut] = useState({})
+  const fold = (id) => ({ open: !shut[id], onToggle: () => setShut((o) => ({ ...o, [id]: !o[id] })) })
   return (
-    <section className="space-y-8" data-screen-label="checks">
-      {/* Title only, and it is not drawn — see .page-header h1. The screen is
-          named by the crumb and by the phone's header already; what is left here
-          is the document's heading, which nothing else supplies. The counts and
-          the explanation went with the visible title: each section states its own
-          count beside its own name, which is the only place either means
-          anything. */}
-      <PageHeader title={t('checks.title')} />
-      {/* Imports lead. A queue somebody is waiting on is more urgent than a
-          sweep that found a stray bracket, and the order says so once rather
-          than through a badge on each. */}
-      <Suspense fallback={null}>
-        <StagingPage
-          embedded
-          onPending={onPending}
-          onOpenBook={onOpenBook}
-          onOpenMovie={onOpenMovie}
-          onApproved={onApproved}
-        />
-      </Suspense>
-      <hr className="tp-rule" />
-      <Suspense fallback={null}>
-        <CleanupPage
-          embedded
-          onOpenBook={onOpenBook}
-          onOpenMovie={onOpenMovie}
-          onOpenQuotes={onOpenQuotes}
-        />
-      </Suspense>
+    <div className="space-y-8">
       {/* Files a mounted library holds for works that have quotes. Draws nothing, rule
           included, for a box with no folders mounted. */}
       <Suspense fallback={null}>
-        <FoundFilesPage embedded />
+        <FoundFilesPage embedded {...fold('found')} />
       </Suspense>
-      {/* The files attached to your works, biggest first, and the prune. Draws nothing for a
-          reader with no uploaded file. */}
+      {/* Times and places a work's file proposes for its lines. Draws nothing, rule
+          included, when there is nothing to propose. */}
       <Suspense fallback={null}>
-        <AttachedFilesPage embedded />
-      </Suspense>
-      {/* Times a work's subtitle proposes for its lines. Draws nothing, rule included,
-          when there is nothing to propose. */}
-      <Suspense fallback={null}>
-        <LocatorsPage embedded onOpenBook={onOpenBook} onOpenMovie={onOpenMovie} />
+        <LocatorsPage embedded {...fold('locators')} onOpenBook={onOpenBook} onOpenMovie={onOpenMovie} />
       </Suspense>
       {/* Where a quote differs from the file's own words, in buckets. Draws nothing, rule
           included, when nothing differs. */}
       <Suspense fallback={null}>
-        <CorrectionsPage embedded onOpenBook={onOpenBook} onOpenMovie={onOpenMovie} />
+        <CorrectionsPage embedded {...fold('corrections')} onOpenBook={onOpenBook} onOpenMovie={onOpenMovie} />
       </Suspense>
+      {/* The files attached to your works, biggest first, and the prune. Draws nothing for a
+          reader with no uploaded file. */}
+      <Suspense fallback={null}>
+        <AttachedFilesPage embedded {...fold('attached')} />
+      </Suspense>
+    </div>
+  )
+}
+
+export default function ChecksPage({ onPending, onOpenBook, onOpenMovie, onApproved, onOpenQuotes }) {
+  const [tab, setTab] = useState('imports')
+  return (
+    <section className="space-y-8" data-screen-label="checks">
+      {/* Title only, and it is not drawn — see .page-header h1. The screen is
+          named by the crumb and by the phone's header already; what is left here
+          is the document's heading, which nothing else supplies. */}
+      <PageHeader title={t('checks.title')} />
+      <SectionRail
+        sections={TABS.map(([id, label, icon]) => ({ id, label: t(label), icon }))}
+        value={tab}
+        onChange={setTab}
+        ariaLabel={t('checks.tab.aria')}
+      >
+        <Suspense fallback={null}>
+          {tab === 'imports' && (
+            <StagingPage
+              embedded
+              onPending={onPending}
+              onOpenBook={onOpenBook}
+              onOpenMovie={onOpenMovie}
+              onApproved={onApproved}
+            />
+          )}
+          {tab === 'marks' && (
+            <CleanupPage embedded onOpenBook={onOpenBook} onOpenMovie={onOpenMovie} onOpenQuotes={onOpenQuotes} />
+          )}
+        </Suspense>
+        {tab === 'files' && <FilesTab onOpenBook={onOpenBook} onOpenMovie={onOpenMovie} />}
+      </SectionRail>
     </section>
   )
 }

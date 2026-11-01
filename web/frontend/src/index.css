@@ -3050,6 +3050,65 @@
     padding: 0;
     list-style: none;
   }
+  /* STRAY MARKS, GROUPED BY WORK. One card per work, its poster at the head as the way into
+     the work, and the quotes with something wrong under it. Two columns where there is
+     room for two readable ones (a snippet is the reason to look, so a column under about
+     28rem would wrap it across three lines); the groups are the grid items, so a long group
+     never splits across the columns. */
+  .cleanup-groups {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    align-items: start;
+  }
+  @media (min-width: 1100px) {
+    .cleanup-groups { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  .cleanup-group {
+    min-width: 0;
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+  }
+  .cleanup-group-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-bottom: 6px;
+  }
+  .cleanup-group-head .cleanup-work { display: block; }
+  .cleanup-poster {
+    flex: none;
+    display: inline-flex;
+    padding: 0;
+    border: 0;
+    background: none;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .cleanup-poster-none {
+    width: 2.5rem;
+    height: 3.5rem;
+    align-items: center;
+    justify-content: center;
+    color: var(--faint);
+    border: 1px dashed var(--line);
+    cursor: default;
+  }
+  .cleanup-quotes {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .cleanup-doors {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 14px;
+  }
   .cleanup-row {
     padding: 10px 0;
     border-top: 1px solid var(--line);
@@ -12211,3 +12270,17 @@ button.work-pill:hover { color: var(--ink); border-color: var(--ink-border); }
 .frame-note { position: relative; color: var(--faint); }
 .frame-note.is-problem { color: var(--danger); }
 .frame-presets { display: flex; flex-wrap: wrap; gap: var(--row); }
+
+/* A section of Checks that folds away: its title is the disclosure, drawn like the title it replaces. */
+.section-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}

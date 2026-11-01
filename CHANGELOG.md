@@ -19,6 +19,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Work goes through pull requests**, each with its own changelog entries under [Unreleased]
   and a pull request template that says so. Nothing is pushed to main directly.
 
+### Changed
+
+- **Stray marks are grouped by work.** The work's poster heads each group and opens the work, so
+  the "Open where this quote lives" button is gone. Each quote has Edit, which opens its own
+  edit form, and In context when the file's lines are stored. Groups sit in two columns on wide
+  screens.
+
+- **Checks has three tabs: Imports, Stray marks and Files.** On a phone they are a list, as in
+  Settings. Files holds Files in your library folders, Times and places from files, Corrections
+  from the file and the attached-files prune; each section folds away and filters with the same
+  pills, where Corrections from the file used to have a filter style of its own.
+
 ## [3.5.0] - 2026-10-31
 
 ### Added

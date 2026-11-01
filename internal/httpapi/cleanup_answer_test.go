@@ -1,6 +1,8 @@
 package httpapi
 
 import (
+	"context"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -397,5 +399,36 @@ func TestCleanupCollapsesRepeatsIntoACount(t *testing.T) {
 	}
 	if got[0].Field != "quote" {
 		t.Errorf("field = %q, want the field it was asked about", got[0].Field)
+	}
+}
+
+// A stray mark's row names its work's cover, so Checks can draw the poster on the group's header.
+func TestCleanupRowCarriesTheWorksCover(t *testing.T) {
+	srv := newTestServer(t)
+	srv.fetchUserImage = func(_ context.Context, _, _ string) (string, error) { return "cafef00dcafef00d.jpg", nil }
+	c := signupAdmin(t, srv.Handler())
+	book := decode[struct{ ID int64 }](t, c.mustDo("POST", "/books",
+		map[string]any{"title": "Moby-Dick"}, http.StatusCreated))
+	c.mustDo("PUT", fmt.Sprintf("/books/%d", book.ID),
+		map[string]any{"title": "Moby-Dick", "cover_url": "https://example.com/c.jpg"}, http.StatusOK)
+	c.mustDo("POST", "/annotations", map[string]any{"book_id": book.ID, "quote": "call  me Ishmael"}, http.StatusCreated)
+	c.mustDo("POST", "/quotes", map[string]any{"quote": "a  loose quote"}, http.StatusCreated)
+
+	var withCover, standalone int
+	for _, it := range decode[struct {
+		Items []struct {
+			Kind  string `json:"kind"`
+			Cover string `json:"work_cover"`
+		} `json:"items"`
+	}](t, c.mustDo("GET", "/cleanup", nil, http.StatusOK)).Items {
+		switch {
+		case it.Kind == "book" && it.Cover == "cafef00dcafef00d.jpg":
+			withCover++
+		case it.Kind == "quote" && it.Cover == "":
+			standalone++
+		}
+	}
+	if withCover != 1 || standalone != 1 {
+		t.Errorf("a book's finding named its cover %d times and a standalone quote had none %d times, want 1 and 1", withCover, standalone)
 	}
 }
