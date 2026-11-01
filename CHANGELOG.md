@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.6.2] - 2026-11-01
+
 ### Fixed
 
 - On a phone, the search box's dropdown of search words (book:, tag:…) can now be dismissed:
