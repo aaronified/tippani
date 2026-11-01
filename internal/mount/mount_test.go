@@ -241,3 +241,21 @@ func TestOpenReaderIsContainedAndReadOnly(t *testing.T) {
 		t.Fatal("a path out of the mount must be refused")
 	}
 }
+
+func TestListShowsFoldersFirstThenOnlyTheWantedFilesAndRefusesAWayOut(t *testing.T) {
+	r := tree(t, "a/x.srt", "b.srt", "c.txt", "a/deep/y.srt")
+	top, err := r.List("", srtOnly)
+	if err != nil || len(top) != 2 || top[0].Name != "a" || !top[0].Dir || top[1].Name != "b.srt" || top[1].Rel != "b.srt" {
+		t.Fatalf("%+v %v", top, err)
+	}
+	in, err := r.List("a", srtOnly)
+	if err != nil || len(in) != 2 || in[0].Rel != "a/deep" || in[1].Rel != "a/x.srt" {
+		t.Fatalf("%+v %v", in, err)
+	}
+	if _, err := r.List("..", srtOnly); err == nil {
+		t.Fatal("a listing must not leave the root")
+	}
+	if _, err := r.List("b.srt", srtOnly); err == nil {
+		t.Fatal("a file is not a folder")
+	}
+}

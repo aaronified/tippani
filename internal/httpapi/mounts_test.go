@@ -349,3 +349,65 @@ func TestARemovedFoldersIdCannotBeGivenToAnotherFolderWhileFilesPointAtIt(t *tes
 	// else's files.
 	c.mustDo("PUT", "/admin/mounts", map[string]any{"mounts": []mountCfg{{ID: "library-2", Label: "Library", Path: root}}}, 200)
 }
+
+// ---- choosing a file by hand ----
+
+type browseList struct {
+	Path    string `json:"path"`
+	Parent  string `json:"parent"`
+	Root    bool   `json:"root"`
+	Entries []struct {
+		Name string `json:"name"`
+		Rel  string `json:"rel"`
+		Dir  bool   `json:"dir"`
+	} `json:"entries"`
+}
+
+func TestBrowsingAMountedFolderListsFoldersAndSourceFilesAndNeverALeak(t *testing.T) {
+	_, c, root, _, _, _ := mountFixture(t)
+	top := decode[browseList](t, c.mustDo("GET", "/sources/browse?mount=library", nil, 200))
+	if !top.Root || len(top.Entries) != 3 || !top.Entries[0].Dir || top.Entries[0].Name != "books" || top.Entries[1].Name != "movies" || top.Entries[2].Name != "shows" {
+		t.Fatalf("the root lists its folders: %+v", top)
+	}
+	books := decode[browseList](t, c.mustDo("GET", "/sources/browse?mount=library&path=books", nil, 200))
+	if books.Parent != "" || len(books.Entries) != 1 || books.Entries[0].Name != "Dust of Dreams.epub" || books.Entries[0].Rel != "books/Dust of Dreams.epub" {
+		t.Fatalf("a file type a work cannot take (the .txt) is not listed: %+v", books)
+	}
+	if rec := c.do("GET", "/sources/browse?mount=library&path=..", nil); rec.Code != http.StatusBadRequest {
+		t.Fatalf("a way out of the folder answered %d", rec.Code)
+	}
+	if rec := c.do("GET", "/sources/browse?mount=nope", nil); rec.Code != http.StatusNotFound {
+		t.Fatalf("an unknown folder answered %d", rec.Code)
+	}
+	rec := c.do("GET", "/sources/browse?mount=library&path=books", nil)
+	if strings.Contains(rec.Body.String(), root) {
+		t.Fatalf("the operator's path leaked: %s", rec.Body)
+	}
+}
+
+func TestAttachingAChosenFileNeedsNoScanAndTheSameChecks(t *testing.T) {
+	srv, c, _, film, show, book := mountFixture(t)
+	// A file the scan would never have paired with this work: the reader says so.
+	c.mustDo("POST", "/sources/attach-mounted", map[string]any{
+		"mount": "library", "rel": "movies/Not In My Library (1999)/Not In My Library (1999).en.srt", "subject": "screen", "id": film,
+	}, 200)
+	var origin, rel string
+	if err := srv.Store.DB.QueryRow(`SELECT origin, path FROM work_sources WHERE subject_id = ?`, film).Scan(&origin, &rel); err != nil || origin != "mount" || !strings.HasPrefix(rel, "movies/Not In My Library") {
+		t.Fatalf("%v %s %s", err, origin, rel)
+	}
+	// It has one now, so a second is refused rather than silently doing nothing.
+	c.mustDo("POST", "/sources/attach-mounted", map[string]any{
+		"mount": "library", "rel": "movies/V for Vendetta (2005) {tmdb-752}/V for Vendetta (2005).en.srt", "subject": "screen", "id": film,
+	}, http.StatusConflict)
+	// A show's file is for one episode, and says which.
+	c.mustDo("POST", "/sources/attach-mounted", map[string]any{
+		"mount": "library", "rel": "shows/Andor (2022) {tvdb-393189}/Season 01/Andor - S01E04 - Name.en.srt", "subject": "screen", "id": show,
+	}, http.StatusBadRequest)
+	c.mustDo("POST", "/sources/attach-mounted", map[string]any{
+		"mount": "library", "rel": "shows/Andor (2022) {tvdb-393189}/Season 01/Andor - S01E04 - Name.en.srt", "subject": "screen", "id": show, "episode": "s01e04",
+	}, 200)
+	// A file of the wrong kind for the work, a path out, and a missing file attach nothing.
+	c.mustDo("POST", "/sources/attach-mounted", map[string]any{"mount": "library", "rel": "books/Dust of Dreams.epub", "subject": "screen", "id": show, "episode": "s01e05"}, http.StatusUnprocessableEntity)
+	c.mustDo("POST", "/sources/attach-mounted", map[string]any{"mount": "library", "rel": "../etc/passwd", "subject": "book", "id": book}, http.StatusUnprocessableEntity)
+	c.mustDo("POST", "/sources/attach-mounted", map[string]any{"mount": "library", "rel": "books/gone.epub", "subject": "book", "id": book}, http.StatusUnprocessableEntity)
+}

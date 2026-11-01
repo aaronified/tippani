@@ -652,6 +652,8 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /admin/mounts", s.requireAdmin(s.handleGetMounts))
 	mux.Handle("PUT /admin/mounts", s.requireAdmin(s.handlePutMounts))
 	mux.Handle("GET /sources/mounts", s.requireAuth(s.handleListMounts))
+	mux.Handle("GET /sources/browse", s.requireAuth(s.handleBrowseMount))
+	mux.Handle("POST /sources/attach-mounted", s.requireAuth(s.handleAttachMounted))
 	mux.Handle("POST /sources/scan", s.requireAuth(s.handleScanMount))
 	mux.Handle("GET /sources/found", s.requireAuth(s.handleFoundFiles))
 	mux.Handle("POST /sources/attach-found", s.requireAuth(s.handleAttachFound))

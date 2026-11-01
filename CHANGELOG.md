@@ -19,6 +19,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Metadata > Source files: attach a file by hand from the mounted library folders. Each work
+  without a file has Attach from folder, which walks the folders the administrator mounted in
+  Settings, one folder at a time, and attaches the file you choose the same way a scan's
+  proposal is attached (a show asks which episode first).
+
 - Stray marks on Checks: the top bar's search now searches inside that page (a work's title, a
   rule's name, or the marked words of a find), and each work's group can be folded shut with the
   arrow at its head. A folded work is left out of Select all.
@@ -28,6 +33,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The plans and the roadmap are brought up to date: the finished anthology plan is folded into
   its ADR and its page retired, and the roadmap now says where things stand at 3.6.1, what is
   left in order, and the questions waiting for the owner.
+
+### Changed
+
+- Metadata > Source files shows each work's poster, which opens the work, and lays the works out
+  in two columns on a wide screen with their buttons on the right of each card. The Library
+  folders card above stays full width.
 
 ## [3.6.1] - 2026-11-01
 

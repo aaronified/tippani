@@ -262,3 +262,80 @@ func (r *Root) Walk(cursor string, exts map[string]bool, visit func(Found) bool)
 	walk(r.path, "")
 	return res
 }
+
+// Entry is one name in a folder listing.
+type Entry struct {
+	Name string
+	Rel  string // slash-separated, relative to the root
+	Dir  bool
+	Size int64
+}
+
+// List reports one folder under the root for a person choosing a file by hand: its sub-folders
+// and the regular files whose lower-case extension is in exts, folders first, each group in
+// name order. rel is "" for the root. The same guards as a walk apply: the folder is resolved
+// and must still be under the root, and a symlink is listed only when it resolves inside the
+// root, a link to a folder is shown as nothing (a walk never enters one either).
+func (r *Root) List(rel string, exts map[string]bool) ([]Entry, error) {
+	dir := r.path
+	if rel != "" {
+		if filepath.IsAbs(rel) || filepath.VolumeName(rel) != "" {
+			return nil, ErrOutside
+		}
+		real, err := filepath.EvalSymlinks(filepath.Join(r.path, filepath.FromSlash(rel)))
+		if err != nil {
+			return nil, err
+		}
+		if !r.within(real) {
+			return nil, ErrOutside
+		}
+		dir = real
+	}
+	st, err := os.Stat(dir)
+	if err != nil {
+		return nil, err
+	}
+	if !st.IsDir() {
+		return nil, errors.New("mount: not a folder")
+	}
+	ents, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+	var dirs, files []Entry
+	for _, e := range ents {
+		abs := filepath.Join(dir, e.Name())
+		erel := e.Name()
+		if rel != "" {
+			erel = strings.TrimSuffix(rel, "/") + "/" + e.Name()
+		}
+		typ := e.Type()
+		if typ&fs.ModeSymlink != 0 {
+			real, err := filepath.EvalSymlinks(abs)
+			if err != nil || !r.within(real) {
+				continue
+			}
+			sst, err := os.Stat(real)
+			if err != nil || sst.IsDir() {
+				continue
+			}
+			typ = sst.Mode().Type()
+		}
+		switch {
+		case typ.IsDir():
+			dirs = append(dirs, Entry{Name: e.Name(), Rel: erel, Dir: true})
+		case typ.IsRegular() && exts[strings.ToLower(filepath.Ext(e.Name()))]:
+			fst, err := os.Stat(abs)
+			if err != nil {
+				continue
+			}
+			files = append(files, Entry{Name: e.Name(), Rel: erel, Size: fst.Size()})
+		}
+	}
+	byName := func(l []Entry) {
+		sort.Slice(l, func(i, j int) bool { return strings.ToLower(l[i].Name) < strings.ToLower(l[j].Name) })
+	}
+	byName(dirs)
+	byName(files)
+	return append(dirs, files...), nil
+}

@@ -17,7 +17,7 @@ let scanAnswer
 
 const LIB = {
   books: [
-    { id: 7, title: 'Dust of Dreams', annotation_count: 4 },
+    { id: 7, title: 'Dust of Dreams', annotation_count: 4, cover_path: 'covers/dust.jpg' },
     { id: 8, title: 'Gardens of the Moon', annotation_count: 2 },
   ],
   movies: [],
@@ -40,6 +40,14 @@ vi.mock('../../src/api.js', async (orig) => ({
     if (path.startsWith('/sources/found')) {
       const scan = scanState === 'none' ? { state: 'none' } : { state: scanState, job_id: 11, scanned: 512, found: 1, unclaimed: 3 }
       return ok(path.includes('status=1') ? { scan } : { scan, candidates: scanState === 'none' ? [] : [FOUND] })
+    }
+    if (path.startsWith('/sources/browse')) {
+      return path.includes('path=Erikson')
+        ? ok({ path: 'Erikson', parent: '', root: false, entries: [{ name: 'Dust of Dreams.epub', rel: 'Erikson/Dust of Dreams.epub', dir: false, size: 2400000 }] })
+        : ok({ path: '', parent: '', root: true, entries: [{ name: 'Erikson', rel: 'Erikson', dir: true }] })
+    }
+    if (path === '/sources/attach-mounted') {
+      return ok({ attached: 1, context: { matched: 3, ambiguous: 0, unmatched: 1, skipped: 0 } })
     }
     if (path === '/sources/attach-found') {
       return ok({ attached: 1, skipped: 0, failed: 0, done: body.tokens, context: { matched: 4, ambiguous: 0, unmatched: 0, skipped: 0 } })
@@ -108,5 +116,29 @@ describe('Metadata > Source files', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Scan' }))
     expect(await screen.findByText(/512 scanned · 1 found · 3 not matched/)).toBeTruthy()
     expect(calls.filter((c) => c.path === '/sources/scan')).toHaveLength(1)
+  })
+
+  it('shows each work\'s poster as the way into the work, and lays the works out in a grid apart from the folders card', async () => {
+    const opened = []
+    render(<SourceFilesConsole lib={LIB} onOpenBook={(id) => opened.push(id)} />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Open Dust of Dreams' }))
+    expect(opened).toEqual([7])
+    const works = document.querySelector('.source-works')
+    expect(works.querySelectorAll('[data-testid="source-work"]')).toHaveLength(2)
+    expect(works.contains(screen.getByText('Library folders'))).toBe(false)
+  })
+
+  it('attaches a file chosen by hand from a mounted folder, a work with a file having no such button', async () => {
+    open()
+    const dust = (await screen.findByText('Dust of Dreams', { selector: 'b' })).closest('[data-testid="source-work"]')
+    const gardens = (await screen.findByText('Gardens of the Moon', { selector: 'b' })).closest('[data-testid="source-work"]')
+    await waitFor(() => expect(within(gardens).queryByRole('button', { name: 'Attach from folder' })).toBeNull())
+    fireEvent.click(await within(dust).findByRole('button', { name: 'Attach from folder' }))
+    fireEvent.click(await screen.findByRole('button', { name: /Erikson/ }))
+    fireEvent.click(await screen.findByRole('button', { name: /Dust of Dreams\.epub/ }))
+    await waitFor(() =>
+      expect(calls.find((c) => c.path === '/sources/attach-mounted')?.body).toEqual({ mount: 'books', rel: 'Erikson/Dust of Dreams.epub', subject: 'book', id: 7 }),
+    )
+    await waitFor(() => expect(screen.getByText(/Added Dust of Dreams\.epub: found context for 3 of 4 quotes/)).toBeTruthy())
   })
 })

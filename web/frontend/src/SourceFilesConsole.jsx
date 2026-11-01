@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { json } from './api.js'
 import { t } from './i18n.js'
-import { Card, GhostButton, IconChecks, IconRefresh, IconSourceFile, IconStop, InfoDot, MonoLabel, Tally } from './ui.jsx'
+import { Card, Cover, GhostButton, IconChecks, IconRefresh, IconSourceFile, IconStop, InfoDot, MonoLabel, Tally, Tooltip } from './ui.jsx'
+import MountedFilePicker from './MountedFilePicker.jsx'
 import { actionsFor } from './actions.jsx'
 import {
   FoundFileRow,
@@ -33,11 +34,11 @@ const FILTERS = ['all', 'none', 'has', 'found']
 function worksOf(lib) {
   const out = []
   for (const b of lib?.books || []) {
-    if (b.annotation_count > 0) out.push({ kind: 'book', item: { id: b.id, title: b.title }, quotes: b.annotation_count })
+    if (b.annotation_count > 0) out.push({ kind: 'book', item: { id: b.id, title: b.title }, quotes: b.annotation_count, cover: b.cover_path || '' })
   }
   for (const m of lib?.movies || []) {
     const item = { id: m.id, title: m.title, media_type: m.media_type }
-    if (m.dialogue_count > 0 && canTakeSource('movie', item)) out.push({ kind: 'movie', item, quotes: m.dialogue_count })
+    if (m.dialogue_count > 0 && canTakeSource('movie', item)) out.push({ kind: 'movie', item, quotes: m.dialogue_count, cover: m.poster_path || '' })
   }
   return out
 }
@@ -52,6 +53,7 @@ export default function SourceFilesConsole({ lib, onOpenBook, onOpenMovie }) {
   useSourcesChanged(reload)
   const acts = useSourceActions(reload)
   const door = useSourceDoor(reload)
+  const [picking, setPicking] = useState(null) // the work a file is being chosen for, from a mounted folder
 
   useEffect(() => {
     let live = true
@@ -141,18 +143,24 @@ export default function SourceFilesConsole({ lib, onOpenBook, onOpenMovie }) {
             </div>
           </div>
           {shown.length === 0 && <p className="microcopy">{t('files.empty')}</p>}
-          {shown.map((w) => (
-            <WorkFiles
-              key={`${w.kind}:${w.item.id}`}
-              w={w}
-              acts={acts}
-              scan={scan}
-              onAdd={() => door.add(w.kind, w.item)}
-              onOpen={() => (w.kind === 'book' ? onOpenBook : onOpenMovie)?.(w.item.id)}
-            />
-          ))}
+          {/* TWO COLUMNS ON A WIDE SCREEN, for the works only: the folders card above and the counts
+              row stay full width. */}
+          <div className="source-works">
+            {shown.map((w) => (
+              <WorkFiles
+                key={`${w.kind}:${w.item.id}`}
+                w={w}
+                acts={acts}
+                scan={scan}
+                onAdd={() => door.add(w.kind, w.item)}
+                onPick={mounts.length > 0 ? () => setPicking(w) : null}
+                onOpen={() => (w.kind === 'book' ? onOpenBook : onOpenMovie)?.(w.item.id)}
+              />
+            ))}
+          </div>
         </>
       )}
+      {picking && <MountedFilePicker kind={picking.kind} item={picking.item} mounts={mounts} onClose={() => setPicking(null)} onDone={reload} />}
       {door.node}
       {acts.confirmDialog}
     </div>
@@ -161,26 +169,45 @@ export default function SourceFilesConsole({ lib, onOpenBook, onOpenMovie }) {
 
 // One work: its name, its files (or that it has none), what a scan found for it, and the
 // add verb from the registry, drawn as Add or Replace.
-function WorkFiles({ w, acts, scan, onAdd, onOpen }) {
+function WorkFiles({ w, acts, scan, onAdd, onPick, onOpen }) {
   const add = actionsFor(w.kind, w.item, { addSource: onAdd }).find((a) => a.id === 'sourceAdd')
   const held = w.files.length > 0
   const show = w.item.media_type === 'show'
   const kindWord = t(w.kind === 'book' ? 'files.kind.book' : w.item.media_type === 'show' ? 'files.kind.show' : 'files.kind.film')
+  // A work that has a file takes no second one by hand (Replace is the way); a show takes one per episode.
+  const canPick = onPick && (show || !held)
   return (
     <Card>
-      <div className="flex flex-col gap-3" data-testid="source-work">
-        <div className="flex flex-wrap items-center gap-2">
-          <button type="button" className="tp-link min-w-0" onClick={onOpen}>
-            <b>{w.item.title}</b>
+      <div className="flex gap-3" data-testid="source-work">
+        {/* THE POSTER IS THE WAY INTO THE WORK, as it is on Stray marks. */}
+        <Tooltip label={t('cleanup.row.open.tip')} side="top">
+          <button type="button" className="cleanup-poster" aria-label={t('cleanup.row.open.aria', { label: w.item.title })} onClick={onOpen}>
+            <Cover path={w.cover} title={w.item.title} />
           </button>
-          <span className="microcopy">{kindWord}</span>
-          <span className="flex-1" />
-          {add && (
-            <GhostButton type="button" onClick={add.run} title={add.tooltip}>
-              {add.icon}
-              <span>{held && w.item.media_type !== 'show' ? t('common.source.replace') : add.label}</span>
-            </GhostButton>
-          )}
+        </Tooltip>
+        <div className="min-w-0 flex-1 flex flex-col gap-3">
+        {/* NOT WRAPPED: the buttons stay on the right of the card, beside the name, at every width. */}
+        <div className="flex items-center gap-2">
+          <div className="min-w-0 flex-1">
+            <button type="button" className="tp-link min-w-0" onClick={onOpen}>
+              <b>{w.item.title}</b>
+            </button>{' '}
+            <span className="microcopy">{kindWord}</span>
+          </div>
+          <div className="flex flex-none flex-wrap items-center justify-end gap-2">
+            {canPick && (
+              <GhostButton type="button" onClick={onPick}>
+                <IconSourceFile />
+                <span>{t('files.attach.folder')}</span>
+              </GhostButton>
+            )}
+            {add && (
+              <GhostButton type="button" onClick={add.run} title={add.tooltip}>
+                {add.icon}
+                <span>{held && w.item.media_type !== 'show' ? t('common.source.replace') : add.label}</span>
+              </GhostButton>
+            )}
+          </div>
         </div>
         {!held && <p className="microcopy">{t('files.missing', { count: w.quotes, n: w.quotes })}</p>}
         {/* A show's quotes span its episodes, so its count is over all its files. */}
@@ -200,6 +227,7 @@ function WorkFiles({ w, acts, scan, onAdd, onOpen }) {
             onRefuse={() => scan.refuse([c])}
           />
         ))}
+        </div>
       </div>
     </Card>
   )
