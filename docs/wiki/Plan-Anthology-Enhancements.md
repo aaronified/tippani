@@ -25,7 +25,7 @@ text at that line. Tasks, one per ask:
 - [~] (sections done in Markdown, EPUB and a page break in print; group headers not) Carry sections and group headers into Markdown export (`export_anthology.go:98`
       `func renderAnthologyExport(title, intro string, f anthologyFields, entries []anthologyEntryRow) string {`),
       EPUB as chapters, and print (`index.css:10575` `@media print {`).
-- [ ] Make "Add N waiting" (`anthologies.jsx:1637`
+- [x] (done) Make "Add N waiting" (`anthologies.jsx:1637`
       `<GhostButton icon={<IconPlus />} onClick={takeWaiting} disabled={filling}>`) open a
       preview of the N passages, all ticked, where unticking one records it as removed. The
       fill already answers a preview without writing (`anthology_fill.go:75`

@@ -77,6 +77,22 @@ type anthologyFillReq struct {
 	// Fill with the switch on means both — and two requests to say one thing is how
 	// the switch and the rule get out of step.
 	Auto bool `json:"auto"`
+	// Passages asks a PREVIEW to say which passages it would add, not only how many, so the reader can
+	// look at them before they are taken (the waiting preview).
+	Passages bool `json:"passages"`
+	// Exclude is what the reader unticked in that preview. Each is recorded as REMOVED from this
+	// anthology (0088) before the fill runs, so the fill passes over it now and a later rule run does
+	// too, and it is listed under Removed with a way back.
+	Exclude []entryRef `json:"exclude"`
+}
+
+// anthologyFillPassage is one passage a preview says it would add.
+type anthologyFillPassage struct {
+	Kind   string `json:"kind"`
+	ItemID int64  `json:"item_id"`
+	Quote  string `json:"quote"`
+	Source string `json:"source"`
+	Credit string `json:"credit"`
 }
 
 type anthologyFillResp struct {
@@ -100,6 +116,10 @@ type anthologyFillResp struct {
 	// true number is larger. Separate from Capped because they are different facts
 	// and a reader pressing Fill again wants to know which one they hit.
 	MatchedCapped bool `json:"matched_capped,omitempty"`
+	// Items is the passages a preview would add, when it was asked for them.
+	Items []anthologyFillPassage `json:"items,omitempty"`
+	// added is what appendFill put in, in order, for the preview to describe. Not sent.
+	added []anthologyFillItem
 }
 
 // fillExec is the half of a database handle appendFill needs. `*sql.DB` and
@@ -171,14 +191,55 @@ func (s *Server) handleFillAnthology(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		res, err = appendFill(tx, uid, id, items)
+		if err == nil && req.Passages {
+			res.Items, err = passageSummaries(tx, uid, res.added)
+		}
 		_ = tx.Rollback()
 		if err != nil {
 			internalError(w, r, "preview fill", err)
 			return
 		}
 	} else {
-		res, err = appendFill(s.Store.DB, uid, id, items)
+		// THE UNTICKED ARE RECORDED AS REMOVED IN THE SAME TRANSACTION AS THE FILL, so a failure of
+		// either leaves the anthology as it was, and the fill that follows passes over them through the
+		// ordinary removal check rather than a second mechanism.
+		tx, err := s.Store.DB.Begin()
 		if err != nil {
+			internalError(w, r, "fill anthology", err)
+			return
+		}
+		defer tx.Rollback()
+		for _, ex := range req.Exclude {
+			if !validReviewKind(ex.Kind) || !quoteOwned(tx, uid, ex.Kind, ex.ItemID) {
+				continue
+			}
+			// Already in the anthology is not removable by unticking: only what would have been added.
+			var inside int
+			if err := tx.QueryRow(`SELECT COUNT(*) FROM anthology_entries WHERE anthology_id = ? AND kind = ? AND item_id = ?`,
+				id, ex.Kind, ex.ItemID).Scan(&inside); err != nil {
+				internalError(w, r, "fill anthology", err)
+				return
+			}
+			if inside > 0 {
+				continue
+			}
+			var pos float64
+			if err := tx.QueryRow(`SELECT COALESCE(MAX(position), 0) + 1 FROM anthology_slots WHERE anthology_id = ?`, id).Scan(&pos); err != nil {
+				internalError(w, r, "fill anthology", err)
+				return
+			}
+			if _, err := tx.Exec(`INSERT OR IGNORE INTO anthology_removed (anthology_id, kind, item_id, position, note) VALUES (?, ?, ?, ?, '')`,
+				id, ex.Kind, ex.ItemID, pos); err != nil {
+				internalError(w, r, "fill anthology", err)
+				return
+			}
+		}
+		res, err = appendFill(tx, uid, id, items)
+		if err != nil {
+			internalError(w, r, "fill anthology", err)
+			return
+		}
+		if err := tx.Commit(); err != nil {
 			internalError(w, r, "fill anthology", err)
 			return
 		}
@@ -319,6 +380,7 @@ func appendFill(db fillExec, uid, id int64, items []anthologyFillItem) (antholog
 			continue
 		}
 		res.Added++
+		res.added = append(res.added, it)
 		next++
 	}
 	return res, nil

@@ -25,6 +25,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **"Add N waiting" on an anthology shows the passages first.** They are all ticked; untick any
+  you do not want and they go under Removed, so a rule does not add them.
+
 - **Stray marks are grouped by work.** The work's poster heads each group and opens the work, so
   the "Open where this quote lives" button is gone. Each quote has Edit, which opens its own
   edit form, and In context when the file's lines are stored. Groups sit in two columns on wide

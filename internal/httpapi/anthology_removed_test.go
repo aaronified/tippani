@@ -206,3 +206,87 @@ func TestAnAccountRoundTripKeepsItsRemovedPassages(t *testing.T) {
 		t.Errorf("after the account came back, the removed list was %+v", list)
 	}
 }
+
+// THE WAITING PREVIEW: what a rule would add, listed, with the ones the reader unticks left out.
+
+func previewPassages(t *testing.T, c *testClient, id int64, rule string) anthologyFillResp {
+	t.Helper()
+	return decode[anthologyFillResp](t, c.mustDo("POST", "/anthologies/"+itoa(id)+"/fill",
+		map[string]any{"rule": rule, "preview": true, "passages": true}, http.StatusOK))
+}
+
+func TestAPreviewListsThePassagesItWouldAddAndAddsNone(t *testing.T) {
+	c := signupAdmin(t, newTestServer(t).Handler())
+	taggedShelf(t, c)
+	an := newAnthology(t, c, "Stoics")
+
+	got := previewPassages(t, c, an.ID, "tag=stoicism")
+	if len(got.Items) != 3 || got.Added != 3 {
+		t.Fatalf("preview listed %d passages for %d it would add", len(got.Items), got.Added)
+	}
+	for _, p := range got.Items {
+		if p.Quote == "" || p.Source != "Meditations" || p.Credit != "Marcus Aurelius" {
+			t.Errorf("a listed passage says too little: %+v", p)
+		}
+	}
+	if n := len(getAnthology(t, c, an.ID).Entries); n != 0 {
+		t.Errorf("the preview added %d passages", n)
+	}
+}
+
+func TestWithoutAskingForPassagesAPreviewIsJustNumbers(t *testing.T) {
+	c := signupAdmin(t, newTestServer(t).Handler())
+	taggedShelf(t, c)
+	an := newAnthology(t, c, "Stoics")
+	got := decode[anthologyFillResp](t, c.mustDo("POST", "/anthologies/"+itoa(an.ID)+"/fill",
+		map[string]any{"rule": "tag=stoicism", "preview": true}, http.StatusOK))
+	if len(got.Items) != 0 || got.Added != 3 {
+		t.Errorf("preview without passages: %d items, %d added", len(got.Items), got.Added)
+	}
+}
+
+func TestWhatTheReaderUntickedIsLeftOutAndRecordedAsRemoved(t *testing.T) {
+	c := signupAdmin(t, newTestServer(t).Handler())
+	a, b, _, _ := taggedShelf(t, c)
+	an := newAnthology(t, c, "Stoics")
+
+	res := decode[anthologyFillResp](t, c.mustDo("POST", "/anthologies/"+itoa(an.ID)+"/fill", map[string]any{
+		"rule": "tag=stoicism", "exclude": []map[string]any{{"kind": "book", "item_id": b}},
+	}, http.StatusOK))
+
+	if res.Added != 2 {
+		t.Errorf("added %d, want 2 (three matched, one unticked)", res.Added)
+	}
+	for _, e := range getAnthology(t, c, an.ID).Entries {
+		if e.ItemID == b {
+			t.Errorf("the unticked passage was added")
+		}
+	}
+	if list := removedOf(t, c, an.ID); len(list) != 1 || list[0].ItemID != b {
+		t.Errorf("the unticked passage is not listed as removed: %+v", list)
+	}
+	// And a later fill does not put it in either.
+	if again := fill(t, c, an.ID, "tag=stoicism", false); again.Added != 0 {
+		t.Errorf("a later fill added %d", again.Added)
+	}
+	_ = a
+}
+
+func TestUntickingSomebodyElsesPassageRecordsNothing(t *testing.T) {
+	h := newTestServer(t).Handler()
+	c := signupAdmin(t, h)
+	taggedShelf(t, c)
+	bob := addUser(t, h, c, "bob")
+	bobsBook := decode[bookDetail](t, bob.mustDo("POST", "/books", map[string]any{"title": "Mine"}, http.StatusCreated))
+	bobsQuote := decode[annotationRow](t, bob.mustDo("POST", "/annotations",
+		map[string]any{"book_id": bobsBook.ID, "quote": "Bob's own."}, http.StatusCreated)).ID
+	an := newAnthology(t, c, "Stoics")
+
+	c.mustDo("POST", "/anthologies/"+itoa(an.ID)+"/fill", map[string]any{
+		"rule": "tag=stoicism", "exclude": []map[string]any{{"kind": "book", "item_id": bobsQuote}},
+	}, http.StatusOK)
+
+	if list := removedOf(t, c, an.ID); len(list) != 0 {
+		t.Errorf("a quote that is not the reader's was recorded: %+v", list)
+	}
+}

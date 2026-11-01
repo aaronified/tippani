@@ -1479,6 +1479,91 @@ function SectionDialog({ initial, onSave, onCancel }) {
   )
 }
 
+// ---- THE WAITING PREVIEW -------------------------------------------------------------------
+//
+// "Add 12 waiting" shows the twelve first, all ticked. What is unticked is sent as `exclude`, which
+// the server records as removed from this anthology (0088) before it fills, so the fill passes over it
+// and a later rule run does too. The same rule the count came from, so the list is what the number was.
+function WaitingFields({ items, picked, toggle, busy, onSubmit }) {
+  const host = useFormHost(busy ? t('common.action.save.busy') : '')
+  return (
+    <form id={host?.formId} className="anthology-form" onSubmit={(e) => { e.preventDefault(); onSubmit() }}>
+      <p className="microcopy">{t('anthologies.waiting.body')}</p>
+      <ul className="anthology-removed-list">
+        {items.map((p) => {
+          const key = `${p.kind}:${p.item_id}`
+          return (
+            <li key={key} className="anthology-removed-row">
+              <input
+                type="checkbox"
+                checked={picked.has(key)}
+                aria-label={t('anthologies.waiting.pick.aria')}
+                onChange={() => toggle(key)}
+              />
+              <div className="min-w-0 flex-1">
+                <p className="anthology-removed-quote" dir="auto">{p.quote}</p>
+                <p className="microcopy">{[p.source, p.credit].filter(Boolean).join(' · ')}</p>
+              </div>
+            </li>
+          )
+        })}
+      </ul>
+    </form>
+  )
+}
+
+function WaitingDialog({ anthology, onDone, onCancel }) {
+  const [items, setItems] = useState(null)
+  const [picked, setPicked] = useState(new Set())
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  useEffect(() => {
+    let live = true
+    json('POST', `/anthologies/${anthology.id}/fill`, { rule: anthology.rule, auto: true, preview: true, passages: true }).then((r) => {
+      if (!live) return
+      if (!r.ok) return setError(errText(r))
+      const list = r.data.items || []
+      setItems(list)
+      setPicked(new Set(list.map((p) => `${p.kind}:${p.item_id}`)))
+    })
+    return () => {
+      live = false
+    }
+  }, [anthology.id, anthology.rule])
+  const toggle = (key) =>
+    setPicked((s) => {
+      const next = new Set(s)
+      next.has(key) ? next.delete(key) : next.add(key)
+      return next
+    })
+  async function submit() {
+    setBusy(true)
+    const exclude = (items || []).filter((p) => !picked.has(`${p.kind}:${p.item_id}`)).map((p) => ({ kind: p.kind, item_id: p.item_id }))
+    const r = await json('POST', `/anthologies/${anthology.id}/fill`, { rule: anthology.rule, auto: true, exclude })
+    setBusy(false)
+    if (!r.ok) return setError(errText(r))
+    onDone(r.data)
+  }
+  const unticked = items ? items.length - picked.size : 0
+  return (
+    <FormModal open title={t('anthologies.waiting.title')} onClose={onCancel} dirty={unticked}>
+      {items === null ? (
+        <p className="microcopy">{error || t('anthologies.waiting.loading')}</p>
+      ) : (
+        <>
+          <WaitingFields items={items} picked={picked} toggle={toggle} busy={busy} onSubmit={submit} />
+          <ErrorText>{error}</ErrorText>
+          <div className="anthology-tools">
+            <button type="button" className="tp-btn tp-btn-primary tactile" disabled={busy || picked.size === 0} onClick={submit}>
+              {t('anthologies.waiting.add.label', { n: picked.size })}
+            </button>
+          </div>
+        </>
+      )}
+    </FormModal>
+  )
+}
+
 // ---- READING MODE ----------------------------------------------------------------------------
 //
 // The anthology as a document and nothing else: no bars, no menus, no cards. It is a full-screen layer
@@ -1708,7 +1793,6 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
   // KEEP IT FED (0075), and it is a COUNT rather than an ARRIVAL — see the effect
   // below for why the plan's own two sentences could not both ship.
   const [waiting, setWaiting] = useState(null)
-  const [filling, setFilling] = useState(false)
   // A THEMED ROUND OVER THIS ANTHOLOGY. The engine has taken ?anthology= since
   // 0043 — it narrows the deck by a join on anthology_entries and excludes no
   // kind, so a mixed anthology practises as one deck — and for two releases there
@@ -1771,13 +1855,14 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
   // takeWaiting runs the fill the count was measured from. THE SAME RULE, because
   // the count came from a preview of that rule and pressing a number that then took
   // a different set would be the screen lying at the one moment it was specific.
-  async function takeWaiting() {
-    setFilling(true)
-    const r = await json('POST', `/anthologies/${id}/fill`, { rule: anthology.rule, auto: true })
-    setFilling(false)
-    if (!r.ok) return setError(errText(r))
+  const [taking, setTaking] = useState(false)
+  function takeWaiting() {
+    setTaking(true)
+  }
+  async function tookWaiting(data) {
+    setTaking(false)
     setWaiting(null)
-    toast(t('anthologies.rule.filled', { added: r.data.added, skipped: r.data.skipped }))
+    toast(t('anthologies.rule.filled', { added: data.added, skipped: data.skipped }))
     await reload()
   }
 
@@ -2084,7 +2169,7 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
     and an offer to change it is not part of the document. */}
       {waiting && (
         <div className="mt-2 no-print">
-    <GhostButton icon={<IconPlus />} onClick={takeWaiting} disabled={filling}>
+    <GhostButton icon={<IconPlus />} onClick={takeWaiting} disabled={taking}>
       {t('anthologies.rule.waiting', { n: waiting.added })}
     </GhostButton>
         </div>
@@ -2296,6 +2381,9 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
           onMove={(n) => moveTo(moving, n)}
           onCancel={() => setMoving(null)}
         />
+      )}
+      {taking && anthology && (
+        <WaitingDialog anthology={anthology} onDone={tookWaiting} onCancel={() => setTaking(false)} />
       )}
       {reading && anthology && (
         <AnthologyReader anthology={anthology} slots={slots} groupBy={groupBy} onClose={() => setReading(false)} />

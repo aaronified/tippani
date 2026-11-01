@@ -132,7 +132,13 @@ describe('the fields a work lends its passages', () => {
       ...DETAIL,
       anthology: { ...DETAIL.anthology, rule: 'tag=stoicism', rule_auto: true },
     }
-    FILL = { matched: 12, added: 12, skipped: 0, capped: false }
+    FILL = {
+      matched: 12, added: 12, skipped: 0, capped: false,
+      items: [
+        { kind: 'book', item_id: 5, quote: 'First waiting.', source: 'Walden', credit: 'Thoreau' },
+        { kind: 'book', item_id: 6, quote: 'Second waiting.', source: 'Walden', credit: 'Thoreau' },
+      ],
+    }
     open()
     const take = await screen.findByText('Add 12 waiting')
 
@@ -141,13 +147,24 @@ describe('the fields a work lends its passages', () => {
     expect(before.length).toBe(1)
     expect(before[0][2].preview).toBe(true)
 
+    // Pressing the number opens the passages, still asking: nothing is taken yet.
     fireEvent.click(take)
+    const dialog = await screen.findByRole('dialog')
+    await within(dialog).findByText('First waiting.')
+    const asked = CALLS.filter(([m, p]) => m === 'POST' && /\/fill$/.test(p))
+    expect(asked.length).toBe(2)
+    expect(asked[1][2]).toMatchObject({ preview: true, passages: true })
+
+    // Untick one, take the rest: the unticked one is named so the server can record it as removed.
+    fireEvent.click(within(dialog).getAllByRole('checkbox')[1])
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Add 1' }))
     await waitFor(() => {
       const posts = CALLS.filter(([m, p]) => m === 'POST' && /\/fill$/.test(p))
-      return expect(posts.length).toBe(2)
+      return expect(posts.length).toBe(3)
     })
-    const real = CALLS.filter(([m, p]) => m === 'POST' && /\/fill$/.test(p))[1][2]
+    const real = CALLS.filter(([m, p]) => m === 'POST' && /\/fill$/.test(p))[2][2]
     expect(real.preview).toBeFalsy()
+    expect(real.exclude).toEqual([{ kind: 'book', item_id: 6 }])
     // THE SAME RULE THE COUNT WAS MEASURED FROM. Pressing a number that then took a
     // different set would be the screen lying at the one moment it was specific.
     expect(real.rule).toBe('tag=stoicism')
