@@ -12283,6 +12283,7 @@ button.work-pill:hover { color: var(--ink); border-color: var(--ink-border); }
   font: inherit;
   text-align: left;
   cursor: pointer;
+}
 
 /* WHAT WAS REMOVED FROM AN ANTHOLOGY: a quote and where it is from, and the way back. */
 .anthology-removed-list {
