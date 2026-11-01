@@ -58,63 +58,77 @@ The files a work's quotes came from, which the app used to refuse to hold:
 - One press of Scan walks a whole library folder as a resumable job, in slices that do not block other jobs, with progress,
   findings and seen files kept in the database. See [ADR-0917](ADR-0917-A-Library-Scan-Is-One-Press-And-A-Job.md).
 
-## Next week (from 26 October 2026)
+## Built in 3.5.0
 
-Updated on 31 October so the work can be picked up from this page alone, with no chat to read. Work it in this order. Each
-item is its own commit.
-
-**Where things stand.** The latest release is **3.4.2**. `main` holds nine commits after it that are **pushed on 31 October but not in
-any release**: the found-file row fix (`2c316041`) and, on top of it, #58, #62 (leading article, AZW3), #60, #59, MOBI/AZW3 and
-PDF reading, and multi-language matching. The owner said not to release yet, so nothing was tagged or bumped. The last
-commit is the `web/dist` rebuild. Go tests pass apart from the Windows-only failures listed under "Facts that save time" and
-four in `cmd/tippani` and one in `updater` that say "not supported by windows" or fail on a path separator (not re-run on the
-old commit). Frontend tests (483) and both wiki checks pass.
-
-**Done this week** (each has an ADR):
-
-- [#58](https://github.com/aaronified/tippani/issues/58): a highlight keeps its own location and the file proposes the chapter
-  ([ADR-0919](ADR-0919-A-Highlight-Keeps-Its-Own-Location-And-The-File-Proposes-The-Chapter.md)).
-- AZW3, MOBI, AZW and PDF are source files; a leading article is ignored when matching titles
-  ([ADR-0918](ADR-0918-Kindle-Files-And-PDFs-Are-Source-Files-Read-By-Their-Text-Alone.md), part of
-  [#62](https://github.com/aaronified/tippani/issues/62)).
-- Quotes match in Bengali, Hindi, Thai, Japanese, Chinese, Russian, Arabic and accented text
-  ([ADR-0920](ADR-0920-A-Quote-Is-Matched-In-The-Script-It-Was-Written-In.md)).
-- [#60](https://github.com/aaronified/tippani/issues/60) (quote card action row is one line on a phone) and
-  [#59](https://github.com/aaronified/tippani/issues/59) (edit form context block starts folded), written by an agent
+- Kindle books (MOBI, AZW, AZW3) and text-layer PDFs are source files, a title is matched without its leading article, and quotes
+  are found in Bengali, Hindi, Thai, Japanese, Chinese, Russian, Arabic and accented text
+  ([ADR-0918](ADR-0918-Kindle-Files-And-PDFs-Are-Source-Files-Read-By-Their-Text-Alone.md),
+  [ADR-0920](ADR-0920-A-Quote-Is-Matched-In-The-Script-It-Was-Written-In.md)).
+- A highlight keeps its own location and the file proposes only the chapter
+  ([ADR-0919](ADR-0919-A-Highlight-Keeps-Its-Own-Location-And-The-File-Proposes-The-Chapter.md)); a quote card's row is one line
+  on a phone and the context block on an edit form starts folded
   ([ADR-0921](ADR-0921-A-Quote-Card-s-Row-Is-One-Line-On-A-Phone.md),
-  [ADR-0922](ADR-0922-The-Context-Block-On-A-Quote-Form-Starts-Folded.md)). **Neither was checked in a browser at phone width**,
-  and `make controls` and `make typescale` were not run.
+  [ADR-0922](ADR-0922-The-Context-Block-On-A-Quote-Form-Starts-Folded.md)); the first UI review pass was measured on a phone
+  ([ADR-0923](ADR-0923-The-First-UI-Review-Pass-Is-Measured-On-A-Phone-Screen-By-Screen.md)).
+- The release is cut by a workflow from `[Unreleased]`
+  ([ADR-0924](ADR-0924-The-Release-Workflow-Cuts-The-Version-From-The-Unreleased-Changelog.md), [Releasing](Releasing.md)).
+
+## Built in 3.6.0 and 3.6.1
+
+- **Work goes through pull requests**, `main` is protected, the release pushes with a deploy key and regenerates `web/dist`
+  itself; pull requests carry no dist
+  ([ADR-0925](ADR-0925-Work-Goes-Through-Pull-Requests-And-The-Release-Rebuilds-Dist.md),
+  [ADR-0926](ADR-0926-The-Release-Regenerates-Dist-And-Pull-Requests-Do-Not-Carry-It.md),
+  [ADR-0927](ADR-0927-Main-Is-Protected-And-The-Release-Pushes-With-A-Deploy-Key.md)). 3.6.1 was the first release made by it
+  end to end.
+- **Checks is three tabs** (Imports, Stray marks, Files); stray marks are grouped by work with the poster as the way into the work,
+  and the Files tab folds its four sections
+  ([ADR-0928](ADR-0928-Checks-Is-Three-Tabs-And-Stray-Marks-Group-By-Work.md)).
+- **The anthology overhaul** ([ADR-0929](ADR-0929-An-Anthologys-Sections-Share-The-Entries-Position-Space.md)): removed entries with a
+  way back, sections and grouping, drag and Move to…, a cover, epigraph and dedication, reading mode, print and Save PDF, the
+  Add-waiting preview, and work identity with exact-identifier re-link on import. Its plan page is retired.
+
+## Where things stand (1 November 2026)
+
+The latest release is **3.6.1**. `[Unreleased]` holds three changes that are merged and not released: Accept all on Checks no
+longer fails past about 260 rows (the 64 KiB body cap), the top bar searches inside Stray marks and each work's group folds, and the
+phone's search dropdown can be dismissed (Back closes it, and it has a Close row). Work is taken one pull request at a time
+([ADR-0925](ADR-0925-Work-Goes-Through-Pull-Requests-And-The-Release-Rebuilds-Dist.md)); CI on `main` is green.
 
 **What is left, in order:**
 
-1. **Finish the UI review** ([#57](https://github.com/aaronified/tippani/issues/57)). #60 and #59 were checked on a phone and
-   hold, and six layout faults were fixed ([ADR-0923](ADR-0923-The-First-UI-Review-Pass-Is-Measured-On-A-Phone-Screen-By-Screen.md)).
-   Still to do: run the Firefox harnesses (`typescale`, `metadata-layout`, `frame-scroll`, `panel-depth`) on Zen with
-   `MOZ_NO_REMOTE=1`; record `controls-baseline.json` again on a run that matches CI (its glyph-with-words ceiling of 9 fails on
-   3.4.2 as well as now, with 14); find out why `controls.mjs`'s desktop pass dies with "detached Frame" under Edge; and capture
-   what the pass skipped: a work's source section, an episode's file, the Add surface.
-2. **Release.** 3.5.0 is cut by the `release` workflow, which makes the tag, the changelog section and the image build from a
-   version typed into it ([ADR-0924](ADR-0924-The-Release-Workflow-Cuts-The-Version-From-The-Unreleased-Changelog.md),
-   [Releasing](Releasing.md)). Its first real run is its test. Two commit bodies (`2a989130`, `242013bb`) name ADR-0918 and
-   ADR-0919 where the pages are now 0921 and 0922.
-3. **Rest of [#62](https://github.com/aaronified/tippani/issues/62):** the Source files row does not say why a work has no
-   file. Chak De! India and Battlestar Galactica S04E20 have no subtitle file to find.
-4. **Read quotes aloud** ([Plan: read aloud](Plan-Read-Aloud.md), issue
-   [#12](https://github.com/aaronified/tippani/issues/12)): the browser's own speech, no service. Nothing blocks it. The plan
-   was verified against `75e55ae` (28 September), so re-verify it first, as its first task says.
-5. **Anthology enhancements** ([Plan: anthology enhancements](Plan-Anthology-Enhancements.md)): built, in separate pull requests, between 1 and 2 November 2026: removed entries with a way back (0088), sections and grouping (0089), drag and Move to… (the owner chose to give anthologies their own drag, `reorder.js`, which Episodes can reuse), front matter (0090), reading mode, print and Save PDF, the Add-waiting preview, and work identity with exact-identifier re-link on import (0091). The plan's ticks say what each did.
+1. **Finish the UI review** ([#57](https://github.com/aaronified/tippani/issues/57)). Still to do: run the Firefox harnesses
+   (`typescale`, `metadata-layout`, `frame-scroll`, `panel-depth`) on Zen with `MOZ_NO_REMOTE=1`; record
+   `controls-baseline.json` again on a run that matches CI (its glyph-with-words ceiling of 9 fails, with 14); find out why
+   `controls.mjs`'s desktop pass dies with "detached Frame" under Edge; and capture what the pass skipped: a work's source section,
+   an episode's file, the Add surface.
+2. **Rest of [#62](https://github.com/aaronified/tippani/issues/62):** the Source files row does not say why a work has no file.
+   Chak De! India and Battlestar Galactica S04E20 have no subtitle file to find.
+3. **The queue in [Plans index](Plans-Index.md):** [read aloud](Plan-Read-Aloud.md) (issue
+   [#12](https://github.com/aaronified/tippani/issues/12); re-verify it first, as its first task says), then
+   [tile slots](Plan-Tile-Slots.md), [episodes](Plan-Episodes.md) (it can reuse `reorder.js`, the drag the anthologies built, which
+   now scrolls at the page edge) and [design consistency](Plan-Design-Consistency.md).
+4. **Left over from the Checks and anthology work:** character checks on the Stray marks tab wait for character detection, which does
+   not exist; the Files tab is blank when nothing is waiting; the tick count on the quote edit dialog always shows 1; the
+   anthology's group headers are a display setting that the EPUB does not carry.
+5. **What remains of the source-file work**, in the section below.
 
 **Questions for the owner**, kept until asked:
 
 1. Should there be an opt-in to replace a Kindle location with the file's percent? It is no longer offered.
 2. Should Kindle chapters come from the file's real contents index (INDX) instead of the nearest heading?
 3. Scanned PDFs have no text layer and are refused. Add OCR, or leave them refused?
-4. The #59 folded heading reads "In context" (an existing label), not the issue's "Context from <file>". Change it?
-5. Should the "why this work has no file" text be added to the Source files row (#62)?
+4. Should the "why this work has no file" text be added to the Source files row (#62)?
+5. Should the top bar take a typed token to search somewhere other than the page you are on? Searching the page is now the default
+   on Settings, the metadata console and Stray marks, and the pill's ✕ leaves it for the library. Nothing typed does the same.
+6. Issues #58, #59 and #60 were shipped in 3.5.0 and are still open on GitHub. Close them? Closing the issue is what takes an item
+   off the roadmap ([ADR-0620](ADR-0620-Closing-The-Issue-Is-What-Takes-An-Item-Off-The-Roadmap-And.md)).
 
 **Leftover housekeeping.** Two agent worktrees remain under `.claude/worktrees` (`agent-a5e3796460a78da5c`,
-`agent-a69f8257601ac30aa`) with their branches. A stash, `WIP on (no branch): 5f7832c Mobile UX fixes...`, pre-dates this work
-and was left alone.
+`agent-a69f8257601ac30aa`) with their branches, and the branch `claude/claude-kit-setup-8vfokb` holds five commits that were
+never merged (the Android plan, an Episodes drag clip, next steps). The worktree `claude/musing-faraday-fd8206` has uncommitted
+edits. A stash, `WIP on (no branch): 5f7832c Mobile UX fixes...`, pre-dates this work and was left alone. None of it is deleted
+until the owner says.
 
 **Email automation.** The report address `tippanidev@gmail.com` exists. It is for the bug-report flow in
 [the Android app plan](Plan-Android-App.md) (feature 4): the app opens the reader's mail app addressed to it, and a GitHub
@@ -133,9 +147,11 @@ open questions.
 - Local runs on Windows have known failures that are not bugs here: four `scratch-sweep` rules tests, three `store` migrate
   tests and two `httpapi` tests (`TestAFailedFactoryResetLeavesSignInWorking`,
   `TestARowShowsTheNewestOfASuppliersTwoAreas`) fail on Windows temp-directory behaviour. CI on Linux is the check for Go.
-- CI has shown load-related flakes: the Wikidata signature journey (it calls the real internet) and one Stop timing test.
-  Journeys do not retry on purpose; a journey that fails twice is a bug.
-- `web/dist` is rebuilt (`make frontend`) as its own last commit before a push; the generated glossary is `npm run glossary`.
+- CI has shown load-related flakes. The fixes so far wait for what the page is waiting for (a button enabled, a slider drawn, a
+  navigation landed) rather than retrying: journeys do not retry on purpose, and a journey that fails twice is a bug. A flaky
+  one is rerun with `gh run rerun <id> --failed`, never merged around.
+- `web/dist` is regenerated by the release workflow, not by a pull request: if `npm run build` writes into it locally, restore it
+  (`git checkout -- web/dist web/dist-inputs.json; git clean -fdq web/dist`). The generated glossary is `npm run glossary`.
 
 ## Known bugs
 
@@ -155,9 +171,6 @@ These are the open [bug issues](https://github.com/aaronified/tippani/issues?q=i
   predicate that forgets a gap.
 - [#55](https://github.com/aaronified/tippani/issues/55): Metadata → Works puts the "all" pill last of fifteen, where the
   design pack puts it first.
-- [#58](https://github.com/aaronified/tippani/issues/58): the Locators section does not propose chapters or locations from the
-  attached EPUBs.
-- [#60](https://github.com/aaronified/tippani/issues/60): on a phone the quote's bottom action bar uses two rows.
 - [#62](https://github.com/aaronified/tippani/issues/62): some works get no file from the scan: a leading "The" in a title,
   AZW3-only books, and works with no subtitle file.
 

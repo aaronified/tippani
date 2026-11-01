@@ -4,7 +4,7 @@ Source of truth: this wiki page.
 
 - **Area:** [Later decisions, in the order they were made](ADR-Index.md#later-decisions)
 - **Status:** Accepted
-- **Refines:** [Plan: anthology enhancements](Plan-Anthology-Enhancements.md)
+- **Refines:** the anthology enhancements plan, whose page is retired by this entry (git holds it)
 
 **What was decided.** A reader's heading in an anthology (a section, with optional text under it) is a row in
 `anthology_sections` (0089) whose `position` is in the same space as the entries'. The view `anthology_slots` reads both, and every
@@ -29,5 +29,11 @@ imported. The EPUB opens a chapter at each section and a new page begins at each
 **Front matter (0090).** A cover, an epigraph and a dedication are columns of `anthologies`, written through a route of their own (`PUT .../front`, `POST|DELETE .../cover`) and not the full-state PUT, so a form that has not heard of them cannot clear them. The cover is one of the reader's images: listed with an account's files and deleted with the anthology. Markdown carries the epigraph and the dedication as one-line front matter keys (a line break is backslash-n) and no cover; the EPUB opens with the dedication and epigraph and names the cover as the book's.
 
 **Not yet:** group headers in the Markdown export.
+
+**The plan is folded in and its page deleted.** Everything it listed was built between 1 and 2 November 2026 (migrations 0088 to
+0091), so it left [the plans index](Plans-Index.md), as [ADR-0623](ADR-0623-A-Plan-Lives-In-Docs-Plans-Until-It-Ships-Then-Folds-Into-This.md)
+asks. Where it differed from what was built: the owner chose a drag of the anthologies' own (`reorder.js`) rather than extending
+the Episodes one, so Episodes now reuses this; grouping is a display setting, with group headers in the Markdown but not the EPUB;
+and a publishable read-only link and saved searches were left out at the owner's choice.
 
 See also: [ADR index](ADR-Index.md) · [Home](Home.md)

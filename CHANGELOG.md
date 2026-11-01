@@ -23,6 +23,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   rule's name, or the marked words of a find), and each work's group can be folded shut with the
   arrow at its head. A folded work is left out of Select all.
 
+### Internal
+
+- The plans and the roadmap are brought up to date: the finished anthology plan is folded into
+  its ADR and its page retired, and the roadmap now says where things stand at 3.6.1, what is
+  left in order, and the questions waiting for the owner.
+
 ## [3.6.1] - 2026-11-01
 
 ### Internal
