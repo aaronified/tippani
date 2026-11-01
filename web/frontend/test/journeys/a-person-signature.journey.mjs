@@ -48,6 +48,9 @@ it('a person gets a signature from a photo, cleaned first, and the share sheet t
   // Upload: the dialog opens on the CLEANED signature and keeps nothing until ✓.
   await app.upload('Upload signature', SIGNATURE)
   await app.see('Ink strength')
+  // Save stays off until the cleaned picture is in (the sheet says loading… until then). Pressing it before
+  // that does nothing, and on a slow runner the picture is not there yet: the failure CI kept showing.
+  await app.gone('loading…')
   await app.see('Signature — Ursula K. Le Guin')
   await app.press('Save')
   await app.see('Remove signature')
