@@ -24,6 +24,8 @@ section of the reader's ends a run.
 onto the entry it opens, because staging is per quote (`staged_quotes.anthology_section`); a heading with no entry after it is not
 imported. The EPUB opens a chapter at each section and a new page begins at each in print.
 
-**Not yet:** group headers in the Markdown export, and carrying a section's run when it is dragged (the drag is a later slice).
+**Moving.** A heading carries the passages under it: its run is the heading and every slot after it up to the next heading, moved in one transaction through the same order route (each member after the one before it). A drop inside its own run is refused. A drag, the arrow keys, the menu and "Move to…" all work out the slot to follow and send the same request. The drag is `reorder.js`, extended with edge scrolling; the owner chose to give anthologies their own drag and let Episodes reuse it.
+
+**Not yet:** group headers in the Markdown export.
 
 See also: [ADR index](ADR-Index.md) · [Home](Home.md)

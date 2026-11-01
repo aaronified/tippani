@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"database/sql"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -89,6 +90,86 @@ func positionAfter(tx *sql.Tx, id int64, after *entryRef) (float64, error) {
 		return 0, err
 	}
 	return positionAfter(tx, id, after)
+}
+
+var (
+	errNoSuchSlot = errors.New("no such slot")
+	errIntoOwnRun = errors.New("into its own run")
+)
+
+// moveSectionRun moves a heading and the passages under it to just after `after` (nil: first), in
+// the order they are in, and returns where the heading landed. Each member goes after the one before
+// it through positionAfter, so they stay together and a run that has used up the float's room is
+// renumbered (exactly) and carried on; it is one transaction, the caller's.
+//
+// A TARGET INSIDE ITS OWN RUN IS REFUSED: there is no place "after a passage that is moving with
+// you" to put it.
+func moveSectionRun(tx *sql.Tx, id, sectionID int64, after *entryRef) (float64, error) {
+	rows, err := tx.Query(`SELECT kind, item_id FROM anthology_slots
+	                       WHERE anthology_id = ? ORDER BY position, kind, item_id`, id)
+	if err != nil {
+		return 0, err
+	}
+	var all []entryRef
+	for rows.Next() {
+		var e entryRef
+		if err := rows.Scan(&e.Kind, &e.ItemID); err != nil {
+			rows.Close()
+			return 0, err
+		}
+		all = append(all, e)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return 0, err
+	}
+	start := -1
+	for i, e := range all {
+		if e.Kind == slotSection && e.ItemID == sectionID {
+			start = i
+		}
+	}
+	if start < 0 {
+		return 0, errNoSuchSlot
+	}
+	end := start + 1
+	for end < len(all) && all[end].Kind != slotSection {
+		end++
+	}
+	run := all[start:end]
+	if after != nil {
+		found := false
+		for _, e := range all {
+			if e.Kind == after.Kind && e.ItemID == after.ItemID {
+				found = true
+			}
+		}
+		if !found {
+			return 0, errNoSuchSlot
+		}
+		for _, e := range run {
+			if e.Kind == after.Kind && e.ItemID == after.ItemID {
+				return 0, errIntoOwnRun
+			}
+		}
+	}
+	anchor := after
+	var landed float64
+	for i, e := range run {
+		pos, err := positionAfter(tx, id, anchor)
+		if err != nil {
+			return 0, err
+		}
+		if err := setSlotPosition(tx, id, e.Kind, e.ItemID, pos); err != nil {
+			return 0, err
+		}
+		if i == 0 {
+			landed = pos
+		}
+		member := e
+		anchor = &member
+	}
+	return landed, nil
 }
 
 // POST /anthologies/{id}/sections — add a heading. `after` names the slot it follows, or is absent

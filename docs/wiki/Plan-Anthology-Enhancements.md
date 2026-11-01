@@ -2,7 +2,7 @@
 
 Source of truth: this wiki page.
 
-Partly built: the removed-entry memory and the Removed list (0088), and sections with grouping (0089), are done; the rest is not. Verified against `75e55ae` (main, 28 September 2026; its code is `ee4be1f`'s).
+Partly built: the removed-entry memory and the Removed list (0088), sections with grouping (0089), and drag with Move to… are done; the rest is not. Verified against `75e55ae` (main, 28 September 2026; its code is `ee4be1f`'s).
 Builds after `episodes.md`, whose extended drag it uses. Each citation is `path:line` and the
 text at that line. Tasks, one per ask:
 
@@ -15,10 +15,10 @@ text at that line. Tasks, one per ask:
       and a fill inserts whatever is not already there (`anthology_fill.go:295`
       `` `INSERT OR IGNORE INTO anthology_entries (anthology_id, position, kind, item_id) VALUES (?, ?, ?, ?)`, ``).
 - [x] (done) Show a "Removed (n)" list on the anthology, where a removed entry can be brought back.
-- [ ] Reorder entries by dragging a handle, on desktop and phone, with the drag `episodes.md`
+- [x] (done: reorder.js, now with edge scroll, is the drag; Episodes can use the same hook) Reorder entries by dragging a handle, on desktop and phone, with the drag `episodes.md`
       extends. Today an entry has move up and move down only (`anthologies.jsx:1366`
       `...(first ? [] : [{ id: 'up', icon: <IconChevron open />,`).
-- [ ] Add "Move to…" a numbered position, for long anthologies.
+- [x] (done) Add "Move to…" a numbered position, for long anthologies.
 - [x] (done, 0089) Let the reader insert their own section headings anywhere, with optional prose under each.
 - [x] (done as a display setting; group headers are not in the Markdown export yet) Add automatic grouping by Work, by People, or by Character: each entry gets its group's
       header, and consecutive entries with the same header share one header row.
@@ -53,7 +53,7 @@ text at that line. Tasks, one per ask:
 
 The owner's answers, 27 September, each a task:
 
-- [ ] Dragging a section heading carries every passage up to the next heading, as moving a
+- [x] (done, server side in one transaction) Dragging a section heading carries every passage up to the next heading, as moving a
       chapter would.
 - [ ] "Exact match" on import is an identifier: the same ISBN for a book (`anthology_registry.go:151`
       `{Key: "isbn", Kinds: []string{kindBook}, Binding: "isbn", Label: "common.field.isbn.label"},`),
@@ -97,7 +97,7 @@ Decided while planning, so the build needs nothing further:
       `func (s *Server) userCoverFiles(id int64) []string {`) and removed when the
       anthology is (`anthology_handlers.go:972`
       `func (s *Server) handleDeleteAnthology(w http.ResponseWriter, r *http.Request) {`).
-- [ ] A drag and a Move to… are one move and one request, the reorder route's "after this
+- [x] (done: both call sendMove) A drag and a Move to… are one move and one request, the reorder route's "after this
       one" (`anthology_handlers.go:1218` `` After *entryRef `json:"after"` ``). Moving an entry
       writes one row (`anthology_handlers.go:66` `const anthologyPositionGap = 1e-6`); moving a
       section writes its run, in one transaction.
