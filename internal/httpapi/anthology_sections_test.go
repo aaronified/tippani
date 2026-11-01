@@ -82,11 +82,11 @@ func TestASectionMovesThroughTheSameRouteAsAPassage(t *testing.T) {
 	an, a, b, cq := threeBook(t, c)
 	s := addSection(t, c, an.ID, "Moves", map[string]any{"kind": "book", "item_id": a})
 
+	// a, [Moves] b c  ->  the heading goes to the top, and takes b and c with it.
 	c.mustDo("POST", "/anthologies/"+itoa(an.ID)+"/order", map[string]any{
-		"kind": "section", "item_id": s.ID, "after": map[string]any{"kind": "book", "item_id": cq},
+		"kind": "section", "item_id": s.ID, "after": nil,
 	}, http.StatusOK)
-
-	want := []string{"book:" + itoa(a), "book:" + itoa(b), "book:" + itoa(cq), "section:" + itoa(s.ID)}
+	want := []string{"section:" + itoa(s.ID), "book:" + itoa(b), "book:" + itoa(cq), "book:" + itoa(a)}
 	if got := slotOrder(sectioned(t, c, an.ID)); !equalStrings(got, want) {
 		t.Errorf("order = %v, want %v", got, want)
 	}
@@ -94,7 +94,7 @@ func TestASectionMovesThroughTheSameRouteAsAPassage(t *testing.T) {
 	c.mustDo("POST", "/anthologies/"+itoa(an.ID)+"/order", map[string]any{
 		"kind": "book", "item_id": a, "after": map[string]any{"kind": "section", "item_id": s.ID},
 	}, http.StatusOK)
-	want = []string{"book:" + itoa(b), "book:" + itoa(cq), "section:" + itoa(s.ID), "book:" + itoa(a)}
+	want = []string{"section:" + itoa(s.ID), "book:" + itoa(a), "book:" + itoa(b), "book:" + itoa(cq)}
 	if got := slotOrder(sectioned(t, c, an.ID)); !equalStrings(got, want) {
 		t.Errorf("order after dropping a passage under the heading = %v, want %v", got, want)
 	}
