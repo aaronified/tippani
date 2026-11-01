@@ -48,9 +48,15 @@ beforeEach(() => {
 })
 
 // Dragging a slider to a stop and letting go, the way a person does.
-const slide = (label, to) => {
+//
+// THE RELEASE WAITS FOR THE NEW STOP TO BE DRAWN. The slider commits the value it last rendered when the
+// pointer comes up, so a release that lands before the thumb's new position has rendered commits the OLD one,
+// which changes nothing and asks nothing: the prompt this test is waiting for never appears. A person cannot
+// release a thumb before it has moved; a test that fires both back to back on a starved CI machine can.
+const slide = async (label, to) => {
   const input = screen.getByLabelText(label)
   fireEvent.change(input, { target: { value: String(to) } })
+  await waitFor(() => expect(input.closest('.tp-slider').textContent).toContain(String(to)))
   fireEvent.pointerUp(input)
 }
 
@@ -58,7 +64,7 @@ describe('a work’s context rule', () => {
   it('asks what to do with the quotes already there, and the panel then says where its window came from', async () => {
     render(<ContextRule scope="book" id={3} />)
     await screen.findByLabelText('Shown before a quote')
-    slide('Shown before a quote', 4)
+    await slide('Shown before a quote', 4)
     // Nothing is sent until the question is answered.
     expect(puts).toEqual([])
     fireEvent.click(await screen.findByText('Narrow quotes that show more'))
@@ -86,7 +92,7 @@ describe('a work’s context rule', () => {
   it('changes nothing when the question is cancelled', async () => {
     render(<ContextRule scope="book" id={3} />)
     await screen.findByLabelText('Shown before a quote')
-    slide('Shown after a quote', 0)
+    await slide('Shown after a quote', 0)
     fireEvent.click(await screen.findByText('Cancel'))
     expect(puts).toEqual([])
     expect(rule).toEqual({ before: null, after: null })
