@@ -1127,5 +1127,6 @@ My asks of 28 September, as the build was being merged, and my answers to the tw
 - [ADR-0926](ADR-0926-The-Release-Regenerates-Dist-And-Pull-Requests-Do-Not-Carry-It.md): The release regenerates dist, and pull requests do not carry it
 - [ADR-0927](ADR-0927-Main-Is-Protected-And-The-Release-Pushes-With-A-Deploy-Key.md): Main is protected, and the release pushes to it with a deploy key
 - [ADR-0928](ADR-0928-Checks-Is-Three-Tabs-And-Stray-Marks-Group-By-Work.md): Checks is three tabs, and stray marks group by work
+- [ADR-0929](ADR-0929-An-Anthologys-Sections-Share-The-Entries-Position-Space.md): An anthology's sections share the entries' position space
 
 See also: [Design decisions](Design-decisions.md) · [Home](Home.md)

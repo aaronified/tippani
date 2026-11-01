@@ -991,7 +991,7 @@ var accountTables = []string{
 	// commentary on every entry — which is the only thing in this snapshot that
 	// exists nowhere else in the library: a quote can be re-highlighted, and a
 	// sentence somebody wrote about why it sits third cannot.
-	"anthologies", "anthology_entries", "anthology_removed",
+	"anthologies", "anthology_entries", "anthology_removed", "anthology_sections",
 	// The file a work's quotes came from, and what was read from it (0083, 0084). After the
 	// works and the three quote tables, before nothing that references them by key: the rows
 	// point at a work by a polymorphic pair, and source_context points at its source by a
@@ -1121,6 +1121,10 @@ func (s *Server) binAccount(tx *sql.Tx, adminID, targetID int64, username string
 			// against a quote the caller does not own — see quoteOwned).
 			rows, err = queryMaps(tx,
 				`SELECT * FROM anthology_entries WHERE anthology_id IN (SELECT id FROM anthologies WHERE user_id = ?)`,
+				targetID)
+		case "anthology_sections":
+			rows, err = queryMaps(tx,
+				`SELECT * FROM anthology_sections WHERE anthology_id IN (SELECT id FROM anthologies WHERE user_id = ?)`,
 				targetID)
 		case "anthology_removed":
 			// Reached through the anthology, like its entries: the table has no user_id.

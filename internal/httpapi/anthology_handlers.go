@@ -83,6 +83,9 @@ type anthologyRow struct {
 	Rule      string `json:"rule,omitempty"`
 	RuleAuto  bool   `json:"rule_auto,omitempty"`
 	RuleRunAt string `json:"rule_run_at,omitempty"`
+	// GroupBy is how the page groups consecutive passages under a header (0089): "", work, person or
+	// character. A display setting with its own endpoint, for the rule columns' reason.
+	GroupBy string `json:"group_by"`
 }
 
 // anthologyFields is what this anthology shows — and therefore what it exports,
@@ -256,22 +259,22 @@ type anthologyEntryRow struct {
 	// is the same fallback the cards use.
 	QuoteKind string `json:"quote_kind"`
 	// PersonName is whose record to look up in `people` — the author, the actor or
-	// the speaker, depending on the kind. NOT SENT: it is a join key, and what the
+	// the speaker, depending on the kind. SENT since 0089 so a page can group by person; it is a join key, and what the
 	// client renders is Person below. The Credit beside it is a joined string and
 	// cannot be matched against a table that keys on an exact name.
-	PersonName string `json:"-"`
+	PersonName string `json:"person_name,omitempty"`
 	// Person is that record's fields, keyed by registry key, carrying only what is
 	// actually filled in. Absent where no `people` row matches the name, which is
 	// the ORDINARY case and not an error: a person row exists only where somebody
 	// looked the name up or typed it in.
 	Person map[string]string `json:"person,omitempty"`
 	// CharacterName is which cast row to look up — the character named ON the quote,
-	// which is what work_cast is keyed by together with the work. Not sent, like
-	// PersonName: a join key, not something to render.
+	// which is what work_cast is keyed by together with the work. Sent, like
+	// PersonName: a join key. SENT since 0089, so a page can group by character.
 	//
 	// ALWAYS "" FOR A STANDALONE QUOTE, and that is the schema rather than a choice:
 	// utterances has a speaker and no character column at all (0026).
-	CharacterName string `json:"-"`
+	CharacterName string `json:"character_name,omitempty"`
 	// Cast is that row's fields — today the character's downloaded portrait, and
 	// absent where there is no cast row or no picture in it.
 	Cast map[string]string `json:"cast,omitempty"`
@@ -855,13 +858,22 @@ func (s *Server) handleGetAnthology(w http.ResponseWriter, r *http.Request) {
 		internalError(w, r, "get anthology", err)
 		return
 	}
+	if err := s.Store.DB.QueryRow(`SELECT group_by FROM anthologies WHERE id = ?`, id).Scan(&a.GroupBy); err != nil {
+		internalError(w, r, "get anthology grouping", err)
+		return
+	}
 	entries, err := s.entriesFor(uid, id)
 	if err != nil {
 		internalError(w, r, "get anthology entries", err)
 		return
 	}
 	a.Entries = len(entries)
-	writeJSON(w, http.StatusOK, map[string]any{"anthology": a, "entries": entries})
+	sections, err := sectionsFor(s.Store.DB, id)
+	if err != nil {
+		internalError(w, r, "get anthology sections", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"anthology": a, "entries": entries, "sections": sections})
 }
 
 // POST /anthologies
@@ -1045,7 +1057,7 @@ func (s *Server) handleAddAnthologyEntries(w http.ResponseWriter, r *http.Reques
 	// are 1-based so the first entry reads as 1 rather than as 0, which matters
 	// only because these numbers show up in a database somebody may read by hand.
 	var next float64
-	if err := tx.QueryRow(`SELECT COALESCE(MAX(position), 0) + 1 FROM anthology_entries WHERE anthology_id = ?`,
+	if err := tx.QueryRow(`SELECT COALESCE(MAX(position), 0) + 1 FROM anthology_slots WHERE anthology_id = ?`,
 		id).Scan(&next); err != nil {
 		internalError(w, r, "next position", err)
 		return
@@ -1247,11 +1259,11 @@ func (s *Server) handleReorderAnthology(w http.ResponseWriter, r *http.Request) 
 	if !decodeBody(w, r, &body) {
 		return
 	}
-	if !validReviewKind(body.Kind) {
+	if !validSlotKind(body.Kind) {
 		writeErr(w, http.StatusBadRequest, fmt.Sprintf("unknown kind %q", body.Kind))
 		return
 	}
-	if body.After != nil && !validReviewKind(body.After.Kind) {
+	if body.After != nil && !validSlotKind(body.After.Kind) {
 		writeErr(w, http.StatusBadRequest, fmt.Sprintf("unknown kind %q", body.After.Kind))
 		return
 	}
@@ -1272,7 +1284,7 @@ func (s *Server) handleReorderAnthology(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	var moving float64
-	if err := tx.QueryRow(`SELECT position FROM anthology_entries
+	if err := tx.QueryRow(`SELECT position FROM anthology_slots
 	                       WHERE anthology_id = ? AND kind = ? AND item_id = ?`,
 		id, body.Kind, body.ItemID).Scan(&moving); err == sql.ErrNoRows {
 		writeErr(w, http.StatusNotFound, "that quote is not in this anthology")
@@ -1287,7 +1299,7 @@ func (s *Server) handleReorderAnthology(w http.ResponseWriter, r *http.Request) 
 	// they start at 1.
 	prev := 0.0
 	if body.After != nil {
-		if err := tx.QueryRow(`SELECT position FROM anthology_entries
+		if err := tx.QueryRow(`SELECT position FROM anthology_slots
 		                       WHERE anthology_id = ? AND kind = ? AND item_id = ?`,
 			id, body.After.Kind, body.After.ItemID).Scan(&prev); err == sql.ErrNoRows {
 			writeErr(w, http.StatusNotFound, "the entry it should follow is not in this anthology")
@@ -1301,7 +1313,7 @@ func (s *Server) handleReorderAnthology(w http.ResponseWriter, r *http.Request) 
 	// nudging an entry one place down would compute a midpoint against itself and
 	// go nowhere.
 	var next sql.NullFloat64
-	if err := tx.QueryRow(`SELECT MIN(position) FROM anthology_entries
+	if err := tx.QueryRow(`SELECT MIN(position) FROM anthology_slots
 	                       WHERE anthology_id = ? AND position > ?
 	                         AND NOT (kind = ? AND item_id = ?)`,
 		id, prev, body.Kind, body.ItemID).Scan(&next); err != nil {
@@ -1326,14 +1338,14 @@ func (s *Server) handleReorderAnthology(w http.ResponseWriter, r *http.Request) 
 			// midpoint again, which is now guaranteed to have room.
 			if body.After == nil {
 				prev = 0
-			} else if err := tx.QueryRow(`SELECT position FROM anthology_entries
+			} else if err := tx.QueryRow(`SELECT position FROM anthology_slots
 			                              WHERE anthology_id = ? AND kind = ? AND item_id = ?`,
 				id, body.After.Kind, body.After.ItemID).Scan(&prev); err != nil {
 				internalError(w, r, "re-read anchor position", err)
 				return
 			}
 			var after2 sql.NullFloat64
-			if err := tx.QueryRow(`SELECT MIN(position) FROM anthology_entries
+			if err := tx.QueryRow(`SELECT MIN(position) FROM anthology_slots
 			                       WHERE anthology_id = ? AND position > ?
 			                         AND NOT (kind = ? AND item_id = ?)`,
 				id, prev, body.Kind, body.ItemID).Scan(&after2); err != nil {
@@ -1348,9 +1360,7 @@ func (s *Server) handleReorderAnthology(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 
-	if _, err := tx.Exec(`UPDATE anthology_entries SET position = ?
-	                      WHERE anthology_id = ? AND kind = ? AND item_id = ?`,
-		target, id, body.Kind, body.ItemID); err != nil {
+	if err := setSlotPosition(tx, id, body.Kind, body.ItemID, target); err != nil {
 		internalError(w, r, "move entry", err)
 		return
 	}
@@ -1372,7 +1382,7 @@ func (s *Server) handleReorderAnthology(w http.ResponseWriter, r *http.Request) 
 // rewrite is deterministic even if two rows somehow hold the same number — which
 // nothing here can produce, and which a hand-edited database can.
 func renumberAnthology(tx *sql.Tx, id int64) error {
-	rows, err := tx.Query(`SELECT kind, item_id FROM anthology_entries
+	rows, err := tx.Query(`SELECT kind, item_id FROM anthology_slots
 	                       WHERE anthology_id = ? ORDER BY position, kind, item_id`, id)
 	if err != nil {
 		return err
@@ -1395,13 +1405,23 @@ func renumberAnthology(tx *sql.Tx, id int64) error {
 		return err
 	}
 	for i, e := range refs {
-		if _, err := tx.Exec(`UPDATE anthology_entries SET position = ?
-		                      WHERE anthology_id = ? AND kind = ? AND item_id = ?`,
-			float64(i+1), id, e.kind, e.item); err != nil {
+		if err := setSlotPosition(tx, id, e.kind, e.item, float64(i+1)); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// setSlotPosition writes one slot's position, in whichever table holds it: an entry is (kind,
+// item), a section is ('section', its id).
+func setSlotPosition(tx *sql.Tx, id int64, kind string, item int64, pos float64) error {
+	if kind == slotSection {
+		_, err := tx.Exec(`UPDATE anthology_sections SET position = ? WHERE anthology_id = ? AND id = ?`, pos, id, item)
+		return err
+	}
+	_, err := tx.Exec(`UPDATE anthology_entries SET position = ?
+	                   WHERE anthology_id = ? AND kind = ? AND item_id = ?`, pos, id, kind, item)
+	return err
 }
 
 // anthologyByName finds or creates an anthology for an import, which is the one
@@ -1449,7 +1469,7 @@ func anthologyByName(tx *sql.Tx, uid int64, title string) (int64, bool, error) {
 // once-per-anthology rule holds on both.
 func addAnthologyEntry(tx *sql.Tx, anthologyID int64, kind string, itemID int64, note string) error {
 	var next float64
-	if err := tx.QueryRow(`SELECT COALESCE(MAX(position), 0) + 1 FROM anthology_entries WHERE anthology_id = ?`,
+	if err := tx.QueryRow(`SELECT COALESCE(MAX(position), 0) + 1 FROM anthology_slots WHERE anthology_id = ?`,
 		anthologyID).Scan(&next); err != nil {
 		return err
 	}

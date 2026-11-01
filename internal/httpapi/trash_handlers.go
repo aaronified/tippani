@@ -444,7 +444,7 @@ func (s *Server) restoreSnapshot(tx *sql.Tx, uid int64, snap snapshot) error {
 			// its place in a document that no longer exists is not worth refusing them
 			// that. Dropped silently, because there is nothing they could do about it
 			// and nothing left to tell them about.
-			if (table == "anthology_entries" || table == "anthology_removed") && !anthologyStillThere(tx, row) {
+			if (table == "anthology_entries" || table == "anthology_removed" || table == "anthology_sections") && !anthologyStillThere(tx, row) {
 				continue
 			}
 			if hasRemap {

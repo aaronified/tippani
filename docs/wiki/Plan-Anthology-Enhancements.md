@@ -2,7 +2,7 @@
 
 Source of truth: this wiki page.
 
-Partly built: the removed-entry memory and the Removed list are done (migration 0088, in [Unreleased]); the rest is not. Verified against `75e55ae` (main, 28 September 2026; its code is `ee4be1f`'s).
+Partly built: the removed-entry memory and the Removed list (0088), and sections with grouping (0089), are done; the rest is not. Verified against `75e55ae` (main, 28 September 2026; its code is `ee4be1f`'s).
 Builds after `episodes.md`, whose extended drag it uses. Each citation is `path:line` and the
 text at that line. Tasks, one per ask:
 
@@ -19,10 +19,10 @@ text at that line. Tasks, one per ask:
       extends. Today an entry has move up and move down only (`anthologies.jsx:1366`
       `...(first ? [] : [{ id: 'up', icon: <IconChevron open />,`).
 - [ ] Add "Move to…" a numbered position, for long anthologies.
-- [ ] Let the reader insert their own section headings anywhere, with optional prose under each.
-- [ ] Add automatic grouping by Work, by People, or by Character: each entry gets its group's
+- [x] (done, 0089) Let the reader insert their own section headings anywhere, with optional prose under each.
+- [x] (done as a display setting; group headers are not in the Markdown export yet) Add automatic grouping by Work, by People, or by Character: each entry gets its group's
       header, and consecutive entries with the same header share one header row.
-- [ ] Carry sections and group headers into Markdown export (`export_anthology.go:98`
+- [~] (sections done in Markdown, EPUB and a page break in print; group headers not) Carry sections and group headers into Markdown export (`export_anthology.go:98`
       `func renderAnthologyExport(title, intro string, f anthologyFields, entries []anthologyEntryRow) string {`),
       EPUB as chapters, and print (`index.css:10575` `@media print {`).
 - [ ] Make "Add N waiting" (`anthologies.jsx:1637`
@@ -69,7 +69,7 @@ Decided while planning, so the build needs nothing further:
       bringing it back restores both; a sections table in the entries' position space
       (`0043_anthologies.sql:74` `position     REAL NOT NULL,`); and `group_by`, `cover_path`,
       `epigraph` and `dedication` on `anthologies`, each defaulting to empty.
-- [ ] Every query over an anthology's positions reads sections as well as entries, or a
+- [x] (done: the anthology_slots view) Every query over an anthology's positions reads sections as well as entries, or a
       renumber moves passages into the wrong section and a new entry ties with a trailing
       heading: the renumber (`anthology_handlers.go:1347`
       `func renumberAnthology(tx *sql.Tx, id int64) error {`), the next position when adding
@@ -101,10 +101,10 @@ Decided while planning, so the build needs nothing further:
       one" (`anthology_handlers.go:1218` `` After *entryRef `json:"after"` ``). Moving an entry
       writes one row (`anthology_handlers.go:66` `const anthologyPositionGap = 1e-6`); moving a
       section writes its run, in one transaction.
-- [ ] Grouping is a display setting on the anthology, like its field switches
+- [x] (done) Grouping is a display setting on the anthology, like its field switches
       (`anthologies.jsx:177` `const WORK_SWITCHES = [`): it reorders nothing, and a section
       heading ends a run.
-- [ ] In Markdown a section is a heading one level above the entries' own
+- [x] (done; a heading with no entry after it is not imported) In Markdown a section is a heading one level above the entries' own
       (`export_anthology.go:30` `// THE HEADING IS AN ENTRY DELIMITER THAT HAPPENS TO READ AS AN ATTRIBUTION.`),
       and import reads it back as a section; in EPUB each section opens a chapter; in print
       each starts a page.

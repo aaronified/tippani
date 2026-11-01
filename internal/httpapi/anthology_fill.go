@@ -281,7 +281,7 @@ func appendFill(db fillExec, uid, id int64, items []anthologyFillItem) (antholog
 	}
 	var next float64
 	if err := db.QueryRow(
-		`SELECT COALESCE(MAX(position), 0) + 1 FROM anthology_entries WHERE anthology_id = ?`, id).Scan(&next); err != nil {
+		`SELECT COALESCE(MAX(position), 0) + 1 FROM anthology_slots WHERE anthology_id = ?`, id).Scan(&next); err != nil {
 		return res, err
 	}
 	for _, it := range items {

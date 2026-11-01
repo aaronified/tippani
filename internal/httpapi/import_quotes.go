@@ -194,8 +194,8 @@ func stageUtterances(tx *sql.Tx, workID int64, us []importer.Utterance) (int, er
 		   speaker, occasion, occasion_date, place, medium, kind,
 		   category, language, translation,
 		   region, recipient, work_title, locator, source_author, occasion_circa, dedupe_hash,
-		   anthology, anthology_note, anthology_intro)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		   anthology, anthology_note, anthology_intro, anthology_section, anthology_section_prose)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	staged := 0
 	for _, u := range us {
 		color := u.Color
@@ -244,7 +244,8 @@ func stageUtterances(tx *sql.Tx, workID int64, us []importer.Utterance) (int, er
 			// 0043. Empty for every file that is not an anthology export, which is
 			// why these ride on the same row rather than needing a table: a staged
 			// quote either names an anthology or it does not.
-			strings.TrimSpace(u.Anthology), trimProse(u.AnthologyNote), trimProse(u.AnthologyIntro))
+			strings.TrimSpace(u.Anthology), trimProse(u.AnthologyNote), trimProse(u.AnthologyIntro),
+			strings.TrimSpace(u.AnthologySection), trimProse(u.AnthologySectionProse))
 		if err != nil {
 			return 0, err
 		}
@@ -424,5 +425,11 @@ func fileInAnthology(tx *sql.Tx, uid int64, u importer.Utterance, itemID int64) 
 	// the file carries no book, so a re-imported highlight comes back as a
 	// standalone quote. That loss is stated in the importer's header; here it is
 	// simply the kind.
+	// A heading that opens at this entry goes in first, so the entry lands under it.
+	if title := strings.TrimSpace(u.AnthologySection); title != "" {
+		if err := addAnthologySection(tx, anthologyID, title, u.AnthologySectionProse); err != nil {
+			return err
+		}
+	}
 	return addAnthologyEntry(tx, anthologyID, kindUtterance, itemID, u.AnthologyNote)
 }

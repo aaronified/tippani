@@ -80,6 +80,10 @@ type Utterance struct {
 	// fact per file rather than per quote, and it rides here because the staging
 	// queue is per quote; approval writes it only when it creates the anthology.
 	AnthologyIntro string
+	// 0089. The section that BEGINS at this entry: the "# Heading" before it in an anthology file
+	// and the prose under that heading. Empty on every entry that does not open one.
+	AnthologySection      string
+	AnthologySectionProse string
 }
 
 // QuoteMarkdownAll parses a standalone-quote export. It returns a flat list

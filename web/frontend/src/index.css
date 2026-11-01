@@ -12308,3 +12308,25 @@ button.work-pill:hover { color: var(--ink); border-color: var(--ink-border); }
   font-family: var(--font-quote-base);
   font-size: var(--type-display-13);
 }
+
+/* SECTIONS AND GROUP HEADERS OF AN ANTHOLOGY. A section is the reader's own heading and is a
+   chapter opener in print: it starts a page, except the first thing on the document. */
+.anthology-section { margin-top: 2rem; }
+.anthology-form { display: flex; flex-direction: column; gap: var(--row); }
+.anthology-section-title {
+  margin: 0 0 6px;
+  font-size: var(--type-display-19);
+}
+.anthology-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 12px; }
+.anthology-group {
+  margin: 1.5rem 0 0;
+  font-family: var(--font-mono);
+  font-size: var(--type-mono-11);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+@media print {
+  .anthology-section { break-before: page; page-break-before: always; }
+  .anthology-section:first-child { break-before: auto; page-break-before: auto; }
+}
