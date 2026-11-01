@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { json } from './api.js'
 import { t } from './i18n.js'
+import { BucketFilter, livePill } from './bucketFilter.jsx'
 import { READ_MS, sourceFail, useSourcesChanged } from './sources.jsx'
 import { Card, GhostButton, IconArrow, IconButton, IconCheck, IconClose, InfoDot, SectionHead, toast } from './ui.jsx'
 
@@ -30,8 +31,9 @@ const stack = { display: 'flex', flexDirection: 'column', gap: 'var(--row)' }
 
 const range = (a, b) => (b && b !== a ? `${a} – ${b}` : a)
 
-export default function LocatorsPage({ embedded = false, onOpenBook, onOpenMovie }) {
+export default function LocatorsPage({ embedded = false, open = true, onToggle, onOpenBook, onOpenMovie }) {
   const [data, setData] = useState(null)
+  const [pill, setPill] = useState('all')
   const [busy, setBusy] = useState(false)
 
   const load = useCallback(async () => {
@@ -81,6 +83,8 @@ export default function LocatorsPage({ embedded = false, onOpenBook, onOpenMovie
     ['exact', data.proposals.filter((p) => p.bucket === 'exact')],
     ['review', data.proposals.filter((p) => p.bucket === 'review')],
   ].filter(([, list]) => list.length > 0)
+  const active = livePill(pill, groups.map(([b]) => b))
+  const shown = active === 'all' ? groups : groups.filter(([b]) => b === active)
 
   return (
     <>
@@ -91,10 +95,18 @@ export default function LocatorsPage({ embedded = false, onOpenBook, onOpenMovie
           title={t('locators.title')}
           counts={t('locators.counts', { exact: data.counts.exact, review: data.counts.review })}
           right={<InfoDot title={t('locators.info.title')} text={t('locators.info.body')} />}
+          open={open}
+          onToggle={onToggle}
+        />
+        {open && (<>
+        <BucketFilter
+          options={groups.map(([b, list]) => [b, t(`locators.${b}.title`), list.length])}
+          value={active}
+          onChange={setPill}
         />
         <Card>
           <div style={stack}>
-            {groups.map(([bucket, list]) => (
+            {shown.map(([bucket, list]) => (
               <div key={bucket} style={stack} data-testid={`locators-${bucket}`}>
                 <div className="flex flex-wrap items-center gap-2">
                   <h3 className="mono-label">{t(`locators.${bucket}.title`)}</h3>
@@ -161,6 +173,7 @@ export default function LocatorsPage({ embedded = false, onOpenBook, onOpenMovie
             ))}
           </div>
         </Card>
+        </>)}
       </section>
     </>
   )

@@ -34,10 +34,13 @@ type cleanupItem struct {
 	// Kind is the client's own vocabulary for the three quote kinds — the same
 	// words the review loop and the trash use, so a row can be opened with the
 	// navigation that already exists.
-	Kind      string           `json:"kind"` // book | screen | quote
-	ID        int64            `json:"id"`
-	WorkID    int64            `json:"work_id,omitempty"` // 0 for a standalone quote
-	WorkTitle string           `json:"work_title,omitempty"`
+	Kind      string `json:"kind"` // book | screen | quote
+	ID        int64  `json:"id"`
+	WorkID    int64  `json:"work_id,omitempty"` // 0 for a standalone quote
+	WorkTitle string `json:"work_title,omitempty"`
+	// WorkCover is the work's own picture (a book's cover, a film's poster), the path the Cover
+	// component takes. Empty for a standalone quote and for a work with none.
+	WorkCover string           `json:"work_cover,omitempty"`
 	Findings  []cleanupFinding `json:"findings"`
 }
 
@@ -130,21 +133,21 @@ func (s *Server) handleCleanup(w http.ResponseWriter, r *http.Request) {
 	type source struct {
 		kind  string
 		query string
-		// fields names the columns after the fixed three (id, work id, work title),
+		// fields names the columns after the fixed four (id, work id, work title, work cover),
 		// in the order they are selected, so one loop serves all three kinds.
 		fields []string
 	}
 	sources := []source{
 		{
 			kind: "book",
-			query: `SELECT a.id, a.book_id, COALESCE(b.title, ''), a.quote, COALESCE(a.note, ''), a.translation
+			query: `SELECT a.id, a.book_id, COALESCE(b.title, ''), COALESCE(b.cover_path, ''), a.quote, COALESCE(a.note, ''), a.translation
 			        FROM annotations a JOIN books b ON b.id = a.book_id
 			        WHERE b.user_id = ? ORDER BY a.id`,
 			fields: []string{"quote", "note", "translation"},
 		},
 		{
 			kind: "screen",
-			query: `SELECT d.id, d.movie_id, COALESCE(m.title, ''), d.quote, COALESCE(d.note, ''), d.translation
+			query: `SELECT d.id, d.movie_id, COALESCE(m.title, ''), COALESCE(m.poster_path, ''), d.quote, COALESCE(d.note, ''), d.translation
 			        FROM dialogues d JOIN movies m ON m.id = d.movie_id
 			        WHERE m.user_id = ? ORDER BY d.id`,
 			fields: []string{"quote", "note", "translation"},
@@ -156,7 +159,7 @@ func (s *Server) handleCleanup(w http.ResponseWriter, r *http.Request) {
 			// the real column with no other change here — which is the whole reason
 			// the slot was named and scanned from the start.
 			kind: "quote",
-			query: `SELECT u.id, 0, '', u.quote, COALESCE(u.note, ''), COALESCE(u.translation, '')
+			query: `SELECT u.id, 0, '', '', u.quote, COALESCE(u.note, ''), COALESCE(u.translation, '')
 			        FROM utterances u WHERE u.user_id = ? ORDER BY u.id`,
 			fields: []string{"quote", "note", "translation"},
 		},
@@ -183,9 +186,9 @@ func (s *Server) handleCleanup(w http.ResponseWriter, r *http.Request) {
 func (s *Server) scanCleanupRows(rows *sql.Rows, kind string, fields []string, out *cleanupResp) bool {
 	for rows.Next() {
 		var id, workID int64
-		var title string
+		var title, cover string
 		texts := make([]string, len(fields))
-		dest := []any{&id, &workID, &title}
+		dest := []any{&id, &workID, &title, &cover}
 		for i := range texts {
 			dest = append(dest, &texts[i])
 		}
@@ -223,7 +226,7 @@ func (s *Server) scanCleanupRows(rows *sql.Rows, kind string, fields []string, o
 			continue
 		}
 		out.Items = append(out.Items, cleanupItem{
-			Kind: kind, ID: id, WorkID: workID, WorkTitle: title, Findings: found,
+			Kind: kind, ID: id, WorkID: workID, WorkTitle: title, WorkCover: cover, Findings: found,
 		})
 		if len(out.Items) >= maxCleanupFindings {
 			out.Truncated = true

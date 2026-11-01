@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { json } from './api.js'
 import { t } from './i18n.js'
+import { BucketFilter, livePill } from './bucketFilter.jsx'
 import { READ_MS, sourceFail, useSourcesChanged } from './sources.jsx'
 import { Card, GhostButton, IconButton, IconCheck, IconClose, InfoDot, SectionHead, toast } from './ui.jsx'
 
@@ -45,10 +46,10 @@ function Marked({ text, part }) {
 
 const wire = (p) => ({ kind: p.kind, id: p.id, quote: p.quote, proposed: p.proposed })
 
-export default function CorrectionsPage({ embedded = false, onOpenBook, onOpenMovie }) {
+export default function CorrectionsPage({ embedded = false, open = true, onToggle, onOpenBook, onOpenMovie }) {
   const [data, setData] = useState(null)
   const [busy, setBusy] = useState(false)
-  const [open, setOpen] = useState({})
+  const [pill, setPill] = useState('all')
 
   const load = useCallback(async () => {
     const r = await json('GET', '/corrections', undefined, { timeoutMs: READ_MS })
@@ -88,6 +89,8 @@ export default function CorrectionsPage({ embedded = false, onOpenBook, onOpenMo
   const groups = data.buckets
     .map((b) => ({ ...b, rows: data.proposals.filter((p) => p.bucket === b.id) }))
     .filter((g) => g.rows.length > 0)
+  const active = livePill(pill, groups.map((g) => g.id))
+  const shown = active === 'all' ? groups : groups.filter((g) => g.id === active)
 
   return (
     <>
@@ -98,6 +101,14 @@ export default function CorrectionsPage({ embedded = false, onOpenBook, onOpenMo
           title={t('corrections.title')}
           counts={t('corrections.counts', { n: total })}
           right={<InfoDot title={t('corrections.info.title')} text={t('corrections.info.body')} />}
+          open={open}
+          onToggle={onToggle}
+        />
+        {open && (<>
+        <BucketFilter
+          options={groups.map((g) => [g.id, t(`corrections.bucket.${g.id}.title`), g.rows.length])}
+          value={active}
+          onChange={setPill}
         />
         <Card>
           <div style={stack}>
@@ -113,21 +124,13 @@ export default function CorrectionsPage({ embedded = false, onOpenBook, onOpenMo
                 {t('corrections.wrong.file', { differing: w.differing, total: w.total })}
               </p>
             ))}
-            {groups.map((g) => {
-              const isOpen = !!open[g.id]
+            {shown.map((g) => {
               return (
                 <div key={g.id} style={stack} data-testid={`corrections-${g.id}`}>
                   <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      className="tp-link"
-                      aria-expanded={isOpen}
-                      onClick={() => setOpen((o) => ({ ...o, [g.id]: !o[g.id] }))}
-                    >
-                      <h3 className="mono-label">
-                        {t(`corrections.bucket.${g.id}.title`)} · {g.rows.length}
-                      </h3>
-                    </button>
+                    <h3 className="mono-label">
+                      {t(`corrections.bucket.${g.id}.title`)} · {g.rows.length}
+                    </h3>
                     <span className="microcopy">{t(`corrections.bucket.${g.id}.note`)}</span>
                     <span className="ml-auto flex flex-wrap items-center gap-2">
                       <GhostButton
@@ -150,8 +153,7 @@ export default function CorrectionsPage({ embedded = false, onOpenBook, onOpenMo
                       </GhostButton>
                     </span>
                   </div>
-                  {isOpen &&
-                    g.rows.map((p) => (
+                  {g.rows.map((p) => (
                       <div key={`${p.kind}:${p.id}`} className="flex flex-wrap items-start gap-3" data-testid="correction-row">
                         <div className="min-w-0 flex-1 flex flex-col gap-1">
                           <p dir="auto">
@@ -193,12 +195,13 @@ export default function CorrectionsPage({ embedded = false, onOpenBook, onOpenMo
                           />
                         </div>
                       </div>
-                    ))}
+                  ))}
                 </div>
               )
             })}
           </div>
         </Card>
+        </>)}
       </section>
     </>
   )

@@ -4249,6 +4249,10 @@ error.empty.bin = খালি করা গেল না
 # label names what was FOUND rather than what to do about it.
 # ---------------------------------------------------------------------------
 checks.title = যাচাইকরণ
+checks.tab.aria = যাচাইকরণের ভাগ
+checks.tab.imports.label = ইমপোর্ট
+checks.tab.marks.label = বাড়তি চিহ্ন
+checks.tab.files.label = ফাইল
 
 cleanup.title = বাড়তি চিহ্ন
 # Beside the title: how many quotes were read, so “nothing found” is
@@ -4289,7 +4293,7 @@ cleanup.field.translation.label = অনুবাদে
 # beside it marks the find with guillemets, because half these rules find
 # something that has no appearance at all.
 cleanup.row.times = ×{n}
-cleanup.row.open.tip = উদ্ধৃতিটা যেখানে আছে, সেখানে যান
+cleanup.row.open.tip = কাজটি খুলুন
 cleanup.row.open.aria = {label} খুলুন
 cleanup.row.no-work.label = আলাদা উক্তি
 cleanup.filter.all.label = সব

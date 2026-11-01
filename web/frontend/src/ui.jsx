@@ -2697,12 +2697,21 @@ export function PageHeader({ title, counts, right }) {
 // One component rather than a conditional at each of the four call sites: the
 // two pages would otherwise disagree about what "embedded" changes the first
 // time one of them grows a fourth header.
-export function SectionHead({ embedded = false, title, counts, right }) {
+export function SectionHead({ embedded = false, title, counts, right, open, onToggle }) {
   if (!embedded) return <PageHeader title={title} counts={counts} right={right} />;
+  // A section that can be folded away (Checks' Files tab) makes its title the disclosure.
+  const heading = onToggle ? (
+    <button type="button" className="section-toggle" aria-expanded={!!open} onClick={onToggle}>
+      <IconChevron open={!!open} size={18} />
+      <h2>{title}</h2>
+    </button>
+  ) : (
+    <h2>{title}</h2>
+  );
   return (
     <header className="section-header">
       <div className="ph-left">
-        <h2>{title}</h2>
+        {heading}
         {counts && <MonoLabel>{counts}</MonoLabel>}
       </div>
       {right && <div className="flex flex-wrap items-center gap-3">{right}</div>}
