@@ -52,6 +52,40 @@ func forgetRemoval(db interface {
 	return err
 }
 
+// passageSummaries says what each passage is (its words, where from, who by), for a preview that lets
+// the reader look before they take. Scoped to the caller through the quote's own parent, like every read of a
+// quote here; a passage that is not theirs is left out.
+func passageSummaries(db interface {
+	QueryRow(string, ...any) *sql.Row
+}, uid int64, items []anthologyFillItem) ([]anthologyFillPassage, error) {
+	out := make([]anthologyFillPassage, 0, len(items))
+	for _, it := range items {
+		var p anthologyFillPassage
+		var q string
+		switch it.Kind {
+		case "book":
+			q = `SELECT COALESCE(a.quote,''), COALESCE(b.title,''), COALESCE(b.author,'') FROM annotations a
+			     JOIN books b ON b.id = a.book_id WHERE a.id = ? AND b.user_id = ?`
+		case "screen":
+			q = `SELECT COALESCE(d.quote,''), COALESCE(m.title,''), COALESCE(d.actor,'') FROM dialogues d
+			     JOIN movies m ON m.id = d.movie_id WHERE d.id = ? AND m.user_id = ?`
+		default:
+			q = `SELECT COALESCE(u.quote,''), COALESCE(u.occasion,''), COALESCE(u.speaker,'') FROM utterances u
+			     WHERE u.id = ? AND u.user_id = ?`
+		}
+		err := db.QueryRow(q, it.ItemID, uid).Scan(&p.Quote, &p.Source, &p.Credit)
+		if err == sql.ErrNoRows {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		p.Kind, p.ItemID = it.Kind, it.ItemID
+		out = append(out, p)
+	}
+	return out, nil
+}
+
 // GET /anthologies/{id}/removed — the passages taken out, most recently removed last.
 //
 // SCOPED THROUGH THE QUOTE'S OWN PARENT, as entriesFor is: the table has no user_id, and a row

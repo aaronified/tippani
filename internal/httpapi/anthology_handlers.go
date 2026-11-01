@@ -280,6 +280,10 @@ type anthologyEntryRow struct {
 	// ALWAYS "" FOR A STANDALONE QUOTE, and that is the schema rather than a choice:
 	// utterances has a speaker and no character column at all (0026).
 	CharacterName string `json:"character_name,omitempty"`
+	// WorkRef is the identifiers of the work this passage came out of ("isbn=978..., tmdb=550") and WorkYear its
+	// year, for the Markdown export only (0091). Not sent to the page.
+	WorkRef  string `json:"-"`
+	WorkYear string `json:"-"`
 	// Cast is that row's fields — today the character's downloaded portrait, and
 	// absent where there is no cast row or no picture in it.
 	Cast map[string]string `json:"cast,omitempty"`

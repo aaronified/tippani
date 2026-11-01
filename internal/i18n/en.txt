@@ -2850,6 +2850,14 @@ anthologies.section.more.aria = Section actions
 anthologies.section.delete.title = Delete the heading "{title}"?
 anthologies.section.delete.body = The passages under it stay where they are. The text written under the heading goes with it.
 anthologies.group.label = Group by
+anthologies.waiting.title = Add the waiting passages
+anthologies.waiting.body = Untick any you do not want. They are listed under Removed, and a rule will not add them.
+anthologies.waiting.loading = looking at what is waiting…
+anthologies.waiting.add.label = Add {n}
+anthologies.waiting.pick.aria = Add this passage
+anthologies.reader.label = Read
+anthologies.reader.aria = Reading {title}
+anthologies.action.save-pdf.label = Save PDF
 anthologies.front.label = Front matter
 anthologies.front.title = Front matter
 anthologies.front.cover.label = Cover picture
@@ -5110,6 +5118,7 @@ staging.flash.updated = updated {n}
 staging.flash.approved.added = {n} added
 staging.flash.approved.skipped = {n} skipped
 staging.flash.approved.enriched = {n} enriched
+staging.flash.approved.relinked = {n} matched to a quote you already have
 # The approval's bar while it runs, in works written. (From 3.1.0 approving is a
 # job on the server's queue.)
 staging.approving.progress = Approving — {done} of {total}

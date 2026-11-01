@@ -25,6 +25,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **"Add N waiting" on an anthology shows the passages first.** They are all ticked; untick any
+  you do not want and they go under Removed, so a rule does not add them.
+
 - **Stray marks are grouped by work.** The work's poster heads each group and opens the work, so
   the "Open where this quote lives" button is gone. Each quote has Edit, which opens its own
   edit form, and In context when the file's lines are stored. Groups sit in two columns on wide
@@ -36,6 +39,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   pills, where Corrections from the file used to have a filter style of its own.
 
 ### Added
+
+- **An anthology file names the work each passage came from, and an import finds it again.** The
+  Markdown writes the work's identifiers (ISBN or a provider id) beside a passage, and group
+  headers where the anthology is grouped. Importing a file re-links an entry to a quote you
+  already have, only when the work's identifier matches and the words are the same; otherwise it
+  stays a standalone quote, and the import says how many it matched.
+
+- **An anthology has a reading mode, and prints and saves better.** Read opens it as a document
+  over the whole app, in book type, closed by its ✕ or Escape. The printed copy has a running
+  title and page numbers (where the browser draws them), and Save PDF uses the browser's own
+  print so the text stays selectable, named after the anthology.
 
 - **An anthology can have a cover, an epigraph and a dedication.** They open the page and the
   printed copy; the cover is the EPUB's cover and the other two are in the EPUB too. Markdown

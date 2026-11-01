@@ -12365,3 +12365,60 @@ button.work-pill:hover { color: var(--ink); border-color: var(--ink-border); }
 .anthology-dedication { margin: 0; font-style: italic; white-space: pre-wrap; }
 .anthology-epigraph { margin: 0 auto; max-width: 32rem; padding: 0; border: 0; font-style: italic; white-space: pre-wrap; overflow-wrap: anywhere; }
 @media print { .anthology-front { break-after: page; page-break-after: always; } }
+
+/* READING MODE: the anthology as a document, over everything. Book typography (a measure, a leading,
+   the quote face), sized with the display tokens the type dials scale. */
+.anthology-reader {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--bg);
+  color: var(--ink);
+}
+.anthology-reader-close {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  z-index: 1;
+  padding: 10px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--ink);
+  cursor: pointer;
+}
+.anthology-reader-page {
+  max-width: 38rem;
+  margin: 0 auto;
+  padding: 56px 20px 96px;
+  font-family: var(--font-quote-base);
+  font-size: var(--type-display-17);
+  line-height: 1.7;
+}
+.anthology-reader-page h1 { font-size: var(--type-display-30); line-height: 1.2; margin: 0 0 24px; }
+.anthology-reader-page h2 { font-size: var(--type-display-22); margin: 56px 0 12px; }
+.anthology-reader-intro, .anthology-reader-section p { margin: 0 0 14px; }
+.anthology-reader-entry { margin-top: 32px; }
+.anthology-reader-note { margin: 0 0 8px; font-style: italic; color: var(--soft); }
+.anthology-reader-quote { margin: 0; padding: 0 0 0 16px; border-left: 3px solid var(--line); white-space: pre-wrap; overflow-wrap: anywhere; }
+.anthology-reader-entry .microcopy { margin-top: 8px; }
+
+/* THE RUNNING TITLE AND PAGE NUMBERS, on paper. A fixed element repeats on every printed page in
+   Chromium; the page number rides @page's margin box, which the browsers that cannot draw it ignore. */
+.anthology-running-title { display: none; }
+@media print {
+  .anthology-running-title {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    font-size: 9pt;
+    color: var(--faint);
+  }
+  .anthology-running-title::before { content: attr(data-title); }
+  @page { @bottom-center { content: counter(page); font-size: 9pt; } }
+  .anthology-reader { display: none !important; }
+}

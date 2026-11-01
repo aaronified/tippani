@@ -88,6 +88,9 @@ type Utterance struct {
 	// introduction and written only when approval creates the anthology.
 	AnthologyEpigraph   string
 	AnthologyDedication string
+	// 0091. The identifiers of the work an anthology entry came from ("isbn=978..., tmdb=550"), exactly as the
+	// export wrote them. Used at approval to re-link the entry to a work already in the library.
+	AnthologyWorkRef string
 }
 
 // QuoteMarkdownAll parses a standalone-quote export. It returns a flat list
@@ -203,6 +206,9 @@ func applyQuoteBinding(cur *Utterance, line string) {
 		cur.Medium = val
 	case "note":
 		cur.Note = val
+	// 0091. What an anthology export writes beside a passage that came out of a work.
+	case "work_ids":
+		cur.AnthologyWorkRef = val
 	case "color", "colour":
 		cur.Color = val
 	// 0035. `type` is accepted as an alias because a hand-written file is as

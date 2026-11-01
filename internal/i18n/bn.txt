@@ -2798,6 +2798,14 @@ anthologies.section.more.aria = অংশের কাজ
 anthologies.section.delete.title = "{title}" শিরোনামটা মুছবেন?
 anthologies.section.delete.body = এর নিচের অংশগুলো যেখানে আছে সেখানেই থাকবে। শিরোনামের নিচের লেখাটা শিরোনামের সঙ্গে যাবে।
 anthologies.group.label = যেভাবে ভাগ করবেন
+anthologies.waiting.title = বাকি অংশগুলো যোগ করুন
+anthologies.waiting.body = যেগুলো চান না সেগুলোর টিক তুলে দিন। সেগুলো সরানোর তালিকায় থাকবে, কোনো নিয়ম আর যোগ করবে না।
+anthologies.waiting.loading = কী কী বাকি আছে দেখা হচ্ছে…
+anthologies.waiting.add.label = {n}টা যোগ করুন
+anthologies.waiting.pick.aria = এই অংশটি যোগ করুন
+anthologies.reader.label = পড়ুন
+anthologies.reader.aria = {title} পড়া হচ্ছে
+anthologies.action.save-pdf.label = PDF সেভ করুন
 anthologies.front.label = প্রারম্ভিক পাতা
 anthologies.front.title = প্রারম্ভিক পাতা
 anthologies.front.cover.label = প্রচ্ছদ
@@ -4989,6 +4997,7 @@ staging.flash.updated = {n}টা বদলেছে
 # " · " a third fragment would need.
 staging.flash.approved.added = {n}টা যোগ হয়েছে
 staging.flash.approved.skipped = {n}টা বাদ
+staging.flash.approved.relinked = {n}টা আপনার আগে থেকে থাকা উদ্ধৃতির সঙ্গে মেলানো হল
 staging.flash.approved.enriched = {n}টায় মেটাডেটা এসেছে
 # bn: {total}-এর মধ্যে {done}, settings.jobs.progress's own order
 staging.approving.progress = মেনে নেওয়া চলছে — {total}-এর মধ্যে {done}

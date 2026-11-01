@@ -297,7 +297,7 @@ export default function StagingPage({ onPending, onOpenBook, onOpenMovie, onAppr
       await load()
       return
     }
-    const { added = 0, skipped = 0, enriched = 0 } = r.data || {}
+    const { added = 0, skipped = 0, enriched = 0, quotes_relinked: relinked = 0 } = r.data || {}
     // Three fragments joined HERE rather than one value with an optional tail:
     // the locale parser trims a value, so a file cannot carry the leading
     // separator a third fragment would need.
@@ -306,6 +306,7 @@ export default function StagingPage({ onPending, onOpenBook, onOpenMovie, onAppr
         t('staging.flash.approved.added', { n: added }),
         t('staging.flash.approved.skipped', { n: skipped }),
         enriched > 0 && t('staging.flash.approved.enriched', { n: enriched }),
+        relinked > 0 && t('staging.flash.approved.relinked', { n: relinked }),
         halted && jobStateLabel(halted),
       ]
         .filter(Boolean)

@@ -72,6 +72,7 @@ import {
   IconExport,
   IconPlus,
   IconReset,
+  IconClose,
   IconGrip,
   useScreenBar,
   IconQuiz, IconPractise, IconPrint, IconReading, IconSearch,
@@ -1256,6 +1257,42 @@ function locatorOf(entry) {
 }
 // ---------------------------------------------------------------------------
 
+// THE ATTRIBUTION LINE, ONCE: the entry on the page and the reading mode both draw it, so the two
+// cannot disagree about who is credited or where the source is. With the credit and the source both
+// switched off the caller draws nothing, and a stray separator would be the feature failing visibly.
+function EntryAttribution({ entry, fields = {}, openWork = null }) {
+  return (
+    <p className="microcopy mt-1.5">
+      {/* One key holds the whole line, separator and all, so another language
+          can put the source first or punctuate it differently. The two
+          single-value keys are what a half-hidden line uses, so the
+          separator never appears with nothing on one side of it. */}
+      {fields.hide_source
+        ? t('anthologies.entry.credit.label', { credit: entry.credit || t('anthologies.entry.unattributed.label') })
+        : fields.hide_credit
+          ? tNodes('anthologies.entry.source.label', {
+            source: openWork ? (
+              <button key="source" type="button" className="tp-link" onClick={() => openWork(entry.work_id)}>
+                {entry.source}
+              </button>
+            ) : (
+              entry.source
+            ),
+          })
+          : tNodes(entry.source ? 'anthologies.entry.credit-source.label' : 'anthologies.entry.credit.label', {
+            credit: entry.credit || t('anthologies.entry.unattributed.label'),
+            source: openWork ? (
+              <button key="source" type="button" className="tp-link" onClick={() => openWork(entry.work_id)}>
+                {entry.source}
+              </button>
+            ) : (
+              entry.source
+            ),
+          })}
+    </p>
+  )
+}
+
 // piece and then the piece speaks. The attribution sits under it, and where the
 // quote has a parent work the credit is a doorway into it — a CONTENT LINK, so it
 // is never gated on which sections are switched on.
@@ -1276,127 +1313,98 @@ function AnthologyEntry({ entry, fields = {}, first, last, onNote, onMove, onMov
     <Card className="mt-3">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          {!fields.hide_commentary && entry.note && <p className="anthology-prose">{entry.note}</p>}
-          {/* THE COLOUR BAR IS A NOTE TO YOURSELF, not to a reader — which is why it
-              is one of the six switches. Hidden, the bar takes the neutral rule the
-              card would have had anyway rather than disappearing and leaving the
-              passage unmarked. */}
-          {/* THE ENTRY'S OWN LANGUAGE. An anthology is a page of quotes and this
-              is one of them — the last surface in the app that was still drawing
-              a reader's German in the display face. */}
-          <blockquote
-            className={`anthology-quote ${languageClass(entry.language)}`.trim()}
-            style={{ '--entry-color': fields.hide_colour ? 'var(--line)' : categoryVar(entry.color) }}
-          >
-            {entry.quote}
-          </blockquote>
-          {/* THE ATTRIBUTION LINE, and it can now be nothing at all. With the credit
-              and the source both switched off there is no line rather than an empty
-              one — a reader who turned both off asked for a document of passages, and
-              a stray separator would be the feature failing visibly. */}
-          {(!fields.hide_credit || !fields.hide_source) && (
-            <p className="microcopy mt-1.5">
-              {/* One key holds the whole line, separator and all, so another language
-                  can put the source first or punctuate it differently. The two
-                  single-value keys are what a half-hidden line uses, so the
-                  separator never appears with nothing on one side of it. */}
-              {fields.hide_source
-                ? t('anthologies.entry.credit.label', { credit: entry.credit || t('anthologies.entry.unattributed.label') })
-                : fields.hide_credit
-                  ? tNodes('anthologies.entry.source.label', {
-                    source: openWork ? (
-                      <button key="source" type="button" className="tp-link" onClick={() => openWork(entry.work_id)}>
-                        {entry.source}
-                      </button>
-                    ) : (
-                      entry.source
-                    ),
-                  })
-                  : tNodes(entry.source ? 'anthologies.entry.credit-source.label' : 'anthologies.entry.credit.label', {
-                    credit: entry.credit || t('anthologies.entry.unattributed.label'),
-                    source: openWork ? (
-                      <button key="source" type="button" className="tp-link" onClick={() => openWork(entry.work_id)}>
-                        {entry.source}
-                      </button>
-                    ) : (
-                      entry.source
-                    ),
-                  })}
-            </p>
-          )}
-          {/* Off by default, both of them: an anthology that has never been
-              configured reads exactly as it did before these switches existed. */}
-          {(fields.show_locator && locatorOf(entry)) || (fields.show_date && entry.date) ? (
-            <p className="microcopy mt-1 opacity-80">
-              {[fields.show_locator ? locatorOf(entry) : '', fields.show_date ? entry.date : '']
-                .filter(Boolean)
-                .join(' · ')}
-            </p>
-          ) : null}
-          {/* WHAT THE WORK KNOWS (0074), on its own line under the attribution.
-              0045's rule is that what you SEE when you read an anthology is what you
-              GET when you export it, so this line and the bindings the export writes
-              are driven by the same list in the same order — WORK_SWITCHES. An entry
-              whose work has none of the chosen fields draws no line at all rather
-              than an empty one, which is the same rule the attribution above follows
-              when both its halves are switched off. */}
-          {workLine(entry, fields.fields) ? (
-            <p className="microcopy mt-1 opacity-80">{workLine(entry, fields.fields)}</p>
-          ) : null}
-          {/* AND WHO IS ANSWERABLE FOR IT. Absent for most entries, because a
-              `people` row exists only where somebody looked the name up — which is
-              why this draws nothing rather than an empty line or a placeholder. */}
-          {personLine(entry, fields.fields) ? (
-            <p className="microcopy mt-1 opacity-80">{personLine(entry, fields.fields)}</p>
-          ) : null}
-          {/* THE FACES. `alt=""` and not a name: the name is already in the
-              attribution line above, so a screen reader that announced it here
-              would read it twice — the picture is decoration beside a credit that
-              is already text. A fixed em height rather than px, because this box
-              holds no text but sits in a column that scales. */}
-          {portraitsOf(entry, fields.fields).map((file) => (
-            <img
-              key={file}
-              src={apiURL(`/covers/${file}`)}
-              alt=""
-              className="mt-1.5 rounded-md object-cover"
-              style={{ height: '4.5em', width: 'auto' }}
-            />
-          ))}
-          {/* THE SIGNATURE, under the faces and in the text colour: the same mask the
-              person's record draws, so it reads on every theme. */}
-          {signatureOf(entry, fields.fields) ? (
-            <div className="mt-1.5" style={{ maxWidth: '10em' }}>
-              <SignatureInk src={apiURL(`/covers/${signatureOf(entry, fields.fields)}`)} alt="" />
-            </div>
-          ) : null}
-          {/* The QUOTE's own note, which is a different thing from the entry's and
-              can be non-empty at the same time: one is what the reader wrote when
-              they saved the line, the other is what they wrote when they placed it
-              here. Shown quietly, under the credit, so the two never read as one
-              paragraph. */}
-          {entry.quote_note && <p className="microcopy mt-1 opacity-80">{entry.quote_note}</p>}
+    {!fields.hide_commentary && entry.note && <p className="anthology-prose">{entry.note}</p>}
+    {/* THE COLOUR BAR IS A NOTE TO YOURSELF, not to a reader — which is why it
+        is one of the six switches. Hidden, the bar takes the neutral rule the
+        card would have had anyway rather than disappearing and leaving the
+        passage unmarked. */}
+    {/* THE ENTRY'S OWN LANGUAGE. An anthology is a page of quotes and this
+        is one of them — the last surface in the app that was still drawing
+        a reader's German in the display face. */}
+    <blockquote
+      className={`anthology-quote ${languageClass(entry.language)}`.trim()}
+      style={{ '--entry-color': fields.hide_colour ? 'var(--line)' : categoryVar(entry.color) }}
+    >
+      {entry.quote}
+    </blockquote>
+    {/* THE ATTRIBUTION LINE, and it can now be nothing at all. With the credit
+        and the source both switched off there is no line rather than an empty
+        one — a reader who turned both off asked for a document of passages, and
+        a stray separator would be the feature failing visibly. */}
+    {(!fields.hide_credit || !fields.hide_source) && <EntryAttribution entry={entry} fields={fields} openWork={openWork} />}
+    {/* Off by default, both of them: an anthology that has never been
+        configured reads exactly as it did before these switches existed. */}
+    {(fields.show_locator && locatorOf(entry)) || (fields.show_date && entry.date) ? (
+      <p className="microcopy mt-1 opacity-80">
+        {[fields.show_locator ? locatorOf(entry) : '', fields.show_date ? entry.date : '']
+          .filter(Boolean)
+          .join(' · ')}
+      </p>
+    ) : null}
+    {/* WHAT THE WORK KNOWS (0074), on its own line under the attribution.
+        0045's rule is that what you SEE when you read an anthology is what you
+        GET when you export it, so this line and the bindings the export writes
+        are driven by the same list in the same order — WORK_SWITCHES. An entry
+        whose work has none of the chosen fields draws no line at all rather
+        than an empty one, which is the same rule the attribution above follows
+        when both its halves are switched off. */}
+    {workLine(entry, fields.fields) ? (
+      <p className="microcopy mt-1 opacity-80">{workLine(entry, fields.fields)}</p>
+    ) : null}
+    {/* AND WHO IS ANSWERABLE FOR IT. Absent for most entries, because a
+        `people` row exists only where somebody looked the name up — which is
+        why this draws nothing rather than an empty line or a placeholder. */}
+    {personLine(entry, fields.fields) ? (
+      <p className="microcopy mt-1 opacity-80">{personLine(entry, fields.fields)}</p>
+    ) : null}
+    {/* THE FACES. `alt=""` and not a name: the name is already in the
+        attribution line above, so a screen reader that announced it here
+        would read it twice — the picture is decoration beside a credit that
+        is already text. A fixed em height rather than px, because this box
+        holds no text but sits in a column that scales. */}
+    {portraitsOf(entry, fields.fields).map((file) => (
+      <img
+        key={file}
+        src={apiURL(`/covers/${file}`)}
+        alt=""
+        className="mt-1.5 rounded-md object-cover"
+        style={{ height: '4.5em', width: 'auto' }}
+      />
+    ))}
+    {/* THE SIGNATURE, under the faces and in the text colour: the same mask the
+        person's record draws, so it reads on every theme. */}
+    {signatureOf(entry, fields.fields) ? (
+      <div className="mt-1.5" style={{ maxWidth: '10em' }}>
+        <SignatureInk src={apiURL(`/covers/${signatureOf(entry, fields.fields)}`)} alt="" />
+      </div>
+    ) : null}
+    {/* The QUOTE's own note, which is a different thing from the entry's and
+        can be non-empty at the same time: one is what the reader wrote when
+        they saved the line, the other is what they wrote when they placed it
+        here. Shown quietly, under the credit, so the two never read as one
+        paragraph. */}
+    {entry.quote_note && <p className="microcopy mt-1 opacity-80">{entry.quote_note}</p>}
         </div>
         <MoreMenu
-          ariaLabel={t('anthologies.entry.more.aria')}
-          items={[
-            ...contextItems,
-            {
-              id: 'note',
-              icon: <IconEdit />,
-              label: t(entry.note ? 'anthologies.entry.note.edit.label' : 'anthologies.entry.note.add.label'),
-              onClick: () => onNote(entry),
-            },
-            // MOVE UP / MOVE DOWN, AND NO DRAG. The order is the feature, so it has
-            // to be changeable — but a drag has no keyboard equivalent and a menu
-            // item is reachable by tab, by arrow key and by a thumb. The item at an
-            // end is OMITTED rather than greyed: a disabled row in a menu is a thing
-            // to wonder about.
-            ...(first ? [] : [{ id: 'up', icon: <IconChevron open />, label: t('common.action.move-up.label'), onClick: () => onMove(entry, 'up') }]),
-            ...(last ? [] : [{ id: 'down', icon: <IconChevron />, label: t('common.action.move-down.label'), onClick: () => onMove(entry, 'down') }]),
-            ...(onMoveTo ? [{ id: 'move-to', icon: <IconChevron />, label: t('anthologies.move-to.label'), onClick: () => onMoveTo(entry) }] : []),
-            { id: 'remove', icon: <IconDelete />, label: t('common.action.remove.label'), danger: true, onClick: () => onRemove(entry) },
-          ]}
+    ariaLabel={t('anthologies.entry.more.aria')}
+    items={[
+      ...contextItems,
+      {
+        id: 'note',
+        icon: <IconEdit />,
+        label: t(entry.note ? 'anthologies.entry.note.edit.label' : 'anthologies.entry.note.add.label'),
+        onClick: () => onNote(entry),
+      },
+      // MOVE UP / MOVE DOWN, AND NO DRAG. The order is the feature, so it has
+      // to be changeable — but a drag has no keyboard equivalent and a menu
+      // item is reachable by tab, by arrow key and by a thumb. The item at an
+      // end is OMITTED rather than greyed: a disabled row in a menu is a thing
+      // to wonder about.
+      ...(first ? [] : [{ id: 'up', icon: <IconChevron open />, label: t('common.action.move-up.label'), onClick: () => onMove(entry, 'up') }]),
+      ...(last ? [] : [{ id: 'down', icon: <IconChevron />, label: t('common.action.move-down.label'), onClick: () => onMove(entry, 'down') }]),
+      ...(onMoveTo ? [{ id: 'move-to', icon: <IconChevron />, label: t('anthologies.move-to.label'), onClick: () => onMoveTo(entry) }] : []),
+      { id: 'remove', icon: <IconDelete />, label: t('common.action.remove.label'), danger: true, onClick: () => onRemove(entry) },
+    ]}
         />
       </div>
       {inContext.node}
@@ -1471,6 +1479,157 @@ function SectionDialog({ initial, onSave, onCancel }) {
   )
 }
 
+// ---- THE WAITING PREVIEW -------------------------------------------------------------------
+//
+// "Add 12 waiting" shows the twelve first, all ticked. What is unticked is sent as `exclude`, which
+// the server records as removed from this anthology (0088) before it fills, so the fill passes over it
+// and a later rule run does too. The same rule the count came from, so the list is what the number was.
+function WaitingFields({ items, picked, toggle, busy, onSubmit }) {
+  const host = useFormHost(busy ? t('common.action.save.busy') : '')
+  return (
+    <form id={host?.formId} className="anthology-form" onSubmit={(e) => { e.preventDefault(); onSubmit() }}>
+      <p className="microcopy">{t('anthologies.waiting.body')}</p>
+      <ul className="anthology-removed-list">
+        {items.map((p) => {
+          const key = `${p.kind}:${p.item_id}`
+          return (
+            <li key={key} className="anthology-removed-row">
+              <input
+                type="checkbox"
+                checked={picked.has(key)}
+                aria-label={t('anthologies.waiting.pick.aria')}
+                onChange={() => toggle(key)}
+              />
+              <div className="min-w-0 flex-1">
+                <p className="anthology-removed-quote" dir="auto">{p.quote}</p>
+                <p className="microcopy">{[p.source, p.credit].filter(Boolean).join(' · ')}</p>
+              </div>
+            </li>
+          )
+        })}
+      </ul>
+    </form>
+  )
+}
+
+function WaitingDialog({ anthology, onDone, onCancel }) {
+  const [items, setItems] = useState(null)
+  const [picked, setPicked] = useState(new Set())
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  useEffect(() => {
+    let live = true
+    json('POST', `/anthologies/${anthology.id}/fill`, { rule: anthology.rule, auto: true, preview: true, passages: true }).then((r) => {
+      if (!live) return
+      if (!r.ok) return setError(errText(r))
+      const list = r.data.items || []
+      setItems(list)
+      setPicked(new Set(list.map((p) => `${p.kind}:${p.item_id}`)))
+    })
+    return () => {
+      live = false
+    }
+  }, [anthology.id, anthology.rule])
+  const toggle = (key) =>
+    setPicked((s) => {
+      const next = new Set(s)
+      next.has(key) ? next.delete(key) : next.add(key)
+      return next
+    })
+  async function submit() {
+    setBusy(true)
+    const exclude = (items || []).filter((p) => !picked.has(`${p.kind}:${p.item_id}`)).map((p) => ({ kind: p.kind, item_id: p.item_id }))
+    const r = await json('POST', `/anthologies/${anthology.id}/fill`, { rule: anthology.rule, auto: true, exclude })
+    setBusy(false)
+    if (!r.ok) return setError(errText(r))
+    onDone(r.data)
+  }
+  const unticked = items ? items.length - picked.size : 0
+  return (
+    <FormModal open title={t('anthologies.waiting.title')} onClose={onCancel} dirty={unticked}>
+      {items === null ? (
+        <p className="microcopy">{error || t('anthologies.waiting.loading')}</p>
+      ) : (
+        <>
+          <WaitingFields items={items} picked={picked} toggle={toggle} busy={busy} onSubmit={submit} />
+          <ErrorText>{error}</ErrorText>
+          <div className="anthology-tools">
+            <button type="button" className="tp-btn tp-btn-primary tactile" disabled={busy || picked.size === 0} onClick={submit}>
+              {t('anthologies.waiting.add.label', { n: picked.size })}
+            </button>
+          </div>
+        </>
+      )}
+    </FormModal>
+  )
+}
+
+// ---- READING MODE ----------------------------------------------------------------------------
+//
+// The anthology as a document and nothing else: no bars, no menus, no cards. It is a full-screen layer
+// over the app, closed by its ✕ or Escape, in a book's typography. The type dials still apply, because
+// every size in it is a token the dials scale. It draws what the page draws (the field switches, the
+// grouping, the sections, the front matter) through the same helpers.
+function AnthologyReader({ anthology, slots, groupBy, onClose }) {
+  const fields = anthology || {}
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        onClose()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      document.body.style.overflow = prev
+    }
+  }, [onClose])
+  const paragraphs = (text) => String(text || '').split('\n\n').filter((p) => p.trim())
+  return (
+    <div className="anthology-reader" role="dialog" aria-modal="true" aria-label={t('anthologies.reader.aria', { title: anthology?.title || '' })}>
+      <button type="button" className="anthology-reader-close" autoFocus aria-label={t('common.action.close.label')} onClick={onClose}>
+        <IconClose />
+      </button>
+      <article className="anthology-reader-page">
+        <h1>{anthology?.title}</h1>
+        {anthology?.cover_path && (
+    <img className="anthology-cover" src={apiURL(`/covers/${anthology.cover_path}`)} alt={t('anthologies.front.cover.alt')} />
+        )}
+        {anthology?.dedication && <p className="anthology-dedication">{anthology.dedication}</p>}
+        {anthology?.epigraph && <blockquote className="anthology-epigraph">{anthology.epigraph}</blockquote>}
+        {paragraphs(anthology?.intro).map((p, i) => <p key={i} className="anthology-reader-intro">{p}</p>)}
+        {slots.map((slot, i) => {
+    if (slot.type === 'section') {
+      return (
+        <section key={`section:${slot.section.id}`} className="anthology-reader-section">
+          <h2>{slot.section.title}</h2>
+          {paragraphs(slot.section.prose).map((p, j) => <p key={j}>{p}</p>)}
+        </section>
+      )
+    }
+    const entry = slot.entry
+    const prev = slots[i - 1]
+    const key = groupKey(entry, groupBy)
+    const header = groupBy && key && (!prev || prev.type === 'section' || groupKey(prev.entry, groupBy) !== key)
+      ? groupLabel(entry, groupBy)
+      : null
+    return (
+      <div key={`${entry.kind}:${entry.item_id}`} className="anthology-reader-entry">
+        {header && <h3 className="anthology-group">{header}</h3>}
+        {!fields.hide_commentary && entry.note && <p className="anthology-reader-note">{entry.note}</p>}
+        <blockquote className={`anthology-reader-quote ${languageClass(entry.language)}`.trim()}>{entry.quote}</blockquote>
+        {(!fields.hide_credit || !fields.hide_source) && <EntryAttribution entry={entry} fields={fields} />}
+      </div>
+    )
+        })}
+      </article>
+    </div>
+  )
+}
+
 // ---- FRONT MATTER (0090) -------------------------------------------------------------------
 //
 // A cover picture, an epigraph and a dedication. The cover is the EPUB's cover; the other two open the
@@ -1484,20 +1643,20 @@ function FrontFields({ anthology, epigraph, setEpigraph, dedication, setDedicati
       <div>
         <MonoLabel>{t('anthologies.front.cover.label')}</MonoLabel>
         {anthology.cover_path ? (
-          <img className="anthology-cover" src={apiURL(`/covers/${anthology.cover_path}`)} alt={t('anthologies.front.cover.alt')} />
+    <img className="anthology-cover" src={apiURL(`/covers/${anthology.cover_path}`)} alt={t('anthologies.front.cover.alt')} />
         ) : (
-          <p className="microcopy">{t('anthologies.front.cover.none')}</p>
+    <p className="microcopy">{t('anthologies.front.cover.none')}</p>
         )}
         <div className="anthology-tools">
-          {pick.input}
-          <GhostButton type="button" disabled={picking} onClick={pick.open}>
-            {t('anthologies.front.cover.choose')}
-          </GhostButton>
-          {anthology.cover_path && (
-            <GhostButton type="button" disabled={picking} onClick={onRemove}>
-              {t('anthologies.front.cover.remove')}
-            </GhostButton>
-          )}
+    {pick.input}
+    <GhostButton type="button" disabled={picking} onClick={pick.open}>
+      {t('anthologies.front.cover.choose')}
+    </GhostButton>
+    {anthology.cover_path && (
+      <GhostButton type="button" disabled={picking} onClick={onRemove}>
+        {t('anthologies.front.cover.remove')}
+      </GhostButton>
+    )}
         </div>
       </div>
       <label className="tp-field">
@@ -1595,17 +1754,17 @@ function AnthologySectionBlock({ section, first, last, onEdit, onDelete, onMove 
     <div className="anthology-section" data-testid="anthology-section">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <h2 className="anthology-section-title">{section.title}</h2>
-          {section.prose && <p className="anthology-prose">{section.prose}</p>}
+    <h2 className="anthology-section-title">{section.title}</h2>
+    {section.prose && <p className="anthology-prose">{section.prose}</p>}
         </div>
         <MoreMenu
-          ariaLabel={t('anthologies.section.more.aria')}
-          items={[
-            { id: 'edit', icon: <IconEdit />, label: t('common.action.edit.label'), onClick: () => onEdit(section) },
-            ...(first ? [] : [{ id: 'up', icon: <IconChevron open />, label: t('common.action.move-up.label'), onClick: () => onMove(section, 'up') }]),
-            ...(last ? [] : [{ id: 'down', icon: <IconChevron />, label: t('common.action.move-down.label'), onClick: () => onMove(section, 'down') }]),
-            { id: 'delete', icon: <IconDelete />, label: t('common.action.delete.label'), danger: true, onClick: () => onDelete(section) },
-          ]}
+    ariaLabel={t('anthologies.section.more.aria')}
+    items={[
+      { id: 'edit', icon: <IconEdit />, label: t('common.action.edit.label'), onClick: () => onEdit(section) },
+      ...(first ? [] : [{ id: 'up', icon: <IconChevron open />, label: t('common.action.move-up.label'), onClick: () => onMove(section, 'up') }]),
+      ...(last ? [] : [{ id: 'down', icon: <IconChevron />, label: t('common.action.move-down.label'), onClick: () => onMove(section, 'down') }]),
+      { id: 'delete', icon: <IconDelete />, label: t('common.action.delete.label'), danger: true, onClick: () => onDelete(section) },
+    ]}
         />
       </div>
     </div>
@@ -1619,6 +1778,7 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
   // The reader's own headings (0089), in the entries' position space.
   const [sections, setSections] = useState([])
   const [fronting, setFronting] = useState(false)
+  const [reading, setReading] = useState(false)
   const [sectioning, setSectioning] = useState(null) // {section} while the dialog is open; section null = a new one
   const [unsectioning, setUnsectioning] = useState(null)
   // WHAT WAS TAKEN OUT (0088), listed under the entries with a way back. Null until read; a
@@ -1633,7 +1793,6 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
   // KEEP IT FED (0075), and it is a COUNT rather than an ARRIVAL — see the effect
   // below for why the plan's own two sentences could not both ship.
   const [waiting, setWaiting] = useState(null)
-  const [filling, setFilling] = useState(false)
   // A THEMED ROUND OVER THIS ANTHOLOGY. The engine has taken ?anthology= since
   // 0043 — it narrows the deck by a join on anthology_entries and excludes no
   // kind, so a mixed anthology practises as one deck — and for two releases there
@@ -1696,13 +1855,14 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
   // takeWaiting runs the fill the count was measured from. THE SAME RULE, because
   // the count came from a preview of that rule and pressing a number that then took
   // a different set would be the screen lying at the one moment it was specific.
-  async function takeWaiting() {
-    setFilling(true)
-    const r = await json('POST', `/anthologies/${id}/fill`, { rule: anthology.rule, auto: true })
-    setFilling(false)
-    if (!r.ok) return setError(errText(r))
+  const [taking, setTaking] = useState(false)
+  function takeWaiting() {
+    setTaking(true)
+  }
+  async function tookWaiting(data) {
+    setTaking(false)
     setWaiting(null)
-    toast(t('anthologies.rule.filled', { added: r.data.added, skipped: r.data.skipped }))
+    toast(t('anthologies.rule.filled', { added: data.added, skipped: data.skipped }))
     await reload()
   }
 
@@ -1895,148 +2055,168 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
   return (
     <section className="anthology-read">
       {/* The way back, drawn unconditionally. A detail view takes the phone's top
-          bar away, so this is the only way back on a phone and it cannot be a
-          desktop-only nicety. */}
+    bar away, so this is the only way back on a phone and it cannot be a
+    desktop-only nicety. */}
       {/* `.no-print` HERE AND ON THE HEADER'S BUTTONS, not on the header: the
-          title and the count are the document's, and only the controls beside
-          them are furniture. The shell cannot make that distinction — it does not
-          know a Back button from a heading — which is why the class is applied by
-          the screen that does. */}
+    title and the count are the document's, and only the controls beside
+    them are furniture. The shell cannot make that distinction — it does not
+    know a Back button from a heading — which is why the class is applied by
+    the screen that does. */}
       <div className="mb-3 no-print">
         <GhostButton icon={<IconBack />} onClick={onClose}>
-          {t('anthologies.read.back.label')}
+    {t('anthologies.read.back.label')}
         </GhostButton>
       </div>
       <PageHeader
         title={anthology?.title || t('anthologies.read.title.fallback')}
         counts={entries ? t('common.count.phrase', { n: rows.length, noun: t('unit.entry', { count: rows.length }) }) : ''}
         right={
-          <span className="flex items-center gap-2 no-print">
-            {/* Before Edit, because reading it back is what you do with an
-                anthology and editing it is what you do to one. Disabled while it
-                is empty: a round over nothing is the one case the dialog can only
-                answer with "nothing here". */}
-            <GhostButton
-              icon={<IconPractise />}
-              onClick={() => practise({ anthology: id, label: anthology?.title || t('anthologies.read.title.fallback') })}
-              disabled={!anthology || rows.length === 0}
-            >
-              {t('common.action.practise.label')}
-            </GhostButton>
-            <GhostButton icon={<IconEdit />} onClick={() => setEditing(true)} disabled={!anthology}>
-              {t('common.action.edit.label')}
-            </GhostButton>
-            {/* THE RULE HAS A BUTTON NOW, AND THE ARGUMENT AGAINST ONE IS KEPT
-                BECAUSE IT WAS REASONABLE. It said: the rule "lives in the menu and
-                not in the header row, which already has five controls. It is also
-                the one of them a reader touches once and then rarely — a rule is
-                set, not used — so it does not earn a permanent button beside the
-                four verbs that are used every time this screen is open."
+    <span className="flex items-center gap-2 no-print">
+      {/* Before Edit, because reading it back is what you do with an
+          anthology and editing it is what you do to one. Disabled while it
+          is empty: a round over nothing is the one case the dialog can only
+          answer with "nothing here". */}
+      <GhostButton
+        icon={<IconPractise />}
+        onClick={() => practise({ anthology: id, label: anthology?.title || t('anthologies.read.title.fallback') })}
+        disabled={!anthology || rows.length === 0}
+      >
+        {t('common.action.practise.label')}
+      </GhostButton>
+      <GhostButton icon={<IconEdit />} onClick={() => setEditing(true)} disabled={!anthology}>
+        {t('common.action.edit.label')}
+      </GhostButton>
+      {/* THE RULE HAS A BUTTON NOW, AND THE ARGUMENT AGAINST ONE IS KEPT
+          BECAUSE IT WAS REASONABLE. It said: the rule "lives in the menu and
+          not in the header row, which already has five controls. It is also
+          the one of them a reader touches once and then rarely — a rule is
+          set, not used — so it does not earn a permanent button beside the
+          four verbs that are used every time this screen is open."
 
-                Every clause of that is true and the conclusion still failed, which
-                is the useful part. The owner: "I cannot see any auto-anthology or
-                export options. Where are those?" A control touched once has to be
-                FOUND once, and a reader who has never set a rule has never seen the
-                menu entry either — the only other sign of the feature is the "12
-                new" line below, which draws only when a rule already exists and has
-                already matched something. So the whole feature was invisible to
-                exactly the reader it was for.
+          Every clause of that is true and the conclusion still failed, which
+          is the useful part. The owner: "I cannot see any auto-anthology or
+          export options. Where are those?" A control touched once has to be
+          FOUND once, and a reader who has never set a rule has never seen the
+          menu entry either — the only other sign of the feature is the "12
+          new" line below, which draws only when a rule already exists and has
+          already matched something. So the whole feature was invisible to
+          exactly the reader it was for.
 
-                Beside Edit because it is the same kind of verb: both change what
-                this anthology IS rather than doing something with what it holds. */}
-            <GhostButton icon={<IconSearch />} onClick={() => setRuling(true)} disabled={!anthology}>
-              {t('anthologies.fill.title')}
-            </GhostButton>
-            {!DEMO && (
-              <GhostButton
-                icon={<IconExport />}
-                onClick={() => {
-                  window.location.href = exportHref(id)
-                }}
-              >
-                {t('common.action.export.label')}
-              </GhostButton>
-            )}
-            {/* A BOOK GLYPH AND NOT A SECOND DOWNWARD ARROW. Beside Export it would
-                be two identical pictures for two different files; what distinguishes
-                this one is not that it downloads but WHAT it hands you — something an
-                e-reader opens. The label carries the format's name for the same
-                reason: "Export" twice would be the screen saying one thing twice. */}
-            {!DEMO && (
-              <GhostButton
-                icon={<IconReading />}
-                onClick={() => {
-                  window.location.href = epubHref(id)
-                }}
-              >
-                {t('anthologies.action.epub.label')}
-              </GhostButton>
-            )}
-            <GhostButton icon={<IconPrint />} onClick={() => window.print()} disabled={!anthology}>
-              {t('common.action.print.label')}
-            </GhostButton>
-            <GhostButton icon={<IconDelete />} onClick={() => setDeleting(true)} disabled={!anthology}>
-              {t('common.action.delete.label')}
-            </GhostButton>
-          </span>
+          Beside Edit because it is the same kind of verb: both change what
+          this anthology IS rather than doing something with what it holds. */}
+      <GhostButton icon={<IconSearch />} onClick={() => setRuling(true)} disabled={!anthology}>
+        {t('anthologies.fill.title')}
+      </GhostButton>
+      {!DEMO && (
+        <GhostButton
+          icon={<IconExport />}
+          onClick={() => {
+            window.location.href = exportHref(id)
+          }}
+        >
+          {t('common.action.export.label')}
+        </GhostButton>
+      )}
+      {/* A BOOK GLYPH AND NOT A SECOND DOWNWARD ARROW. Beside Export it would
+          be two identical pictures for two different files; what distinguishes
+          this one is not that it downloads but WHAT it hands you — something an
+          e-reader opens. The label carries the format's name for the same
+          reason: "Export" twice would be the screen saying one thing twice. */}
+      {!DEMO && (
+        <GhostButton
+          icon={<IconReading />}
+          onClick={() => {
+            window.location.href = epubHref(id)
+          }}
+        >
+          {t('anthologies.action.epub.label')}
+        </GhostButton>
+      )}
+      <GhostButton icon={<IconReading />} onClick={() => setReading(true)} disabled={!anthology}>
+        {t('anthologies.reader.label')}
+      </GhostButton>
+      <GhostButton icon={<IconPrint />} onClick={() => window.print()} disabled={!anthology}>
+        {t('common.action.print.label')}
+      </GhostButton>
+      {/* SAVE PDF IS THE BROWSER'S OWN PRINT, so the text stays text and selectable, with the
+          anthology's title as the page's title for the moment it is open: that is the name the
+          browser offers for the file. */}
+      <GhostButton
+        icon={<IconPrint />}
+        onClick={() => {
+          const prev = document.title
+          document.title = anthology.title
+          window.print()
+          document.title = prev
+        }}
+        disabled={!anthology}
+      >
+        {t('anthologies.action.save-pdf.label')}
+      </GhostButton>
+      <GhostButton icon={<IconDelete />} onClick={() => setDeleting(true)} disabled={!anthology}>
+        {t('common.action.delete.label')}
+      </GhostButton>
+    </span>
         }
       />
       <ErrorText>{error}</ErrorText>
+      {/* THE RUNNING TITLE, drawn on paper only: a fixed element repeats on every printed page. */}
+      <div className="anthology-running-title" aria-hidden="true" data-title={anthology?.title || ''} />
 
       {/* THE COUNT IS THE CONTROL. Not a banner with a button beside it: the number
-          IS what you press, because the only thing to do with "12 new" is take them.
-          `.no-print` because it is furniture — a printed anthology is the document,
-          and an offer to change it is not part of the document. */}
+    IS what you press, because the only thing to do with "12 new" is take them.
+    `.no-print` because it is furniture — a printed anthology is the document,
+    and an offer to change it is not part of the document. */}
       {waiting && (
         <div className="mt-2 no-print">
-          <GhostButton icon={<IconPlus />} onClick={takeWaiting} disabled={filling}>
-            {t('anthologies.rule.waiting', { n: waiting.added })}
-          </GhostButton>
+    <GhostButton icon={<IconPlus />} onClick={takeWaiting} disabled={taking}>
+      {t('anthologies.rule.waiting', { n: waiting.added })}
+    </GhostButton>
         </div>
       )}
 
       {/* THE FRONT MATTER OPENS THE DOCUMENT, in a printed book's order: the cover, the dedication, the
-          epigraph, then the introduction. Each draws only when there is one, so an anthology without them
-          reads as it always did. */}
+    epigraph, then the introduction. Each draws only when there is one, so an anthology without them
+    reads as it always did. */}
       {(anthology?.cover_path || anthology?.dedication || anthology?.epigraph) && (
         <div className="anthology-front" data-testid="anthology-front">
-          {anthology.cover_path && (
-            <img className="anthology-cover" src={apiURL(`/covers/${anthology.cover_path}`)} alt={t('anthologies.front.cover.alt')} />
-          )}
-          {anthology.dedication && <p className="anthology-dedication">{anthology.dedication}</p>}
-          {anthology.epigraph && <blockquote className="anthology-epigraph">{anthology.epigraph}</blockquote>}
+    {anthology.cover_path && (
+      <img className="anthology-cover" src={apiURL(`/covers/${anthology.cover_path}`)} alt={t('anthologies.front.cover.alt')} />
+    )}
+    {anthology.dedication && <p className="anthology-dedication">{anthology.dedication}</p>}
+    {anthology.epigraph && <blockquote className="anthology-epigraph">{anthology.epigraph}</blockquote>}
         </div>
       )}
 
       {anthology?.intro && (
         <Card className="mt-2">
-          <p className="anthology-prose">{anthology.intro}</p>
+    <p className="anthology-prose">{anthology.intro}</p>
         </Card>
       )}
 
       {/* HOW THE PASSAGES ARE GROUPED, and the way to add a heading. Furniture, so not printed. */}
       {anthology && (
         <div className="anthology-tools no-print">
-          <GhostButton icon={<IconPlus />} onClick={() => setSectioning({ section: null })}>
-            {t('anthologies.section.add.label')}
-          </GhostButton>
-          <GhostButton icon={<IconEdit />} onClick={() => setFronting(true)}>
-            {t('anthologies.front.label')}
-          </GhostButton>
-          <label className="flex items-center gap-2">
-            <MonoLabel>{t('anthologies.group.label')}</MonoLabel>
-            <Select
-              ariaLabel={t('anthologies.group.label')}
-              value={groupBy}
-              onChange={setGrouping}
-              options={[
-                ['', t('anthologies.group.none')],
-                ['work', t('anthologies.group.work')],
-                ['person', t('anthologies.group.person')],
-                ['character', t('anthologies.group.character')],
-              ]}
-            />
-          </label>
+    <GhostButton icon={<IconPlus />} onClick={() => setSectioning({ section: null })}>
+      {t('anthologies.section.add.label')}
+    </GhostButton>
+    <GhostButton icon={<IconEdit />} onClick={() => setFronting(true)}>
+      {t('anthologies.front.label')}
+    </GhostButton>
+    <label className="flex items-center gap-2">
+      <MonoLabel>{t('anthologies.group.label')}</MonoLabel>
+      <Select
+        ariaLabel={t('anthologies.group.label')}
+        value={groupBy}
+        onChange={setGrouping}
+        options={[
+          ['', t('anthologies.group.none')],
+          ['work', t('anthologies.group.work')],
+          ['person', t('anthologies.group.person')],
+          ['character', t('anthologies.group.character')],
+        ]}
+      />
+    </label>
         </div>
       )}
 
@@ -2045,45 +2225,45 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
         // EVERY SLOT HAS A GRIP, which is the phone's only way to drag and the desk's quickest. The
         // arrow keys step it a place; the menu has the same moves for a reader who wants words.
         const dropSide = reorder.dragging >= 0 && reorder.over === i && reorder.dragging !== i
-          ? (reorder.over > reorder.dragging ? 'after' : 'before')
-          : ''
+    ? (reorder.over > reorder.dragging ? 'after' : 'before')
+    : ''
         const grip = (
-          <button
-            type="button"
-            className="anthology-grip no-print"
-            aria-label={t('anthologies.drag.aria')}
-            {...reorder.gripProps(i)}
-            onKeyDown={(e) => {
-              if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-                e.preventDefault()
-                move(slot.type === 'section' ? slot.section : slot.entry, e.key === 'ArrowUp' ? 'up' : 'down')
-              }
-            }}
-          >
-            <IconGrip />
-          </button>
+    <button
+      type="button"
+      className="anthology-grip no-print"
+      aria-label={t('anthologies.drag.aria')}
+      {...reorder.gripProps(i)}
+      onKeyDown={(e) => {
+        if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+          e.preventDefault()
+          move(slot.type === 'section' ? slot.section : slot.entry, e.key === 'ArrowUp' ? 'up' : 'down')
+        }
+      }}
+    >
+      <IconGrip />
+    </button>
         )
         const slotProps = {
-          className: `anthology-slot${dropSide ? ` is-drop-${dropSide}` : ''}`,
-          key: slot.type === 'section' ? `section:${slot.section.id}` : `${slot.entry.kind}:${slot.entry.item_id}`,
-          ...reorder.rowProps(i),
+    className: `anthology-slot${dropSide ? ` is-drop-${dropSide}` : ''}`,
+    key: slot.type === 'section' ? `section:${slot.section.id}` : `${slot.entry.kind}:${slot.entry.item_id}`,
+    ...reorder.rowProps(i),
         }
         if (slot.type === 'section') {
-          return (
-            <div {...slotProps}>
-              {grip}
-              <div className="anthology-slot-body">
-                <AnthologySectionBlock
-                  section={slot.section}
-                  first={i === 0}
-                  last={i === slots.length - 1}
-                  onEdit={(s) => setSectioning({ section: s })}
-                  onDelete={setUnsectioning}
-                  onMove={move}
-                />
-              </div>
-            </div>
-          )
+    return (
+      <div {...slotProps}>
+        {grip}
+        <div className="anthology-slot-body">
+          <AnthologySectionBlock
+            section={slot.section}
+            first={i === 0}
+            last={i === slots.length - 1}
+            onEdit={(s) => setSectioning({ section: s })}
+            onDelete={setUnsectioning}
+            onMove={move}
+          />
+        </div>
+      </div>
+    )
         }
         const entry = slot.entry
         // A GROUP HEADER STARTS A RUN: the entry's key differs from the entry before it, or a
@@ -2091,78 +2271,78 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
         const prev = slots[i - 1]
         const key = groupKey(entry, groupBy)
         const header =
-          groupBy && key && (!prev || prev.type === 'section' || groupKey(prev.entry, groupBy) !== key)
-            ? groupLabel(entry, groupBy)
-            : null
+    groupBy && key && (!prev || prev.type === 'section' || groupKey(prev.entry, groupBy) !== key)
+      ? groupLabel(entry, groupBy)
+      : null
         return (
-          <div {...slotProps}>
-            {grip}
-            <div className="anthology-slot-body">
-              {header && <h3 className="anthology-group" data-testid="anthology-group">{header}</h3>}
-              <AnthologyEntry
-                entry={entry}
-                fields={anthology || {}}
-                first={i === 0}
-                last={i === slots.length - 1}
-                onNote={setNoting}
-                onMove={move}
-                onMoveTo={setMoving}
-                onRemove={remove}
-                onOpenBook={onOpenBook}
-                onOpenMovie={onOpenMovie}
-              />
-            </div>
-          </div>
+    <div {...slotProps}>
+      {grip}
+      <div className="anthology-slot-body">
+        {header && <h3 className="anthology-group" data-testid="anthology-group">{header}</h3>}
+        <AnthologyEntry
+          entry={entry}
+          fields={anthology || {}}
+          first={i === 0}
+          last={i === slots.length - 1}
+          onNote={setNoting}
+          onMove={move}
+          onMoveTo={setMoving}
+          onRemove={remove}
+          onOpenBook={onOpenBook}
+          onOpenMovie={onOpenMovie}
+        />
+      </div>
+    </div>
         )
       })}
       </div>
 
       {/* WHAT WAS REMOVED, folded by default: it is the exception, and an anthology page is a
-          document first. `.no-print` because a printed anthology is the document, and a list of
-          what is not in it is not part of it. */}
+    document first. `.no-print` because a printed anthology is the document, and a list of
+    what is not in it is not part of it. */}
       {removed.length > 0 && (
         <section className="mt-6 no-print" data-testid="anthology-removed">
-          <button
-            type="button"
-            className="tp-link tp-link-icon"
-            aria-expanded={showRemoved}
-            onClick={() => setShowRemoved((v) => !v)}
-          >
-            <IconChevron open={showRemoved} size={18} />
-            <span>{t('anthologies.removed.heading', { n: removed.length })}</span>
-          </button>
-          {showRemoved && (
-            <Card className="mt-2">
-              <p className="microcopy">{t('anthologies.removed.note')}</p>
-              <ul className="anthology-removed-list">
-                {removed.map((x) => (
-                  <li key={`${x.kind}:${x.item_id}`} className="anthology-removed-row">
-                    <div className="min-w-0 flex-1">
-                      <p className="anthology-removed-quote" dir="auto">{x.quote}</p>
-                      <p className="microcopy">{[x.source, x.credit].filter(Boolean).join(' · ')}</p>
-                    </div>
-                    <GhostButton
-                      icon={<IconReset />}
-                      keepLabel
-                      aria-label={t('anthologies.removed.restore.aria')}
-                      onClick={() => restore(x)}
-                    >
-                      {t('anthologies.removed.restore.label')}
-                    </GhostButton>
-                  </li>
-                ))}
-              </ul>
-            </Card>
-          )}
+    <button
+      type="button"
+      className="tp-link tp-link-icon"
+      aria-expanded={showRemoved}
+      onClick={() => setShowRemoved((v) => !v)}
+    >
+      <IconChevron open={showRemoved} size={18} />
+      <span>{t('anthologies.removed.heading', { n: removed.length })}</span>
+    </button>
+    {showRemoved && (
+      <Card className="mt-2">
+        <p className="microcopy">{t('anthologies.removed.note')}</p>
+        <ul className="anthology-removed-list">
+          {removed.map((x) => (
+            <li key={`${x.kind}:${x.item_id}`} className="anthology-removed-row">
+              <div className="min-w-0 flex-1">
+                <p className="anthology-removed-quote" dir="auto">{x.quote}</p>
+                <p className="microcopy">{[x.source, x.credit].filter(Boolean).join(' · ')}</p>
+              </div>
+              <GhostButton
+                icon={<IconReset />}
+                keepLabel
+                aria-label={t('anthologies.removed.restore.aria')}
+                onClick={() => restore(x)}
+              >
+                {t('anthologies.removed.restore.label')}
+              </GhostButton>
+            </li>
+          ))}
+        </ul>
+      </Card>
+    )}
         </section>
       )}
 
       {entries != null && rows.length === 0 && (
         <Card className="mt-3">
-          <p className="microcopy">
-            {tNodes('anthologies.read.empty', {
-              em1: <b key="em1">{t('common.action.anthology.label')}</b>,
-            })}
+    <p className="microcopy">
+      {tNodes('anthologies.read.empty', {
+        em1: <b key="em1">{t('common.action.anthology.label')}</b>,
+      })}
           </p>
         </Card>
       )}
@@ -2201,6 +2381,12 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
           onMove={(n) => moveTo(moving, n)}
           onCancel={() => setMoving(null)}
         />
+      )}
+      {taking && anthology && (
+        <WaitingDialog anthology={anthology} onDone={tookWaiting} onCancel={() => setTaking(false)} />
+      )}
+      {reading && anthology && (
+        <AnthologyReader anthology={anthology} slots={slots} groupBy={groupBy} onClose={() => setReading(false)} />
       )}
       {fronting && anthology && (
         <FrontDialog
