@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Internal
+
+- **The changelog scan no longer fails on the commit that cuts a release,** and the Wikidata
+  signature journey no longer asserts a line whose presence depended on layering. CI on `main`
+  went red after 3.5.0 and 3.6.0 for the first reason.
+
 ## [3.6.0] - 2026-11-01
 
 ### Internal

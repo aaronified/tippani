@@ -65,12 +65,14 @@ const BN_ENTRIES = entries(BN)
 // renames [Unreleased] to that version, so "the unreleased entries" are then the
 // newest section, not no section — which is what the floor below failed on the
 // day 3.0.0 was cut. So: [Unreleased] when there is one, else the first release.
+// AND RIGHT AFTER THE RELEASE [Unreleased] IS THERE AND EMPTY. The release workflow moves its entries under the
+// version and leaves the heading, so "[Unreleased] when there is one" read an empty section and this test failed
+// on the CI run of every release commit (3.5.0 and 3.6.0 both). So: [Unreleased] when it holds an entry, else the
+// newest release.
 const UNRELEASED = (() => {
-  let head = CHANGELOG.indexOf('## [Unreleased]')
-  if (head < 0) head = CHANGELOG.indexOf('\n## [') + 1
-  if (head <= 0) return ''
-  const next = CHANGELOG.indexOf('\n## [', head + 5)
-  return CHANGELOG.slice(head, next < 0 ? undefined : next)
+  const sections = CHANGELOG.split(/\n(?=## \[)/).filter((s) => s.startsWith('## ['))
+  const open = sections.find((s) => s.startsWith('## [Unreleased]') && /\n- \S/.test(s))
+  return open ?? sections.find((s) => !s.startsWith('## [Unreleased]')) ?? ''
 })()
 
 // "board" as a WORD, not as a piece of one — `clipboard`, `Dashboard` and
