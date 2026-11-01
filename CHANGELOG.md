@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.6.0] - 2026-11-01
+
 ### Internal
 
 - **The signature journeys wait for the cleaned picture before pressing Save.** Save stays off
