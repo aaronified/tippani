@@ -2786,6 +2786,49 @@ anthologies.rule.preview.action = কী কী আসবে?
 anthologies.rule.preview = {matched}টা মিলেছে। {added}টা যোগ হবে, {skipped}টা আগে থেকেই আছে।
 anthologies.rule.capped = একবারে দুশো; বাকিটার জন্য আবার চাপুন।
 anthologies.rule.filled = {added}টা যোগ হল, {skipped}টা আগে থেকেই ছিল
+anthologies.rule.filled-removed = {added}টা যোগ হল, {skipped}টা আগে থেকেই ছিল, {removed}টা আপনি সরিয়েছিলেন বলে বাদ থাকল
+anthologies.removed.heading = সরানো ({n})
+anthologies.section.add.label = অংশ যোগ করুন
+anthologies.section.form.add.title = নতুন অংশ
+anthologies.section.form.edit.title = অংশ এডিট করুন
+anthologies.section.heading.label = শিরোনাম
+anthologies.section.heading.required = অংশটির একটা শিরোনাম দিন
+anthologies.section.text.label = তার নিচের লেখা (ঐচ্ছিক)
+anthologies.section.more.aria = অংশের কাজ
+anthologies.section.delete.title = "{title}" শিরোনামটা মুছবেন?
+anthologies.section.delete.body = এর নিচের অংশগুলো যেখানে আছে সেখানেই থাকবে। শিরোনামের নিচের লেখাটা শিরোনামের সঙ্গে যাবে।
+anthologies.group.label = যেভাবে ভাগ করবেন
+anthologies.waiting.title = বাকি অংশগুলো যোগ করুন
+anthologies.waiting.body = যেগুলো চান না সেগুলোর টিক তুলে দিন। সেগুলো সরানোর তালিকায় থাকবে, কোনো নিয়ম আর যোগ করবে না।
+anthologies.waiting.loading = কী কী বাকি আছে দেখা হচ্ছে…
+anthologies.waiting.add.label = {n}টা যোগ করুন
+anthologies.waiting.pick.aria = এই অংশটি যোগ করুন
+anthologies.reader.label = পড়ুন
+anthologies.reader.aria = {title} পড়া হচ্ছে
+anthologies.action.save-pdf.label = PDF সেভ করুন
+anthologies.front.label = প্রারম্ভিক পাতা
+anthologies.front.title = প্রারম্ভিক পাতা
+anthologies.front.cover.label = প্রচ্ছদ
+anthologies.front.cover.none = এখনো প্রচ্ছদ নেই। EPUB হিসেবে এক্সপোর্ট করলে এটাই বইয়ের প্রচ্ছদ।
+anthologies.front.cover.alt = এই সংকলনের প্রচ্ছদ
+anthologies.front.cover.choose = ছবি বেছে নিন
+anthologies.front.cover.remove = ছবিটা সরান
+anthologies.front.epigraph.label = উদ্ধৃতি-ভূমিকা
+anthologies.front.dedication.label = উৎসর্গ
+anthologies.drag.aria = টেনে সরান। তীরচিহ্নের কী দিয়ে এক ঘর করে সরানো যায়।
+anthologies.move-to.label = অন্য জায়গায় নিন…
+anthologies.move-to.title = অন্য জায়গায় নিন
+anthologies.move-to.field = অংশের নম্বর (১ থেকে {max})
+anthologies.move-to.body = এটা সেই নম্বরের অংশ হবে; শিরোনাম গোনা হয় না।
+anthologies.group.none = কিছুই না
+anthologies.group.work = রচনা
+anthologies.group.person = ব্যক্তি
+anthologies.group.character = চরিত্র
+anthologies.group.unknown = অজানা
+anthologies.removed.note = এই সংকলন থেকে সরানো। কোনো নিয়ম এগুলো আর ফিরিয়ে আনবে না।
+anthologies.removed.restore.label = ফিরিয়ে আনুন
+anthologies.removed.restore.aria = এই অংশটি সংকলনে ফিরিয়ে আনুন
+anthologies.toast.entry-restored = ফিরিয়ে আনা হয়েছে
 anthologies.rule.waiting = বাকি {n}টা যোগ করুন
 anthologies.rule.empty = রুলে মেলানোর মতো কিছু দিন।
 
@@ -2827,6 +2870,12 @@ error.save.anthology = সংকলনটা সেভ করা গেল ন�
 error.delete.anthology = সংকলনটা মোছা গেল না
 error.save.note = নোটটা সেভ করা গেল না
 error.remove.entry = এন্ট্রিটা সরানো গেল না
+error.restore.entry = এন্ট্রিটা ফিরিয়ে আনা গেল না
+error.save.section = অংশটা সেভ করা গেল না
+error.save.front = প্রারম্ভিক পাতা সেভ করা গেল না
+error.remove.cover = ছবিটা সরানো গেল না
+error.delete.section = অংশটা মোছা গেল না
+error.save.grouping = ভাগ করার ধরন বদলানো গেল না
 error.move.entry = এন্ট্রিটার জায়গা বদলানো গেল না
 error.validate.anthology-title-required = সংকলনটার একটা নাম দিন
 
@@ -4249,6 +4298,10 @@ error.empty.bin = খালি করা গেল না
 # label names what was FOUND rather than what to do about it.
 # ---------------------------------------------------------------------------
 checks.title = যাচাইকরণ
+checks.tab.aria = যাচাইকরণের ভাগ
+checks.tab.imports.label = ইমপোর্ট
+checks.tab.marks.label = বাড়তি চিহ্ন
+checks.tab.files.label = ফাইল
 
 cleanup.title = বাড়তি চিহ্ন
 # Beside the title: how many quotes were read, so “nothing found” is
@@ -4289,7 +4342,7 @@ cleanup.field.translation.label = অনুবাদে
 # beside it marks the find with guillemets, because half these rules find
 # something that has no appearance at all.
 cleanup.row.times = ×{n}
-cleanup.row.open.tip = উদ্ধৃতিটা যেখানে আছে, সেখানে যান
+cleanup.row.open.tip = কাজটি খুলুন
 cleanup.row.open.aria = {label} খুলুন
 cleanup.row.no-work.label = আলাদা উক্তি
 cleanup.filter.all.label = সব
@@ -4944,6 +4997,7 @@ staging.flash.updated = {n}টা বদলেছে
 # " · " a third fragment would need.
 staging.flash.approved.added = {n}টা যোগ হয়েছে
 staging.flash.approved.skipped = {n}টা বাদ
+staging.flash.approved.relinked = {n}টা আপনার আগে থেকে থাকা উদ্ধৃতির সঙ্গে মেলানো হল
 staging.flash.approved.enriched = {n}টায় মেটাডেটা এসেছে
 # bn: {total}-এর মধ্যে {done}, settings.jobs.progress's own order
 staging.approving.progress = মেনে নেওয়া চলছে — {total}-এর মধ্যে {done}
