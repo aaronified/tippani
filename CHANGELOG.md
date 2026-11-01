@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- On a phone, the search box's dropdown of search words (book:, tag:…) can now be dismissed:
+  Back closes the dropdown instead of leaving the page, and the dropdown has a Close row, since
+  it fills the space the keyboard leaves and there was nothing outside it to tap.
+
 - Accept all on Checks no longer fails with "invalid JSON body" when a library has a few hundred
   proposed times or places: the press was larger than the 64 KiB a route is given, and the
   locator routes now take the 5000 items they already allowed.

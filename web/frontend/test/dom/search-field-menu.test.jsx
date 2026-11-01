@@ -29,7 +29,7 @@
 
 import { useState } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 
 vi.mock('../../src/api.js', async (orig) => ({
   ...(await orig()),
@@ -53,12 +53,12 @@ const VOCAB = {
 
 // The page owns the draft and hands it down (see SearchBox's own note on why),
 // so the harness has to do the page's half or the value menu can never open.
-function Harness({ initial = '' }) {
+function Harness({ initial = '', mobile = false }) {
   const [q, setQ] = useState(initial)
   const [chips, setChips] = useState([])
   const { draft, options } = readSearchBox(q, VOCAB)
   return (
-    <SearchBox q={q} setQ={setQ} chips={chips} setChips={setChips} mobile={false} draft={draft} options={options} />
+    <SearchBox q={q} setQ={setQ} chips={chips} setChips={setChips} mobile={mobile} draft={draft} options={options} />
   )
 }
 
@@ -85,4 +85,42 @@ describe('typing in the search box', () => {
     await waitFor(() => expect(rows().join(' ')).toContain('tag:grief'))
   })
 
+})
+
+
+// ON A PHONE THE MENU FILLS WHAT THE KEYBOARD LEAVES, so there is nothing outside it to press, and Back used to
+// leave the whole page. The menu owns a history entry like any overlay, and a phone gets a Close row inside it.
+describe('dismissing the menu on a phone', () => {
+  beforeEach(() => cleanup())
+
+  it('has a Close row that shuts the menu', async () => {
+    render(<Harness mobile />)
+    fireEvent.focus(box())
+    await waitFor(() => expect(menu()).toBeTruthy())
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    await waitFor(() => expect(menu()).toBeNull())
+  })
+
+  it('has no Close row off the phone, where the page around it is the way out', async () => {
+    render(<Harness />)
+    fireEvent.focus(box())
+    await waitFor(() => expect(menu()).toBeTruthy())
+    expect(screen.queryByRole('button', { name: 'Close' })).toBeNull()
+  })
+
+  it('closes on Back, and Back does not go on to leave the page', async () => {
+    window.history.pushState({ page: 'search' }, '', '/search')
+    const here = window.history.length
+    render(<Harness mobile />)
+    fireEvent.focus(box())
+    await waitFor(() => expect(menu()).toBeTruthy())
+    // The menu took an entry of its own.
+    expect(window.history.length).toBe(here + 1)
+    await act(async () => {
+      window.history.back()
+      await new Promise((r) => setTimeout(r, 50))
+    })
+    expect(menu()).toBeNull()
+    expect(window.location.pathname).toBe('/search')
+  })
 })
