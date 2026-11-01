@@ -351,7 +351,10 @@ func (s *Server) userCoverFiles(id int64) []string {
 		UNION ALL
 		-- An uploaded font lives beside the covers and is parked the same way. The
 		-- cascade frees the ROW; the bytes on disk are this function's job.
-		SELECT path FROM user_fonts WHERE user_id = ?`, id, id, id, id)
+		SELECT path FROM user_fonts WHERE user_id = ?
+		UNION ALL
+		-- An anthology's cover (0090) is the reader's image like the rest.
+		SELECT cover_path FROM anthologies WHERE user_id = ? AND cover_path IS NOT NULL`, id, id, id, id, id)
 	if err != nil {
 		return nil
 	}

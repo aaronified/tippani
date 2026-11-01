@@ -72,9 +72,10 @@ func (s *Server) handleExportAnthologyEPUB(w http.ResponseWriter, r *http.Reques
 	uid := userID(r)
 	olog.Tracef("[export] anthology epub uid=%d id=%d", uid, id)
 	var title, intro string
+	var front epubFront
 	var fields anthologyFields
-	err := s.Store.DB.QueryRow(`SELECT title, intro, `+anthologyFieldCols+` FROM anthologies WHERE id = ? AND user_id = ?`,
-		id, uid).Scan(append([]any{&title, &intro}, fields.scanTargets()...)...)
+	err := s.Store.DB.QueryRow(`SELECT title, intro, epigraph, dedication, COALESCE(cover_path, ''), `+anthologyFieldCols+` FROM anthologies WHERE id = ? AND user_id = ?`,
+		id, uid).Scan(append([]any{&title, &intro, &front.epigraph, &front.dedication, &front.cover}, fields.scanTargets()...)...)
 	fields.fromRow()
 	if err != nil {
 		// Not found and a read error are one answer, exactly as the Markdown export
@@ -93,7 +94,7 @@ func (s *Server) handleExportAnthologyEPUB(w http.ResponseWriter, r *http.Reques
 		internalError(w, r, "render anthology epub", err)
 		return
 	}
-	book, err := s.renderAnthologyEPUB(id, title, intro, fields, entries, sections)
+	book, err := s.renderAnthologyEPUB(id, title, intro, fields, entries, sections, front)
 	if err != nil {
 		internalError(w, r, "render anthology epub", err)
 		return
@@ -118,7 +119,7 @@ func epubIdentifier(id int64) string {
 // renderAnthologyEPUB writes the whole book. The entry order is the anthology's,
 // which is the whole point of an anthology and the one thing a format conversion
 // must not touch.
-func (s *Server) renderAnthologyEPUB(id int64, title, intro string, f anthologyFields, entries []anthologyEntryRow, sections []anthologySectionRow) ([]byte, error) {
+func (s *Server) renderAnthologyEPUB(id int64, title, intro string, f anthologyFields, entries []anthologyEntryRow, sections []anthologySectionRow, front epubFront) ([]byte, error) {
 	uid := epubIdentifier(id)
 	var buf bytes.Buffer
 	z := zip.NewWriter(&buf)
@@ -153,6 +154,19 @@ func (s *Server) renderAnthologyEPUB(id int64, title, intro string, f anthologyF
 	// that was not written makes the whole book invalid, so what goes in the
 	// manifest is what actually arrived.
 	images := s.epubImages(f, entries)
+	// THE COVER IS ONE OF THE BOOK'S IMAGES, read before it is manifested like the faces are, and named
+	// in the OPF as the book's cover (0090). A cover whose file is gone is no cover, not a failed export.
+	coverID := ""
+	if coverFile.MatchString(front.cover) {
+		if !hasEpubImage(images, front.cover) {
+			if data, err := os.ReadFile(filepath.Join(s.coversDir(), front.cover)); err == nil {
+				images = append(images, epubImage{name: front.cover, mime: epubMime(front.cover), data: data})
+			}
+		}
+		if hasEpubImage(images, front.cover) {
+			coverID = "i" + strings.ReplaceAll(front.cover, ".", "-")
+		}
+	}
 	for _, im := range images {
 		w, err := z.Create("OEBPS/" + im.name)
 		if err != nil {
@@ -162,10 +176,10 @@ func (s *Server) renderAnthologyEPUB(id int64, title, intro string, f anthologyF
 			return nil, err
 		}
 	}
-	if err := add("OEBPS/anthology.xhtml", epubBody(title, intro, f, entries, sections, images)); err != nil {
+	if err := add("OEBPS/anthology.xhtml", epubBody(title, intro, f, entries, sections, images, front)); err != nil {
 		return nil, err
 	}
-	if err := add("OEBPS/content.opf", epubOPF(title, uid, images)); err != nil {
+	if err := add("OEBPS/content.opf", epubOPF(title, uid, images, coverID)); err != nil {
 		return nil, err
 	}
 	if err := add("OEBPS/toc.ncx", epubNCX(title, uid, entries, sections, f)); err != nil {
@@ -200,20 +214,29 @@ p.commentary { margin: .4em 0; }
 blockquote { margin: .6em 0 .4em 0; padding-left: .9em; border-left: 3px solid #999; }
 p.attribution { margin: .2em 0 0; font-size: .85em; }
 p.intro { margin: .4em 0; }
+p.dedication { margin: 1.2em 0; text-align: center; font-style: italic; }
+blockquote.epigraph { margin: 1.2em 2em; padding: 0; border: 0; font-style: italic; }
 p.portrait { margin: .5em 0; }
 p.portrait img { max-width: 40%; }
 p.signature { margin: .25em 0; }
 p.signature img { max-width: 25%; }
 `
 
-func epubOPF(title, bookID string, images []epubImage) string {
+// epubFront is the anthology's front matter as the book needs it (0090).
+type epubFront struct{ epigraph, dedication, cover string }
+
+func epubOPF(title, bookID string, images []epubImage, coverID string) string {
+	coverMeta := ""
+	if coverID != "" {
+		coverMeta = `    <meta name="cover" content="` + xmlText(coverID) + `"/>` + "\n"
+	}
 	return `<?xml version="1.0" encoding="UTF-8"?>
 <package xmlns="http://www.idpf.org/2007/opf" version="2.0" unique-identifier="bookid">
   <metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf">
     <dc:title>` + xmlText(title) + `</dc:title>
     <dc:identifier id="bookid">` + xmlText(bookID) + `</dc:identifier>
     <dc:language>en</dc:language>
-  </metadata>
+` + coverMeta + `  </metadata>
   <manifest>
     <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
     <item id="css" href="style.css" media-type="text/css"/>
@@ -264,7 +287,7 @@ func epubNCX(title, bookID string, entries []anthologyEntryRow, sections []antho
 // "Ursula K. Le Guin · Parnassus Press · 1968" — rather than as `- key: value`
 // lines, because those are a machine's format and this file is read by a person on
 // a device with no way to ask what a key means.
-func epubBody(title, intro string, f anthologyFields, entries []anthologyEntryRow, sections []anthologySectionRow, images []epubImage) string {
+func epubBody(title, intro string, f anthologyFields, entries []anthologyEntryRow, sections []anthologySectionRow, images []epubImage, front epubFront) string {
 	var sb strings.Builder
 	sb.WriteString(`<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html>
@@ -273,6 +296,24 @@ func epubBody(title, intro string, f anthologyFields, entries []anthologyEntryRo
 <body>
 <h1>` + xmlText(title) + `</h1>
 `)
+	// THE DEDICATION, THEN THE EPIGRAPH, before the introduction: the order of a printed book's front
+	// matter. Each is the reader's own prose, one paragraph a line.
+	if strings.TrimSpace(front.dedication) != "" {
+		for _, line := range strings.Split(strings.TrimRight(front.dedication, "\n"), "\n") {
+			if strings.TrimSpace(line) != "" {
+				sb.WriteString(`<p class="dedication">` + xmlText(line) + "</p>\n")
+			}
+		}
+	}
+	if strings.TrimSpace(front.epigraph) != "" {
+		sb.WriteString(`<blockquote class="epigraph">`)
+		for _, line := range strings.Split(strings.TrimRight(front.epigraph, "\n"), "\n") {
+			if strings.TrimSpace(line) != "" {
+				sb.WriteString("<p>" + xmlText(line) + "</p>")
+			}
+		}
+		sb.WriteString("</blockquote>\n")
+	}
 	if strings.TrimSpace(intro) != "" {
 		// THE BLANK LINE BETWEEN PARAGRAPHS IS THE ONLY FORMATTING THIS FIELD HAS
 		// (see trimProse on the server), so it becomes a paragraph each. Collapsing

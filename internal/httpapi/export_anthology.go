@@ -60,10 +60,10 @@ func (s *Server) handleExportAnthology(w http.ResponseWriter, r *http.Request) {
 	}
 	uid := userID(r)
 	olog.Tracef("[export] anthology uid=%d id=%d", uid, id)
-	var title, intro string
+	var title, intro, epigraph, dedication string
 	var fields anthologyFields
-	err := s.Store.DB.QueryRow(`SELECT title, intro, `+anthologyFieldCols+` FROM anthologies WHERE id = ? AND user_id = ?`,
-		id, uid).Scan(append([]any{&title, &intro}, fields.scanTargets()...)...)
+	err := s.Store.DB.QueryRow(`SELECT title, intro, epigraph, dedication, `+anthologyFieldCols+` FROM anthologies WHERE id = ? AND user_id = ?`,
+		id, uid).Scan(append([]any{&title, &intro, &epigraph, &dedication}, fields.scanTargets()...)...)
 	fields.fromRow()
 	if err != nil {
 		// Not found and a read error are one answer here on purpose: an export is a
@@ -82,7 +82,7 @@ func (s *Server) handleExportAnthology(w http.ResponseWriter, r *http.Request) {
 		internalError(w, r, "render anthology export", err)
 		return
 	}
-	serveMarkdown(w, sanitizeFilename(title)+".md", renderAnthologyExportSections(title, intro, fields, entries, sections))
+	serveMarkdown(w, sanitizeFilename(title)+".md", renderAnthologyExportFront(title, intro, fields, entries, sections, anthologyFront{epigraph, dedication}))
 }
 
 // THE FIELD SWITCHES ARE A FILTER, NOT A SECOND RENDERER (0045). writeQuoteBlock
@@ -121,10 +121,27 @@ func writeSection(sb *strings.Builder, x anthologySectionRow) {
 // by position. The sections are in position order, as sectionsFor reads them; a section after the
 // last entry is written after it, though an import cannot carry it (it has no entry to ride on).
 func renderAnthologyExportSections(title, intro string, f anthologyFields, entries []anthologyEntryRow, sections []anthologySectionRow) string {
+	return renderAnthologyExportFront(title, intro, f, entries, sections, anthologyFront{})
+}
+
+// anthologyFront is the reader's epigraph and dedication (0090). The cover is left out of the Markdown, as
+// every image is.
+type anthologyFront struct{ epigraph, dedication string }
+
+// escapeFront makes a prose value fit on one front matter line: a backslash is two, and a line break is
+// backslash-n. The importer's unescapeFront reads it back.
+func escapeFront(s string) string {
+	s = strings.ReplaceAll(s, "\\", "\\\\")
+	s = strings.ReplaceAll(s, "\r\n", "\n")
+	return strings.ReplaceAll(s, "\n", "\\n")
+}
+
+func renderAnthologyExportFront(title, intro string, f anthologyFields, entries []anthologyEntryRow, sections []anthologySectionRow, front anthologyFront) string {
 	var sb strings.Builder
 	// `title` is in the frontmatter because the importer needs it before it reads a
 	// single entry: it is what an approved import resolves to a row.
-	writeFrontmatter(&sb, kv{"type", "anthology"}, kv{"title", title})
+	writeFrontmatter(&sb, kv{"type", "anthology"}, kv{"title", title},
+		kv{"epigraph", escapeFront(front.epigraph)}, kv{"dedication", escapeFront(front.dedication)})
 	if strings.TrimSpace(intro) != "" {
 		sb.WriteString("\n")
 		sb.WriteString(strings.TrimRight(intro, "\n"))

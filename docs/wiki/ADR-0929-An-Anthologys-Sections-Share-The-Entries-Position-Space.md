@@ -26,6 +26,8 @@ imported. The EPUB opens a chapter at each section and a new page begins at each
 
 **Moving.** A heading carries the passages under it: its run is the heading and every slot after it up to the next heading, moved in one transaction through the same order route (each member after the one before it). A drop inside its own run is refused. A drag, the arrow keys, the menu and "Move to…" all work out the slot to follow and send the same request. The drag is `reorder.js`, extended with edge scrolling; the owner chose to give anthologies their own drag and let Episodes reuse it.
 
+**Front matter (0090).** A cover, an epigraph and a dedication are columns of `anthologies`, written through a route of their own (`PUT .../front`, `POST|DELETE .../cover`) and not the full-state PUT, so a form that has not heard of them cannot clear them. The cover is one of the reader's images: listed with an account's files and deleted with the anthology. Markdown carries the epigraph and the dedication as one-line front matter keys (a line break is backslash-n) and no cover; the EPUB opens with the dedication and epigraph and names the cover as the book's.
+
 **Not yet:** group headers in the Markdown export.
 
 See also: [ADR index](ADR-Index.md) · [Home](Home.md)

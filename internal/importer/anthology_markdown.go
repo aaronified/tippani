@@ -50,9 +50,33 @@ import (
 // IS once the anthology's own two facts (its place in the order, and the
 // commentary before it) are attached to it — see Utterance.Anthology.
 type Anthology struct {
-	Title   string
-	Intro   string
-	Entries []Utterance
+	Title      string
+	Epigraph   string
+	Dedication string
+	Intro      string
+	Entries    []Utterance
+}
+
+// unescapeFront reads back what the exporter's escapeFront wrote: a front matter value is one line, so
+// a line break in the reader's epigraph is the two characters backslash-n, and a backslash is two.
+func unescapeFront(s string) string {
+	var sb strings.Builder
+	for i := 0; i < len(s); i++ {
+		if s[i] == '\\' && i+1 < len(s) {
+			switch s[i+1] {
+			case 'n':
+				sb.WriteByte('\n')
+				i++
+				continue
+			case '\\':
+				sb.WriteByte('\\')
+				i++
+				continue
+			}
+		}
+		sb.WriteByte(s[i])
+	}
+	return sb.String()
 }
 
 // AnthologyMarkdown parses an anthology export.
@@ -97,6 +121,10 @@ func AnthologyMarkdown(r io.Reader) (Anthology, error) {
 			switch bindingKey(key) {
 			case "title", "anthology":
 				out.Title = strings.TrimSpace(val)
+			case "epigraph":
+				out.Epigraph = unescapeFront(strings.TrimSpace(val))
+			case "dedication":
+				out.Dedication = unescapeFront(strings.TrimSpace(val))
 			}
 		}
 	}
@@ -253,6 +281,8 @@ func AnthologyMarkdown(r io.Reader) (Anthology, error) {
 	for j := range out.Entries {
 		out.Entries[j].Anthology = out.Title
 		out.Entries[j].AnthologyIntro = out.Intro
+		out.Entries[j].AnthologyEpigraph = out.Epigraph
+		out.Entries[j].AnthologyDedication = out.Dedication
 	}
 	return out, nil
 }

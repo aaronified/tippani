@@ -37,6 +37,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **An anthology can have a cover, an epigraph and a dedication.** They open the page and the
+  printed copy; the cover is the EPUB's cover and the other two are in the EPUB too. Markdown
+  carries the epigraph and the dedication and leaves the cover out, and an imported anthology
+  file keeps them.
+
 - **Passages and headings in an anthology can be dragged into place, or moved to a numbered
   passage.** Each has a grip beside it that works with a finger or a mouse, and the page scrolls
   when you hold near its edge; the arrow keys step it a place. A heading takes the passages

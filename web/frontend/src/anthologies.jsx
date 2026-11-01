@@ -42,7 +42,7 @@
 //   - the LIMITS below.
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { DEMO, apiURL, errText, json } from './api.js'
+import { DEMO, apiURL, errText, json, upload } from './api.js'
 import { t, tNodes } from './i18n.js'
 import { quoteKindLabel } from './quoteKind.js'
 import { languageClass } from './fonts.js'
@@ -78,6 +78,7 @@ import {
   MonoLabel,
   MoreMenu,
   Select,
+  useFilePick,
   PageHeader,
   toast,
   Toggle,
@@ -1470,6 +1471,96 @@ function SectionDialog({ initial, onSave, onCancel }) {
   )
 }
 
+// ---- FRONT MATTER (0090) -------------------------------------------------------------------
+//
+// A cover picture, an epigraph and a dedication. The cover is the EPUB's cover; the other two open the
+// page, in print, and the book. The picture is applied as soon as it is chosen (it is a file, not a
+// draft); the two pieces of prose are saved with the tick.
+function FrontFields({ anthology, epigraph, setEpigraph, dedication, setDedication, error, busy, onSubmit, onPick, onRemove, picking }) {
+  const host = useFormHost(busy ? t('common.action.save.busy') : '')
+  const pick = useFilePick({ accept: 'image/*', ariaLabel: t('anthologies.front.cover.choose'), onFiles: onPick })
+  return (
+    <form id={host?.formId} className="anthology-form" onSubmit={(e) => { e.preventDefault(); onSubmit() }}>
+      <div>
+        <MonoLabel>{t('anthologies.front.cover.label')}</MonoLabel>
+        {anthology.cover_path ? (
+          <img className="anthology-cover" src={apiURL(`/covers/${anthology.cover_path}`)} alt={t('anthologies.front.cover.alt')} />
+        ) : (
+          <p className="microcopy">{t('anthologies.front.cover.none')}</p>
+        )}
+        <div className="anthology-tools">
+          {pick.input}
+          <GhostButton type="button" disabled={picking} onClick={pick.open}>
+            {t('anthologies.front.cover.choose')}
+          </GhostButton>
+          {anthology.cover_path && (
+            <GhostButton type="button" disabled={picking} onClick={onRemove}>
+              {t('anthologies.front.cover.remove')}
+            </GhostButton>
+          )}
+        </div>
+      </div>
+      <label className="tp-field">
+        <MonoLabel>{t('anthologies.front.epigraph.label')}</MonoLabel>
+        <ProseArea className="tp-input" rows={3} value={epigraph} maxLength={1000} onChange={(e) => setEpigraph(e.target.value)} />
+      </label>
+      <label className="tp-field">
+        <MonoLabel>{t('anthologies.front.dedication.label')}</MonoLabel>
+        <ProseArea className="tp-input" rows={2} value={dedication} maxLength={1000} onChange={(e) => setDedication(e.target.value)} />
+      </label>
+      <ErrorText>{error}</ErrorText>
+    </form>
+  )
+}
+
+function FrontDialog({ anthology, onSaved, onChanged, onCancel }) {
+  const [epigraph, setEpigraph] = useState(anthology.epigraph || '')
+  const [dedication, setDedication] = useState(anthology.dedication || '')
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [picking, setPicking] = useState(false)
+  const dirty = Number(epigraph !== (anthology.epigraph || '')) + Number(dedication !== (anthology.dedication || ''))
+  async function submit() {
+    setBusy(true)
+    const r = await json('PUT', `/anthologies/${anthology.id}/front`, { epigraph, dedication })
+    setBusy(false)
+    if (!r.ok) return setError(errText(r, t('error.save.front')))
+    onSaved()
+  }
+  async function pickCover(file) {
+    setPicking(true)
+    const r = await upload(`/anthologies/${anthology.id}/cover`, file)
+    setPicking(false)
+    if (!r.ok) return setError(errText(r, t('error.upload.generic')))
+    setError('')
+    onChanged()
+  }
+  async function removeCover() {
+    setPicking(true)
+    const r = await json('DELETE', `/anthologies/${anthology.id}/cover`)
+    setPicking(false)
+    if (!r.ok) return setError(errText(r, t('error.remove.cover')))
+    onChanged()
+  }
+  return (
+    <FormModal open title={t('anthologies.front.title')} onClose={onCancel} dirty={dirty}>
+      <FrontFields
+        anthology={anthology}
+        epigraph={epigraph}
+        setEpigraph={setEpigraph}
+        dedication={dedication}
+        setDedication={setDedication}
+        error={error}
+        busy={busy}
+        onSubmit={submit}
+        onPick={pickCover}
+        onRemove={removeCover}
+        picking={picking}
+      />
+    </FormModal>
+  )
+}
+
 // MOVE TO… a numbered passage, for the anthology too long to drag across.
 function MoveToFields({ n, setN, max, onSubmit }) {
   const valid = Number.isInteger(n) && n >= 1 && n <= max
@@ -1527,6 +1618,7 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
   const [entries, setEntries] = useState(null)
   // The reader's own headings (0089), in the entries' position space.
   const [sections, setSections] = useState([])
+  const [fronting, setFronting] = useState(false)
   const [sectioning, setSectioning] = useState(null) // {section} while the dialog is open; section null = a new one
   const [unsectioning, setUnsectioning] = useState(null)
   // WHAT WAS TAKEN OUT (0088), listed under the entries with a way back. Null until read; a
@@ -1903,6 +1995,19 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
         </div>
       )}
 
+      {/* THE FRONT MATTER OPENS THE DOCUMENT, in a printed book's order: the cover, the dedication, the
+          epigraph, then the introduction. Each draws only when there is one, so an anthology without them
+          reads as it always did. */}
+      {(anthology?.cover_path || anthology?.dedication || anthology?.epigraph) && (
+        <div className="anthology-front" data-testid="anthology-front">
+          {anthology.cover_path && (
+            <img className="anthology-cover" src={apiURL(`/covers/${anthology.cover_path}`)} alt={t('anthologies.front.cover.alt')} />
+          )}
+          {anthology.dedication && <p className="anthology-dedication">{anthology.dedication}</p>}
+          {anthology.epigraph && <blockquote className="anthology-epigraph">{anthology.epigraph}</blockquote>}
+        </div>
+      )}
+
       {anthology?.intro && (
         <Card className="mt-2">
           <p className="anthology-prose">{anthology.intro}</p>
@@ -1914,6 +2019,9 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
         <div className="anthology-tools no-print">
           <GhostButton icon={<IconPlus />} onClick={() => setSectioning({ section: null })}>
             {t('anthologies.section.add.label')}
+          </GhostButton>
+          <GhostButton icon={<IconEdit />} onClick={() => setFronting(true)}>
+            {t('anthologies.front.label')}
           </GhostButton>
           <label className="flex items-center gap-2">
             <MonoLabel>{t('anthologies.group.label')}</MonoLabel>
@@ -2092,6 +2200,14 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
           current={slots.filter((sl) => sl.type === 'entry').findIndex((sl) => sameEntry(sl.entry, moving)) + 1}
           onMove={(n) => moveTo(moving, n)}
           onCancel={() => setMoving(null)}
+        />
+      )}
+      {fronting && anthology && (
+        <FrontDialog
+          anthology={anthology}
+          onSaved={() => { setFronting(false); reload() }}
+          onChanged={reload}
+          onCancel={() => setFronting(false)}
         />
       )}
       {sectioning && <SectionDialog initial={sectioning.section} onSave={saveSection} onCancel={() => setSectioning(null)} />}

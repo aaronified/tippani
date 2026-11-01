@@ -366,6 +366,65 @@ func cleanSection(title, prose string) (string, string, string) {
 	return title, prose, ""
 }
 
+// FRONT MATTER (0090): the epigraph and the dedication, and removing the cover. Their own routes, for
+// the reason the grouping has one: the full-state PUT would be cleared by any form that had not
+// heard of them.
+const anthologyFrontMax = 1000
+
+// PUT /anthologies/{id}/front — the epigraph and the dedication, each a line or a few.
+func (s *Server) handleAnthologyFront(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathID(r)
+	if !ok {
+		writeErr(w, http.StatusBadRequest, "bad anthology id")
+		return
+	}
+	var body struct {
+		Epigraph   string `json:"epigraph"`
+		Dedication string `json:"dedication"`
+	}
+	if !decodeBody(w, r, &body) {
+		return
+	}
+	body.Epigraph, body.Dedication = trimProse(body.Epigraph), trimProse(body.Dedication)
+	if len([]rune(body.Epigraph)) > anthologyFrontMax || len([]rune(body.Dedication)) > anthologyFrontMax {
+		writeErr(w, http.StatusBadRequest, "the epigraph and the dedication are at most "+strconv.Itoa(anthologyFrontMax)+" characters each")
+		return
+	}
+	uid := userID(r)
+	res, err := s.Store.DB.Exec(`UPDATE anthologies SET epigraph = ?, dedication = ?, updated_at = datetime('now')
+	                            WHERE id = ? AND user_id = ?`, body.Epigraph, body.Dedication, id, uid)
+	if err != nil {
+		internalError(w, r, "set front matter", err)
+		return
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		writeErr(w, http.StatusNotFound, "anthology not found")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// DELETE /anthologies/{id}/cover — take the picture off, and delete its file.
+func (s *Server) handleRemoveAnthologyCover(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathID(r)
+	if !ok {
+		writeErr(w, http.StatusBadRequest, "bad anthology id")
+		return
+	}
+	uid := userID(r)
+	var old sql.NullString
+	if err := s.Store.DB.QueryRow(`SELECT cover_path FROM anthologies WHERE id = ? AND user_id = ?`, id, uid).Scan(&old); err != nil {
+		writeErr(w, http.StatusNotFound, "anthology not found")
+		return
+	}
+	if _, err := s.Store.DB.Exec(`UPDATE anthologies SET cover_path = NULL, updated_at = datetime('now') WHERE id = ? AND user_id = ?`, id, uid); err != nil {
+		internalError(w, r, "remove cover", err)
+		return
+	}
+	s.removeCoverFile(old.String)
+	w.WriteHeader(http.StatusNoContent)
+}
+
 // anthologyGroupings is the vocabulary of how consecutive passages are grouped under a header.
 var anthologyGroupings = map[string]bool{"": true, "work": true, "person": true, "character": true}
 

@@ -737,6 +737,9 @@ type stagedQuoteRow struct {
 	// 0089: the section that begins at this quote, when the file had a heading before it.
 	AnthologySection      string `json:"anthology_section,omitempty"`
 	AnthologySectionProse string `json:"anthology_section_prose,omitempty"`
+	// 0090: the anthology's epigraph and dedication, on every row of an imported file.
+	AnthologyEpigraph   string `json:"anthology_epigraph,omitempty"`
+	AnthologyDedication string `json:"anthology_dedication,omitempty"`
 }
 
 // handleListStaged answers the pending queue: every batch, every work, and the
@@ -1040,7 +1043,7 @@ func (s *Server) listStagedQuotes(w http.ResponseWriter, r *http.Request, uid, b
 	             COALESCE(q.translation, ''),
 	             q.region, q.recipient, q.work_title, q.locator, q.source_author, q.occasion_circa,
 	             COALESCE(q.anthology, ''), COALESCE(q.anthology_note, ''),
-	             COALESCE(q.anthology_intro, ''), COALESCE(q.anthology_section, ''), COALESCE(q.anthology_section_prose, '')` + from + ` ORDER BY w.batch_id DESC, q.staged_work_id, q.id`
+	             COALESCE(q.anthology_intro, ''), COALESCE(q.anthology_section, ''), COALESCE(q.anthology_section_prose, ''), COALESCE(q.anthology_epigraph, ''), COALESCE(q.anthology_dedication, '')` + from + ` ORDER BY w.batch_id DESC, q.staged_work_id, q.id`
 	if !applyPaging(w, r, &q, &args) {
 		return nil, 0, nil
 	}
@@ -1061,7 +1064,7 @@ func (s *Server) listStagedQuotes(w http.ResponseWriter, r *http.Request, uid, b
 			&sq.Speaker, &sq.Occasion, &sq.OccasionDate, &sq.Place, &sq.Medium, &sq.Kind,
 			&sq.Category, &sq.Language, &sq.Translation,
 			&sq.Region, &sq.Recipient, &sq.WorkTitle, &sq.Locator, &sq.SourceAuthor, &sq.OccasionCirca,
-			&sq.Anthology, &sq.AnthologyNote, &sq.AnthologyIntro, &sq.AnthologySection, &sq.AnthologySectionProse); err != nil {
+			&sq.Anthology, &sq.AnthologyNote, &sq.AnthologyIntro, &sq.AnthologySection, &sq.AnthologySectionProse, &sq.AnthologyEpigraph, &sq.AnthologyDedication); err != nil {
 			olog.Warnf(olog.CodeImportRowScan, "[import] staged quote row scan failed: %v", err)
 			continue
 		}
@@ -1704,7 +1707,7 @@ func loadStagedForApproval(tx *sql.Tx, picked stagedSelection) ([]stagedWorkForA
 			       COALESCE(q.category, 'other'), COALESCE(q.language, ''), COALESCE(q.translation, ''),
 			       q.region, q.recipient, q.work_title, q.locator, q.occasion_circa,
 			       COALESCE(q.anthology, ''), COALESCE(q.anthology_note, ''),
-			       COALESCE(q.anthology_intro, ''), COALESCE(q.anthology_section, ''), COALESCE(q.anthology_section_prose, '')
+			       COALESCE(q.anthology_intro, ''), COALESCE(q.anthology_section, ''), COALESCE(q.anthology_section_prose, ''), COALESCE(q.anthology_epigraph, ''), COALESCE(q.anthology_dedication, '')
 			  FROM staged_quotes q
 			 WHERE q.id IN (`+inClause(len(batch))+`)
 			 ORDER BY q.id`, int64sAsAny(batch)...)
@@ -1721,7 +1724,7 @@ func loadStagedForApproval(tx *sql.Tx, picked stagedSelection) ([]stagedWorkForA
 				&sq.Speaker, &sq.Occasion, &sq.OccasionDate, &sq.Place, &sq.Medium, &sq.Kind,
 				&sq.Category, &sq.Language, &sq.Translation,
 				&sq.Region, &sq.Recipient, &sq.WorkTitle, &sq.Locator, &sq.OccasionCirca,
-				&sq.Anthology, &sq.AnthologyNote, &sq.AnthologyIntro, &sq.AnthologySection, &sq.AnthologySectionProse); err != nil {
+				&sq.Anthology, &sq.AnthologyNote, &sq.AnthologyIntro, &sq.AnthologySection, &sq.AnthologySectionProse, &sq.AnthologyEpigraph, &sq.AnthologyDedication); err != nil {
 				return err
 			}
 			sq.Tags = splitStoredList(tags)
@@ -1809,7 +1812,7 @@ func stagedAsUtterances(quotes []stagedQuoteRow) []importer.Utterance {
 			Locator: q.Locator, OccasionCirca: q.OccasionCirca, // 0047
 			SourceAuthor: q.SourceAuthor, // 0070
 			Color:        q.Color, Tags: q.Tags, Favorite: q.Favorite, NotedAt: q.NotedAt,
-			Anthology: q.Anthology, AnthologyNote: q.AnthologyNote, AnthologyIntro: q.AnthologyIntro, AnthologySection: q.AnthologySection, AnthologySectionProse: q.AnthologySectionProse,
+			Anthology: q.Anthology, AnthologyNote: q.AnthologyNote, AnthologyIntro: q.AnthologyIntro, AnthologySection: q.AnthologySection, AnthologySectionProse: q.AnthologySectionProse, AnthologyEpigraph: q.AnthologyEpigraph, AnthologyDedication: q.AnthologyDedication,
 		})
 	}
 	return out
