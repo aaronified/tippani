@@ -1223,6 +1223,7 @@ shell.search.context.leave.aria = Searching {where}; press to search your whole 
 # the bar and the screen cannot come to disagree about what a place is called.
 shell.search.where.settings = settings
 shell.search.where.works = works and films
+shell.search.where.marks = stray marks
 shell.search.where.characters = characters in this library
 shell.search.where.people = people in this library
 # The system logs card in Settings › Jobs takes the bar while that section is open.
@@ -4440,6 +4441,9 @@ cleanup.row.times = ×{n}
 cleanup.row.open.tip = Open this work
 cleanup.row.open.aria = Open {label}
 cleanup.row.no-work.label = a quote of its own
+cleanup.state.no-match = No stray marks match “{q}”.
+cleanup.group.fold.aria = Hide the quotes of {label}
+cleanup.group.unfold.aria = Show the quotes of {label}
 cleanup.filter.all.label = All
 error.cleanup.generic = could not read the library
 
