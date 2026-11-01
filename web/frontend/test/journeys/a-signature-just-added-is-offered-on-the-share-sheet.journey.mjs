@@ -41,6 +41,9 @@ it('a signature given to a speaker is on the share sheet of their quote at once'
   await app.see('No signature yet')
   await app.upload('Upload signature', SIGNATURE)
   await app.see('Ink strength')
+  // Save stays off until the cleaned picture is in (the sheet says loading… until then). Pressing it before
+  // that does nothing, and on a slow runner the picture is not there yet: the failure CI kept showing.
+  await app.gone('loading…')
   await app.press('Save')
   await app.see('Remove signature')
   await app.pressKey('Escape')

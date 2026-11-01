@@ -52,6 +52,9 @@ it.skipIf(!reachable)('Fetch from Wikidata offers the signature it found, and ke
   await app.press('Fetch from Wikidata')
   // The dialog opens on the CLEANED signature and keeps nothing until it is saved.
   await app.see('Ink strength')
+  // Save stays off until the cleaned picture is in (the sheet says loading… until then). Pressing it before
+  // that does nothing, and on a slow runner the picture is not there yet: the failure CI kept showing.
+  await app.gone('loading…')
   await app.see('Signature — Rabindranath Tagore')
   await app.see('No signature yet') // still: nothing is kept until the tick
 
