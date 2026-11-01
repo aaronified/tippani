@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Internal
 
+- **The back-key journey waits for the phone to arrive before it reads the address.** Going back
+  is asynchronous, so on a busy runner it read the screen it had just left; it was the flaky
+  `journeys (3)` on three runs.
+
 - **The context-rule test waits for the slider to draw its new stop before releasing it.** On a
   busy CI runner the release landed first and committed the old value, so the prompt it waits
   for never came.
