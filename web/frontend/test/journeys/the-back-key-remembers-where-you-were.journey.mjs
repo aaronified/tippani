@@ -43,6 +43,16 @@ const app = openApp({ viewport: PHONE })
 // costs a thumb — and it is worth spelling out that the drawer is itself an
 // overlay with a history entry of its own. Those entries are exactly what makes
 // the distance between two screens bigger than the number of screens.
+// WHERE THE PHONE IS ONCE IT HAS ARRIVED. Going back is asynchronous (history.go, then popstate), so the
+// address read the instant a press returns can still be the old one: a journey that asserted it at once failed
+// on a busy CI runner (and passed everywhere else) with the screen it had just left. Wait for the address to
+// leave `from`, then say where it landed, so a wrong destination still fails on the destination and not on a
+// timeout.
+async function landedFrom(from) {
+  await app.page.waitForFunction((p) => !location.pathname.endsWith(p), { timeout: 10000 }, from)
+  return app.page.url()
+}
+
 async function walkTo(name) {
   await app.press('Menu')
   await app.press(name)
@@ -62,13 +72,14 @@ it('a reader holds Back, picks a screen from earlier, and their phone carries on
 
   // The screens behind, by name, offered over the key that was held.
   await app.press('Quotes')
+  await app.page.waitForFunction(() => location.pathname.endsWith('/quotes'), { timeout: 10000 })
   expect(app.page.url()).toMatch(/\/quotes$/)
 
   // AND NOW THE CLAUSE THE WHOLE THING IS FOR. Quotes was reached by stepping over
   // Metadata and Settings, so what is behind Quotes is the shelf — not the screens
   // that were skipped. One press of the key, unheld.
   await app.press('Back')
-  expect(app.page.url(), 'the phone\'s Back went back into a screen the reader had just stepped over').toMatch(/\/library$/)
+  expect(await landedFrom('/quotes'), 'the phone\'s Back went back into a screen the reader had just stepped over').toMatch(/\/library$/)
 
   expect(app.pageErrors(), 'the page threw on the way').toEqual([])
 })
@@ -101,7 +112,7 @@ it('offers nothing where Back is live but nothing of ours is behind', async () =
   // which is the proof that the silence above was the empty list and not a dead
   // control.
   await app.press('Back')
-  expect(app.page.url()).toMatch(/\/library$/)
+  expect(await landedFrom(new URL(work, 'http://x').pathname)).toMatch(/\/library$/)
 
   expect(app.pageErrors(), 'the page threw on the way').toEqual([])
 })
