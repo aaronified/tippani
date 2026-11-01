@@ -198,3 +198,131 @@ func TestAnAnthologyWithNoFrontMatterExportsAsItDid(t *testing.T) {
 		t.Errorf("a cover was invented: %s", raw)
 	}
 }
+
+// A WORK'S IDENTITY IN THE FILE, and finding it again on import (0091).
+
+const meditations = "9780140449334"
+
+func bookWithISBN(t *testing.T, c *testClient, title, isbn string) int64 {
+	t.Helper()
+	b := decode[bookDetail](t, c.mustDo("POST", "/books", map[string]any{"title": title, "author": "Marcus Aurelius", "isbn": isbn}, http.StatusCreated))
+	return b.ID
+}
+
+func highlight(t *testing.T, c *testClient, book int64, quote string) int64 {
+	t.Helper()
+	return decode[annotationRow](t, c.mustDo("POST", "/annotations", map[string]any{"book_id": book, "quote": quote}, http.StatusCreated)).ID
+}
+
+func TestTheMarkdownNamesTheWorkByItsIdentifiers(t *testing.T) {
+	c := signupAdmin(t, newTestServer(t).Handler())
+	book := bookWithISBN(t, c, "Meditations", meditations)
+	ann := highlight(t, c, book, "Waste no more time arguing.")
+	standalone := decode[struct{ ID int64 }](t, c.mustDo("POST", "/quotes", map[string]any{"quote": "A loose line."}, http.StatusCreated)).ID
+	an := newAnthology(t, c, "Ids")
+	addEntries(t, c, an.ID, []map[string]any{{"kind": "book", "item_id": ann}, {"kind": "utterance", "item_id": standalone}})
+
+	md := exportAnthology(t, c, an.ID)
+	if !strings.Contains(md, "- work_ids: isbn="+meditations) {
+		t.Errorf("the book's identifier is not in the file:\n%s", md)
+	}
+	if n := strings.Count(md, "work_ids:"); n != 1 {
+		t.Errorf("work_ids is written %d times, want once (the standalone quote has no work)", n)
+	}
+}
+
+func TestAnEntryIsRelinkedToTheQuoteTheLibraryHasWhenTheIdentifierAndTheWordsMatch(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	alice := signupAdmin(t, h)
+	book := bookWithISBN(t, alice, "Meditations", meditations)
+	ann := highlight(t, alice, book, "Waste no more time arguing.")
+	an := newAnthology(t, alice, "Mine")
+	addEntries(t, alice, an.ID, []map[string]any{{"kind": "book", "item_id": ann}})
+	md := exportAnthology(t, alice, an.ID)
+
+	bob := addUser(t, h, alice, "bob")
+	bobsBook := bookWithISBN(t, bob, "Meditations (his copy)", meditations)
+	bobsAnn := highlight(t, bob, bobsBook, "Waste no more time arguing.")
+
+	staged := stageQuotesMD(t, bob, "mine.md", md)
+	ans := decode[map[string]any](t, bob.mustFollow("POST", "/import/staged/approve", map[string]any{"batch_id": staged.BatchID}, http.StatusOK))
+	if got, _ := ans["quotes_relinked"].(float64); got != 1 {
+		t.Errorf("quotes_relinked = %v, want 1", ans["quotes_relinked"])
+	}
+	list := listAnthologies(t, bob)
+	d := getAnthology(t, bob, list[0].ID)
+	if len(d.Entries) != 1 || d.Entries[0].Kind != "book" || d.Entries[0].ItemID != bobsAnn {
+		t.Errorf("the entry is %+v, want his own highlight %d", d.Entries, bobsAnn)
+	}
+	var utterances int
+	if err := srv.Store.DB.QueryRow(`SELECT COUNT(*) FROM utterances WHERE user_id = (SELECT id FROM users WHERE username = 'bob')`).Scan(&utterances); err != nil || utterances != 0 {
+		t.Errorf("a standalone copy was made (%d utterances, err %v)", utterances, err)
+	}
+}
+
+func TestAnEntryStaysStandaloneWithoutAnExactMatch(t *testing.T) {
+	h := newTestServer(t).Handler()
+	alice := signupAdmin(t, h)
+	book := bookWithISBN(t, alice, "Meditations", meditations)
+	ann := highlight(t, alice, book, "Waste no more time arguing.")
+	an := newAnthology(t, alice, "Mine")
+	addEntries(t, alice, an.ID, []map[string]any{{"kind": "book", "item_id": ann}})
+	md := exportAnthology(t, alice, an.ID)
+
+	// Bob has the book but a different passage of it: the identifier matches, the words do not.
+	bob := addUser(t, h, alice, "bob")
+	bobsBook := bookWithISBN(t, bob, "Meditations", meditations)
+	highlight(t, bob, bobsBook, "Think of the whole of existence.")
+	staged := stageQuotesMD(t, bob, "mine.md", md)
+	ans := decode[map[string]any](t, bob.mustFollow("POST", "/import/staged/approve", map[string]any{"batch_id": staged.BatchID}, http.StatusOK))
+	if got, _ := ans["quotes_relinked"].(float64); got != 0 {
+		t.Errorf("quotes_relinked = %v, want 0", ans["quotes_relinked"])
+	}
+	d := getAnthology(t, bob, listAnthologies(t, bob)[0].ID)
+	if len(d.Entries) != 1 || d.Entries[0].Kind != "utterance" {
+		t.Errorf("the entry is %+v, want a standalone quote", d.Entries)
+	}
+}
+
+func TestAnEntryNamingAWorkTheLibraryLacksStaysStandalone(t *testing.T) {
+	h := newTestServer(t).Handler()
+	alice := signupAdmin(t, h)
+	book := bookWithISBN(t, alice, "Meditations", meditations)
+	ann := highlight(t, alice, book, "Waste no more time arguing.")
+	an := newAnthology(t, alice, "Mine")
+	addEntries(t, alice, an.ID, []map[string]any{{"kind": "book", "item_id": ann}})
+	md := exportAnthology(t, alice, an.ID)
+
+	bob := addUser(t, h, alice, "bob")
+	staged := stageQuotesMD(t, bob, "mine.md", md)
+	approveBatch(t, bob, staged.BatchID)
+	d := getAnthology(t, bob, listAnthologies(t, bob)[0].ID)
+	if len(d.Entries) != 1 || d.Entries[0].Kind != "utterance" {
+		t.Errorf("the entry is %+v, want a standalone quote", d.Entries)
+	}
+}
+
+// GROUP HEADERS in the Markdown, which the importer ignores.
+
+func TestTheMarkdownDrawsOneGroupHeaderPerRunAndAnImporterIgnoresThem(t *testing.T) {
+	h := newTestServer(t).Handler()
+	alice := signupAdmin(t, h)
+	a, b, cq, _ := taggedShelf(t, alice)
+	an := newAnthology(t, alice, "Grouped")
+	addEntries(t, alice, an.ID, []map[string]any{{"kind": "book", "item_id": a}, {"kind": "book", "item_id": b}, {"kind": "book", "item_id": cq}})
+	addSection(t, alice, an.ID, "Break", map[string]any{"kind": "book", "item_id": b})
+	alice.mustDo("PUT", "/anthologies/"+itoa(an.ID)+"/grouping", map[string]any{"group_by": "work"}, http.StatusNoContent)
+
+	md := exportAnthology(t, alice, an.ID)
+	// a, b | [Break] | c: the same work in two runs, because a heading ends a run.
+	if n := strings.Count(md, "### Meditations"); n != 2 {
+		t.Errorf("%d group headers, want 2 (one per run):\n%s", n, md)
+	}
+
+	bob := addUser(t, h, alice, "bob")
+	staged := stageQuotesMD(t, bob, "grouped.md", md)
+	if staged.Staged != 3 {
+		t.Fatalf("staged %d rows, want 3 (a group header is not a passage)", staged.Staged)
+	}
+}

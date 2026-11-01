@@ -40,6 +40,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **An anthology file names the work each passage came from, and an import finds it again.** The
+  Markdown writes the work's identifiers (ISBN or a provider id) beside a passage, and group
+  headers where the anthology is grouped. Importing a file re-links an entry to a quote you
+  already have, only when the work's identifier matches and the words are the same; otherwise it
+  stays a standalone quote, and the import says how many it matched.
+
 - **An anthology has a reading mode, and prints and saves better.** Read opens it as a document
   over the whole app, in book type, closed by its ✕ or Escape. The printed copy has a running
   title and page numbers (where the browser draws them), and Save PDF uses the browser's own

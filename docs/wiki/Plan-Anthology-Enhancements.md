@@ -2,11 +2,11 @@
 
 Source of truth: this wiki page.
 
-Partly built: the removed-entry memory and the Removed list (0088), sections with grouping (0089), drag with Move to…, front matter (0090), reading mode, print and Save PDF are done; the rest is not. Verified against `75e55ae` (main, 28 September 2026; its code is `ee4be1f`'s).
+Partly built: the removed-entry memory and the Removed list (0088), sections with grouping (0089), drag with Move to…, front matter (0090), reading mode, print and Save PDF are done, and the work identity and re-link too. Everything in the plan is built. Verified against `75e55ae` (main, 28 September 2026; its code is `ee4be1f`'s).
 Builds after `episodes.md`, whose extended drag it uses. Each citation is `path:line` and the
 text at that line. Tasks, one per ask:
 
-- [ ] Re-verify before the first edit, then correct what moved:
+- [x] (done 1 November 2026; the migrations are 0088 to 0091) Re-verify before the first edit, then correct what moved:
       `git diff --stat 75e55ae..HEAD -- internal/store/migrations internal/httpapi internal/importer/anthology_markdown.go web/frontend/src/anthologies.jsx web/frontend/src/index.css`,
       then `git grep -n` each quoted anchor below.
 - [x] (done, 0088) Remember a removed entry per anthology, so a rule never re-adds it. Today a removal is a
@@ -22,7 +22,7 @@ text at that line. Tasks, one per ask:
 - [x] (done, 0089) Let the reader insert their own section headings anywhere, with optional prose under each.
 - [x] (done as a display setting; group headers are not in the Markdown export yet) Add automatic grouping by Work, by People, or by Character: each entry gets its group's
       header, and consecutive entries with the same header share one header row.
-- [~] (sections done in Markdown, EPUB and a page break in print; group headers not) Carry sections and group headers into Markdown export (`export_anthology.go:98`
+- [x] (done: sections and group headers in the Markdown, sections in EPUB and print) Carry sections and group headers into Markdown export (`export_anthology.go:98`
       `func renderAnthologyExport(title, intro string, f anthologyFields, entries []anthologyEntryRow) string {`),
       EPUB as chapters, and print (`index.css:10575` `@media print {`).
 - [x] (done) Make "Add N waiting" (`anthologies.jsx:1637`
@@ -32,10 +32,10 @@ text at that line. Tasks, one per ask:
       `` Preview bool `json:"preview"` ``), but only with counts (`anthology_fill.go:84`
       `` Added int `json:"added"` ``): the preview has to return the passages it would add,
       and the fill has to take a list to leave out, which is new server work.
-- [ ] Write each entry's work identity (title, year, ISBN or source id) into the Markdown
+- [x] (done, 0091: identifiers and year, as work_ids and work_year) Write each entry's work identity (title, year, ISBN or source id) into the Markdown
       export, which today writes a book highlight as an attributed passage
       (`export_anthology.go:39` `// A BOOK HIGHLIGHT EXPORTS AS AN ATTRIBUTED PASSAGE, not as a record with an`).
-- [ ] On import (`anthology_markdown.go:57`
+- [x] (done, 0091; the import says how many it matched) On import (`anthology_markdown.go:57`
       `func AnthologyMarkdown(r io.Reader) (Anthology, error) {`), re-link an entry to a work
       already in the library only on an exact match; otherwise keep it standalone, and say
       which in the import summary.
@@ -55,7 +55,7 @@ The owner's answers, 27 September, each a task:
 
 - [x] (done, server side in one transaction) Dragging a section heading carries every passage up to the next heading, as moving a
       chapter would.
-- [ ] "Exact match" on import is an identifier: the same ISBN for a book (`anthology_registry.go:151`
+- [x] (done) "Exact match" on import is an identifier: the same ISBN for a book (`anthology_registry.go:151`
       `{Key: "isbn", Kinds: []string{kindBook}, Binding: "isbn", Label: "common.field.isbn.label"},`),
       the same provider id for any work: a book's `asin`, `google_id` or `openlibrary_id`
       (`0001_init.sql:24` `asin TEXT,`), a screen work's TMDB or TheTVDB id. Anything else
@@ -63,7 +63,7 @@ The owner's answers, 27 September, each a task:
 
 Decided while planning, so the build needs nothing further:
 
-- [ ] In the next migration (`0079_jobs.sql` is the latest at the pin; the number is taken at
+- [x] (done as 0088 removed, 0089 sections and grouping, 0090 front matter, 0091 work reference) In the next migration (`0079_jobs.sql` is the latest at the pin; the number is taken at
       build): a removed table keyed as an entry is (`0043_anthologies.sql:78`
       `PRIMARY KEY (anthology_id, kind, item_id)`), keeping the entry's note and position so
       bringing it back restores both; a sections table in the entries' position space
@@ -115,8 +115,8 @@ Decided while planning, so the build needs nothing further:
 - [x] (done) The reading mode is a full-screen view from the anthology page, closed by its ✕ or
       Escape; the type dials still apply.
 - [x] (done) "Save PDF" opens the browser's print with the print stylesheet, so the text stays text.
-- [ ] Keys in `en.txt` and `bn.txt` together.
-- [ ] Tests: a fill after a removal adds nothing back; bringing one back restores its note and
+- [x] (done) Keys in `en.txt` and `bn.txt` together.
+- [x] (done, in the pull requests; each mutation-checked where it says so) Tests: a fill after a removal adds nothing back; bringing one back restores its note and
       place; a drag and a Move to… land in the same place; a section drag carries its run;
       grouping draws one header per run; Markdown and EPUB round-trip sections and front
       matter; import links on an ISBN and on an ASIN and not on a title; a renumber across a

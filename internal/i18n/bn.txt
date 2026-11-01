@@ -4997,6 +4997,7 @@ staging.flash.updated = {n}টা বদলেছে
 # " · " a third fragment would need.
 staging.flash.approved.added = {n}টা যোগ হয়েছে
 staging.flash.approved.skipped = {n}টা বাদ
+staging.flash.approved.relinked = {n}টা আপনার আগে থেকে থাকা উদ্ধৃতির সঙ্গে মেলানো হল
 staging.flash.approved.enriched = {n}টায় মেটাডেটা এসেছে
 # bn: {total}-এর মধ্যে {done}, settings.jobs.progress's own order
 staging.approving.progress = মেনে নেওয়া চলছে — {total}-এর মধ্যে {done}

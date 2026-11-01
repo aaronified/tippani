@@ -194,8 +194,8 @@ func stageUtterances(tx *sql.Tx, workID int64, us []importer.Utterance) (int, er
 		   speaker, occasion, occasion_date, place, medium, kind,
 		   category, language, translation,
 		   region, recipient, work_title, locator, source_author, occasion_circa, dedupe_hash,
-		   anthology, anthology_note, anthology_intro, anthology_section, anthology_section_prose, anthology_epigraph, anthology_dedication)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		   anthology, anthology_note, anthology_intro, anthology_section, anthology_section_prose, anthology_epigraph, anthology_dedication, anthology_work_ref)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	staged := 0
 	for _, u := range us {
 		color := u.Color
@@ -246,7 +246,7 @@ func stageUtterances(tx *sql.Tx, workID int64, us []importer.Utterance) (int, er
 			// quote either names an anthology or it does not.
 			strings.TrimSpace(u.Anthology), trimProse(u.AnthologyNote), trimProse(u.AnthologyIntro),
 			strings.TrimSpace(u.AnthologySection), trimProse(u.AnthologySectionProse),
-			trimProse(u.AnthologyEpigraph), trimProse(u.AnthologyDedication))
+			trimProse(u.AnthologyEpigraph), trimProse(u.AnthologyDedication), strings.TrimSpace(u.AnthologyWorkRef))
 		if err != nil {
 			return 0, err
 		}
@@ -269,8 +269,8 @@ func stageUtterances(tx *sql.Tx, workID int64, us []importer.Utterance) (int, er
 // validator the CRUD endpoint uses. A date the calendar refuses (30 February)
 // is dropped rather than failing the whole approval: the quote is the thing
 // worth keeping, and a refused date is recoverable by hand.
-func writeUtterances(tx *sql.Tx, uid int64, us []importer.Utterance, seps metadata.CreditSeps) (int, error) {
-	added := 0
+func writeUtterances(tx *sql.Tx, uid int64, us []importer.Utterance, seps metadata.CreditSeps) (int, int, error) {
+	added, relinked := 0, 0
 	// One id reservation for the batch (idBlock, id_floor.go).
 	ids := newIDBlock(tx, "utterances", len(us))
 	// EVERY QUOTE IS FILED (0036). Without this the row lands with a NULL board
@@ -280,7 +280,7 @@ func writeUtterances(tx *sql.Tx, uid int64, us []importer.Utterance, seps metada
 	// the default board is the right answer when the file names none.
 	boardID, err := defaultBoardID(tx, uid)
 	if err != nil {
-		return added, err
+		return added, relinked, err
 	}
 	for _, u := range us {
 		color := u.Color
@@ -288,17 +288,17 @@ func writeUtterances(tx *sql.Tx, uid int64, us []importer.Utterance, seps metada
 			color = "yellow"
 		}
 		if !validColor(color) {
-			return added, importClientError{fmt.Sprintf("invalid color %q", color)}
+			return added, relinked, importClientError{fmt.Sprintf("invalid color %q", color)}
 		}
 		category, err := importCategory(u.Category)
 		if err != nil {
-			return added, err
+			return added, relinked, err
 		}
 		// 0053. The same normalisation the staging path runs, so an approve and a
 		// direct import of one file land on the same value.
 		kind, err := importQuoteKind(u.Kind, u.Medium, u.Category)
 		if err != nil {
-			return added, err
+			return added, relinked, err
 		}
 		occDate := strings.TrimSpace(u.OccasionDate)
 		if occDate != "" {
@@ -317,11 +317,28 @@ func writeUtterances(tx *sql.Tx, uid int64, us []importer.Utterance, seps metada
 		}
 		speaker := strings.TrimSpace(u.Speaker)
 		occasion := strings.TrimSpace(u.Occasion)
+		// RE-LINK, ONLY ON AN EXACT IDENTIFIER (0091). An anthology entry that names the work it came out of
+		// by an ISBN or a provider id the library already has, and whose words are a quote that work already
+		// holds, IS that quote: it goes into the anthology as the library's own highlight and no standalone
+		// copy is made. Any other case stays a standalone quote, as it always has.
+		if u.Anthology != "" && strings.TrimSpace(u.AnthologyWorkRef) != "" {
+			kindFound, idFound, ok, err := relinkTarget(tx, uid, u.AnthologyWorkRef, text)
+			if err != nil {
+				return added, relinked, err
+			}
+			if ok {
+				if err := fileInAnthologyAs(tx, uid, u, kindFound, idFound); err != nil {
+					return added, relinked, err
+				}
+				relinked++
+				continue
+			}
+		}
 		hash := store.UtteranceDedupeHash(text, speaker, occasion, occDate)
 
 		id, err := ids.take()
 		if err != nil {
-			return added, err
+			return added, relinked, err
 		}
 		res, err := tx.Exec(`
 			INSERT OR IGNORE INTO utterances
@@ -342,7 +359,7 @@ func writeUtterances(tx *sql.Tx, uid int64, us []importer.Utterance, seps metada
 			strings.TrimSpace(u.SourceAuthor), u.OccasionCirca,
 			boardID, hash, nullable(u.NotedAt))
 		if err != nil {
-			return added, err
+			return added, relinked, err
 		}
 		n, _ := res.RowsAffected()
 		if n == 0 {
@@ -355,11 +372,11 @@ func writeUtterances(tx *sql.Tx, uid int64, us []importer.Utterance, seps metada
 			if u.Anthology != "" {
 				existing, err := utteranceByHash(tx, uid, hash)
 				if err != nil {
-					return added, err
+					return added, relinked, err
 				}
 				if existing != 0 {
 					if err := fileInAnthology(tx, uid, u, existing); err != nil {
-						return added, err
+						return added, relinked, err
 					}
 				}
 			}
@@ -367,16 +384,16 @@ func writeUtterances(tx *sql.Tx, uid int64, us []importer.Utterance, seps metada
 		}
 		added++
 		if err := store.SyncQuotePerson(tx, uid, store.KindUtterance, id, seps); err != nil {
-			return added, err
+			return added, relinked, err
 		}
 		if err := setTags(tx, "utterance", uid, id, u.Tags); err != nil {
-			return added, err
+			return added, relinked, err
 		}
 		if err := fileInAnthology(tx, uid, u, id); err != nil {
-			return added, err
+			return added, relinked, err
 		}
 	}
-	return added, nil
+	return added, relinked, nil
 }
 
 // utteranceByHash finds the quote an INSERT OR IGNORE collided with, so a
@@ -404,6 +421,12 @@ func utteranceByHash(tx *sql.Tx, uid int64, hash string) (int64, error) {
 // second anthology, which is visible in the list and fixable by renaming, whereas
 // a refused import is a wall.
 func fileInAnthology(tx *sql.Tx, uid int64, u importer.Utterance, itemID int64) error {
+	return fileInAnthologyAs(tx, uid, u, kindUtterance, itemID)
+}
+
+// fileInAnthologyAs is fileInAnthology for a quote of any kind: an imported entry that was re-linked to a
+// highlight or a film line the library already holds goes in as that.
+func fileInAnthologyAs(tx *sql.Tx, uid int64, u importer.Utterance, kind string, itemID int64) error {
 	if strings.TrimSpace(u.Anthology) == "" {
 		return nil
 	}
@@ -446,5 +469,5 @@ func fileInAnthology(tx *sql.Tx, uid int64, u importer.Utterance, itemID int64) 
 			return err
 		}
 	}
-	return addAnthologyEntry(tx, anthologyID, kindUtterance, itemID, u.AnthologyNote)
+	return addAnthologyEntry(tx, anthologyID, kind, itemID, u.AnthologyNote)
 }

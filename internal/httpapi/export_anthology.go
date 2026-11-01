@@ -60,10 +60,10 @@ func (s *Server) handleExportAnthology(w http.ResponseWriter, r *http.Request) {
 	}
 	uid := userID(r)
 	olog.Tracef("[export] anthology uid=%d id=%d", uid, id)
-	var title, intro, epigraph, dedication string
+	var title, intro, epigraph, dedication, groupBy string
 	var fields anthologyFields
-	err := s.Store.DB.QueryRow(`SELECT title, intro, epigraph, dedication, `+anthologyFieldCols+` FROM anthologies WHERE id = ? AND user_id = ?`,
-		id, uid).Scan(append([]any{&title, &intro, &epigraph, &dedication}, fields.scanTargets()...)...)
+	err := s.Store.DB.QueryRow(`SELECT title, intro, epigraph, dedication, group_by, `+anthologyFieldCols+` FROM anthologies WHERE id = ? AND user_id = ?`,
+		id, uid).Scan(append([]any{&title, &intro, &epigraph, &dedication, &groupBy}, fields.scanTargets()...)...)
 	fields.fromRow()
 	if err != nil {
 		// Not found and a read error are one answer here on purpose: an export is a
@@ -77,12 +77,16 @@ func (s *Server) handleExportAnthology(w http.ResponseWriter, r *http.Request) {
 		internalError(w, r, "render anthology export", err)
 		return
 	}
+	if err := s.attachWorkRefs(uid, entries); err != nil {
+		internalError(w, r, "render anthology export", err)
+		return
+	}
 	sections, err := sectionsFor(s.Store.DB, id)
 	if err != nil {
 		internalError(w, r, "render anthology export", err)
 		return
 	}
-	serveMarkdown(w, sanitizeFilename(title)+".md", renderAnthologyExportFront(title, intro, fields, entries, sections, anthologyFront{epigraph, dedication}))
+	serveMarkdown(w, sanitizeFilename(title)+".md", renderAnthologyExportFront(title, intro, fields, entries, sections, anthologyFront{epigraph: epigraph, dedication: dedication, groupBy: groupBy}))
 }
 
 // THE FIELD SWITCHES ARE A FILTER, NOT A SECOND RENDERER (0045). writeQuoteBlock
@@ -126,7 +130,30 @@ func renderAnthologyExportSections(title, intro string, f anthologyFields, entri
 
 // anthologyFront is the reader's epigraph and dedication (0090). The cover is left out of the Markdown, as
 // every image is.
-type anthologyFront struct{ epigraph, dedication string }
+type anthologyFront struct{ epigraph, dedication, groupBy string }
+
+// exportGroup is the name an entry is grouped under for the Markdown, the same rule the page uses
+// (groupKey in anthologies.jsx): empty means it has none to give and draws no header.
+func exportGroup(e anthologyEntryRow, by string) (key, label string) {
+	switch by {
+	case "work":
+		if e.WorkID != 0 {
+			return "w:" + strconv.FormatInt(e.WorkID, 10), e.Source
+		}
+		if e.Source != "" {
+			return "s:" + e.Source, e.Source
+		}
+	case "person":
+		name := e.PersonName
+		if name == "" {
+			name = e.Credit
+		}
+		return name, name
+	case "character":
+		return e.CharacterName, e.CharacterName
+	}
+	return "", ""
+}
 
 // escapeFront makes a prose value fit on one front matter line: a backslash is two, and a line break is
 // backslash-n. The importer's unescapeFront reads it back.
@@ -148,10 +175,22 @@ func renderAnthologyExportFront(title, intro string, f anthologyFields, entries 
 		sb.WriteString("\n")
 	}
 	next := 0
+	lastGroup := ""
 	for i, e := range entries {
 		for next < len(sections) && sections[next].Position < e.Position {
 			writeSection(&sb, sections[next])
 			next++
+			lastGroup = "" // a heading of the reader's ends a run
+		}
+		// A GROUP HEADER STARTS A RUN, as on the page: "### Walden" above the first of a run of one work's
+		// passages. The importer ignores it; it is there for the person reading the file.
+		if key, label := exportGroup(e, front.groupBy); key != "" && key != lastGroup {
+			sb.WriteString("\n### ")
+			sb.WriteString(strings.Join(strings.Fields(label), " "))
+			sb.WriteString("\n")
+			lastGroup = key
+		} else if key == "" {
+			lastGroup = ""
 		}
 		sb.WriteString("\n## ")
 		sb.WriteString(anthologyHeading(e, i, f))
@@ -198,6 +237,13 @@ func renderAnthologyExportFront(title, intro string, f anthologyFields, entries 
 					// a quote that has no occasion — see anthologyHeading.
 					writeBinding(&sb, "work_title", e.WorkTitle)
 				}
+			}
+			// THE WORK'S IDENTITY (0091), written whatever the field switches say: it is what lets an
+			// import find the work again by an identifier and not by a title. Empty for a standalone
+			// quote and for a work with no identifiers, which is why an older anthology exports as before.
+			writeBinding(&sb, "work_ids", e.WorkRef)
+			if e.WorkRef != "" {
+				writeBinding(&sb, "work_year", e.WorkYear)
 			}
 			writeBinding(&sb, "note", note)
 			// The default colour is left out, so a file mentions colour only when one

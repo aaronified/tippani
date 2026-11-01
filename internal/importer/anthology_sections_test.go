@@ -70,3 +70,36 @@ func TestAFileWithNoSectionsParsesAsBefore(t *testing.T) {
 		t.Errorf("entries: %+v", a.Entries)
 	}
 }
+
+func TestAGroupHeaderIsIgnoredAndTheWorkIdentifiersAreRead(t *testing.T) {
+	a, err := AnthologyMarkdown(strings.NewReader(`---
+type: anthology
+title: Ids
+---
+
+### Meditations
+
+## Marcus
+
+A note.
+
+> Waste no more time arguing.
+
+- speaker: Marcus Aurelius
+- work_ids: isbn=9780140449334, asin=B00
+- work_year: 2006
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(a.Entries) != 1 {
+		t.Fatalf("%d entries, want 1", len(a.Entries))
+	}
+	e := a.Entries[0]
+	if e.AnthologyNote != "A note." {
+		t.Errorf("the group header leaked into the commentary: %q", e.AnthologyNote)
+	}
+	if e.AnthologyWorkRef != "isbn=9780140449334, asin=B00" {
+		t.Errorf("work ref = %q", e.AnthologyWorkRef)
+	}
+}

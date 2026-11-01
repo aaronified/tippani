@@ -5118,6 +5118,7 @@ staging.flash.updated = updated {n}
 staging.flash.approved.added = {n} added
 staging.flash.approved.skipped = {n} skipped
 staging.flash.approved.enriched = {n} enriched
+staging.flash.approved.relinked = {n} matched to a quote you already have
 # The approval's bar while it runs, in works written. (From 3.1.0 approving is a
 # job on the server's queue.)
 staging.approving.progress = Approving — {done} of {total}

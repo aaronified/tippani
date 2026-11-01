@@ -20,6 +20,7 @@ package importer
 //	frontmatter          type: anthology, and the anthology's title
 //	prose                everything before the first "## " is the INTRODUCTION
 //	# anything           opens a SECTION: a heading the reader wrote, with prose under it
+//	### anything         a group header (group by): ignored, it is display only
 //	## anything          opens an entry
 //	prose                the commentary that introduces this entry
 //	> the quote          the passage itself
@@ -195,6 +196,10 @@ func AnthologyMarkdown(r io.Reader) (Anthology, error) {
 			prose = nil
 			secTitle = strings.TrimSpace(strings.TrimPrefix(line, "# "))
 			inSec = secTitle != ""
+
+		case strings.HasPrefix(line, "### "):
+			// A GROUP HEADER (the anthology's "group by"): display only, so it is neither the commentary of
+			// the next entry nor the start of one.
 
 		case strings.HasPrefix(line, "## "):
 			// A heading closes the previous entry and opens the next. Any prose
