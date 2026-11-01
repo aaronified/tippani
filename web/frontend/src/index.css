@@ -3615,6 +3615,8 @@
     border-top: 1px solid var(--line); border-radius: 0; margin-top: 3px; padding-top: 8px;
   }
   .token-more:hover { color: var(--accent-ui); background: none; }
+  /* The phone's way out: the menu fills what the keyboard leaves, so there is no page beside it to press. */
+  .token-close { display: flex; align-items: center; gap: 8px; color: var(--soft); border-bottom: 1px solid var(--line); border-radius: 0; margin-bottom: 3px; }
 
   /* An inline editor fades + rises in when it replaces a read view (books/titles);
      annotations use the JS height-morph (EditReveal) so the list glides too. */

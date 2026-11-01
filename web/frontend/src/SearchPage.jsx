@@ -203,6 +203,14 @@ export function SearchBox({ q, setQ, chips, setChips, mobile, draft, options, on
   const menuOpen = valueMenuOpen || fieldMenuOpen
   const { popRef, style } = useAnchoredPosition(menuOpen, boxRef, { matchWidth: true, minHeight: 120 })
   useDismiss(menuOpen, () => setOpen(false), [boxRef, popRef], { event: 'pointerdown' })
+  // BACK CLOSES THE MENU BEFORE IT LEAVES THE PAGE. On a phone the menu fills what the keyboard leaves, so
+  // there is no darkness outside it to press, and the only way out left was Back, which went back a whole
+  // screen. The menu now owns a history entry like every other overlay, and the phone gets a Close row too.
+  useBackToClose(menuOpen, () => setOpen(false))
+  const closeMenu = () => {
+    setOpen(false)
+    inputRef.current?.blur()
+  }
 
   const pick = (opt) => {
     setChips((cs) => addChip(cs, makeChip(draft.field, opt)))
@@ -288,6 +296,14 @@ export function SearchBox({ q, setQ, chips, setChips, mobile, draft, options, on
       </div>
       {menuOpen && createPortal(
         <ul ref={popRef} className="token-menu" style={style}>
+          {mobile && (
+            <li>
+              <button type="button" className="token-opt token-close" onClick={closeMenu}>
+                <IconClose size="1em" />
+                <span>{t('common.action.close.label')}</span>
+              </button>
+            </li>
+          )}
           {valueMenuOpen ? page.map((o, i) => (
             <li key={`${draft.field}:${o.value}`}>
               <button
