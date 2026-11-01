@@ -1197,7 +1197,12 @@ const maxCRUDBody = 64 << 10
 // decodeBody reads a JSON body (capped at maxCRUDBody) into v.
 // On failure it writes a 400 and returns false.
 func decodeBody(w http.ResponseWriter, r *http.Request, v any) bool {
-	r.Body = http.MaxBytesReader(w, r.Body, maxCRUDBody)
+	return decodeBodyMax(w, r, v, maxCRUDBody)
+}
+
+// decodeBodyMax is decodeBody with a cap the route chose, for the few that take a list the reader can make long.
+func decodeBodyMax(w http.ResponseWriter, r *http.Request, v any, limit int64) bool {
+	r.Body = http.MaxBytesReader(w, r.Body, limit)
 	if err := json.NewDecoder(r.Body).Decode(v); err != nil {
 		writeErr(w, http.StatusBadRequest, "invalid JSON body")
 		return false
