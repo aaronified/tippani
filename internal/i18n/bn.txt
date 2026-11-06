@@ -2695,6 +2695,7 @@ anthologies.read.empty = এখানে এখনো কিছু নেই। 
 # One entry. The reader's note reads ABOVE the quote, which is the shape of every
 # anthology ever printed: the editor introduces the piece, then the piece speaks.
 anthologies.entry.more.aria = এই এন্ট্রির জন্য আরও
+anthologies.page.more.aria = এই সংকলনের জন্য আরও
 anthologies.entry.note.title = আপনার নোট
 anthologies.entry.note.body = এই অংশটা এখানে কেন — সেটা। উদ্ধৃতির উপরে ছাপা হয়।
 anthologies.entry.note.placeholder = এই বাক্যটা যে মোড় নেয়।
@@ -2831,6 +2832,9 @@ anthologies.removed.restore.label = ফিরিয়ে আনুন
 anthologies.removed.restore.aria = এই অংশটি সংকলনে ফিরিয়ে আনুন
 anthologies.toast.entry-restored = ফিরিয়ে আনা হয়েছে
 anthologies.rule.waiting = বাকি {n}টা যোগ করুন
+anthologies.fed.by = {what} থেকে নিজে থেকেই ভরে ওঠে
+anthologies.fed.rule = নিজের নিয়মে নিজে থেকেই ভরে ওঠে
+anthologies.chips.aria = প্রতিটি অংশে যা দেখাবে
 anthologies.rule.empty = রুলে মেলানোর মতো কিছু দিন।
 
 anthologies.toast.deleted = সংকলন মোছা হয়েছে

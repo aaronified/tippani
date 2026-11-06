@@ -12,7 +12,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The Files tab on Checks says so when nothing is waiting**, instead of showing a blank page.
   It speaks only once all four of its sections have answered.
 
+### Changed
+
+- **An anthology's page opens like a book.** A cover (your picture, or one set from the title)
+  sits beside the dedication, the epigraph and the introduction. Export, EPUB, Print, Save PDF,
+  the fill rule and Delete move into one menu beside Practise, Read and Edit. A rule that keeps
+  an anthology fed says so on a line with the count of what is waiting, and three of the six
+  field switches (who said it, where it came from, your commentary) are chips on the page.
+
 ### Internal
+
+- CLAUDE.md is trimmed of dated session notes and superseded rules: the cloud install story, the
+  digest history, the rater post-mortem, the old per-push dist rule and the plan-queue text that
+  Plans-Index already holds.
+
+- Docs check: the open-defects register is retired (its one live item moved to Follow-ups), the
+  screen and codebase audits are cut to what is still open, the roadmap drops the shipped
+  anthology and tile entries and says 3.6.2, and the partly built plans say what shipped.
 
 - The share-card contrast test registers the project's own fonts instead of relying on the
   machine's, which made it fail on some CI runners with identical code.
