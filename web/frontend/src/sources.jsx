@@ -283,6 +283,8 @@ export function SourceSection({ kind, item, quotes = 0, version, addAct, onChang
   const [withContext, setWithContext] = useState(null)
   const [tick, setTick] = useState(0)
   const [loadError, setLoadError] = useState('')
+  // True once the work's own file list has been answered, so "no file" is not said while it is in flight.
+  const [loaded, setLoaded] = useState(false)
   const subject = sourceSubject(kind)
   const perEpisode = needsEpisode(kind, item)
   const able = canTakeSource(kind, item)
@@ -296,6 +298,7 @@ export function SourceSection({ kind, item, quotes = 0, version, addAct, onChang
       if (!live) return
       if (r.ok) setRows(r.data?.sources || [])
       setLoadError(r.ok ? '' : sourceFail(r))
+      setLoaded(r.ok)
     })
     contextList(subject, item.id).then((ids) => live && setWithContext(ids.size))
     return () => {
@@ -336,6 +339,12 @@ export function SourceSection({ kind, item, quotes = 0, version, addAct, onChang
         />
       ))}
       {found.error && <LoadFailed text={found.error} onRetry={found.retry} />}
+      {/* WHY THERE IS NO FILE, said on the row that has none. It would have answered issue #62 without
+          anyone reading the database. Not drawn while a file is held or offered, while a scan runs, or
+          before the answer is in. */}
+      {loaded && !held && !found.list.length && found.why && (
+        <p className="microcopy" data-testid="source-why">{t(found.why)}</p>
+      )}
       {found.scanning && (
         <p className="microcopy">
           {t('common.source.scanning')}{' '}
@@ -398,6 +407,20 @@ function readFound() {
 
 const SCAN_POLL_MS = 3000
 
+// whyNoFile — the reason a work has no file, from what the folders and their last scans say, as the
+// i18n key of the sentence. Empty while nothing has been read, and when a scan is running (that has
+// its own line). It answers from the data the panel already has: no new route, and no claim the data
+// cannot back, so a scan that stopped early says it stopped rather than that nothing exists.
+function whyNoFile(data) {
+  if (!data || data.error) return ''
+  if (!data.mounts.length) return 'common.source.why.nofolder'
+  const states = Object.values(data.scans).filter(Boolean).map((s) => s.state)
+  if (states.some((s) => s === 'queued' || s === 'running')) return ''
+  if (!states.length || states.every((s) => s === 'none')) return 'common.source.why.notscanned'
+  if (states.some((s) => s === 'partial' || s === 'failed' || s === 'interrupted')) return 'common.source.why.partial'
+  return 'common.source.why.nomatch'
+}
+
 // useFoundFor — the findings for one work, whether any folder is being scanned, and the
 // two answers. While a scan runs it asks again now and then, so the line goes and new
 // findings arrive without reopening the panel.
@@ -428,6 +451,7 @@ function useFoundFor(subject, workId) {
   return {
     list,
     scanning,
+    why: whyNoFile(data),
     error: data?.error ? t('common.source.found.error', { error: data.error }) : '',
     retry: () => {
       foundRead = null
