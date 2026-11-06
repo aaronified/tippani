@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildModel, clearPortraitCache, drawQuoteCard, loadFaceImages } from '../../src/quoteImage.js'
 import { categoryHex, paletteTheme } from '../../src/theme.js'
-import { createCanvas } from '@napi-rs/canvas'
+import { GlobalFonts, createCanvas } from '@napi-rs/canvas'
+import { createRequire } from 'node:module'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import { ShareDialog, bookShare } from '../../src/share.jsx'
 import { t } from '../../src/i18n.js'
@@ -735,6 +736,22 @@ function lineContrasts(canvas, dark) {
     const rs = core.map((p) => wcag(p.l, p.b)).sort((a, b) => a - b)
     return { top: y0, bottom: y1, contrast: rs[Math.floor(rs.length / 2)] }
   })
+}
+
+// THE CARD IS DRAWN WITH THE PROJECT'S OWN FACES, registered here, and not with whatever the machine
+// has. @napi-rs/canvas paints with system fonts, so a runner image that lacks the card's serif drew
+// no type at all: the band finder then found 0 or 1 lines and the guard below failed on identical
+// code, on some nightly runs and not others. The files are the ones the app ships, from @fontsource.
+const requireFont = createRequire(import.meta.url)
+for (const [pkg, file, family] of [
+  ['newsreader', 'newsreader-latin-400-normal', 'Newsreader'],
+  ['newsreader', 'newsreader-latin-400-italic', 'Newsreader'],
+  ['newsreader', 'newsreader-latin-700-normal', 'Newsreader'],
+  ['ibm-plex-mono', 'ibm-plex-mono-latin-500-normal', 'IBM Plex Mono'],
+  ['ibm-plex-mono', 'ibm-plex-mono-latin-600-normal', 'IBM Plex Mono'],
+  ['caveat', 'caveat-latin-400-normal', 'Caveat'],
+]) {
+  GlobalFonts.registerFromPath(requireFont.resolve(`@fontsource/${pkg}/files/${file}.woff2`), family)
 }
 
 // ---- the card under test ---------------------------------------------------
