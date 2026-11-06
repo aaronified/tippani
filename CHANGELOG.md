@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   check_duplicates and gets a 409 with needs_confirm, as for a film; confirm_new says yes.
   Without check_duplicates, POST /books behaves as before.
 
+- **A work with no file says why, on its Source files row.** No library folder is set up, the
+  folders have not been scanned, the last scan stopped before it finished, or it finished and
+  found nothing for this work. Nothing is said while a file is held or offered, or while a scan
+  runs.
+
 ### Changed
 
 - **An anthology's page opens like a book.** A cover (your picture, or one set from the title)
