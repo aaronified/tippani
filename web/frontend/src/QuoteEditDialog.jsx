@@ -63,7 +63,7 @@ export default function QuoteEditDialog({ kind, id, onClose, onSaved }) {
     // dirty={true}: the tick is the form's save, as on the signature sheet. The forms hold their
     // own draft, so the dialog cannot count what changed, and a badge reading 1 whatever you did
     // would be a number that means nothing. Lit, with no count.
-    <FormModal open onClose={onClose} title={t(spec.title)} dirty>
+    <FormModal open onClose={onClose} title={t(spec.title)} dirty={true}>
       <Suspense fallback={null}>
         {kind === 'book' && <AnnotationForm {...form} />}
         {kind === 'screen' && <DialogueForm {...form} />}
