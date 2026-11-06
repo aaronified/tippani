@@ -37,6 +37,7 @@ import {
 import { ShareDialog, bookShare, copyQuote, movieShare, quoteShare } from './share.jsx'
 import { deleteWithUndo } from './undo.jsx'
 import { actionsFor, useRowSplit } from './actions.jsx'
+import { QuoteSpeakButton } from './speak.jsx'
 import { ANTHOLOGY_KIND, useGatherDoor } from './anthologyGather.jsx'
 import { useStickers } from './stickers.jsx'
 import {
@@ -1546,6 +1547,7 @@ export function FavouriteTile({
                   for. The two branches are exclusive, so the mark still draws
                   exactly once. */}
               <ReviewDot item={f.raw} />
+              <QuoteSpeakButton kind={f.kind} item={f.raw} />
               <QuoteTools actions={row.tools} />
               <span className="ml-auto flex items-center">
                 <QuoteActions actions={row.menu} />
@@ -1650,6 +1652,7 @@ export function FavouriteTile({
                 )}
                 {/* Un-hearting removes the tile — this IS the favourites list. */}
                 <Hearts value={!!f.raw.favorite} onChange={(v) => onPatch({ favorite: v })} />
+                <QuoteSpeakButton kind={f.kind} item={f.raw} />
                 <QuoteTools actions={row.tools} alwaysVisible />
                 {/* `collapsible` because a Home tile is a masonry cell and often
                     narrower than 330px, where six dots become the named list. */}
@@ -1943,6 +1946,7 @@ export function SerendipityCard({ q, onOpen, people = {}, seps, onOpenPerson, ac
           )}
           {acts.length > 0 && (
             <div className="mt-2 flex items-center gap-x-3">
+              <QuoteSpeakButton kind={q.kind} item={q} />
               <QuoteTools actions={row.tools} />
               <span className="ml-auto flex items-center">
                 <QuoteActions actions={row.menu} />

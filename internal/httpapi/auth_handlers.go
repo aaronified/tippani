@@ -483,6 +483,9 @@ type prefs struct {
 	// so German and English — one script — cannot differ, which is exactly what
 	// the owner asked for. See font_scopes.go.
 	FontsByLanguage string `json:"fontsByLanguage"`
+	// VoicesByLanguage: which device voice reads a quote aloud, per language. A JSON object of language
+	// code -> voice name, stored as a string like the tables around it. See font_scopes.go.
+	VoicesByLanguage string `json:"voicesByLanguage"`
 	// FontsByLocale: what the INTERFACE is set in, per UI language. A JSON object
 	// of locale code -> the roles that locale answers differently from the six
 	// flat fields above, which remain the answer for every locale that says
@@ -963,6 +966,11 @@ func (s *Server) loadPrefsFrom(q store.Queryer, uid int64) (prefs, error) {
 	} else {
 		p.FontsByLanguage = ""
 	}
+	if norm, ok := normalizeVoicesByLanguage(p.VoicesByLanguage); ok {
+		p.VoicesByLanguage = norm
+	} else {
+		p.VoicesByLanguage = ""
+	}
 	if norm, ok := normalizeFontsByLocale(p.FontsByLocale); ok {
 		p.FontsByLocale = norm
 	} else {
@@ -1043,6 +1051,7 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 		ReadLanguages       *string  `json:"readLanguages"`
 		TextOrder           *string  `json:"textOrder"`
 		FontsByLanguage     *string  `json:"fontsByLanguage"`
+		VoicesByLanguage    *string  `json:"voicesByLanguage"`
 		FontsByLocale       *string  `json:"fontsByLocale"`
 		FontDisplay         *string  `json:"fontDisplay"`
 		FontUI              *string  `json:"fontUi"`
@@ -1286,6 +1295,15 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 			return
 		}
 		cur.FontsByLanguage = norm
+	}
+	if in.VoicesByLanguage != nil {
+		norm, ok := normalizeVoicesByLanguage(*in.VoicesByLanguage)
+		if !ok {
+			writeErr(w, http.StatusBadRequest,
+				"voicesByLanguage must be a JSON object of language code -> voice name")
+			return
+		}
+		cur.VoicesByLanguage = norm
 	}
 	if in.FontsByLocale != nil {
 		norm, ok := normalizeFontsByLocale(*in.FontsByLocale)

@@ -1128,6 +1128,7 @@ My asks of 28 September, as the build was being merged, and my answers to the tw
 - [ADR-0927](ADR-0927-Main-Is-Protected-And-The-Release-Pushes-With-A-Deploy-Key.md): Main is protected, and the release pushes to it with a deploy key
 - [ADR-0928](ADR-0928-Checks-Is-Three-Tabs-And-Stray-Marks-Group-By-Work.md): Checks is three tabs, and stray marks group by work
 - [ADR-0929](ADR-0929-An-Anthologys-Sections-Share-The-Entries-Position-Space.md): An anthology's sections share the entries' position space
+- [ADR-0930](ADR-0930-A-Quote-Is-Read-Aloud-By-The-Browsers-Own-Speech-From-A-Press.md): A quote is read aloud by the browser's own speech, from a press
 - [ADR-0931](ADR-0931-The-Android-App-Lives-In-Its-Own-Repository.md): The Android app lives in its own repository
 
 See also: [Design decisions](Design-decisions.md) · [Home](Home.md)

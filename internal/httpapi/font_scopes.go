@@ -28,6 +28,7 @@ package httpapi
 
 import (
 	"encoding/json"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -39,7 +40,10 @@ const (
 	// tables. The locale bound is smaller because a UI language is a FILE an
 	// operator put on disk, and i18n already reads at most 64 of those.
 	fontsByLanguageMax = 64
-	fontsByLocaleMax   = 32
+	// voicesByLanguage is a table of the same kind and the same bound: one row per language a reader
+	// has chosen a voice for.
+	voicesByLanguageMax = 64
+	fontsByLocaleMax    = 32
 	// Six roles, each with a face and a style list. Anything longer is not a
 	// picker's output.
 	fontsPerLocaleMax = 12
@@ -96,6 +100,52 @@ func normalizeFontsByLanguage(raw string) (string, bool) {
 			continue
 		}
 		out[key] = tok
+	}
+	return marshalOrEmpty(out)
+}
+
+// voiceNameMaxRunes bounds a stored voice name. A device's voice names are short ("Google UK English
+// Female", "Microsoft Heera - English (India)"); this is generous and still not a corpus.
+const voiceNameMaxRunes = 200
+
+// languageCodeRE is the shape of a key in voicesByLanguage: a BCP 47 tag as the client's languageFor
+// answers it, "bn" or "pt-BR". The shape is checked and the code is not looked up, for the reason
+// normalizeFontsByLocale gives: the set of languages a device can speak is the device's.
+var languageCodeRE = regexp.MustCompile(`^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8}){0,2}$`)
+
+// normalizeVoicesByLanguage round-trips the READ-ALOUD table: language code -> the name of the voice
+// this reader chose for it on a device.
+//
+// THE NAME IS THE DEVICE'S AND IS NOT VALIDATED AGAINST ANYTHING: a reader on a phone and a reader on a
+// laptop have different voices, and the same account is both. A name the current device does not have
+// is not an error; the player falls back to the device's own default for that language, and the row
+// stays for the device that has it. AN EMPTY NAME IS DROPPED, as an empty face is: it means "the
+// device's default", which is the absence of a choice.
+func normalizeVoicesByLanguage(raw string) (string, bool) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return "", true
+	}
+	var in map[string]string
+	if err := json.Unmarshal([]byte(raw), &in); err != nil {
+		return "", false
+	}
+	if len(in) > voicesByLanguageMax {
+		return "", false
+	}
+	out := map[string]string{}
+	for _, code := range sortedKeys(in) {
+		if !languageCodeRE.MatchString(code) {
+			return "", false
+		}
+		name := strings.TrimSpace(in[code])
+		if len([]rune(name)) > voiceNameMaxRunes {
+			return "", false
+		}
+		if name == "" {
+			continue
+		}
+		out[strings.ToLower(code)] = name
 	}
 	return marshalOrEmpty(out)
 }

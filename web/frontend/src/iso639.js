@@ -37,8 +37,9 @@
 // behaviour for a script with no dedicated stack: it falls back to the text face, as
 // it does today.
 //
-// It is a leaf: no imports at all, and ONE importer — `languages.jsx`, which reads
-// it for a language's mark and its glyph tray. Everything else reaches it through
+// It is a leaf: no imports at all, and TWO importers — `languages.jsx`, which reads
+// it for a language's mark and its glyph tray, and `speech.js`, which resolves a quote's language to the
+// tag the browser speaks it in. Everything else reaches it through
 // there (a proverb board's cover letter is `glyphFor`, which boards.jsx re-exports),
 // so there is one place that decides what a stored value resolves to. `fonts.js` is
 // downstream of neither. The combobox on the capture and work fields is the next

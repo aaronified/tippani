@@ -7,7 +7,7 @@ It is generated from the glossary catalogue, `web/frontend/scripts/glossary/cata
 when a component has no entry, so a rename or a new control updates this page or fails the build. Each entry names the file
 that defines it.
 
-218 entries in 22 sections.
+220 entries in 22 sections.
 
 ## Shell
 
@@ -1768,5 +1768,17 @@ A film or show underway. Phosphor `monitor-play`. A shelf mark is the ON state o
 *Defined in:* IconPlaying — ui.jsx · rule 1 · the ON state of a pair
 
 A game underway. Phosphor `game-controller`. New. ReadingBadge computed isGame for its aria-label and then drew the film glyph.
+
+### IconPlayAloud
+
+*Defined in:* IconPlayAloud — ui.jsx · read aloud
+
+A ring with a triangle: read this quote aloud with the browser's own speech. Phosphor `play-circle`. Deliberately not the watching glyph (a screen with a triangle, which means a show). Not drawn where the device has no voices.
+
+### IconStopAloud
+
+*Defined in:* IconStopAloud — ui.jsx · read aloud
+
+A ring with a square: stop reading. Phosphor `stop-circle`. It replaces the play glyph on the passage that is speaking.
 
 See also: [Developing](Developing.md) · [Home](Home.md)

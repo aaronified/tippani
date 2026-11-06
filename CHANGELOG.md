@@ -12,10 +12,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The Files tab on Checks says so when nothing is waiting**, instead of showing a blank page.
   It speaks only once all four of its sections have answered.
 
+- **The ✓ on the quote edit dialog and the signature sheet no longer shows a badge that always
+  reads 1.** It lights when you can save and carries a count only on forms that count their
+  changes.
+
 - **The quote form no longer shows a Board heading with nothing under it** when you have no
   boards, or while they are loading.
 
 ### Added
+
+- **A paired phone can tell which device it is.** The device list marks the device that asked,
+  so the Android app can say "this phone" and refuse to revoke itself by mistake. API revision
+  9; nothing an older client reads changed.
 
 - **Adding a book whose title you already have asks first.** A same-title look-alike (the
   subtitle after a colon is ignored) is shown with its author, and Add it anyway adds a separate
@@ -53,6 +61,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The share-card contrast test registers the project's own fonts instead of relying on the
   machine's, which made it fail on some CI runners with identical code.
+
+### Added
+
+- **Quotes can be read aloud.** A play button on every quote card, on Home's cards, on an
+  anthology's entries and on the practise screens speaks the quote in its own language, with the
+  browser's own voices: no service, no download, and nothing speaks until you press it.
+  Anthologies and boards have Read aloud in their header, which speaks the whole thing in order
+  (an anthology's intro, notes and credits too, unless its switches hide them), with next and
+  stop on the passage playing. Pick a voice per language in the Language editor in Metadata. The
+  buttons are not drawn on a device with no voices.
 
 ### Fixed
 

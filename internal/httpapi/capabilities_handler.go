@@ -103,7 +103,13 @@ import (
 //	third kind, now reachable on the two kinds most libraries are made of. The
 //	feature string is how such a client can know to leave those quotes alone
 //	rather than probing a response shape for a field it has never heard of.
-const apiRevision = 8
+//
+// 9 — a device knows which device it is. `GET /auth/devices`, asked with a device
+//
+//	token, marks that device's own row `current: true`, so the Android app can show
+//	"this phone" and refuse to revoke itself by mistake. A browser session marks
+//	none. Nothing an older client reads changed.
+const apiRevision = 9
 
 // apiFeatures names what this server can do, so a client can light up or hide a
 // screen instead of probing for a 404. Names are stable once published: an old
@@ -193,6 +199,7 @@ var apiFeatures = []string{
 	// been taught the other two — and because a full-state PUT from a client that
 	// has not heard of this one silently clears the field. See revision 8.
 	"quote-translation", // `translation` on /annotations and /dialogues too
+	"device-current",    // GET /auth/devices marks the caller's own device `current`
 }
 
 // minClientRevision is the oldest client API revision this server still serves
