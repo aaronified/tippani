@@ -2714,6 +2714,7 @@ anthologies.read.empty = Nothing here yet. Select quotes in the Library, Catalog
 # One entry. The reader's note reads ABOVE the quote, which is the shape of every
 # anthology ever printed: the editor introduces the piece, then the piece speaks.
 anthologies.entry.more.aria = More for this entry
+anthologies.page.more.aria = More for this anthology
 anthologies.entry.note.title = Your note
 anthologies.entry.note.body = What this passage is doing here. It reads above the quote.
 anthologies.entry.note.placeholder = The turn this line makes.
@@ -2886,6 +2887,9 @@ anthologies.toast.entry-restored = brought back
 # thing to do with "12 waiting" is take them, and a label that only announced
 # would need a button beside it saying what this one already says.
 anthologies.rule.waiting = Add {n} waiting
+anthologies.fed.by = Kept fed by {what}
+anthologies.fed.rule = Kept fed by its rule
+anthologies.chips.aria = Show on each passage
 anthologies.rule.empty = Give the rule something to match.
 # WHAT THE FORM'S FOURTH DOOR SAYS. The rule IS the search's own query string —
 # 0075 chose that format so a person could read it and paste it into the search bar

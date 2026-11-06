@@ -41,11 +41,13 @@ A plan the owner has not placed in the queue yet.
 
 ## Left out of the queue by the owner
 
-- [Atrium, the glass material set](Plan-Atrium-Liquid-Glass.md)
+- [Atrium, the glass material set](Plan-Atrium-Liquid-Glass.md): partly built; the opt-in True glass lens and saving the set
+  shipped, the set itself did not.
 - [Admin and profile](Plan-Admin-And-Profile.md)
-- [Nightly backup](Plan-Nightly-Backup.md): needs something that wakes up at four in the morning, and the standing invariant is that
+- [Nightly backup](Plan-Nightly-Backup.md): only the last-backup display exists. The rest needs something that wakes up at four in the morning, and the standing invariant is that
   nothing wakes on a timer.
-- [Prefetch and loaders](Plan-Prefetch-And-Loaders.md): a discussion rather than a design.
+- [Prefetch and loaders](Plan-Prefetch-And-Loaders.md): a discussion rather than a design; the image loader shipped, client
+  prefetch did not.
 
 ## Audits and lists
 
@@ -53,9 +55,8 @@ Not features. The found-and-unfixed halves of adversarial passes, and what a rel
 test and a changelog entry; an unfixed one leaves nothing, so these are where it is written down. Each retires when its list is
 empty.
 
-- [Screen audit](Plan-Screen-Audit.md): every screen, each finding handed to a second reader.
-- [Codebase audit](Plan-Codebase-Audit.md): duplications, latent defects, and what the tests do not guard.
-- [Open defects](Plan-Open-Defects.md): every flaw found in the source-file work and elsewhere, with its evidence and its state.
-- [Follow-ups](Plan-Follow-Ups.md): what is left over from a release's task list, one line per task.
+- [Screen audit](Plan-Screen-Audit.md): one open finding and five unconfirmed.
+- [Codebase audit](Plan-Codebase-Audit.md): two things to build, two to decide, and the design departures nobody has ruled on.
+- [Follow-ups](Plan-Follow-Ups.md): what is left over from a release's task list, one line per task, and the known limit of the source sweeps.
 
 See also: [Roadmap](Roadmap.md) · [ADR Index](ADR-Index.md) · [Home](Home.md)

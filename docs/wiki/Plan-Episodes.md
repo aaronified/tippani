@@ -14,7 +14,7 @@ citation is `path:line` and the text at that line. Tasks, one per ask:
 
 The design, each a task:
 
-- [ ] In the next migration (`0079_jobs.sql` is the latest at the pin; the number is taken
+- [ ] In the next migration (`0091` is the latest as of 6 November 2026, so the next is `0092`; at the original pin `0079_jobs.sql` was the latest; the number is taken
       at build): `episodes (id, movie_id → movies ON DELETE CASCADE, name, overview, air_date,
       source)`; `episode_orders (episode_id → episodes ON DELETE CASCADE, kind, season,
       episode, UNIQUE (episode_id, kind))`; and `movies.episode_order TEXT NOT NULL DEFAULT ''`,
