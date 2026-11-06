@@ -15,6 +15,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   an ISBN or ASIN a hand-entered book rarely has. The API answers 409 with needs_confirm, as it
   does for a film; confirm_new says yes.
 
+### Internal
+
+- The share-card contrast test registers the project's own fonts instead of relying on the
+  machine's, which made it fail on some CI runners with identical code.
+
 ## [3.6.2] - 2026-11-01
 
 ### Fixed
