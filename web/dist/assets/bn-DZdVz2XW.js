@@ -74,7 +74,7 @@ settings.section.theme.info.body = অ্যাপ হালকা না গা
 settings.section.lang.info.body = অ্যাপ কোন ভাষায় কথা বলবে, কোনো লাইন না থাকলে কোন ভাষায় ফিরবে, আর কোন ফন্টে লেখা দেখাবে।
 settings.section.review.info.body = দৈনিক অনুশীলনী কোন উদ্ধৃতি থেকে প্রশ্ন নেবে, কটা কার্ড, কতটা কঠিন, আর কখন কোনটা আবার ফিরবে।
 settings.section.sections.info.body = অ্যাপের কোন অংশগুলো রাখবেন, আর নেভিগেশনে সেগুলো কোন ক্রমে থাকবে।
-settings.section.server.info.body = কোন সংস্করণ চলছে, ব্যাকআপ, আর প্রতিটা রিলিজে কী বদলেছে।
+settings.section.server.info.body = আপনার অ্যাকাউন্টে জোড়া ফোন, আর অ্যাডমিনের জন্য কোন সংস্করণ চলছে, ব্যাকআপ, আর প্রতিটা রিলিজে কী বদলেছে।
 settings.section.jobs.info.body = কী চলছে, কী অপেক্ষার তালিকায়, আর গত 30 দিনে কী শেষ হল — প্রতিটার সঙ্গে তার লগ। অ্যাডমিন সবার কাজ আর অ্যাপের নিজের লগও দেখতে পান।
 
 settings.section.aria = কোন সেটিংস বদলাবেন
@@ -2695,6 +2695,7 @@ anthologies.read.empty = এখানে এখনো কিছু নেই। 
 # One entry. The reader's note reads ABOVE the quote, which is the shape of every
 # anthology ever printed: the editor introduces the piece, then the piece speaks.
 anthologies.entry.more.aria = এই এন্ট্রির জন্য আরও
+anthologies.page.more.aria = এই সংকলনের জন্য আরও
 anthologies.entry.note.title = আপনার নোট
 anthologies.entry.note.body = এই অংশটা এখানে কেন — সেটা। উদ্ধৃতির উপরে ছাপা হয়।
 anthologies.entry.note.placeholder = এই বাক্যটা যে মোড় নেয়।
@@ -2831,6 +2832,9 @@ anthologies.removed.restore.label = ফিরিয়ে আনুন
 anthologies.removed.restore.aria = এই অংশটি সংকলনে ফিরিয়ে আনুন
 anthologies.toast.entry-restored = ফিরিয়ে আনা হয়েছে
 anthologies.rule.waiting = বাকি {n}টা যোগ করুন
+anthologies.fed.by = {what} থেকে নিজে থেকেই ভরে ওঠে
+anthologies.fed.rule = নিজের নিয়মে নিজে থেকেই ভরে ওঠে
+anthologies.chips.aria = প্রতিটি অংশে যা দেখাবে
 anthologies.rule.empty = রুলে মেলানোর মতো কিছু দিন।
 
 anthologies.toast.deleted = সংকলন মোছা হয়েছে
@@ -4121,6 +4125,8 @@ movies.duplicate.poster.yes = পোস্টার আছে
 movies.duplicate.poster.no = পোস্টার নেই
 movies.duplicate.enrich.label = এটারই শূন্যস্থান পূরণ করুন
 movies.duplicate.separate.label = আলাদা টাইটেল হিসেবে যোগ করুন
+books.duplicate.lead = “{title}” নামে একটা বই আপনার আছে। তবু এটাকে আলাদা বই হিসেবে যোগ করবেন?
+books.duplicate.separate.label = তবু যোগ করুন
 
 # The hand-entry and edit forms for a Catalogue title.
 film.form.edit.title = টাইটেল এডিট করুন
@@ -4303,6 +4309,7 @@ checks.tab.aria = যাচাইকরণের ভাগ
 checks.tab.imports.label = ইমপোর্ট
 checks.tab.marks.label = বাড়তি চিহ্ন
 checks.tab.files.label = ফাইল
+checks.files.empty = এখানে কিছু অপেক্ষায় নেই। খোঁজায় আপনার কাজের জন্য পাওয়া ফাইল, আর ফাইলের প্রস্তাব করা সময়, জায়গা ও সংশোধন এই ট্যাবে আসবে।
 
 cleanup.title = বাড়তি চিহ্ন
 # Beside the title: how many quotes were read, so “nothing found” is
@@ -4754,6 +4761,7 @@ error.reindex.failed = খোঁজের ইনডেক্স আবার ব
 error.reset.failed = ডেটাবেস মোছা গেল না
 error.load.users = ইউজারদের তালিকা আনা গেল না
 error.open.person = এই ব্যক্তিকে খোলা গেল না
+person.opening = খুলছে…
 error.add.user = ইউজার যোগ করা গেল না
 error.save.role = অ্যাডমিনের ভার বদলানো গেল না
 error.delete.user = ইউজার মোছা গেল না
@@ -7826,6 +7834,10 @@ common.source.found.attach = জুড়ুন
 common.source.found.refuse = এটি নয়
 common.source.scanning = আপনার লাইব্রেরি ফোল্ডার খোঁজা হচ্ছে।
 common.source.scanning.jobs = কাজের তালিকায় দেখুন
+common.source.why.nofolder = কোনো লাইব্রেরি ফোল্ডার ঠিক করা নেই, তাই এই কাজের ফাইল খোঁজার জায়গা নেই।
+common.source.why.notscanned = আপনার লাইব্রেরি ফোল্ডারগুলো এখনও খোঁজা হয়নি।
+common.source.why.partial = শেষ খোঁজা সম্পূর্ণ হয়নি, তাই এই কাজের ফাইল হয়তো এখনও খোঁজা হয়নি।
+common.source.why.nomatch = শেষ খোঁজায় আপনার লাইব্রেরি ফোল্ডারে এই কাজের কোনো ফাইল পাওয়া যায়নি।
 settings.library.folders.scan = যাচাইকরণে এই ফোল্ডারগুলো খুঁজুন
 common.source.noanswer = সার্ভার সাড়া দেয়নি। হয়তো ব্যস্ত। এক মিনিট পরে আবার চেষ্টা করুন।
 common.source.failed = কিছু একটা গোলমাল হয়েছে: {error}
@@ -7927,4 +7939,12 @@ corrections.skipped.one = {n}টি অন্য দলের ছিল, তা�
 corrections.skipped.other = {n}টি অন্য দলের ছিল, তাই বাদ গেছে
 corrections.duplicates.one = {n}টি ফাইলের শব্দে আগেই আছে, তাই ছোঁয়া হয়নি
 corrections.duplicates.other = {n}টি ফাইলের শব্দে আগেই আছে, তাই ছোঁয়া হয়নি
+speech.play.aria = জোরে পড়ুন
+speech.stop.aria = পড়া থামান
+speech.next.aria = পরের অংশ
+speech.run.aria = জোরে পড়া হচ্ছে
+speech.run.start = জোরে পড়ুন
+speech.voice.label = জোরে পড়ার কণ্ঠ
+speech.voice.default = ডিভাইসের নিজের কণ্ঠ
+speech.voice.none = এই ডিভাইসে এই ভাষার কোনো কণ্ঠ নেই।
 `;export{e as default};
