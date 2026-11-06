@@ -34,6 +34,8 @@ import { deleteWithUndo } from './undo.jsx'
 import { useSelection } from './selection.jsx'
 import { SelectionBar } from './SelectionBar.jsx'
 import { StickerPicker, useStickers } from './stickers.jsx'
+import { RunButton } from './speak.jsx'
+import { boardRun } from './readRuns.js'
 import { ALL_BOARD, BoardList, MoveToBoardDialog, useBoards } from './boards.jsx'
 import { ANNOTATION_PAGE, GroupHeading, WorkListScaffold, groupWorks, patchMovesTheRow, useBoardWindow } from './works.jsx'
 import {
@@ -1010,6 +1012,15 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
     () => (groupable === 'none' ? null : groupUtterances(shown, groupable, seps)),
     [shown, groupable, seps],
   )
+  // READ ALOUD: the board in the order it shows its quotes, which is group by group when it is grouped.
+  // Not drawn where the device has no voices.
+  const runButton = (
+    <RunButton
+      id={`run:board:${boardId ?? 'all'}`}
+      segments={() => boardRun(grouped ? grouped.flatMap((g) => g.items) : shown)}
+      disabled={shown.length === 0}
+    />
+  )
   // The GROUPS are windowed as well as the cards inside them, the same two-level
   // window the catalogue uses: grouping by speaker over a large board is otherwise
   // one heading and one Masonry per speaker, all mounted at once, which is the very
@@ -1221,6 +1232,7 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
       }
       trailing={
         <>
+          {runButton}
           {selects.map(([key, label, value, onChange, options]) => (
             <Select key={key} ariaLabel={label} value={value} onChange={onChange} options={options} />
           ))}
@@ -1232,6 +1244,7 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
       }
       trailingMobile={
         <>
+          {runButton}
           {selects.map(([key, label, value, onChange, options]) => (
             <div key={key}>
               <MonoLabel className="mb-2 block">{t(`common.mono.${key}.label`)}</MonoLabel>

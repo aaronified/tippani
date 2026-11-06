@@ -2126,6 +2126,7 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
       <ActionRow
         acts={acts}
         item={d}
+        kind="screen"
         color={d.color || 'yellow'}
         onColor={(c) => onPatch({ color: c })}
         onFavourite={(v) => onPatch({ favorite: v })}

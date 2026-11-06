@@ -104,10 +104,10 @@ The latest release is **3.6.2** and `[Unreleased]` is empty. Work is taken one p
    an episode's file, the Add surface.
 2. **Rest of [#62](https://github.com/aaronified/tippani/issues/62):** the Source files row does not say why a work has no file.
    Chak De! India and Battlestar Galactica S04E20 have no subtitle file to find.
-3. **The queue in [Plans index](Plans-Index.md):** [read aloud](Plan-Read-Aloud.md) (issue
-   [#12](https://github.com/aaronified/tippani/issues/12); re-verify it first, as its first task says), then
-   [tile slots](Plan-Tile-Slots.md), [episodes](Plan-Episodes.md) (it can reuse `reorder.js`, the drag the anthologies built, which
-   now scrolls at the page edge) and [design consistency](Plan-Design-Consistency.md).
+3. **The queue in [Plans index](Plans-Index.md):** [tile slots](Plan-Tile-Slots.md), [episodes](Plan-Episodes.md) (it can reuse
+   `reorder.js`, the drag the anthologies built, which now scrolls at the page edge) and
+   [design consistency](Plan-Design-Consistency.md). Read aloud is built ([ADR-0930](ADR-0930-A-Quote-Is-Read-Aloud-By-The-Browsers-Own-Speech-From-A-Press.md))
+   and waits for a release; [#12](https://github.com/aaronified/tippani/issues/12) stays open until then.
 4. **Left over from the Checks and anthology work:** character checks on the Stray marks tab wait for character detection, which does
    not exist; the Files tab is blank when nothing is waiting; the tick count on the quote edit dialog always shows 1; the
    anthology's group headers are a display setting that the EPUB does not carry.
@@ -430,7 +430,7 @@ Everything personal stays on Profile — your own API keys, notifications and si
 
 Reading a quote aloud, using the browser's own `SpeechSynthesis`. It costs the server nothing, needs no key, and works offline once §5's service worker exists — which is the entire reason this can be accepted while server-side speech stays refused. Those are not the same feature wearing different clothes: one is a model and an audio pipeline on a box that cannot spare either, and the other is an API the browser already ships.
 
-Accepted rather than parked because the line it sat next to turned out to be drawn in the right place already — see "OCR, and speech, on the server" under Considered and set aside. Not built yet; the owner widened the plan ([Plan: read aloud](Plan-Read-Aloud.md)) from the review card to every quote card and a quote's detail, whole anthologies and boards read in order, each quote in its own language with a voice the reader picks per language, and no control at all where the device has no voices. No stored audio, no transcription, no server route.
+Accepted rather than parked because the line it sat next to turned out to be drawn in the right place already — see "OCR, and speech, on the server" under Considered and set aside. **Built, not yet released** ([ADR-0930](ADR-0930-A-Quote-Is-Read-Aloud-By-The-Browsers-Own-Speech-From-A-Press.md)): a play and stop control on every quote card, Home's cards, an anthology's entries and the practise and review screens, in the quote's own language; *Read aloud* in an anthology's and a board's header, with next and stop on the passage playing; a voice per language in the Language editor. No stored audio, no transcription, no server route, no control where the device has no voices.
 
 ---
 

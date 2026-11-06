@@ -68,6 +68,7 @@ import { anyFace as faceById } from './fonts.js'
 import { useMasonry } from './masonry.js'
 import { CardHead } from './prefRow.jsx'
 import { FontSections, QuoteFaceSample, QuoteFaceSelect, useQuoteFaces } from './Settings.jsx'
+import { VoiceSelect, useVoiceChoice } from './speak.jsx'
 import { iso6393Name, loadISO6393, searchISO6393 } from './iso6393.js'
 
 // StatusChip came with the block: after the move Settings had no other caller for
@@ -1112,6 +1113,8 @@ export function LanguageMarksSettings({ prefs, onSaved }) {
   // keeps only a door here. The writer is Settings' own (`useQuoteFaces`), so a
   // face is still written in one place.
   const faces = useQuoteFaces(prefs, onSaved)
+  // THE READING VOICE, chosen in the same editor as the face: both are facts about a language.
+  const voices = useVoiceChoice(prefs, onSaved)
   const mobile = useIsMobileScreen()
 
   // Re-seed when the session prefs change under us — another tab, or the account
@@ -1327,6 +1330,7 @@ export function LanguageMarksSettings({ prefs, onSaved }) {
 
       {open && (
         <LanguageEditorModal
+          voices={voices}
           key={open.key}
           row={open}
           face={mobile ? (faces.faceFor(open.key)?.id || '') : null}
@@ -1456,7 +1460,7 @@ function ISO6393Search({ label, onPick, onCancel, allowFree = false, autoFocus =
 // inline under a row in whatever shape that language's glyphs made it; this is the
 // same panel for all of them — name, registry code, one grid of marks — on the
 // app's own form chrome, with the tick armed only when something changed.
-function LanguageEditorModal({ row, face = null, onClose, onSave, onReset, onRemove }) {
+function LanguageEditorModal({ row, face = null, voices = null, onClose, onSave, onReset, onRemove }) {
   // `face` is null where the editor does not carry the face (a desk, where it is a
   // column of the row) and the stored face id — "" for none — where it does.
   const [d, setD] = useState({ name: row.name, mark: row.mark, customs: row.customs, iso: row.isoLinked, face })
@@ -1468,7 +1472,7 @@ function LanguageEditorModal({ row, face = null, onClose, onSave, onReset, onRem
     (d.iso !== row.isoLinked ? 1 : 0)
   return (
     <FormModal open title={row.name} dirty={dirty} onClose={onClose} closeDanger maxWidth={540}>
-      <LanguageEditorForm row={row} d={d} setD={setD} onSubmit={() => onSave({ ...d, name: d.name.trim() })} onReset={onReset} onRemove={onRemove} />
+      <LanguageEditorForm row={row} voices={voices} d={d} setD={setD} onSubmit={() => onSave({ ...d, name: d.name.trim() })} onReset={onReset} onRemove={onRemove} />
     </FormModal>
   )
 }
@@ -1476,7 +1480,7 @@ function LanguageEditorModal({ row, face = null, onClose, onSave, onReset, onRem
 // The form half, a CHILD of the modal so useFormHost finds the modal's host — see
 // the Gotchas in CLAUDE.md: called from the component that renders the modal, it
 // registers with whatever surface is further out and the modal draws no ✓.
-function LanguageEditorForm({ row, d, setD, onSubmit, onReset, onRemove }) {
+function LanguageEditorForm({ row, voices = null, d, setD, onSubmit, onReset, onRemove }) {
   const host = useFormHost('')
   const [draft, setDraft] = useState(null) // null = the ＋ cell is closed
   const [linking, setLinking] = useState(false)
@@ -1558,6 +1562,8 @@ function LanguageEditorForm({ row, d, setD, onSubmit, onReset, onRemove }) {
           </div>
         </div>
       )}
+
+      {voices && <VoiceSelect languageKey={row.key} name={row.name} voices={voices} />}
 
       <div className="lang-editor-block">
         <MonoLabel>{t('settings.languages.mark.title')}</MonoLabel>

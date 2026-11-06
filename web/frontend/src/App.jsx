@@ -2,6 +2,7 @@ import { Fragment, lazy, Suspense, useEffect, useRef, useState } from 'react'
 import Home from './Home.jsx'
 import { applyLanguageMarks } from './languages.jsx'
 import { applyFonts, registerUploads } from './fonts.js'
+import { setVoicePrefs } from './speech.js'
 import { applyTypeScale } from './type.js'
 import { applyReviewPrefs, tzOffsetMinutes } from './review.jsx'
 import { dailyDeck } from './daily.js'
@@ -252,6 +253,8 @@ export default function App() {
       // rather than the preference, because a stored language the operator has
       // since removed renders a built-in, and its faces have to follow it there.
       applyFonts(user.preferences || {}, localeActive())
+      // The reading voices, for read aloud.
+      setVoicePrefs(user.preferences?.voicesByLanguage)
       // The four size dials. Beside applyFonts rather than inside it, because a
       // size is not a face: the tokens it writes are consumed by every rule in the
       // stylesheet, and the faces are consumed by six.

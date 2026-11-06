@@ -291,7 +291,7 @@ export const SECTION_PREFS = {
   ],
   lang: [
     'locale', 'localeFallback', 'textOrder', 'readLanguages', 'languageMarks',
-    'fontsByLanguage', 'fontsByLocale',
+    'fontsByLanguage', 'fontsByLocale', 'voicesByLanguage',
     'fontDisplay', 'fontUi', 'fontMono', 'fontHand', 'fontBengali', 'fontDevanagari',
     'fontDisplayStyle', 'fontUiStyle', 'fontMonoStyle', 'fontHandStyle',
     'fontBengaliStyle', 'fontDevanagariStyle',

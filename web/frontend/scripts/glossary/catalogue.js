@@ -720,6 +720,10 @@ export const SECTIONS = [
         desc: "A film or show underway. Phosphor `monitor-play`. A shelf mark is the ON state of a work." },
       { name: "IconPlaying", src: "IconPlaying — ui.jsx · rule 1 · the ON state of a pair",
         desc: "A game underway. Phosphor `game-controller`. New. ReadingBadge computed isGame for its aria-label and then drew the film glyph." },
+      { name: "IconPlayAloud", src: "IconPlayAloud — ui.jsx · read aloud",
+        desc: "A ring with a triangle: read this quote aloud with the browser's own speech. Phosphor `play-circle`. Deliberately not the watching glyph (a screen with a triangle, which means a show). Not drawn where the device has no voices." },
+      { name: "IconStopAloud", src: "IconStopAloud — ui.jsx · read aloud",
+        desc: "A ring with a square: stop reading. Phosphor `stop-circle`. It replaces the play glyph on the passage that is speaking." },
     ],
   },
 ]
