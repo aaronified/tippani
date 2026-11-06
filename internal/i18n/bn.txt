@@ -4754,6 +4754,7 @@ error.reindex.failed = খোঁজের ইনডেক্স আবার ব
 error.reset.failed = ডেটাবেস মোছা গেল না
 error.load.users = ইউজারদের তালিকা আনা গেল না
 error.open.person = এই ব্যক্তিকে খোলা গেল না
+person.opening = খুলছে…
 error.add.user = ইউজার যোগ করা গেল না
 error.save.role = অ্যাডমিনের ভার বদলানো গেল না
 error.delete.user = ইউজার মোছা গেল না

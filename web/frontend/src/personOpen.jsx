@@ -155,6 +155,9 @@ export function useSearchDoor(explicit = null) {
 // PERSON" — so that press pushed a byte-identical copy of the screen you were
 // already on, with a back arrow. The owner's report: "clicking on the work cover
 // brings us to the same exact page, but now with a back breadcrumb".
+// How long a press may work before it says so, in ms.
+const OPENING_AFTER_MS = 400
+
 export function usePersonOpener(stack, explicitOpenWork = null) {
   // Read here rather than at the seven call sites: see WorkDoor above for what
   // asking each of them to remember cost.
@@ -181,21 +184,30 @@ export function usePersonOpener(stack, explicitOpenWork = null) {
     // NO STACK, NO PANEL. See the header: an eighth caller that forgot its
     // `PanelHost` hears about it here rather than in a stack trace.
     if (!s || !name) return toast(t('error.open.person'))
-    let id = p?.person?.id
-    if (!id) {
-      // THE ROW THE CREDIT NEVER HAD. Written on the press, which is a write on a
-      // read gesture and is said out loud in handleEnsurePerson — the modal this
-      // replaces did the same and fetched a portrait besides.
-      const r = await json('POST', '/people/ensure', { kind: p?.kind, name })
-      // THE SERVER'S OWN WORDS WHERE IT GAVE ANY. `ensure` refuses a kind it does
-      // not know and a blank name by name, and those are the two answers a caller
-      // can actually act on — a generic line here would hide the one useful thing
-      // in the response.
-      if (!r.ok) return toast(errText(r, t('error.open.person')))
-      id = r.data?.id
+    // A PRESS THAT IS STILL WORKING SAYS SO. The scaffold request and the first load of the person
+    // screen's chunk have no ceiling, and until now nothing on the chip changed while they ran, so a
+    // slow press looked like a dead one and got pressed again. The word waits a beat: a press that
+    // opens at once, which is almost all of them, never shows it.
+    const slow = setTimeout(() => toast(t('person.opening')), OPENING_AFTER_MS)
+    try {
+      let id = p?.person?.id
+      if (!id) {
+        // THE ROW THE CREDIT NEVER HAD. Written on the press, which is a write on a
+        // read gesture and is said out loud in handleEnsurePerson — the modal this
+        // replaces did the same and fetched a portrait besides.
+        const r = await json('POST', '/people/ensure', { kind: p?.kind, name })
+        // THE SERVER'S OWN WORDS WHERE IT GAVE ANY. `ensure` refuses a kind it does
+        // not know and a blank name by name, and those are the two answers a caller
+        // can actually act on — a generic line here would hide the one useful thing
+        // in the response.
+        if (!r.ok) return toast(errText(r, t('error.open.person')))
+        id = r.data?.id
+      }
+      if (!id) return toast(t('error.open.person'))
+      const { personPanel } = await import('./identity.jsx')
+      s.open(personPanel(s, { id, name, onOpenWork: openWork }))
+    } finally {
+      clearTimeout(slow)
     }
-    if (!id) return toast(t('error.open.person'))
-    const { personPanel } = await import('./identity.jsx')
-    s.open(personPanel(s, { id, name, onOpenWork: openWork }))
   }, [])
 }
