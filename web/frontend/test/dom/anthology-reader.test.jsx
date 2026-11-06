@@ -39,6 +39,12 @@ beforeEach(() => {
 })
 afterEach(() => vi.restoreAllMocks())
 
+// Export, Print and Save PDF live in the page's one menu.
+const fromMenu = async (name) => {
+  fireEvent.click(await screen.findByRole('button', { name: 'More for this anthology' }))
+  fireEvent.click(within(await screen.findByRole('menu')).getByText(name))
+}
+
 const reader = async () => {
   fireEvent.click(await screen.findByRole('button', { name: 'Read' }))
   return await screen.findByRole('dialog', { name: /Reading On woods/ })
@@ -83,7 +89,7 @@ describe('Save PDF', () => {
     vi.spyOn(window, 'print').mockImplementation(() => seen.push(document.title))
     document.title = 'Tippani'
     open()
-    fireEvent.click(await screen.findByRole('button', { name: 'Save PDF' }))
+    await fromMenu('Save PDF')
     expect(seen).toEqual(['On woods'])
     expect(document.title).toBe('Tippani')
   })
@@ -93,7 +99,7 @@ describe('Save PDF', () => {
     vi.spyOn(window, 'print').mockImplementation(() => seen.push(document.title))
     document.title = 'Tippani'
     open()
-    fireEvent.click(await screen.findByRole('button', { name: 'Print' }))
+    await fromMenu('Print')
     expect(seen).toEqual(['Tippani'])
   })
 })

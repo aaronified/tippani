@@ -2,6 +2,9 @@
 
 Source of truth: this wiki page.
 
+**Partly built.** Step 1 shipped: `atrium` saves, and the opt-in True glass lens exists (`glassLens.js`). The set itself is still
+`['flat','flat','flat','flat']` in `theme.js` and `--surf-*` is not in `index.css`; steps 2 to 7 below are not built.
+
 `atrium` is the eighth material set and the only one with no material. It ships as
 a deliberate placeholder, and `theme.js` reserves the key for exactly this feature:
 

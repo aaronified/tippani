@@ -45,3 +45,10 @@ changelog, `Design-decisions.md`, or a test. The file is deleted when the list i
   only the module in `go.mod`. The owner: "the second one cannot be fixed now". Upgrade
   `golang.org/x/crypto` when a fix is released, or when the advisory is withdrawn for
   modules that do not import the package.
+
+## Known limit of the source sweeps
+
+- [ ] **The regex sweeps in the test guards do not see bracket accesses** such as `el["focus"]()`, and a regex over source
+  text is not a scope analysis. Four widenings were each beaten by the next shape, so no fifth is planned. Both guards say
+  what they do not see. What they catch is the obvious spelling (`el.focus()`, a `let` assigned inside its own `.then`),
+  which is every real instance in this app's history.
