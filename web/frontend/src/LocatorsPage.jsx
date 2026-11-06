@@ -31,7 +31,7 @@ const stack = { display: 'flex', flexDirection: 'column', gap: 'var(--row)' }
 
 const range = (a, b) => (b && b !== a ? `${a} – ${b}` : a)
 
-export default function LocatorsPage({ embedded = false, open = true, onToggle, onOpenBook, onOpenMovie }) {
+export default function LocatorsPage({ embedded = false, open = true, onToggle, onOpenBook, onOpenMovie, onPresence }) {
   const [data, setData] = useState(null)
   const [pill, setPill] = useState('all')
   const [busy, setBusy] = useState(false)
@@ -78,6 +78,9 @@ export default function LocatorsPage({ embedded = false, open = true, onToggle, 
     current_end: p.current_end,
   })
 
+  // Told to the tab that holds this section: null until read, then whether it draws anything.
+  const present = data ? data.proposals.length > 0 : null
+  useEffect(() => { onPresence?.(present) }, [present, onPresence])
   if (!data || data.proposals.length === 0) return null
   const groups = [
     ['exact', data.proposals.filter((p) => p.bucket === 'exact')],

@@ -21,7 +21,7 @@ import { LoadFailed, QUICK_MS, READ_MS, invalidateContext, sourceFail } from './
 
 const size = (n) => (n >= 1 << 20 ? `${(n / (1 << 20)).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`)
 
-export default function AttachedFilesPage({ embedded = false, open = true, onToggle }) {
+export default function AttachedFilesPage({ embedded = false, open = true, onToggle, onPresence }) {
   const [data, setData] = useState(null)
   const [busy, setBusy] = useState(false)
   const [loadError, setLoadError] = useState('')
@@ -60,6 +60,9 @@ export default function AttachedFilesPage({ embedded = false, open = true, onTog
     } else toast(sourceFail(r))
   }
 
+  // Told to the tab that holds this section: null until read, then whether it draws anything.
+  const present = loadError ? true : data ? data.sources.length > 0 : null
+  useEffect(() => { onPresence?.(present) }, [present, onPresence])
   if (loadError) return <LoadFailed text={loadError} onRetry={load} />
   if (!data || data.sources.length === 0) return confirmDialog
   return (

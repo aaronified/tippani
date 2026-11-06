@@ -4399,6 +4399,7 @@ checks.tab.aria = Checks sections
 checks.tab.imports.label = Imports
 checks.tab.marks.label = Stray marks
 checks.tab.files.label = Files
+checks.files.empty = Nothing is waiting here. Files a scan finds for your works, and the times, places and corrections a file proposes, appear on this tab.
 cleanup.title = Stray marks
 # Beside the title: how many quotes were read, so “nothing found” is
 # distinguishable from “nothing looked at”.

@@ -4303,6 +4303,7 @@ checks.tab.aria = যাচাইকরণের ভাগ
 checks.tab.imports.label = ইমপোর্ট
 checks.tab.marks.label = বাড়তি চিহ্ন
 checks.tab.files.label = ফাইল
+checks.files.empty = এখানে কিছু অপেক্ষায় নেই। খোঁজায় আপনার কাজের জন্য পাওয়া ফাইল, আর ফাইলের প্রস্তাব করা সময়, জায়গা ও সংশোধন এই ট্যাবে আসবে।
 
 cleanup.title = বাড়তি চিহ্ন
 # Beside the title: how many quotes were read, so “nothing found” is
