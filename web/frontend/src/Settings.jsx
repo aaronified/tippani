@@ -169,13 +169,12 @@ function useColumnCount() {
 // `OnboardingCard` is deleted rather than unregistered: unlike Devices, nothing is
 // coming back for it — Help's own button is a replacement, not a relocation.
 //
-// DEVICES IS NOT IN THIS LIST AND ITS CARD IS STILL IN THIS FILE. The owner: "hide
-// the devices settings. that was created for the app. not required right now (keep
-// the code and the backend, just no need to let it hog the screen space)." So the
-// card stops being registered and stops taking a column slot; `DevicesCard` below,
-// its strings, and every `/auth/devices` route are untouched, and putting it back is
-// this one word. Registering it is what draws it — the same mechanism that leaves a
-// non-admin without Updates and Backup.
+// DEVICES IS BACK. It was hidden ("hide the devices settings. that was created for
+// the app. not required right now"), with the card, its strings and every
+// `/auth/devices` route kept so that putting it back was one word. The Android
+// app exists now (aaronified/tippani-app) and pairs with a code from this card, so
+// it is registered again, on the Server section, for EVERY reader: pairing a phone
+// is an account act and not an admin one, unlike the rest of that section.
 // 'trash' AND 'clean' LEFT THIS LIST, AND THEY LEFT THE PAGE LONG AGO. The note
 // above still explains why the bin and stray-marks TILES were removed; the two ids
 // stayed behind in this list and in the layout below, naming cards the `cards` object
@@ -190,7 +189,7 @@ function useColumnCount() {
 // THE FOUR JOBS CARDS ARE THE LAST FOUR, and 'logs' is built for an admin only,
 // exactly as 'server' is: registering it is what draws it, and a reader has no
 // business with the server's own log.
-export const SETTINGS_CARDS = ['features', 'sr', 'server', 'jobs-current', 'jobs-common', 'jobs-past', 'logs']
+export const SETTINGS_CARDS = ['features', 'sr', 'server', 'devices', 'jobs-current', 'jobs-common', 'jobs-past', 'logs']
 
 // ---- THE SIX SECTIONS -------------------------------------------------------
 //
@@ -250,7 +249,9 @@ export const SECTION_CARDS = {
   lang: ['language'],
   review: ['sr'],
   sections: ['features'],
-  server: ['server'],
+  // DEVICES AFTER THE ADMIN CARD, and drawn for everyone: a reader who is not an admin has no Server
+  // card, so for them this section is the pairing card alone.
+  server: ['server', 'devices'],
   // COMMON JOBS SECOND, under what is running now: it is where a reader starts
   // the jobs they run most, and what they start there appears in the card above.
   jobs: ['jobs-current', 'jobs-common', 'jobs-past', 'logs'],
@@ -450,6 +451,7 @@ const SETTINGS_PREFIX = {
   // for live under three roots, and a card that could only declare one would go
   // missing the moment somebody typed "backup".
   server: ['settings.updates.', 'settings.backup.', 'settings.changelog.'],
+  devices: 'settings.devices.',
   // One root per jobs card, so typing "stop" finds the card whose Stop all it is
   // and "export" the two that export.
   'jobs-current': 'settings.jobs.current.',
@@ -592,6 +594,9 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, se
     // EVERY READER'S QUEUE, and the past thirty days of it. The backup prompt is
     // handed in so a backup run again asks for its credential through the prompt
     // that sealed it the first time, not a second copy of it.
+    // PAIRING IS EVERY READER'S: the code is minted for the signed-in account, and revoking a phone is the
+    // account's own act. See SETTINGS_CARDS.
+    devices: <DevicesCard />,
     'jobs-current': <JobsCurrentCard user={user} />,
     // The four a reader runs most, each in a place of its own; Back up now asks
     // for its credential through the same prompt the Server card uses.
@@ -3835,11 +3840,10 @@ function FeaturesCard({ prefs, onSaved, compact = false }) {
 // rotating your password can't silently unpair a phone with no signal on the
 // device. Revoking is its own explicit act, which is what this card is for.
 //
-// The code is shown as text rather than a QR: the QR only saves typing, and
-// there is no app to point a camera at it yet. It lands with the app.
-// EXPORTED THOUGH NOTHING IN THIS FILE RENDERS IT. The card is hidden rather than
-// deleted (see SETTINGS_CARDS), and a hidden card with no test is a card that rots
-// quietly until somebody puts it back. `device-revoke.test.jsx` mounts it directly.
+// The code is shown as text rather than a QR: the QR only saves typing. The Android app
+// (aaronified/tippani-app) takes the code typed; a QR is a later nicety, and would need
+// a QR library against this repo's dependency budget (ADR-0005).
+// EXPORTED so `device-revoke.test.jsx` can mount it on its own; Settings draws it on the Server section.
 export function DevicesCard() {
   const { ask, confirmDialog } = useConfirm()
   const [devices, setDevices] = useState(null)

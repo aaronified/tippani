@@ -69,7 +69,7 @@ settings.section.theme.info.body = Light or dark, the colours, the surface mater
 settings.section.lang.info.body = The interface language, its fallback, and the fonts it uses.
 settings.section.review.info.body = What the daily quiz draws from, how many cards, how hard, and how the schedule moves.
 settings.section.sections.info.body = Which parts of the app you use, and their order in the navigation.
-settings.section.server.info.body = The running version, backups, and what changed in each release.
+settings.section.server.info.body = Phones paired with your account, and for an admin the running version, backups, and what changed in each release.
 settings.section.jobs.info.body = What is running, what is waiting its turn, and what finished in the last 30 days, each with its log. An admin also sees every reader's jobs and the app's own logs.
 
 settings.section.aria = Which settings to change
