@@ -3,7 +3,7 @@
 Source of truth: this wiki page.
 
 - **Area:** [§1 The Target Host, the Budgets, and the Scope They Fix](ADR-Index.md#area-1)
-- **Status:** Accepted
+- **Status:** Accepted. The directory it names has moved: see [ADR-0931](ADR-0931-The-Android-App-Lives-In-Its-Own-Repository.md). Android only still stands.
 - **Version:** pre-1.0
 
 **Decided.** The planned native client is Flutter in `mobile/`, Android only. No `ios/` directory in the tree.

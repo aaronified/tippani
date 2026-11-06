@@ -24,6 +24,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Internal
 
+- The Android app has its own repository (aaronified/tippani-app, GPL-3.0). Its plan, roadmap
+  card and index entry are removed here and ADR-0931 records the move; the server's side of the
+  contract stays.
+
 - CLAUDE.md is trimmed of dated session notes and superseded rules: the cloud install story, the
   digest history, the rater post-mortem, the old per-push dist rule and the plan-queue text that
   Plans-Index already holds.
