@@ -2,7 +2,10 @@
 
 Source of truth: this wiki page.
 
-**Not built. Nothing of it exists** — no non-test Go source mentions it, and there is no
+**Not built, apart from one display.** The admin's backup row shows the server's last backup (`jobs_common.go`,
+`commonJobs.jsx`). The nightly toggle, the schedule and retention do not exist.
+
+**Nothing else of it exists** — no non-test Go source mentions it, and there is no
 scheduler in this app to hang it on:
 
 ```bash

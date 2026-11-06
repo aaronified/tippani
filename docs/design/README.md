@@ -22,6 +22,7 @@ Self-contained HTML. Open one in a browser — every component is pressable, and
 | `prototypes/work-details-popup.dc.html` | The work's own details panel |
 | `prototypes/settings-restructured.dc.html` | Settings as five sectioned screens in a two-pane shell — the theme overhaul, the section sort, the texture dials, the true-glass lens |
 | `prototypes/metadata.dc.html` | Metadata as six consoles with no overview screen — every issue count a door into the rows that have it |
+| `prototypes/anthology-revamp.html` | An anthology's page: cover, front matter, fed line, toolbar, removed drawer, reading mode, desk and phone. Not a `.dc.html`; it carries its own data |
 
 **WHAT THE TWO v3 PROTOTYPES GET WRONG, checked against the code rather than assumed,
 because building them as drawn would lose working features:**

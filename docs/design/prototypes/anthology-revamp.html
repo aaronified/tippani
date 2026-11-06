@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Anthology revamp mockup</title>
+<style>
+  :root {
+    --font-quote: 'Newsreader', Georgia, 'Times New Roman', serif;
+    --font-ui: 'Hanken Grotesk', system-ui, sans-serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+    --font-hand: 'Caveat', 'Segoe Script', cursive;
+    --bg: #F4EDDE; --raised: #FBF6EA; --card: #FFFEF9;
+    --topbar: #EFE6D4;
+    --ink: #221C16; --soft: #6A5F50; --faint: #766A59; --line: #E4DAC7;
+    --accent: #B4482D; --on-accent: #FFF9EC; --amber: #8A6439; --ok: #35794D;
+    --strip: #E9E1CC;
+    --radius: 14px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #17130F; --raised: #1F1A15; --card: #26201A; --topbar: #1B1612;
+      --ink: #F0E8D8; --soft: #B5A892; --faint: #A09480; --line: #3A3229;
+      --accent: #E0724F; --on-accent: #1A0F0A; --amber: #D4A66A; --ok: #6FBF8A; --strip: #2E2720;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #17130F; --raised: #1F1A15; --card: #26201A; --topbar: #1B1612;
+    --ink: #F0E8D8; --soft: #B5A892; --faint: #A09480; --line: #3A3229;
+    --accent: #E0724F; --on-accent: #1A0F0A; --amber: #D4A66A; --ok: #6FBF8A; --strip: #2E2720;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 var(--font-ui); }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  .stage-bar {
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+    padding: 10px 16px; background: var(--topbar); border-bottom: 1px solid var(--line);
+    position: sticky; top: 0; z-index: 20;
+  }
+  .stage-bar strong { margin-right: auto; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; background: var(--raised); }
+  .seg button { border: 0; background: none; padding: 6px 14px; }
+  .seg button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
+  .stage { padding: 20px 16px 60px; display: flex; justify-content: center; }
+
+  /* the frame: desk by default, phone when narrowed */
+  .frame { width: 100%; max-width: 1180px; background: var(--bg); border: 1px solid var(--line); border-radius: 18px; overflow: hidden; }
+  .frame.phone { max-width: 390px; }
+  .app { display: grid; grid-template-columns: 280px 1fr; min-height: 760px; }
+  .frame.phone .app { grid-template-columns: 1fr; }
+  .frame.phone .side { display: none; }
+  .side { background: var(--raised); border-right: 1px solid var(--line); padding: 16px; }
+  .side h2 { font: 600 12px var(--font-ui); letter-spacing: .08em; text-transform: uppercase; color: var(--faint); margin: 0 0 10px; }
+  .a-item { display: grid; grid-template-columns: 44px 1fr; gap: 10px; padding: 8px; border-radius: 10px; align-items: center; border: 1px solid transparent; }
+  .a-item[aria-current="true"] { background: var(--card); border-color: var(--line); }
+  .a-item small { color: var(--faint); display: block; }
+  .a-item b { font: 600 14px/1.25 var(--font-quote); }
+  .thumb { width: 44px; height: 58px; border-radius: 3px 6px 6px 3px; box-shadow: inset 3px 0 0 rgba(0,0,0,.18); }
+  .new-btn { margin-top: 12px; width: 100%; border: 1px dashed var(--line); background: none; border-radius: 10px; padding: 8px; color: var(--soft); }
+
+  .main { padding: 24px 32px 40px; min-width: 0; }
+  .frame.phone .main { padding: 0 0 80px; }
+  .crumbs { color: var(--faint); font-size: 13px; margin-bottom: 14px; }
+  .frame.phone .crumbs { display: none; }
+  .phone-head { display: none; align-items: center; gap: 10px; padding: 10px 14px; background: var(--topbar); border-bottom: 1px solid var(--line); }
+  .frame.phone .phone-head { display: flex; }
+  .phone-head b { flex: 1; font: 600 15px var(--font-quote); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .icon-btn { border: 1px solid var(--line); background: var(--raised); border-radius: 10px; width: 36px; height: 36px; }
+  .frame.phone .body { padding: 14px; }
+
+  /* hero */
+  .hero { display: grid; grid-template-columns: 170px 1fr; gap: 28px; align-items: end; margin-bottom: 22px; }
+  .frame.phone .hero { grid-template-columns: 1fr; gap: 14px; justify-items: center; text-align: center; }
+  .cover {
+    width: 170px; aspect-ratio: 2/3; border-radius: 4px 10px 10px 4px; color: #FFF9EC;
+    background: linear-gradient(160deg, #8C3A24, #4E2216);
+    box-shadow: inset 6px 0 0 rgba(0,0,0,.22), 0 12px 24px -10px rgba(0,0,0,.45);
+    display: flex; flex-direction: column; justify-content: space-between; padding: 18px 14px;
+    font-family: var(--font-quote);
+  }
+  .cover .t { font-size: 20px; line-height: 1.15; font-weight: 600; }
+  .cover .s { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; opacity: .8; }
+  .hero h1 { font: 600 34px/1.1 var(--font-quote); margin: 0 0 6px; }
+  .frame.phone .hero h1 { font-size: 26px; }
+  .meta { color: var(--soft); font-size: 13px; display: flex; flex-wrap: wrap; gap: 6px 14px; }
+  .frame.phone .meta { justify-content: center; }
+  .epigraph { font: italic 17px/1.5 var(--font-quote); color: var(--soft); border-left: 3px solid var(--accent); padding-left: 14px; margin: 14px 0 6px; max-width: 54ch; text-align: left; }
+  .dedication { font: 20px var(--font-hand); color: var(--amber); }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  .frame.phone .actions { justify-content: center; }
+  .btn { border: 1px solid var(--line); background: var(--raised); border-radius: 999px; padding: 7px 16px; }
+  .btn.primary { background: var(--accent); color: var(--on-accent); border-color: transparent; }
+
+  /* toolbar */
+  .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 10px 12px; background: var(--raised); border: 1px solid var(--line); border-radius: var(--radius); margin-bottom: 14px; }
+  .toolbar label { color: var(--faint); font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
+  .toolbar select { font: inherit; background: var(--card); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { border: 1px solid var(--line); background: var(--card); border-radius: 999px; padding: 3px 11px; font-size: 13px; color: var(--soft); }
+  .chip[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: transparent; }
+  .toolbar .grow { flex: 1; }
+
+  /* fed banner */
+  .fed { display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; background: color-mix(in oklab, var(--accent) 10%, var(--card)); border: 1px solid color-mix(in oklab, var(--accent) 35%, var(--line)); border-radius: var(--radius); padding: 10px 14px; margin-bottom: 14px; font-size: 14px; }
+
+  /* entries */
+  .group-h { font: 600 12px var(--font-ui); letter-spacing: .1em; text-transform: uppercase; color: var(--accent); margin: 22px 0 8px; display: flex; align-items: center; gap: 10px; }
+  .group-h::after { content: ""; flex: 1; border-top: 1px solid var(--line); }
+  .section { margin: 28px 0 10px; padding-bottom: 8px; border-bottom: 2px solid var(--ink); display: flex; align-items: baseline; gap: 10px; }
+  .section h3 { font: 600 24px var(--font-quote); margin: 0; flex: 1; }
+  .section p { margin: 0; }
+  .section-note { font: 16px/1.5 var(--font-quote); color: var(--soft); margin: 8px 0 16px; max-width: 60ch; }
+  .entry { display: grid; grid-template-columns: 28px 1fr auto; gap: 10px; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 14px 12px 8px; margin-bottom: 10px; }
+  .frame.phone .entry { grid-template-columns: 22px 1fr; }
+  .grip { color: var(--faint); cursor: grab; text-align: center; user-select: none; letter-spacing: -2px; padding-top: 4px; }
+  .num { font: 12px var(--font-mono); color: var(--faint); }
+  .quote { font: 19px/1.55 var(--font-quote); margin: 2px 0 8px; }
+  .frame.phone .quote { font-size: 17px; }
+  .cap { color: var(--soft); font-size: 13px; }
+  .cap b { color: var(--ink); font-weight: 600; }
+  .note { margin-top: 10px; font: 18px/1.35 var(--font-hand); color: var(--amber); border-top: 1px dashed var(--line); padding-top: 6px; }
+  .row-actions { display: flex; flex-direction: column; gap: 4px; align-items: flex-end; }
+  .frame.phone .row-actions { grid-column: 2; flex-direction: row; justify-content: flex-end; }
+  .link { border: 0; background: none; color: var(--soft); padding: 2px 6px; border-radius: 6px; font-size: 13px; }
+  .link:hover { background: var(--strip); }
+  .link.danger:hover { color: var(--accent); }
+  .add-row { display: flex; gap: 8px; margin: 8px 0 4px; }
+  .add-row .btn { flex: 1; border-style: dashed; background: none; color: var(--soft); }
+
+  /* removed */
+  details.removed { margin-top: 26px; background: var(--raised); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 14px; }
+  details.removed summary { cursor: pointer; font-weight: 600; }
+  .rm-row { display: flex; gap: 10px; align-items: center; justify-content: space-between; padding: 8px 0; border-top: 1px solid var(--line); margin-top: 8px; font: 15px var(--font-quote); color: var(--soft); }
+  .rm-row span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* reading mode */
+  .frame.reading .side, .frame.reading .toolbar, .frame.reading .fed, .frame.reading .row-actions,
+  .frame.reading .grip, .frame.reading .actions, .frame.reading details.removed, .frame.reading .add-row,
+  .frame.reading .crumbs, .frame.reading .num, .frame.reading .phone-head .icon-btn:not(.close) { display: none; }
+  .frame.reading .app { grid-template-columns: 1fr; }
+  .frame.reading .body, .frame.reading .main { max-width: 38rem; margin: 0 auto; }
+  .frame.reading .entry { background: none; border: 0; border-bottom: 0; padding: 4px 0; display: block; }
+  .frame.reading .quote { font-size: 21px; line-height: 1.7; }
+  .frame.reading .note { border-top: 0; }
+  .close { display: none; }
+  .frame.reading .close { display: inline-block; position: sticky; top: 8px; margin-left: auto; z-index: 3; }
+
+  /* phone dock */
+  .dock { display: none; position: sticky; bottom: 0; background: var(--topbar); border-top: 1px solid var(--line); padding: 8px 12px; gap: 8px; justify-content: space-around; }
+  .frame.phone .dock { display: flex; }
+  .frame.reading .dock { display: none; }
+  .toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 8px 16px; border-radius: 999px; font-size: 14px; opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 30; }
+  .toast.on { opacity: 1; }
+  .note-foot { max-width: 1180px; margin: 0 auto; padding: 0 16px 40px; color: var(--soft); font-size: 14px; }
+  .note-foot li { margin-bottom: 4px; }
+</style>
+</head>
+<body>
+<div class="stage-bar">
+  <strong>Anthology revamp — mockup</strong>
+  <span class="seg" role="group" aria-label="Device">
+    <button id="dev-desk" aria-pressed="true">Desk</button>
+    <button id="dev-phone" aria-pressed="false">Phone</button>
+  </span>
+  <button class="btn" id="theme">Light / dark</button>
+</div>
+
+<div class="stage">
+  <div class="frame" id="frame">
+    <div class="phone-head">
+      <button class="icon-btn" aria-label="Back">‹</button>
+      <b>On Solitude</b>
+      <button class="icon-btn" id="read-m" aria-label="Read">Aa</button>
+      <button class="icon-btn" aria-label="Menu">⋯</button>
+    </div>
+    <div class="app">
+      <aside class="side">
+        <h2>Anthologies</h2>
+        <div class="a-item" aria-current="true"><div class="thumb" style="background:linear-gradient(160deg,#8C3A24,#4E2216)"></div><div><b>On Solitude</b><small>14 passages · fed</small></div></div>
+        <div class="a-item"><div class="thumb" style="background:linear-gradient(160deg,#35604A,#1D3629)"></div><div><b>Proverbs I keep</b><small>31 passages</small></div></div>
+        <div class="a-item"><div class="thumb" style="background:linear-gradient(160deg,#42506E,#242B3F)"></div><div><b>Lines from films</b><small>9 passages</small></div></div>
+        <div class="a-item"><div class="thumb" style="background:var(--strip)"></div><div><b>Untitled draft</b><small>2 passages</small></div></div>
+        <button class="new-btn">+ New anthology</button>
+      </aside>
+
+      <main class="main">
+        <div class="crumbs">Anthologies / <b style="color:var(--ink)">On Solitude</b></div>
+        <button class="btn close" id="read-x">✕ Close reading</button>
+        <div class="body">
+          <section class="hero">
+            <div class="cover"><span class="s">An anthology</span><span class="t">On Solitude</span><span class="s">14 passages</span></div>
+            <div>
+              <h1>On Solitude</h1>
+              <div class="meta"><span>Made by you</span><span>Updated 3 Nov 2026</span><span>5 books · 2 films</span></div>
+              <p class="epigraph">“The best thinking has been done in solitude. The worst has been done in turmoil.”</p>
+              <div class="dedication">for the long evenings</div>
+              <div class="actions">
+                <button class="btn primary" id="read-d">Read</button>
+                <button class="btn">Review as a deck</button>
+                <button class="btn">Export ▾</button>
+                <button class="btn">Edit</button>
+              </div>
+            </div>
+          </section>
+
+          <div class="fed"><span><b>Kept fed</b> by search “solitude OR alone” · <span id="waiting">3 passages waiting</span></span><button class="btn" id="take">Review 3 waiting</button></div>
+
+          <div class="toolbar">
+            <label for="grp">Group by</label>
+            <select id="grp"><option value="">Nothing</option><option value="work">Work</option><option value="person">Person</option></select>
+            <span class="chips" role="group" aria-label="Show on each passage">
+              <button class="chip" aria-pressed="true" data-f="who">Who said it</button>
+              <button class="chip" aria-pressed="true" data-f="where">Where from</button>
+              <button class="chip" aria-pressed="true" data-f="note">My note</button>
+            </span>
+            <span class="grow"></span>
+            <button class="btn" id="addsec">+ Section</button>
+          </div>
+
+          <div id="list"></div>
+          <div class="add-row"><button class="btn">+ Add a passage</button><button class="btn">+ Add a section heading</button></div>
+
+          <details class="removed" id="removed"><summary>Removed (<span id="rmcount">0</span>)</summary><div id="rmlist"></div></details>
+        </div>
+      </main>
+    </div>
+    <nav class="dock"><button class="link">Quotes</button><button class="link">Search</button><button class="link"><b>Anthologies</b></button><button class="link">Settings</button></nav>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<ul class="note-foot">
+  <li><b>What changed from the current page:</b> a cover and the title lead the page instead of a form; the epigraph and dedication sit with them; the fill rule becomes one banner; grouping and field switches share one toolbar; the removed list is a drawer at the foot.</li>
+  <li><b>Pressable:</b> Desk/Phone, Read and Close, Group by, field chips, the ✕ and Move to… on a passage, Bring back, Review 3 waiting.</li>
+  <li><b>Not built:</b> this file is a prototype. Nothing in the app reads it, and the data is made up.</li>
+</ul>
+
+<script>
+  const data = [
+    { s: 'The company of oneself' },
+    { q: 'I never found the companion that was so companionable as solitude.', p: 'Henry David Thoreau', w: 'Walden', c: 'Solitude', n: 'Reread in the winter.' },
+    { q: 'Loneliness is the poverty of self; solitude is the richness of self.', p: 'May Sarton', w: 'Mrs Stevens Hears the Mermaids Singing', c: 'Ch. 4' },
+    { s: 'What it costs', t: 'Three passages on the price, and whether it is worth paying.' },
+    { q: 'We are all born for love… it is the principle of existence, and its only end.', p: 'Benjamin Disraeli', w: 'Sybil', c: 'Book 5' },
+    { q: 'I like the silent church before the service begins.', p: 'Ralph Waldo Emerson', w: 'Self-Reliance', c: '', n: 'Compare with Thoreau above.' },
+  ];
+  let removed = [];
+  const $ = (s) => document.querySelector(s);
+  const frame = $('#frame');
+  const fields = { who: true, where: true, note: true };
+  let group = '';
+
+  function esc(t) { return t.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])); }
+
+  function render() {
+    let html = '', n = 0, last = null;
+    data.forEach((e, i) => {
+      if (e.s) {
+        last = null;
+        html += `<div class="section"><span class="grip">⋮⋮</span><h3>${esc(e.s)}</h3><button class="link">Rename</button></div>`;
+        if (e.t) html += `<p class="section-note">${esc(e.t)}</p>`;
+        return;
+      }
+      n++;
+      const key = group === 'work' ? e.w : group === 'person' ? e.p : null;
+      if (key && key !== last) html += `<div class="group-h">${esc(key)}</div>`;
+      last = key;
+      const cap = [fields.who ? `<b>${esc(e.p)}</b>` : '', fields.where ? esc(e.w) + (e.c ? ', ' + esc(e.c) : '') : ''].filter(Boolean).join(' · ');
+      html += `<article class="entry"><span class="grip" title="Drag to move">⋮⋮</span>
+        <div><span class="num">${n}</span><p class="quote">“${esc(e.q)}”</p>
+          ${cap ? `<div class="cap">${cap}</div>` : ''}
+          ${fields.note && e.n ? `<div class="note">${esc(e.n)}</div>` : ''}</div>
+        <div class="row-actions"><button class="link" data-move="${i}">Move to…</button><button class="link">Note</button><button class="link danger" data-rm="${i}">Remove</button></div>
+      </article>`;
+    });
+    $('#list').innerHTML = html;
+    $('#rmcount').textContent = removed.length;
+    $('#rmlist').innerHTML = removed.length
+      ? removed.map((r, i) => `<div class="rm-row"><span>“${esc(r.e.q)}”</span><button class="btn" data-back="${i}">Bring back</button></div>`).join('')
+      : '<p class="cap" style="margin:8px 0 0">Nothing removed. A rule will not add back what you remove here.</p>';
+  }
+
+  function toast(m) { const t = $('#toast'); t.textContent = m; t.classList.add('on'); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove('on'), 1800); }
+
+  document.addEventListener('click', (ev) => {
+    const b = ev.target.closest('button'); if (!b) return;
+    if (b.dataset.rm) { const [e] = data.splice(+b.dataset.rm, 1); removed.push({ e }); render(); toast('Removed. It stays out when the rule runs.'); }
+    else if (b.dataset.back) { const [r] = removed.splice(+b.dataset.back, 1); data.push(r.e); render(); toast('Brought back, with its note.'); }
+    else if (b.dataset.move) toast('Move to… opens a position box (1 to ' + data.filter(x => x.q).length + ').');
+    else if (b.dataset.f) { fields[b.dataset.f] = !fields[b.dataset.f]; b.setAttribute('aria-pressed', fields[b.dataset.f]); render(); }
+  });
+  $('#grp').onchange = (e) => { group = e.target.value; render(); };
+  $('#addsec').onclick = () => { data.push({ s: 'New section' }); render(); };
+  $('#take').onclick = () => { $('#waiting').textContent = 'preview opened: 3 ticked'; toast('Untick any you do not want. Unticked ones count as removed.'); };
+  const setRead = (on) => frame.classList.toggle('reading', on);
+  $('#read-d').onclick = () => setRead(true);
+  $('#read-m').onclick = () => setRead(true);
+  $('#read-x').onclick = () => setRead(false);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') setRead(false); });
+  const dev = (phone) => { frame.classList.toggle('phone', phone); $('#dev-desk').setAttribute('aria-pressed', !phone); $('#dev-phone').setAttribute('aria-pressed', phone); };
+  $('#dev-desk').onclick = () => dev(false);
+  $('#dev-phone').onclick = () => dev(true);
+  $('#theme').onclick = () => {
+    const d = document.documentElement;
+    const dark = d.dataset.theme === 'dark' || (!d.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches);
+    d.dataset.theme = dark ? 'light' : 'dark';
+  };
+  render();
+</script>
+</body>
+</html>
