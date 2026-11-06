@@ -126,19 +126,16 @@ The latest release is **3.6.2** and `[Unreleased]` is empty. Work is taken one p
 
 **Leftover housekeeping.** Two agent worktrees remain under `.claude/worktrees` (`agent-a5e3796460a78da5c`,
 `agent-a69f8257601ac30aa`) with their branches, and the branch `claude/claude-kit-setup-8vfokb` holds five commits that were
-never merged (the Android plan, an Episodes drag clip, next steps). The worktree `claude/musing-faraday-fd8206` has uncommitted
+never merged (an early Android plan draft, an Episodes drag clip, next steps). The worktree `claude/musing-faraday-fd8206` has uncommitted
 edits. A stash, `WIP on (no branch): 5f7832c Mobile UX fixes...`, pre-dates this work and was left alone. None of it is deleted
 until the owner says.
 
-**Email automation.** The report address `tippanidev@gmail.com` exists. It is for the bug-report flow in
-[the Android app plan](Plan-Android-App.md) (feature 4): the app opens the reader's mail app addressed to it, and a GitHub
-workflow reads the inbox and files issues. Use it when that work starts. The owner still has to turn on 2-step verification and
-IMAP, make an app password and add it as a repository secret; no password goes in the repository.
-
 **Also open, not scheduled.** [#56](https://github.com/aaronified/tippani/issues/56): the dashboard widget should show library
-scan items (files found, scans running). The [Android app](Plan-Android-App.md) plan
-([#61](https://github.com/aaronified/tippani/issues/61)) is proposed and not queued; it waits for the owner's answers on its
-open questions.
+scan items (files found, scans running).
+
+**The Android app has its own repository,** [aaronified/tippani-app](https://github.com/aaronified/tippani-app), with its own plan and issues
+([ADR-0931](ADR-0931-The-Android-App-Lives-In-Its-Own-Repository.md)). The server work it needs, a photo kept with a quote and the shared text cleanup
+of §7, is filed here as it is taken on.
 
 **Facts that save time**
 
@@ -392,20 +389,6 @@ Getting Tippani discoverable where self-hosters actually browse. No code here �
 ### §19 Grimmory sync (self-hosted, direct MariaDB) ([#35](https://github.com/aaronified/tippani/issues/35))
 
 A pull source for anyone already running **Grimmory** self-hosted: point Tippani at that instance's MariaDB database and sync straight from its tables, with no export file in the loop. It reads book covers, edition metadata and annotations directly from Grimmory's schema and folds them into the same idempotent, cross-source dedupe as the file importers, so a re-sync never doubles a passage. Covers come across too, which needs read access to Grimmory's cover store — so the plan assumes both services sit in the **same compose file**: Tippani is handed the Grimmory DSN plus the relevant media path, wired through the environment. Read-only and opt-in — nothing runs without a configured DSN. A first pass is a one-shot pull, with a scheduled re-sync as the follow-up. Unverified until I can test it against a real Grimmory box.
-
-### §20 Android app — capture by camera, with on-device OCR ([#37](https://github.com/aaronified/tippani/issues/37))
-
-A native Android client, Flutter so the source stays portable, in `mobile/`. Not a wrapper around the PWA: the point is the one thing a web page on a phone cannot do well, which is **photograph a page of a physical book and turn it into a highlight**. Recognition runs **on the device** (ML Kit), so the server gains no dependency, no CPU cost and no upload path — the reason server-side OCR was set aside doesn't apply to it.
-
-The work that isn't the OCR call itself — which is thirty lines — is what makes it worth having: reflowing recognised lines into paragraphs from their bounding boxes, **de-hyphenating across line breaks**, dropping running heads and page numbers, normalising the quote marks and ligatures OCR mangles, and then a correction screen with the photo beside the text. A local mirror keeps browsing and the Daily Quiz working with no server, and captures queue offline and flush when the box is reachable.
-
-Two notes on where the work belongs. The text cleanup above should live **server-side and shared** rather than in the app, because every import source produces some of it; that is §7. And the photo the correction screen already holds beside the text is worth **keeping, attached to the quote**: one nullable path column on an image pipeline that already stores covers, posters, portraits and stickers, and it keeps the evidence next to the transcription for the next time you doubt a line.
-
-The server half of this is done — device tokens and pairing, list paging, gzip, the capabilities handshake (a revision behind anthologies and locales), `noted_at` on create so a queued capture keeps its real date, and duplicate `409`s that make a retried flush idempotent. What remains is the app, and it is the largest single item on this page.
-
-The feature list, what is reused from the other apps, the signing and release set-up and the open questions are in [the plan](Plan-Android-App.md).
-
-**Android only.** Flutter compiles for iOS and the Dart here stays platform-agnostic, but building and signing for iOS needs a Mac, and I don't have one — so no `ios/` directory ships rather than an unbuildable one rotting in the tree. A fork with a Mac adds it with `flutter create --platforms=ios .` and a signing config; the README says Android and does not imply otherwise.
 
 ---
 

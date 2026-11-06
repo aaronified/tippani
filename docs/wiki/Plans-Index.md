@@ -23,13 +23,6 @@ builds.
    (`reorder.js`, built with the anthologies); reuse it.
 3. [Design consistency](Plan-Design-Consistency.md): last; an adversarial pass over the design against the owner's principles.
 
-## Proposed, not yet queued
-
-A plan the owner has not placed in the queue yet.
-
-- [Android app](Plan-Android-App.md): a Flutter client with photo capture and on-device text recognition, page and chapter from the
-  header and footer, update check, donation, bug reports by mail, and the rest of Tippani's functions in phases.
-
 ## Partly built
 
 - [Work source files](Plan-Work-Source-Files.md): a work keeps the file its quotes came from. All of it shipped in 3.4.0 except a

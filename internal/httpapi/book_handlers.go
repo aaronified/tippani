@@ -40,9 +40,17 @@ type bookReq struct {
 	Links string `json:"links"`
 	// The extent of the work, not the denominator of a read — see 0061 and
 	// `position`. 0 means unknown, the same encoding published_year uses.
-	Pages          int      `json:"pages"`
-	ISBN           string   `json:"isbn"`
-	ASIN           string   `json:"asin"`
+	Pages int    `json:"pages"`
+	ISBN  string `json:"isbn"`
+	ASIN  string `json:"asin"`
+	// CheckDuplicates asks for the same-title check below. OPT-IN, because POST /books has always
+	// created what it was given and clients and tests rely on that; the web UI, where a person types
+	// the title, asks for it.
+	CheckDuplicates bool `json:"check_duplicates"`
+	// ConfirmNew adds the book despite a same-title look-alike, as it does for a film: a second
+	// copy of a title is legitimate (another edition), but it is a decision, not a side effect.
+	ConfirmNew bool `json:"confirm_new"`
+
 	TextOrder      string   `json:"text_order"`
 	Description    string   `json:"description"`
 	PublishedYear  int      `json:"published_year"`
@@ -290,6 +298,28 @@ func (s *Server) handleCreateBook(w http.ResponseWriter, r *http.Request) {
 	if msg := req.validate(); msg != "" {
 		writeErr(w, http.StatusBadRequest, msg)
 		return
+	}
+
+	// A SAME-TITLE LOOK-ALIKE IS ASKED ABOUT, AS IT IS FOR A FILM. The only other guard is the
+	// (user_id, isbn) / (user_id, asin) unique index, which cannot fire for a book entered without
+	// either, which is most hand-entered ones, so a title typed twice made two rows with nothing said.
+	// 409 + needs_confirm + the look-alikes lets the client offer "add it anyway"; confirm_new says yes.
+	// Only when the client set check_duplicates.
+	if req.CheckDuplicates && !req.ConfirmNew {
+		existing, err := findSimilarBooks(s.Store.DB, userID(r), req.Title, 0)
+		if err != nil {
+			internalError(w, r, "create book: scan look-alikes", err)
+			return
+		}
+		if len(existing) > 0 {
+			olog.Tracef("[book] add %q needs confirm: %d same-title look-alike(s)", req.Title, len(existing))
+			writeJSON(w, http.StatusConflict, map[string]any{
+				"error":         "you already have a book with this title",
+				"needs_confirm": true,
+				"existing":      existing,
+			})
+			return
+		}
 	}
 
 	// Cover fetch runs before the write tx (it can take up to 10 s) and is

@@ -514,22 +514,23 @@ export function UtteranceForm({ initial, onSubmit, onCancel, submitLabel, tagSug
           options={quoteKindOptions()}
         />
       </label>
-      <label className="block">
-        <MonoLabel className="mb-1 block">{t('common.field.board.label')}</MonoLabel>
-        {/* THE BOARD, WHICH IS WHERE IT IS FILED and not what it is — and until
-            0053 this control was labelled "Kind", with a comment saying it was not
-            one. Now that there is a real kind beside it, it takes its own name. It
-            is the one field that has to be on this form, because a PUT without it
-            moves the quote. */}
-        {boards.length > 0 && (
+      {/* THE BOARD, WHICH IS WHERE IT IS FILED and not what it is — and until 0053 this control was
+          labelled "Kind", with a comment saying it was not one. Now that there is a real kind beside
+          it, it takes its own name. THE WHOLE FIELD IS GATED, label and all: a heading with nothing
+          under it, for a reader with no boards or while /boards is in flight, is a field that is not
+          there. The value is still held in state and still sent, because a PUT without it moves the
+          quote. */}
+      {boards.length > 0 && (
+        <label className="block">
+          <MonoLabel className="mb-1 block">{t('common.field.board.label')}</MonoLabel>
           <Select
             ariaLabel={t('common.field.board.label')}
             value={boardID == null ? '' : String(boardID)}
             onChange={(v) => setBoardID(v === '' ? null : Number(v))}
             options={boards.map((b) => [String(b.id), b.name])}
           />
-        )}
-      </label>
+        </label>
+      )}
       {shows('language') && (
       <LanguageCombo
         label={t('common.field.language.label')}

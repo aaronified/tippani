@@ -58,8 +58,8 @@ func titlesSimilar(a, b string) bool {
 // findSimilarBooks returns the user's existing books whose title looks like the
 // given one, excluding excludeID (the just-imported book). Titles are compared
 // in Go — personal libraries are small enough that scanning them is fine.
-func findSimilarBooks(tx *sql.Tx, uid int64, title string, excludeID int64) ([]dupHint, error) {
-	rows, err := tx.Query(
+func findSimilarBooks(q rowQuerier, uid int64, title string, excludeID int64) ([]dupHint, error) {
+	rows, err := q.Query(
 		`SELECT id, title, COALESCE(author, '') FROM books WHERE user_id = ? AND id <> ?`, uid, excludeID)
 	if err != nil {
 		return nil, err
