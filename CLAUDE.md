@@ -13,37 +13,21 @@ prompts to install the plugin the first time; in a headless/remote session it do
 auto-install. Prefer the kit's skills/agents (e.g. `test-summary`, `git-sync`,
 `screenshot-runner`, `repo-doc-set`) over ad hoc equivalents when one already fits the task.
 
-**IN A CLOUD SESSION THE KIT IS NOT INSTALLED FOR YOU, AND INSTALLING IT BY HAND REACHES ONLY
-THE CONTAINER IT RAN IN.** The cloud docs: a session does not install the plugins a repo
-turns on under `enabledPlugins`, and each session is a fresh VM
-(code.claude.com/docs/en/cloud-environments). The kit is a private repository, which the
-session's git proxy serves only once it is attached to the session. By hand, in this order:
-attach `aaronified/claude-kit` (at session start, or `add_repo`), `claude plugin
-marketplace add aaronified/claude-kit`, `claude plugin install claude-kit@claude-kit` —
-`install` alone answers *Plugin "claude-kit" not found in marketplace*. What it installs
-does not load in the session that ran it.
+**In a cloud session the kit is not installed for you**, and installing it by hand reaches only the container it ran in
+(a session does not install a repo's `enabledPlugins`, and each session is a fresh VM). The kit is a private repository, served
+only once it is attached to the session. By hand, in order: attach `aaronified/claude-kit`, `claude plugin marketplace add
+aaronified/claude-kit`, `claude plugin install claude-kit@claude-kit`. What it installs does not load in the session that ran it.
+`scripts/claude-kit-setup.sh` is for the environment's setup script, which the owner pastes in. Check rather than assume:
 
-**`scripts/claude-kit-setup.sh` IS FOR THE ENVIRONMENT'S SETUP SCRIPT**, which the owner
-pastes in (not done as of 25 September). A setup script runs once per environment cache,
-before Claude Code launches, so the session that builds the cache must be started with the
-kit picked. That route has not run end to end, so check rather than assume:
-
-- **Before relying on the kit,** its skills (`work-rating`, `pre-commit-gate`) are in the
-  session's skill list. `claude plugin list` reports what is on disk, not what loaded.
+- **Before relying on the kit,** its skills (`work-rating`, `pre-commit-gate`) are in the session's skill list. `claude plugin
+  list` reports what is on disk, not what loaded.
 - **Before the first commit,** with nothing staged,
-  `sh "$(git rev-parse --path-format=absolute --git-path hooks)/pre-commit"` prints
-  `kit-guard: clean`. Anything else: run the script, after attaching the kit if its plugin
-  cache is missing.
+  `sh "$(git rev-parse --path-format=absolute --git-path hooks)/pre-commit"` prints `kit-guard: clean`. Anything else: run the
+  script, after attaching the kit if its plugin cache is missing.
 
-What was measured, what the script was tested against, and what is still unknown are in
-`docs/wiki/How-this-was-written.md`.
-
-**PER CLONE, TWO LOCAL PIECES THAT GIT NEVER COMMITS**, both the kit's instructions:
-`/.visual-verify/` in `.git/info/exclude`, where `visual-verify` writes its working
-screenshots, and the kit's commit guard as the pre-commit hook. The guard knows the kit's
-files by a built-in list of names that predates `work-rating`, `prose-style` and several
-more, so a plain copy of one of those is only flagged for review; the list is the kit's to
-fix.
+What was measured is in `docs/wiki/How-this-was-written.md`. Per clone, two local pieces git never commits, both the kit's:
+`/.visual-verify/` in `.git/info/exclude`, and the kit's commit guard as the pre-commit hook. The guard's built-in list of the
+kit's file names is the kit's to fix; a plain copy of a newer kit file is only flagged for review.
 
 **FIREFOX CANNOT BE HAD IN THE CLOUD CONTAINER** (the comment above `CHROME_CANDIDATES` in
 `scripts/screenshots/capture.mjs` says why), **AND THE KIT SAYS NOT TO TRY**: `visual-verify`
@@ -114,11 +98,6 @@ Two of the kit's rules bind work in this repo even when no kit skill is running:
     and it is fixed or answered like any finding. It lowers no number.
 
   The rater's prompt carries that split, since it is part of how to score and not a target.
-  Why both rules came together: 3.0.4's last four passes scored commits below 8 almost entirely
-  for their commit bodies (a misquote, a miscount, a file named wrong). History here is never
-  rewritten, so each correction was a new body for the next pass to fault, and the loop ended
-  only when the owner stopped it.
-
   EVERY FINDING IS FIXED EITHER WAY. The score decides whether another pass runs, never
   whether the findings are worth acting on — a 9/10 pass's three findings are three real
   defects, and "we already cleared the bar" is not a reason to leave them. Where a finding
@@ -129,45 +108,14 @@ Two of the kit's rules bind work in this repo even when no kit skill is running:
   to do with a score; telling a rater what score to reach is how a rater stops being worth
   running.
 
-- **THE DIGEST IS OFF. THE OWNER TURNED IT OFF, AND THE REASON IS THE INTERESTING
-  PART.** On 13 September: *"Not the session digest. Turn that off. It is picking up old
-  rubbish."* It was — twice it reported work that was finished and PUSHED (#162, #163,
-  #164, #169, #170, #171–175, #131–138) as "not started", because it compares the
-  ledger's old prompts against the CURRENT UNCOMMITTED DIFF. A session that commits as it
-  goes therefore looks, to the digest, like a session that has done nothing. A summary
-  that is wrong about finished work is worse than no summary: it invites re-doing it.
-
-  `session_digest.py` fires on whichever of three thresholds trips first — prompts,
-  minutes, tool calls — so switching it off means pushing **all three** out of reach, not
-  one. They are `CLAUDE_KIT_DIGEST_MINUTES`, `_EVERY` and `_TOOLS`, all at `100000`. Not
-  the kit's single switch, `CLAUDE_KIT_DIGEST=0`: that also stops the ledger, and the ledger
-  is what `/digest` reads when the owner asks for a summary (the kit's `commands/digest.md`).
-
-  **AND THE PROJECT FILE IS NOT THE ONLY PLACE THEY HAVE TO BE SET.** A remote session once
-  fired a digest while the project file said it could not: the hook read the three names as
-  unset and used its own defaults (60 tool calls). Which session that was is not recorded,
-  but the cloud docs name a cause that fits: a session with several repositories reads no
-  repo's `.claude/settings.json` (code.claude.com/docs/en/cloud-environments, *What carries
-  over from your setup*), and picking the kit alongside this repo at session start makes a
-  session exactly that. Where the
-  project file IS read, it reaches the hooks: on 25 September (Claude Code 2.1.282) a nested
-  `claude -p` in the cloud container, started with every `CLAUDE_KIT_*` stripped from its
-  environment, handed the kit's hooks the project block and the user block alike, and with
-  the value in neither the hook fell back to its default, as a control. So the same three
-  names are also in `/root/.claude/settings.json`, which is NOT in this repo: a fresh machine
-  needs them written there, by hand or by `scripts/claude-kit-setup.sh`. **The route the docs
-  give, and the one that needs no file at all, is the cloud environment's own environment
-  variables**, which every session copies into its process environment at startup (same
-  page, *Set environment variables*). They are the owner's to set, and this environment sets
-  none of the three — the session's launch environment carries no `CLAUDE_KIT_*`. A setting
-  that is true in one file and inert in the process is the shape of thing this document
-  exists to stop.
-
-  History, kept because it is what the settings will look like if the digest is ever wanted
-  back: it ran on a clock rather than a counter, first at 30 minutes and then at 120
-  (*"digest bot can work every 120 mins for now"*), with `_EVERY` and `_TOOLS` already
-  pushed out of reach so the clock was the only trigger left. Summaries on request were
-  always the owner's preference: *"when i ask for summaries, it will be run manually."*
+- **THE DIGEST IS OFF.** The owner, 13 September: *"Not the session digest. Turn that off. It is picking up old rubbish."* It
+  reported pushed work as "not started" because it compares old prompts against the current uncommitted diff, so a session that
+  commits as it goes looks idle to it. `session_digest.py` fires on whichever of three thresholds trips first, so switching it
+  off means pushing **all three** out of reach: `CLAUDE_KIT_DIGEST_MINUTES`, `_EVERY` and `_TOOLS`, all at `100000`. Not
+  `CLAUDE_KIT_DIGEST=0`, which also stops the ledger that `/digest` reads. They are set in this repo's `.claude/settings.json`
+  and must also be set in `/root/.claude/settings.json` (not in this repo), because a session with several repositories reads no
+  repo's project file; the cloud environment's own environment variables are the route that needs no file, and are the owner's to
+  set. Summaries are on request: *"when i ask for summaries, it will be run manually."*
 
   `notify.py` needs nothing — it writes a log and a desktop toast and says nothing in the
   conversation, and its per-tool toast is off by default.
@@ -337,10 +285,10 @@ word — how far the whole page slides left and right, 0 where it does not — b
 laid out three times wider than the phone it is on still looks like a phone in a picture,
 and there is nothing on the screen to read. `splitWords` is the other measurement: the words
 a line break cut in two, because `innerText` reports a word whole, so `see('Annotations')`
-passed over a Stats tile printing "ANNOTATION" over a lone "S" (3.0.4). `offTheLine` is the third: the glyphs beside given
+passed over a Stats tile printing "ANNOTATION" over a lone "S". `offTheLine` is the third: the glyphs beside given
 words whose ink sits on none of their lines, measured through the viewBox as `make
 glyph-align` measures it, because a label that wraps leaves its glyph centred between two
-lines and a picture of the row still reads as fine (3.1.1). Names come from Chrome's own accessible-name computation, so
+lines and a picture of the row still reads as fine Names come from Chrome's own accessible-name computation, so
 no journey ever names a class. `press` REFUSES an ambiguous name rather than guessing,
 and case is folded because `innerText` reports text as rendered — a label the stylesheet
 uppercases reaches a journey shouting.
@@ -348,8 +296,8 @@ uppercases reaches a journey shouting.
 ## Testing against a real library
 
 **The seeded fixture hides a whole class of defect.** `scripts/screenshots/seed.mjs`
-builds a library of public-domain titles with **no cover artwork** (this container cannot
-fetch one — every image request comes back 403) and a cast of three. So a probe run
+builds a library of public-domain titles with **no cover artwork** (the cloud container cannot
+fetch one) and a cast of three. So a probe run
 against it cannot see a poster behind a medium glyph, a name long enough to truncate, or a
 card whose chip and whose credit line print the same performer. Every one of those was
 reported by the owner from their own phone and not one of them reproduced here.
@@ -430,8 +378,7 @@ draws a different set of author chips, so the count moves. That is how the ratch
 187 three times and 188 on the fourth with no change to the app. A ceiling can only be
 exact over a library that does not drift, and a restored archive is one.
 
-**THE ARCHIVE IS STABLE; THE PROBE IS NOT QUITE.** This paragraph used to end there, and
-that was one claim too far. The archive removes the seeding drift — the same rows every
+**THE ARCHIVE IS STABLE; THE PROBE IS NOT QUITE.** The archive removes the seeding drift — the same rows every
 run, so the same author chips — but `controls.mjs` PRESSES what it finds, and some of what
 it finds changes the library: it accepts and ignores rows on Checks, and it toggles a
 category on Settings and then reads the toggle back, which is why one run's list carries
@@ -449,14 +396,11 @@ the report which fixture the run used.
 
 ## The plan queue
 
-**A separate planning agent designs new features; its plans land in the wiki as `docs/wiki/Plan-<Title>.md`, one
-page per feature, listed in `Plans-Index.md`.** This session does not invent the queue and does not reorder it: work is
-fetched from there **one plan at a time** and finished before the next is started. A plan describes something that is **not built
-yet**; when it ships it is folded into an ADR (`docs/wiki/ADR-NNNN-*.md`, listed in `ADR-Index.md`) with a pass recording where
-the plan turned out to be wrong, and the plan page is deleted.
+**New features come from the plan queue, `docs/wiki/Plans-Index.md`, one plan at a time.** This session does not invent or reorder
+the queue. A plan describes something not yet built; the rules for folding a built plan into an ADR are in the index.
 
 **Documentation lives in the wiki and nowhere else** (ADR-0912): the roadmap is `docs/wiki/Roadmap.md`, the UI glossary is
-generated into `docs/wiki/UI-Glossary.md` (`make glossary`), and decisions are ADR pages. There is no HTML documentation. The
+generated into `docs/wiki/UI-Glossary.md` (`make glossary`), and decisions are ADR pages. There is no HTML documentation, apart from `docs/landing.html` and the design-pack prototypes in `docs/design/prototypes/`. The
 wiki is mirrored to GitHub by `wiki.yml`. A new decision is a new ADR page, numbered after the last, added to the index; a page
 is never renumbered.
 
@@ -527,15 +471,9 @@ running (`dockerd &` if not already up in this environment).
   like `feat(cast): ...`. Subject says what changed; body says why, and the rejected
   alternative — see `git log` for the house style.
 - Comments explain why, not what.
-- **ONE COMMIT PER FEATURE OR FIX. (`web/dist/` is no longer rebuilt by pull requests: the release workflow regenerates it, owner, 31 October 2026, ADR-0926. The paragraph below is the older rule.)** The owner's:
-  *"keep committing individual features and fixes"*, then *"you dont need to rebuild web/dist
-  for each … only do that when you are pushing the commits"*. So feature commits carry
-  source, tests and docs, and the last commit before every push is `chore(dist): rebuild`,
-  made with `make frontend` (which writes `web/dist/` and `web/dist-inputs.json`, committed
-  together) and then `make glossary`. "Frontend" includes `internal/i18n/en.txt` and
-  `bn.txt`, which `src/i18n.js` imports with Vite's `?raw`. `go test ./...` fails on a stale
-  `dist`, so a commit between two rebuilds is red there; every PUSHED head is not, and that
-  is the line held.
+- **One commit per feature or fix**, carrying source, tests and docs. `web/dist/` is not rebuilt by pull requests: the release
+  workflow regenerates it (ADR-0926). "Frontend" includes `internal/i18n/en.txt` and `bn.txt`, which `src/i18n.js` imports with
+  Vite's `?raw`.
 - Docs that go stale with a change and belong in the same PR: `CHANGELOG.md` (user-visible
   changes, under `## [Unreleased]` with `node scripts/changelog-entry.mjs`; the release workflow moves them under the version), `docs/wiki/UI-Glossary.md` (interface renames; regenerate with `make glossary`), `docs/wiki/How-this-was-written.md` (verification changes),
   `docs/wiki/Design-decisions.md` (design departures).
@@ -771,7 +709,7 @@ old work, so a screen that breaks one is a bug and not a variation.
   the release it first ships in, registering itself from `init()` so retiring it later is
   a file deletion and nothing else. See `internal/store/onetime.go`.
 - *"nothing runs unless a person or the app's own lookup started it, and nothing wakes on a
-  timer."* The owner's wording, verbatim, from 3.1.0, where it replaced "no goroutine
+  timer."* The owner's wording, verbatim; it replaced "no goroutine
   outlives its request". THE OLD LINE HAD TO GO BECAUSE THE OWNER ASKED FOR THE THING IT
   FORBADE: a fill over two thousand works has to outlive the press that started it, or
   closing the tab stops it part-way with nothing anywhere saying where. So, besides the

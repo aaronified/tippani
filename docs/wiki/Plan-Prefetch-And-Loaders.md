@@ -2,6 +2,10 @@
 
 Source of truth: this wiki page.
 
+**Partly built.** The delayed, held image loader shipped (`imageWait.js`, `useSlowArrival`: 150 ms before it shows, 300 ms hold)
+and so did `sessionCaches.js`. Not built: client data prefetch on pointerdown or when a row enters the viewport, and the page
+loader that hands a fetch to a background job when Back is pressed.
+
 **The owner's request, verbatim:**
 
 > i think the issue there was an artefact of choppy internet. can we have some prefetch on

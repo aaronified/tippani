@@ -10,7 +10,7 @@ into an ADR and its page is deleted.
 
 ## Built
 
-Up to 3.4.1, see the changelog. In brief:
+Up to 3.6.2, see the changelog. In brief:
 
 - A self-hosted home for book highlights, film and show dialogue, and quotes from anywhere else, in one static Go binary with
   the app embedded. Import from Kindle, Readest, Bookcision, Hardcover, Goodreads and IMDb; export and round-trip as Markdown.
@@ -73,7 +73,7 @@ The files a work's quotes came from, which the app used to refuse to hold:
 - The release is cut by a workflow from `[Unreleased]`
   ([ADR-0924](ADR-0924-The-Release-Workflow-Cuts-The-Version-From-The-Unreleased-Changelog.md), [Releasing](Releasing.md)).
 
-## Built in 3.6.0 and 3.6.1
+## Built in 3.6.0 to 3.6.2
 
 - **Work goes through pull requests**, `main` is protected, the release pushes with a deploy key and regenerates `web/dist`
   itself; pull requests carry no dist
@@ -87,12 +87,12 @@ The files a work's quotes came from, which the app used to refuse to hold:
 - **The anthology overhaul** ([ADR-0929](ADR-0929-An-Anthologys-Sections-Share-The-Entries-Position-Space.md)): removed entries with a
   way back, sections and grouping, drag and Move to…, a cover, epigraph and dedication, reading mode, print and Save PDF, the
   Add-waiting preview, and work identity with exact-identifier re-link on import. Its plan page is retired.
+- **3.6.2:** Attach from folder on Metadata > Source files, search and folding on the Stray marks tab, the Accept all body cap on
+  Checks, and a dismissable phone search dropdown.
 
-## Where things stand (1 November 2026)
+## Where things stand
 
-The latest release is **3.6.1**. `[Unreleased]` holds three changes that are merged and not released: Accept all on Checks no
-longer fails past about 260 rows (the 64 KiB body cap), the top bar searches inside Stray marks and each work's group folds, and the
-phone's search dropdown can be dismissed (Back closes it, and it has a Close row). Work is taken one pull request at a time
+The latest release is **3.6.2** and `[Unreleased]` is empty. Work is taken one pull request at a time
 ([ADR-0925](ADR-0925-Work-Goes-Through-Pull-Requests-And-The-Release-Rebuilds-Dist.md)); CI on `main` is green.
 
 **What is left, in order:**
@@ -230,7 +230,6 @@ Today the only gestures are scrolling, the drawer's swipe-to-close, and dragging
 9. **Long-press ＋ Add** for a quick-action sheet, so the same actions the installed app icon already offers on a long-press are reachable from inside the app.
 10. **Two-finger tap to undo** — genuinely unclaimed on both platforms, and it pairs with the delete-undo toast that already exists.
 11. **Long-press a colour swatch** to make it the default for new captures.
-12. **Drag to reorder** anthology entries and staged-import groupings; the sticker drag already proves the primitive.
 
 Two more are unblocked now that **trash & undo (§1)** has landed and a mis-swipe is recoverable: **horizontal swipe inside a card's own bounds** for share/edit/delete, Gmail-style, rubber-banding back below threshold and never deleting on the swipe alone; and **horizontal swipe on a work-detail hero** for previous/next work in the current filtered order, which is the riskiest of the set for being screen-width and horizontal, so it stays on the hero and never the whole page.
 
@@ -249,16 +248,6 @@ Low-cost ways to get text in without a file:
 - **PWA share-target** — Tippani already installs as a PWA, so register it as a share target: "Share → Tippani" from any app (a reading app, a browser, your phone's own text selection **or its built-in OCR**) drops straight into quick capture. This is also how a photographed page gets in — the phone recognises the text, you share it.
 - **Bookmarklet** — one click that POSTs the current page's **raw HTML** to Tippani, parsed server-side by reusing the existing Hardcover / Goodreads / IMDb HTML importers. Deliberately minimal: just the page, no Bookcision-style JSON layer to install or keep working.
 - **Paste a pile** — one textarea, blank-line separated, becomes N staged quotes on one work. The "just let me dump what I typed in Notes" path that every parser-based importer misses.
-
-### §4 Anthologies — ordered, curated collections of quotes ([#18](https://github.com/aaronified/tippani/issues/18))
-
-A named, ordered list of quotes drawn from anywhere in the library, carrying prose of its own: an introduction, and my commentary between the entries. It is not a tag with a nicer hat — the two things a tag cannot do are **hold an order** and **hold your writing**, and those are the whole point.
-
-This is the missing *output* of a commonplace book. Everything in Tippani today points inward: you file a passage, you find it again, you get asked about it. An anthology is what you make *from* the collection — a sequence you arranged, on a theme you chose, with the connective tissue that explains why these twelve passages belong next to each other. Letterboxd's lists are the closest proven form; the nearest thing in the annotation world is Zotero's extract-annotations-into-a-note, which is the most-used feature it has.
-
-**Most of this shipped.** The API landed in 2.0.0, the screen in 2.1.0, and 2.1.2 added the themed round and per-anthology field visibility — six switches deciding what each passage shows, governing the reading view and the Markdown alike, so a collection of film lines can name its actors and a book of proverbs can carry nothing but the words. Composing works from any selection, the per-entry commentary is there, and the Markdown export round-trips.
-
-**And the rest shipped by 3.0.0** ([#18](https://github.com/aaronified/tippani/issues/18), closed): EPUB export, a small book of your own quotes, built with the standard library's `archive/zip`. What comes next is its own card below, [Anthologies you can arrange and print](#anthology-enhancements).
 
 ### §5 Help & density — one registry, four consumers ([#23](https://github.com/aaronified/tippani/issues/23))
 
@@ -440,12 +429,6 @@ Names and the alternate order can be fetched from the same providers the library
 
 
 
-### Change one surface yourself
-
-A material set dresses four surfaces at once — the desk, the furniture, the page and the binding. This is the other half: keep the set you like and swap just one of them, out of the twenty-seven tiles the app ships. What you leave alone stays the set's own material.
-
-Half of it is already in the app and none of it is reachable: a saved look carries per-surface tiles, and a theme file exported from another install can contain them. The missing piece is the picker.
-
 ### Change one surface yourself, per slot
 
 A material set dresses four surfaces at once — the ground, the furniture, a card and a cover. Choosing one is a single decision, which is the point of the sets, but it leaves no way to say *this set, with a different card*.
@@ -457,12 +440,6 @@ A material set dresses four surfaces at once — the ground, the furniture, a ca
 Settings › Server becomes Admin: the users on the server with their sign-on state, single sign-on set up in the app, maintenance, and a temporary password issued from a user's row. (Admin-set passwords are already temporary as of 3.0.0.)
 
 Everything personal stays on Profile — your own API keys, notifications and sign-on link — and nothing in Admin opens another reader's quotes.
-
-### Anthologies you can arrange and print
-
-Drag entries into order, add your own section headings, or group by work, person or character. Removed entries stay removed, and a cover, epigraph and dedication open the book.
-
-A continuous reading mode, better printing, and a PDF whose text you can still select.
 
 ### Quotes read aloud, in the browser only
 
