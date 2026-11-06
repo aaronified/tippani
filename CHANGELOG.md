@@ -21,6 +21,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Pairing a phone is back in Settings.** The Devices card, hidden while there was no app, is
+  on the Server section again for every reader, not only admins: make a code there, type it in
+  the Android app, and unpair any phone from the same list. Settings search finds it.
+
 - **A paired phone can tell which device it is.** The device list marks the device that asked,
   so the Android app can say "this phone" and refuse to revoke itself by mistake. API revision
   9; nothing an older client reads changed.
