@@ -14,6 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   found nothing for this work. Nothing is said while a file is held or offered, or while a scan
   runs.
 
+### Internal
+
+- The share-card contrast test registers the project's own fonts instead of relying on the
+  machine's, which made it fail on some CI runners with identical code.
+
 ## [3.6.2] - 2026-11-01
 
 ### Fixed
