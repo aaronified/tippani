@@ -4864,6 +4864,7 @@ error.reindex.failed = could not rebuild the search index
 error.reset.failed = could not reset the database
 error.load.users = could not load users
 error.open.person = could not open this person
+person.opening = Opening…
 error.add.user = could not add user
 error.save.role = could not change role
 error.delete.user = could not delete user
