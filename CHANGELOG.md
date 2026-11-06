@@ -12,6 +12,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The quote form no longer shows a Board heading with nothing under it** when you have no
   boards, or while they are loading.
 
+### Added
+
+- **A work with no file says why, on its Source files row.** No library folder is set up, the
+  folders have not been scanned, the last scan stopped before it finished, or it finished and
+  found nothing for this work. Nothing is said while a file is held or offered, or while a scan
+  runs.
+
 ### Changed
 
 - **An anthology's page opens like a book.** A cover (your picture, or one set from the title)
