@@ -57,7 +57,7 @@ body:
     attributes:
       label: Which roadmap section is it nearest
       description: Optional. A § number, or the name of a Later / maybe entry.
-      placeholder: "§4 Anthologies"
+      placeholder: "§12 Desktop keyboard"
 
   - type: checkboxes
     id: ethos
