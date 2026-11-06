@@ -25,6 +25,8 @@ import { forgetDailyDeck } from './daily.js'
 import { keepAnswer } from './answerQueue.js'
 import { CreditFaces, DEFAULT_CREDIT_SEPS, splitCredits, usePeople } from './credits.jsx'
 import { REVIEW_BULK_KIND } from './bulkOps.jsx'
+import { SpeakButton } from './speak.jsx'
+import { tagFor, textSegments } from './speech.js'
 import {
   ClampMore,
   ErrorText,
@@ -174,6 +176,9 @@ export function QuoteBlock({ card }) {
       >
         {ClozeText(card.quote || card.note)}
       </p>
+      {/* READ ALOUD: what the card shows as its question, in its own language. A blank is a pause, never a
+          word, and the card's note is not read: a single card speaks only its text. */}
+      <SpeakButton id={`review:${card.id}`} segments={() => textSegments(card.quote || card.note, tagFor(card.language))} />
       {/* THE ONE CALLER THAT DOES NOT FOLD. On a quiz card the note is what is
           being read — it is the answer's own margin, not a remark beside a quote
           you are looking at — and a chevron on it would be a control in the

@@ -1458,7 +1458,7 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
               })}
             </div>
           )}
-          <ActionRow acts={acts} item={a} color={color} onColor={pickColor} onFavourite={(v) => patch(a, { favorite: v })} actionsAlwaysVisible={actionsAlwaysVisible} className="pt-1.5" />
+          <ActionRow acts={acts} item={a} kind="book" color={color} onColor={pickColor} onFavourite={(v) => patch(a, { favorite: v })} actionsAlwaysVisible={actionsAlwaysVisible} className="pt-1.5" />
         </div>
       {menu}
       {gather.node}

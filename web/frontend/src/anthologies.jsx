@@ -114,6 +114,8 @@ export { ANTHOLOGY_KIND, AddToAnthologyDialog, workRule, worksRule } from './ant
 import { gatherInto, useAnthologies } from './anthologyGather.jsx'
 import { actionsFor } from './actions.jsx'
 import { useInContext } from './sources.jsx'
+import { QuoteSpeakButton, RunButton } from './speak.jsx'
+import { anthologyRun } from './readRuns.js'
 export { gatherInto, useAnthologies }
 
 // exportHref is a plain URL rather than a helper call, because this export is the
@@ -1390,6 +1392,8 @@ function AnthologyEntry({ entry, fields = {}, first, last, onNote, onMove, onMov
         paragraph. */}
     {entry.quote_note && <p className="microcopy mt-1 opacity-80">{entry.quote_note}</p>}
         </div>
+        <span className="flex items-center">
+        <QuoteSpeakButton kind={entry.kind} item={entry} />
         <MoreMenu
     ariaLabel={t('anthologies.entry.more.aria')}
     items={[
@@ -1411,6 +1415,7 @@ function AnthologyEntry({ entry, fields = {}, first, last, onNote, onMove, onMov
       { id: 'remove', icon: <IconDelete />, label: t('common.action.remove.label'), danger: true, onClick: () => onRemove(entry) },
     ]}
         />
+        </span>
       </div>
       {inContext.node}
     </Card>
@@ -2108,6 +2113,8 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
       <GhostButton icon={<IconReading />} onClick={() => setReading(true)} disabled={!anthology}>
         {t('anthologies.reader.label')}
       </GhostButton>
+      {/* READ ALOUD: the whole anthology in the order the page draws it. Not drawn without voices. */}
+      <RunButton id={`run:anthology:${id}`} segments={() => anthologyRun(anthology, slots)} disabled={!anthology || rows.length === 0} />
       {/* THE REST ARE ONE MENU, NOT SEVEN BUTTONS. Practise, Read and Edit are what a reader does
           every time this page is open; Export, EPUB, Print, Save PDF, the rule and Delete are
           once-in-a-while verbs, and a row of nine ghost buttons wrapped to three lines on a desk

@@ -10707,11 +10707,19 @@ export function IconPractise({ size = ICON_SIZE }) { return <svg {...iconFill} v
 export function IconPlaying({ size = ICON_SIZE }) { return <svg {...iconFill} viewBox="-18.3 -18.3 292.6 292.6" width={size} height={size}><path d="M247.44,173.75a.68.68,0,0,0,0-.14L231.05,89.44c0-.06,0-.12,0-.18A60.08,60.08,0,0,0,172,40H83.89a59.88,59.88,0,0,0-59,49.52L8.58,173.61a.68.68,0,0,0,0,.14,36,36,0,0,0,60.9,31.71l.35-.37L109.52,160h37l39.71,45.09c.11.13.23.25.35.37A36.08,36.08,0,0,0,212,216a36,36,0,0,0,35.43-42.25ZM104,112H96v8a8,8,0,0,1-16,0v-8H72a8,8,0,0,1,0-16h8V88a8,8,0,0,1,16,0v8h8a8,8,0,0,1,0,16Zm40-8a8,8,0,0,1,8-8h24a8,8,0,0,1,0,16H152A8,8,0,0,1,144,104Zm84.37,87.47a19.84,19.84,0,0,1-12.9,8.23A20.09,20.09,0,0,1,198,194.31L167.8,160H172a60,60,0,0,0,51-28.38l8.74,45A19.82,19.82,0,0,1,228.37,191.47Z"/></svg> }
 
 
+// READ ALOUD'S TWO GLYPHS: a ring with a triangle (play) and a ring with a square (stop). Neither is the
+// watching glyph (a screen with a triangle on it, which means a show), the game glyph, or the speaker
+// role, so a play control is never mistaken for a kind of work or a kind of person.
+export function IconPlayAloud({ size = ICON_SIZE }) { return <svg {...iconFill} width={size} height={size}><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm36.44-94.66-48-32A8,8,0,0,0,104,96v64a8,8,0,0,0,12.44,6.66l48-32a8,8,0,0,0,0-13.32ZM120,145.05V111l25.58,17Z"/></svg> }
+export function IconStopAloud({ size = ICON_SIZE }) { return <svg {...iconFill} width={size} height={size}><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm32-136H96a16,16,0,0,0-16,16v64a16,16,0,0,0,16,16h64a16,16,0,0,0,16-16V96A16,16,0,0,0,160,80Zm0,80H96V96h64Z"/></svg> }
+
 // The filled set renders itself into the glossary. A picture of a glyph can go stale;
 // the glyph cannot. Guarded like every other declaration — see the note beside the
 // first ones — so none of this reaches the shipped bundle.
 if (import.meta.env.DEV) {
   IconHeartOn.glossary = { demo: (h) => h(IconHeartOn, { size: 28 }) };
+  IconPlayAloud.glossary = { demo: (h) => h(IconPlayAloud, { size: 28 }) };
+  IconStopAloud.glossary = { demo: (h) => h(IconStopAloud, { size: 28 }) };
   IconHome.glossary = { demo: (h) => h(IconHome, { size: 28 }) };
   IconNavLibrary.glossary = { demo: (h) => h(IconNavLibrary, { size: 28 }) };
   IconNavCatalogue.glossary = { demo: (h) => h(IconNavCatalogue, { size: 28 }) };

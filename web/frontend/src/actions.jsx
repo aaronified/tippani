@@ -24,6 +24,7 @@ import {
 } from './ui.jsx'
 import { t } from './i18n.js'
 import { canTakeSource } from './sources.jsx'
+import { QuoteSpeakButton } from './speak.jsx'
 
 // One list of the things you can do to a quote.
 //
@@ -381,7 +382,7 @@ export function useRowSplit(acts) {
 // hovered on desktop and stand on a phone, where there is no hover to wait for.
 // Only edit and delete are behind the ⋯, at every width (see QuoteActions), so
 // what a resting card shows is its ♥ and one quiet overflow glyph.
-export function ActionRow({ acts, item, color, onColor, onFavourite, actionsAlwaysVisible = false, className = '' }) {
+export function ActionRow({ acts, item, kind = 'quote', color, onColor, onFavourite, actionsAlwaysVisible = false, className = '' }) {
   const { phone, tools, menu } = useRowSplit(acts)
   return (
     <div className={('mt-1 flex items-center gap-x-3 gap-y-1 ' + (phone ? 'flex-nowrap' : 'flex-wrap') + ' ' + className).trim()}>
@@ -397,6 +398,8 @@ export function ActionRow({ acts, item, color, onColor, onFavourite, actionsAlwa
           the change is worse than none — the next reader trusts it. */}
       <ReviewDot item={item} />
       <Hearts value={!!item.favorite} onChange={onFavourite} />
+      {/* READ ALOUD: this card's own text, in its own language. Not drawn where the device has no voices. */}
+      <QuoteSpeakButton kind={kind} item={item} />
       <QuoteTools actions={tools} alwaysVisible={actionsAlwaysVisible} />
       {/* shrink-0: the colour dots are one atomic control — the row wraps the ⋯
           cluster to a second line before it splits or squeezes them. (Six of

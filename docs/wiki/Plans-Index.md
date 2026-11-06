@@ -18,11 +18,10 @@ A plan that is partly built is cut down to the part that is not, and says so at 
 The order work is taken in, one plan at a time, each its own release. It is the owner's order and is not reordered by whoever
 builds.
 
-1. [Read aloud](Plan-Read-Aloud.md): read a quote aloud with the browser's own speech, no service and no download.
-2. [Tile slots](Plan-Tile-Slots.md): the machinery for choosing one surface of a material set exists and nothing reaches it.
-3. [Episodes](Plan-Episodes.md): episode names, and up to three orderings of a series. The drag it was to extend now exists
+1. [Tile slots](Plan-Tile-Slots.md): the machinery for choosing one surface of a material set exists and nothing reaches it.
+2. [Episodes](Plan-Episodes.md): episode names, and up to three orderings of a series. The drag it was to extend now exists
    (`reorder.js`, built with the anthologies); reuse it.
-4. [Design consistency](Plan-Design-Consistency.md): last; an adversarial pass over the design against the owner's principles.
+3. [Design consistency](Plan-Design-Consistency.md): last; an adversarial pass over the design against the owner's principles.
 
 ## Proposed, not yet queued
 

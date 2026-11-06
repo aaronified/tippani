@@ -28,6 +28,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The share-card contrast test registers the project's own fonts instead of relying on the
   machine's, which made it fail on some CI runners with identical code.
 
+### Added
+
+- **Quotes can be read aloud.** A play button on every quote card, on Home's cards, on an
+  anthology's entries and on the practise screens speaks the quote in its own language, with the
+  browser's own voices: no service, no download, and nothing speaks until you press it.
+  Anthologies and boards have Read aloud in their header, which speaks the whole thing in order
+  (an anthology's intro, notes and credits too, unless its switches hide them), with next and
+  stop on the passage playing. Pick a voice per language in the Language editor in Metadata. The
+  buttons are not drawn on a device with no voices.
+
 ## [3.6.2] - 2026-11-01
 
 ### Fixed
