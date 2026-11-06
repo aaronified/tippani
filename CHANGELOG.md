@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **The quote form no longer shows a Board heading with nothing under it** when you have no
+  boards, or while they are loading.
+
 ### Added
 
 - **A work with no file says why, on its Source files row.** No library folder is set up, the
