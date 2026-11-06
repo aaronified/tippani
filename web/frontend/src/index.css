@@ -12454,3 +12454,11 @@ button.work-pill:hover { color: var(--ink); border-color: var(--ink-border); }
   @page { @bottom-center { content: counter(page); font-size: 9pt; } }
   .anthology-reader { display: none !important; }
 }
+
+/* A BOOK WITH THIS TITLE IS ALREADY HERE: the confirm that asks before a second copy. Spacing from the
+   page's own steps, not typed into the markup. */
+.book-duplicate { display: flex; flex-direction: column; gap: var(--row); padding: var(--edge); border-left: 4px solid var(--amber, var(--accent)); }
+.book-duplicate-list { display: flex; flex-direction: column; gap: var(--row); margin: 0; padding: 0; list-style: none; }
+.book-duplicate-row { padding: var(--row) var(--edge); border: 1px solid var(--line); border-radius: 11px; }
+.book-duplicate-author { margin: 0; color: var(--faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.book-duplicate-actions { display: flex; flex-wrap: wrap; gap: var(--row); }

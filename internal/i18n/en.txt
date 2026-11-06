@@ -4214,6 +4214,8 @@ movies.duplicate.poster.yes = has poster
 movies.duplicate.poster.no = no poster
 movies.duplicate.enrich.label = Enrich this
 movies.duplicate.separate.label = Add as a separate title
+books.duplicate.lead = You already have a book called “{title}”. Add this one as a separate book anyway?
+books.duplicate.separate.label = Add it anyway
 
 # The hand-entry and edit forms for a Catalogue title.
 film.form.edit.title = Edit title

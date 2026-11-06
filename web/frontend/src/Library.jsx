@@ -38,6 +38,7 @@ import { KINDS, bookGenres } from './workKinds.js'
 import WorkDetail from './WorkDetail.jsx'
 import { QUOTE_TEXT } from './fonts.js'
 import { t } from './i18n.js'
+import { BookDuplicateConfirm } from './bookDuplicate.jsx'
 import { ProseArea } from './proseField.jsx'
 import {
   fmtDate,
@@ -578,9 +579,11 @@ export function ManualTab({ onAdded, formId, title, setTitle, onBusy }) {
   const [year, setYear] = useState('')
   const [isbn, setIsbn] = useState('')
   const [error, setError] = useState('')
+  // A same-title book the server held for a decision: the look-alikes, until the reader chooses.
+  const [held, setHeld] = useState(null)
 
-  async function submit(e) {
-    e.preventDefault()
+  async function submit(e, confirmNew = false) {
+    e?.preventDefault?.()
     if (!title.trim()) return setError(t('error.validate.title-required.lower'))
     // parseYearInput reads "380 BCE" and "c. 1500" as well as "1719", because
     // that is what the field shows when it rests. A bare Number() would read
@@ -595,6 +598,7 @@ export function ManualTab({ onAdded, formId, title, setTitle, onBusy }) {
     onBusy?.(true)
     setError('')
     const r = await json('POST', '/books', {
+      confirm_new: confirmNew || undefined,
       title: title.trim(),
       author: author.trim() || undefined,
       isbn: isbn.trim() || undefined,
@@ -602,8 +606,9 @@ export function ManualTab({ onAdded, formId, title, setTitle, onBusy }) {
       published_circa: publishedCirca,
     })
     onBusy?.(false)
-    if (r.ok) onAdded(r.data) // hand back the created book (capture targets it)
-    else setError(errText(r, t('error.add.book')))
+    if (r.ok) return onAdded(r.data) // hand back the created book (capture targets it)
+    if (r.status === 409 && r.data?.needs_confirm) return setHeld(r.data.existing || [])
+    setError(errText(r, t('error.add.book')))
   }
 
   return (
@@ -620,6 +625,14 @@ export function ManualTab({ onAdded, formId, title, setTitle, onBusy }) {
         <Field label={t('common.field.isbn.label')} value={isbn} onChange={(e) => setIsbn(e.target.value)} />
       </div>
       <ErrorText>{error}</ErrorText>
+      {held && (
+        <BookDuplicateConfirm
+          title={title.trim()}
+          existing={held}
+          onAddSeparate={() => { setHeld(null); submit(null, true) }}
+          onCancel={() => setHeld(null)}
+        />
+      )}
       {/* Title is the one must-fill field. The ✓ in the popup header stays greyed
           until it has one rather than accepting the press and answering with an
           error; this line says why, because a disabled icon cannot. */}

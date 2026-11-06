@@ -36,6 +36,7 @@ import { chapterPatch } from './text.js'
 import { StickerPicker, useStickers } from './stickers.jsx'
 import { CandidateRow, groupEditions } from './CoverPicker.jsx'
 import { ManualTab, isIsbn } from './Library.jsx'
+import { BookDuplicateConfirm } from './bookDuplicate.jsx'
 import { ManualMovie, sourceRef, candSourceID, DuplicateConfirm, countOrNull } from './Movies.jsx'
 import ImportPage from './ImportPage.jsx'
 import { PageHelp } from './help.jsx'
@@ -164,6 +165,7 @@ export function AddLookup({ initialKind = 'book', onAdded, onCreated, initialQue
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [confirm, setConfirm] = useState(null) // movie same-name confirm {cand, existing}
+  const [bookConfirm, setBookConfirm] = useState(null) // book same-title confirm {cand, existing}
   const [manual, setManual] = useState(false) // manual-entry popup open
   // Which supplier is unconfigured, PER KIND rather than as one flag: film/show
   // run on TMDB/TVDB and a game runs on IGDB, and they are configured
@@ -250,9 +252,10 @@ export function AddLookup({ initialKind = 'book', onAdded, onCreated, initialQue
     setError(errText(r, t('error.lookup.failed')))
   }
 
-  async function addBook(c) {
+  async function addBook(c, confirmNew = false) {
     setError('')
     const r = await json('POST', '/books', {
+      confirm_new: confirmNew || undefined,
       title: c.title,
       author: c.author || undefined,
       isbn: c.isbn13 || undefined,
@@ -276,8 +279,10 @@ export function AddLookup({ initialKind = 'book', onAdded, onCreated, initialQue
       google_id: c.google_id || undefined,
       openlibrary_id: c.openlibrary_id || undefined,
     })
-    if (r.ok) finish('book', r.data)
-    else setError(errText(r, t('error.add.book'))) // 409 duplicate lands here
+    if (r.ok) return finish('book', r.data)
+    // A same-title book is held for a decision; an isbn/asin clash is a plain 409 and lands below.
+    if (r.status === 409 && r.data?.needs_confirm) return setBookConfirm({ cand: c, existing: r.data.existing || [] })
+    setError(errText(r, t('error.add.book')))
   }
 
   // Movie add mirrors the old LookupMovie: a same-name title already in the
@@ -369,6 +374,15 @@ export function AddLookup({ initialKind = 'book', onAdded, onCreated, initialQue
       )}
       <ErrorText>{error}</ErrorText>
 
+      {bookConfirm && (
+        <BookDuplicateConfirm
+          title={bookConfirm.cand.title}
+          existing={bookConfirm.existing}
+          busy={busy}
+          onAddSeparate={() => { const c = bookConfirm.cand; setBookConfirm(null); addBook(c, true) }}
+          onCancel={() => setBookConfirm(null)}
+        />
+      )}
       {confirm && (
         <DuplicateConfirm
           confirm={confirm}
