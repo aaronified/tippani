@@ -46,7 +46,7 @@ function Marked({ text, part }) {
 
 const wire = (p) => ({ kind: p.kind, id: p.id, quote: p.quote, proposed: p.proposed })
 
-export default function CorrectionsPage({ embedded = false, open = true, onToggle, onOpenBook, onOpenMovie }) {
+export default function CorrectionsPage({ embedded = false, open = true, onToggle, onOpenBook, onOpenMovie, onPresence }) {
   const [data, setData] = useState(null)
   const [busy, setBusy] = useState(false)
   const [pill, setPill] = useState('all')
@@ -85,6 +85,9 @@ export default function CorrectionsPage({ embedded = false, open = true, onToggl
   }
 
   const total = data ? data.proposals.length : 0
+  // Told to the tab that holds this section: null until read, then whether it draws anything.
+  const present = data ? total > 0 || data.wrong_file.length > 0 : null
+  useEffect(() => { onPresence?.(present) }, [present, onPresence])
   if (!data || (total === 0 && data.wrong_file.length === 0)) return null
   const groups = data.buckets
     .map((b) => ({ ...b, rows: data.proposals.filter((p) => p.bucket === b.id) }))

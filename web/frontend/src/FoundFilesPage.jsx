@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { t } from './i18n.js'
 import { BucketFilter, livePill } from './bucketFilter.jsx'
 import { Card, GhostButton, IconArrow, IconButton, IconCheck, IconClose, InfoDot, SectionHead } from './ui.jsx'
@@ -16,9 +16,18 @@ import { useLibraryScan } from './libraryScan.js'
 // The reads, the polling and the presses are useLibraryScan's (libraryScan.js), shared with
 // Metadata > Source files.
 
-export default function FoundFilesPage({ embedded = false, open = true, onToggle }) {
+export default function FoundFilesPage({ embedded = false, open = true, onToggle, onPresence }) {
   const [pill, setPill] = useState('all')
   const { mounts, found, scanning, busy, loadError, badLines, sum, attach, refuse, retry, reload } = useLibraryScan()
+  // WHETHER THIS SECTION DRAWS ANYTHING, told to the tab that holds it: null until the folders are read.
+  // The same conditions as the two early returns below, so the tab's "nothing waiting" line and this
+  // section's silence can never disagree.
+  const present = !mounts
+    ? null
+    : mounts.length === 0
+      ? !!loadError
+      : scanning || !!loadError || (found || []).some((c) => c.bucket === 'exact' || c.bucket === 'review') || badLines.length > 0 || sum('unclaimed') > 0
+  useEffect(() => { onPresence?.(present) }, [present, onPresence])
   if (!mounts) return null
   // No folders and nothing failed: the section draws nothing, as before.
   if (mounts.length === 0) return loadError ? <LoadFailed text={loadError} onRetry={retry} /> : null

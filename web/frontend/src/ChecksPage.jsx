@@ -19,7 +19,7 @@
 // routes, so an old bookmark still opens the page it named, and both take an
 // `embedded` flag that gives up the page header and the back link — the only two
 // things a section cannot keep when it stops being a screen.
-import { lazy, Suspense, useState } from 'react'
+import { lazy, Suspense, useMemo, useState } from 'react'
 import { t } from './i18n.js'
 import { IconHighlight, IconImport, IconSourceFile, PageHeader } from './ui.jsx'
 import { SectionRail } from './sectionRail.jsx'
@@ -53,27 +53,41 @@ const TABS = [
 function FilesTab({ onOpenBook, onOpenMovie }) {
   const [shut, setShut] = useState({})
   const fold = (id) => ({ open: !shut[id], onToggle: () => setShut((o) => ({ ...o, [id]: !o[id] })) })
+  // WHAT EACH SECTION SAYS ABOUT ITSELF: undefined until it has read, then true if it draws something.
+  // Each draws nothing when it has nothing, so when all four have answered "nothing" the tab would be
+  // blank, which reads as broken. It says so instead. Until every one has answered it says nothing, so
+  // "nothing waiting" is never claimed before the asking is done.
+  const [present, setPresent] = useState({})
+  const ids = ['found', 'locators', 'corrections', 'attached']
+  const reporters = useMemo(
+    () => Object.fromEntries(ids.map((id) => [id, (v) => setPresent((p) => (p[id] === v ? p : { ...p, [id]: v }))])),
+    [], // eslint-disable-line react-hooks/exhaustive-deps
+  )
+  const allEmpty = ids.every((id) => present[id] === false)
   return (
     <div className="space-y-8">
+      {allEmpty && (
+        <p className="microcopy" data-testid="files-empty">{t('checks.files.empty')}</p>
+      )}
       {/* Files a mounted library holds for works that have quotes. Draws nothing, rule
           included, for a box with no folders mounted. */}
       <Suspense fallback={null}>
-        <FoundFilesPage embedded {...fold('found')} />
+        <FoundFilesPage embedded {...fold('found')} onPresence={reporters.found} />
       </Suspense>
       {/* Times and places a work's file proposes for its lines. Draws nothing, rule
           included, when there is nothing to propose. */}
       <Suspense fallback={null}>
-        <LocatorsPage embedded {...fold('locators')} onOpenBook={onOpenBook} onOpenMovie={onOpenMovie} />
+        <LocatorsPage embedded {...fold('locators')} onPresence={reporters.locators} onOpenBook={onOpenBook} onOpenMovie={onOpenMovie} />
       </Suspense>
       {/* Where a quote differs from the file's own words, in buckets. Draws nothing, rule
           included, when nothing differs. */}
       <Suspense fallback={null}>
-        <CorrectionsPage embedded {...fold('corrections')} onOpenBook={onOpenBook} onOpenMovie={onOpenMovie} />
+        <CorrectionsPage embedded {...fold('corrections')} onPresence={reporters.corrections} onOpenBook={onOpenBook} onOpenMovie={onOpenMovie} />
       </Suspense>
       {/* The files attached to your works, biggest first, and the prune. Draws nothing for a
           reader with no uploaded file. */}
       <Suspense fallback={null}>
-        <AttachedFilesPage embedded {...fold('attached')} />
+        <AttachedFilesPage embedded {...fold('attached')} onPresence={reporters.attached} />
       </Suspense>
     </div>
   )
