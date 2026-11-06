@@ -4125,6 +4125,8 @@ movies.duplicate.poster.yes = পোস্টার আছে
 movies.duplicate.poster.no = পোস্টার নেই
 movies.duplicate.enrich.label = এটারই শূন্যস্থান পূরণ করুন
 movies.duplicate.separate.label = আলাদা টাইটেল হিসেবে যোগ করুন
+books.duplicate.lead = “{title}” নামে একটা বই আপনার আছে। তবু এটাকে আলাদা বই হিসেবে যোগ করবেন?
+books.duplicate.separate.label = তবু যোগ করুন
 
 # The hand-entry and edit forms for a Catalogue title.
 film.form.edit.title = টাইটেল এডিট করুন
