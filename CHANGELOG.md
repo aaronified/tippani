@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.7.0] - 2026-11-06
+
 ### Fixed
 
 - **The Files tab on Checks says so when nothing is waiting**, instead of showing a blank page.
