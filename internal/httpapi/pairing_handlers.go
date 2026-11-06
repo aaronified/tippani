@@ -225,7 +225,12 @@ func (s *Server) handleClaimPairing(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleListDevices(w http.ResponseWriter, r *http.Request) {
-	devices, err := s.Devices.List(userID(r))
+	// A device asking marks itself, so the app can show "this phone" and refuse to revoke itself by mistake.
+	hash := ""
+	if token, present := bearerToken(r); present && token != "" {
+		hash = auth.HashToken(token)
+	}
+	devices, err := s.Devices.ListMarking(userID(r), hash)
 	if err != nil {
 		internalError(w, r, "list devices", err)
 		return
