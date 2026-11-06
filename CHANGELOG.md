@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Internal
 
+- CLAUDE.md is trimmed of dated session notes and superseded rules: the cloud install story, the
+  digest history, the rater post-mortem, the old per-push dist rule and the plan-queue text that
+  Plans-Index already holds.
+
 - Docs check: the open-defects register is retired (its one live item moved to Follow-ups), the
   screen and codebase audits are cut to what is still open, the roadmap drops the shipped
   anthology and tile entries and says 3.6.2, and the partly built plans say what shipped.
