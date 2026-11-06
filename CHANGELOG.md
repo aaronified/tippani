@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **The ✓ on the quote edit dialog and the signature sheet no longer shows a badge that always
+  reads 1.** It lights when you can save and carries a count only on forms that count their
+  changes.
+
 ## [3.6.2] - 2026-11-01
 
 ### Fixed
