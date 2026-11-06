@@ -12392,10 +12392,73 @@ button.work-pill:hover { color: var(--ink); border-color: var(--ink-border); }
 .anthology-slot.is-drop-after::after { bottom: -2px; }
 
 /* THE FRONT MATTER OF AN ANTHOLOGY, the page and the print of it: cover, dedication, epigraph. */
-.anthology-front { display: flex; flex-direction: column; align-items: center; gap: 14px; margin: 18px 0; text-align: center; }
-.anthology-cover { display: block; max-width: min(100%, 240px); max-height: 340px; border-radius: 6px; object-fit: contain; }
-.anthology-dedication { margin: 0; font-style: italic; white-space: pre-wrap; }
-.anthology-epigraph { margin: 0 auto; max-width: 32rem; padding: 0; border: 0; font-style: italic; white-space: pre-wrap; overflow-wrap: anywhere; }
+/* THE HERO: a cover floated at the start, the dedication, epigraph and introduction flowing beside it.
+   `flow-root` so the float stays inside the block, and logical sides so the cover sits on the right in a
+   right-to-left script. Sizes are em, because the cover holds the title's text on the fallback and the
+   page scales. */
+.anthology-hero { display: flow-root; margin: var(--edge) 0; }
+.anthology-front { display: block; margin: 0; text-align: start; }
+.anthology-cover,
+.anthology-cover-fallback {
+  float: inline-start;
+  width: 9em;
+  aspect-ratio: 2 / 3;
+  margin-inline-end: var(--edge);
+  margin-block-end: var(--row);
+  border-radius: 4px 10px 10px 4px;
+  box-shadow: inset 6px 0 0 rgba(0, 0, 0, 0.18), 0 10px 22px -12px rgba(0, 0, 0, 0.45);
+}
+.anthology-cover { display: block; object-fit: cover; }
+.anthology-cover-fallback::before { content: attr(data-title); }
+.anthology-cover-fallback {
+  display: flex;
+  align-items: flex-end;
+  padding: 1em 0.8em;
+  background: linear-gradient(160deg, var(--accent), color-mix(in oklab, var(--accent), black 45%));
+  color: var(--on-accent);
+  font-family: var(--font-quote);
+  font-weight: 600;
+  line-height: 1.15;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.anthology-dedication { margin: 0 0 var(--row); font-family: var(--font-hand); color: var(--amber); white-space: pre-wrap; }
+.anthology-epigraph {
+  margin: 0 0 var(--row);
+  max-width: 34rem;
+  padding: 0 0 0 var(--row);
+  border: 0;
+  border-inline-start: 3px solid var(--accent);
+  font-style: italic;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.anthology-intro { margin: 0; }
+@media (max-width: 520px) {
+  .anthology-cover,
+  .anthology-cover-fallback { float: none; margin-inline: auto; }
+  .anthology-front { text-align: center; }
+  .anthology-epigraph { margin-inline: auto; text-align: start; }
+}
+
+/* THE FED LINE: why the count is there, and the count that takes it. */
+.anthology-fed {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--row);
+  margin: var(--row) 0; padding: var(--row) var(--edge);
+  border: 1px solid color-mix(in oklab, var(--accent) 35%, var(--line));
+  border-radius: 11px;
+  background: color-mix(in oklab, var(--accent) 10%, var(--card));
+}
+
+/* THE TOOLBAR'S CHIPS: three of the six field switches, pressed or not. */
+.anthology-chips { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+.anthology-chip {
+  min-height: 44px; padding: 0 14px;
+  border: 1px solid var(--line); border-radius: 999px;
+  background: var(--card); color: var(--soft);
+}
+.anthology-chip[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: transparent; }
+@media print { .anthology-cover-fallback, .anthology-fed, .anthology-chips { display: none; } }
 @media print { .anthology-front { break-after: page; page-break-after: always; } }
 
 /* READING MODE: the anthology as a document, over everything. Book typography (a measure, a leading,
