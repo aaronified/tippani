@@ -171,6 +171,11 @@ const FIELD_SWITCHES = [
   { key: 'hide_colour', hide: true, label: 'anthologies.form.fields.colour.label', eg: 'anthologies.eg.hide-colour' },
 ]
 
+// CHIP_SWITCHES — the three of the six a reader flips while reading the page: who said it, where it
+// came from, and their own commentary. The other three stay in the edit form. A chip is the same
+// switch the form draws, so it reads and writes the same columns.
+const CHIP_SWITCHES = ['hide_credit', 'hide_source', 'hide_commentary'].map((key) => FIELD_SWITCHES.find((row) => row.key === key))
+
 // WORK_SWITCHES — what the book or the film the passage came out of knows (0074).
 //
 // A SECOND LIST AND NOT SIX MORE ROWS, because they are a different question. The
@@ -1856,6 +1861,10 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
   // the count came from a preview of that rule and pressing a number that then took
   // a different set would be the screen lying at the one moment it was specific.
   const [taking, setTaking] = useState(false)
+  // WHAT THE RULE TAKES, in words when the chooser can say it, and "its rule" when it cannot (a
+  // gathered search or a three-book selection has no one-line form).
+  const fedSpec = anthology?.rule ? fillSpecFromRule(anthology.rule) : null
+  const fedLabel = fedSpec ? t('anthologies.fed.by', { what: fillSummary(fedSpec) }) : t('anthologies.fed.rule')
   function takeWaiting() {
     setTaking(true)
   }
@@ -1876,6 +1885,16 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
     setEditing(false)
     await reload()
     return null
+  }
+
+  // A CHIP SENDS EVERY FIELD, because the PUT is full-state (see the form's submit): a toggle that
+  // sent only its own flag would reset the title, the introduction and every other switch.
+  async function toggleChip(row) {
+    const flags = {}
+    for (const r of ALL_SWITCHES) flags[r.key] = seeded(r, anthology)
+    flags[row.key] = !flags[row.key]
+    const msg = await save({ title: anthology.title, intro: anthology.intro || '', ...splitFlags(flags) })
+    if (msg) setError(msg)
   }
 
   async function saveNote(entry, note) {
@@ -2086,76 +2105,40 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
       <GhostButton icon={<IconEdit />} onClick={() => setEditing(true)} disabled={!anthology}>
         {t('common.action.edit.label')}
       </GhostButton>
-      {/* THE RULE HAS A BUTTON NOW, AND THE ARGUMENT AGAINST ONE IS KEPT
-          BECAUSE IT WAS REASONABLE. It said: the rule "lives in the menu and
-          not in the header row, which already has five controls. It is also
-          the one of them a reader touches once and then rarely — a rule is
-          set, not used — so it does not earn a permanent button beside the
-          four verbs that are used every time this screen is open."
-
-          Every clause of that is true and the conclusion still failed, which
-          is the useful part. The owner: "I cannot see any auto-anthology or
-          export options. Where are those?" A control touched once has to be
-          FOUND once, and a reader who has never set a rule has never seen the
-          menu entry either — the only other sign of the feature is the "12
-          new" line below, which draws only when a rule already exists and has
-          already matched something. So the whole feature was invisible to
-          exactly the reader it was for.
-
-          Beside Edit because it is the same kind of verb: both change what
-          this anthology IS rather than doing something with what it holds. */}
-      <GhostButton icon={<IconSearch />} onClick={() => setRuling(true)} disabled={!anthology}>
-        {t('anthologies.fill.title')}
-      </GhostButton>
-      {!DEMO && (
-        <GhostButton
-          icon={<IconExport />}
-          onClick={() => {
-            window.location.href = exportHref(id)
-          }}
-        >
-          {t('common.action.export.label')}
-        </GhostButton>
-      )}
-      {/* A BOOK GLYPH AND NOT A SECOND DOWNWARD ARROW. Beside Export it would
-          be two identical pictures for two different files; what distinguishes
-          this one is not that it downloads but WHAT it hands you — something an
-          e-reader opens. The label carries the format's name for the same
-          reason: "Export" twice would be the screen saying one thing twice. */}
-      {!DEMO && (
-        <GhostButton
-          icon={<IconReading />}
-          onClick={() => {
-            window.location.href = epubHref(id)
-          }}
-        >
-          {t('anthologies.action.epub.label')}
-        </GhostButton>
-      )}
       <GhostButton icon={<IconReading />} onClick={() => setReading(true)} disabled={!anthology}>
         {t('anthologies.reader.label')}
       </GhostButton>
-      <GhostButton icon={<IconPrint />} onClick={() => window.print()} disabled={!anthology}>
-        {t('common.action.print.label')}
-      </GhostButton>
-      {/* SAVE PDF IS THE BROWSER'S OWN PRINT, so the text stays text and selectable, with the
-          anthology's title as the page's title for the moment it is open: that is the name the
-          browser offers for the file. */}
-      <GhostButton
-        icon={<IconPrint />}
-        onClick={() => {
-          const prev = document.title
-          document.title = anthology.title
-          window.print()
-          document.title = prev
-        }}
-        disabled={!anthology}
-      >
-        {t('anthologies.action.save-pdf.label')}
-      </GhostButton>
-      <GhostButton icon={<IconDelete />} onClick={() => setDeleting(true)} disabled={!anthology}>
-        {t('common.action.delete.label')}
-      </GhostButton>
+      {/* THE REST ARE ONE MENU, NOT SEVEN BUTTONS. Practise, Read and Edit are what a reader does
+          every time this page is open; Export, EPUB, Print, Save PDF, the rule and Delete are
+          once-in-a-while verbs, and a row of nine ghost buttons wrapped to three lines on a desk
+          and ran off a phone. The rule stays findable: it is the first thing in the menu after
+          the files, and the fed banner opens it when a rule exists. Delete is last and red. */}
+      {anthology && (
+        <MoreMenu
+          ariaLabel={t('anthologies.page.more.aria')}
+          items={[
+            ...(DEMO ? [] : [{ id: 'export', icon: <IconExport />, label: t('common.action.export.label'), onClick: () => { window.location.href = exportHref(id) } }]),
+            ...(DEMO ? [] : [{ id: 'epub', icon: <IconReading />, label: t('anthologies.action.epub.label'), onClick: () => { window.location.href = epubHref(id) } }]),
+            { id: 'print', icon: <IconPrint />, label: t('common.action.print.label'), onClick: () => window.print() },
+            // SAVE PDF IS THE BROWSER'S OWN PRINT, so the text stays text and selectable, with the
+            // anthology's title as the page's title for the moment it is open: that is the name the
+            // browser offers for the file.
+            {
+              id: 'save-pdf',
+              icon: <IconPrint />,
+              label: t('anthologies.action.save-pdf.label'),
+              onClick: () => {
+                const prev = document.title
+                document.title = anthology.title
+                window.print()
+                document.title = prev
+              },
+            },
+            { id: 'rule', icon: <IconSearch />, label: t('anthologies.fill.title'), onClick: () => setRuling(true) },
+            { id: 'delete', icon: <IconDelete />, label: t('common.action.delete.label'), danger: true, onClick: () => setDeleting(true) },
+          ]}
+        />
+      )}
     </span>
         }
       />
@@ -2163,40 +2146,59 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
       {/* THE RUNNING TITLE, drawn on paper only: a fixed element repeats on every printed page. */}
       <div className="anthology-running-title" aria-hidden="true" data-title={anthology?.title || ''} />
 
-      {/* THE COUNT IS THE CONTROL. Not a banner with a button beside it: the number
-    IS what you press, because the only thing to do with "12 new" is take them.
-    `.no-print` because it is furniture — a printed anthology is the document,
-    and an offer to change it is not part of the document. */}
+      {/* THE COUNT IS STILL THE CONTROL, now inside a line that says why there is one: the rule that
+    keeps this anthology fed. `.no-print` because it is furniture — a printed anthology is the
+    document, and an offer to change it is not part of the document. */}
       {waiting && (
-        <div className="mt-2 no-print">
-    <GhostButton icon={<IconPlus />} onClick={takeWaiting} disabled={taking}>
-      {t('anthologies.rule.waiting', { n: waiting.added })}
-    </GhostButton>
+        <div className="anthology-fed no-print" data-testid="anthology-fed">
+          <span>{fedLabel}</span>
+          <GhostButton icon={<IconPlus />} onClick={takeWaiting} disabled={taking}>
+            {t('anthologies.rule.waiting', { n: waiting.added })}
+          </GhostButton>
         </div>
       )}
 
-      {/* THE FRONT MATTER OPENS THE DOCUMENT, in a printed book's order: the cover, the dedication, the
-    epigraph, then the introduction. Each draws only when there is one, so an anthology without them
-    reads as it always did. */}
-      {(anthology?.cover_path || anthology?.dedication || anthology?.epigraph) && (
-        <div className="anthology-front" data-testid="anthology-front">
-    {anthology.cover_path && (
-      <img className="anthology-cover" src={apiURL(`/covers/${anthology.cover_path}`)} alt={t('anthologies.front.cover.alt')} />
-    )}
-    {anthology.dedication && <p className="anthology-dedication">{anthology.dedication}</p>}
-    {anthology.epigraph && <blockquote className="anthology-epigraph">{anthology.epigraph}</blockquote>}
+      {/* THE HERO: a cover on the left, and the front matter and the introduction flowing beside it.
+    The cover is the reader's picture when there is one; otherwise a plain cover set from the title,
+    so a page with no front matter still opens like a book. That one is furniture and is not
+    printed. THE FRONT MATTER IS IN A PRINTED BOOK'S ORDER: the cover, the dedication, the
+    epigraph, then the introduction. Each draws only when there is one. */}
+      {anthology && (
+        <div className="anthology-hero">
+          {!anthology.cover_path && (
+            // THE TITLE IS DRAWN BY CSS from `data-title`, not written as text: a second copy in the
+            // DOM would make the title findable twice, by a screen reader or a text search alike.
+            <div className="anthology-cover-fallback no-print" aria-hidden="true" data-title={anthology.title} />
+          )}
+          {(anthology.cover_path || anthology.dedication || anthology.epigraph) && (
+            <div className="anthology-front" data-testid="anthology-front">
+              {anthology.cover_path && (
+                <img className="anthology-cover" src={apiURL(`/covers/${anthology.cover_path}`)} alt={t('anthologies.front.cover.alt')} />
+              )}
+              {anthology.dedication && <p className="anthology-dedication">{anthology.dedication}</p>}
+              {anthology.epigraph && <blockquote className="anthology-epigraph">{anthology.epigraph}</blockquote>}
+            </div>
+          )}
+          {anthology.intro && <p className="anthology-prose anthology-intro">{anthology.intro}</p>}
         </div>
-      )}
-
-      {anthology?.intro && (
-        <Card className="mt-2">
-    <p className="anthology-prose">{anthology.intro}</p>
-        </Card>
       )}
 
       {/* HOW THE PASSAGES ARE GROUPED, and the way to add a heading. Furniture, so not printed. */}
       {anthology && (
         <div className="anthology-tools no-print">
+    <span className="anthology-chips" role="group" aria-label={t('anthologies.chips.aria')}>
+      {CHIP_SWITCHES.map((row) => (
+        <button
+          key={row.key}
+          type="button"
+          className="anthology-chip"
+          aria-pressed={shown(row, { [row.key]: !!anthology[row.key] })}
+          onClick={() => toggleChip(row)}
+        >
+          {t(row.label)}
+        </button>
+      ))}
+    </span>
     <GhostButton icon={<IconPlus />} onClick={() => setSectioning({ section: null })}>
       {t('anthologies.section.add.label')}
     </GhostButton>
