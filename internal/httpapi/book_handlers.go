@@ -43,9 +43,14 @@ type bookReq struct {
 	Pages int    `json:"pages"`
 	ISBN  string `json:"isbn"`
 	ASIN  string `json:"asin"`
+	// CheckDuplicates asks for the same-title check below. OPT-IN, because POST /books has always
+	// created what it was given and clients and tests rely on that; the web UI, where a person types
+	// the title, asks for it.
+	CheckDuplicates bool `json:"check_duplicates"`
 	// ConfirmNew adds the book despite a same-title look-alike, as it does for a film: a second
 	// copy of a title is legitimate (another edition), but it is a decision, not a side effect.
-	ConfirmNew     bool     `json:"confirm_new"`
+	ConfirmNew bool `json:"confirm_new"`
+
 	TextOrder      string   `json:"text_order"`
 	Description    string   `json:"description"`
 	PublishedYear  int      `json:"published_year"`
@@ -299,7 +304,8 @@ func (s *Server) handleCreateBook(w http.ResponseWriter, r *http.Request) {
 	// (user_id, isbn) / (user_id, asin) unique index, which cannot fire for a book entered without
 	// either, which is most hand-entered ones, so a title typed twice made two rows with nothing said.
 	// 409 + needs_confirm + the look-alikes lets the client offer "add it anyway"; confirm_new says yes.
-	if !req.ConfirmNew {
+	// Only when the client set check_duplicates.
+	if req.CheckDuplicates && !req.ConfirmNew {
 		existing, err := findSimilarBooks(s.Store.DB, userID(r), req.Title, 0)
 		if err != nil {
 			internalError(w, r, "create book: scan look-alikes", err)

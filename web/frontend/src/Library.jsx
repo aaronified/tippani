@@ -598,6 +598,7 @@ export function ManualTab({ onAdded, formId, title, setTitle, onBusy }) {
     onBusy?.(true)
     setError('')
     const r = await json('POST', '/books', {
+      check_duplicates: true,
       confirm_new: confirmNew || undefined,
       title: title.trim(),
       author: author.trim() || undefined,

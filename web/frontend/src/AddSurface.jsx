@@ -255,6 +255,7 @@ export function AddLookup({ initialKind = 'book', onAdded, onCreated, initialQue
   async function addBook(c, confirmNew = false) {
     setError('')
     const r = await json('POST', '/books', {
+      check_duplicates: true,
       confirm_new: confirmNew || undefined,
       title: c.title,
       author: c.author || undefined,

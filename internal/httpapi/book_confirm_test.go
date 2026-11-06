@@ -27,7 +27,7 @@ func TestBookAddAsksAboutASameTitle(t *testing.T) {
 	}](t, c.mustDo("POST", "/books", map[string]any{"title": "Fires of Heaven", "author": "Robert Jordan"}, http.StatusCreated))
 
 	// The same title with a subtitle is a look-alike (the subtitle is cut at the colon, as in an import).
-	confirm := decode[bookConfirmResp](t, c.mustDo("POST", "/books", map[string]any{"title": "Fires of Heaven: A Novel"}, http.StatusConflict))
+	confirm := decode[bookConfirmResp](t, c.mustDo("POST", "/books", map[string]any{"title": "Fires of Heaven: A Novel", "check_duplicates": true}, http.StatusConflict))
 	if !confirm.NeedsConfirm || len(confirm.Existing) != 1 || confirm.Existing[0].ID != first.ID {
 		t.Fatalf("confirm payload: %+v", confirm)
 	}
@@ -44,7 +44,7 @@ func TestBookAddAsksAboutASameTitle(t *testing.T) {
 	}
 
 	// confirm_new adds it as a separate book (another edition is legitimate).
-	c.mustDo("POST", "/books", map[string]any{"title": "Fires of Heaven: A Novel", "confirm_new": true}, http.StatusCreated)
+	c.mustDo("POST", "/books", map[string]any{"title": "Fires of Heaven: A Novel", "check_duplicates": true, "confirm_new": true}, http.StatusCreated)
 	list = decode[struct {
 		Books []struct{ ID int64 } `json:"books"`
 	}](t, c.mustDo("GET", "/books", nil, http.StatusOK))
@@ -53,7 +53,15 @@ func TestBookAddAsksAboutASameTitle(t *testing.T) {
 	}
 
 	// A different title is not asked about.
-	c.mustDo("POST", "/books", map[string]any{"title": "Dust of Dreams"}, http.StatusCreated)
+	c.mustDo("POST", "/books", map[string]any{"title": "Dust of Dreams", "check_duplicates": true}, http.StatusCreated)
+}
+
+// The check is opt-in: a client that does not ask creates what it is given, as it always has.
+func TestBookAddWithoutTheCheckCreatesWhatItIsGiven(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	c.mustDo("POST", "/books", map[string]any{"title": "Dune"}, http.StatusCreated)
+	c.mustDo("POST", "/books", map[string]any{"title": "Dune"}, http.StatusCreated)
 }
 
 // A reader's look-alikes are their own: another account's same-titled book is not one.
@@ -61,7 +69,7 @@ func TestBookAddIgnoresAnotherReadersTitles(t *testing.T) {
 	srv := newTestServer(t)
 	h := srv.Handler()
 	alice := signupAdmin(t, h)
-	alice.mustDo("POST", "/books", map[string]any{"title": "Walden"}, http.StatusCreated)
+	alice.mustDo("POST", "/books", map[string]any{"title": "Walden", "check_duplicates": true}, http.StatusCreated)
 	bob := addUser(t, h, alice, "bob")
-	bob.mustDo("POST", "/books", map[string]any{"title": "Walden"}, http.StatusCreated)
+	bob.mustDo("POST", "/books", map[string]any{"title": "Walden", "check_duplicates": true}, http.StatusCreated)
 }
