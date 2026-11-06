@@ -165,6 +165,9 @@ type Device struct {
 	Name       string `json:"name"`
 	CreatedAt  string `json:"created_at"`
 	LastSeenAt string `json:"last_seen_at"` // "" until first use
+	// Current is true on the one device whose own token made the request, so an app can tell which row is
+	// itself. It is absent for a browser session, which is not a device.
+	Current bool `json:"current,omitempty"`
 }
 
 // lastSeenInterval is how stale last_seen_at must be before a validation
@@ -218,10 +221,16 @@ func (d DeviceTokens) Validate(token string) (userID int64, username string, isA
 
 // List returns userID's devices, newest first, without any token material.
 func (d DeviceTokens) List(userID int64) ([]Device, error) {
+	return d.ListMarking(userID, "")
+}
+
+// ListMarking is List with the device whose token hashes to currentHash marked Current. An empty hash marks
+// none, which is what a browser session asks for.
+func (d DeviceTokens) ListMarking(userID int64, currentHash string) ([]Device, error) {
 	rows, err := d.DB.Query(`
-		SELECT id, name, created_at, COALESCE(last_seen_at, '')
+		SELECT id, name, created_at, COALESCE(last_seen_at, ''), token_hash = ?
 		FROM device_tokens WHERE user_id = ?
-		ORDER BY created_at DESC, id DESC`, userID)
+		ORDER BY created_at DESC, id DESC`, currentHash, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -229,9 +238,11 @@ func (d DeviceTokens) List(userID int64) ([]Device, error) {
 	devices := []Device{}
 	for rows.Next() {
 		var dev Device
-		if err := rows.Scan(&dev.ID, &dev.Name, &dev.CreatedAt, &dev.LastSeenAt); err != nil {
+		if err := rows.Scan(&dev.ID, &dev.Name, &dev.CreatedAt, &dev.LastSeenAt, &dev.Current); err != nil {
 			return nil, err
 		}
+		// An empty hash can never equal a stored one, but say so rather than lean on it.
+		dev.Current = dev.Current && currentHash != ""
 		devices = append(devices, dev)
 	}
 	return devices, rows.Err()

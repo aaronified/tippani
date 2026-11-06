@@ -336,3 +336,43 @@ func TestPairingEvictionPrefersTheMintersOwnCodes(t *testing.T) {
 		t.Fatalf("another user's minting evicted bob's pairing code: %d %s", rec.Code, rec.Body)
 	}
 }
+
+// A device that lists the devices is told which row is itself, so the app can say "this phone" and not
+// revoke itself by accident. A browser session is not a device and is told none.
+func TestDeviceListMarksTheCallersOwnDevice(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	web := signupAdmin(t, h)
+
+	pair := func(name string) string {
+		return decode[claimResp](t, claim(t, h, startPairing(t, web).Code, name)).Token
+	}
+	pixel := pair("Pixel")
+	tablet := pair("Tablet")
+
+	type listing struct {
+		Devices []struct {
+			Name    string `json:"name"`
+			Current bool   `json:"current"`
+		} `json:"devices"`
+	}
+	current := func(c *testClient) []string {
+		var out []string
+		for _, d := range decode[listing](t, c.mustDo("GET", "/auth/devices", nil, http.StatusOK)).Devices {
+			if d.Current {
+				out = append(out, d.Name)
+			}
+		}
+		return out
+	}
+
+	if got := current(&testClient{t: t, h: h, bearer: pixel}); len(got) != 1 || got[0] != "Pixel" {
+		t.Fatalf("the Pixel was told %v is current", got)
+	}
+	if got := current(&testClient{t: t, h: h, bearer: tablet}); len(got) != 1 || got[0] != "Tablet" {
+		t.Fatalf("the Tablet was told %v is current", got)
+	}
+	if got := current(web); len(got) != 0 {
+		t.Fatalf("a browser session was told %v is current", got)
+	}
+}
