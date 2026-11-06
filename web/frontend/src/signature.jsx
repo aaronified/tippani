@@ -117,7 +117,7 @@ export function SignatureSlot({ id, name, path, busy, onChanged, onError }) {
           onClose={() => setPending(null)}
           title={t('identity.signature.dialog.title', { name })}
           maxWidth={460}
-          dirty={1}
+          dirty={true}
           closeDanger
           saveTip={t('identity.signature.save.tip')}
         >

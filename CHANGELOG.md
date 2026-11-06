@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The ✓ on the quote edit dialog and the signature sheet no longer shows a badge that always
+  reads 1.** It lights when you can save and carries a count only on forms that count their
+  changes.
+
 - **The quote form no longer shows a Board heading with nothing under it** when you have no
   boards, or while they are loading.
 

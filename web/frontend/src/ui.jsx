@@ -6517,7 +6517,9 @@ export function FormModal({ open = true, onClose, title, maxWidth = 560, saveTip
   if (!open) return null;
   // A tick that looks armed when nothing has changed teaches the reader to stop
   // reading it, so the accent and the badge both wait for a real change.
-  const armed = typeof dirty === 'number' && dirty > 0;
+  // `dirty` is a count of what changed, or `true` for a form that cannot count its own draft: the
+  // tick is lit and wears no badge, because a "1" that is always 1 says nothing about the form.
+  const armed = dirty === true || (typeof dirty === 'number' && dirty > 0);
   const save = blocked === null ? null : (
     <span className={'tp-tick-slot' + (armed ? ' is-armed' : '')}>
       <IconButton
@@ -6530,7 +6532,7 @@ export function FormModal({ open = true, onClose, title, maxWidth = 560, saveTip
         style={{ width: 34, height: 34, padding: 0, flexShrink: 0 }}
         wrapClassName="shrink-0"
       />
-      {armed ? <span className="tp-tick-count" aria-hidden="true">{dirty}</span> : null}
+      {armed && typeof dirty === 'number' ? <span className="tp-tick-count" aria-hidden="true">{dirty}</span> : null}
     </span>
   );
   // INSIDE THE PANEL, WITH THE PANEL'S OWN BACK KEY. Not a scrim over the
