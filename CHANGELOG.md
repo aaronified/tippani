@@ -13,7 +13,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reads 1.** It lights when you can save and carries a count only on forms that count their
   changes.
 
+- **The quote form no longer shows a Board heading with nothing under it** when you have no
+  boards, or while they are loading.
+
 ### Added
+
+- **Adding a book whose title you already have asks first.** A same-title look-alike (the
+  subtitle after a colon is ignored) is shown with its author, and Add it anyway adds a separate
+  book. Before, a title typed twice made two rows with nothing said, because the only guard was
+  an ISBN or ASIN a hand-entered book rarely has. An API client asks for the check with
+  check_duplicates and gets a 409 with needs_confirm, as for a film; confirm_new says yes.
+  Without check_duplicates, POST /books behaves as before.
 
 - **A work with no file says why, on its Source files row.** No library folder is set up, the
   folders have not been scanned, the last scan stopped before it finished, or it finished and
@@ -30,6 +40,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Internal
 
+- The Android app has its own repository (aaronified/tippani-app, GPL-3.0). Its plan, roadmap
+  card and index entry are removed here and ADR-0931 records the move; the server's side of the
+  contract stays.
+
 - CLAUDE.md is trimmed of dated session notes and superseded rules: the cloud install story, the
   digest history, the rater post-mortem, the old per-push dist rule and the plan-queue text that
   Plans-Index already holds.
@@ -40,6 +54,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The share-card contrast test registers the project's own fonts instead of relying on the
   machine's, which made it fail on some CI runners with identical code.
+
+### Fixed
+
+- **Pressing a credit chip that is slow to open now says so.** After a beat a toast reads
+  Opening…, so a slow press no longer looks like a dead one and gets pressed again.
 
 ## [3.6.2] - 2026-11-01
 

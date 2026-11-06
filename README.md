@@ -415,7 +415,7 @@ printf '%s\n' 'a-long-password' | ./bin/tippani user add alice   # or create the
 
 ## Coming next
 
-An Android app that turns a photographed page into a highlight, more imports (Kobo, Apple Books, Readwise),
+An Android app, in its own repository ([aaronified/tippani-app](https://github.com/aaronified/tippani-app)), more imports (Kobo, Apple Books, Readwise),
 collections, passkeys and 2FA, and opt-in AI summaries. The [roadmap](https://github.com/aaronified/tippani/wiki/Roadmap)
 has the full list in priority order. [Request a feature](https://github.com/aaronified/tippani/issues/new?template=feature_request.yml)
 or [report a bug](https://github.com/aaronified/tippani/issues/new?template=bug_report.yml).
