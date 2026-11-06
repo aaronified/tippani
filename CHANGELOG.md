@@ -12,8 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Adding a book whose title you already have asks first.** A same-title look-alike (the
   subtitle after a colon is ignored) is shown with its author, and Add it anyway adds a separate
   book. Before, a title typed twice made two rows with nothing said, because the only guard was
-  an ISBN or ASIN a hand-entered book rarely has. The API answers 409 with needs_confirm, as it
-  does for a film; confirm_new says yes.
+  an ISBN or ASIN a hand-entered book rarely has. An API client asks for the check with
+  check_duplicates and gets a 409 with needs_confirm, as for a film; confirm_new says yes.
+  Without check_duplicates, POST /books behaves as before.
 
 ### Changed
 
