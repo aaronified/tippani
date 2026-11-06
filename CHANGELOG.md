@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **An anthology's page opens like a book.** A cover (your picture, or one set from the title)
+  sits beside the dedication, the epigraph and the introduction. Export, EPUB, Print, Save PDF,
+  the fill rule and Delete move into one menu beside Practise, Read and Edit. A rule that keeps
+  an anthology fed says so on a line with the count of what is waiting, and three of the six
+  field switches (who said it, where it came from, your commentary) are chips on the page.
+
 ### Internal
 
 - CLAUDE.md is trimmed of dated session notes and superseded rules: the cloud install story, the
