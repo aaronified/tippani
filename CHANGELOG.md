@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **The README and the wiki link the Android app**, with its latest release, a download counter, and a wiki page on
+  downloading it and pairing it with this server.
+
 ## [3.7.0] - 2026-11-06
 
 ### Fixed

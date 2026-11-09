@@ -18,6 +18,7 @@ Code lives in the [repository](https://github.com/aaronified/tippani). Report pr
   and let readers scan them
 - [Spaced repetition](Spaced-repetition.md): how the recall deck decides what to show, and when
 - [Troubleshooting](Troubleshooting.md): the app logged a `TIP-*` code, what now?
+- [The Android app](Android-App.md): download it, pair it with your server, and what it does
 
 ## 2. Roadmap
 
