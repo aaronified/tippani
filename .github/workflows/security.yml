@@ -7,8 +7,10 @@ name: security
 #
 # What it scans: go.mod and the three package-lock.json files (vulnerabilities), every tracked file
 # (secrets), the Dockerfile and compose file (misconfiguration), and then the image itself, so the
-# distroless base is covered too. Trivy itself runs at its latest release (the action would otherwise pin an
-# older one) and downloads a fresh vulnerability database on every run. What it ignores is in .trivyignore.yaml, each entry with its reason.
+# distroless base is covered too. Trivy itself is pinned to one release, because asking the installer for
+# `latest` failed on every run from 8 November ("unable to find 'latest'") before it scanned anything; a fresh
+# vulnerability database is downloaded on every run whatever the version, so a pin costs no coverage. Raise the pin
+# when a newer Trivy is out. What it ignores is in .trivyignore.yaml, each entry with its reason.
 
 on:
   pull_request:
@@ -27,7 +29,7 @@ jobs:
       - uses: actions/checkout@v5
       - uses: aquasecurity/trivy-action@v0.36.0
         with:
-          version: latest
+          version: v0.76.2
           scan-type: fs
           scan-ref: .
           scanners: vuln,secret,misconfig
@@ -46,7 +48,7 @@ jobs:
       - run: docker build -t tippani:scan .
       - uses: aquasecurity/trivy-action@v0.36.0
         with:
-          version: latest
+          version: v0.76.2
           scan-type: image
           image-ref: tippani:scan
           severity: HIGH,CRITICAL
