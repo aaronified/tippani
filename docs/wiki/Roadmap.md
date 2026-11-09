@@ -133,7 +133,7 @@ until the owner says.
 **Also open, not scheduled.** [#56](https://github.com/aaronified/tippani/issues/56): the dashboard widget should show library
 scan items (files found, scans running).
 
-**The Android app has its own repository,** [aaronified/tippani-app](https://github.com/aaronified/tippani-app), with its own plan and issues
+**The Android app has its own repository,** [aaronified/tippani-app](https://github.com/aaronified/tippani-app) (released; see [The Android app](Android-App.md)), with its own plan and issues
 ([ADR-0931](ADR-0931-The-Android-App-Lives-In-Its-Own-Repository.md)). The server work it needs, a photo kept with a quote and the shared text cleanup
 of §7, is filed here as it is taken on.
 

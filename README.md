@@ -17,10 +17,13 @@
   <a href="https://github.com/aaronified/tippani/pkgs/container/tippani"><img alt="Container" src="https://img.shields.io/badge/ghcr.io-aaronified%2Ftippani-2496ED?logo=docker&logoColor=white"></a>
   <a href="go.mod"><img alt="Go" src="https://img.shields.io/github/go-mod/go-version/aaronified/tippani"></a>
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/github/license/aaronified/tippani?color=blue&cacheSeconds=86400"></a>
+  <a href="https://github.com/aaronified/tippani-app/releases/latest"><img alt="Android app" src="https://img.shields.io/github/v/release/aaronified/tippani-app?filter=app-v*&label=Android%20app&logo=android&logoColor=white&color=3DDC84"></a>
+  <a href="https://github.com/aaronified/tippani-app/releases"><img alt="App downloads" src="https://img.shields.io/github/downloads/aaronified/tippani-app/total?label=app%20downloads&color=2e8b57"></a>
 </p>
 
 <p align="center">
   <a href="https://aaronified.github.io/tippani/demo/"><strong>Try the demo</strong></a> ·
+  <a href="https://github.com/aaronified/tippani-app/releases/latest"><strong>Get the Android app</strong></a> ·
   <a href="https://github.com/aaronified/tippani/wiki/Roadmap">Roadmap</a> ·
   <a href="https://github.com/aaronified/tippani/wiki/Design-decisions">Design log</a> ·
   <a href="https://github.com/aaronified/tippani/wiki/UI-Glossary">UI glossary</a>
@@ -413,9 +416,21 @@ printf '%s\n' 'a-long-password' | ./bin/tippani user add alice   # or create the
 > Sources to fetch book descriptions and genres. It is stored write-only, but it gives access to your Amazon
 > account, and scraping is against Amazon's terms. Covers and Kindle import work without it.
 
+## The Android app
+
+<a href="https://github.com/aaronified/tippani-app"><img align="right" alt="Tippani for Android" src="https://img.shields.io/github/v/release/aaronified/tippani-app?filter=app-v*&label=latest&color=blue"></a>
+
+**[Tippani for Android](https://github.com/aaronified/tippani-app)** keeps your quotes on your phone. It works on its own, and it pairs with this
+server with a code from Settings › Server › Devices, after which your library, tags, people and shelf stay in step both ways. It shows the
+same portraits, makes the same share picture, reads in English or Bengali, and lets an admin run the server from the phone.
+
+- **Download:** the [latest release](https://github.com/aaronified/tippani-app/releases/latest), a `tippani-app-vX.Y.Z.apk`. It updates itself.
+- **Details:** [the app's page in the wiki](https://github.com/aaronified/tippani/wiki/Android-App), and [what's new](https://github.com/aaronified/tippani-app/blob/main/CHANGELOG.md).
+- Free software (GPL-3.0), Android only. Issues for the app go to [its repository](https://github.com/aaronified/tippani-app/issues).
+
 ## Coming next
 
-An Android app, in its own repository ([aaronified/tippani-app](https://github.com/aaronified/tippani-app)), more imports (Kobo, Apple Books, Readwise),
+More imports (Kobo, Apple Books, Readwise),
 collections, passkeys and 2FA, and opt-in AI summaries. The [roadmap](https://github.com/aaronified/tippani/wiki/Roadmap)
 has the full list in priority order. [Request a feature](https://github.com/aaronified/tippani/issues/new?template=feature_request.yml)
 or [report a bug](https://github.com/aaronified/tippani/issues/new?template=bug_report.yml).

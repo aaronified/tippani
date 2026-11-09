@@ -5,6 +5,7 @@
 - [Library folders](Library-Folders.md)
 - [Spaced repetition](Spaced-repetition.md)
 - [Troubleshooting](Troubleshooting.md)
+- [The Android app](Android-App.md)
 
 **2. Roadmap**
 - [Roadmap](Roadmap.md)
