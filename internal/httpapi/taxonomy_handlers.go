@@ -91,18 +91,23 @@ type tagRow struct {
 	Style       string `json:"style"`
 	Annotations int    `json:"annotations"`
 	Dialogues   int    `json:"dialogues"`
+	// Utterances counts the standalone quotes. It was missing, so a client that added the other two
+	// to say "how many quotes carry this tag" (the Android app does) undercounted every tag a
+	// standalone quote wears. Additive: a client that does not know the name reads it as absent.
+	Utterances int `json:"utterances"`
 }
 
 const tagSelect = `
 	SELECT t.id, t.name, t.color, t.style,
 	       (SELECT count(*) FROM annotation_tags at WHERE at.tag_id = t.id),
-	       (SELECT count(*) FROM dialogue_tags dt WHERE dt.tag_id = t.id)
+	       (SELECT count(*) FROM dialogue_tags dt WHERE dt.tag_id = t.id),
+	       (SELECT count(*) FROM utterance_tags ut WHERE ut.tag_id = t.id)
 	FROM tags t`
 
 func (s *Server) fetchTag(uid, id int64) (*tagRow, error) {
 	var t tagRow
 	err := s.Store.DB.QueryRow(tagSelect+` WHERE t.id = ? AND t.user_id = ?`, id, uid).
-		Scan(&t.ID, &t.Name, &t.Color, &t.Style, &t.Annotations, &t.Dialogues)
+		Scan(&t.ID, &t.Name, &t.Color, &t.Style, &t.Annotations, &t.Dialogues, &t.Utterances)
 	if err != nil {
 		return nil, err
 	}
@@ -120,7 +125,7 @@ func (s *Server) handleListTags(w http.ResponseWriter, r *http.Request) {
 	tags := []tagRow{}
 	for rows.Next() {
 		var t tagRow
-		if err := rows.Scan(&t.ID, &t.Name, &t.Color, &t.Style, &t.Annotations, &t.Dialogues); err != nil {
+		if err := rows.Scan(&t.ID, &t.Name, &t.Color, &t.Style, &t.Annotations, &t.Dialogues, &t.Utterances); err != nil {
 			olog.Warnf(olog.CodeTagRowScan, "[tag] tag row scan failed: %v", err)
 			continue
 		}

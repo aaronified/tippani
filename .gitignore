@@ -22,6 +22,8 @@ web/frontend/node_modules/
 # Everything else under .claude/ (local settings, caches) stays ignored.
 .claude/*
 !.claude/settings.json
+!.claude/skills/
+# Skills here are this repo's own (tippani-*), not copies of claude-kit's.
 
 # Real personal exports used as local test fixtures (privacy: they contain
 # reading history / account details). Tests skip when these are absent;

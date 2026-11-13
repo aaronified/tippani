@@ -28,6 +28,10 @@ import { CardHead } from './prefRow.jsx'
 import { nearDupGroups } from './nearDupes.js'
 import { useMasonry } from './masonry.js'
 
+// How many quotes wear a tag, of all three kinds. The row names each kind's count
+// separately, and a sum of two of them called a tag worn only by standalone quotes unused.
+const tagUses = (tag) => tag.annotations + tag.dialogues + (tag.utterances || 0)
+
 // Tags page (§8.10, mockups 23–24): the per-user tag vocabulary manager —
 // each tag shown as a sample chip in its own style × colour with usage
 // counts, inline edit/delete, plus a New-tag card with live style previews.
@@ -65,7 +69,7 @@ export default function TagsPage({ embedded = false, lead = null }) {
   // Most-used first, so the quick top-5 row surfaces the tags that matter; the
   // long tail lives in the sortable table behind "more".
   const byUses = useMemo(
-    () => (tags ? [...tags].sort((a, b) => b.annotations + b.dialogues - (a.annotations + a.dialogues) || a.name.localeCompare(b.name)) : []),
+    () => (tags ? [...tags].sort((a, b) => tagUses(b) - tagUses(a) || a.name.localeCompare(b.name)) : []),
     [tags],
   )
   const top = byUses.slice(0, 5)
@@ -217,7 +221,7 @@ function DuplicateTags({ groups, onMerged }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
-  const uses = (row) => row.annotations + row.dialogues
+  const uses = tagUses
 
   async function merge(group, keep) {
     const losers = group.filter((row) => row.id !== keep.id)
@@ -279,7 +283,7 @@ function DuplicateTags({ groups, onMerged }) {
 // THE QUESTION IS ASKED BY THE CALLER'S DIALOG, passed in — see the twin in
 // stickers.jsx. This is not a component and cannot hold one.
 async function deleteTag(tag, ask, onChanged, setError) {
-  const uses = tag.annotations + tag.dialogues
+  const uses = tagUses(tag)
   // Two whole sentences rather than one plus an appended clause — see the same
   // pair in stickers.jsx for why the reassurance is not glued on at the end.
   const question = uses > 0
@@ -300,7 +304,7 @@ function CompactTagCard({ tag, index, dupe = false, onChanged }) {
   const [editing, setEditing] = useState(false)
   const [error, setError] = useState('')
   const { practise, practiceDialog } = usePractice(t('metadata.section.categories.label'))
-  const uses = tag.annotations + tag.dialogues
+  const uses = tagUses(tag)
 
   return (
     <HandCard variant={index % 4} className="flex flex-col gap-2 p-3">
@@ -360,7 +364,7 @@ function TagTable({ tags, dupIds, onChanged }) {
   const rows = apply(tags, {
     name: (row) => row.name.toLowerCase(),
     style: (row) => row.style,
-    uses: (row) => row.annotations + row.dialogues,
+    uses: tagUses,
   })
   const editingRow = rows.find((row) => row.id === editingId)
   return (
@@ -393,13 +397,13 @@ function TagTable({ tags, dupIds, onChanged }) {
                     how many quotes this name is holding, which is what a reader
                     weighs when choosing which of the two to keep. */}
                 <td className="col-mono" style={dupIds?.has(row.id) ? { color: 'var(--error)' } : undefined}>
-                  {row.annotations + row.dialogues}
+                  {tagUses(row)}
                 </td>
                 <td className="col-actions">
                   <TableActions
                     noun={t('unit.tag.one')}
                     onPractise={
-                      row.annotations + row.dialogues > 0
+                      tagUses(row) > 0
                         ? () => practise({ tag: row.name, label: row.name })
                         : undefined
                     }
