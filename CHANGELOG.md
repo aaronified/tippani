@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.8.0] - 2026-11-13
+
 ### Fixed
 
 - **Merging tags keeps the tags on standalone quotes**: the merge moved the tags of highlights
