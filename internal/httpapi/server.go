@@ -528,7 +528,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /trash/{id}/restore", s.requireAuth(s.handleRestoreTrash))
 	mux.Handle("DELETE /trash/{id}", s.requireAuth(s.handleDeleteTrashEntry))
 	mux.Handle("DELETE /trash", s.requireAuth(s.handleEmptyTrash))
-	mux.Handle("POST /annotations", s.requireAuth(s.handleCreateAnnotation))
+	mux.Handle("POST /annotations", s.requireAuth(s.idempotent(s.handleCreateAnnotation)))
 	mux.Handle("GET /annotations", s.requireAuth(s.handleListAnnotations))
 	mux.Handle("PUT /annotations/{id}", s.requireAuth(s.handleUpdateAnnotation))
 	mux.Handle("DELETE /annotations/{id}", s.requireAuth(s.handleDeleteAnnotation))
@@ -552,7 +552,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("PUT /movies/{id}/status", s.requireAuth(s.handleSetMovieStatus))
 	mux.Handle("POST /movies/{id}/cover", s.requireAuth(s.handleUploadMoviePoster))
 	mux.Handle("DELETE /movies/{id}", s.requireAuth(s.handleDeleteMovie))
-	mux.Handle("POST /dialogues", s.requireAuth(s.handleCreateDialogue))
+	mux.Handle("POST /dialogues", s.requireAuth(s.idempotent(s.handleCreateDialogue)))
 	mux.Handle("GET /dialogues", s.requireAuth(s.handleListDialogues))
 	mux.Handle("PUT /dialogues/{id}", s.requireAuth(s.handleUpdateDialogue))
 	mux.Handle("DELETE /dialogues/{id}", s.requireAuth(s.handleDeleteDialogue))
@@ -561,7 +561,7 @@ func (s *Server) Handler() http.Handler {
 	// is what they are called everywhere the user can see; `utterances` is the
 	// table, since quoteRow already means "the shared shape of all three kinds".
 	// The only kind whose ownership is a column rather than a parent join.
-	mux.Handle("POST /quotes", s.requireAuth(s.handleCreateUtterance))
+	mux.Handle("POST /quotes", s.requireAuth(s.idempotent(s.handleCreateUtterance)))
 	mux.Handle("GET /quotes", s.requireAuth(s.handleListUtterances))
 	mux.Handle("PUT /quotes/{id}", s.requireAuth(s.handleUpdateUtterance))
 	mux.Handle("DELETE /quotes/{id}", s.requireAuth(s.handleDeleteUtterance))
@@ -591,15 +591,15 @@ func (s *Server) Handler() http.Handler {
 	// identity — there is no entry id — and because a DELETE with a body is a shape
 	// half the HTTP stacks in the world treat as optional.
 	mux.Handle("GET /anthologies", s.requireAuth(s.handleListAnthologies))
-	mux.Handle("POST /anthologies", s.requireAuth(s.handleCreateAnthology))
+	mux.Handle("POST /anthologies", s.requireAuth(s.idempotent(s.handleCreateAnthology)))
 	mux.Handle("GET /anthologies/{id}", s.requireAuth(s.handleGetAnthology))
 	mux.Handle("PUT /anthologies/{id}", s.requireAuth(s.handleUpdateAnthology))
 	mux.Handle("DELETE /anthologies/{id}", s.requireAuth(s.handleDeleteAnthology))
-	mux.Handle("POST /anthologies/{id}/entries", s.requireAuth(s.handleAddAnthologyEntries))
+	mux.Handle("POST /anthologies/{id}/entries", s.requireAuth(s.idempotent(s.handleAddAnthologyEntries)))
 	mux.Handle("PUT /anthologies/{id}/entries", s.requireAuth(s.handleAnthologyEntryNote))
 	mux.Handle("DELETE /anthologies/{id}/entries/{kind}/{itemID}", s.requireAuth(s.handleRemoveAnthologyEntry))
 	mux.Handle("GET /anthologies/{id}/removed", s.requireAuth(s.handleListAnthologyRemoved))
-	mux.Handle("POST /anthologies/{id}/sections", s.requireAuth(s.handleAddAnthologySection))
+	mux.Handle("POST /anthologies/{id}/sections", s.requireAuth(s.idempotent(s.handleAddAnthologySection)))
 	mux.Handle("PUT /anthologies/{id}/sections/{sid}", s.requireAuth(s.handleUpdateAnthologySection))
 	mux.Handle("DELETE /anthologies/{id}/sections/{sid}", s.requireAuth(s.handleDeleteAnthologySection))
 	mux.Handle("PUT /anthologies/{id}/grouping", s.requireAuth(s.handleAnthologyGrouping))

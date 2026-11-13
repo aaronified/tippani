@@ -118,7 +118,12 @@ import (
 //	`poster_path` and `description` too, which they did not before: the list could
 //	not draw a picture it was never told about. An older client reads the new names
 //	as absent, so nothing it did before changes.
-const apiRevision = 10
+//
+// Revision 11: the create routes a queuing client uses (anthologies, their sections
+// and entries, annotations, dialogues, quotes) honour an `Idempotency-Key` header, so
+// a write sent twice is made once (ADR-0933), and a quote's `source` may be `voice`
+// (ADR-0932). An older server ignores the header, so a client may send it always.
+const apiRevision = 11
 
 // apiFeatures names what this server can do, so a client can light up or hide a
 // screen instead of probing for a 404. Names are stable once published: an old
@@ -210,6 +215,8 @@ var apiFeatures = []string{
 	"quote-translation", // `translation` on /annotations and /dialogues too
 	"device-current",    // GET /auth/devices marks the caller's own device `current`
 	"anthology-poster",  // poster_path and description on an anthology; POST/DELETE /anthologies/{id}/poster
+	"idempotency-key",   // a repeated Idempotency-Key on a create route answers the first answer and changes nothing
+	"voice-source",      // a quote's source may be "voice"
 }
 
 // minClientRevision is the oldest client API revision this server still serves
