@@ -109,7 +109,7 @@ The latest release is **3.7.1** and `[Unreleased]` is empty. Work is taken one p
    ([ADR-0930](ADR-0930-A-Quote-Is-Read-Aloud-By-The-Browsers-Own-Speech-From-A-Press.md)); [#12](https://github.com/aaronified/tippani/issues/12)
    is still open on GitHub.
 3. **Left over from the Checks and anthology work:** character checks on the Stray marks tab wait for character detection, which does
-   not exist; the tick count on the quote edit dialog always shows 1; the
+   not exist; the
    anthology's group headers are a display setting that the EPUB does not carry.
 4. **What remains of the source-file work**, in the section below.
 
@@ -452,7 +452,7 @@ Not ruled out, not next. Nothing gets promoted out of here without a reason — 
 
 ### OCR — and speech — *on the server*
 
-Building OCR into the Go binary isn't worth the weight, and that hasn't changed: it would be a dependency, a CPU cost, and an upload path, all on a box chosen for being small. What *has* changed is that I wrote this as though the server were the only place it could live. On-device OCR in a native app costs the server nothing at all, so the feature moved to the app's repository ([ADR-0931](ADR-0931-The-Android-App-Lives-In-Its-Own-Repository.md)) rather than staying refused, and the Android app now reads a photographed page on the phone with Tesseract, and the share-target route (§3) is still the no-app answer and still planned.
+Building OCR into the Go binary isn't worth the weight, and that hasn't changed: it would be a dependency, a CPU cost, and an upload path, all on a box chosen for being small. What *has* changed is that I wrote this as though the server were the only place it could live. On-device OCR in a native app costs the server nothing at all, so the feature moved to the app's repository ([ADR-0931](ADR-0931-The-Android-App-Lives-In-Its-Own-Repository.md)) rather than staying refused. The Android app now reads a photographed page on the phone with Tesseract. The share-target route (§3) is still the no-app answer and still planned.
 
 **Server-side text-to-speech** is refused on identical grounds and belongs in the same entry: a model or a paid API, CPU I don't have, and audio to store or stream. The same escape applies — the browser already has a speech engine, so reading a card aloud is a client feature or it is nothing.
 

@@ -137,7 +137,7 @@ awk 'NR == FNR { ai[$1]; next }
   content.
 - **Unmeasured history.** None. The first commit, `6f8f7033` (2026-07-02), already carries
   the trailer, so no history predates the convention. The thirteen commits with no trailer
-  are named under *By model*.
+  at `996cae99` are named under *By model*; the block above, restamped at `bd120c90`, counts 23 commits that are not AI-assisted.
 - **Exclusions.** `*.lock`, `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `go.sum`,
   `vendor/**`, `third_party/**`, `node_modules/**`, `dist/**`, `build/**`, `target/**`,
   `*.min.js`, `*.min.css`, `*.map`, `**/*.generated.*`, `**/generated/**`,
@@ -160,9 +160,9 @@ awk 'NR == FNR { ai[$1]; next }
 
 ## By model
 
-Models used, by commit count, at the same commit. Merges are excluded, and the block's
-exclusion list is not applied, so 2,104 commits carry a trailer against the block's
-2,094. One of them, `f5000428` (3.1.5's release commit), carries two trailers and is
+Models used, by commit count, at `996cae99` (9 October 2026). This section was not recounted when the block above was restamped at `bd120c90`. Merges are excluded, and the block's
+exclusion list is not applied, so 2,104 commits carried a trailer against the 2,094
+the block gave at that stamp. One of them, `f5000428` (3.1.5's release commit), carries two trailers and is
 counted once under each of two models, so the rows sum to 2,105. One
 commit, `b77a22e5`, carries its line outside git's trailer block, so the count and the
 breakdown below grep the message. The per-commit listing asks git for trailers, and shows
@@ -185,7 +185,7 @@ variant: 450 of the Opus 5 commits, 466 of the Opus 5.5 ones and 146 of the Opus
 ones. It is the same model with a larger window, so the table folds them; the last
 command below prints them unfolded if you would rather see it raw.
 
-Thirteen commits carry no trailer, and they divide four ways. **Five** are
+At `996cae99`, thirteen commits carried no trailer, and they divide four ways. **Five** are
 `github-actions[bot]` regenerating the roadmap's known-bugs block from the issue
 tracker — machine-written but not AI-written, and that distinction is the point of
 this file: a script rendering a JSON file into HTML is not a model making choices.
