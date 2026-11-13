@@ -10,7 +10,7 @@ into an ADR and its page is deleted.
 
 ## Built
 
-Up to 3.6.2, see the changelog. In brief:
+Up to 3.7.1, see the changelog. In brief:
 
 - A self-hosted home for book highlights, film and show dialogue, and quotes from anywhere else, in one static Go binary with
   the app embedded. Import from Kindle, Readest, Bookcision, Hardcover, Goodreads and IMDb; export and round-trip as Markdown.
@@ -87,12 +87,13 @@ The files a work's quotes came from, which the app used to refuse to hold:
 - **The anthology overhaul** ([ADR-0929](ADR-0929-An-Anthologys-Sections-Share-The-Entries-Position-Space.md)): removed entries with a
   way back, sections and grouping, drag and Move to…, a cover, epigraph and dedication, reading mode, print and Save PDF, the
   Add-waiting preview, and work identity with exact-identifier re-link on import. Its plan page is retired.
+- **3.7.0 to 3.7.1:** quotes can be read aloud ([ADR-0930](ADR-0930-A-Quote-Is-Read-Aloud-By-The-Browsers-Own-Speech-From-A-Press.md)), an anthology's page opens like a book, a work with no file says why on its Source files row, the Files tab on Checks says so when nothing is waiting, and a tag or sticker worn only by standalone quotes is no longer shown as unused.
 - **3.6.2:** Attach from folder on Metadata > Source files, search and folding on the Stray marks tab, the Accept all body cap on
   Checks, and a dismissable phone search dropdown.
 
 ## Where things stand
 
-The latest release is **3.6.2** and `[Unreleased]` is empty. Work is taken one pull request at a time
+The latest release is **3.7.1** and `[Unreleased]` is empty. Work is taken one pull request at a time
 ([ADR-0925](ADR-0925-Work-Goes-Through-Pull-Requests-And-The-Release-Rebuilds-Dist.md)); CI on `main` is green.
 
 **What is left, in order:**
@@ -102,26 +103,24 @@ The latest release is **3.6.2** and `[Unreleased]` is empty. Work is taken one p
    `controls-baseline.json` again on a run that matches CI (its glyph-with-words ceiling of 9 fails, with 14); find out why
    `controls.mjs`'s desktop pass dies with "detached Frame" under Edge; and capture what the pass skipped: a work's source section,
    an episode's file, the Add surface.
-2. **Rest of [#62](https://github.com/aaronified/tippani/issues/62):** the Source files row does not say why a work has no file.
-   Chak De! India and Battlestar Galactica S04E20 have no subtitle file to find.
-3. **The queue in [Plans index](Plans-Index.md):** [tile slots](Plan-Tile-Slots.md), [episodes](Plan-Episodes.md) (it can reuse
+2. **The queue in [Plans index](Plans-Index.md):** [tile slots](Plan-Tile-Slots.md), [episodes](Plan-Episodes.md) (it can reuse
    `reorder.js`, the drag the anthologies built, which now scrolls at the page edge) and
-   [design consistency](Plan-Design-Consistency.md). Read aloud is built ([ADR-0930](ADR-0930-A-Quote-Is-Read-Aloud-By-The-Browsers-Own-Speech-From-A-Press.md))
-   and waits for a release; [#12](https://github.com/aaronified/tippani/issues/12) stays open until then.
-4. **Left over from the Checks and anthology work:** character checks on the Stray marks tab wait for character detection, which does
-   not exist; the Files tab is blank when nothing is waiting; the tick count on the quote edit dialog always shows 1; the
+   [design consistency](Plan-Design-Consistency.md). Read aloud shipped in 3.7.0
+   ([ADR-0930](ADR-0930-A-Quote-Is-Read-Aloud-By-The-Browsers-Own-Speech-From-A-Press.md)); [#12](https://github.com/aaronified/tippani/issues/12)
+   is still open on GitHub.
+3. **Left over from the Checks and anthology work:** character checks on the Stray marks tab wait for character detection, which does
+   not exist; the tick count on the quote edit dialog always shows 1; the
    anthology's group headers are a display setting that the EPUB does not carry.
-5. **What remains of the source-file work**, in the section below.
+4. **What remains of the source-file work**, in the section below.
 
 **Questions for the owner**, kept until asked:
 
 1. Should there be an opt-in to replace a Kindle location with the file's percent? It is no longer offered.
 2. Should Kindle chapters come from the file's real contents index (INDX) instead of the nearest heading?
 3. Scanned PDFs have no text layer and are refused. Add OCR, or leave them refused?
-4. Should the "why this work has no file" text be added to the Source files row (#62)?
-5. Should the top bar take a typed token to search somewhere other than the page you are on? Searching the page is now the default
+4. Should the top bar take a typed token to search somewhere other than the page you are on? Searching the page is now the default
    on Settings, the metadata console and Stray marks, and the pill's ✕ leaves it for the library. Nothing typed does the same.
-6. Issues #58, #59 and #60 were shipped in 3.5.0 and are still open on GitHub. Close them? Closing the issue is what takes an item
+5. Issues #58, #59 and #60 were shipped in 3.5.0 and are still open on GitHub. Close them? Closing the issue is what takes an item
    off the roadmap ([ADR-0620](ADR-0620-Closing-The-Issue-Is-What-Takes-An-Item-Off-The-Roadmap-And.md)).
 
 **Leftover housekeeping.** Two agent worktrees remain under `.claude/worktrees` (`agent-a5e3796460a78da5c`,
@@ -268,7 +267,7 @@ The registry, `web/frontend/src/help.jsx`, keys the help copy by screen; the wor
 
 The after-import jobs the bulk editor and staging miss.
 
-- **A shared text-cleanup pass** — de-hyphenate across line breaks, drop page numbers and running heads, normalise the quote marks and ligatures that get mangled in transit. §20 lists all of this as OCR post-processing, but it belongs **server-side and shared**, because the free-text sources and OCR both produce it, and the dedupe hash's typographic fold is a map worth borrowing.
+- **A shared text-cleanup pass** — de-hyphenate across line breaks, drop page numbers and running heads, normalise the quote marks and ligatures that get mangled in transit. The Android app's plan lists all of this as OCR post-processing, but it belongs **server-side and shared**, because the free-text sources and OCR both produce it, and the dedupe hash's typographic fold is a map worth borrowing.
 - **Per-batch import rollback.** Approval deletes the staged rows and the `import_batches` row too, and nothing it writes carries a batch id — so this needs a provenance record, not just an endpoint.
 
 ### §8 More import sources ([#21](https://github.com/aaronified/tippani/issues/21))
@@ -402,7 +401,7 @@ Accepting is one label on one issue and nothing else, which is the strongest thi
 
 `atrium` is the eighth material set and the only one still a placeholder — four flat tiles reserving a slot for something translucent and lit from behind, built to Apple's own Liquid Glass guidance: a functional layer for the rail, the top bar and sheets, never the cards a board scrolls past, with a real edge that bends light rather than a faked rim.
 
-Getting there starts by fixing a live defect the design pass found: choosing Atrium today saves nothing, because the server does not yet know the name. From there, the glass itself — a blur that actually turns off under reduced transparency, an accent that stays a light rather than a colour, and a performance budget measured on a real board before a line of CSS ships, not assumed after.
+The first step shipped: choosing Atrium saves, and the opt-in True glass lens exists. What is left is the glass itself — a blur that actually turns off under reduced transparency, an accent that stays a light rather than a colour, and a performance budget measured on a real board before a line of CSS ships, not assumed after.
 
 ### Episode names, and up to three orderings
 
@@ -430,7 +429,7 @@ Everything personal stays on Profile — your own API keys, notifications and si
 
 Reading a quote aloud, using the browser's own `SpeechSynthesis`. It costs the server nothing, needs no key, and works offline once §5's service worker exists — which is the entire reason this can be accepted while server-side speech stays refused. Those are not the same feature wearing different clothes: one is a model and an audio pipeline on a box that cannot spare either, and the other is an API the browser already ships.
 
-Accepted rather than parked because the line it sat next to turned out to be drawn in the right place already — see "OCR, and speech, on the server" under Considered and set aside. **Built, not yet released** ([ADR-0930](ADR-0930-A-Quote-Is-Read-Aloud-By-The-Browsers-Own-Speech-From-A-Press.md)): a play and stop control on every quote card, Home's cards, an anthology's entries and the practise and review screens, in the quote's own language; *Read aloud* in an anthology's and a board's header, with next and stop on the passage playing; a voice per language in the Language editor. No stored audio, no transcription, no server route, no control where the device has no voices.
+Accepted rather than parked because the line it sat next to turned out to be drawn in the right place already — see "OCR, and speech, on the server" under Considered and set aside. **Released in 3.7.0** ([ADR-0930](ADR-0930-A-Quote-Is-Read-Aloud-By-The-Browsers-Own-Speech-From-A-Press.md)): a play and stop control on every quote card, Home's cards, an anthology's entries and the practise and review screens, in the quote's own language; *Read aloud* in an anthology's and a board's header, with next and stop on the passage playing; a voice per language in the Language editor. No stored audio, no transcription, no server route, no control where the device has no voices.
 
 ---
 
@@ -453,7 +452,7 @@ Not ruled out, not next. Nothing gets promoted out of here without a reason — 
 
 ### OCR — and speech — *on the server*
 
-Building OCR into the Go binary isn't worth the weight, and that hasn't changed: it would be a dependency, a CPU cost, and an upload path, all on a box chosen for being small. What *has* changed is that I wrote this as though the server were the only place it could live. On-device OCR in a native app costs the server nothing at all, so the feature moved to §20 rather than staying refused, and the share-target route (§3) is still the no-app answer and still planned.
+Building OCR into the Go binary isn't worth the weight, and that hasn't changed: it would be a dependency, a CPU cost, and an upload path, all on a box chosen for being small. What *has* changed is that I wrote this as though the server were the only place it could live. On-device OCR in a native app costs the server nothing at all, so the feature moved to the app's repository ([ADR-0931](ADR-0931-The-Android-App-Lives-In-Its-Own-Repository.md)) rather than staying refused, and the Android app now reads a photographed page on the phone with Tesseract, and the share-target route (§3) is still the no-app answer and still planned.
 
 **Server-side text-to-speech** is refused on identical grounds and belongs in the same entry: a model or a paid API, CPU I don't have, and audio to store or stream. The same escape applies — the browser already has a speech engine, so reading a card aloud is a client feature or it is nothing.
 
