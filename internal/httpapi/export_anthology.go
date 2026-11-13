@@ -60,10 +60,10 @@ func (s *Server) handleExportAnthology(w http.ResponseWriter, r *http.Request) {
 	}
 	uid := userID(r)
 	olog.Tracef("[export] anthology uid=%d id=%d", uid, id)
-	var title, intro, epigraph, dedication, groupBy string
+	var title, intro, epigraph, dedication, description, groupBy string
 	var fields anthologyFields
-	err := s.Store.DB.QueryRow(`SELECT title, intro, epigraph, dedication, group_by, `+anthologyFieldCols+` FROM anthologies WHERE id = ? AND user_id = ?`,
-		id, uid).Scan(append([]any{&title, &intro, &epigraph, &dedication, &groupBy}, fields.scanTargets()...)...)
+	err := s.Store.DB.QueryRow(`SELECT title, intro, epigraph, dedication, description, group_by, `+anthologyFieldCols+` FROM anthologies WHERE id = ? AND user_id = ?`,
+		id, uid).Scan(append([]any{&title, &intro, &epigraph, &dedication, &description, &groupBy}, fields.scanTargets()...)...)
 	fields.fromRow()
 	if err != nil {
 		// Not found and a read error are one answer here on purpose: an export is a
@@ -86,7 +86,7 @@ func (s *Server) handleExportAnthology(w http.ResponseWriter, r *http.Request) {
 		internalError(w, r, "render anthology export", err)
 		return
 	}
-	serveMarkdown(w, sanitizeFilename(title)+".md", renderAnthologyExportFront(title, intro, fields, entries, sections, anthologyFront{epigraph: epigraph, dedication: dedication, groupBy: groupBy}))
+	serveMarkdown(w, sanitizeFilename(title)+".md", renderAnthologyExportFront(title, intro, fields, entries, sections, anthologyFront{epigraph: epigraph, dedication: dedication, description: description, groupBy: groupBy}))
 }
 
 // THE FIELD SWITCHES ARE A FILTER, NOT A SECOND RENDERER (0045). writeQuoteBlock
@@ -130,7 +130,7 @@ func renderAnthologyExportSections(title, intro string, f anthologyFields, entri
 
 // anthologyFront is the reader's epigraph and dedication (0090). The cover is left out of the Markdown, as
 // every image is.
-type anthologyFront struct{ epigraph, dedication, groupBy string }
+type anthologyFront struct{ epigraph, dedication, description, groupBy string }
 
 // exportGroup is the name an entry is grouped under for the Markdown, the same rule the page uses
 // (groupKey in anthologies.jsx): empty means it has none to give and draws no header.
@@ -168,7 +168,7 @@ func renderAnthologyExportFront(title, intro string, f anthologyFields, entries 
 	// `title` is in the frontmatter because the importer needs it before it reads a
 	// single entry: it is what an approved import resolves to a row.
 	writeFrontmatter(&sb, kv{"type", "anthology"}, kv{"title", title},
-		kv{"epigraph", escapeFront(front.epigraph)}, kv{"dedication", escapeFront(front.dedication)})
+		kv{"epigraph", escapeFront(front.epigraph)}, kv{"dedication", escapeFront(front.dedication)}, kv{"description", escapeFront(front.description)})
 	if strings.TrimSpace(intro) != "" {
 		sb.WriteString("\n")
 		sb.WriteString(strings.TrimRight(intro, "\n"))

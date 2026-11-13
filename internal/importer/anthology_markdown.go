@@ -51,11 +51,12 @@ import (
 // IS once the anthology's own two facts (its place in the order, and the
 // commentary before it) are attached to it — see Utterance.Anthology.
 type Anthology struct {
-	Title      string
-	Epigraph   string
-	Dedication string
-	Intro      string
-	Entries    []Utterance
+	Title       string
+	Epigraph    string
+	Dedication  string
+	Description string
+	Intro       string
+	Entries     []Utterance
 }
 
 // unescapeFront reads back what the exporter's escapeFront wrote: a front matter value is one line, so
@@ -126,6 +127,8 @@ func AnthologyMarkdown(r io.Reader) (Anthology, error) {
 				out.Epigraph = unescapeFront(strings.TrimSpace(val))
 			case "dedication":
 				out.Dedication = unescapeFront(strings.TrimSpace(val))
+			case "description":
+				out.Description = unescapeFront(strings.TrimSpace(val))
 			}
 		}
 	}
@@ -288,6 +291,7 @@ func AnthologyMarkdown(r io.Reader) (Anthology, error) {
 		out.Entries[j].AnthologyIntro = out.Intro
 		out.Entries[j].AnthologyEpigraph = out.Epigraph
 		out.Entries[j].AnthologyDedication = out.Dedication
+		out.Entries[j].AnthologyDescription = out.Description
 	}
 	return out, nil
 }

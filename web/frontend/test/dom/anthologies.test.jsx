@@ -102,6 +102,17 @@ const menuFor = async (quote) => {
   return await screen.findByRole('menu')
 }
 
+describe('the list of anthologies', () => {
+  it('draws a row\'s poster and its description in place of the introduction', async () => {
+    LIST[0] = { ...LIST[0], poster_path: '1111222233334444.png', description: 'Told in a hand.' }
+    const { container } = list()
+    await screen.findByText('On keeping quiet')
+    expect(container.querySelector('img.anthology-tile-poster').getAttribute('src')).toContain('/covers/1111222233334444.png')
+    expect(screen.getByText('Told in a hand.')).toBeTruthy()
+    expect(screen.queryByText('Three people, one idea.')).toBeNull()
+  })
+})
+
 describe('an anthology being read', () => {
 
   it('moves an entry down by naming the entry it should follow', async () => {

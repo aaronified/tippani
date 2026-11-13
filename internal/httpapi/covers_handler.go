@@ -89,6 +89,12 @@ func (s *Server) handleUploadAnthologyCover(w http.ResponseWriter, r *http.Reque
 	s.uploadCover(w, r, "anthologies", "cover_path")
 }
 
+// An anthology's poster (0092): the landscape picture its page and its list row show. Nothing fetches one.
+func (s *Server) handleUploadAnthologyPoster(w http.ResponseWriter, r *http.Request) {
+	olog.Tracef("[cover] handleUploadAnthologyPoster")
+	s.uploadCover(w, r, "anthologies", "poster_path")
+}
+
 // uploadCover stores an uploaded image, points the row's cover column at it,
 // and deletes the previously stored file. table/column are package constants,
 // never client input, so the SQL interpolation is safe.

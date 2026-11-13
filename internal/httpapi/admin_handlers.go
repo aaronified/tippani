@@ -354,7 +354,10 @@ func (s *Server) userCoverFiles(id int64) []string {
 		SELECT path FROM user_fonts WHERE user_id = ?
 		UNION ALL
 		-- An anthology's cover (0090) is the reader's image like the rest.
-		SELECT cover_path FROM anthologies WHERE user_id = ? AND cover_path IS NOT NULL`, id, id, id, id, id)
+		SELECT cover_path FROM anthologies WHERE user_id = ? AND cover_path IS NOT NULL
+		UNION ALL
+		-- ...and so is its landscape poster (0092).
+		SELECT poster_path FROM anthologies WHERE user_id = ? AND poster_path IS NOT NULL`, id, id, id, id, id, id)
 	if err != nil {
 		return nil
 	}

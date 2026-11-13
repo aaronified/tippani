@@ -34,10 +34,10 @@ beforeEach(() => {
 })
 
 describe('the hero', () => {
-  it('sets a cover from the title when there is no picture, and keeps it out of the front matter', async () => {
+  it('sets a poster from the title when there is no picture, once, and keeps it out of the front matter', async () => {
     const { container } = open()
     await screen.findByText('Two passages.')
-    const fallback = container.querySelector('.anthology-cover-fallback')
+    const fallback = container.querySelector('.anthology-poster-fallback')
     expect(fallback.getAttribute('data-title')).toBe('On woods')
     expect(fallback.textContent).toBe('')
     expect(screen.getAllByText('On woods')).toHaveLength(1)
@@ -51,6 +51,7 @@ describe('the hero', () => {
     const { container } = open()
     await screen.findByTestId('anthology-front')
     expect(container.querySelector('.anthology-cover-fallback')).toBeNull()
+    expect(container.querySelector('.anthology-poster-fallback')).not.toBeNull()
   })
 })
 

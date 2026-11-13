@@ -102,4 +102,23 @@ describe('Save PDF', () => {
     await fromMenu('Print')
     expect(seen).toEqual(['Tippani'])
   })
+
+  it('opens with the poster, the description, the cover, the dedication, the epigraph and then the introduction', async () => {
+    DETAIL.anthology = {
+      ...DETAIL.anthology,
+      poster_path: '1111222233334444.png',
+      cover_path: 'abcdef0123456789.png',
+      description: 'The blurb.',
+      epigraph: 'Time is the substance.',
+    }
+    open()
+    const dialog = await reader()
+    const poster = within(dialog).getByRole('img', { name: 'The poster of this anthology' })
+    const blurb = within(dialog).getByText('The blurb.')
+    const cover = within(dialog).getByRole('img', { name: 'The cover of this anthology' })
+    const order = [poster, blurb, cover, within(dialog).getByText('For R.'), within(dialog).getByText('Time is the substance.'), within(dialog).getByText('Two passages.')]
+    for (let i = 1; i < order.length; i++) {
+      expect(order[i - 1].compareDocumentPosition(order[i]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    }
+  })
 })

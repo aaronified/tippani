@@ -248,8 +248,8 @@ func (s *Server) handleUpdateTag(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, t)
 }
 
-// handleDeleteTag removes a tag; its annotation_tags/dialogue_tags rows
-// cascade, so tagged annotations and dialogues just lose the label.
+// handleDeleteTag removes a tag; its annotation_tags, dialogue_tags and utterance_tags
+// rows cascade, so tagged quotes of every kind just lose the label.
 func (s *Server) handleDeleteTag(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(r)
 	if !ok {
@@ -531,6 +531,10 @@ func mergeTagInto(tx *sql.Tx, uid, keepID, dropID int64) (int, error) {
 	for _, q := range []struct{ table, col string }{
 		{"annotation_tags", "annotation_id"},
 		{"dialogue_tags", "dialogue_id"},
+		// The standalone quotes' own join table (0026). It was left out when they arrived, so a merge
+		// dropped the loser and its rows went with it by cascade: the tag vanished from every
+		// standalone quote that wore only the loser.
+		{"utterance_tags", "utterance_id"},
 	} {
 		res, err := tx.Exec(`
 			INSERT OR IGNORE INTO `+q.table+` (`+q.col+`, tag_id)
@@ -548,7 +552,7 @@ func mergeTagInto(tx *sql.Tx, uid, keepID, dropID int64) (int, error) {
 		moved += int(n)
 	}
 	// The loser's own join rows go by cascade — see the FOREIGN KEY … ON DELETE
-	// CASCADE on both tables. Deleting them by hand first would be a second
+	// CASCADE on all three tables. Deleting them by hand first would be a second
 	// statement that has to stay in step with a constraint that already says so.
 	if _, err := tx.Exec(`DELETE FROM tags WHERE id = ? AND user_id = ?`, dropID, uid); err != nil {
 		return 0, fmt.Errorf("merge tag: drop %d: %w", dropID, err)

@@ -74,8 +74,8 @@ func (s *Server) handleExportAnthologyEPUB(w http.ResponseWriter, r *http.Reques
 	var title, intro string
 	var front epubFront
 	var fields anthologyFields
-	err := s.Store.DB.QueryRow(`SELECT title, intro, epigraph, dedication, COALESCE(cover_path, ''), `+anthologyFieldCols+` FROM anthologies WHERE id = ? AND user_id = ?`,
-		id, uid).Scan(append([]any{&title, &intro, &front.epigraph, &front.dedication, &front.cover}, fields.scanTargets()...)...)
+	err := s.Store.DB.QueryRow(`SELECT title, intro, epigraph, dedication, COALESCE(cover_path, ''), description, `+anthologyFieldCols+` FROM anthologies WHERE id = ? AND user_id = ?`,
+		id, uid).Scan(append([]any{&title, &intro, &front.epigraph, &front.dedication, &front.cover, &front.description}, fields.scanTargets()...)...)
 	fields.fromRow()
 	if err != nil {
 		// Not found and a read error are one answer, exactly as the Markdown export
@@ -216,6 +216,7 @@ p.attribution { margin: .2em 0 0; font-size: .85em; }
 p.intro { margin: .4em 0; }
 p.dedication { margin: 1.2em 0; text-align: center; font-style: italic; }
 blockquote.epigraph { margin: 1.2em 2em; padding: 0; border: 0; font-style: italic; }
+p.blurb { margin: 0.6em 0 1.2em; font-style: italic; }
 p.portrait { margin: .5em 0; }
 p.portrait img { max-width: 40%; }
 p.signature { margin: .25em 0; }
@@ -223,7 +224,7 @@ p.signature img { max-width: 25%; }
 `
 
 // epubFront is the anthology's front matter as the book needs it (0090).
-type epubFront struct{ epigraph, dedication, cover string }
+type epubFront struct{ epigraph, dedication, cover, description string }
 
 func epubOPF(title, bookID string, images []epubImage, coverID string) string {
 	coverMeta := ""
@@ -296,6 +297,13 @@ func epubBody(title, intro string, f anthologyFields, entries []anthologyEntryRo
 <body>
 <h1>` + xmlText(title) + `</h1>
 `)
+	// THE DESCRIPTION (0092) is the blurb under the title, before the front matter proper: what a book says
+	// about itself on its first page. A blank line between paragraphs is a paragraph each.
+	for _, para := range strings.Split(strings.TrimRight(front.description, "\n"), "\n\n") {
+		if strings.TrimSpace(para) != "" {
+			sb.WriteString(`<p class="blurb">` + xmlText(para) + "</p>\n")
+		}
+	}
 	// THE DEDICATION, THEN THE EPIGRAPH, before the introduction: the order of a printed book's front
 	// matter. Each is the reader's own prose, one paragraph a line.
 	if strings.TrimSpace(front.dedication) != "" {

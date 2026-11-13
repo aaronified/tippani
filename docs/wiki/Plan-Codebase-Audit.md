@@ -3,20 +3,9 @@
 Source of truth: this wiki page.
 
 An adversarial pass over the code for duplications, latent defects, test gaps and departures from the design pack. Everything
-it fixed is in the changelog and the tests; this page holds only what is left and is deleted when the list is empty. The
+it fixed is in the changelog and the tests; this page holds only what is left and is deleted when the list is empty. The two items it listed to build (a duplicate warning for a book added by title, and feedback on a slow credit-chip press) shipped in 3.7.0. The
 pattern behind it: **a contract honoured at one call site and not at its siblings.** Rechecked against the code on
-6 November 2026.
-
-## To build
-
-- **A book added by title alone gets no duplicate warning; a film does.** `createMovieFromSource` calls
-  `similarMoviesForSource` and returns `409 needs_confirm` with the look-alikes. `handleCreateBook` has no analogue: its only
-  protection is the `(user_id, isbn)` and `(user_id, asin)` unique index, which cannot fire for a book entered without
-  either, which is most hand-entered books. The fix is a `similarBooksByTitle` helper and a `needs_confirm` arm the add-book
-  flow does not yet expect.
-- **A credit chip's press has no feedback on a cold chunk.** `usePersonOpener` (`personOpen.jsx:198`) routes seven screens'
-  chips through `stack.open()` inside a dynamic `import().then()`, an unbounded delay before `go(-n)` with no pending state
-  on the control.
+6 November 2026, and updated on 13 November 2026.
 
 ## To decide
 

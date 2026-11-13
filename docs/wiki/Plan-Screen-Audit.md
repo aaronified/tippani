@@ -3,15 +3,8 @@
 Source of truth: this wiki page.
 
 An adversarial pass over every screen, each finding handed to a second reader whose job was to refute it. Most of the 29
-findings that survived are fixed; this page holds only what is left and is deleted when the list is empty. The fixed half
+findings that survived are fixed (the last open one, the Board heading with no control under it, shipped in 3.7.0); this page holds only what is left and is deleted when the list is empty. The fixed half
 is in the changelog and the tests. Rechecked against the code on 6 November 2026.
-
-## Open
-
-1. **A heading with no control under it.** `Quotes.jsx:516` draws the Board label and its `<label>` wrapper unconditionally
-   and gates only the `<Select>` on `boards.length > 0` (`:522`). A reader with no boards, or anyone while `/boards` is in
-   flight, sees a field heading with nothing under it. Move the label inside the gate, or give the empty case a control
-   that explains itself.
 
 ## Not located, so unconfirmed
 

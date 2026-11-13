@@ -6655,7 +6655,7 @@
   .tp-chip-btn { cursor: pointer; color: var(--accent-ui); transition: color .18s ease, border-color .18s ease, background .18s ease; }
   .tp-chip-btn:hover { color: var(--ink); border-color: var(--ink-border); background: var(--card); }
   /* AN OFFER, WHICH IS NOT A STATE — it is one press that has not happened yet.
-     `docs/plans/entry-helpers.md` state 3: the library knows an answer, what you
+     the retired entry-helpers plan (ADR-0827 records what shipped of it) state 3: the library knows an answer, what you
      typed disagrees with it, and nothing is written until you tap. It wears the
      accent because it is a thing to do rather than a thing to read, and it sits
      hard against the box it is about — `align-self: start` so it is as wide as its
@@ -10781,8 +10781,8 @@ html[data-theme="dark"] .has-sticky-rail .meta-rail-row.is-stuck {
    PAPER — the print stylesheet (roadmap §15, and the anthology's Print control)
    ==========================================================================
 
-   WHY NOW AND NOT AS PART OF A PDF WRITER. `docs/plans/anthology-update.md`
-   argues it and `Design-decisions.md` backs the argument with a rule: go.mod has three direct
+   WHY NOW AND NOT AS PART OF A PDF WRITER. The retired anthology-update plan made that call
+   (ADR-0803 records that it shipped) and `Design-decisions.md` backs it with a rule: go.mod has three direct
    requirements, and a PDF library is a typesetting engine — fonts, shaping,
    pagination — bought to print a thirty-entry anthology. This app sets Bengali and
    Devanagari, so the browser's own engine is not a compromise here, it is the
@@ -12398,8 +12398,7 @@ button.work-pill:hover { color: var(--ink); border-color: var(--ink-border); }
    page scales. */
 .anthology-hero { display: flow-root; margin: var(--edge) 0; }
 .anthology-front { display: block; margin: 0; text-align: start; }
-.anthology-cover,
-.anthology-cover-fallback {
+.anthology-cover {
   float: inline-start;
   width: 9em;
   aspect-ratio: 2 / 3;
@@ -12409,19 +12408,34 @@ button.work-pill:hover { color: var(--ink); border-color: var(--ink-border); }
   box-shadow: inset 6px 0 0 rgba(0, 0, 0, 0.18), 0 10px 22px -12px rgba(0, 0, 0, 0.45);
 }
 .anthology-cover { display: block; object-fit: cover; }
-.anthology-cover-fallback::before { content: attr(data-title); }
-.anthology-cover-fallback {
+.anthology-poster {
+  display: block;
+  width: 100%;
+  max-width: 40em;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  margin: var(--edge) 0;
+  border-radius: 10px;
+  box-shadow: 0 10px 22px -12px rgba(0, 0, 0, 0.45);
+}
+.anthology-poster-fallback {
   display: flex;
-  align-items: flex-end;
-  padding: 1em 0.8em;
+  align-items: center;
+  justify-content: center;
+  padding: 1em;
   background: linear-gradient(160deg, var(--accent), color-mix(in oklab, var(--accent), black 45%));
   color: var(--on-accent);
   font-family: var(--font-quote);
   font-weight: 600;
+  font-size: 1.6em;
   line-height: 1.15;
+  text-align: center;
   overflow: hidden;
   overflow-wrap: anywhere;
 }
+.anthology-poster-fallback::before { content: attr(data-title); }
+.anthology-tile-poster { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 6px; margin-block-end: var(--row); }
+.anthology-description { margin-block: 0 var(--row); white-space: pre-wrap; }
 .anthology-dedication { margin: 0 0 var(--row); font-family: var(--font-hand); color: var(--amber); white-space: pre-wrap; }
 .anthology-epigraph {
   margin: 0 0 var(--row);
@@ -12435,8 +12449,7 @@ button.work-pill:hover { color: var(--ink); border-color: var(--ink-border); }
 }
 .anthology-intro { margin: 0; }
 @media (max-width: 520px) {
-  .anthology-cover,
-  .anthology-cover-fallback { float: none; margin-inline: auto; }
+  .anthology-cover { float: none; margin-inline: auto; }
   .anthology-front { text-align: center; }
   .anthology-epigraph { margin-inline: auto; text-align: start; }
 }
@@ -12458,7 +12471,7 @@ button.work-pill:hover { color: var(--ink); border-color: var(--ink-border); }
   background: var(--card); color: var(--soft);
 }
 .anthology-chip[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: transparent; }
-@media print { .anthology-cover-fallback, .anthology-fed, .anthology-chips { display: none; } }
+@media print { .anthology-poster-fallback, .anthology-fed, .anthology-chips { display: none; } }
 @media print { .anthology-front { break-after: page; page-break-after: always; } }
 
 /* READING MODE: the anthology as a document, over everything. Book typography (a measure, a leading,

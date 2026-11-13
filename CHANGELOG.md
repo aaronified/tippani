@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Merging tags keeps the tags on standalone quotes**: the merge moved the tags of highlights
+  and screen lines onto the kept tag but not those of standalone quotes, so a standalone quote
+  that wore only the merged-away tag came out untagged, with nothing saying so. They move with
+  the rest now.
+
+### Added
+
+- The anthology description travels with the anthology: it is written into the Markdown export
+  and read back on import, and printed under the title in the EPUB. On every screen it comes
+  first, before the dedication, the epigraph and the introduction. An account's anthology
+  posters are removed with the account.
+
+- Anthologies look like a book: each has a landscape poster (a picture you upload, or one set
+  from its title) and a description you write yourself, apart from the introduction. Both show
+  on its page, in the reader and on the list, and are set from Front matter. The API reports
+  revision 10 and the feature anthology-poster, so the app knows the server can keep them.
+
 ## [3.7.1] - 2026-11-13
 
 ### Added

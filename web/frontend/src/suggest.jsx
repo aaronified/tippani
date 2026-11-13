@@ -147,7 +147,7 @@ const fold = (v) => String(v || '').toLowerCase().trim()
 // SuggestCombo — a single-value box with a filtered list of your own prior
 // values. THE GENERAL FORM OF WHAT CastCombo ALREADY WAS.
 //
-// `docs/plans/entry-helpers.md` specifies this as `SuggestInput` and lists what
+// the retired entry-helpers plan (ADR-0827 records what shipped of it) specifies this as `SuggestInput` and lists what
 // it needs: filter-and-rank, a cap, a portalled `role="listbox"`,
 // arrow/Enter/Escape, and "the blur-commit that checks both the box and the
 // popover, without which clicking a suggestion reads as 'focus left the field'
@@ -465,7 +465,7 @@ function Combo({
 
 // OfferChip — what the app says when it knows an answer and will not write it.
 //
-// `docs/plans/entry-helpers.md` state 3: "counterpart non-empty and disagrees →
+// the retired entry-helpers plan (ADR-0827 records what shipped of it) state 3: "counterpart non-empty and disagrees →
 // write nothing. Show one inline chip — `Chapter 3?` — that fills on tap." The
 // plan's reason is the failure it prevents, and it is worth restating because the
 // chip looks like a nicety and is not: "you type 7, then pick a chapter name to
