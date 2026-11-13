@@ -381,7 +381,7 @@ Getting Tippani discoverable where self-hosters actually browse. No code here �
   - [selfh.st/icons](https://selfh.st/icons) — no external PRs accepted; icons are *requested* via GitHub Discussions and added by the maintainers. This is also where the selfh.st/apps directory sources its art, so it goes in before or alongside the listing request.
 
 - [selfh.st/apps](https://selfh.st/apps) — a one-person curated directory with no submission repo: reach out by email with the repo, a one-liner, a demo link and the icon. Being picked up by the *This Week in Self-Hosted* newsletter's "New Software" section is the usual front door.
-- [awesome-selfhosted](https://github.com/awesome-selfhosted/awesome-selfhosted) — the biggest list, syndicated by many others, but it **rejects projects younger than 4 months**, counted from the first release (2026-07-03), so this waits until November 2026.
+- [awesome-selfhosted](https://github.com/awesome-selfhosted/awesome-selfhosted) — the biggest list, syndicated by many others, but it **rejects projects younger than 4 months**, counted from the first release (2026-07-03), so it could be asked from 2026-11-03, and the submission is now due.
 
 ### §19 Grimmory sync (self-hosted, direct MariaDB) ([#35](https://github.com/aaronified/tippani/issues/35))
 

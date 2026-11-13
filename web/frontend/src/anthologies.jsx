@@ -1612,10 +1612,10 @@ function AnthologyReader({ anthology, slots, groupBy, onClose }) {
         {anthology?.poster_path && (
           <img className="anthology-poster" src={apiURL(`/covers/${anthology.poster_path}`)} alt={t('anthologies.front.poster.alt')} />
         )}
+        {paragraphs(anthology?.description).map((p, i) => <p key={`d${i}`} className="anthology-reader-intro">{p}</p>)}
         {anthology?.dedication && <p className="anthology-dedication">{anthology.dedication}</p>}
         {anthology?.epigraph && <blockquote className="anthology-epigraph">{anthology.epigraph}</blockquote>}
         {paragraphs(anthology?.intro).map((p, i) => <p key={i} className="anthology-reader-intro">{p}</p>)}
-        {paragraphs(anthology?.description).map((p, i) => <p key={`d${i}`} className="anthology-reader-intro">{p}</p>)}
         {slots.map((slot, i) => {
     if (slot.type === 'section') {
       return (
@@ -2229,6 +2229,9 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
       )}
       {anthology && (
         <div className="anthology-hero">
+          {/* THE DESCRIPTION OPENS THE BOOK, like the blurb under a title: the EPUB, the page, the reader and
+              the app all put it before the dedication, the epigraph and the introduction. */}
+          {anthology.description && <p className="anthology-prose anthology-description">{anthology.description}</p>}
           {(anthology.cover_path || anthology.dedication || anthology.epigraph) && (
             <div className="anthology-front" data-testid="anthology-front">
               {anthology.cover_path && (
@@ -2239,7 +2242,6 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
             </div>
           )}
           {anthology.intro && <p className="anthology-prose anthology-intro">{anthology.intro}</p>}
-          {anthology.description && <p className="anthology-prose anthology-description">{anthology.description}</p>}
         </div>
       )}
 

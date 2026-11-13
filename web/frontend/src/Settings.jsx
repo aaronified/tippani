@@ -4448,7 +4448,7 @@ function BackupCard({ user, asking = false, onAsking }) {
             here and its absence is recorded rather than faked: a nightly backup
             needs something that wakes up at four in the morning, and this repo's
             standing invariant is that nothing wakes on a timer. See
-            docs/plans/nightly-backup.md. */}
+            docs/wiki/Plan-Nightly-Backup.md. */}
         {/* THE DOT CAME DOWN FROM THE HEADING. What it says — one dated encrypted
             archive, a passphrase one recoverable by nothing, and a restore that
             replaces everything — is about the act this row performs, and it is the
@@ -4822,7 +4822,7 @@ function SizeSlider({ ariaLabel, storageKey, def, kind, works }) {
 // the 27 tiles") and the machinery is already here, `TILE_NAMES` exported with no
 // caller, applyTheme reading tileDesk/tileShell/tilePage/tileBinding, a saved look
 // carrying them — but nothing draws the picker. It is a pack feature this sweep
-// has not built, and it is written down in docs/plans/tile-slots.md rather than
+// has not built, and it is written down in docs/wiki/Plan-Tile-Slots.md rather than
 // left as a sentence pointing at nothing.
 //
 // A DIAL IS A Slider, WHICH COMMITS ON RELEASE. A drag across a range would

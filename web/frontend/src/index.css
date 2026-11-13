@@ -6655,7 +6655,7 @@
   .tp-chip-btn { cursor: pointer; color: var(--accent-ui); transition: color .18s ease, border-color .18s ease, background .18s ease; }
   .tp-chip-btn:hover { color: var(--ink); border-color: var(--ink-border); background: var(--card); }
   /* AN OFFER, WHICH IS NOT A STATE — it is one press that has not happened yet.
-     `docs/plans/entry-helpers.md` state 3: the library knows an answer, what you
+     `docs/wiki/ADR-0827-Entry-Helpers-What-The-Plan-Got-Wrong-And-The-One-Item-It-Could.md` state 3: the library knows an answer, what you
      typed disagrees with it, and nothing is written until you tap. It wears the
      accent because it is a thing to do rather than a thing to read, and it sits
      hard against the box it is about — `align-self: start` so it is as wide as its
@@ -10781,7 +10781,7 @@ html[data-theme="dark"] .has-sticky-rail .meta-rail-row.is-stuck {
    PAPER — the print stylesheet (roadmap §15, and the anthology's Print control)
    ==========================================================================
 
-   WHY NOW AND NOT AS PART OF A PDF WRITER. `docs/plans/anthology-update.md`
+   WHY NOW AND NOT AS PART OF A PDF WRITER. `docs/wiki/ADR-0803-The-Anthology-Update-Shipped-And-Both-Its-Plan-Files-Leave-By.md`
    argues it and `Design-decisions.md` backs the argument with a rule: go.mod has three direct
    requirements, and a PDF library is a typesetting engine — fonts, shaping,
    pagination — bought to print a thirty-entry anthology. This app sets Bengali and

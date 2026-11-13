@@ -87,6 +87,15 @@ describe('the front matter of an anthology', () => {
     expect(screen.getByText('Sayings gathered over a decade.')).toBeTruthy()
   })
 
+  it('puts the description before the dedication, the epigraph and the introduction', async () => {
+    DETAIL.anthology = { ...DETAIL.anthology, description: 'The blurb.', dedication: 'For R.', epigraph: 'Time is the substance.' }
+    open()
+    const blurb = await screen.findByText('The blurb.')
+    for (const later of ['For R.', 'Time is the substance.', 'Hello.']) {
+      expect(blurb.compareDocumentPosition(screen.getByText(later)) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    }
+  })
+
   it('saves the description with the tick, alongside the epigraph and dedication', async () => {
     DETAIL.anthology = { ...DETAIL.anthology, poster_path: '1111222233334444.png' }
     open()
