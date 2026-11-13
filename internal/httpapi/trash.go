@@ -1073,6 +1073,9 @@ var accountSkipTables = map[string]bool{
 	// Library scan state. It is rebuilt from the mounted folder by pressing Scan, and it refers to
 	// folder ids that may not exist after a restore.
 	"library_scans": true, "library_scan_findings": true, "library_scan_files": true,
+	// Idempotency keys (0093) remember, for a day, the answer to a request a queued client may repeat. They
+	// are about requests, not about the library, and an account restored later must not answer a stale key.
+	"idempotency_keys": true,
 }
 
 // binAccount snapshots an entire account and its library into ONE bin entry,

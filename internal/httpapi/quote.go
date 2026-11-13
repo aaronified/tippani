@@ -49,7 +49,7 @@ type quoteReq struct {
 	StickerY  *float64 `json:"sticker_y"`
 	// NotedAt is when the quote was actually captured, for a client that saved
 	// it offline and is only now flushing it; "" means now. Source records what
-	// captured it ("manual" | "ocr"); "" means manual. Both are create-only —
+	// captured it ("manual" | "ocr" | "voice"); "" means manual. Both are create-only —
 	// a capture's origin doesn't change when you fix a typo in it.
 	NotedAt string `json:"noted_at"`
 	Source  string `json:"source"`

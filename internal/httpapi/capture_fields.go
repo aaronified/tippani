@@ -53,6 +53,7 @@ func parseNotedAt(s string) (string, error) {
 var captureSources = map[string]bool{
 	"manual": true, // typed in, the default
 	"ocr":    true, // recognised from a photographed page by the mobile app
+	"voice":  true, // dictated into the mobile app (ADR-0932)
 }
 
 // validateSource defaults an empty source to "manual" and rejects anything
@@ -63,7 +64,7 @@ func validateSource(s string) (string, error) {
 		return "manual", nil
 	}
 	if !captureSources[s] {
-		return "", fmt.Errorf("source must be manual or ocr")
+		return "", fmt.Errorf("source must be manual, ocr or voice")
 	}
 	return s, nil
 }

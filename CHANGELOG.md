@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- A write the Android app queued and sent twice is made once: the create routes honour an
+  Idempotency-Key header, so a request whose reply was lost, sent again, answers the first
+  answer instead of making a second anthology, heading or quote. The API reports revision 11 and
+  the features idempotency-key and voice-source.
+
+- A quote can be captured by voice: the API accepts voice as a quote's source beside manual and
+  ocr, so the Android app's dictated quotes keep their origin.
+
 ## [3.8.0] - 2026-11-13
 
 ### Fixed
