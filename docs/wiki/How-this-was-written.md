@@ -71,15 +71,15 @@ the measurement, stamped with the commit it was counted at and re-counted by the
 kit's `ai_census.py --check`. The breakdown by model, and the commits that carry no
 trailer, follow it under *By model*.
 
-## Measured as of `996cae99dc04b0069536890ff23256cd967b4ca3` (2026-10-09)
+## Measured as of `bd120c909dd0aa70ac89bc227ea66dd58ece7b13` (2026-11-13)
 
 | Figure | Value |
 | --- | --- |
-| Commits, no merges, exclusions applied | 2,107 |
-| AI-assisted commits | 2,094 — 99.4% |
-| Lines added / removed, AI-assisted commits | +913,425 / -385,181 |
-| Lines added / removed, all commits | +923,022 / -393,664 |
-| **Surviving lines from AI-assisted commits** | **525,091 of 529,243 — 99.2%** |
+| Commits, no merges, exclusions applied | 2,325 |
+| AI-assisted commits | 2,302 — 99.0% |
+| Lines added / removed, AI-assisted commits | +1,034,893 / -524,863 |
+| Lines added / removed, all commits | +1,053,209 / -541,869 |
+| **Surviving lines from AI-assisted commits** | **499,174 of 511,217 — 97.6%** |
 
 These figures describe the tree at that sha and change with every commit, which is why
 they are stamped: an unstamped percentage cannot be checked against anything, and so is
@@ -137,7 +137,7 @@ awk 'NR == FNR { ai[$1]; next }
   content.
 - **Unmeasured history.** None. The first commit, `6f8f7033` (2026-07-02), already carries
   the trailer, so no history predates the convention. The thirteen commits with no trailer
-  are named under *By model*.
+  at `996cae99` are named under *By model*; the block above, restamped at `bd120c90`, counts 23 commits that are not AI-assisted.
 - **Exclusions.** `*.lock`, `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `go.sum`,
   `vendor/**`, `third_party/**`, `node_modules/**`, `dist/**`, `build/**`, `target/**`,
   `*.min.js`, `*.min.css`, `*.map`, `**/*.generated.*`, `**/generated/**`,
@@ -145,7 +145,7 @@ awk 'NR == FNR { ai[$1]; next }
 - **Blame flags.** `git blame` with no `-M` and no `-C`. Move and copy detection
   reattributes moved lines to their original commit and can shift the surviving share by
   tens of points, so the flags used are declared rather than left for the reader to guess.
-- **Coverage.** Tracked files: 1,584 blamed, 4 removed by the exclusion list, 460 skipped as
+- **Coverage.** Tracked files: 2,388 blamed, 4 removed by the exclusion list, 462 skipped as
   binary, 1 skipped over the 2,000,000-byte blame cap, 0 staged but absent at the stamped
   sha, 0 whose blame failed and were counted as unattributed. Blame is taken at that sha, so
   uncommitted working-tree edits sit outside every figure. Nothing was sampled: every other
@@ -160,9 +160,9 @@ awk 'NR == FNR { ai[$1]; next }
 
 ## By model
 
-Models used, by commit count, at the same commit. Merges are excluded, and the block's
-exclusion list is not applied, so 2,104 commits carry a trailer against the block's
-2,094. One of them, `f5000428` (3.1.5's release commit), carries two trailers and is
+Models used, by commit count, at `996cae99` (9 October 2026). This section was not recounted when the block above was restamped at `bd120c90`. Merges are excluded, and the block's
+exclusion list is not applied, so 2,104 commits carried a trailer against the 2,094
+the block gave at that stamp. One of them, `f5000428` (3.1.5's release commit), carries two trailers and is
 counted once under each of two models, so the rows sum to 2,105. One
 commit, `b77a22e5`, carries its line outside git's trailer block, so the count and the
 breakdown below grep the message. The per-commit listing asks git for trailers, and shows
@@ -185,7 +185,7 @@ variant: 450 of the Opus 5 commits, 466 of the Opus 5.5 ones and 146 of the Opus
 ones. It is the same model with a larger window, so the table folds them; the last
 command below prints them unfolded if you would rather see it raw.
 
-Thirteen commits carry no trailer, and they divide four ways. **Five** are
+At `996cae99`, thirteen commits carried no trailer, and they divide four ways. **Five** are
 `github-actions[bot]` regenerating the roadmap's known-bugs block from the issue
 tracker — machine-written but not AI-written, and that distinction is the point of
 this file: a script rendering a JSON file into HTML is not a model making choices.
@@ -201,7 +201,7 @@ fixed, because a disclosure that rounds its own gaps away is not one.
 To see it yourself:
 
 ```bash
-SHA=996cae99   # the commit the block above is stamped with
+SHA=bd120c90   # the commit the block above is stamped with
 
 # every commit, with the model that co-authored it
 git log --no-merges --date=short "$SHA" \
