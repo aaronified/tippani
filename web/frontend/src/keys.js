@@ -95,7 +95,7 @@ export const SHORTCUTS = [
   //
   // WHICH IS EXACTLY WHY THE GLOBAL DISPATCHER CANNOT DELIVER IT. `onKeyDown`
   // returns on any typing target, so a binding routed through this registry is
-  // dead precisely where this feature lives. `docs/wiki/ADR-0827-Entry-Helpers-What-The-Plan-Got-Wrong-And-The-One-Item-It-Could.md`
+  // dead precisely where this feature lives. the retired entry-helpers plan (ADR-0827 records what shipped of it)
   // designed the route as a registry binding and argued at length about WHICH key
   // — bare digits cannot work, because these fields are numeric inputs and `1` has
   // to type `1` — without ever asking whether the registry could fire it. The key

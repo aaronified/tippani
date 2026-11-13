@@ -308,7 +308,7 @@ export function showsTranslationLine(a, order) {
 // leaving the box, never mid-word. The second is that never-clobber with no way
 // back is a trap rather than a safeguard, so a disagreement now returns an OFFER:
 // one chip naming what the pool says, which fills on a tap and writes nothing
-// until it is tapped. That is `docs/wiki/ADR-0827-Entry-Helpers-What-The-Plan-Got-Wrong-And-The-One-Item-It-Could.md`'s state 3, built.
+// until it is tapped. That is the retired entry-helpers plan (ADR-0827 records what shipped of it)'s state 3, built.
 //
 // IT LIVES HERE, IMPORT-FREE, so the add form and the edit form call one function
 // rather than keeping a line each — the repo's directive that two things which

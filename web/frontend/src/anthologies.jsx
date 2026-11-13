@@ -1606,13 +1606,13 @@ function AnthologyReader({ anthology, slots, groupBy, onClose }) {
       </button>
       <article className="anthology-reader-page">
         <h1>{anthology?.title}</h1>
-        {anthology?.cover_path && (
-    <img className="anthology-cover" src={apiURL(`/covers/${anthology.cover_path}`)} alt={t('anthologies.front.cover.alt')} />
-        )}
         {anthology?.poster_path && (
           <img className="anthology-poster" src={apiURL(`/covers/${anthology.poster_path}`)} alt={t('anthologies.front.poster.alt')} />
         )}
         {paragraphs(anthology?.description).map((p, i) => <p key={`d${i}`} className="anthology-reader-intro">{p}</p>)}
+        {anthology?.cover_path && (
+    <img className="anthology-cover" src={apiURL(`/covers/${anthology.cover_path}`)} alt={t('anthologies.front.cover.alt')} />
+        )}
         {anthology?.dedication && <p className="anthology-dedication">{anthology.dedication}</p>}
         {anthology?.epigraph && <blockquote className="anthology-epigraph">{anthology.epigraph}</blockquote>}
         {paragraphs(anthology?.intro).map((p, i) => <p key={i} className="anthology-reader-intro">{p}</p>)}
@@ -2217,8 +2217,8 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
       {/* THE HERO: a cover on the left, and the front matter and the introduction flowing beside it.
     The poster above it is the reader's picture when there is one; otherwise one set from the title,
     so a page with no front matter still opens like a book (that one is furniture and is not
-    printed), and the title is drawn once, not again on a second generated cover. THE FRONT MATTER IS IN A PRINTED BOOK'S ORDER: the cover, the dedication, the
-    epigraph, then the introduction. Each draws only when there is one. */}
+    printed), and the title is drawn once, not again on a second generated cover. THE FRONT MATTER IS IN A PRINTED BOOK'S ORDER: the poster, the description, the
+    cover, the dedication, the epigraph, then the introduction. Each draws only when there is one. */}
       {/* THE POSTER: landscape, the reader's picture or one set from the title. */}
       {anthology && (
         anthology.poster_path ? (
