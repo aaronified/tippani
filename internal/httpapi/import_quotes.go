@@ -194,8 +194,8 @@ func stageUtterances(tx *sql.Tx, workID int64, us []importer.Utterance) (int, er
 		   speaker, occasion, occasion_date, place, medium, kind,
 		   category, language, translation,
 		   region, recipient, work_title, locator, source_author, occasion_circa, dedupe_hash,
-		   anthology, anthology_note, anthology_intro, anthology_section, anthology_section_prose, anthology_epigraph, anthology_dedication, anthology_work_ref)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		   anthology, anthology_note, anthology_intro, anthology_section, anthology_section_prose, anthology_epigraph, anthology_dedication, anthology_description, anthology_work_ref)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	staged := 0
 	for _, u := range us {
 		color := u.Color
@@ -246,7 +246,7 @@ func stageUtterances(tx *sql.Tx, workID int64, us []importer.Utterance) (int, er
 			// quote either names an anthology or it does not.
 			strings.TrimSpace(u.Anthology), trimProse(u.AnthologyNote), trimProse(u.AnthologyIntro),
 			strings.TrimSpace(u.AnthologySection), trimProse(u.AnthologySectionProse),
-			trimProse(u.AnthologyEpigraph), trimProse(u.AnthologyDedication), strings.TrimSpace(u.AnthologyWorkRef))
+			trimProse(u.AnthologyEpigraph), trimProse(u.AnthologyDedication), trimProse(u.AnthologyDescription), strings.TrimSpace(u.AnthologyWorkRef))
 		if err != nil {
 			return 0, err
 		}
@@ -455,6 +455,11 @@ func fileInAnthologyAs(tx *sql.Tx, uid int64, u importer.Utterance, kind string,
 		}
 		if d := trimProse(u.AnthologyDedication); d != "" {
 			if _, err := tx.Exec(`UPDATE anthologies SET dedication = ? WHERE id = ? AND dedication = ''`, d, anthologyID); err != nil {
+				return err
+			}
+		}
+		if d := trimProse(u.AnthologyDescription); d != "" {
+			if _, err := tx.Exec(`UPDATE anthologies SET description = ? WHERE id = ? AND description = ''`, d, anthologyID); err != nil {
 				return err
 			}
 		}

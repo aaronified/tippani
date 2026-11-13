@@ -326,3 +326,53 @@ func TestTheMarkdownDrawsOneGroupHeaderPerRunAndAnImporterIgnoresThem(t *testing
 		t.Fatalf("staged %d rows, want 3 (a group header is not a passage)", staged.Staged)
 	}
 }
+
+func TestTheDescriptionSurvivesTheMarkdownRoundTrip(t *testing.T) {
+	h := newTestServer(t).Handler()
+	alice := signupAdmin(t, h)
+	an, _, _, _ := threeBook(t, alice)
+	alice.mustDo("PUT", "/anthologies/"+itoa(an.ID)+"/front",
+		map[string]any{"epigraph": "", "dedication": "", "description": "Gathered by hand.\nOver a decade."}, http.StatusNoContent)
+	md := exportAnthology(t, alice, an.ID)
+
+	bob := addUser(t, h, alice, "bob")
+	staged := stageQuotesMD(t, bob, "front.md", md)
+	approveBatch(t, bob, staged.BatchID)
+
+	got := detailOf(t, bob, listAnthologies(t, bob)[0].ID).Description
+	if got != "Gathered by hand.\nOver a decade." {
+		t.Errorf("after the round trip the description is %q", got)
+	}
+}
+
+func TestTheEPUBPrintsTheDescriptionUnderTheTitle(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	an, _, _, _ := threeBook(t, c)
+	c.mustDo("PUT", "/anthologies/"+itoa(an.ID)+"/front",
+		map[string]any{"epigraph": "", "dedication": "", "description": "A blurb."}, http.StatusNoContent)
+	body := epubFile(t, exportEPUB(t, c, an.ID), "OEBPS/anthology.xhtml")
+	if !strings.Contains(body, `<p class="blurb">A blurb.</p>`) {
+		t.Errorf("the description is not in the book:\n%s", body)
+	}
+}
+
+func TestThePosterIsOneOfTheReadersImages(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	an := newAnthology(t, c, "Postered")
+	uploadPictureTo(t, c, "/anthologies/"+itoa(an.ID)+"/poster", pngWithPad(14), http.StatusOK)
+	poster := detailOf(t, c, an.ID).PosterPath
+
+	var uid int64
+	if err := srv.Store.DB.QueryRow(`SELECT id FROM users LIMIT 1`).Scan(&uid); err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, f := range srv.userCoverFiles(uid) {
+		found = found || f == poster
+	}
+	if !found {
+		t.Errorf("the account's list of image files does not name the anthology's poster, so deleting the account would leave it")
+	}
+}

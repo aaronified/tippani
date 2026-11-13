@@ -2215,9 +2215,9 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
       )}
 
       {/* THE HERO: a cover on the left, and the front matter and the introduction flowing beside it.
-    The cover is the reader's picture when there is one; otherwise a plain cover set from the title,
-    so a page with no front matter still opens like a book. That one is furniture and is not
-    printed. THE FRONT MATTER IS IN A PRINTED BOOK'S ORDER: the cover, the dedication, the
+    The poster above it is the reader's picture when there is one; otherwise one set from the title,
+    so a page with no front matter still opens like a book (that one is furniture and is not
+    printed), and the title is drawn once, not again on a second generated cover. THE FRONT MATTER IS IN A PRINTED BOOK'S ORDER: the cover, the dedication, the
     epigraph, then the introduction. Each draws only when there is one. */}
       {/* THE POSTER: landscape, the reader's picture or one set from the title. */}
       {anthology && (
@@ -2229,11 +2229,6 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
       )}
       {anthology && (
         <div className="anthology-hero">
-          {!anthology.cover_path && (
-            // THE TITLE IS DRAWN BY CSS from `data-title`, not written as text: a second copy in the
-            // DOM would make the title findable twice, by a screen reader or a text search alike.
-            <div className="anthology-cover-fallback no-print" aria-hidden="true" data-title={anthology.title} />
-          )}
           {(anthology.cover_path || anthology.dedication || anthology.epigraph) && (
             <div className="anthology-front" data-testid="anthology-front">
               {anthology.cover_path && (

@@ -10,3 +10,7 @@
 -- the reason the cover and the epigraph are: a form that has not heard of a column would clear it.
 ALTER TABLE anthologies ADD COLUMN poster_path TEXT;
 ALTER TABLE anthologies ADD COLUMN description TEXT NOT NULL DEFAULT '';
+
+-- The description rides an anthology's Markdown export and import like the epigraph does, so a staged
+-- entry carries it until approval creates the anthology.
+ALTER TABLE staged_quotes ADD COLUMN anthology_description TEXT NOT NULL DEFAULT '';

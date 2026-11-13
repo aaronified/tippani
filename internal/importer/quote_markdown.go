@@ -88,6 +88,8 @@ type Utterance struct {
 	// introduction and written only when approval creates the anthology.
 	AnthologyEpigraph   string
 	AnthologyDedication string
+	// 0092. The anthology's description, carried and written like the epigraph.
+	AnthologyDescription string
 	// 0091. The identifiers of the work an anthology entry came from ("isbn=978..., tmdb=550"), exactly as the
 	// export wrote them. Used at approval to re-link the entry to a work already in the library.
 	AnthologyWorkRef string

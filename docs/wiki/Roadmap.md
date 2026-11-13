@@ -85,7 +85,7 @@ The files a work's quotes came from, which the app used to refuse to hold:
   and the Files tab folds its four sections
   ([ADR-0928](ADR-0928-Checks-Is-Three-Tabs-And-Stray-Marks-Group-By-Work.md)).
 - **The anthology overhaul** ([ADR-0929](ADR-0929-An-Anthologys-Sections-Share-The-Entries-Position-Space.md)): removed entries with a
-  way back, sections and grouping, drag and Move to…, a cover, epigraph and dedication, reading mode, print and Save PDF, the
+  way back, sections and grouping, drag and Move to…, a cover, poster, description, epigraph and dedication, reading mode, print and Save PDF, the
   Add-waiting preview, and work identity with exact-identifier re-link on import. Its plan page is retired.
 - **3.7.0 to 3.7.1:** quotes can be read aloud ([ADR-0930](ADR-0930-A-Quote-Is-Read-Aloud-By-The-Browsers-Own-Speech-From-A-Press.md)), an anthology's page opens like a book, a work with no file says why on its Source files row, the Files tab on Checks says so when nothing is waiting, and a tag or sticker worn only by standalone quotes is no longer shown as unused.
 - **3.6.2:** Attach from folder on Metadata > Source files, search and folding on the Stray marks tab, the Accept all body cap on
