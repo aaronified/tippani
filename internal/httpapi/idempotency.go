@@ -37,31 +37,69 @@ func (w *recordedResponse) Write(b []byte) (int, error) {
 // changes nothing. It sits inside requireAuth: the key belongs to the account, and another account's key is
 // another key.
 //
-// The same key on a different method or path is a client mistake and is refused (422) rather than answered with
-// a response that belongs to another request. Only a success is remembered: a refused or failed request may be
-// sent again and succeed.
+// THE KEY IS RESERVED BEFORE THE HANDLER RUNS. A phone whose request timed out sends it again while the first may
+// still be running; looking the key up and storing the answer afterwards would let both run and make the thing
+// twice. So the first request inserts a pending row (status 0), the repeat finds it and is told 409 to try again
+// in a moment, and the row becomes the answer when the handler succeeds. A pending row older than two minutes is
+// a request that died with the process and is replaced, so a crash does not block a retry for a day.
 //
-// A key is honoured for a day. That is checked when it is looked up, and the rows past a day are deleted when
-// the next one is written, so nothing wakes on a timer. Two requests with the same key in flight at once can both
-// run; the second one's answer is not stored. A client that queues its writes sends them one at a time.
+// The same key on a different path is a client mistake and is refused (422) rather than answered with a response
+// that belongs to another request. Every wrapped route is a POST, so the path is what tells requests apart. Only a
+// success is remembered: a refused or failed request releases its key and may be sent again and succeed. A key
+// longer than 100 characters is refused (400) so the client learns it is not protected.
+//
+// A key is honoured for a day. That is checked when it is looked up, and the rows past a day are deleted when the
+// next key is reserved, so nothing wakes on a timer.
 func (s *Server) idempotent(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		key := r.Header.Get(idempotencyHeader)
-		if key == "" || len(key) > idempotencyMaxKey {
+		if key == "" {
 			next(w, r)
 			return
 		}
+		if len(key) > idempotencyMaxKey {
+			writeErr(w, http.StatusBadRequest, "the Idempotency-Key is at most 100 characters")
+			return
+		}
 		uid := userID(r)
-		var method, path, contentType string
-		var status int
-		var body []byte
-		err := s.Store.DB.QueryRow(`SELECT method, path, status, content_type, body FROM idempotency_keys
-		                             WHERE user_id = ? AND key = ? AND created_at > datetime('now', '-1 day')`,
-			uid, key).Scan(&method, &path, &status, &contentType, &body)
-		if err == nil {
-			if method != r.Method || path != r.URL.Path {
+		db := s.Store.DB
+		_, _ = db.Exec(`DELETE FROM idempotency_keys WHERE created_at <= datetime('now', '-1 day')`)
+
+		owned := false
+		for attempt := 0; attempt < 2 && !owned; attempt++ {
+			res, err := db.Exec(`INSERT OR IGNORE INTO idempotency_keys (user_id, key, method, path, status, body)
+			                     VALUES (?, ?, ?, ?, 0, x'')`, uid, key, r.Method, r.URL.Path)
+			if err != nil {
+				// the memory is unavailable: the request is made, unprotected, rather than refused
+				next(w, r)
+				return
+			}
+			if n, _ := res.RowsAffected(); n == 1 {
+				owned = true
+				break
+			}
+			var path, contentType string
+			var status int
+			var body []byte
+			var pendingFresh bool
+			err = db.QueryRow(`SELECT path, status, content_type, body, created_at > datetime('now', '-2 minutes')
+			                    FROM idempotency_keys WHERE user_id = ? AND key = ?`, uid, key).
+				Scan(&path, &status, &contentType, &body, &pendingFresh)
+			if err != nil {
+				continue // the row went between the insert and the read: reserve it again
+			}
+			if path != r.URL.Path {
 				writeErr(w, http.StatusUnprocessableEntity, "that Idempotency-Key was used for a different request")
 				return
+			}
+			if status == 0 {
+				if pendingFresh {
+					w.Header().Set("Retry-After", "2")
+					writeErr(w, http.StatusConflict, "that request is still being made; try again in a moment")
+					return
+				}
+				_, _ = db.Exec(`DELETE FROM idempotency_keys WHERE user_id = ? AND key = ? AND status = 0`, uid, key)
+				continue
 			}
 			if contentType != "" {
 				w.Header().Set("Content-Type", contentType)
@@ -71,16 +109,27 @@ func (s *Server) idempotent(next http.HandlerFunc) http.HandlerFunc {
 			_, _ = w.Write(body)
 			return
 		}
+		if !owned {
+			next(w, r)
+			return
+		}
 
+		stored := false
+		defer func() {
+			// a refusal, a failure or a panic releases the key so the request can be sent again
+			if !stored {
+				_, _ = db.Exec(`DELETE FROM idempotency_keys WHERE user_id = ? AND key = ? AND status = 0`, uid, key)
+			}
+		}()
 		rec := &recordedResponse{ResponseWriter: w}
 		next(rec, r)
 		if rec.status < 200 || rec.status >= 300 {
 			return
 		}
-		// A failure to remember is not a failure of the request, which has already been answered.
-		_, _ = s.Store.DB.Exec(`DELETE FROM idempotency_keys WHERE created_at <= datetime('now', '-1 day')`)
-		_, _ = s.Store.DB.Exec(`INSERT OR REPLACE INTO idempotency_keys (user_id, key, method, path, status, content_type, body)
-		                        VALUES (?, ?, ?, ?, ?, ?, ?)`,
-			uid, key, r.Method, r.URL.Path, rec.status, w.Header().Get("Content-Type"), rec.body.Bytes())
+		if _, err := db.Exec(`UPDATE idempotency_keys SET status = ?, content_type = ?, body = ?
+		                      WHERE user_id = ? AND key = ?`,
+			rec.status, w.Header().Get("Content-Type"), rec.body.Bytes(), uid, key); err == nil {
+			stored = true
+		}
 	}
 }

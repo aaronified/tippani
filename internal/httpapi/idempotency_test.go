@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 )
 
@@ -117,5 +118,119 @@ func TestARefusedRequestIsNotRememberedAndAnOldKeyIsForgotten(t *testing.T) {
 	_ = srv.Store.DB.QueryRow(`SELECT COUNT(*) FROM idempotency_keys WHERE key = 'ancient'`).Scan(&ancient)
 	if ancient != 0 {
 		t.Errorf("a key three days old was kept: it is swept when the next one is written")
+	}
+}
+
+func TestARepeatWhileTheFirstIsStillBeingMadeIsToldToWaitAndADeadOneIsReplaced(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	var uid int64
+	if err := srv.Store.DB.QueryRow(`SELECT id FROM users LIMIT 1`).Scan(&uid); err != nil {
+		t.Fatal(err)
+	}
+	// the path the wrapper sees is the route's, without the /api prefix the mount strips
+	path := "/anthologies"
+	if _, err := srv.Store.DB.Exec(`DELETE FROM idempotency_keys`); err != nil {
+		t.Fatal(err)
+	}
+	insert := func(age string) {
+		t.Helper()
+		if _, err := srv.Store.DB.Exec(`INSERT OR REPLACE INTO idempotency_keys (user_id, key, method, path, status, body, created_at)
+		                                VALUES (?, 'pending', 'POST', ?, 0, x'', datetime('now', ?))`, uid, path, age); err != nil {
+			t.Fatal(err)
+		}
+	}
+	insert("-10 seconds")
+	rec := postKeyed(t, c, "POST", "/anthologies", map[string]any{"title": "Racing"}, "pending")
+	if rec.Code != http.StatusConflict || rec.Header().Get("Retry-After") == "" {
+		t.Fatalf("a repeat while the first is being made answered %d, want 409 with Retry-After", rec.Code)
+	}
+	if n := countAnthologies(t, c); n != 0 {
+		t.Fatalf("%d anthologies made while the first request was still pending", n)
+	}
+
+	insert("-10 minutes")
+	if rec := postKeyed(t, c, "POST", "/anthologies", map[string]any{"title": "Retried"}, "pending"); rec.Code != http.StatusCreated {
+		t.Fatalf("a request that died ten minutes ago blocked its retry: %d", rec.Code)
+	}
+}
+
+func TestTwoRequestsWithOneKeyInFlightAtOnceMakeOneAnthology(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	var wg sync.WaitGroup
+	codes := make([]int, 8)
+	for i := range codes {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			codes[i] = postKeyed(t, c, "POST", "/anthologies", map[string]any{"title": "Once"}, "same").Code
+		}()
+	}
+	wg.Wait()
+	made := 0
+	for _, code := range codes {
+		if code == http.StatusCreated {
+			made++
+		} else if code != http.StatusConflict {
+			t.Errorf("a repeat answered %d, want 201 (the answer again) or 409 (still being made)", code)
+		}
+	}
+	if made == 0 {
+		t.Fatal("no request was answered 201")
+	}
+	if n := countAnthologies(t, c); n != 1 {
+		t.Fatalf("%d anthologies after eight sends of one key, want 1", n)
+	}
+}
+
+func TestEveryRouteTheAppQueuesHonoursAKey(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	book := newTestBook(t, c, "Walden")
+	movie := newWork(t, c, "Heat", "movie")
+	an := newAnthology(t, c, "Host")
+	utt := idOf(t, c.mustDo("POST", "/quotes", map[string]any{"quote": "A standalone line."}, http.StatusCreated).Body.Bytes())
+
+	for _, tc := range []struct {
+		name, path string
+		body       map[string]any
+	}{
+		{"an anthology", "/anthologies", map[string]any{"title": "Fresh"}},
+		{"a heading", "/anthologies/" + itoa(an.ID) + "/sections", map[string]any{"title": "Part one"}},
+		{"entries", "/anthologies/" + itoa(an.ID) + "/entries", map[string]any{"items": []map[string]any{{"kind": "utterance", "item_id": utt}}}},
+		{"an annotation", "/annotations", map[string]any{"book_id": book, "quote": "A highlight."}},
+		{"a dialogue", "/dialogues", map[string]any{"movie_id": movie, "quote": "A film line."}},
+		{"a quote", "/quotes", map[string]any{"quote": "Another standalone line."}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			first := postKeyed(t, c, "POST", tc.path, tc.body, "route-"+tc.name)
+			if first.Code < 200 || first.Code >= 300 {
+				t.Fatalf("the first request answered %d: %s", first.Code, first.Body)
+			}
+			again := postKeyed(t, c, "POST", tc.path, tc.body, "route-"+tc.name)
+			if again.Header().Get("Idempotency-Replayed") != "true" {
+				t.Errorf("the repeat was made again (%d) instead of answered from the first", again.Code)
+			}
+			if again.Body.String() != first.Body.String() {
+				t.Errorf("the repeat said %q, the first said %q", again.Body.String(), first.Body.String())
+			}
+		})
+	}
+}
+
+func TestAKeyTooLongForTheMemoryIsRefusedNotSilentlyIgnored(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	long := make([]byte, 101)
+	for i := range long {
+		long[i] = 'k'
+	}
+	rec := postKeyed(t, c, "POST", "/anthologies", map[string]any{"title": "X"}, string(long))
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("a 101-character key answered %d, want 400", rec.Code)
+	}
+	if n := countAnthologies(t, c); n != 0 {
+		t.Errorf("%d anthologies made by a request refused for its key", n)
 	}
 }
