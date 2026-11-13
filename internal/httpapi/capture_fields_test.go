@@ -109,6 +109,7 @@ func TestCreateAnnotationSource(t *testing.T) {
 		wantStored          string // "" means nothing was stored to read back
 	}{
 		{"ocr is kept", "Photographed from the page.", "ocr", false, http.StatusCreated, "ocr"},
+		{"voice is kept", "Said aloud into the phone.", "voice", false, http.StatusCreated, "voice"},
 
 		// Omitted still means manual, so nothing about the web UI changes.
 		{"omitted means manual", "Typed by hand.", "", true, http.StatusCreated, "manual"},

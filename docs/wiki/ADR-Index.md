@@ -1130,5 +1130,6 @@ My asks of 28 September, as the build was being merged, and my answers to the tw
 - [ADR-0929](ADR-0929-An-Anthologys-Sections-Share-The-Entries-Position-Space.md): An anthology's sections share the entries' position space
 - [ADR-0930](ADR-0930-A-Quote-Is-Read-Aloud-By-The-Browsers-Own-Speech-From-A-Press.md): A quote is read aloud by the browser's own speech, from a press
 - [ADR-0931](ADR-0931-The-Android-App-Lives-In-Its-Own-Repository.md): The Android app lives in its own repository
+- [ADR-0932](ADR-0932-A-Quote-May-Be-Captured-By-Voice.md): A quote may be captured by voice
 
 See also: [Design decisions](Design-decisions.md) · [Home](Home.md)
