@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- The anthology description travels with the anthology: it is written into the Markdown export
+  and read back on import, and printed under the title in the EPUB. On every screen it comes
+  first, before the dedication, the epigraph and the introduction. An account's anthology
+  posters are removed with the account.
+
 - Anthologies look like a book: each has a landscape poster (a picture you upload, or one set
   from its title) and a description you write yourself, apart from the introduction. Both show
   on its page, in the reader and on the list, and are set from Front matter. The API reports
