@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Merging tags keeps the tags on standalone quotes**: the merge moved the tags of highlights
+  and screen lines onto the kept tag but not those of standalone quotes, so a standalone quote
+  that wore only the merged-away tag came out untagged, with nothing saying so. They move with
+  the rest now.
+
 ## [3.7.1] - 2026-11-13
 
 ### Added
