@@ -71,7 +71,7 @@ under profile. Notification and Homepage cards can move to Settings>server"*). L
 refined the split: Notifications on Profile only, because it is a profile-level setting, and
 API keys made on Profile, each reading only its maker's library (*"strictly profile level"*). The
 admin sees only that keys exist. So the code's placement is the final one: all three are Profile
-cards. What the refinement adds is planned in `docs/plans/admin-and-profile.md` and not built
+cards. What the refinement adds is planned in [Plan-Admin-And-Profile](Plan-Admin-And-Profile.md) and not built
 in 3.0.0: Server renamed Admin, the users card moved there with SSO flags, an in-app SSO setup
 card, and multiple named API keys. Nothing is shared between accounts. The SSO link is a column
 on the reader's own `users` row, and `notify_settings` and `widget_keys` are keyed by `user_id`.
@@ -95,7 +95,7 @@ client asks userinfo once when both `preferred_username` and `email` are missing
 answer only when its `sub` matches the token's (Core §5.3.2).
 
 **Three gaps closed before 3.0.0, found by the release rating.** Each was already a task in
-`docs/plans/admin-and-profile.md`, and the rating's point was that a known exposure should not
+[Plan-Admin-And-Profile](Plan-Admin-And-Profile.md), and the rating's point was that a known exposure should not
 ship in a release. Two of the three have left the plan for that reason; the third is new.
 *Fetch reads only the admin's own library.* `POST /covers/refetch` is admin-gated, and the gate
 had been read as permission to walk every account's shelf. It was the one confirmed place where

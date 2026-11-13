@@ -191,7 +191,7 @@ What I would pick up now. Short, mostly cheap, and each one either removes a dai
 
 All local — no email round-trips anywhere in this section, which is the constraint that decides most of its shape.
 
-- **Sign in through the reverse proxy you already run** — **OIDC**, and the cheaper half first, **forward-auth**: trust a configured identity header when `TRUSTED_PROXY` is set, which is the same trust boundary the login rate limiter already reasons about for `X-Forwarded-For`. Anyone fronting their box with Authelia, Authentik or Tinyauth wants their whole estate behind one sign-in, and it is the most-asked thing on this list. Local passwords stay, and stay the default.
+- **Sign in through the reverse proxy you already run** — **OIDC** shipped in 3.0.0 (Authelia, Authentik, Keycloak and any other OpenID provider); what is left is the cheaper half, **forward-auth**: trust a configured identity header when `TRUSTED_PROXY` is set, which is the same trust boundary the login rate limiter already reasons about for `X-Forwarded-For`. Anyone fronting their box with Authelia, Authentik or Tinyauth wants their whole estate behind one sign-in, and it is the most-asked thing on this list. Local passwords stay, and stay the default.
 - **Stronger sign-in (opt-in)** — **passkeys (WebAuthn)** and **TOTP 2FA** layered over today's password + hashed-token sessions, for boxes reachable past the LAN. Off unless you turn it on; the password stays the fallback.
 - **Scope the API tokens, and add webhooks.** Device tokens exist; what they have no notion of is *scope* — a token that may read stats but not write quotes, which is what an Obsidian sync or the dashboard widget actually wants. Outbound **webhooks** on events are the other half.
 - **List and revoke browser sessions individually.** Paired devices can each be unpaired by name, but browser sessions can only be dropped all at once by changing your password — so "sign out that other laptop" currently means signing out everything.
@@ -204,7 +204,7 @@ Cache the shell and recently-viewed data, queue writes while offline, flush on r
 
 #### Gesture ground rules
 
-Today the only gestures are scrolling, the drawer's swipe-to-close, and dragging a control thumb or a sticker. Adding more is worthwhile, but a web app that fights the operating system for a swipe loses, so the constraints come first and apply to every gesture below.
+Today the only gestures are scrolling, the drawer's swipe-to-close, dragging a bottom sheet down to dismiss it, and dragging a control thumb or a sticker. Adding more is worthwhile, but a web app that fights the operating system for a swipe loses, so the constraints come first and apply to every gesture below.
 
 - **Nothing starts at a screen edge.** Ignore any gesture whose first touch lands within ~32 px of the left or right edge — that belongs to the iOS back-swipe and the Android back-gesture — or in the bottom home-indicator strip. No code measures this today, so it gets written rather than reused.
 - **Prove direction before capturing** — 10 px on the dominant axis, dominant by about 1.5× — so a gesture can never steal a scroll.
@@ -254,7 +254,7 @@ The registry, `web/frontend/src/help.jsx`, keys the help copy by screen; the wor
 - **The info dots should read from it.** The panel does; the dots still carry their copy inline, which is precisely the drift this section exists to end.
 - **[The UI glossary](UI-Glossary.md) should be generated from it** — `glossary-css.mjs` already feeds it the built CSS and gates that in CI. The copy is the half still written by hand, and the likeliest to go quietly stale.
 - **The tour should read it too.** Step copy and panel copy overlap today and neither knows about the other; the same change has already had to be made twice by hand, which is the argument.
-- **Deep links** — `/library?help=filters`. Not "add a key": the shell parses a *pathname* and pushes a *path*, with no `URLSearchParams` anywhere, so whoever builds this builds the app's first query-string state.
+- **Deep links** — `/library?help=filters`. Not "add a key": the shell parses a *pathname* and pushes a *path*, with no query-string state of its own beyond a few one-off reads (the sign-in error in `App.jsx` and `connections.jsx`), so whoever builds this builds the app's first general one.
 - **The completeness test.** Tests already pin every screen to an entry and every entry to copy; the third clause — every dot resolves to a key — is unwritten, and the 33 English literals still sitting in eight files are why.
 
 ### §6 Access & reading comfort ([#32](https://github.com/aaronified/tippani/issues/32))
@@ -297,7 +297,6 @@ A note on the word: this section used to be called *Collections & shelves*, but 
 
 Tag hygiene belongs here too, because the vocabulary is load-bearing already:
 
-- **Merge tags**, which every managed vocabulary needs by its second year. The usage counts skip `utterance_tags`, so a tag worn only by standalone quotes reads zero uses — fix that first, then re-point three join tables.
 - **Nested tags** — `theme/grief`, displayed hierarchically. Deliberately a display convention over the existing `name` column rather than a parent id, so there is no schema change and no migration to regret.
 - **An optional mood and pace starter vocabulary.** The thing StoryGraph is loved for is, underneath, a well-chosen tag set; offering one as a suggestion on the Tags page costs a list of strings and no new field.
 
@@ -381,7 +380,6 @@ Getting Tippani discoverable where self-hosters actually browse. No code here �
   - [dashboardicons.com](https://dashboardicons.com) — open submissions via the site's form or a GitHub issue. Needs a clean `tippani.svg` in kebab-case; they generate the raster sizes. The mark uses an `feTurbulence` edge-roughen filter that some raster pipelines drop, so a **flattened submission variant** gets prepared first — flattening displaced geometry, not a noise layer.
   - [selfh.st/icons](https://selfh.st/icons) — no external PRs accepted; icons are *requested* via GitHub Discussions and added by the maintainers. This is also where the selfh.st/apps directory sources its art, so it goes in before or alongside the listing request.
 
-- 
 - [selfh.st/apps](https://selfh.st/apps) — a one-person curated directory with no submission repo: reach out by email with the repo, a one-liner, a demo link and the icon. Being picked up by the *This Week in Self-Hosted* newsletter's "New Software" section is the usual front door.
 - [awesome-selfhosted](https://github.com/awesome-selfhosted/awesome-selfhosted) — the biggest list, syndicated by many others, but it **rejects projects younger than 4 months**, counted from the first release (2026-07-03), so this waits until November 2026.
 

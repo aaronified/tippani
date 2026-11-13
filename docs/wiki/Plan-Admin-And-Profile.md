@@ -22,7 +22,7 @@ Not built. Tasks, one per ask:
 - [ ] Carry every existing widget key over as an API key, so dashboards keep working.
 - [ ] Keep an API key to its scope (the widget for now); it never reaches the rest of the API.
 - [ ] Show in Admin only how many API keys each account has: no names, no outputs.
-- [ ] Keep the Devices card hidden; when it returns, it returns to Profile, with a monitoring-only list in Admin.
+- [ ] The Devices card is back on the Server section (3.7.0), for every reader. When Admin is built it moves to Profile, with a monitoring-only list in Admin.
 - [ ] Keep Notifications on Profile only.
 - [ ] Move the Maintenance card (reindex, factory reset) from Profile to Admin.
 - [ ] Reuse a cover, poster or portrait already on disk when the same image is needed again, instead of downloading or storing another copy.

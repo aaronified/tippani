@@ -29,7 +29,7 @@ builds.
   bulk-editor screen for the context span fields, corrections for ambiguous matches, an undo for an accepted correction, a per-file
   "skip the mark buckets" and a note about the file itself; this page holds only those.
 - [Locators from files](Plan-Locators-From-Files.md): a position for a quote, from the file. Times for film lines and chapter
-  and percent for book quotes shipped in 3.4.0; this page holds only what remains: MOBI/AZW3 and EPUB page-list publisher pages.
+  and percent for book quotes shipped in 3.4.0; this page holds only what remains: EPUB page-list publisher pages.
 
 ## Left out of the queue by the owner
 
@@ -47,8 +47,8 @@ Not features. The found-and-unfixed halves of adversarial passes, and what a rel
 test and a changelog entry; an unfixed one leaves nothing, so these are where it is written down. Each retires when its list is
 empty.
 
-- [Screen audit](Plan-Screen-Audit.md): one open finding and five unconfirmed.
-- [Codebase audit](Plan-Codebase-Audit.md): two things to build, two to decide, and the design departures nobody has ruled on.
+- [Screen audit](Plan-Screen-Audit.md): five unconfirmed findings.
+- [Codebase audit](Plan-Codebase-Audit.md): two things to decide, and the design departures nobody has ruled on.
 - [Follow-ups](Plan-Follow-Ups.md): what is left over from a release's task list, one line per task, and the known limit of the source sweeps.
 
 See also: [Roadmap](Roadmap.md) · [ADR Index](ADR-Index.md) · [Home](Home.md)
