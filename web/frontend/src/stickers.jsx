@@ -8,6 +8,9 @@ import { coverImgURL, json, upload, errText } from './api.js'
 import { t } from './i18n.js'
 import { EmptyState, ErrorText, GhostButton, HandCard, IconPlus, MonoLabel, Scroller, SortableTh, TableActions, Tooltip, useConfirm, useFilePick, useSort } from './ui.jsx'
 
+// How many quotes wear a sticker, of all three kinds (see tagUses in TagsPage.jsx).
+const stickerUses = (sticker) => sticker.annotations + sticker.dialogues + (sticker.utterances || 0)
+
 // Stored sticker files are served from the shared cover route (built directly,
 // like Cover in ui.jsx — these don't go through the json/upload helpers).
 export const stickerURL = (path) => coverImgURL(path)
@@ -199,7 +202,7 @@ async function renameSticker(sticker, name, onChanged, setError) {
 // is untranslated chrome in an app that ships in two languages, and does not
 // exist at all in jsdom, so this delete had never run in a test.
 async function deleteSticker(sticker, ask, onChanged, setError) {
-  const uses = sticker.annotations + sticker.dialogues
+  const uses = stickerUses(sticker)
   // Two whole sentences rather than one plus an appended clause: another language
   // may not want the reassurance last, or as a second sentence at all.
   const question = uses > 0
@@ -255,7 +258,7 @@ function StickerTable({ stickers, onChanged }) {
   const [error, setError] = useState('')
   const rows = apply(stickers, {
     name: (s) => (s.name || '').toLowerCase(),
-    uses: (s) => s.annotations + s.dialogues,
+    uses: stickerUses,
   })
   return (
     <>
@@ -310,7 +313,7 @@ function StickerRow({ sticker, ask, onChanged, setError }) {
           }}
         />
       </td>
-      <td className="col-mono">{sticker.annotations + sticker.dialogues}</td>
+      <td className="col-mono">{stickerUses(sticker)}</td>
       <td className="col-actions">
         <TableActions noun={t('unit.sticker.one')} onDelete={() => deleteSticker(sticker, ask, onChanged, setError)} />
       </td>

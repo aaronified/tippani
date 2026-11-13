@@ -12,6 +12,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The README and the wiki link the Android app**, with its latest release, a download counter, and a wiki page on
   downloading it and pairing it with this server.
 
+### Fixed
+
+- **A tag or sticker worn only by standalone quotes is no longer shown as unused**: the tag and sticker lists now
+  report `utterances`, the number of standalone quotes that wear each, beside `annotations` and `dialogues`. The
+  Tags page counted only the other two, so such a tag read 0, hid Practise, and its irreversible Delete said
+  nothing was attached; the sticker's Delete had the same blind spot. The Android app adds the new count too.
+
 ## [3.7.0] - 2026-11-06
 
 ### Fixed

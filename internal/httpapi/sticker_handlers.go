@@ -27,18 +27,22 @@ type stickerRow struct {
 	Path        string `json:"path"` // filename under MediaCover/, served via /covers/{file}
 	Annotations int    `json:"annotations"`
 	Dialogues   int    `json:"dialogues"`
+	// Utterances counts the standalone quotes wearing the sticker. Without it a sticker used
+	// only by standalone quotes looked unused to the console, and its delete said so.
+	Utterances int `json:"utterances"`
 }
 
 const stickerSelect = `
 	SELECT s.id, s.name, s.path,
 	       (SELECT count(*) FROM annotations a WHERE a.sticker_id = s.id),
-	       (SELECT count(*) FROM dialogues d WHERE d.sticker_id = s.id)
+	       (SELECT count(*) FROM dialogues d WHERE d.sticker_id = s.id),
+	       (SELECT count(*) FROM utterances u WHERE u.sticker_id = s.id)
 	FROM stickers s`
 
 func (s *Server) fetchSticker(uid, id int64) (*stickerRow, error) {
 	var st stickerRow
 	err := s.Store.DB.QueryRow(stickerSelect+` WHERE s.id = ? AND s.user_id = ?`, id, uid).
-		Scan(&st.ID, &st.Name, &st.Path, &st.Annotations, &st.Dialogues)
+		Scan(&st.ID, &st.Name, &st.Path, &st.Annotations, &st.Dialogues, &st.Utterances)
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +73,7 @@ func (s *Server) handleListStickers(w http.ResponseWriter, r *http.Request) {
 	stickers := []stickerRow{}
 	for rows.Next() {
 		var st stickerRow
-		if err := rows.Scan(&st.ID, &st.Name, &st.Path, &st.Annotations, &st.Dialogues); err != nil {
+		if err := rows.Scan(&st.ID, &st.Name, &st.Path, &st.Annotations, &st.Dialogues, &st.Utterances); err != nil {
 			olog.Warnf(olog.CodeStickerRowScan, "[sticker] list stickers row scan failed: %v", err)
 			continue
 		}
