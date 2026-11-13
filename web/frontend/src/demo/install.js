@@ -280,12 +280,13 @@ const PEOPLE = [
   { id: 3, kind: 'actor', name: 'E. Sen', bio: '', image_path: portraitArt('#2F6D8F', 'ES'), born: '', links: 'https://www.imdb.com/name/nm0000000/\nhttps://www.themoviedb.org/person/1\nhttps://en.wikipedia.org/wiki/Actor', source: 'lookup', source_id: '' },
 ]
 
-// Annotation/dialogue counts per tag, derived from the fixtures above.
+// Annotation/dialogue/standalone-quote counts per tag, derived from the fixtures above.
 function tagRows() {
   return TAGS.map((t) => ({
     ...t,
     annotations: ANNOTATIONS.filter((a) => a.tags.includes(t.name)).length,
     dialogues: DIALOGUES.filter((d) => d.tags.includes(t.name)).length,
+    utterances: UTTERANCES.filter((u) => u.tags.includes(t.name)).length,
   }))
 }
 

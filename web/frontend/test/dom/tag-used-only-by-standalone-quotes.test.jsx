@@ -26,7 +26,9 @@ vi.mock('../../src/api.js', async (orig) => ({
         data: { tags: [{ id: 1, name: 'proverbs', color: 'blue', style: 'sticker', annotations: 0, dialogues: 0, utterances: 3 }] },
       }
     }
-    if (method === 'GET' && path === '/stickers') return { ok: true, data: { stickers: [] } }
+    if (method === 'GET' && path === '/stickers') {
+      return { ok: true, data: { stickers: [{ id: 5, name: 'seal', path: 'seal.png', annotations: 0, dialogues: 0, utterances: 2 }] } }
+    }
     return { ok: true, data: {} }
   }),
 }))
@@ -39,7 +41,16 @@ describe('a tag only standalone quotes wear', () => {
     await screen.findByText(/proverbs · 3/)
     expect(screen.getByRole('button', { name: /practise/i })).toBeTruthy()
 
-    fireEvent.click(screen.getByRole('button', { name: /delete/i }))
+    // the tag's Delete is the first on the page; the sticker's follows it
+    fireEvent.click(screen.getAllByRole('button', { name: /delete/i })[0])
     await waitFor(() => expect(screen.getByText(/detached from 3/)).toBeTruthy())
+  })
+
+  it('does the same for a sticker', async () => {
+    render(<TagsPage />)
+    await screen.findByText(/proverbs · 3/)
+    const buttons = await screen.findAllByRole('button', { name: /delete/i })
+    fireEvent.click(buttons[buttons.length - 1])
+    await waitFor(() => expect(screen.getByText(/2 quotes/)).toBeTruthy())
   })
 })
