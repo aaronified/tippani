@@ -109,7 +109,16 @@ import (
 //	token, marks that device's own row `current: true`, so the Android app can show
 //	"this phone" and refuse to revoke itself by mistake. A browser session marks
 //	none. Nothing an older client reads changed.
-const apiRevision = 9
+//
+// 10 — an anthology reads like a book. A landscape `poster_path` (POST/DELETE
+//
+//	/anthologies/{id}/poster) and a `description` the reader writes, apart from the
+//	introduction (the optional `description` of PUT /anthologies/{id}/front, which a
+//	request that omits it leaves alone). The LIST rows carry `cover_path`,
+//	`poster_path` and `description` too, which they did not before: the list could
+//	not draw a picture it was never told about. An older client reads the new names
+//	as absent, so nothing it did before changes.
+const apiRevision = 10
 
 // apiFeatures names what this server can do, so a client can light up or hide a
 // screen instead of probing for a 404. Names are stable once published: an old
@@ -200,6 +209,7 @@ var apiFeatures = []string{
 	// has not heard of this one silently clears the field. See revision 8.
 	"quote-translation", // `translation` on /annotations and /dialogues too
 	"device-current",    // GET /auth/devices marks the caller's own device `current`
+	"anthology-poster",  // poster_path and description on an anthology; POST/DELETE /anthologies/{id}/poster
 }
 
 // minClientRevision is the oldest client API revision this server still serves

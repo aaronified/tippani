@@ -57,7 +57,7 @@ describe('the front matter of an anthology', () => {
     fireEvent.change(within(dialog).getByRole('textbox', { name: /Dedication/ }), { target: { value: 'For R.' } })
     fireEvent.click(within(dialog).getByRole('button', { name: /Save/ }))
     await waitFor(() =>
-      expect(CALLS).toContainEqual(['PUT', '/anthologies/1/front', { epigraph: 'Line one.\nLine two.', dedication: 'For R.' }]),
+      expect(CALLS).toContainEqual(['PUT', '/anthologies/1/front', { epigraph: 'Line one.\nLine two.', dedication: 'For R.', description: '' }]),
     )
   })
 
@@ -77,5 +77,38 @@ describe('the front matter of an anthology', () => {
     const dialog = await screen.findByRole('dialog')
     fireEvent.click(within(dialog).getByRole('button', { name: 'Remove the picture' }))
     await waitFor(() => expect(CALLS).toContainEqual(['DELETE', '/anthologies/1/cover', undefined]))
+  })
+
+  it('draws a landscape poster and the hand-written description on the page', async () => {
+    DETAIL.anthology = { ...DETAIL.anthology, poster_path: '1111222233334444.png', description: 'Sayings gathered over a decade.' }
+    open()
+    const poster = await screen.findByRole('img', { name: 'The poster of this anthology' })
+    expect(poster.getAttribute('src')).toContain('/covers/1111222233334444.png')
+    expect(screen.getByText('Sayings gathered over a decade.')).toBeTruthy()
+  })
+
+  it('saves the description with the tick, alongside the epigraph and dedication', async () => {
+    DETAIL.anthology = { ...DETAIL.anthology, poster_path: '1111222233334444.png' }
+    open()
+    fireEvent.click(await screen.findByRole('button', { name: 'Front matter' }))
+    const dialog = await screen.findByRole('dialog')
+    fireEvent.change(within(dialog).getByRole('textbox', { name: /Description/ }), { target: { value: 'By hand.' } })
+    fireEvent.click(within(dialog).getByRole('button', { name: /Save/ }))
+    await waitFor(() =>
+      expect(CALLS).toContainEqual(['PUT', '/anthologies/1/front', { epigraph: '', dedication: '', description: 'By hand.' }]),
+    )
+  })
+
+  it('sends a chosen poster to the poster route, and removes it there', async () => {
+    DETAIL.anthology = { ...DETAIL.anthology, poster_path: '1111222233334444.png' }
+    open()
+    fireEvent.click(await screen.findByRole('button', { name: 'Front matter' }))
+    const dialog = await screen.findByRole('dialog')
+    const inputs = dialog.querySelectorAll('input[type="file"]')
+    expect(inputs.length).toBe(2)
+    fireEvent.change(inputs[1], { target: { files: [new File(['x'], 'wide.png', { type: 'image/png' })] } })
+    await waitFor(() => expect(UPLOADS).toEqual([['/anthologies/1/poster', 'wide.png']]))
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Remove the poster' }))
+    await waitFor(() => expect(CALLS).toContainEqual(['DELETE', '/anthologies/1/poster', undefined]))
   })
 })

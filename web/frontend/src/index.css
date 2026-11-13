@@ -12422,6 +12422,34 @@ button.work-pill:hover { color: var(--ink); border-color: var(--ink-border); }
   overflow: hidden;
   overflow-wrap: anywhere;
 }
+.anthology-poster {
+  display: block;
+  width: 100%;
+  max-width: 40em;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  margin: var(--edge) 0;
+  border-radius: 10px;
+  box-shadow: 0 10px 22px -12px rgba(0, 0, 0, 0.45);
+}
+.anthology-poster-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1em;
+  background: linear-gradient(160deg, var(--accent), color-mix(in oklab, var(--accent), black 45%));
+  color: var(--on-accent);
+  font-family: var(--font-quote);
+  font-weight: 600;
+  font-size: 1.6em;
+  line-height: 1.15;
+  text-align: center;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.anthology-poster-fallback::before { content: attr(data-title); }
+.anthology-tile-poster { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 6px; margin-block-end: var(--row); }
+.anthology-description { margin-block-start: var(--row); white-space: pre-wrap; }
 .anthology-dedication { margin: 0 0 var(--row); font-family: var(--font-hand); color: var(--amber); white-space: pre-wrap; }
 .anthology-epigraph {
   margin: 0 0 var(--row);

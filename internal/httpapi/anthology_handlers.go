@@ -91,6 +91,10 @@ type anthologyRow struct {
 	CoverPath  string `json:"cover_path,omitempty"`
 	Epigraph   string `json:"epigraph,omitempty"`
 	Dedication string `json:"dedication,omitempty"`
+	// 0092: a landscape poster (a picture file) and the description the reader writes, apart from the
+	// introduction. Written through the front route and the poster upload, like the cover.
+	PosterPath  string `json:"poster_path,omitempty"`
+	Description string `json:"description,omitempty"`
 }
 
 // anthologyFields is what this anthology shows — and therefore what it exports,
@@ -389,7 +393,8 @@ func (s *Server) handleListAnthologies(w http.ResponseWriter, r *http.Request) {
 	rows, err := s.Store.DB.Query(`
 		SELECT a.id, a.title, a.intro, a.created_at, a.updated_at,
 		       (SELECT COUNT(*) FROM anthology_entries e WHERE e.anthology_id = a.id),
-		       `+anthologyFieldCols+`, `+anthologyRuleCols+`
+		       `+anthologyFieldCols+`, `+anthologyRuleCols+`,
+		       COALESCE(a.cover_path, ''), COALESCE(a.poster_path, ''), a.description
 		FROM anthologies a WHERE a.user_id = ?
 		ORDER BY a.updated_at DESC, a.id DESC`, uid)
 	if err != nil {
@@ -401,7 +406,7 @@ func (s *Server) handleListAnthologies(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var a anthologyRow
 		targets := append([]any{&a.ID, &a.Title, &a.Intro, &a.CreatedAt, &a.UpdatedAt, &a.Entries}, a.scanTargets()...)
-		targets = append(targets, &a.Rule, &a.RuleAuto, &a.RuleRunAt)
+		targets = append(targets, &a.Rule, &a.RuleAuto, &a.RuleRunAt, &a.CoverPath, &a.PosterPath, &a.Description)
 		if err := rows.Scan(targets...); err != nil {
 			olog.Warnf(olog.CodeAnthologyRowScan, "[anthologies] row scan failed: %v", err)
 			continue
@@ -867,8 +872,8 @@ func (s *Server) handleGetAnthology(w http.ResponseWriter, r *http.Request) {
 		internalError(w, r, "get anthology", err)
 		return
 	}
-	if err := s.Store.DB.QueryRow(`SELECT group_by, COALESCE(cover_path, ''), epigraph, dedication FROM anthologies WHERE id = ?`, id).
-		Scan(&a.GroupBy, &a.CoverPath, &a.Epigraph, &a.Dedication); err != nil {
+	if err := s.Store.DB.QueryRow(`SELECT group_by, COALESCE(cover_path, ''), epigraph, dedication, COALESCE(poster_path, ''), description FROM anthologies WHERE id = ?`, id).
+		Scan(&a.GroupBy, &a.CoverPath, &a.Epigraph, &a.Dedication, &a.PosterPath, &a.Description); err != nil {
 		internalError(w, r, "get anthology front matter", err)
 		return
 	}
@@ -1002,8 +1007,8 @@ func (s *Server) handleDeleteAnthology(w http.ResponseWriter, r *http.Request) {
 	// The entries go with it by declared foreign key (ON DELETE CASCADE), which is
 	// the one cascade in this feature the schema can express: an entry has exactly
 	// one anthology, even though it has three possible parents on the other side.
-	var cover sql.NullString
-	_ = s.Store.DB.QueryRow(`SELECT cover_path FROM anthologies WHERE id = ? AND user_id = ?`, id, uid).Scan(&cover)
+	var cover, poster sql.NullString
+	_ = s.Store.DB.QueryRow(`SELECT cover_path, poster_path FROM anthologies WHERE id = ? AND user_id = ?`, id, uid).Scan(&cover, &poster)
 	res, err := s.Store.DB.Exec(`DELETE FROM anthologies WHERE id = ? AND user_id = ?`, id, uid)
 	if err != nil {
 		internalError(w, r, "delete anthology", err)
@@ -1013,8 +1018,9 @@ func (s *Server) handleDeleteAnthology(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusNotFound, "anthology not found")
 		return
 	}
-	// The cover is one of the reader's images and goes with the anthology (0090).
+	// The cover and the poster are the reader's images and go with the anthology (0090, 0092).
 	s.removeCoverFile(cover.String)
+	s.removeCoverFile(poster.String)
 	w.WriteHeader(http.StatusNoContent)
 }
 

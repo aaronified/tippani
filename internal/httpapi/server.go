@@ -606,6 +606,8 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("PUT /anthologies/{id}/front", s.requireAuth(s.handleAnthologyFront))
 	mux.Handle("POST /anthologies/{id}/cover", s.requireAuth(s.handleUploadAnthologyCover))
 	mux.Handle("DELETE /anthologies/{id}/cover", s.requireAuth(s.handleRemoveAnthologyCover))
+	mux.Handle("POST /anthologies/{id}/poster", s.requireAuth(s.handleUploadAnthologyPoster))
+	mux.Handle("DELETE /anthologies/{id}/poster", s.requireAuth(s.handleRemoveAnthologyPoster))
 	mux.Handle("POST /anthologies/{id}/removed/{kind}/{itemID}", s.requireAuth(s.handleRestoreAnthologyEntry))
 	mux.Handle("POST /anthologies/{id}/order", s.requireAuth(s.handleReorderAnthology))
 	mux.Handle("GET /anthologies/{id}/export", s.requireAuth(s.handleExportAnthology))

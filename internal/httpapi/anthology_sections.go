@@ -371,6 +371,9 @@ func cleanSection(title, prose string) (string, string, string) {
 // heard of them.
 const anthologyFrontMax = 1000
 
+// anthologyDescriptionMax bounds the description (0092): a blurb of a few paragraphs, not a second introduction.
+const anthologyDescriptionMax = 4000
+
 // PUT /anthologies/{id}/front — the epigraph and the dedication, each a line or a few.
 func (s *Server) handleAnthologyFront(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(r)
@@ -381,6 +384,9 @@ func (s *Server) handleAnthologyFront(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Epigraph   string `json:"epigraph"`
 		Dedication string `json:"dedication"`
+		// The description (0092) is optional here, and a request that does not name it leaves it alone: a
+		// client built before it existed sends only the other two, and must not clear what was typed.
+		Description *string `json:"description"`
 	}
 	if !decodeBody(w, r, &body) {
 		return
@@ -391,8 +397,19 @@ func (s *Server) handleAnthologyFront(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	uid := userID(r)
-	res, err := s.Store.DB.Exec(`UPDATE anthologies SET epigraph = ?, dedication = ?, updated_at = datetime('now')
-	                            WHERE id = ? AND user_id = ?`, body.Epigraph, body.Dedication, id, uid)
+	description := ""
+	setDescription := body.Description != nil
+	if setDescription {
+		description = trimProse(*body.Description)
+		if len([]rune(description)) > anthologyDescriptionMax {
+			writeErr(w, http.StatusBadRequest, "the description is at most "+strconv.Itoa(anthologyDescriptionMax)+" characters")
+			return
+		}
+	}
+	res, err := s.Store.DB.Exec(`UPDATE anthologies SET epigraph = ?, dedication = ?,
+	                                   description = CASE WHEN ? THEN ? ELSE description END,
+	                                   updated_at = datetime('now')
+	                            WHERE id = ? AND user_id = ?`, body.Epigraph, body.Dedication, setDescription, description, id, uid)
 	if err != nil {
 		internalError(w, r, "set front matter", err)
 		return
@@ -419,6 +436,27 @@ func (s *Server) handleRemoveAnthologyCover(w http.ResponseWriter, r *http.Reque
 	}
 	if _, err := s.Store.DB.Exec(`UPDATE anthologies SET cover_path = NULL, updated_at = datetime('now') WHERE id = ? AND user_id = ?`, id, uid); err != nil {
 		internalError(w, r, "remove cover", err)
+		return
+	}
+	s.removeCoverFile(old.String)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// DELETE /anthologies/{id}/poster — take the poster off, and delete its file (0092).
+func (s *Server) handleRemoveAnthologyPoster(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathID(r)
+	if !ok {
+		writeErr(w, http.StatusBadRequest, "bad anthology id")
+		return
+	}
+	uid := userID(r)
+	var old sql.NullString
+	if err := s.Store.DB.QueryRow(`SELECT poster_path FROM anthologies WHERE id = ? AND user_id = ?`, id, uid).Scan(&old); err != nil {
+		writeErr(w, http.StatusNotFound, "anthology not found")
+		return
+	}
+	if _, err := s.Store.DB.Exec(`UPDATE anthologies SET poster_path = NULL, updated_at = datetime('now') WHERE id = ? AND user_id = ?`, id, uid); err != nil {
+		internalError(w, r, "remove poster", err)
 		return
 	}
 	s.removeCoverFile(old.String)

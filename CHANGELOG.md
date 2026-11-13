@@ -14,6 +14,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that wore only the merged-away tag came out untagged, with nothing saying so. They move with
   the rest now.
 
+### Added
+
+- Anthologies look like a book: each has a landscape poster (a picture you upload, or one set
+  from its title) and a description you write yourself, apart from the introduction. Both show
+  on its page, in the reader and on the list, and are set from Front matter. The API reports
+  revision 10 and the feature anthology-poster, so the app knows the server can keep them.
+
 ## [3.7.1] - 2026-11-13
 
 ### Added

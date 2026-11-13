@@ -1105,11 +1105,12 @@ function AnthologyTile({ row, onOpen, onEdit, onDelete }) {
   return (
     <div className="board-tile">
       <button type="button" className="board-tile-face" onClick={() => onOpen(row.id)}>
+        {row.poster_path && <img className="anthology-tile-poster" src={apiURL(`/covers/${row.poster_path}`)} alt="" />}
         <span className="board-tile-name">{row.title}</span>
         <span className="board-tile-count">
           {t('common.count.phrase', { n: row.entries, noun: t('unit.entry', { count: row.entries }) })}
         </span>
-        {row.intro && <span className="microcopy anthology-tile-intro">{row.intro}</span>}
+        {(row.description || row.intro) && <span className="microcopy anthology-tile-intro">{row.description || row.intro}</span>}
       </button>
       <span className="board-tile-tools">
         <MoreMenu
@@ -1608,9 +1609,13 @@ function AnthologyReader({ anthology, slots, groupBy, onClose }) {
         {anthology?.cover_path && (
     <img className="anthology-cover" src={apiURL(`/covers/${anthology.cover_path}`)} alt={t('anthologies.front.cover.alt')} />
         )}
+        {anthology?.poster_path && (
+          <img className="anthology-poster" src={apiURL(`/covers/${anthology.poster_path}`)} alt={t('anthologies.front.poster.alt')} />
+        )}
         {anthology?.dedication && <p className="anthology-dedication">{anthology.dedication}</p>}
         {anthology?.epigraph && <blockquote className="anthology-epigraph">{anthology.epigraph}</blockquote>}
         {paragraphs(anthology?.intro).map((p, i) => <p key={i} className="anthology-reader-intro">{p}</p>)}
+        {paragraphs(anthology?.description).map((p, i) => <p key={`d${i}`} className="anthology-reader-intro">{p}</p>)}
         {slots.map((slot, i) => {
     if (slot.type === 'section') {
       return (
@@ -1645,9 +1650,10 @@ function AnthologyReader({ anthology, slots, groupBy, onClose }) {
 // A cover picture, an epigraph and a dedication. The cover is the EPUB's cover; the other two open the
 // page, in print, and the book. The picture is applied as soon as it is chosen (it is a file, not a
 // draft); the two pieces of prose are saved with the tick.
-function FrontFields({ anthology, epigraph, setEpigraph, dedication, setDedication, error, busy, onSubmit, onPick, onRemove, picking }) {
+function FrontFields({ anthology, epigraph, setEpigraph, dedication, setDedication, description, setDescription, error, busy, onSubmit, onPick, onRemove, onPickPoster, onRemovePoster, picking }) {
   const host = useFormHost(busy ? t('common.action.save.busy') : '')
   const pick = useFilePick({ accept: 'image/*', ariaLabel: t('anthologies.front.cover.choose'), onFiles: onPick })
+  const pickPoster = useFilePick({ accept: 'image/*', ariaLabel: t('anthologies.front.poster.choose'), onFiles: onPickPoster })
   return (
     <form id={host?.formId} className="anthology-form" onSubmit={(e) => { e.preventDefault(); onSubmit() }}>
       <div>
@@ -1669,6 +1675,29 @@ function FrontFields({ anthology, epigraph, setEpigraph, dedication, setDedicati
     )}
         </div>
       </div>
+      <div>
+        <MonoLabel>{t('anthologies.front.poster.label')}</MonoLabel>
+        {anthology.poster_path ? (
+          <img className="anthology-poster" src={apiURL(`/covers/${anthology.poster_path}`)} alt={t('anthologies.front.poster.alt')} />
+        ) : (
+          <p className="microcopy">{t('anthologies.front.poster.none')}</p>
+        )}
+        <div className="anthology-tools">
+          {pickPoster.input}
+          <GhostButton type="button" disabled={picking} onClick={pickPoster.open}>
+            {t('anthologies.front.poster.choose')}
+          </GhostButton>
+          {anthology.poster_path && (
+            <GhostButton type="button" disabled={picking} onClick={onRemovePoster}>
+              {t('anthologies.front.poster.remove')}
+            </GhostButton>
+          )}
+        </div>
+      </div>
+      <label className="tp-field">
+        <MonoLabel>{t('anthologies.front.description.label')}</MonoLabel>
+        <ProseArea className="tp-input" rows={4} value={description} maxLength={4000} onChange={(e) => setDescription(e.target.value)} />
+      </label>
       <label className="tp-field">
         <MonoLabel>{t('anthologies.front.epigraph.label')}</MonoLabel>
         <ProseArea className="tp-input" rows={3} value={epigraph} maxLength={1000} onChange={(e) => setEpigraph(e.target.value)} />
@@ -1685,13 +1714,14 @@ function FrontFields({ anthology, epigraph, setEpigraph, dedication, setDedicati
 function FrontDialog({ anthology, onSaved, onChanged, onCancel }) {
   const [epigraph, setEpigraph] = useState(anthology.epigraph || '')
   const [dedication, setDedication] = useState(anthology.dedication || '')
+  const [description, setDescription] = useState(anthology.description || '')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [picking, setPicking] = useState(false)
-  const dirty = Number(epigraph !== (anthology.epigraph || '')) + Number(dedication !== (anthology.dedication || ''))
+  const dirty = Number(epigraph !== (anthology.epigraph || '')) + Number(dedication !== (anthology.dedication || '')) + Number(description !== (anthology.description || ''))
   async function submit() {
     setBusy(true)
-    const r = await json('PUT', `/anthologies/${anthology.id}/front`, { epigraph, dedication })
+    const r = await json('PUT', `/anthologies/${anthology.id}/front`, { epigraph, dedication, description })
     setBusy(false)
     if (!r.ok) return setError(errText(r, t('error.save.front')))
     onSaved()
@@ -1711,6 +1741,21 @@ function FrontDialog({ anthology, onSaved, onChanged, onCancel }) {
     if (!r.ok) return setError(errText(r, t('error.remove.cover')))
     onChanged()
   }
+  async function pickPoster(file) {
+    setPicking(true)
+    const r = await upload(`/anthologies/${anthology.id}/poster`, file)
+    setPicking(false)
+    if (!r.ok) return setError(errText(r, t('error.upload.generic')))
+    setError('')
+    onChanged()
+  }
+  async function removePoster() {
+    setPicking(true)
+    const r = await json('DELETE', `/anthologies/${anthology.id}/poster`)
+    setPicking(false)
+    if (!r.ok) return setError(errText(r, t('error.remove.cover')))
+    onChanged()
+  }
   return (
     <FormModal open title={t('anthologies.front.title')} onClose={onCancel} dirty={dirty}>
       <FrontFields
@@ -1719,11 +1764,15 @@ function FrontDialog({ anthology, onSaved, onChanged, onCancel }) {
         setEpigraph={setEpigraph}
         dedication={dedication}
         setDedication={setDedication}
+        description={description}
+        setDescription={setDescription}
         error={error}
         busy={busy}
         onSubmit={submit}
         onPick={pickCover}
         onRemove={removeCover}
+        onPickPoster={pickPoster}
+        onRemovePoster={removePoster}
         picking={picking}
       />
     </FormModal>
@@ -2170,6 +2219,14 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
     so a page with no front matter still opens like a book. That one is furniture and is not
     printed. THE FRONT MATTER IS IN A PRINTED BOOK'S ORDER: the cover, the dedication, the
     epigraph, then the introduction. Each draws only when there is one. */}
+      {/* THE POSTER: landscape, the reader's picture or one set from the title. */}
+      {anthology && (
+        anthology.poster_path ? (
+          <img className="anthology-poster" src={apiURL(`/covers/${anthology.poster_path}`)} alt={t('anthologies.front.poster.alt')} />
+        ) : (
+          <div className="anthology-poster anthology-poster-fallback no-print" aria-hidden="true" data-title={anthology.title} />
+        )
+      )}
       {anthology && (
         <div className="anthology-hero">
           {!anthology.cover_path && (
@@ -2187,6 +2244,7 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
             </div>
           )}
           {anthology.intro && <p className="anthology-prose anthology-intro">{anthology.intro}</p>}
+          {anthology.description && <p className="anthology-prose anthology-description">{anthology.description}</p>}
         </div>
       )}
 
