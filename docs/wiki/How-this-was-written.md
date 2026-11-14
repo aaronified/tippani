@@ -71,15 +71,15 @@ the measurement, stamped with the commit it was counted at and re-counted by the
 kit's `ai_census.py --check`. The breakdown by model, and the commits that carry no
 trailer, follow it under *By model*.
 
-## Measured as of `bd120c909dd0aa70ac89bc227ea66dd58ece7b13` (2026-11-13)
+## Measured as of `ed05f2967f1b120c9713a001083cc9a489cff745` (2026-11-15)
 
 | Figure | Value |
 | --- | --- |
-| Commits, no merges, exclusions applied | 2,325 |
-| AI-assisted commits | 2,302 — 99.0% |
-| Lines added / removed, AI-assisted commits | +1,034,893 / -524,863 |
-| Lines added / removed, all commits | +1,053,209 / -541,869 |
-| **Surviving lines from AI-assisted commits** | **499,174 of 511,217 — 97.6%** |
+| Commits, no merges, exclusions applied | 2,348 |
+| AI-assisted commits | 2,322 — 98.9% |
+| Lines added / removed, AI-assisted commits | +1,036,318 / -525,105 |
+| Lines added / removed, all commits | +1,054,696 / -542,157 |
+| **Surviving lines from AI-assisted commits** | **500,354 of 512,416 — 97.6%** |
 
 These figures describe the tree at that sha and change with every commit, which is why
 they are stamped: an unstamped percentage cannot be checked against anything, and so is
@@ -201,7 +201,7 @@ fixed, because a disclosure that rounds its own gaps away is not one.
 To see it yourself:
 
 ```bash
-SHA=bd120c90   # the commit the block above is stamped with
+SHA=ed05f296   # the commit the block above is stamped with
 
 # every commit, with the model that co-authored it
 git log --no-merges --date=short "$SHA" \
