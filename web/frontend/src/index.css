@@ -12435,6 +12435,7 @@ button.work-pill:hover { color: var(--ink); border-color: var(--ink-border); }
 }
 .anthology-poster-fallback::before { content: attr(data-title); }
 .anthology-tile-poster { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 6px; margin-block-end: var(--row); }
+.anthology-tile-poster-fallback { background: linear-gradient(160deg, var(--accent), color-mix(in oklab, var(--accent), black 45%)); }
 .anthology-description { margin-block: 0 var(--row); white-space: pre-wrap; }
 .anthology-dedication { margin: 0 0 var(--row); font-family: var(--font-hand); color: var(--amber); white-space: pre-wrap; }
 .anthology-epigraph {

@@ -111,6 +111,13 @@ describe('the list of anthologies', () => {
     expect(screen.getByText('Told in a hand.')).toBeTruthy()
     expect(screen.queryByText('Three people, one idea.')).toBeNull()
   })
+
+  it('draws a banner on a row with no poster too, so every row looks like a book', async () => {
+    const { container } = list()
+    await screen.findByText('Beginnings')
+    expect(container.querySelectorAll('img.anthology-tile-poster')).toHaveLength(0)
+    expect(container.querySelectorAll('.anthology-tile-poster-fallback')).toHaveLength(LIST.length)
+  })
 })
 
 describe('an anthology being read', () => {

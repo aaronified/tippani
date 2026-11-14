@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Every anthology in the list has its banner**: a row with no poster of its own showed no
+  banner at all, while its page and the Android app drew one. The list now draws the same colour
+  banner, with the anthology's name beneath it, so every row looks like a book.
+
 ## [3.9.0] - 2026-11-13
 
 ### Added

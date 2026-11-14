@@ -1105,7 +1105,13 @@ function AnthologyTile({ row, onOpen, onEdit, onDelete }) {
   return (
     <div className="board-tile">
       <button type="button" className="board-tile-face" onClick={() => onOpen(row.id)}>
-        {row.poster_path && <img className="anthology-tile-poster" src={apiURL(`/covers/${row.poster_path}`)} alt="" />}
+        {/* THE BANNER IS ALWAYS THERE, like the page's and the app's: the reader's poster, or the same gradient with the
+            title left to the tile's own name beneath it (the title is drawn once). The fallback is furniture. */}
+        {row.poster_path ? (
+          <img className="anthology-tile-poster" src={apiURL(`/covers/${row.poster_path}`)} alt="" />
+        ) : (
+          <span className="anthology-tile-poster anthology-tile-poster-fallback no-print" aria-hidden="true" />
+        )}
         <span className="board-tile-name">{row.title}</span>
         <span className="board-tile-count">
           {t('common.count.phrase', { n: row.entries, noun: t('unit.entry', { count: row.entries }) })}
