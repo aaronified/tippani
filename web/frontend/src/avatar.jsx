@@ -18,7 +18,7 @@
 // A LETTER, NOT A SILHOUETTE. An account is not a person in the library — the six
 // hashed faces are for records, and the initial is what this chip has always
 // drawn. What the chip may NOT do is treat a stored path as a picture: an avatar
-// whose file has gone drew the browser's torn page inside a 24px squircle, which
+// whose file has gone drew the browser's torn page inside a 24px circle, which
 // is the owner's report one screen over.
 import { coverImgURL } from './api.js'
 import { Face } from './characterRows.jsx'

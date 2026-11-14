@@ -1976,7 +1976,7 @@
      grain. The comment on .topbar-add-btn.icon-only had promised "same accent
      texture" since it was written; this is the rule that makes that true.
      .user-chip needs the positioning the others get from .tactile, and clips the
-     overlay to its squircle for free (overflow: hidden, for an avatar image). */
+     overlay to its circle for free (overflow: hidden, for an avatar image). */
   .btn-sticker, .btn-film, .tp-btn-primary, .topbar-add-btn, .user-chip { isolation: isolate; }
   .user-chip { position: relative; }
   .btn-sticker::before, .btn-film::before, .tp-btn-primary::before,
@@ -5595,15 +5595,18 @@
        whatever the reader has done to their type. */
     width: max(38px, 1.6em);   /* matches .topbar-add-btn height so the row reads level */
     height: max(38px, 1.6em);
-    border-radius: 32%;        /* squircle, not a circle */
-    overflow: hidden;          /* clip an uploaded avatar image to the squircle */
+    /* A FACE IS A CIRCLE (see the house rule). Width and height are the same expression, and
+       aspect-ratio keeps it square where a screen overrides only one of them. */
+    aspect-ratio: 1;
+    border-radius: 999px;
+    overflow: hidden;          /* clip an uploaded avatar image to the circle */
     display: inline-flex;
     align-items: center;
     justify-content: center;
     font-weight: 600;
     font-size: var(--type-ui-15);
     /* LINE-HEIGHT, BECAUSE THE LEADING WAS THE BUG AND NOT THE SIZE. At the top of
-       the type dial this letter is 30px, which fits a 38px squircle with room over
+       the type dial this letter is 30px, which fits a 38px circle with room over
        — but body's 1.55 leading asked for 46px of line box around it, and the
        initial was cut off at the top on every screen in the app at once. Stating 1
        here keeps the glyph answering the dial (which every font size in this app
@@ -12435,6 +12438,7 @@ button.work-pill:hover { color: var(--ink); border-color: var(--ink-border); }
 }
 .anthology-poster-fallback::before { content: attr(data-title); }
 .anthology-tile-poster { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 6px; margin-block-end: var(--row); }
+.anthology-tile-poster-fallback { background: linear-gradient(160deg, var(--accent), color-mix(in oklab, var(--accent), black 45%)); }
 .anthology-description { margin-block: 0 var(--row); white-space: pre-wrap; }
 .anthology-dedication { margin: 0 0 var(--row); font-family: var(--font-hand); color: var(--amber); white-space: pre-wrap; }
 .anthology-epigraph {

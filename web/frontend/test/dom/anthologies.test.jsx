@@ -1,5 +1,11 @@
 // The anthologies screen, mounted and clicked.
 //
+// A DECLARED EXCEPTION to the rule that a test names no CSS class: the banner tests below find the generated
+// banner by `.anthology-tile-poster-fallback` and `.anthology-poster-fallback`. The banner is a drawing with no
+// text, role or name (it is aria-hidden furniture on purpose), so nothing on the screen a person reads tells it
+// from its absence. That the class is PAINTED is not this file's business: test/rules/a-drawn-banner-is-painted
+// reads the stylesheet.
+//
 // screens-mount.test.jsx already proves it survives a server that says no. These
 // are the claims that a mounting test cannot make, and every one of them is a
 // silent failure rather than a crash:
@@ -110,6 +116,21 @@ describe('the list of anthologies', () => {
     expect(container.querySelector('img.anthology-tile-poster').getAttribute('src')).toContain('/covers/1111222233334444.png')
     expect(screen.getByText('Told in a hand.')).toBeTruthy()
     expect(screen.queryByText('Three people, one idea.')).toBeNull()
+  })
+
+  it('draws a banner on a row with no poster too, so every row looks like a book', async () => {
+    const { container } = list()
+    await screen.findByText('Beginnings')
+    expect(container.querySelectorAll('img.anthology-tile-poster')).toHaveLength(0)
+    expect(container.querySelectorAll('.anthology-tile-poster-fallback')).toHaveLength(LIST.length)
+  })
+
+  it('opens an anthology with no poster in the reader with the same banner', async () => {
+    open()
+    fireEvent.click(await screen.findByRole('button', { name: 'Read' }))
+    const dialog = await screen.findByRole('dialog', { name: /Reading On keeping quiet/ })
+    expect(dialog.querySelectorAll('img.anthology-poster')).toHaveLength(0)
+    expect(dialog.querySelectorAll('.anthology-poster-fallback')).toHaveLength(1)
   })
 })
 

@@ -988,14 +988,15 @@ const typeOptions = () => CATALOGUE_TYPES.map(([v, key]) => [v, t(key)])
 // The filter dropdowns are lists of GAP TOKENS, named by GAP_KEYS above and
 // paired with their words at render.
 // `no_people` and `no_synopsis` are on all three lists, and `ok` closes each of
-// them: the pack's own order runs from the broadest issue to the narrowest and
+// them, with `all` first, where the reader reaches the filter that undoes the others
+// without scrolling the row: the pack's order runs from the broadest issue to the narrowest and
 // ends on Complete (`metadata.dc.html:851`).
-const BOOK_FILTERS = ['flagged', ...BOOK_GAPS, 'no_people', 'no_synopsis', 'ok', 'all']
-const MOVIE_FILTERS = ['flagged', ...MOVIE_GAPS, 'no_people', 'no_synopsis', 'ok', 'all']
+const BOOK_FILTERS = ['all', 'flagged', ...BOOK_GAPS, 'no_people', 'no_synopsis', 'ok']
+const MOVIE_FILTERS = ['all', 'flagged', ...MOVIE_GAPS, 'no_people', 'no_synopsis', 'ok']
 // EVERY GAP ON THE ALL-TYPES VIEW, in the pack's order, each counting only the
 // shelf it applies to — so the index can open a gap that films and games share on
 // every type and land on the number it counted.
-const ALL_FILTERS = ['flagged', 'no_cover', 'no_poster', 'low_res', 'no_author', 'no_cast', 'no_director', 'no_series', 'no_year', 'no_genre', 'no_source', 'no_people', 'no_synopsis', 'ok', 'all']
+const ALL_FILTERS = ['all', 'flagged', 'no_cover', 'no_poster', 'low_res', 'no_author', 'no_cast', 'no_director', 'no_series', 'no_year', 'no_genre', 'no_source', 'no_people', 'no_synopsis', 'ok']
 function filtersForType(type) {
   if (type === 'book') return BOOK_FILTERS
   if (type === 'movie' || type === 'show' || type === 'game') return MOVIE_FILTERS
@@ -1146,7 +1147,7 @@ function CatalogueConsole({ books, movies, type, setType, filter, setFilter, onO
   )
   const shown = useMemo(() => base.filter((x) => gapPasses(x, filterVal)), [base, filterVal, gapPasses])
   // EVERY GAP THE TYPE OFFERS, COUNTED. `filterOpts` is already the pack's own
-  // order — broadest issue first, "complete" and "all" last — so the pills are it
+  // order — "all" first, then the broadest issue, "complete" last — so the pills are it
   // with a number on each.
   const gapPills = useMemo(
     () => filterOpts.map(([v, label]) => ({ key: v, label, n: base.filter((x) => gapPasses(x, v)).length })),

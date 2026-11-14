@@ -1,6 +1,6 @@
 package httpapi
 
-// A dashboard widget: four numbers behind a read-only key.
+// A dashboard widget: a few numbers behind a read-only key.
 //
 // Shaped for gethomepage's Custom API widget, which fetches a URL with headers
 // of your choosing and maps JSON fields onto up to four blocks — so the answer
@@ -25,6 +25,7 @@ import (
 	"strings"
 
 	"tippani/internal/auth"
+	"tippani/internal/jobs"
 )
 
 const widgetKeyPrefix = "tpw_"
@@ -64,12 +65,23 @@ func (s *Server) handleWidget(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, counts)
 }
 
+// widgetCounts are the numbers the widget answers. The first four have been there since 3.0.0; `found` and
+// `scanning` (3.9.1) are additive and read stored rows only, so the widget request never touches a disk or a mount.
 type widgetCounts struct {
 	Works    int `json:"works"`
 	Quotes   int `json:"quotes"`
 	Forgot   int `json:"forgot"`
 	Mastered int `json:"mastered"`
+	// Found: files the library scan proposed that nobody has accepted or refused yet (the Found files list on
+	// Checks), across every folder.
+	Found int `json:"found"`
+	// Scanning: library scans queued or running now for this reader (0 when idle).
+	Scanning int `json:"scanning"`
 }
+
+// foundAnywhere is findingsShown for every folder at once: the same rules for what a reader is still offered,
+// without the folder test (its `?` is given a value that is always true).
+var foundAnywhere = strings.Replace(findingsShown, "f.mount_id = ?", "? <> ''", 1)
 
 func (s *Server) widgetCounts(uid int64) (widgetCounts, error) {
 	var c widgetCounts
@@ -100,9 +112,19 @@ func (s *Server) widgetCounts(uid int64) (widgetCounts, error) {
 			(SELECT x.id FROM `+rs.from()+` WHERE `+rs.ownerCol()+` = ?))`)
 		args = append(args, uid)
 	}
-	err = s.Store.DB.QueryRow(`SELECT count(*) FROM item_reviews r
+	if err = s.Store.DB.QueryRow(`SELECT count(*) FROM item_reviews r
 		WHERE r.stability >= ? AND COALESCE(r.last_result, '') <> 'forgot'
-		AND (`+strings.Join(arms, " OR ")+`)`, args...).Scan(&c.Mastered)
+		AND (`+strings.Join(arms, " OR ")+`)`, args...).Scan(&c.Mastered); err != nil {
+		return c, err
+	}
+	if err = s.Store.DB.QueryRow(`SELECT count(*) FROM library_scan_findings f WHERE `+foundAnywhere, uid, "any").Scan(&c.Found); err != nil {
+		return c, err
+	}
+	// A waiting scan the reader has stopped is still `queued` in its row until the stop is written, so the
+	// read goes through the held set as every other queue read does: Checks shows that scan as stopped.
+	err = s.Store.DB.QueryRow(heldCTE+`SELECT count(*) FROM jobs WHERE user_id = ? AND kind = ? AND queued = 1
+		AND `+shownState+` IN ('queued', 'running')`,
+		jobs.HeldJSON(s.heldStops()), uid, libraryScanKind).Scan(&c.Scanning)
 	return c, err
 }
 

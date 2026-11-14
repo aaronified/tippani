@@ -109,3 +109,66 @@ func widgetGet(h http.Handler, header, value string) *httptest.ResponseRecorder 
 	h.ServeHTTP(rec, req)
 	return rec
 }
+
+// THE LIBRARY SCAN ON THE DASHBOARD (3.9.1). `found` counts the files the scan proposed that nobody has accepted
+// or refused, as the Found files list on Checks does; `scanning` counts this reader's scans queued or running.
+// Both are read from stored rows, for this reader only.
+func TestWidgetCountsTheFilesTheScanFoundAndTheScansRunning(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	alice := signupAdmin(t, h)
+	bob := addUser(t, h, alice, "bob")
+	key := decode[struct{ Key string }](t, alice.mustDo("POST", "/auth/widget-key", nil, 200)).Key
+	mine := createBook(t, alice, "The Fires of Heaven")
+	other := createBook(t, alice, "Walden")
+	theirs := createBook(t, bob, "Dune")
+	uid := userIDOf(t, srv, "alice")
+	bobID := userIDOf(t, srv, "bob")
+
+	finding := func(user int64, mount string, work int64, rel string) {
+		t.Helper()
+		if _, err := srv.Store.DB.Exec(`INSERT INTO library_scan_findings (user_id, mount_id, subject, work_id, episode, rel, format, title, how, bucket, pass)
+			VALUES (?, ?, 'book', ?, '', ?, 'epub', 't', 'title', 'exact', 1)`, user, mount, work, rel); err != nil {
+			t.Fatal(err)
+		}
+	}
+	job := func(user int64, kind, state string) {
+		t.Helper()
+		if _, err := srv.Store.DB.Exec(`INSERT INTO jobs (user_id, kind, state, created_at) VALUES (?, ?, ?, 1)`, user, kind, state); err != nil {
+			t.Fatal(err)
+		}
+	}
+	counts := func() widgetCounts { return decode[widgetCounts](t, widgetGet(h, "X-API-Key", key)) }
+
+	if got := counts(); got.Found != 0 || got.Scanning != 0 {
+		t.Fatalf("a quiet library reads found %d scanning %d, want 0 and 0", got.Found, got.Scanning)
+	}
+
+	finding(uid, "a", mine, "The Fires of Heaven.epub")
+	finding(uid, "b", other, "Walden.epub")  // another folder: counted too
+	finding(bobID, "a", theirs, "Dune.epub") // another reader's
+	if got := counts().Found; got != 2 {
+		t.Fatalf("found = %d, want 2 (both folders, not the other reader's)", got)
+	}
+
+	// accepted: the work has its file, so its proposal is no longer offered
+	if _, err := srv.Store.DB.Exec(`INSERT INTO work_sources (user_id, subject, subject_id, role, format, path) VALUES (?, 'book', ?, 'text', 'epub', 'x')`, uid, mine); err != nil {
+		t.Fatal(err)
+	}
+	// refused: the reader said no to this file
+	if _, err := srv.Store.DB.Exec(`INSERT INTO cleanup_ignores (user_id, kind, item_id, field, rule, match_hash) VALUES (?, 'work-book', ?, 'source', 'source-attach', 'b:Walden.epub')`, uid, other); err != nil {
+		t.Fatal(err)
+	}
+	if got := counts().Found; got != 0 {
+		t.Fatalf("found = %d after one was accepted and one refused, want 0", got)
+	}
+
+	job(uid, libraryScanKind, "running")
+	job(uid, libraryScanKind, "queued")
+	job(uid, libraryScanKind, "succeeded")
+	job(uid, "reverify", "running")
+	job(bobID, libraryScanKind, "running")
+	if got := counts().Scanning; got != 2 {
+		t.Fatalf("scanning = %d, want 2 (this reader's queued and running scans only)", got)
+	}
+}

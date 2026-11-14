@@ -190,3 +190,29 @@ describe('on a phone', () => {
 
   })
 })
+
+// ── THE FILTER THAT UNDOES THE OTHERS IS THE FIRST PILL. It sat last of fifteen,
+// past the right edge of the row at 1280, so a reader who had narrowed the list had
+// to scroll the row to get back. Read the way a reader reads it: left to right.
+describe('the catalogue filter row', () => {
+  it('opens on All and every other pill follows it', async () => {
+    await mount()
+    const pills = within(screen.getByRole('group', { name: /which issue/i })).getAllByRole('button')
+    // a pill reads its word and then its count, so "all" arrives as "all2"
+    const names = pills.map((b) => b.textContent.trim())
+    expect(names[0]).toMatch(/^all\d*$/i)
+    expect(names.slice(1).filter((n) => /^all\d*$/i.test(n))).toEqual([])
+    expect(names.length).toBeGreaterThan(3)
+  })
+
+  // The book and film lists are separate arrays from the all-types one, so each is read on its own.
+  it.each([['Books'], ['Films']])('leads with All when the shelf is %s', async (shelf) => {
+    await mount()
+    await press(screen.getByRole('button', { name: /^type/i }))
+    await press(await screen.findByRole('option', { name: new RegExp(`^${shelf}$`, 'i') }))
+    const pills = within(screen.getByRole('group', { name: /which issue/i })).getAllByRole('button')
+    const names = pills.map((b) => b.textContent.trim())
+    expect(names[0]).toMatch(/^all\d*$/i)
+    expect(names.slice(1).filter((n) => /^all\d*$/i.test(n))).toEqual([])
+  })
+})

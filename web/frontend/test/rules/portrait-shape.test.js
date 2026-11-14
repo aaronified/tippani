@@ -93,3 +93,14 @@ describe('every portrait of a person or a character', () => {
     expect(boxy, 'these draw a face with corners').toEqual([])
   })
 })
+
+// THE ACCOUNT AVATAR IS A FACE TOO, and its class name follows none of the prefixes above, which is how it stayed a
+// 32%-radius rounded square after the rule was made. Named here rather than matched by the sweep's pattern.
+describe('the account avatar (.user-chip)', () => {
+  it('is a square drawn as a circle', () => {
+    const chip = cssRules(CSS).find((r) => r.sel.trim() === '.user-chip' && decl(r.body, 'border-radius'))
+    expect(chip, 'no .user-chip rule sets a radius').toBeTruthy()
+    expect(decl(chip.body, 'border-radius')).toBe('999px')
+    expect(decl(chip.body, 'aspect-ratio')).toMatch(/^1(\s*\/\s*1)?$/)
+  })
+})
