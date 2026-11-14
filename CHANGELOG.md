@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Metadata → Works: the "all" filter is the first pill, not the last of fifteen, so it no longer
+  needs a sideways scroll to reach.
+
 - **Every anthology in the list has its banner**: a row with no poster of its own showed no
   banner at all, while its page and the Android app drew one. The list now draws the same colour
   banner, with the anthology's name beneath it, so every row looks like a book. The reading view opens with the same banner when there is no poster.
