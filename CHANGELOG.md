@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Every anthology in the list has its banner**: a row with no poster of its own showed no
   banner at all, while its page and the Android app drew one. The list now draws the same colour
-  banner, with the anthology's name beneath it, so every row looks like a book.
+  banner, with the anthology's name beneath it, so every row looks like a book. The reading view opens with the same banner when there is no poster.
 
 ## [3.9.0] - 2026-11-13
 

@@ -1612,8 +1612,11 @@ function AnthologyReader({ anthology, slots, groupBy, onClose }) {
       </button>
       <article className="anthology-reader-page">
         <h1>{anthology?.title}</h1>
-        {anthology?.poster_path && (
+        {anthology?.poster_path ? (
           <img className="anthology-poster" src={apiURL(`/covers/${anthology.poster_path}`)} alt={t('anthologies.front.poster.alt')} />
+        ) : (
+          // the same banner as the page and the list; the title is the heading above, so none is drawn on it
+          <div className="anthology-poster anthology-poster-fallback no-print" aria-hidden="true" />
         )}
         {paragraphs(anthology?.description).map((p, i) => <p key={`d${i}`} className="anthology-reader-intro">{p}</p>)}
         {anthology?.cover_path && (
