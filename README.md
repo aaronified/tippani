@@ -369,9 +369,10 @@ The daily message needs one line in the host's cron, since Tippani has no timer 
 <details>
 <summary><strong>Dashboard widget (gethomepage)</strong></summary>
 
-Shows four numbers from your library: works, quotes, forgotten and mastered. In Profile › Dashboard widget press
-**Make a key**, then copy the YAML it shows into gethomepage's `services.yaml`. The key is shown once, and it can
-only read those four numbers.
+Shows numbers from your library: works, quotes, forgotten and mastered, and two about the library scan: `found`
+(files the scan proposed that nobody has accepted or refused yet) and `scanning` (scans running now, 0 when idle).
+In Profile › Dashboard widget press **Make a key**, then copy the YAML it shows into gethomepage's `services.yaml`.
+The key is shown once, and it can only read those numbers: no names, paths or titles.
 
 <p align="center">
   <img src="docs/img/homepage-widget.png" width="560" alt="The Tippani widget on a gethomepage dashboard, marked healthy: 41 works, 863 quotes, 39 forgot, 19 mastered">
@@ -390,6 +391,9 @@ only read those four numbers.
         - { field: quotes, label: Quotes }
         - { field: forgot, label: Forgot }
         - { field: mastered, label: Mastered }
+        # optional, from 3.9.1:
+        # - { field: found, label: Found files }
+        # - { field: scanning, label: Scanning }
 ```
 
 </details>

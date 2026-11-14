@@ -354,7 +354,7 @@ The way a self-hosted app wins "works with everything" is not by writing thirty 
 
 A widget for [Homepage](https://gethomepage.dev) (and similar self-hosted dashboards), so Tippani shows up as a live tile on your NAS dashboard. `GET /stats` already answers a device token with the totals and the latest **quiz score**, unscoped and far from small; today's **pending spaced-repetition** count only the review loop knows. Opt-in; nothing exposed without a token.
 
-**Tier 2 and most of tier 1 shipped in 3.0.0** ([#25](https://github.com/aaronified/tippani/issues/25), closed): Profile → Dashboard widget makes a read-only key, `GET /api/widget` answers four numbers (works, quotes, forgotten, mastered) for that reader's own library, and the README has the `services.yaml` to paste. Tier 1 landed as that README section rather than a docs page, and without the optional `homepage.*` compose labels. What is left is those labels and tier 3.
+**Tier 2 and most of tier 1 shipped in 3.0.0** ([#25](https://github.com/aaronified/tippani/issues/25), closed): Profile → Dashboard widget makes a read-only key, `GET /api/widget` answers the numbers (works, quotes, forgotten, mastered, and from 3.9.1 found and scanning) for that reader's own library, and the README has the `services.yaml` to paste. Tier 1 landed as that README section rather than a docs page, and without the optional `homepage.*` compose labels. What is left is those labels and tier 3.
 
 The three tiers, as planned:
 

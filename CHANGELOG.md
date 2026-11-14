@@ -13,6 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   banner at all, while its page and the Android app drew one. The list now draws the same colour
   banner, with the anthology's name beneath it, so every row looks like a book. The reading view opens with the same banner when there is no poster.
 
+### Added
+
+- The dashboard widget also reports `found` (files the library scan proposed that are still
+  waiting) and `scanning` (scans queued or running), so a homepage tile can show both.
+
 ## [3.9.0] - 2026-11-13
 
 ### Added
