@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.9.1] - 2026-11-14
+
 ### Fixed
 
 - The account avatar is drawn as a circle (it was a rounded square).
