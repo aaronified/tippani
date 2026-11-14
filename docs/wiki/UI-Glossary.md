@@ -29,7 +29,7 @@ The primary nav *is* one **Toggle** — a thumb slides under the active tab. Its
 
 *Defined in:* .user-chip — index.css
 
-Top-right account button — a **squircle** (rounded-corner square, `border-radius:32%`; more geometric in film), not a circle. Clips an uploaded avatar; otherwise shows the initial. It opens **Profile** directly. It opened a dropdown until 1.4.1 — Profile, User management, Log out — and the drawer repeated the same three rows, so "my account" was a menu of screens rather than a screen; all of it is a section of Profile now, and the chip is one tap.
+Top-right account button — a **circle** (`aspect-ratio:1; border-radius:999px`, the house rule that a face is a circle). Clips an uploaded avatar; otherwise shows the initial. It opens **Profile** directly. It opened a dropdown until 1.4.1 — Profile, User management, Log out — and the drawer repeated the same three rows, so "my account" was a menu of screens rather than a screen; all of it is a section of Profile now, and the chip is one tap.
 
 ### Profile · sections (was user-menu)
 

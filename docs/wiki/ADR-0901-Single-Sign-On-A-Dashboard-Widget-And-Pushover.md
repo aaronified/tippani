@@ -35,7 +35,7 @@ lock everyone out. It is named in `ungated` in `internal/outbound/clients_test.g
 you choose and maps JSON fields onto four blocks, which is exactly the four numbers asked for.
 `GET /api/widget` answers `{works, quotes, forgot, mastered}` against a per-account key
 (`widget_keys`, stored hashed). It is not a device token: a device token opens the whole API,
-and a key pasted into dashboard YAML should open four numbers. *Forgot* is the recall dot's
+and a key pasted into dashboard YAML should open four numbers. (Amended: the answer also carries `found`, the files the library scan proposed that are still waiting, and `scanning`, this reader's scans queued or running. Both are counts read from stored rows, and the key still opens nothing else.) *Forgot* is the recall dot's
 probably-forgotten count — a lapse on the last answer or overdue on the curve — so it agrees
 with the Stats page. *Mastered* is a card at the schedule's top rung (`reviewCeilingFor`) with
 no miss since, which is where "start new lines at Mastered" puts a line; the word means one

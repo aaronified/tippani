@@ -1976,7 +1976,7 @@
      grain. The comment on .topbar-add-btn.icon-only had promised "same accent
      texture" since it was written; this is the rule that makes that true.
      .user-chip needs the positioning the others get from .tactile, and clips the
-     overlay to its squircle for free (overflow: hidden, for an avatar image). */
+     overlay to its circle for free (overflow: hidden, for an avatar image). */
   .btn-sticker, .btn-film, .tp-btn-primary, .topbar-add-btn, .user-chip { isolation: isolate; }
   .user-chip { position: relative; }
   .btn-sticker::before, .btn-film::before, .tp-btn-primary::before,

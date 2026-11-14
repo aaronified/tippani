@@ -25,6 +25,7 @@ import (
 	"strings"
 
 	"tippani/internal/auth"
+	"tippani/internal/jobs"
 )
 
 const widgetKeyPrefix = "tpw_"
@@ -119,8 +120,11 @@ func (s *Server) widgetCounts(uid int64) (widgetCounts, error) {
 	if err = s.Store.DB.QueryRow(`SELECT count(*) FROM library_scan_findings f WHERE `+foundAnywhere, uid, "any").Scan(&c.Found); err != nil {
 		return c, err
 	}
-	err = s.Store.DB.QueryRow(`SELECT count(*) FROM jobs WHERE user_id = ? AND kind = ? AND state IN ('queued', 'running')`,
-		uid, libraryScanKind).Scan(&c.Scanning)
+	// A waiting scan the reader has stopped is still `queued` in its row until the stop is written, so the
+	// read goes through the held set as every other queue read does: Checks shows that scan as stopped.
+	err = s.Store.DB.QueryRow(heldCTE+`SELECT count(*) FROM jobs WHERE user_id = ? AND kind = ? AND queued = 1
+		AND `+shownState+` IN ('queued', 'running')`,
+		jobs.HeldJSON(s.heldStops()), uid, libraryScanKind).Scan(&c.Scanning)
 	return c, err
 }
 

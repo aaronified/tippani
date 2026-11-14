@@ -157,16 +157,14 @@ These are the open [bug issues](https://github.com/aaronified/tippani/issues?q=i
   1.1.1 made the export always write `type: movie` or `type: show`, which routes a file back to the right importer; older files
   carry nothing identifying them, and a detector cannot infer what the file never recorded. Re-export it, or add a `type:`
   line by hand. It stays listed rather than pretending to be fixable.
-- [#46](https://github.com/aaronified/tippani/issues/46): Profile at 175% text scrolls 5 px sideways on a phone, and its
-  avatars are drawn as rounded squares.
+- [#46](https://github.com/aaronified/tippani/issues/46): Profile at 175% text scrolls 5 px sideways on a phone. (Its
+  avatars are circles now.)
 - [#49](https://github.com/aaronified/tippani/issues/49): under CPU throttling the film-line journey's second case lands on
   Sign in, as if the session cookie were dropped.
 - [#53](https://github.com/aaronified/tippani/issues/53): CI on main goes red on time budgets: httpapi near its 20-minute
   `go test` timeout, and a journey case at 60 seconds.
 - [#54](https://github.com/aaronified/tippani/issues/54): the works filter journey's "complete" guard cannot fail for a
   predicate that forgets a gap.
-- [#55](https://github.com/aaronified/tippani/issues/55): Metadata → Works puts the "all" pill last of fifteen, where the
-  design pack puts it first.
 - [#62](https://github.com/aaronified/tippani/issues/62): some works get no file from the scan: a leading "The" in a title,
   AZW3-only books, and works with no subtitle file.
 
@@ -354,7 +352,7 @@ The way a self-hosted app wins "works with everything" is not by writing thirty 
 
 A widget for [Homepage](https://gethomepage.dev) (and similar self-hosted dashboards), so Tippani shows up as a live tile on your NAS dashboard. `GET /stats` already answers a device token with the totals and the latest **quiz score**, unscoped and far from small; today's **pending spaced-repetition** count only the review loop knows. Opt-in; nothing exposed without a token.
 
-**Tier 2 and most of tier 1 shipped in 3.0.0** ([#25](https://github.com/aaronified/tippani/issues/25), closed): Profile → Dashboard widget makes a read-only key, `GET /api/widget` answers the numbers (works, quotes, forgotten, mastered, and from 3.9.1 found and scanning) for that reader's own library, and the README has the `services.yaml` to paste. Tier 1 landed as that README section rather than a docs page, and without the optional `homepage.*` compose labels. What is left is those labels and tier 3.
+**Tier 2 and most of tier 1 shipped in 3.0.0** ([#25](https://github.com/aaronified/tippani/issues/25), closed): Profile → Dashboard widget makes a read-only key, `GET /api/widget` answers the numbers (works, quotes, forgotten, mastered, and found and scanning) for that reader's own library, and the README has the `services.yaml` to paste. Tier 1 landed as that README section rather than a docs page, and without the optional `homepage.*` compose labels. What is left is those labels and tier 3.
 
 The three tiers, as planned:
 
