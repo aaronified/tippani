@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The account avatar is drawn as a circle (it was a rounded square).
+
 - Metadata → Works: the "all" filter is the first pill, not the last of fifteen, so it no longer
   needs a sideways scroll to reach.
 
