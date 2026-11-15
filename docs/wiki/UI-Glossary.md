@@ -7,7 +7,7 @@ It is generated from the glossary catalogue, `web/frontend/scripts/glossary/cata
 when a component has no entry, so a rename or a new control updates this page or fails the build. Each entry names the file
 that defines it.
 
-220 entries in 22 sections.
+221 entries in 22 sections.
 
 ## Shell
 
@@ -1708,6 +1708,12 @@ Studio — a studio light, and **the one of the three that is stroked rather tha
 *Defined in:* IconSliders — ui.jsx · rule 2 · names a place, not a job
 
 The Settings tab. Phosphor `gear`. Nav-only, so the drawing was replaced rather than twinned.
+
+### IconLayers
+
+*Defined in:* IconLayers — ui.jsx · Settings → Appearance · Change one surface yourself
+
+A stack of three planes, on the door that opens **Change one surface yourself**: a material for the background, the bars, the cards or the covers, over the set's own. Phosphor `stack`. It is not the sliders the dials door beside it wears — one drawing on two doors says they open the same thing.
 
 ### IconNavSearch
 

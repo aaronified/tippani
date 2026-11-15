@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Change one surface yourself: Settings → Theme has a door that opens a picker for each surface
+  (background, bars, cards, covers) with the set's own material first and every other material
+  after it, saved to your account. The Android app has the same control and shows the same look.
+
 ## [3.9.1] - 2026-11-14
 
 ### Fixed

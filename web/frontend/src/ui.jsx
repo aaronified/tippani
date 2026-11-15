@@ -10508,6 +10508,9 @@ export function IconHome({ size = ICON_SIZE }) { return <svg {...iconFill} viewB
 export function IconRecords({ size = ICON_SIZE }) { return <svg {...iconFill} viewBox="1.2 1.2 253.7 253.7" width={size} height={size}><path d="M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40ZM176,168H80a8,8,0,0,1,0-16h96a8,8,0,0,1,0,16Zm0-32H80a8,8,0,0,1,0-16h96a8,8,0,0,1,0,16Zm0-32H80a8,8,0,0,1,0-16h96a8,8,0,0,1,0,16Z"/></svg> }
 export function IconStats({ size = ICON_SIZE }) { return <svg {...iconFill} viewBox="1.2 -2.8 253.7 253.7" width={size} height={size}><path d="M232,208a8,8,0,0,1-8,8H32a8,8,0,0,1,0-16h8V136a8,8,0,0,1,8-8H72a8,8,0,0,1,8,8v64H96V88a8,8,0,0,1,8-8h32a8,8,0,0,1,8,8V200h16V40a8,8,0,0,1,8-8h40a8,8,0,0,1,8,8V200h8A8,8,0,0,1,232,208Z"/></svg> }
 export function IconSliders({ size = ICON_SIZE }) { return <svg {...iconFill} viewBox="0.4 0.4 255.3 255.3" width={size} height={size}><path d="M216,130.16q.06-2.16,0-4.32l14.92-18.64a8,8,0,0,0,1.48-7.06,107.6,107.6,0,0,0-10.88-26.25,8,8,0,0,0-6-3.93l-23.72-2.64q-1.48-1.56-3-3L186,40.54a8,8,0,0,0-3.94-6,107.29,107.29,0,0,0-26.25-10.86,8,8,0,0,0-7.06,1.48L130.16,40Q128,40,125.84,40L107.2,25.11a8,8,0,0,0-7.06-1.48A107.6,107.6,0,0,0,73.89,34.51a8,8,0,0,0-3.93,6L67.32,64.27q-1.56,1.49-3,3L40.54,70a8,8,0,0,0-6,3.94,107.71,107.71,0,0,0-10.87,26.25,8,8,0,0,0,1.49,7.06L40,125.84Q40,128,40,130.16L25.11,148.8a8,8,0,0,0-1.48,7.06,107.6,107.6,0,0,0,10.88,26.25,8,8,0,0,0,6,3.93l23.72,2.64q1.49,1.56,3,3L70,215.46a8,8,0,0,0,3.94,6,107.71,107.71,0,0,0,26.25,10.87,8,8,0,0,0,7.06-1.49L125.84,216q2.16.06,4.32,0l18.64,14.92a8,8,0,0,0,7.06,1.48,107.21,107.21,0,0,0,26.25-10.88,8,8,0,0,0,3.93-6l2.64-23.72q1.56-1.48,3-3L215.46,186a8,8,0,0,0,6-3.94,107.71,107.71,0,0,0,10.87-26.25,8,8,0,0,0-1.49-7.06ZM128,168a40,40,0,1,1,40-40A40,40,0,0,1,128,168Z"/></svg> }
+// IconLayers — the stack of three planes the "change one surface yourself" door wears. It is not IconSliders on purpose:
+// the dials door beside it wears those, and one drawing on two doors says they open the same thing.
+export function IconLayers({ size = ICON_SIZE }) { return <svg {...iconFill} viewBox="0 0 256 256" width={size} height={size}><path d="M230.91,172A8,8,0,0,1,228,182.91l-96,56a8,8,0,0,1-8.06,0l-96-56A8,8,0,0,1,36,169.09l92,53.65,92-53.65A8,8,0,0,1,230.91,172ZM220,121.09l-92,53.65L36,121.09A8,8,0,0,0,28,134.91l96,56a8,8,0,0,0,8.06,0l96-56A8,8,0,1,0,220,121.09ZM24,80a8,8,0,0,1,4-6.91l96-56a8,8,0,0,1,8.06,0l96,56a8,8,0,0,1,0,13.82l-96,56a8,8,0,0,1-8.06,0l-96-56A8,8,0,0,1,24,80Z"/></svg> }
 // IconImport — into the tray, where IconExport goes down onto a floor. Both are
 // down arrows because that is the convention everywhere; what differs is whether
 // the arrow arrives somewhere or leaves.
@@ -10731,6 +10734,7 @@ if (import.meta.env.DEV) {
   IconRecords.glossary = { demo: (h) => h(IconRecords, { size: 28 }) };
   IconStats.glossary = { demo: (h) => h(IconStats, { size: 28 }) };
   IconSliders.glossary = { demo: (h) => h(IconSliders, { size: 28 }) };
+  IconLayers.glossary = { demo: (h) => h(IconLayers, { size: 28 }) };
   IconNavSearch.glossary = { demo: (h) => h(IconNavSearch, { size: 28 }) };
   IconImport.glossary = { demo: (h) => h(IconImport, { size: 28 }) };
   IconNavProfile.glossary = { demo: (h) => h(IconNavProfile, { size: 28 }) };

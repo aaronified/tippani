@@ -411,7 +411,7 @@ Names and the alternate order can be fetched from the same providers the library
 
 A material set dresses four surfaces at once — the ground, the furniture, a card and a cover. Choosing one is a single decision, which is the point of the sets, but it leaves no way to say *this set, with a different card*.
 
-**The machinery already exists** and is reachable by nothing: a per-slot override is stored, resolved and drawn correctly, with no control anywhere that writes one. What is missing is the row — twenty-seven tiles, one slot at a time.
+**Built, in its simple form:** Settings › Theme has *Change one surface yourself*, a door that opens a panel with one picker per surface (background, bars, cards, covers), each offering the set's own material and the other 27, written to the four per-slot preferences the server already stored. The Android app has the same control and reads and writes the same four preferences. What is left of [the plan](Plan-Tile-Slots.md): overrides kept per set (a new `tileSlots` preference and a one-time upgrade moving the four keys), saved looks and the share picture honouring an override, and the tab-per-surface tile grid.
 
 ### An Admin section that never reads your library
 

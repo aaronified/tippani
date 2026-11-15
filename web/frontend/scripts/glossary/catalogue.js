@@ -700,6 +700,8 @@ export const SECTIONS = [
         desc: "Studio — a studio light, and <b>the one of the three that is stroked rather than filled</b>: \"studio light needs to be no fill\". It is also the app's one glyph at a stroke weight other than 1.85, because a trace produces an outline of the ink and at 1.85 the head closes up; at 1.1 it still reads at 20px, where filled it collapses into a blob below 32." },
       { name: "IconSliders", src: "IconSliders — ui.jsx · rule 2 · names a place, not a job",
         desc: "The Settings tab. Phosphor `gear`. Nav-only, so the drawing was replaced rather than twinned." },
+      { name: "IconLayers", src: "IconLayers — ui.jsx · Settings → Appearance · Change one surface yourself",
+        desc: "A stack of three planes, on the door that opens <b>Change one surface yourself</b>: a material for the background, the bars, the cards or the covers, over the set's own. Phosphor `stack`. It is not the sliders the dials door beside it wears — one drawing on two doors says they open the same thing." },
       { name: "IconNavSearch", src: "IconNavSearch — ui.jsx · rule 2 · names a place, not a job",
         desc: "Search as a destination. Phosphor `magnifying-glass`. IconSearch has thirteen other callers where it is the verb, and every one stays drawn." },
       { name: "IconImport", src: "IconImport — ui.jsx · rule 2 · names a place, not a job",

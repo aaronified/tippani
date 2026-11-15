@@ -762,17 +762,25 @@ export function applyTheme(prefs = {}) {
 // was unset — plus the theme *preference* (light|dark|system) and accent. Settings
 // inits its controls from this so they always mirror what's on screen rather than a
 // stale prop.
+// The four preference names a slot override is stored under, in SLOTS order.
+export const SLOT_PREFS = ['tileGround', 'tileShell', 'tileCard', 'tileCover']
+
 export function getResolvedTheme() {
   const root = document.documentElement
   const s = root.dataset.matSet
+  const tiles = (current.tiles || ['', '', '', '']).slice()
   return {
+    // THE OVERRIDES UNDER THEIR STORED NAMES TOO, because applyTheme reads them by name: a caller that spreads this
+    // into applyTheme to change one other thing (a dial, the glass switch) would otherwise put every slot back on its
+    // set's own material until the next load.
+    ...Object.fromEntries(SLOT_PREFS.map((k, i) => [k, tiles[i]])),
     materialSet: MAT_SETS[s] ? s : MAT_SET_DEFAULT,
     theme: current.theme || 'system',
     accent: current.accent || 'terracotta',
     texTweak: current.texTweak || {},
     groundLight: current.groundLight || GROUND_DEFAULT.light,
     groundDark: current.groundDark || GROUND_DEFAULT.dark,
-    tiles: (current.tiles || ['', '', '', '']).slice(),
+    tiles,
   }
 }
 
