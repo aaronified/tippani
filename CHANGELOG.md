@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Anthologies: the list tile's menu no longer sits over the cover; the reading view is a centred
+  column with lines kept to a comfortable length, wider than the strip it was; the open
+  anthology uses the width of a desk, with its text kept to a readable line; and the chips under
+  an anthology show on and off with the app's own accent fill.
+
 ## [3.10.0] - 2026-11-15
 
 ### Added

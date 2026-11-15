@@ -1241,7 +1241,7 @@ export function DeleteAnthologyDialog({ anthology, onDone, onCancel }) {
 // somebody wrote down and never filled.
 function AnthologyTile({ row, onOpen, onEdit, onDelete }) {
   return (
-    <div className="board-tile">
+    <div className="board-tile anthology-tile">
       <button type="button" className="board-tile-face" onClick={() => onOpen(row.id)}>
         {/* THE BANNER IS ALWAYS THERE, like the page's and the app's: the reader's poster, or the same gradient with the
             title left to the tile's own name beneath it (the title is drawn once). The fallback is furniture. */}
@@ -2473,7 +2473,9 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
         <button
           key={row.key}
           type="button"
-          className="anthology-chip"
+          // THE APP'S OWN ON-STATE: `.tp-filter-chip.active`, the accent fill every other chip wears. A bespoke
+          // aria-pressed-only rule drew "on" as a faint ink swap that read as the chip's resting face.
+          className={'tp-filter-chip anthology-chip tactile' + (shown(row, { [row.key]: !!anthology[row.key] }) ? ' active' : '')}
           aria-pressed={shown(row, { [row.key]: !!anthology[row.key] })}
           onClick={() => toggleChip(row)}
         >

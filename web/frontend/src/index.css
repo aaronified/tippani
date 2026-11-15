@@ -9228,7 +9228,9 @@ html[data-theme="dark"] .board-cover {
    it. It is a column of prose rather than a board of cards — an anthology is
    something you read top to bottom, so it takes a measure rather than filling the
    width, and each entry is a passage with the reader's own words above it. */
-.anthology-read { max-width: 62ch; }
+.anthology-read { max-width: 56rem; }
+/* The page is a column of cards with their controls, so it uses the width a desk has; what is READ in them keeps a line. */
+.anthology-read .anthology-prose, .anthology-read blockquote { max-width: 66ch; }
 /* Two lines of the introduction on the tile, and no more: the tiles are a grid,
    and one anthology with six paragraphs would set the row height for every
    anthology beside it. */
@@ -10863,6 +10865,7 @@ html[data-theme="dark"] .has-sticky-rail .meta-rail-row.is-stuck {
      apart are three fragments rather than one passage. `orphans`/`widows` catch
      the case where it genuinely does not fit. */
   .anthology-read { max-width: none; }
+  .anthology-read .anthology-prose, .anthology-read blockquote { max-width: none; }
   .anthology-read .hand-card {
     break-inside: avoid;
     page-break-inside: avoid;
@@ -12431,6 +12434,8 @@ button.work-pill:hover { color: var(--ink); border-color: var(--ink-border); }
   font-family: var(--font-quote);
   font-weight: 600;
   font-size: 1.6em;
+  /* its em is 1.6 of the poster's, so the poster's 40em would be 64em here: held to the same width a real poster stops at */
+  max-width: calc(40em / 1.6);
   line-height: 1.15;
   text-align: center;
   overflow: hidden;
@@ -12469,12 +12474,14 @@ button.work-pill:hover { color: var(--ink); border-color: var(--ink-border); }
 
 /* THE TOOLBAR'S CHIPS: three of the six field switches, pressed or not. */
 .anthology-chips { display: inline-flex; flex-wrap: wrap; gap: 6px; }
-.anthology-chip {
-  min-height: 44px; padding: 0 14px;
-  border: 1px solid var(--line); border-radius: 999px;
-  background: var(--card); color: var(--soft);
-}
-.anthology-chip[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: transparent; }
+.anthology-chip { min-height: 44px; }
+/* THE LIST TILE KEEPS ITS MENU CLEAR OF THE COVER: the shared board tile floats the ⋮ over its top-right
+   corner, which is a name's corner on a board and the banner's on an anthology. Here the menu is a row of
+   its own under the face, so nothing is drawn over the banner. */
+.anthology-tile { display: flex; flex-direction: column; }
+.anthology-tile .board-tile-face { flex: 1 1 auto; }
+.anthology-tile .board-tile-name { padding-inline-end: 0; }
+.anthology-tile .board-tile-tools { position: static; align-self: flex-end; padding: 0 var(--row) var(--row); }
 @media print { .anthology-poster-fallback, .anthology-fed, .anthology-chips { display: none; } }
 @media print { .anthology-front { break-after: page; page-break-after: always; } }
 
@@ -12502,9 +12509,12 @@ button.work-pill:hover { color: var(--ink); border-color: var(--ink-border); }
   cursor: pointer;
 }
 .anthology-reader-page {
-  max-width: 38rem;
+  /* A READING COLUMN: about 66 characters to the line, centred in the window, with margins that grow with it
+     (3vw) rather than a narrow strip pinned left. `ch` here is this element's own font, so the measure follows
+     the type dials. The line is the limit; the width the line needs is the whole of the column. */
+  max-width: calc(66ch + 2 * max(var(--edge), 3vw));
   margin: 0 auto;
-  padding: 56px 20px 96px;
+  padding: 56px max(var(--edge), 3vw) 96px;
   font-family: var(--font-quote-base);
   font-size: var(--type-display-17);
   line-height: 1.7;
