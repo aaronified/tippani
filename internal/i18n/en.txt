@@ -2827,6 +2827,33 @@ anthologies.form.fields.work.hint = Details from the work each passage comes fro
 # and that is the ordinary state rather than a gap: the hint says so plainly.
 anthologies.form.fields.person.label = Also show about the person
 anthologies.form.fields.person.hint = Details about the author, actor or speaker. Shown only where you have a record of them.
+anthologies.form.fields.quote.label = Also show about the quote
+anthologies.form.fields.quote.hint = What the quote itself carries. Each passage can show or hide any of these for itself, and say them differently, from its own menu.
+anthologies.form.fields.note.label = Your note on the quote
+anthologies.form.fields.translation.label = Translation
+anthologies.form.fields.language.label = Language
+anthologies.form.fields.tags.label = Tags
+anthologies.form.fields.context.label = Context from the source
+anthologies.eg.note = The note you wrote when you saved the line
+anthologies.eg.translation = What the line says in English
+anthologies.eg.language = Bengali
+anthologies.eg.tags = hope · poems
+anthologies.eg.context = The sentences before and after it in the book
+anthologies.entry.display.label = What it shows and says
+anthologies.display.title = This passage here
+anthologies.display.body = What this passage shows, and what it says, in this anthology only. The quote in your library is never changed, and another anthology holding it is not either.
+anthologies.display.shows.label = What it shows
+anthologies.display.says.label = What it says
+anthologies.display.inherit.shown = As the anthology: shown
+anthologies.display.inherit.hidden = As the anthology: hidden
+anthologies.display.show.label = Show
+anthologies.display.hide.label = Hide
+anthologies.display.put-back.label = Put the quote's own back
+anthologies.display.text.quote = The quote
+anthologies.display.text.note = Your note on the quote
+anthologies.display.text.translation = Translation
+anthologies.display.text.context-before = Context before
+anthologies.display.text.context-after = Context after
 
 # THE FORMAT IS NAMED because the control beside it is also an export and the two
 # hand over different files. "Export" twice would be the screen saying one thing

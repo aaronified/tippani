@@ -1132,5 +1132,6 @@ My asks of 28 September, as the build was being merged, and my answers to the tw
 - [ADR-0931](ADR-0931-The-Android-App-Lives-In-Its-Own-Repository.md): The Android app lives in its own repository
 - [ADR-0932](ADR-0932-A-Quote-May-Be-Captured-By-Voice.md): A quote may be captured by voice
 - [ADR-0933](ADR-0933-A-Write-Sent-Twice-Is-Made-Once.md): A write sent twice is made once
+- [ADR-0934](ADR-0934-A-Passage-Shows-And-Says-Its-Own-Parts-In-Its-Anthology.md): A passage shows and says its own parts in its anthology
 
 See also: [Design decisions](Design-decisions.md) · [Home](Home.md)

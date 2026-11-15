@@ -211,6 +211,8 @@ h2 { font-size: 1.05em; font-weight: normal; font-style: italic; margin: 1.8em 0
 h1.section { page-break-before: always; margin: 1.2em 0 .6em; }
 p.section { margin: .4em 0; }
 p.commentary { margin: .4em 0; }
+p.translation { margin: .3em 0 .6em; font-style: italic; }
+p.context { margin: .3em 0; opacity: .75; }
 blockquote { margin: .6em 0 .4em 0; padding-left: .9em; border-left: 3px solid #999; }
 p.attribution { margin: .2em 0 0; font-size: .85em; }
 p.intro { margin: .4em 0; }
@@ -339,8 +341,10 @@ func epubBody(title, intro string, f anthologyFields, entries []anthologyEntryRo
 			writeEpubSection(&sb, sections[next], next+1)
 			next++
 		}
-		sb.WriteString(`<h2 id="e` + strconv.Itoa(i+1) + `">` + xmlText(anthologyHeading(e, i, f)) + "</h2>\n")
-		if f.shows("commentary") && strings.TrimSpace(e.Note) != "" {
+		// What this entry shows: the anthology's switches with its own over them (0094).
+		ef := f.forEntry(e.Fields)
+		sb.WriteString(`<h2 id="e` + strconv.Itoa(i+1) + `">` + xmlText(anthologyHeading(e, i, ef)) + "</h2>\n")
+		if ef.shows("commentary") && strings.TrimSpace(e.Note) != "" {
 			for _, para := range strings.Split(strings.TrimRight(e.Note, "\n"), "\n\n") {
 				if strings.TrimSpace(para) == "" {
 					continue
@@ -348,17 +352,24 @@ func epubBody(title, intro string, f anthologyFields, entries []anthologyEntryRo
 				sb.WriteString(`<p class="commentary">` + xmlText(para) + "</p>\n")
 			}
 		}
+		epubContext(&sb, ef, "context_before", e.ContextBefore)
 		sb.WriteString("<blockquote>")
 		for _, line := range strings.Split(e.Quote, "\n") {
 			sb.WriteString("<p>" + xmlText(line) + "</p>")
 		}
 		sb.WriteString("</blockquote>\n")
+		epubContext(&sb, ef, "context_after", e.ContextAfter)
+		// What the line says, in its own paragraph: a translation is prose, and joined into the attribution line it
+		// would read as a label.
+		if ef.shows("translation") && strings.TrimSpace(e.Translation) != "" {
+			sb.WriteString(`<p class="translation">` + xmlText(strings.TrimSpace(e.Translation)) + "</p>\n")
+		}
 		// THE FACES UNDER THE PASSAGE, after the quote and before the attribution
 		// that names them. Absent for most entries: a portrait exists only where the
 		// reader looked somebody up AND a picture was downloaded.
 		for _, key := range []string{"character_portrait", "portrait", "signature"} {
 			fd, ok := anthologyFieldByKey[key]
-			if !ok || !f.shows(key) || !fd.appliesTo(e.Kind) {
+			if !ok || !ef.shows(key) || !fd.appliesTo(e.Kind) {
 				continue
 			}
 			name := anthologyFieldValue(e, fd)
@@ -372,7 +383,7 @@ func epubBody(title, intro string, f anthologyFields, entries []anthologyEntryRo
 			}
 			sb.WriteString(`<p class="` + class + `"><img src="` + xmlText(name) + `" alt="" /></p>` + "\n")
 		}
-		if line := epubAttribution(e, f); line != "" {
+		if line := epubAttribution(e, ef); line != "" {
 			sb.WriteString(`<p class="attribution">` + xmlText(line) + "</p>\n")
 		}
 	}
@@ -381,6 +392,19 @@ func epubBody(title, intro string, f anthologyFields, entries []anthologyEntryRo
 	}
 	sb.WriteString("</body>\n</html>\n")
 	return sb.String()
+}
+
+// epubContext writes the source text on one side of a passage, a paragraph each, when the entry shows its context.
+func epubContext(sb *strings.Builder, ef anthologyFields, key, text string) {
+	if !ef.shows("context") || strings.TrimSpace(text) == "" {
+		return
+	}
+	for _, para := range strings.Split(strings.TrimSpace(text), "\n\n") {
+		if strings.TrimSpace(para) == "" {
+			continue
+		}
+		sb.WriteString(`<p class="context ` + strings.TrimPrefix(key, "context_") + `">` + xmlText(strings.TrimSpace(para)) + "</p>\n")
+	}
 }
 
 // writeEpubSection is a reader's heading as a chapter opener, with the prose under it.
@@ -403,7 +427,7 @@ func writeEpubSection(sb *strings.Builder, x anthologySectionRow, n int) {
 func epubAttribution(e anthologyEntryRow, f anthologyFields) string {
 	parts := []string{}
 	for _, fd := range anthologyRegistry {
-		if fd.Key == fieldCredit || fd.Key == fieldSource || fd.Key == fieldColour || fd.Binding == "" {
+		if fd.Key == fieldCredit || fd.Key == fieldSource || fd.Key == fieldColour || fd.Binding == "" || fd.Key == "translation" {
 			continue
 		}
 		if !f.shows(fd.Key) || !fd.appliesTo(e.Kind) {
@@ -450,7 +474,7 @@ func (s *Server) epubImages(f anthologyFields, entries []anthologyEntryRow) []ep
 	for _, e := range entries {
 		for _, key := range []string{"portrait", "character_portrait", "signature"} {
 			fd, ok := anthologyFieldByKey[key]
-			if !ok || !f.shows(key) || !fd.appliesTo(e.Kind) {
+			if !ok || !f.forEntry(e.Fields).shows(key) || !fd.appliesTo(e.Kind) {
 				continue
 			}
 			name := anthologyFieldValue(e, fd)

@@ -61,7 +61,8 @@ const columnKeys = jsList('FIELD_SWITCHES')
 // the comparison is against the union, and the split itself is asserted below.
 const workKeys = jsList('WORK_SWITCHES')
 const personKeys = jsList('PERSON_SWITCHES')
-const storedKeys = [...workKeys, ...personKeys]
+const quoteKeys = jsList('QUOTE_SWITCHES')
+const storedKeys = [...workKeys, ...personKeys, ...quoteKeys]
 const unprefixed = (k) => k.replace(/^(hide|show)_/, '')
 
 describe('the two field lists name the same fields', () => {
@@ -117,6 +118,15 @@ describe('the two field lists name the same fields', () => {
     expect([...personKeys].sort()).toEqual([...person, ...cast].sort())
   })
 
+  it('agrees with Go about which stored fields are read off the quote', () => {
+    // The quote's own parts (0094) are stored in `fields` like the work's and the person's but read off neither, so Go
+    // names them in a set of their own; the client lists them in QUOTE_SWITCHES. Two lists saying one thing.
+    const body = GO.split('var quotePartKeys = map[string]bool{')[1]
+    expect(body, 'quotePartKeys not found in the Go source').toBeDefined()
+    const goQuote = [...body.split('}')[0].matchAll(/"([^"]+)":/g)].map((m) => m[1])
+    expect([...quoteKeys].sort()).toEqual([...goQuote].sort())
+  })
+
   it('keeps the two Go source sets disjoint', () => {
     // A key in both would make `fromWork` and `fromPerson` disagree about where to
     // read it, and the value that won would be whichever predicate was asked first.
@@ -137,7 +147,7 @@ describe('the two field lists name the same fields', () => {
     // A switch with no label draws an empty row, which is the sort of thing that
     // ships because the list still has the right LENGTH.
     const en = readFileSync(join(ROOT, 'internal', 'i18n', 'en.txt'), 'utf8')
-    const labels = ['WORK_SWITCHES', 'PERSON_SWITCHES'].flatMap((name) => {
+    const labels = ['WORK_SWITCHES', 'PERSON_SWITCHES', 'QUOTE_SWITCHES'].flatMap((name) => {
       const body = JSX.split(`const ${name} = [`)[1].split('\n]')[0]
       return [...body.matchAll(/\blabel:\s*'([^']+)'/g)].map((m) => m[1])
     })

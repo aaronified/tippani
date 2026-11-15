@@ -189,6 +189,10 @@ func (f anthologyFields) shows(key string) bool {
 	// where the value comes from. They were the same predicate while every field
 	// past 0045 was a work field, and the person fields are the reason they are not.
 	if def.stored() {
+		if def.OnByDefault {
+			on, set := f.Extra[key]
+			return !set || on
+		}
 		return f.Extra[key]
 	}
 	switch key {
@@ -284,6 +288,19 @@ type anthologyEntryRow struct {
 	// ALWAYS "" FOR A STANDALONE QUOTE, and that is the schema rather than a choice:
 	// utterances has a speaker and no character column at all (0026).
 	CharacterName string `json:"character_name,omitempty"`
+	// What the quote itself carries beyond what the query above reads (0094): its translation, its
+	// tags and the source text around it. Read by attachQuoteParts, and sent always, like the locator, so the reading
+	// view can honour a switch without refetching.
+	Translation   string   `json:"translation"`
+	Tags          []string `json:"tags"`
+	ContextBefore string   `json:"context_before"`
+	ContextAfter  string   `json:"context_after"`
+	// THIS ENTRY'S OWN DISPLAY (0094), from the entries table. Fields overrides the anthology's switches for this one
+	// entry, Edits restates parts of the quote for this anthology only (already applied to the fields above), and
+	// Originals holds the library's own words for each restated key, so an editor can offer "put it back".
+	Fields    map[string]bool   `json:"fields,omitempty"`
+	Edits     map[string]string `json:"edits,omitempty"`
+	Originals map[string]string `json:"originals,omitempty"`
 	// WorkRef is the identifiers of the work this passage came out of ("isbn=978..., tmdb=550") and WorkYear its
 	// year, for the Markdown export only (0091). Not sent to the page.
 	WorkRef  string `json:"-"`
@@ -570,7 +587,19 @@ func (s *Server) entriesFor(uid, id int64) ([]anthologyEntryRow, error) {
 	if err := s.attachPersonFields(uid, out); err != nil {
 		return nil, err
 	}
-	return out, s.attachCastFields(uid, out)
+	if err := s.attachCastFields(uid, out); err != nil {
+		return nil, err
+	}
+	// The quote's own parts, then this entry's overrides and restatements over them, in that order: an edit replaces
+	// what was just read, and the original it replaced is kept beside it.
+	if err := s.attachQuoteParts(uid, out); err != nil {
+		return nil, err
+	}
+	if err := s.attachEntryDisplay(id, out); err != nil {
+		return nil, err
+	}
+	applyEdits(out)
+	return out, nil
 }
 
 // attachWorkFields fills each entry's Work map — everything the BOOK or the FILM
@@ -1225,9 +1254,9 @@ func (s *Server) handleRemoveAnthologyEntry(w http.ResponseWriter, r *http.Reque
 	}
 	defer tx.Rollback()
 	var pos float64
-	var note string
-	err = tx.QueryRow(`SELECT position, note FROM anthology_entries
-	                   WHERE anthology_id = ? AND kind = ? AND item_id = ?`, id, kind, itemID).Scan(&pos, &note)
+	var note, shown, said string
+	err = tx.QueryRow(`SELECT position, note, fields, edits FROM anthology_entries
+	                   WHERE anthology_id = ? AND kind = ? AND item_id = ?`, id, kind, itemID).Scan(&pos, &note, &shown, &said)
 	if err == sql.ErrNoRows {
 		writeErr(w, http.StatusNotFound, "that quote is not in this anthology")
 		return
@@ -1241,8 +1270,8 @@ func (s *Server) handleRemoveAnthologyEntry(w http.ResponseWriter, r *http.Reque
 		internalError(w, r, "remove entry", err)
 		return
 	}
-	if _, err := tx.Exec(`INSERT OR REPLACE INTO anthology_removed (anthology_id, kind, item_id, position, note)
-	                      VALUES (?, ?, ?, ?, ?)`, id, kind, itemID, pos, note); err != nil {
+	if _, err := tx.Exec(`INSERT OR REPLACE INTO anthology_removed (anthology_id, kind, item_id, position, note, fields, edits)
+	                      VALUES (?, ?, ?, ?, ?, ?, ?)`, id, kind, itemID, pos, note, shown, said); err != nil {
 		internalError(w, r, "remember removal", err)
 		return
 	}
