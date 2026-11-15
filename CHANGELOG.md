@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   each passage can show or hide any of them for itself. A passage can also say them in its own
   words (the quote, its note, its translation, the context before and after) for that anthology
   only: the quote in your library, and any other anthology holding it, are not changed. Put it
-  back returns the quote's own words. Reading mode, Markdown and the EPUB follow.
+  back returns the quote's own words. Reading mode, Markdown and the EPUB follow (the EPUB now prints a quote's own note, as the page and the Markdown always did).
 
 - Change one surface yourself: Settings → Theme has a door that opens a picker for each surface
   (background, bars, cards, covers) with the set's own material first and every other material

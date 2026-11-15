@@ -156,9 +156,9 @@ func decodeEntryEdits(s string) map[string]string {
 	return m
 }
 
-// attachQuoteParts fills what the quote itself carries and the entry query does not: its translation,
-// its tags and the context around it. Three queries per kind at most, over the ids the entries
-// name, never one per entry.
+// attachQuoteParts fills what the quote itself carries and the entry query does not: its translation, its tags and the
+// context around it. The translation and tag reads are one query per kind over the ids the entries name; the context is
+// read per entry, through renderContext, because the span it is cut to is a rule of the quote's own work.
 func (s *Server) attachQuoteParts(uid int64, out []anthologyEntryRow) error {
 	byKind := map[string][]int{}
 	for i := range out {
@@ -296,6 +296,12 @@ func (s *Server) handleAnthologyEntryDisplay(w http.ResponseWriter, r *http.Requ
 		}
 		if v != nil && len([]rune(*v)) > anthologyEditMax {
 			writeErr(w, http.StatusBadRequest, "that text is too long")
+			return
+		}
+		// A passage with no words is not a restatement of it, it is a hole in the page (an empty quotation block, a
+		// `> ` line in the file). Clearing the restatement is what null is for.
+		if k == "quote" && v != nil && strings.TrimSpace(*v) == "" {
+			writeErr(w, http.StatusBadRequest, "a passage needs its words; use put back to return the quote's own")
 			return
 		}
 	}

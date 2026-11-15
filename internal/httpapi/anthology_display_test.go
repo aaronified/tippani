@@ -223,3 +223,74 @@ func TestAPassageTakenOutAndPutBackKeepsWhatItShowedAndSaid(t *testing.T) {
 		t.Errorf("putting the passage back lost what it showed and said: %+v", e)
 	}
 }
+
+func TestTheBookPrintsTheQuotesNoteUntilItIsSwitchedOffOrRestated(t *testing.T) {
+	h := newTestServer(t).Handler()
+	c := signupAdmin(t, h)
+	_, ann := aQuoteWithParts(t, c)
+	a := newAnthology(t, c, "Poems")
+	addEntries(t, c, a.ID, []map[string]any{{"kind": "book", "item_id": ann.ID}})
+	page := func() string { return epubFile(t, exportEPUB(t, c, a.ID), "OEBPS/anthology.xhtml") }
+
+	if !strings.Contains(page(), `<p class="quote-note">My father&#39;s favourite.</p>`) {
+		t.Errorf("the book left out a note the page and the Markdown show:\n%s", page())
+	}
+	setDisplay(t, c, a.ID, "book", ann.ID, map[string]any{"edits": map[string]any{"note": "Said at the gate."}}, http.StatusNoContent)
+	if got := page(); !strings.Contains(got, "Said at the gate.") || strings.Contains(got, "favourite") {
+		t.Errorf("the book did not print the restated note in place of the quote's:\n%s", got)
+	}
+	setFields(t, c, a.ID, "Poems", map[string]any{"fields": map[string]any{"note": false}})
+	if strings.Contains(page(), "Said at the gate.") {
+		t.Errorf("switching the note off still printed it in the book:\n%s", page())
+	}
+}
+
+func TestARestatementIsBoundedAndNeverEmptiesAPassage(t *testing.T) {
+	h := newTestServer(t).Handler()
+	c := signupAdmin(t, h)
+	_, ann := aQuoteWithParts(t, c)
+	a := newAnthology(t, c, "Poems")
+	addEntries(t, c, a.ID, []map[string]any{{"kind": "book", "item_id": ann.ID}})
+
+	setDisplay(t, c, a.ID, "book", ann.ID, map[string]any{"edits": map[string]any{"translation": strings.Repeat("x", anthologyEditMax+1)}}, http.StatusBadRequest)
+	setDisplay(t, c, a.ID, "book", ann.ID, map[string]any{"edits": map[string]any{"translation": strings.Repeat("x", anthologyEditMax)}}, http.StatusNoContent)
+	// a passage with no words is a hole in the page; clearing the restatement is what null is for
+	setDisplay(t, c, a.ID, "book", ann.ID, map[string]any{"edits": map[string]any{"quote": "   "}}, http.StatusBadRequest)
+	// but the note and the translation may be said as nothing: that is a way to show none of them
+	setDisplay(t, c, a.ID, "book", ann.ID, map[string]any{"edits": map[string]any{"note": ""}}, http.StatusNoContent)
+	if e := getAnthology(t, c, a.ID).Entries[0]; e.QuoteNote != "" || e.Quote != "Where the mind is without fear" {
+		t.Errorf("an empty restated note did not blank the note, or touched the quote: %+v", e)
+	}
+}
+
+func TestTheContextOfAQuoteReachesTheAnthologyAndCanBeRestatedThere(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	book := c.newBook("Nineteen Eighty-Four")
+	hl := c.newHighlight(book, "It was a bright cold day in April, and the clocks were striking thirteen.")
+	if rec := c.putSource(sourceFields("book", book), "1984.txt", []byte(prose)); rec.Code != http.StatusCreated {
+		t.Fatalf("%d %s", rec.Code, rec.Body)
+	}
+	a := newAnthology(t, c, "Openings")
+	addEntries(t, c, a.ID, []map[string]any{{"kind": "book", "item_id": hl}})
+	setFields(t, c, a.ID, "Openings", map[string]any{"fields": map[string]any{"context": true}})
+
+	e := getAnthology(t, c, a.ID).Entries[0]
+	if !strings.HasPrefix(e.ContextBefore, "The road ran north") || !strings.Contains(e.ContextAfter, "Victory Mansions") {
+		t.Fatalf("the quote's own context did not reach its entry: before %q after %q", e.ContextBefore, e.ContextAfter)
+	}
+	md := exportAnthology(t, c, a.ID)
+	if !strings.Contains(md, "- context_before: The road ran north") || !strings.Contains(md, "- context_after: Winston Smith") {
+		t.Errorf("the file does not carry the context the page shows:\n%s", md)
+	}
+
+	setDisplay(t, c, a.ID, "book", hl, map[string]any{"edits": map[string]any{"context_before": "Earlier, in another draft."}}, http.StatusNoContent)
+	got := getAnthology(t, c, a.ID).Entries[0]
+	if got.ContextBefore != "Earlier, in another draft." || got.Originals["context_before"] == "" {
+		t.Errorf("the restated context was not applied with the original kept: %+v", got)
+	}
+	// the quote's own panel still says what the file says
+	if own := c.contextOf("annotation", hl); !strings.HasPrefix(own.Before, "The road ran north") {
+		t.Errorf("restating it in an anthology changed the quote's own context: %q", own.Before)
+	}
+}

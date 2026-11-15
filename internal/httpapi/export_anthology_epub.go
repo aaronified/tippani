@@ -212,6 +212,7 @@ h1.section { page-break-before: always; margin: 1.2em 0 .6em; }
 p.section { margin: .4em 0; }
 p.commentary { margin: .4em 0; }
 p.translation { margin: .3em 0 .6em; font-style: italic; }
+p.quote-note { margin: .3em 0 .6em; opacity: .8; }
 p.context { margin: .3em 0; opacity: .75; }
 blockquote { margin: .6em 0 .4em 0; padding-left: .9em; border-left: 3px solid #999; }
 p.attribution { margin: .2em 0 0; font-size: .85em; }
@@ -359,6 +360,11 @@ func epubBody(title, intro string, f anthologyFields, entries []anthologyEntryRo
 		}
 		sb.WriteString("</blockquote>\n")
 		epubContext(&sb, ef, "context_after", e.ContextAfter)
+		// The quote's own note, as the page and the Markdown draw it (it shows until switched off). It sat out of the
+		// book until 0094 made it a switch, which left the one file a reader sends somebody the only one without it.
+		if ef.shows("note") && strings.TrimSpace(e.QuoteNote) != "" {
+			sb.WriteString(`<p class="quote-note">` + xmlText(strings.TrimSpace(e.QuoteNote)) + "</p>\n")
+		}
 		// What the line says, in its own paragraph: a translation is prose, and joined into the attribution line it
 		// would read as a label.
 		if ef.shows("translation") && strings.TrimSpace(e.Translation) != "" {

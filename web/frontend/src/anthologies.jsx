@@ -1084,6 +1084,8 @@ function EntryNoteDialog({ entry, onSave, onCancel }) {
 // A RESTATEMENT NEVER REACHES THE QUOTE. The words go to the entry (PUT …/entries/{kind}/{id}/display); the library
 // keeps what it had, another anthology that holds the same quote is untouched, and "Put back" removes the restatement
 // so the quote's own words show again. A text equal to the quote's own is not a restatement and is not stored.
+// the server's limit on one restated part (anthologyEditMax)
+const DISPLAY_TEXT_MAX = 20000
 const DISPLAY_TEXTS = [
   { key: 'quote', field: 'quote', label: 'anthologies.display.text.quote', rows: 3 },
   { key: 'note', field: 'quote_note', label: 'anthologies.display.text.note', rows: 2 },
@@ -1163,7 +1165,7 @@ function EntryDisplayDialog({ entry, anthology, onSave, onCancel }) {
               className="tp-input"
               rows={d.rows}
               value={text[d.key]}
-              maxLength={20000}
+              maxLength={DISPLAY_TEXT_MAX}
               onChange={(e) => setText((x) => ({ ...x, [d.key]: e.target.value }))}
             />
             {text[d.key] !== orig(d) && (
@@ -2171,7 +2173,7 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
 
   async function saveDisplay(entry, body) {
     const r = await json('PUT', `/anthologies/${id}/entries/${entry.kind}/${entry.item_id}/display`, body)
-    if (!r.ok) return errText(r, t('error.save.note'))
+    if (!r.ok) return errText(r, t('error.save.display'))
     setDisplaying(null)
     await reload()
     return null

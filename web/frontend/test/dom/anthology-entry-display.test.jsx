@@ -117,9 +117,33 @@ describe('the entry\'s own dialog', () => {
   it('offers the quote\'s own words back after a restatement, and clears it with a null', async () => {
     DETAIL.entries = [entry({ translation: 'A fearless mind.', edits: { translation: 'A fearless mind.' }, originals: { translation: 'A mind with no fear in it.' } })]
     const d = await openDialog()
-    fireEvent.click(within(d).getByRole('button', { name: /put the quote's own back/i }))
+    fireEvent.click(within(d).getByRole('button', { name: /put back the quote's own words/i }))
     fireEvent.click(within(d).getAllByRole('button', { name: /^save/i })[0])
     await waitFor(() => expect(CALLS.some(([m, p]) => m === 'PUT' && /\/display$/.test(p))).toBe(true))
     expect(CALLS.find(([m, p]) => m === 'PUT' && /\/display$/.test(p))[2].edits).toEqual({ translation: null })
+  })
+})
+
+describe("saving the anthology's own form", () => {
+  const saveUntouched = async () => {
+    open()
+    await page()
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit' }))
+    const d = await screen.findByRole('dialog')
+    fireEvent.click(within(d).getAllByRole('button', { name: /^save/i })[0])
+    await waitFor(() => expect(CALLS.some(([m, p]) => m === 'PUT' && p === '/anthologies/1')).toBe(true))
+    return CALLS.find(([m, p]) => m === 'PUT' && p === '/anthologies/1')[2]
+  }
+
+  it('does not switch the quote\'s note off for an anthology that never chose', async () => {
+    const body = await saveUntouched()
+    // the note shows until switched off, so an untouched form must not send it as off
+    expect(body.fields?.note).not.toBe(false)
+  })
+
+  it('keeps the note off for an anthology that switched it off', async () => {
+    DETAIL.anthology.fields = { note: false }
+    const body = await saveUntouched()
+    expect(body.fields.note).toBe(false)
   })
 })
