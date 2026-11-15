@@ -104,6 +104,11 @@ type anthologyField struct {
 	// "not written": a field that is shown and not written at all would break
 	// 0045's promise that the screen and the file are one document.
 	Binding string
+	// OnByDefault marks a stored field that SHOWS until it is switched off. Everything added since 0074 is off at zero
+	// so that a default export is byte for byte what it was; the quote's own note is the one exception, because it
+	// has always been shown and an anthology written before it had a switch must not lose it. Such a field is kept in
+	// `fields` as "hide_<key>" when it is off, so an empty column still means "nobody has configured this".
+	OnByDefault bool
 	// Label is the locale key the switch is drawn with. The six 0045 fields keep
 	// their own prose ("Who said it"), because they name parts of the DOCUMENT;
 	// everything since names a field of the WORK and takes common.field.*, which
@@ -131,6 +136,16 @@ var anthologyRegistry = []anthologyField{
 	{Key: "date", Col: "show_date", Kinds: allKinds, Binding: "date", Label: "anthologies.form.fields.date.label"},
 	{Key: "commentary", Col: "hide_commentary", Hidden: true, Kinds: allKinds, Binding: "", Label: "anthologies.form.fields.commentary.label"},
 	{Key: "colour", Col: "hide_colour", Hidden: true, Kinds: allKinds, Binding: "color", Label: "anthologies.form.fields.colour.label"},
+
+	// THE PARTS OF THE QUOTE ITSELF (0094). The six above name the document's attributions; these name what the quote
+	// carries: its own note, what it says in another language, the language it is in, its tags,
+	// and the text around it in its source. Each can be restated for one entry (see anthology_parts.go) and shown or
+	// hidden for one entry, over this anthology's switch.
+	{Key: "note", OnByDefault: true, Kinds: allKinds, Binding: "", Label: "anthologies.form.fields.note.label"},
+	{Key: "translation", Kinds: allKinds, Binding: "translation", Label: "anthologies.form.fields.translation.label"},
+	{Key: "language", Kinds: allKinds, Binding: "language", Label: "anthologies.form.fields.language.label"},
+	{Key: "tags", Kinds: allKinds, Binding: "tags", Label: "anthologies.form.fields.tags.label"},
+	{Key: "context", Kinds: allKinds, Binding: "", Label: "anthologies.form.fields.context.label"},
 
 	// THE WORK JOIN. Everything below reads the book or the film the entry came out
 	// of, which the row has always carried the id of and never looked at.
@@ -252,8 +267,12 @@ func (f anthologyField) appliesTo(kind string) bool {
 // entry row or the person. Derived rather than stated: a second boolean saying so
 // is a second thing to keep true.
 func (f anthologyField) fromWork() bool {
-	return f.Col == "" && !personFieldKeys[f.Key] && !castFieldKeys[f.Key]
+	return f.Col == "" && !personFieldKeys[f.Key] && !castFieldKeys[f.Key] && !quotePartKeys[f.Key]
 }
+
+// quotePartKeys are the fields read off the QUOTE and not the work, the person or the cast: stored in `fields` like
+// every field since 0074 and answered by anthologyFieldValue's own switch (0094).
+var quotePartKeys = map[string]bool{"note": true, "translation": true, "language": true, "tags": true, "context": true}
 
 // fromPerson says whether it is read off the `people` row matched to the entry.
 func (f anthologyField) fromPerson() bool { return personFieldKeys[f.Key] }
@@ -293,7 +312,16 @@ func encodeExtraFields(on map[string]bool) string {
 	for k, v := range on {
 		// An unknown key is dropped rather than stored: the registry is the
 		// vocabulary, and a client inventing a name must not get it persisted.
-		if f, ok := anthologyFieldByKey[k]; v && ok && f.stored() {
+		f, ok := anthologyFieldByKey[k]
+		if !ok || !f.stored() {
+			continue
+		}
+		if f.OnByDefault {
+			// Only an explicit "off" is written: absent means "as it always was", which is on.
+			if !v {
+				keys = append(keys, "hide_"+k)
+			}
+		} else if v {
 			keys = append(keys, k)
 		}
 	}
@@ -324,8 +352,12 @@ func decodeExtraFields(s string) map[string]bool {
 		return on
 	}
 	for _, k := range keys {
-		if _, ok := anthologyFieldByKey[k]; ok {
+		if f, ok := anthologyFieldByKey[k]; ok && !f.OnByDefault {
 			on[k] = true
+		} else if base, found := strings.CutPrefix(k, "hide_"); found {
+			if f, ok := anthologyFieldByKey[base]; ok && f.OnByDefault && f.stored() {
+				on[base] = false
+			}
 		}
 	}
 	return on
@@ -359,6 +391,12 @@ func anthologyFieldValue(e anthologyEntryRow, f anthologyField) string {
 		return e.Date
 	case fieldColour:
 		return e.Color
+	case "translation":
+		return e.Translation
+	case "language":
+		return e.Language
+	case "tags":
+		return strings.Join(e.Tags, ", ")
 	}
 	// The commentary is the entry's own prose and is written above the quote rather
 	// than as a binding, which is why its registry row carries no binding key and

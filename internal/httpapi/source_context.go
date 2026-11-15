@@ -391,7 +391,32 @@ func (s *Server) handleGetContext(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "kind must be annotation, dialogue or utterance")
 		return
 	}
-	uid := userID(r)
+	// "Show more", for this read only: the panel may ask for a wider window than the
+	// setting, up to what is stored. It changes nothing and is forgotten on close.
+	var askB, askA *int
+	if v, err := strconv.Atoi(r.URL.Query().Get("before")); err == nil && v >= 0 {
+		askB = &v
+	}
+	if v, err := strconv.Atoi(r.URL.Query().Get("after")); err == nil && v >= 0 {
+		askA = &v
+	}
+	a, err := s.renderContext(userID(r), kind, id, askB, askA)
+	if errors.Is(err, sql.ErrNoRows) {
+		writeErr(w, http.StatusNotFound, "this quote has no context")
+		return
+	}
+	if err != nil {
+		internalError(w, r, "get context", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, a)
+}
+
+// renderContext is what the panel draws for one quote, and what an anthology draws around a passage it shows the
+// context of: the stored window cut to the effective span (the quote's own adjustment, then its work's or board's
+// rule, then the global pair, then the default). ONE FUNCTION, so the two cannot disagree about what "the context"
+// is. askB and askA are a wider window for one read, up to what is stored. sql.ErrNoRows when the quote has none.
+func (s *Server) renderContext(uid int64, kind string, id int64, askB, askA *int) (contextAnswer, error) {
 	var a contextAnswer
 	var before, after string
 	var wantB, wantA sql.NullInt64
@@ -401,29 +426,20 @@ func (s *Server) handleGetContext(w http.ResponseWriter, r *http.Request) {
 		        bound_before, bound_after, start_at, end_at
 		 FROM source_context WHERE user_id = ? AND subject = ? AND item_id = ?`, uid, kind, id).
 		Scan(&before, &a.Body, &after, &a.Unit, &a.Stored.Before, &a.Stored.After, &wantB, &wantA, &bb, &ba, &a.Start, &a.End)
-	if errors.Is(err, sql.ErrNoRows) {
-		writeErr(w, http.StatusNotFound, "this quote has no context")
-		return
-	}
 	if err != nil {
-		internalError(w, r, "get context", err)
-		return
+		return a, err
 	}
 	sep, def := "\n\n", defaultParagraphs
 	if a.Unit == unitCue {
 		sep, def = "\n", defaultCues
 	}
-	// The effective pair, by the cascade: the quote's own adjustment, then its work's or
-	// board's rule, then the reader's global pair, then the default (context_rules.go).
 	span, from := s.effectiveSpan(uid, kind, id, wantB, wantA, def)
 	a.From = from
-	// "Show more", for this read only: the panel may ask for a wider window than the
-	// setting, up to what is stored. It changes nothing and is forgotten on close.
-	if v, err := strconv.Atoi(r.URL.Query().Get("before")); err == nil && v >= 0 {
-		span.Before = v
+	if askB != nil {
+		span.Before = *askB
 	}
-	if v, err := strconv.Atoi(r.URL.Query().Get("after")); err == nil && v >= 0 {
-		span.After = v
+	if askA != nil {
+		span.After = *askA
 	}
 	span.Before = min(span.Before, a.Stored.Before)
 	span.After = min(span.After, a.Stored.After)
@@ -436,7 +452,7 @@ func (s *Server) handleGetContext(w http.ResponseWriter, r *http.Request) {
 	// setting, and saying "end of the chapter" over it would be wrong.
 	a.BoundBefore = bb == 1 && span.Before >= a.Stored.Before
 	a.BoundAfter = ba == 1 && span.After >= a.Stored.After
-	writeJSON(w, http.StatusOK, a)
+	return a, nil
 }
 
 // lastUnits returns the last n units of stored context text, which is how a narrower

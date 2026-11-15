@@ -12542,3 +12542,9 @@ button.work-pill:hover { color: var(--ink); border-color: var(--ink-border); }
 .book-duplicate-row { padding: var(--row) var(--edge); border: 1px solid var(--line); border-radius: 11px; }
 .book-duplicate-author { margin: 0; color: var(--faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .book-duplicate-actions { display: flex; flex-wrap: wrap; gap: var(--row); }
+
+/* What the quote carries beyond its words (0094): the text around it in its source, and what it says in another
+   language. Quiet against the quote itself, in the quote's own direction. */
+.anthology-context { font-style: italic; }
+.anthology-translation { font-style: italic; }
+.anthology-reader-part { margin-block: .35em; opacity: .8; }

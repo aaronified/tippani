@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- A passage shows and says its own parts in its anthology: the anthology can show each quote's
+  own note, its translation, its language, its tags and the text around it in its source, and
+  each passage can show or hide any of them for itself. A passage can also say them in its own
+  words (the quote, its note, its translation, the context before and after) for that anthology
+  only: the quote in your library, and any other anthology holding it, are not changed. Put it
+  back returns the quote's own words. Reading mode, Markdown and the EPUB follow (the EPUB now prints a quote's own note, as the page and the Markdown always did). The API reports revision 12 and the feature anthology-entry-display, which is how the Android app knows to offer it.
+
+- Change one surface yourself: Settings → Theme has a door that opens a picker for each surface
+  (background, bars, cards, covers) with the set's own material first and every other material
+  after it, saved to your account. The Android app has the same control and shows the same look.
+
 ## [3.9.1] - 2026-11-14
 
 ### Fixed

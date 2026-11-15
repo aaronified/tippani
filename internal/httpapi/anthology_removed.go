@@ -169,9 +169,9 @@ func (s *Server) handleRestoreAnthologyEntry(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	var pos float64
-	var note string
-	err = tx.QueryRow(`SELECT position, note FROM anthology_removed
-	                   WHERE anthology_id = ? AND kind = ? AND item_id = ?`, id, kind, itemID).Scan(&pos, &note)
+	var note, shown, said string
+	err = tx.QueryRow(`SELECT position, note, fields, edits FROM anthology_removed
+	                   WHERE anthology_id = ? AND kind = ? AND item_id = ?`, id, kind, itemID).Scan(&pos, &note, &shown, &said)
 	if err == sql.ErrNoRows {
 		writeErr(w, http.StatusNotFound, "that quote was not removed from this anthology")
 		return
@@ -185,8 +185,8 @@ func (s *Server) handleRestoreAnthologyEntry(w http.ResponseWriter, r *http.Requ
 		writeErr(w, http.StatusNotFound, "that quote does not exist")
 		return
 	}
-	if _, err := tx.Exec(`INSERT OR IGNORE INTO anthology_entries (anthology_id, position, kind, item_id, note)
-	                      VALUES (?, ?, ?, ?, ?)`, id, pos, kind, itemID, note); err != nil {
+	if _, err := tx.Exec(`INSERT OR IGNORE INTO anthology_entries (anthology_id, position, kind, item_id, note, fields, edits)
+	                      VALUES (?, ?, ?, ?, ?, ?, ?)`, id, pos, kind, itemID, note, shown, said); err != nil {
 		internalError(w, r, "restore entry", err)
 		return
 	}

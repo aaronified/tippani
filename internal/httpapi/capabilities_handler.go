@@ -123,7 +123,14 @@ import (
 // and entries, annotations, dialogues, quotes) honour an `Idempotency-Key` header, so
 // a write sent twice is made once (ADR-0933), and a quote's `source` may be `voice`
 // (ADR-0932). An older server ignores the header, so a client may send it always.
-const apiRevision = 11
+//
+// Revision 12: what one anthology entry shows and says (ADR-0934). The entries of
+// GET /anthologies/{id} carry `translation`, `tags`, `context_before`, `context_after`,
+// `fields` (the entry's own show/hide choices), `edits` and `originals`; the anthology's
+// `fields` gains `note`, `translation`, `language`, `tags` and `context`; and
+// PUT /anthologies/{id}/entries/{kind}/{item}/display sets an entry's `fields` and
+// `edits` without touching the quote. An older client reads the new names as absent.
+const apiRevision = 12
 
 // apiFeatures names what this server can do, so a client can light up or hide a
 // screen instead of probing for a 404. Names are stable once published: an old
@@ -212,11 +219,12 @@ var apiFeatures = []string{
 	// published and a client that supports one kind's translation has not thereby
 	// been taught the other two — and because a full-state PUT from a client that
 	// has not heard of this one silently clears the field. See revision 8.
-	"quote-translation", // `translation` on /annotations and /dialogues too
-	"device-current",    // GET /auth/devices marks the caller's own device `current`
-	"anthology-poster",  // poster_path and description on an anthology; POST/DELETE /anthologies/{id}/poster
-	"idempotency-key",   // a repeated Idempotency-Key on a create route answers the first answer and changes nothing
-	"voice-source",      // a quote's source may be "voice"
+	"quote-translation",       // `translation` on /annotations and /dialogues too
+	"device-current",          // GET /auth/devices marks the caller's own device `current`
+	"anthology-entry-display", // an anthology entry shows and says its own parts: PUT /anthologies/{id}/entries/{kind}/{item}/display
+	"anthology-poster",        // poster_path and description on an anthology; POST/DELETE /anthologies/{id}/poster
+	"idempotency-key",         // a repeated Idempotency-Key on a create route answers the first answer and changes nothing
+	"voice-source",            // a quote's source may be "voice"
 }
 
 // minClientRevision is the oldest client API revision this server still serves

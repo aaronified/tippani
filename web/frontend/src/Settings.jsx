@@ -5,7 +5,7 @@ import { RuleSlider } from './sources.jsx'
 import { coverImgURL, DEMO, json, errText, copyText, apiURL, upload as uploadFile, uploadWithProgress } from './api.js'
 import { coversThatFit } from './coverFit.js'
 import { useRowReorder } from './reorder.js'
-import { ACCENTS, GROUNDS, PHYS, paletteFor, parseTweaks, physDirty, physFor, applyColors, applyContrast, applyLabels, applyTheme, CAT_NAME_MAX, CATEGORY_PALETTE, categoryState, contrastPrefValue, getResolvedTheme, LABELS_KEY, labelsPref, MAT_SET_LABELS, MAT_SETS, surfaceStyle, UNSET_LABEL } from './theme.js'
+import { ACCENTS, GROUNDS, PHYS, paletteFor, parseTweaks, physDirty, physFor, applyColors, applyContrast, applyLabels, applyTheme, CAT_NAME_MAX, CATEGORY_PALETTE, categoryState, contrastPrefValue, getResolvedTheme, LABELS_KEY, labelsPref, MAT_SET_LABELS, MAT_SETS, SLOT_PREFS, SLOTS, surfaceStyle, TILE_NAMES, UNSET_LABEL } from './theme.js'
 import { QUOTE_LEADING_DEFAULT, QUOTE_LEADINGS, QUOTE_MEASURE_DEFAULT, QUOTE_MEASURES, SIZE_ROLES, TYPE_FACTORS, applyTypeScale, clampLeading, clampMeasure, factorsFrom, globalOf, renormalise, sizePrefKey } from './type.js'
 import {
   ALL_FACES,
@@ -77,6 +77,7 @@ import {
   IconRestore,
   IconReset,
   IconSliders,
+  IconLayers,
   IconType,
   FilePick,
   IconUpload,
@@ -4796,6 +4797,32 @@ function SizeSlider({ ariaLabel, storageKey, def, kind, works }) {
   )
 }
 
+// SurfaceTiles — a material for each of the four surfaces, over the set's own. One themed Select per surface: the set's
+// own material is the first choice (and what an empty slot means), then every material that is not `flat`.
+function SurfaceTiles({ set, tiles, onChange }) {
+  const own = (slot) => MAT_SETS[set][SLOTS.indexOf(slot)]
+  const word = (name) => (name === 'flat' ? t('settings.material.atrium.label') : t(`vocab.tile.${name}.label`))
+  return (
+    <div className="flex flex-col gap-4">
+      {SLOTS.map((slot) => (
+        <label key={slot} className="flex flex-col gap-1">
+          <MonoLabel>{t(`settings.appearance.slots.${slot}.label`)}</MonoLabel>
+          <Select
+            ariaLabel={t(`settings.appearance.slots.${slot}.label`)}
+            value={tiles[SLOTS.indexOf(slot)] || ''}
+            onChange={(v) => onChange(slot, v)}
+            filter
+            options={[
+              ['', t('settings.appearance.slots.own', { name: word(own(slot)) })],
+              ...TILE_NAMES.map((n) => [n, word(n)]),
+            ]}
+          />
+        </label>
+      ))}
+    </div>
+  )
+}
+
 // The seven material sets, each drawn in what it is made of.
 //
 // WHAT THIS REPLACED, AND WHY IT IS NOT THE SAME CONTROL WITH MORE CARDS. There were
@@ -5120,6 +5147,9 @@ function Appearance({ prefs, onPreferences, part = 'all', onGo = null, compact =
   function saveGlass(on) {
     setTrueGlass(on)
     applyTheme({ ...getResolvedTheme(), texTweak: JSON.stringify(texTweak), trueGlass: on })
+    // The shell's copy of the account's preferences is what it re-applies when anything else changes, so it has to hear
+    // of this too, or choosing a surface's material would put the glass back to its sign-in value on screen.
+    onPreferences?.({ trueGlass: on })
     json('PUT', '/auth/me/preferences', { trueGlass: on })
   }
   // The reader's edits to what each material does with light. NOT in `persist`,
@@ -5127,9 +5157,24 @@ function Appearance({ prefs, onPreferences, part = 'all', onGo = null, compact =
   // theme field on any change, so a preference riding in that object is wiped by
   // an unrelated accent click. One writer per concern.
   const [texTweak, setTexTweak] = useState(() => getResolvedTheme().texTweak)
+  // THE FOUR SURFACES' OWN MATERIALS, in SLOTS order, '' where the set's own is worn. One write per change, to the
+  // preference the server already stores it under.
+  const [slotTiles, setSlotTiles] = useState(() => getResolvedTheme().tiles)
+  function saveSlot(slot, name) {
+    const key = SLOT_PREFS[SLOTS.indexOf(slot)]
+    const next = slotTiles.slice()
+    next[SLOTS.indexOf(slot)] = name
+    setSlotTiles(next)
+    const fields = { ...getResolvedTheme(), [key]: name }
+    applyTheme(fields)
+    onPreferences?.({ [key]: name })
+    json('PUT', '/auth/me/preferences', { [key]: name })
+  }
+  const [slotsOpen, setSlotsOpen] = useState(false)
   function saveTweaks(next) {
     setTexTweak(next)
     applyTheme({ ...getResolvedTheme(), texTweak: JSON.stringify(next) })
+    onPreferences?.({ texTweak: JSON.stringify(next) }) // see saveGlass
     json('PUT', '/auth/me/preferences', { texTweak: JSON.stringify(next) })
   }
   // WHICH OF THE THREE COLOUR DOORS IS OPEN, or null. One panel and not three:
@@ -5163,7 +5208,10 @@ function Appearance({ prefs, onPreferences, part = 'all', onGo = null, compact =
   // through persist at all; the grounds cannot, because they are part of the same
   // full-state save the theme is.
   function persist(next) {
-    const s = { materialSet, theme: themePref, accent, groundLight, groundDark, ...next }
+    // The slot overrides ride along (read off what is applied), or the full-state applyTheme below would put every
+    // slot back on the set's own material.
+    const { tileGround, tileShell, tileCard, tileCover } = getResolvedTheme()
+    const s = { materialSet, theme: themePref, accent, groundLight, groundDark, tileGround, tileShell, tileCard, tileCover, ...next }
     setMaterialSet(s.materialSet)
     setThemePref(s.theme)
     setAccent(s.accent)
@@ -5646,6 +5694,33 @@ function Appearance({ prefs, onPreferences, part = 'all', onGo = null, compact =
           glass={trueGlass}
         />
       </FormModal>
+      {/* CHANGE ONE SURFACE YOURSELF. A set dresses four surfaces at once; this keeps the set and swaps the one. It is
+          a door like the dials' beside it, because it is reached for once, and it wears its own glyph (the dials
+          wear the sliders, and one drawing on two doors says they open the same thing). */}
+      <PrefRow
+        label={t('settings.appearance.slots.title')}
+        sub={t('settings.appearance.slots.hint')}
+        info={t('settings.appearance.slots.info.body')}
+        changed={slotTiles.some(Boolean)}
+        control={
+          <GhostButton icon={<IconLayers />} keepLabel onClick={() => setSlotsOpen(true)}>
+            {t('settings.appearance.slots.open.label')}
+          </GhostButton>
+        }
+      />
+      {/* THE PANEL OPENS IN THE ROW, like the colour doors' (a question wears the same chrome as its answer, and there
+          is no draft to hold: each choice is applied and saved as it is made). */}
+      {slotsOpen && (
+        <div className="colour-panel">
+          <div className="colour-panel-head">
+            <MonoLabel>{t('settings.appearance.slots.title')}</MonoLabel>
+            <GhostButton icon={<IconChevron open />} onClick={() => setSlotsOpen(false)}>
+              {t('common.action.hide.label')}
+            </GhostButton>
+          </div>
+          <SurfaceTiles set={materialSet} tiles={slotTiles} onChange={saveSlot} />
+        </div>
+      )}
 
       </PrefGroup>
       <PrefGroup

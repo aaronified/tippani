@@ -192,19 +192,25 @@ func renderAnthologyExportFront(title, intro string, f anthologyFields, entries 
 		} else if key == "" {
 			lastGroup = ""
 		}
+		// WHAT THIS ENTRY SHOWS: the anthology's switches with the entry's own over them (0094).
+		ef := f.forEntry(e.Fields)
 		sb.WriteString("\n## ")
-		sb.WriteString(anthologyHeading(e, i, f))
+		sb.WriteString(anthologyHeading(e, i, ef))
 		sb.WriteString("\n")
 		// The commentary is the reader's own writing about this passage, and hiding it
 		// is the switch most likely to be used in anger: an anthology made to send
 		// somebody is not always one you want your marginalia in.
-		if f.shows("commentary") && strings.TrimSpace(e.Note) != "" {
+		if ef.shows("commentary") && strings.TrimSpace(e.Note) != "" {
 			sb.WriteString("\n")
 			sb.WriteString(strings.TrimRight(e.Note, "\n"))
 			sb.WriteString("\n")
 		}
 		sb.WriteString("\n")
-		writeQuoteBlock(&sb, e.Quote, e.QuoteNote, func(note string) {
+		quoteNote := e.QuoteNote
+		if !ef.shows("note") {
+			quoteNote = ""
+		}
+		writeQuoteBlock(&sb, e.Quote, quoteNote, func(note string) {
 			// THE REGISTRY DECIDES WHAT IS WRITTEN AND IN WHAT ORDER (0074), which is
 			// what keeps the reading view and this file one document: both walk the
 			// same list. Source and credit are still the two bindings the quotes
@@ -224,7 +230,7 @@ func renderAnthologyExportFront(title, intro string, f anthologyFields, entries 
 				if fd.Binding == "" || fd.Key == fieldColour {
 					continue
 				}
-				if !f.shows(fd.Key) || !fd.appliesTo(e.Kind) {
+				if !ef.shows(fd.Key) || !fd.appliesTo(e.Kind) {
 					continue
 				}
 				writeBinding(&sb, fd.Binding, anthologyFieldValue(e, fd))
@@ -246,10 +252,16 @@ func renderAnthologyExportFront(title, intro string, f anthologyFields, entries 
 				writeBinding(&sb, "work_year", e.WorkYear)
 			}
 			writeBinding(&sb, "note", note)
+			// THE SOURCE TEXT AROUND THE PASSAGE, as two bindings: it is the one part with no key the importer reads, so
+			// a re-import ignores it, which is what an unknown key does.
+			if ef.shows("context") {
+				writeBinding(&sb, "context_before", e.ContextBefore)
+				writeBinding(&sb, "context_after", e.ContextAfter)
+			}
 			// The default colour is left out, so a file mentions colour only when one
 			// was chosen — the same rule all three other exports follow, and what
 			// keeps a re-export diffing clean against an older file.
-			if f.shows(fieldColour) && e.Color != "yellow" {
+			if ef.shows(fieldColour) && e.Color != "yellow" {
 				writeBinding(&sb, "color", e.Color)
 			}
 			writeFavorite(&sb, e.Favorite)

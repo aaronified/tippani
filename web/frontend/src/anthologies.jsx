@@ -74,6 +74,7 @@ import {
   IconReset,
   IconClose,
   IconGrip,
+  IconLayers,
   useScreenBar,
   IconQuiz, IconPractise, IconPrint, IconReading, IconSearch,
   MonoLabel,
@@ -231,11 +232,26 @@ const PERSON_SWITCHES = [
   { key: 'signature', work: true, label: 'common.field.signature.label', eg: 'anthologies.eg.signature' },
 ]
 
+// QUOTE_SWITCHES — what the quote itself carries (0094), as opposed to what its work or its author knows: its own
+// note, what it says in another language, the language it is in, its tags, and the text around it in its source.
+//
+// THE NOTE IS THE ONE THAT SHOWS UNTIL SWITCHED OFF (`byDefault`). It has always been drawn under an entry, and an
+// anthology saved before it had a switch must not lose it, so its flag is stored only when it is turned OFF. Every
+// other row here is off at zero like the rest of the stored fields. They are also the parts an entry can restate for
+// itself — see EntryDisplayDialog.
+const QUOTE_SWITCHES = [
+  { key: 'note', work: true, byDefault: true, label: 'anthologies.form.fields.note.label', eg: 'anthologies.eg.note' },
+  { key: 'translation', work: true, label: 'anthologies.form.fields.translation.label', eg: 'anthologies.eg.translation' },
+  { key: 'language', work: true, label: 'anthologies.form.fields.language.label', eg: 'anthologies.eg.language' },
+  { key: 'tags', work: true, label: 'anthologies.form.fields.tags.label', eg: 'anthologies.eg.tags' },
+  { key: 'context', work: true, label: 'anthologies.form.fields.context.label', eg: 'anthologies.eg.context' },
+]
+
 // `work: true` ON A PERSON ROW READS ODD AND IS RIGHT: the flag means "stored in
 // the `fields` object", not "read off the work". Everything added after 0045 lives
 // there whatever it reads from, and giving the two questions one flag each would be
 // a second thing to keep true for a distinction the form never makes.
-const ALL_SWITCHES = [...FIELD_SWITCHES, ...WORK_SWITCHES, ...PERSON_SWITCHES]
+const ALL_SWITCHES = [...FIELD_SWITCHES, ...QUOTE_SWITCHES, ...WORK_SWITCHES, ...PERSON_SWITCHES]
 
 // SWITCH_GROUPS — the three lists as a registry, because the form no longer draws
 // them and something has to say what the three doors open onto.
@@ -252,6 +268,7 @@ const ALL_SWITCHES = [...FIELD_SWITCHES, ...WORK_SWITCHES, ...PERSON_SWITCHES]
 // still looks in the same place, and the keys below are the ones already shipped.
 const SWITCH_GROUPS = [
   { key: 'passage', rows: FIELD_SWITCHES, label: 'anthologies.form.fields.label', hint: 'anthologies.form.fields.hint' },
+  { key: 'quote', rows: QUOTE_SWITCHES, label: 'anthologies.form.fields.quote.label', hint: 'anthologies.form.fields.quote.hint' },
   { key: 'work', rows: WORK_SWITCHES, label: 'anthologies.form.fields.work.label', hint: 'anthologies.form.fields.work.hint' },
   { key: 'person', rows: PERSON_SWITCHES, label: 'anthologies.form.fields.person.label', hint: 'anthologies.form.fields.person.hint' },
 ]
@@ -264,7 +281,7 @@ const stored = (row, isShown) => (row.hide ? !isShown : isShown)
 
 // seeded reads a row's current value out of the anthology, from whichever of the
 // two homes it lives in. One function, so the split is stated once.
-const seeded = (row, a) => (row.work ? !!a?.fields?.[row.key] : !!a?.[row.key])
+const seeded = (row, a) => (row.byDefault ? a?.fields?.[row.key] !== false : row.work ? !!a?.fields?.[row.key] : !!a?.[row.key])
 
 // splitFlags turns the form's one flat map back into the shape the PUT takes: the
 // six at the top level where their columns are, the rest inside `fields`.
@@ -272,7 +289,10 @@ const splitFlags = (flags) => {
   const body = {}
   const fields = {}
   for (const row of FIELD_SWITCHES) body[row.key] = !!flags[row.key]
-  for (const row of [...WORK_SWITCHES, ...PERSON_SWITCHES]) if (flags[row.key]) fields[row.key] = true
+  for (const row of [...QUOTE_SWITCHES, ...WORK_SWITCHES, ...PERSON_SWITCHES]) {
+    // a row that shows until switched off stores only the off; every other stores only the on
+    if (row.byDefault) { if (!flags[row.key]) fields[row.key] = false } else if (flags[row.key]) fields[row.key] = true
+  }
   body.fields = fields
   return body
 }
@@ -1055,6 +1075,124 @@ function EntryNoteDialog({ entry, onSave, onCancel }) {
   )
 }
 
+// EntryDisplayDialog — what ONE entry shows and says, in this anthology only (0094).
+//
+// TWO QUESTIONS ON ONE SCREEN, because they are one question to the person asking it — "what does this passage look
+// like here?": which parts it shows (each row is Inherit, Show or Hide over what the anthology says), and what it says
+// for the parts an anthology may restate (the quote, its note, its translation, the text before and after it).
+//
+// A RESTATEMENT NEVER REACHES THE QUOTE. The words go to the entry (PUT …/entries/{kind}/{id}/display); the library
+// keeps what it had, another anthology that holds the same quote is untouched, and "Put back" removes the restatement
+// so the quote's own words show again. A text equal to the quote's own is not a restatement and is not stored.
+// the server's limit on one restated part (anthologyEditMax)
+const DISPLAY_TEXT_MAX = 20000
+const DISPLAY_TEXTS = [
+  { key: 'quote', field: 'quote', label: 'anthologies.display.text.quote', rows: 3 },
+  { key: 'note', field: 'quote_note', label: 'anthologies.display.text.note', rows: 2 },
+  { key: 'translation', field: 'translation', label: 'anthologies.display.text.translation', rows: 2 },
+  { key: 'context_before', field: 'context_before', label: 'anthologies.display.text.context-before', rows: 3 },
+  { key: 'context_after', field: 'context_after', label: 'anthologies.display.text.context-after', rows: 3 },
+]
+// which switch each part sits under, so a restated part is not left hidden
+const DISPLAY_ROWS = [...FIELD_SWITCHES, ...QUOTE_SWITCHES, ...WORK_SWITCHES, ...PERSON_SWITCHES]
+const keyOf = (row) => (row.hide || /^show_/.test(row.key) ? row.key.replace(/^(hide|show)_/, '') : row.key)
+
+function EntryDisplayDialog({ entry, anthology, onSave, onCancel }) {
+  const own = entry.fields || {}
+  const [over, setOver] = useState(() => ({ ...own }))
+  const orig = (d) => (entry.originals && d.key in entry.originals ? entry.originals[d.key] : entry[d.field] || '')
+  const [text, setText] = useState(() => Object.fromEntries(DISPLAY_TEXTS.map((d) => [d.key, entry[d.field] || ''])))
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  // what the anthology says about this row: shown or not (the six hide_ rows store the opposite)
+  const inherited = (row) => (row.hide ? !seeded(row, anthology) : seeded(row, anthology))
+  const mode = (row) => (keyOf(row) in over ? (over[keyOf(row)] ? 'show' : 'hide') : 'inherit')
+  const dirtyRows = DISPLAY_ROWS.filter((row) => mode(row) !== (keyOf(row) in own ? (own[keyOf(row)] ? 'show' : 'hide') : 'inherit'))
+  const dirtyTexts = DISPLAY_TEXTS.filter((d) => text[d.key] !== (entry[d.field] || ''))
+  const dirty = dirtyRows.length + dirtyTexts.length
+
+  async function submit() {
+    const fields = {}
+    for (const row of DISPLAY_ROWS) {
+      const k = keyOf(row)
+      const m = mode(row)
+      const was = k in own ? (own[k] ? 'show' : 'hide') : 'inherit'
+      if (m !== was) fields[k] = m === 'inherit' ? null : m === 'show'
+    }
+    const edits = {}
+    for (const d of dirtyTexts) edits[d.key] = text[d.key] === orig(d) ? null : text[d.key]
+    setBusy(true)
+    const msg = await onSave(entry, { fields, edits })
+    setBusy(false)
+    if (msg) setError(msg)
+  }
+
+  const word = (row) => t(row.label)
+  return (
+    <FormModal open title={t('anthologies.display.title')} onClose={onCancel} dirty={dirty} maxWidth={620}>
+      <HostedForm busy={busy} onSubmit={submit}>
+        <p className="microcopy">{t('anthologies.display.body')}</p>
+        <MonoLabel>{t('anthologies.display.shows.label')}</MonoLabel>
+        <div className="flex flex-col gap-2">
+          {DISPLAY_ROWS.map((row) => (
+            <div key={row.key} className="flex items-center justify-between gap-3">
+              <span className="min-w-0">{word(row)}</span>
+              <Select
+                ariaLabel={word(row)}
+                value={mode(row)}
+                onChange={(v) => setOver((o) => {
+                  const next = { ...o }
+                  if (v === 'inherit') delete next[keyOf(row)]
+                  else next[keyOf(row)] = v === 'show'
+                  return next
+                })}
+                options={[
+                  ['inherit', t(inherited(row) ? 'anthologies.display.inherit.shown' : 'anthologies.display.inherit.hidden')],
+                  ['show', t('anthologies.display.show.label')],
+                  ['hide', t('anthologies.display.hide.label')],
+                ]}
+              />
+            </div>
+          ))}
+        </div>
+        <MonoLabel>{t('anthologies.display.says.label')}</MonoLabel>
+        {DISPLAY_TEXTS.map((d) => (
+          <label key={d.key} className="tp-field">
+            <MonoLabel>{t(d.label)}</MonoLabel>
+            <ProseArea
+              language={entry.language}
+              className="tp-input"
+              rows={d.rows}
+              value={text[d.key]}
+              maxLength={DISPLAY_TEXT_MAX}
+              onChange={(e) => setText((x) => ({ ...x, [d.key]: e.target.value }))}
+            />
+            {text[d.key] !== orig(d) && (
+              <GhostButton type="button" icon={<IconReset />} onClick={() => setText((x) => ({ ...x, [d.key]: orig(d) }))}>
+                {t('anthologies.display.put-back.label')}
+              </GhostButton>
+            )}
+          </label>
+        ))}
+        <ErrorText>{error}</ErrorText>
+      </HostedForm>
+    </FormModal>
+  )
+}
+
+// HostedForm — the form of a dialog whose state lives in its parent. useFormHost reads the context FormModal puts
+// around its CHILDREN, so it has to be called from one: called in the component that renders the modal it joins
+// whatever surface is further out, and the dialog draws no tick at all.
+function HostedForm({ busy, onSubmit, children }) {
+  const host = useFormHost(busy ? t('common.action.save.busy') : '')
+  return (
+    <form id={host?.formId} className="anthology-form" onSubmit={(e) => { e.preventDefault(); onSubmit() }}>
+      {children}
+    </form>
+  )
+}
+
 // DeleteAnthologyDialog — and it says what is actually lost, because this one is
 // unusual twice over.
 //
@@ -1307,10 +1445,65 @@ function EntryAttribution({ entry, fields = {}, openWork = null }) {
   )
 }
 
+// entryFields — the anthology's switches with one entry's own laid over them (0094). A key the entry does not name
+// inherits. The six that have a column of their own are spelled hide_/show_ in `fields`, so an override on one of
+// them is mapped onto its column; everything else is a key of the stored `fields` object. The server does the same
+// join for the Markdown and the book (`forEntry`), so the page and the file cannot disagree.
+const COLUMN_OF = {
+  credit: ['hide_credit', true],
+  source: ['hide_source', true],
+  locator: ['show_locator', false],
+  date: ['show_date', false],
+  commentary: ['hide_commentary', true],
+  colour: ['hide_colour', true],
+}
+export function entryFields(fields = {}, entry) {
+  const over = entry?.fields
+  if (!over || Object.keys(over).length === 0) return fields
+  const out = { ...fields, fields: { ...(fields.fields || {}) } }
+  for (const [key, on] of Object.entries(over)) {
+    const col = COLUMN_OF[key]
+    if (col) out[col[0]] = col[1] ? !on : on
+    else out.fields[key] = on
+  }
+  return out
+}
+
+// ContextLine — the source text on one side of the passage, when this entry shows its context. It sits against the
+// quote itself, above it for the text before and below it for the text after, and not with the other parts: it is
+// the passage's own surroundings, not a note about it.
+function ContextLine({ entry, fields = {}, side, reading = false }) {
+  const text = fields.fields?.context && entry[`context_${side}`]
+  if (!text) return null
+  return <p className={`anthology-context ${reading ? 'anthology-reader-part' : 'microcopy mt-1 opacity-80'}`.trim()} dir="auto">{text}</p>
+}
+
+// QuoteParts — the quote's own note, its translation, its language and its tags, whichever of them this entry shows.
+// The same lines on the page and in the reading view, so one function: the note keeps the place it always had, under
+// the attribution, and the rest follow it.
+function QuoteParts({ entry, fields = {}, reading = false }) {
+  const f = fields.fields || {}
+  const note = f.note !== false && entry.quote_note
+  const translation = f.translation && entry.translation
+  const language = f.language && entry.language
+  const tags = f.tags && entry.tags?.length ? entry.tags.join(' · ') : ''
+  const cls = reading ? 'anthology-reader-part' : 'microcopy mt-1 opacity-80'
+  return (
+    <>
+      {note ? <p className={cls}>{entry.quote_note}</p> : null}
+      {translation ? <p className={`anthology-translation ${cls}`}>{entry.translation}</p> : null}
+      {language ? <p className={cls}>{entry.language}</p> : null}
+      {tags ? <p className={cls}>{tags}</p> : null}
+    </>
+  )
+}
+
 // piece and then the piece speaks. The attribution sits under it, and where the
 // quote has a parent work the credit is a doorway into it — a CONTENT LINK, so it
 // is never gated on which sections are switched on.
-function AnthologyEntry({ entry, fields = {}, first, last, onNote, onMove, onMoveTo, onRemove, onOpenBook, onOpenMovie }) {
+function AnthologyEntry({ entry, fields: anthologyFields = {}, first, last, onNote, onDisplay, onMove, onMoveTo, onRemove, onOpenBook, onOpenMovie }) {
+  // what THIS entry shows: the anthology's switches with its own over them
+  const fields = entryFields(anthologyFields, entry)
   const openWork =
     entry.work_id && entry.kind === 'book'
       ? onOpenBook
@@ -1335,12 +1528,14 @@ function AnthologyEntry({ entry, fields = {}, first, last, onNote, onMove, onMov
     {/* THE ENTRY'S OWN LANGUAGE. An anthology is a page of quotes and this
         is one of them — the last surface in the app that was still drawing
         a reader's German in the display face. */}
+    <ContextLine entry={entry} fields={fields} side="before" />
     <blockquote
       className={`anthology-quote ${languageClass(entry.language)}`.trim()}
       style={{ '--entry-color': fields.hide_colour ? 'var(--line)' : categoryVar(entry.color) }}
     >
       {entry.quote}
     </blockquote>
+    <ContextLine entry={entry} fields={fields} side="after" />
     {/* THE ATTRIBUTION LINE, and it can now be nothing at all. With the credit
         and the source both switched off there is no line rather than an empty
         one — a reader who turned both off asked for a document of passages, and
@@ -1397,7 +1592,7 @@ function AnthologyEntry({ entry, fields = {}, first, last, onNote, onMove, onMov
         they saved the line, the other is what they wrote when they placed it
         here. Shown quietly, under the credit, so the two never read as one
         paragraph. */}
-    {entry.quote_note && <p className="microcopy mt-1 opacity-80">{entry.quote_note}</p>}
+    <QuoteParts entry={entry} fields={fields} />
         </div>
         <span className="flex items-center">
         <QuoteSpeakButton kind={entry.kind} item={entry} />
@@ -1411,6 +1606,9 @@ function AnthologyEntry({ entry, fields = {}, first, last, onNote, onMove, onMov
         label: t(entry.note ? 'anthologies.entry.note.edit.label' : 'anthologies.entry.note.add.label'),
         onClick: () => onNote(entry),
       },
+      // WHAT THIS ENTRY SHOWS AND SAYS (0094): over the anthology's switches, and its own words for the parts of the
+      // quote an anthology may restate. Beside the note because both are about this passage in this anthology.
+      ...(onDisplay ? [{ id: 'display', icon: <IconLayers />, label: t('anthologies.entry.display.label'), onClick: () => onDisplay(entry) }] : []),
       // MOVE UP / MOVE DOWN, AND NO DRAG. The order is the feature, so it has
       // to be changeable — but a drag has no keyboard equivalent and a menu
       // item is reachable by tab, by arrow key and by a thumb. The item at an
@@ -1635,6 +1833,7 @@ function AnthologyReader({ anthology, slots, groupBy, onClose }) {
       )
     }
     const entry = slot.entry
+    const ef = entryFields(fields, entry)
     const prev = slots[i - 1]
     const key = groupKey(entry, groupBy)
     const header = groupBy && key && (!prev || prev.type === 'section' || groupKey(prev.entry, groupBy) !== key)
@@ -1643,9 +1842,12 @@ function AnthologyReader({ anthology, slots, groupBy, onClose }) {
     return (
       <div key={`${entry.kind}:${entry.item_id}`} className="anthology-reader-entry">
         {header && <h3 className="anthology-group">{header}</h3>}
-        {!fields.hide_commentary && entry.note && <p className="anthology-reader-note">{entry.note}</p>}
+        {!ef.hide_commentary && entry.note && <p className="anthology-reader-note">{entry.note}</p>}
+        <ContextLine entry={entry} fields={ef} side="before" reading />
         <blockquote className={`anthology-reader-quote ${languageClass(entry.language)}`.trim()}>{entry.quote}</blockquote>
-        {(!fields.hide_credit || !fields.hide_source) && <EntryAttribution entry={entry} fields={fields} />}
+        <ContextLine entry={entry} fields={ef} side="after" reading />
+        {(!ef.hide_credit || !ef.hide_source) && <EntryAttribution entry={entry} fields={ef} />}
+        <QuoteParts entry={entry} fields={ef} reading />
       </div>
     )
         })}
@@ -1857,6 +2059,7 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
   const [editing, setEditing] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [noting, setNoting] = useState(null)
+  const [displaying, setDisplaying] = useState(null)
   const [ruling, setRuling] = useState(false)
   // KEEP IT FED (0075), and it is a COUNT rather than an ARRIVAL — see the effect
   // below for why the plan's own two sentences could not both ship.
@@ -1964,6 +2167,14 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
     const r = await json('PUT', `/anthologies/${id}/entries`, { ...entryRef(entry), note })
     if (!r.ok) return errText(r, t('error.save.note'))
     setNoting(null)
+    await reload()
+    return null
+  }
+
+  async function saveDisplay(entry, body) {
+    const r = await json('PUT', `/anthologies/${id}/entries/${entry.kind}/${entry.item_id}/display`, body)
+    if (!r.ok) return errText(r, t('error.save.display'))
+    setDisplaying(null)
     await reload()
     return null
   }
@@ -2358,6 +2569,7 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
           first={i === 0}
           last={i === slots.length - 1}
           onNote={setNoting}
+          onDisplay={setDisplaying}
           onMove={move}
           onMoveTo={setMoving}
           onRemove={remove}
@@ -2447,6 +2659,7 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
         />
       )}
       {noting && <EntryNoteDialog entry={noting} onSave={saveNote} onCancel={() => setNoting(null)} />}
+      {displaying && <EntryDisplayDialog entry={displaying} anthology={anthology} onSave={saveDisplay} onCancel={() => setDisplaying(null)} />}
       {moving && (
         <MoveToDialog
           max={slots.filter((sl) => sl.type === 'entry').length}

@@ -2,7 +2,7 @@
 
 Source of truth: this wiki page.
 
-Not built; the machinery is, and nothing reaches it. Verified against `75e55ae` (main,
+Partly built: Settings › Theme has a door with one picker per surface, writing the four existing preferences (the simple form), and the app does the same. Everything below about per-set storage, saved looks, the share picture and the tab-per-surface grid is still not built. Verified against `75e55ae` (main,
 28 September 2026; its code is `ee4be1f`'s). Each citation is `path:line` and the text at
 that line. Tasks, one per ask:
 
