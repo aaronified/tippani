@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.1] - 2026-11-15
+
 ### Fixed
 
 - Anthologies: the list tile's menu no longer sits over the cover; the reading view is a centred
