@@ -294,3 +294,22 @@ func TestTheContextOfAQuoteReachesTheAnthologyAndCanBeRestatedThere(t *testing.T
 		t.Errorf("restating it in an anthology changed the quote's own context: %q", own.Before)
 	}
 }
+
+func TestTheCapabilitiesNameWhatAnEntryShowsAndSays(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	caps := decode[struct {
+		Revision int      `json:"api_revision"`
+		Features []string `json:"features"`
+	}](t, c.mustDo("GET", "/capabilities", nil, http.StatusOK))
+	if caps.Revision < 12 {
+		t.Fatalf("revision %d, want 12 or more", caps.Revision)
+	}
+	found := false
+	for _, f := range caps.Features {
+		found = found || f == "anthology-entry-display"
+	}
+	if !found {
+		t.Fatalf("features %v do not name anthology-entry-display", caps.Features)
+	}
+}

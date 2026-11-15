@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- A newer app can tell this server shows and says anthology parts per passage: the capabilities
+  answer API revision 12 and the feature anthology-entry-display.
+
 - A passage shows and says its own parts in its anthology: the anthology can show each quote's
   own note, its translation, its language, its tags and the text around it in its source, and
   each passage can show or hide any of them for itself. A passage can also say them in its own
