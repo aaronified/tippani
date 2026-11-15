@@ -21,8 +21,8 @@ it('a reader puts one material on the cards, and it is still there after a reloa
   await app.press('Theme')
 
   await app.press('Open the materials')
-  await app.see('Background')
-  await app.see('Covers')
+  // words only the open panel carries: each surface's picker reads "The set's own (…)"
+  await app.see("The set's own (")
 
   await app.choose('Cards', 'Granite')
   await app.see('Granite')

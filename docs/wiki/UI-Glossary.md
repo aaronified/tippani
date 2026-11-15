@@ -1711,7 +1711,7 @@ The Settings tab. Phosphor `gear`. Nav-only, so the drawing was replaced rather 
 
 ### IconLayers
 
-*Defined in:* IconLayers — ui.jsx · Settings → Appearance · Change one surface yourself
+*Defined in:* IconLayers — ui.jsx · Settings → Theme · Change one surface yourself
 
 A stack of three planes, on the door that opens **Change one surface yourself**: a material for the background, the bars, the cards or the covers, over the set's own. Phosphor `stack`. It is not the sliders the dials door beside it wears — one drawing on two doors says they open the same thing.
 

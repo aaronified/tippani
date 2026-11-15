@@ -5147,6 +5147,9 @@ function Appearance({ prefs, onPreferences, part = 'all', onGo = null, compact =
   function saveGlass(on) {
     setTrueGlass(on)
     applyTheme({ ...getResolvedTheme(), texTweak: JSON.stringify(texTweak), trueGlass: on })
+    // The shell's copy of the account's preferences is what it re-applies when anything else changes, so it has to hear
+    // of this too, or choosing a surface's material would put the glass back to its sign-in value on screen.
+    onPreferences?.({ trueGlass: on })
     json('PUT', '/auth/me/preferences', { trueGlass: on })
   }
   // The reader's edits to what each material does with light. NOT in `persist`,
@@ -5171,6 +5174,7 @@ function Appearance({ prefs, onPreferences, part = 'all', onGo = null, compact =
   function saveTweaks(next) {
     setTexTweak(next)
     applyTheme({ ...getResolvedTheme(), texTweak: JSON.stringify(next) })
+    onPreferences?.({ texTweak: JSON.stringify(next) }) // see saveGlass
     json('PUT', '/auth/me/preferences', { texTweak: JSON.stringify(next) })
   }
   // WHICH OF THE THREE COLOUR DOORS IS OPEN, or null. One panel and not three:
