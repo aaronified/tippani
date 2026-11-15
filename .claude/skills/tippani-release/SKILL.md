@@ -1,6 +1,6 @@
 ---
 name: tippani-release
-description: Cut a Tippani release — changelog section, version, census, tag via the release workflow. Use when the owner asks to release, cut a version, or write release notes; runs on sonnet.
+description: Cut a Tippani release — changelog section, version, tag via the release workflow. Use when the owner asks to release, cut a version, or write release notes; runs on sonnet.
 ---
 
 # Tippani release
@@ -21,7 +21,5 @@ Base: the kit's `changelog-release` and `release-validator`.
 
 1. Version follows semver from the diff since the last tag (user-visible feature → minor, fix → patch).
 2. `go vet`, `gofmt -l .`, `go test ./...`, `npm test`, `npm run lint:rules`, `node scripts/wiki-check.mjs` green.
-3. AI census regenerated for the release commit: `ai_census.py --check --ai-file docs/wiki/How-this-was-written.md`,
-   block pasted at the top of "How this repo was written" (full clone, not shallow); keep the filled-in *Unmeasured history* bullet and move `SHA=`.
-4. Roadmap sweep (sonnet, report-only): `Roadmap.md` matches `Plans-Index.md` and plan pages; unsure ⇒ say so, add nothing.
-5. Entries are plain-language, user-facing; every entry is checked against the diff.
+3. Roadmap sweep (sonnet, report-only): `Roadmap.md` matches `Plans-Index.md` and plan pages; unsure ⇒ say so, add nothing.
+4. Entries are plain-language, user-facing; every entry is checked against the diff.

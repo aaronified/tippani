@@ -36,7 +36,7 @@ Code lives in the [repository](https://github.com/aaronified/tippani). Report pr
 - [Developing](Developing.md): the map of the whole repository, and how to know a change worked
 - [Testing](Testing.md): what a kept test is, and how the suites are laid out
 - [Releasing](Releasing.md): how a release is cut
-- [How this was written](How-this-was-written.md): how much is AI-written, and what is actually checked
+- [How this was written](How-this-was-written.md): that it was written with AI and the app contains none, and what is actually checked
 - [Bengali style](Bengali-style.md): register, terms and loanwords for the Bengali interface
 - [Provider marks](Provider-marks.md): the supplier marks, where each came from, under what licence
 

@@ -1133,5 +1133,6 @@ My asks of 28 September, as the build was being merged, and my answers to the tw
 - [ADR-0932](ADR-0932-A-Quote-May-Be-Captured-By-Voice.md): A quote may be captured by voice
 - [ADR-0933](ADR-0933-A-Write-Sent-Twice-Is-Made-Once.md): A write sent twice is made once
 - [ADR-0934](ADR-0934-A-Passage-Shows-And-Says-Its-Own-Parts-In-Its-Anthology.md): A passage shows and says its own parts in its anthology
+- [ADR-0935](ADR-0935-The-AI-Census-Is-Retired-For-A-Plain-Disclosure.md): The AI census is retired for a plain disclosure
 
 See also: [Design decisions](Design-decisions.md) · [Home](Home.md)

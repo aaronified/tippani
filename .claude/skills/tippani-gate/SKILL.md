@@ -37,7 +37,6 @@ fix, carrying source, tests and docs. Rating (`tippani-rate`) is stage 8, ahead 
   `internal/search/fts.go`, imports go through the staging queue, shipped migrations never edited,
   one-time upgrades in `internal/store/onetime_<version>_<what>.go`, no ticker/poller/cron.
 - Subagent work: retrieval/fan-out/screenshots on `haiku`; a subagent's finding is a lead — verify at its line before relying on it, and say which rows are verified.
-- AI census: `ai_census.py --check --ai-file docs/wiki/How-this-was-written.md` fails after any later commit; regenerate the block only when the owner asks for it at a release.
 
 ## Terminal state
 
