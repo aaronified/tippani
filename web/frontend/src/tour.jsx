@@ -273,19 +273,6 @@ const TOUR_STEPS = [
     get more() { return t('tour.step.filters.more') },
   },
   {
-    key: 'bin',
-    tab: 'bin',
-    get name() { return t('tour.step.bin.name') },
-    get blurb() { return t('tour.step.bin.blurb') },
-    get title() { return t('tour.step.bin.title') },
-    get body() {
-      return tNodes('tour.step.bin.prose', {
-        em1: <b key="em1">{t('tour.step.bin.em1.label')}</b>,
-      })
-    },
-    get more() { return t('tour.step.bin.more') },
-  },
-  {
     key: 'checks',
     tab: 'checks',
     get name() { return t('tour.step.checks.name') },

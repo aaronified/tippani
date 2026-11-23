@@ -2474,13 +2474,6 @@ tour.step.filters.prose = একটা ঘরের নাম আর কোল�
 tour.step.filters.em1.label = দুটো চিপ
 tour.step.filters.more = সত্যিকারের কোলন লিখতে হলে আগে একটা ব্যাকস্ল্যাশ দিন। রঙের নাম, তারিখ আর দশক — সবই চলে, আর ছাঁকা কোনো তাক থেকে এলে তার ছাঁকনিও সঙ্গে আসে। ফলগুলো বেছে ট্যাগ দিন, রং বদলান বা কোনো সংকলনে যোগ করুন।
 
-# Step "bin" — the Bin screen.
-tour.step.bin.name = ঝুড়ি
-tour.step.bin.blurb = যা মুছেছেন, ফেরত আনা যায়, মেয়াদ শেষ না হওয়া পর্যন্ত
-tour.step.bin.title = কিছুই সরাসরি বেরিয়ে যায় না
-tour.step.bin.prose = মুছে ফেলা জিনিস আগে এখানে এসে থাকে — উদ্ধৃতিসহ বই, সংলাপসহ সিনেমা, বা একটা হাইলাইট — আর {em1} আবার আগের জায়গায় ফেরে।
-tour.step.bin.em1.label = ফিরিয়ে আনলে
-tour.step.bin.more = প্রতিটা সারি দেখায় জিনিসটা কী ছিল আর কবে মোছা হয়েছে। চাইলে এখনই একটা চিরতরে সরান, বা পুরো বিন খালি করুন; নইলে এখানে বাঁধা দিন পেরোলে নিজেই মুছে যায়।
 
 # Step "checks" — the Checks screen.
 tour.step.checks.name = যাচাইকরণ
@@ -4093,83 +4086,9 @@ unit.game.one = গেম
 unit.game.other = গেম
 
 bin.title = ডাস্টবিন
-# What a row calls each kind, and what the chip above the list calls a pile of
-# them. ONE TABLE, TWO ROLES — a row is always singular and a chip always plural
-# — so these are two keys each rather than a .one/.other family, which would
-# need a count neither site has. “Film or show” is one label over two media
-# because the API stores 'movie' for both and no unit.* noun spans them.
-# bn: Bengali takes no plural marker after a count, so most pairs are the same word twice — written out anyway, per §3.0.
-bin.kind.book.label = বই
-bin.kind.book.plural = বই
-bin.kind.movie.label = সিনেমা বা শো
-bin.kind.movie.plural = সিনেমা আর শো
 bin.kind.annotation.label = উদ্ধৃতি
-bin.kind.annotation.plural = উদ্ধৃতি
 bin.kind.dialogue.label = সংলাপ
-bin.kind.dialogue.plural = সংলাপ
 bin.kind.quote.label = উক্তি
-bin.kind.quote.plural = উক্তি
-bin.kind.account.label = অ্যাকাউন্ট
-bin.kind.account.plural = অ্যাকাউন্ট
-bin.kind.merge.label = মেলানো ব্যক্তি
-bin.kind.merge.plural = মেলানো
-bin.kind.selection.label = একসঙ্গে মোছা
-bin.kind.selection.plural = একসঙ্গে মোছা
-bin.kind.charmerge.label = মেলানো চরিত্র
-bin.kind.charmerge.plural = চরিত্র মেলানো
-bin.kind.person.label = ব্যক্তি
-bin.kind.person.plural = ব্যক্তিরা
-bin.kind.character.label = চরিত্র
-bin.kind.character.plural = চরিত্রসমূহ
-# The retention control. The three windows are counted with the shared day
-# format, so only “never” needs a word of its own.
-bin.keep-for.label = কতদিন রাখবে
-bin.retention.aria = ডাস্টবিন কতদিন জিনিস রাখবে
-bin.retention.never.label = খালি না করা পর্যন্ত
-bin.info.title = ডাস্টবিন
-bin.info.body = যা মুছবেন, আগে এখানে এসে থাকে। ফিরিয়ে আনলে ঠিক আগের মতো ফেরে — উদ্ধৃতি, ট্যাগ, রং, সময়সূচি, কভার সব। “এখনই খালি করুন” চাপলে এখানকার সবকিছু চিরতরে মুছে যায়।
-bin.empty-now.label = এখনই খালি করুন
-# The kind filter, which appears only once there is more than one kind to tell
-# apart. {kind} is a plural from the table above, lower-cased by the caller.
-bin.filter.all.label = সব
-bin.filter.only.tip = শুধু {kind} দেখান
-bin.state.loading = ডাস্টবিন পড়া হচ্ছে…
-bin.state.empty = কিছু মোছা হয়নি — যা মুছবেন, আগে এখানে এসে জমবে
-bin.state.empty-kind = ডাস্টবিনে ওই ধরনের কিছু নেই
-# A row. {label} is what the thing was called; the two fallbacks below stand in
-# when it had no name a reader would recognise.
-bin.row.untitled.label = নামহীন
-# bn: The hole stays bare — a case marker on {label} would be right for one noun and wrong for the next (§5.4).
-bin.row.expand.aria = {label} — ভিতরে কী আছে
-bin.row.expand.fallback = এই এন্ট্রি
-bin.row.this.label = এটা
-bin.row.restore.aria = {label} ফিরিয়ে আনুন
-bin.row.restore.tip = ফিরিয়ে আনুন
-bin.row.purge.aria = {label} চিরতরে মুছুন
-bin.row.purge.tip = চিরতরে মুছুন
-# When it went. The year is left out when it is this one — a column of “deleted
-# 1 Aug 2026” on a bin you emptied last week is noise.
-bin.row.deleted.label = মুছেছেন {when}
-# The pictures that went down with it and are still held. No number: the row
-# says whether any survived, not how many.
-bin.row.pictures.one = ছবি রাখা আছে
-bin.row.pictures.other = ছবি রাখা আছে
-# When it is due to go for good. A DATE, NOT A COUNTDOWN: the purge clock runs
-# on server time and only while the server is up, so “gone in 3 days” is a
-# promise nothing here can keep.
-bin.row.expiry.due = {date} তারিখে চিরতরে যাবে
-bin.row.expiry.never = ডাস্টবিন খালি না করা পর্যন্ত থাকবে
-bin.row.contents.empty = ভিতরে কোনও উদ্ধৃতি নেই
-# Beside the page title: how many entries, and how many quotes went with them.
-bin.counts.held = {n} {noun} জমা আছে
-bin.confirm.title = ডাস্টবিন খালি করবেন?
-bin.confirm.body = এতে {count} আর তাদের ছবি চিরতরে মুছে যাবে। আর ফেরানো যাবে না।
-bin.confirm.label = খালি করুন
-bin.toast.gone.label = চলে গেছে
-bin.toast.emptied.label = ডাস্টবিন খালি হয়েছে
-error.restore.generic = ফিরিয়ে আনা গেল না
-error.remove.generic = সরানো গেল না
-error.empty.bin = খালি করা গেল না
 # ---------------------------------------------------------------------------
 # STRAY MARKS — CleanupPage.jsx. What a quote picked up on its way in. The page
 # spans all three kinds, so §2.5's umbrella উদ্ধৃতি is the word throughout —
@@ -5967,7 +5886,6 @@ settings.logs.export.all.aria = রাখা সব লগ এক্সপোর
 
 # --- from staging ---
 error.load.import-queue = ইমপোর্টের অপেক্ষার তালিকা পড়া গেল না
-error.load.bin = রিসাইকল বিন পড়া গেল না
 error.load.favourites = আপনার পছন্দের লেখাগুলো পড়া গেল না
 error.load.recall = এই উদ্ধৃতির উত্তরগুলো পড়া গেল না
 error.load.shuffle = একটা বাক্য আনা গেল না
@@ -6650,40 +6568,15 @@ staging.help.approve.what = মেনে নিলে উদ্ধৃতিগ�
 # bin.help.* — the "?" panel’s section for The bin.
 # ---------------------------------------------------------------------------
 
-# The help panel’s heading on the bin screen.
-bin.help.title = ডাস্টবিন
 
-# What waits in the bin.
-bin.help.what-is-here.term = এখানে কী আছে
-bin.help.what-is-here.what = যা মোছেন সব আগে এখানে এসে থাকে — উদ্ধৃতিসহ বই, সংলাপসহ সিনেমা, বা একটা হাইলাইট।
-bin.help.what-is-here.more = মুছে ফেলা অ্যাকাউন্টও পুরোটা থাকে, যে অ্যাডমিন মুছেছেন তাঁর বিনে।
 
 # How the bin is reached — the Settings tile, and nothing else.
 
-# What one row of the bin tells you.
-bin.help.row.term = একটা সারি
-bin.help.row.what = জিনিসটা কী ছিল, তার নাম, কবে মোছা হয়েছে, কটা উদ্ধৃতি সঙ্গে গেছে, ছবিটা রাখা আছে কি না, আর কবে চিরতরে মুছে যাবে।
-bin.help.row.more = ভেতরের লাইনগুলো পড়তে সারিটা খুলুন। এখানে শুধু ফিরিয়ে আনা বা চিরতরে মোছা যায়।
 
-bin.help.restore.term = ফিরিয়ে আনুন
-bin.help.restore.what = গোটা এন্ট্রিটা একবারেই ফিরিয়ে দেয়, ঠিক আগের মতো — উদ্ধৃতি, ট্যাগ, রং, সময়সূচি, কভার সব।
 
-# Throwing one entry away now, with no undo.
-bin.help.purge.term = চিরতরে মুছুন
-bin.help.purge.what = সেই জিনিসটা আর তার ছবি এখনই চিরতরে মুছে দেয়। আর ফেরানো যায় না।
 
-# The chips that show one kind of deleted thing at a time.
-bin.help.kinds.term = ধরন
-bin.help.kinds.what = বিনে একাধিক ধরনের জিনিস থাকলে চিপ দিয়ে এক এক ধরন আলাদা করে দেখা যায়।
 
-# How long a deleted thing waits before it goes for good.
-bin.help.keep-for.term = কতদিন রাখবে
-bin.help.keep-for.what = 7, 30 বা 90 দিন, নয়তো নিজে খালি না করা পর্যন্ত।
-bin.help.keep-for.more = সার্ভার চালু থাকলে তবেই সময় গোনা চলে, তাই প্রতিটা সারিতে কদিন বাকি না লিখে কবে মুছবে সেই তারিখ লেখা থাকে। “খালি না করা পর্যন্ত” বাছলে আপনি নিজে বিন খালি না করলে কিছুই মোছে না।
 
-# Emptying the whole bin.
-bin.help.empty-now.term = এখনই খালি করুন
-bin.help.empty-now.what = সব জিনিস আর তাদের ছবি মুছে দেয়। আগে জিজ্ঞেস করে, আর ফেরানো যায় না।
 
 # ---------------------------------------------------------------------------
 # cleanup.help.* — the "?" panel’s section for Stray marks.

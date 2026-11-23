@@ -60,7 +60,6 @@ export const SCREENS = {
   // admin's only, so every gate this table feeds would otherwise pass over the
   // newest section in the app. See SECTION_VARIANTS below.
   'settings-jobs': [() => import('../src/Settings.jsx'), 'default', { user: USER, onPreferences: noop, update: null, onUpdateInfo: noop, onStartTour: noop, section: 'jobs' }],
-  bin: [() => import('../src/BinPage.jsx'), 'default', { onClose: noop }],
   cleanup: [() => import('../src/CleanupPage.jsx'), 'default', { onClose: noop, onOpenBook: noop, onOpenMovie: noop, onOpenQuotes: noop }],
   // Checks composes the two above it. It gets its own row rather than being
   // assumed covered by them: it is the screen a nav row actually opens, and the

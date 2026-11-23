@@ -2494,13 +2494,6 @@ tour.step.filters.prose = Type a field and a colon — tag, author, colour — a
 tour.step.filters.em1.label = two chips
 tour.step.filters.more = Type a backslash before a colon you mean literally. Colour names, a date and a decade all work, and coming from a filtered shelf brings its filters along. Select results to tag, recolour or add to an anthology.
 
-# Step "bin" — the Bin screen.
-tour.step.bin.name = Bin
-tour.step.bin.blurb = what you deleted, restorable, until it ages out
-tour.step.bin.title = Nothing goes straight out
-tour.step.bin.prose = Deleted things wait here first — a book with its quotes, a film with its lines, or a single highlight — and {em1} puts it back.
-tour.step.bin.em1.label = restoring
-tour.step.bin.more = Each row shows what it was and when it was deleted. Remove one now, or empty the bin; otherwise items expire after the number of days set here.
 
 # Step "checks" — the Checks screen.
 tour.step.checks.name = Checks
@@ -4191,81 +4184,9 @@ unit.game.other = games
 # arrow.
 # ---------------------------------------------------------------------------
 bin.title = Bin
-# What a row calls each kind, and what the chip above the list calls a pile of
-# them. ONE TABLE, TWO ROLES — a row is always singular and a chip always plural
-# — so these are two keys each rather than a .one/.other family, which would
-# need a count neither site has. “Film or show” is one label over two media
-# because the API stores 'movie' for both and no unit.* noun spans them.
-bin.kind.book.label = Book
-bin.kind.book.plural = Books
-bin.kind.movie.label = Film or show
-bin.kind.movie.plural = Films & shows
 bin.kind.annotation.label = Highlight
-bin.kind.annotation.plural = Highlights
 bin.kind.dialogue.label = Film line
-bin.kind.dialogue.plural = Film lines
 bin.kind.quote.label = Quote
-bin.kind.quote.plural = Quotes
-bin.kind.account.label = Account
-bin.kind.account.plural = Accounts
-bin.kind.merge.label = Merged people
-bin.kind.merge.plural = Merges
-bin.kind.selection.label = Bulk delete
-bin.kind.selection.plural = Bulk deletes
-bin.kind.charmerge.label = Merged characters
-bin.kind.charmerge.plural = Character merges
-bin.kind.person.label = Person
-bin.kind.person.plural = People
-bin.kind.character.label = Character
-bin.kind.character.plural = Characters
-# The retention control. The three windows are counted with the shared day
-# format, so only “never” needs a word of its own.
-bin.keep-for.label = keep for
-bin.retention.aria = How long the bin keeps things
-bin.retention.never.label = Never
-bin.info.title = Bin
-bin.info.body = Everything you delete waits here. Restore brings it back exactly as it was — quotes, tags, colours, schedule and cover. Empty now deletes everything here for good.
-bin.empty-now.label = Empty now
-# The kind filter, which appears only once there is more than one kind to tell
-# apart. {kind} is a plural from the table above, lower-cased by the caller.
-bin.filter.all.label = All
-bin.filter.only.tip = Show {kind} only
-bin.state.loading = reading the bin…
-bin.state.empty = nothing deleted — anything you delete waits here first
-bin.state.empty-kind = nothing of that kind in the bin
-# A row. {label} is what the thing was called; the two fallbacks below stand in
-# when it had no name a reader would recognise.
-bin.row.untitled.label = untitled
-bin.row.expand.aria = What is inside {label}
-bin.row.expand.fallback = this entry
-bin.row.this.label = this
-bin.row.restore.aria = Restore {label}
-bin.row.restore.tip = Put this back
-bin.row.purge.aria = Remove {label} for good
-bin.row.purge.tip = Remove for good
-# When it went. The year is left out when it is this one — a column of “deleted
-# 1 Aug 2026” on a bin you emptied last week is noise.
-bin.row.deleted.label = deleted {when}
-# The pictures that went down with it and are still held. No number: the row
-# says whether any survived, not how many.
-bin.row.pictures.one = picture kept
-bin.row.pictures.other = pictures kept
-# When it is due to go for good. A DATE, NOT A COUNTDOWN: the purge clock runs
-# on server time and only while the server is up, so “gone in 3 days” is a
-# promise nothing here can keep.
-bin.row.expiry.due = due to go {date}
-bin.row.expiry.never = kept until you empty the bin
-bin.row.contents.empty = no quotes inside
-# Beside the page title: how many entries, and how many quotes went with them.
-bin.counts.held = {n} {noun} held
-bin.confirm.title = Empty the bin?
-bin.confirm.body = This permanently removes {count} and their pictures. It cannot be undone.
-bin.confirm.label = Empty it
-bin.toast.gone.label = gone
-bin.toast.emptied.label = bin emptied
-error.restore.generic = could not restore
-error.remove.generic = could not remove
-error.empty.bin = could not empty
 
 # ---------------------------------------------------------------------------
 # STRAY MARKS — CleanupPage.jsx. What a quote picked up on its way in: the
@@ -6159,7 +6080,6 @@ settings.logs.export.all.aria = Export all the logs kept (30 days)
 
 # --- from staging ---
 error.load.import-queue = could not read the import queue
-error.load.bin = could not read the bin
 error.load.favourites = could not read your favourites
 error.load.recall = could not read this quote's answers
 error.load.shuffle = could not fetch a line
@@ -6853,40 +6773,15 @@ staging.help.approve.what = Approving files the quotes; discarding drops them. R
 # bin.help.* — the "?" panel’s section for The bin.
 # ---------------------------------------------------------------------------
 
-# The help panel’s heading on the bin screen.
-bin.help.title = Bin
 
-# What waits in the bin.
-bin.help.what-is-here.term = What is here
-bin.help.what-is-here.what = Everything you delete waits here first — a book with its quotes, a film with its lines, or a single highlight.
-bin.help.what-is-here.more = A deleted account waits whole in the bin of the admin who deleted it.
 
 # How the bin is reached — the Settings tile, and nothing else.
 
-# What one row of the bin tells you.
-bin.help.row.term = A row
-bin.help.row.what = What it was, its name, when it was deleted, how many quotes went with it, whether its picture is kept, and when it will be removed for good.
-bin.help.row.more = Open a row to read the lines inside it. You can only restore or remove an entry.
 
-bin.help.restore.term = Restore
-bin.help.restore.what = Puts the whole entry back in one go, exactly as it was — quotes, tags, colours, schedule and cover.
 
-# Throwing one entry away now, with no undo.
-bin.help.purge.term = Remove for good
-bin.help.purge.what = Removes that entry and its pictures now. It cannot be undone.
 
-# The chips that show one kind of deleted thing at a time.
-bin.help.kinds.term = Kinds
-bin.help.kinds.what = When the bin holds more than one kind of thing, chips let you show one kind at a time.
 
-# How long a deleted thing waits before it goes for good.
-bin.help.keep-for.term = Keep for
-bin.help.keep-for.what = 7, 30 or 90 days, or never.
-bin.help.keep-for.more = The countdown only runs while the server is up, so each row shows the date it will be removed rather than days left. “Never” keeps everything until you empty the bin.
 
-# Emptying the whole bin.
-bin.help.empty-now.term = Empty now
-bin.help.empty-now.what = Removes every entry and its pictures. It asks first, and cannot be undone.
 
 # ---------------------------------------------------------------------------
 # cleanup.help.* — the "?" panel’s section for Stray marks.

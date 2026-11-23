@@ -41,7 +41,6 @@ const TagsPage = lazy(() => import('./TagsPage.jsx'))
 const SearchPage = lazy(() => import('./SearchPage.jsx'))
 const StagingPage = lazy(() => import('./StagingPage.jsx'))
 const Settings = lazy(() => import('./Settings.jsx'))
-const BinPage = lazy(() => import('./BinPage.jsx'))
 const CleanupPage = lazy(() => import('./CleanupPage.jsx'))
 const ChecksPage = lazy(() => import('./ChecksPage.jsx'))
 import { applyColors, applyContrast, applyTheme } from './theme.js'
@@ -77,7 +76,6 @@ import {
   frameCode,
   GhostButton,
   IconBack,
-  IconBin,
   IconSections,
   IconChevron,
   IconChecks,
@@ -1202,7 +1200,7 @@ function TopBarSearch({ scope, scopeLabel, onSearch, onDropScope }) {
 // right shape for a row of peers and the wrong one for a column of destinations:
 // a segment implies "one of these", and this column also holds a rule, the bin and
 // an account. The rows are buttons and the rule is a span — see below.
-export function NavRail({ tab, onChange, sections, order = null, user, onAccount, onBin, onChecks, brandDot = null, badges = {}, binCount = 0, checkCount = 0, strayCount = 0 }) {
+export function NavRail({ tab, onChange, sections, order = null, user, onAccount, onChecks, brandDot = null, badges = {}, checkCount = 0, strayCount = 0 }) {
   const dark = useResolvedDark()
   const railRef = useRef(null)
   // Nine destinations in a short window outrun the column, and the app's own rule
@@ -1284,17 +1282,6 @@ export function NavRail({ tab, onChange, sections, order = null, user, onAccount
         </button>
         <button
           type="button"
-          className="rail-row"
-          title={t('bin.title')}
-          aria-current={tab === 'bin' ? 'page' : undefined}
-          onClick={onBin}
-        >
-          <span className="rail-icon"><IconBin /></span>
-          <span className="rail-label">{t('bin.title')}</span>
-          {binCount > 0 ? <span className="rail-count">{binCount}</span> : null}
-        </button>
-        <button
-          type="button"
           className="rail-row rail-acct"
           aria-label={t('shell.account.chip.aria', { name: user.username })}
           onClick={onAccount}
@@ -1350,7 +1337,7 @@ function rememberScroll(key) {
 // Drawer — the hamburger nav (§7 redesign): primary nav on mobile, opened by
 // the ☰ button or the avatar chip. Scrim tap / Escape / any navigation closes
 // it. Home carries the pending-review dot; Library/Catalogue show live counts.
-export function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccount, user, stats, pending, pendingImport, streak, metaIssues, dark, onUser, sections, order = null, binCount = 0, checkCount = 0, strayCount = 0 }) {
+export function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccount, user, stats, pending, pendingImport, streak, metaIssues, dark, onUser, sections, order = null, checkCount = 0, strayCount = 0 }) {
   // Metadata "issues" = items the console flags (a book with no cover or no
   // ids; a film/show with no poster, cast or source) — the same predicate the
   // Metadata page uses. Fetched lazily the first time the drawer opens (it's a
@@ -1506,16 +1493,6 @@ export function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccou
             {checkCount > 0 || strayCount > 0 ? (
               <NavCount className="drawer-badge" value={checksBadge(checkCount, strayCount)} />
             ) : null}
-          </button>
-          <button
-            type="button"
-            className={'drawer-item' + (tab === 'bin' ? ' active' : '')}
-            aria-current={tab === 'bin' ? 'page' : undefined}
-            onClick={() => { selectTab('bin'); onClose() }}
-          >
-            <IconBin />
-            {t('bin.title')}
-            {binCount > 0 ? <span className="drawer-badge">{binCount}</span> : null}
           </button>
         </div>
         {/* The footer chip IS the way to Profile, exactly as in both top bars —
@@ -1877,7 +1854,6 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
       const movies = (r.data.movies || []).filter((m) => moviePasses(m, 'flagged')).length
       setMetaIssues(books + movies)
     })
-    json('GET', '/trash').then((r) => { if (r.ok) setBinCount((r.data?.trash || []).length) })
     // STRAY MARKS, THE SECOND HALF OF THE CHECKS COUNT. ?counts=1 is the arm that
     // does the scan and builds none of the findings — see handleCleanup. Fetched
     // once on mount for the same reason metaIssues is: it is a nudge towards a
@@ -1899,10 +1875,6 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
   // strayCount — quotes with something odd still flagged in them, the right-hand
   // number on the rail's Checks row. Its left-hand number is pendingImport.
   const [strayCount, setStrayCount] = useState(0)
-  // binCount — entries waiting in the bin, badged on the rail's Bin row. Cheap
-  // enough to ask for once; /trash is a short list by construction, since anything
-  // in it is on its way out.
-  const [binCount, setBinCount] = useState(0)
   // Update-check result, shared so the mobile drawer's "update available" link
   // mirrors the Settings → Updates card. Populated on demand when an admin runs
   // the check (Tippani never contacts GitHub on its own), then cached here for
@@ -2398,7 +2370,6 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
         order={order}
         user={user}
         onAccount={() => go('profile')}
-        onBin={() => go('bin', null)}
         onChecks={() => go('checks', null)}
         brandDot={brandDot}
         // Through visibleTabs like every other nav list: a badge computed for a
@@ -2409,7 +2380,6 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
             .map(([k]) => [k, navBadge(k, { stats, metaIssues, streak, version: user.version })])
             .filter(([, v]) => v),
         )}
-        binCount={binCount}
         // The import queue only. THE STRAY-MARKS COUNT IS DELIBERATELY ABSENT: that
         // scan reads every quote in the library, and running it on every page load to
         // draw one badge is exactly the kind of standing cost this app refuses. It is
@@ -2705,14 +2675,6 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
             <Profile user={user} onUser={onUser} logout={logout} />
           </div>
         )}
-        {/* The bin is in no tab list — see ROUTE_TABS. It routes so that it
-            bookmarks and survives a refresh, and its only door in is the tile in
-            Settings, which is where its Back goes. */}
-        {tab === 'bin' && (
-          <div data-screen-label="bin">
-            <BinPage />
-          </div>
-        )}
         {/* Stray marks, the bin's neighbour in every sense: one door in from
             Settings, a URL so it survives a refresh, and no tab. Its rows open
             the work a quote lives in, which is where the WORDS are edited.
@@ -2797,7 +2759,6 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
         pending={pending}
         pendingImport={pendingImport}
         streak={streak}
-        binCount={binCount}
         checkCount={pendingImport}
         strayCount={strayCount}
         dark={dark}

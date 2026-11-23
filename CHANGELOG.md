@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- **The Bin screen is gone from the web app.** Deleting still parks the item with an Undo, and
+  the Android app restores from the bin; the web no longer lists or restores it (ADR-0936).
+
 - **The Stats screen is gone from the web app.** The web app is being cut down to what an iPhone
   needs (ADR-0936); the Android app and the API keep their statistics. A bookmark to /stats
   opens Home.

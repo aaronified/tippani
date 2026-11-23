@@ -28,7 +28,6 @@ describe('routes', () => {
       ['tags', null],
       ['metadata', null],
       ['settings', null],
-      ['bin', null],
       ['anthologies', null],
       ['library', { type: 'book', id: 42 }],
       ['movies', { type: 'movie', id: 7 }],

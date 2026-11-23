@@ -169,7 +169,6 @@ describe('InfoDot copy stays within its budget', () => {
     // 1.14.1.
     const reaches = (opening) => ALL.some((d) => d.text.startsWith(opening))
     expect(reaches('One dated, encrypted archive'), 'the backup dot is not measured').toBe(true)
-    expect(reaches('Everything you delete waits here'), 'the bin dot is not measured').toBe(true)
   })
 
   it('names the dots by key once they are in the file', () => {

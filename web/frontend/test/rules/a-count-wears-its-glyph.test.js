@@ -136,7 +136,7 @@ describe('the glyph rule reaches the screens it was asked for', () => {
   // the locale table above would not notice because the WORD is still passed to
   // the Tally that no longer exists.
   const CONVERTED = [
-    'works.jsx', 'MetadataPage.jsx', 'BinPage.jsx',
+    'works.jsx', 'MetadataPage.jsx',
     'identity.jsx', 'identityLocal.jsx', 'Movies.jsx', 'Settings.jsx',
     'jobsSection.jsx',
   ]

@@ -41,7 +41,7 @@
 // opened Profile and closed the drawer in ONE handler, so two of those markers
 // were being pushed and unwound against each other in a single commit. A screen
 // pushes one ordinary route entry and owns it.
-export const ROUTE_TABS = ['search', 'quotes', 'anthologies', 'tags', 'metadata', 'settings', 'staging', 'bin', 'cleanup', 'checks', 'profile']
+export const ROUTE_TABS = ['search', 'quotes', 'anthologies', 'tags', 'metadata', 'settings', 'staging', 'cleanup', 'checks', 'profile']
 
 // ---- the nav contract ----
 //

@@ -384,15 +384,6 @@ export const HELP = {
     entry('staging.help.bulk-fix', { icon: <IconEdit /> }),
     entry('staging.help.approve'),
   ]),
-  bin: section('bin.help.title', [
-    entry('bin.help.what-is-here', { more: true }),
-    entry('bin.help.row', { more: true }),
-    entry('bin.help.restore', { icon: <IconReset /> }),
-    entry('bin.help.purge', { icon: <IconDelete /> }),
-    entry('bin.help.kinds'),
-    entry('bin.help.keep-for', { more: true }),
-    entry('bin.help.empty-now', { icon: <IconDelete /> }),
-  ]),
   // Stray marks sits next to the bin: both are pages you are sent to rather
   // than pages you browse.
   cleanup: section('cleanup.help.title', [
@@ -508,7 +499,6 @@ const GUIDE_ORDER = [
   'staging',
   'tags',
   'metadata',
-  'bin',
   'cleanup',
   'settings',
   'profile',
