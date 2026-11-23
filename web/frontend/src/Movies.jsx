@@ -5,10 +5,9 @@ import { coverImgURL, json, errText, downloadPost } from './api.js'
 import { CoverControls, MovieLookupPicker, idNum } from './CoverPicker.jsx'
 import { FlowQuote } from './flow.jsx'
 import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
-import { ShareDialog, copyQuote, movieShare } from './share.jsx'
+import { ShareDialog, movieShare } from './share.jsx'
 import { deleteWithUndo } from './undo.jsx'
 import { ActionRow, actionsFor } from './actions.jsx'
-import { ANTHOLOGY_KIND, useGatherDoor } from './anthologyGather.jsx'
 import { QuoteContext, episodeKey, useInContext } from './sources.jsx'
 import { useCastArt } from './cast.jsx'
 import { LanguageCombo, SuggestCombo, useWorkSuggestions } from './suggest.jsx'
@@ -781,7 +780,7 @@ export function dialogueState(d) {
 // with one view has nothing to switch.
 function DialogueBoard({
   rows, tagMap, stickerMap, stickers, reloadStickers, editingId, setEditingId,
-  save, patch, setAsking, copyOne, setShareTarget, openPerson, onOpenCharacter,
+  save, patch, setAsking, setShareTarget, openPerson, onOpenCharacter,
   actorMap, creditSeps, show, game, cast, base,
 }) {
   return (
@@ -806,7 +805,6 @@ function DialogueBoard({
             onSave={(fields) => save(d.id, fields)}
             onPatch={(fields) => patch(d, fields)}
             onDelete={() => setAsking(d)}
-            onCopy={() => copyOne(d)}
             onShare={() => setShareTarget(d)}
             onOpenPerson={openPerson}
             onOpenCharacter={onOpenCharacter}
@@ -928,7 +926,6 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, onAdd, dataNonce
       seps: creditSeps,
       characterImages: d.character_images,
     })
-  const copyOne = (d) => copyQuote(sharePayload(d))
 
   return (
     <div className="space-y-4">
@@ -964,7 +961,6 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, onAdd, dataNonce
           save={save}
           patch={patch}
           setAsking={setAsking}
-          copyOne={copyOne}
           setShareTarget={setShareTarget}
           openPerson={openPerson}
           onOpenCharacter={onOpenCharacter}
@@ -1015,22 +1011,16 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
   const frameClass = ['film-frame', wrapClass, 'px-5 py-4'].filter(Boolean).join(' ')
   // From the registry, like every other card (actions.jsx). A dialogue is an
   // annotation with different credits, so it gets the same set in the same places.
-  const gather = useGatherDoor()
   // The line in its subtitle: stored context, so absent where there is none.
   const inContext = useInContext('dialogue', d.movie_id, d.id)
   const acts = actionsFor('dialogue', d, {
     inContext: inContext.open,
-    copy: onCopy && (() => onCopy()),
     share: onShare && (() => onShare()),
     edit: onEdit && (() => onEdit()),
     // The same immediate PUT the frame's own ♥ runs, so the two cannot disagree
     // about what favouriting is.
     favourite: onPatch && (() => onPatch({ favorite: !d.favorite })),
     favourited: !!d.favorite,
-    // A film line gathers exactly as a highlight does — "a dialogue is an
-    // annotation with different credits", as this file's own comment has it, and
-    // the registry would be lying about that if only one of them could be kept.
-    addToAnthology: () => gather.open({ items: [{ kind: ANTHOLOGY_KIND.dialogue, item_id: d.id }], count: 1 }),
     remove: onDelete && (() => onDelete()),
   })
   // The same list the row and the ⋯ render, on a right-click or Shift+F10; a long
@@ -1322,7 +1312,6 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
         actionsAlwaysVisible={actionsAlwaysVisible}
       />
       {menu}
-      {gather.node}
       {inContext.node}
     </article>
     </>

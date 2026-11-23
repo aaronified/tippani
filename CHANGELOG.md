@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- **Copy, duplicate, move to board and gather on a quote's menu.** A quote's ⋯ keeps Edit,
+  Share, Context, Favourite and Delete; the other actions a quote card offered are gone from the
+  web app. (ADR-0936)
+
 - **Group-by, the table and grid views, and the list filters.** The Library, Catalogue and
   Quotes lists, and a work's quotes and lines, keep one list view, a favourites toggle and a
   basic sort; grouping, the table and cover-grid views, the sort options beyond the basics and

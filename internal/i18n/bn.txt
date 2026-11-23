@@ -363,9 +363,6 @@ common.action.add.label = যোগ করুন
 common.action.edit.label = এডিট
 common.action.edit.field.aria = {field} এডিট করুন
 common.action.copy.label = কপি
-common.action.duplicate.label = নকল করুন
-common.action.duplicate.sub = সবকিছু নকল করে আরেকটা {kind}
-common.action.duplicate.tip = এই উদ্ধৃতির একটা কপি খুলুন — সেভ না করা পর্যন্ত কিছুই লেখা হয় না
 common.action.share.label = শেয়ার
 common.action.export.label = এক্সপোর্ট
 common.action.print.label = প্রিন্ট
@@ -377,8 +374,6 @@ common.action.remove.label = সরান
 # The × on a tag pill, a cover candidate, a device row, a search chip. {name} is
 # whatever is being taken out, so the sentence is the same in all four places.
 common.action.remove.aria = {name} সরান
-# bn: Move and Remove would both be সরান; a quote is "sent" to a board — বোর্ডে পাঠান.
-common.action.move.label = পাঠান
 common.action.reload.label = রিলোড করুন
 common.action.upload.busy = আপলোড হচ্ছে…
 common.action.load.busy = লোড হচ্ছে…
@@ -1989,8 +1984,6 @@ common.subject.book.label = এই বই
 common.subject.movie.label = এই টাইটেল
 common.subject.quote.label = এই উদ্ধৃতি
 
-# The card actions. .label is the menu row, .tip the hover tooltip.
-common.action.copy.tip = {subject} কপি করুন
 common.action.share.tip = {subject} শেয়ার করুন
 common.action.edit.tip = {subject} এডিট করুন
 common.action.delete.tip = {subject} মুছুন
@@ -2002,9 +1995,6 @@ common.action.practise.tip = {subject} নিয়ে ঝালিয়ে ন
 common.action.favourite.menu.on.label = প্রিয়তে রাখুন
 common.action.favourite.menu.off.label = প্রিয় থেকে সরান
 common.action.favourite.tip = {subject} প্রিয়তে রাখুন
-# Filing a standalone quote on a different board.
-common.action.board.label = বোর্ডে পাঠান
-common.action.board.tip = অন্য বোর্ডে সরিয়ে রাখুন
 common.action.add-tags.label = ট্যাগ যোগ করুন
 common.action.anthology.label = সংকলনে দিন
 common.action.anthology.tip = {subject} সংকলনে জড়ো করুন
@@ -2414,14 +2404,6 @@ quotes.board.delete.holds.body.other = এখানে {n}টা উক্তি
 quotes.board.delete.move.aria = উক্তিগুলো কোন বোর্ডে যাবে
 quotes.board.delete.empty.body = এখানে কিছুই রাখা নেই।
 
-# THE MOVE-TO-BOARD SHEET, opened from a card's ⋯ and from the selection bar,
-# so common.* rather than quotes.*.
-common.board.move.title.one = এই উক্তি পাঠান
-common.board.move.title.other = {n}টা উক্তি পাঠান
-common.board.move.body.one = কোন বোর্ডে থাকবে, শুধু সেটাই বদলায়। উক্তির আর কিছু নয়।
-common.board.move.body.other = {n}টাই একটা বোর্ডে যাবে। আর কিছুই বদলায় না।
-common.board.move.empty = পাঠানোর জায়গা নেই — আগে একটা বোর্ড তৈরি করুন।
-common.board.move.select.placeholder = একটা বোর্ড বাছুন
 
 # Two more shared verbs, and the pair on a board's own menu. The words say what
 # pressing them DOES, so Hide is on a board that is currently visible.
@@ -2733,7 +2715,6 @@ quotes.sort.recent.label = নতুন আগে
 quotes.sort.speaker.label = বক্তা
 
 quotes.delete.confirm = এই উক্তিটা মুছবেন?
-quotes.toast.moved = পাঠানো হয়েছে
 quotes.export.confirm.title = উক্তি এক্সপোর্ট
 quotes.export.confirm.body.one = স্ক্রিনে থাকা {n}টা উক্তি একটা Markdown ফাইলে এক্সপোর্ট হবে, যা Tippani-তে আবার ইমপোর্ট করা যায়।
 quotes.export.confirm.body.other = স্ক্রিনে থাকা {n}টা উক্তি একটা Markdown ফাইলে এক্সপোর্ট হবে, যা Tippani-তে আবার ইমপোর্ট করা যায়।
@@ -2750,7 +2731,6 @@ common.filters.tag.all.label = সব ট্যাগ
 common.filters.group.aria = কী ধরে ভাগ
 
 error.add.starters = ওগুলো যোগ করা গেল না
-error.move.generic = পাঠানো গেল না
 error.validate.quote-required = উক্তিটা লিখুন
 error.validate.date = তারিখটা দেখে নিন
 

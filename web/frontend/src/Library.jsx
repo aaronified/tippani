@@ -7,10 +7,9 @@ import { CastCombo, LanguageCombo, OfferChip, SuggestCombo, useWorkSuggestions }
 import { CoverControls, BookLookupPicker } from './CoverPicker.jsx'
 import { FlowQuote } from './flow.jsx'
 import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
-import { ShareDialog, bookShare, copyQuote } from './share.jsx'
+import { ShareDialog, bookShare } from './share.jsx'
 import { deleteWithUndo } from './undo.jsx'
 import { ActionRow, actionsFor } from './actions.jsx'
-import { ANTHOLOGY_KIND, useGatherDoor } from './anthologyGather.jsx'
 import { QuoteContext, contextKind, useInContext } from './sources.jsx'
 import { PeopleChips, SpeakerChips, chipRows, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import { useTextOrder } from './textOrderHost.jsx'
@@ -710,7 +709,7 @@ export { annDate, sortAnnotations } from './boardOrder.js'
 // caller's decision and not this component's.
 function AnnotationBoard({
   rows, tagMap, stickerMap, stickers, reloadStickers, editingId, setEditingId,
-  save, patch, remove, onCopy, onShare, onDuplicate, onOpenCharacter,
+  save, patch, remove, onShare, onOpenCharacter,
 }) {
   const card = (a, i) => (
     <AnnotationCard
@@ -726,12 +725,10 @@ function AnnotationBoard({
       save={save}
       patch={patch}
       remove={remove}
-      onCopy={onCopy}
       onShare={onShare}
       quoteLines={5}
       tagSuggestions={Object.keys(tagMap)}
       onOpenCharacter={onOpenCharacter}
-      onDuplicate={onDuplicate}
     />
   )
   return <div className="space-y-4">{rows.map((a, i) => card(a, i))}</div>
@@ -750,47 +747,6 @@ export { quoteBody, quoteTexts, showsTranslationLine } from './text.js'
 // happy either way; `no-free-names.test.js` exists for exactly this and named the
 // second one after the DOM test caught the first.
 import { quoteBody, quoteTexts } from './text.js'
-
-// duplicateSeed — the draft the Add surface opens on when a quote is duplicated.
-//
-// KEYED BY THE WIRE FIELD NAME, so the form does not have to know which fields a
-// duplicate fills: add a key here and the box arrives seeded.
-//
-// THE WORDS COME ACROSS TOO, and that is the pack's call rather than an
-// oversight: "the reader is usually keeping most of a sentence and changing a
-// clause, so an empty box would be a worse start than a full one."
-//
-// WHAT IS NOT HERE IS NOT AN OMISSION — and the list of what is missing got
-// shorter. The add surface's rework gave every quote form a translation, a
-// language and a sticker, so those three are seeded now; a duplicate that dropped
-// them would be a copy the reader has to retype the meaning of. The menu row's
-// sub-line names what carries, for exactly that reason.
-//
-// `tags` IS AN ARRAY, AND WAS A COMMA STRING. The old capture card kept its tags
-// in a comma box, so this joined them — and the rework replaced that box with the
-// token input the three edit forms have always used, which takes the array the
-// row already carries. The join was one of two conversions this function existed
-// to do; it is now none, because `chapter_no` still needs its string.
-//
-// The form normalises either shape anyway (see its `asTags`), which is not
-// belt-and-braces: a sitting saved by the previous release has a comma string in
-// localStorage, so the tolerance has to exist somewhere and the form is where
-// both producers meet.
-export function duplicateSeed(a) {
-  return {
-    quote: a.quote || '',
-    note: a.note || '',
-    chapter: a.chapter || '',
-    chapter_no: a.chapter_no == null ? '' : String(a.chapter_no),
-    location: a.location || '',
-    character: a.character || '',
-    translation: a.translation || '',
-    language: a.language || '',
-    sticker_id: a.sticker_id ?? null,
-    color: a.color || 'yellow',
-    tags: a.tags || [],
-  }
-}
 
 // ActionRow MOVED TO actions.jsx, where the registry it renders already lives.
 // Movies' Frame kept a second copy of this row and a comment promising it matched
@@ -817,7 +773,7 @@ export function duplicateSeed(a) {
 // colour dots are keyed to the same two selectors. A bespoke wrapper would look
 // right on a desktop screenshot and silently lose the aesthetic toggle, the
 // hover affordances and the 320px layout all at once.
-export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, setEditingId, save, patch, remove, onCopy, onShare, quoteLines = 6, tagSuggestions = [], actionsAlwaysVisible = false, editInline = false, expanded, onToggleExpand, meta, form: Form = AnnotationForm, selectKind = 'annotation', onMoveBoard, onDuplicate, textOrder = null, onOpenCharacter, people = {}, onOpenPerson = null, seps }) {
+export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, setEditingId, save, patch, remove, onShare, quoteLines = 6, tagSuggestions = [], actionsAlwaysVisible = false, editInline = false, expanded, onToggleExpand, meta, form: Form = AnnotationForm, selectKind = 'annotation', textOrder = null, onOpenCharacter, people = {}, onOpenPerson = null, seps }) {
   const sticker = a.sticker_id != null ? stickerMap[a.sticker_id] : null
   // PROVIDED, NOT THREADED — see textOrderHost.jsx. The board's own text menu
   // reached a card by being handed down two components that did nothing but pass
@@ -934,7 +890,6 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
           locatorMeta(a),
         ].filter(Boolean).join(' · ')
       : meta
-  const gather = useGatherDoor()
   // THE QUOTE IN ITS FILE. A highlight is a book's and a standalone quote is not, and
   // this card draws both (`selectKind` says which), so the kind decides which list to ask.
   const inContext = useInContext(contextKind(selectKind), a.book_id, a.id)
@@ -945,37 +900,12 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
   // the row and the ⋯ render (actions.jsx), so the gesture can never offer
   // something the buttons do not — which is the whole reason the registry exists.
   const acts = actionsFor('annotation', a, {
-    copy: onCopy,
     share: onShare,
     edit: (row) => setEditingId(row.id),
     // The same patch the card's own ♥ runs, so the two cannot disagree about
     // what favouriting is. `favourited` only decides the wording.
     favourite: (row) => patch(row, { favorite: !row.favorite }),
     favourited: !!a.favorite,
-    // Only the Quotes screen passes this — a highlight belongs to its book and has
-    // no board — which is what keeps "Move to board" off a Library card without
-    // this file knowing anything about boards.
-    setBoard: onMoveBoard,
-    // Gated on the callback, like setBoard above it: the same card is drawn on
-    // four surfaces and only the ones with a route to the Add surface can offer
-    // this. A kind test here would be a control that is right about the board
-    // and silently absent inside the search modal.
-    duplicate: onDuplicate,
-    // GATHERING ONE, without having to select it first. The picker finds an
-    // anthology or makes one from the name typed into it, so the card menu finally
-    // has somewhere to send a reader looking at a passage they want to keep.
-    //
-    // `selectKind` AND NOT THE WORD "annotation", WHICH IS A BUG THIS LINE HELD.
-    // THIS CARD IS NOT ONLY A HIGHLIGHT'S: Quotes draws it for standalone
-    // utterances (`selectKind="quote"`) and the search modal draws it for whatever
-    // the hit is. Naming the kind here sent an utterance's id up as `book`, and the
-    // server's `quoteOwned` then resolved it against the ANNOTATIONS table — so
-    // gathering a standalone quote silently put a different passage, one that
-    // happened to share an id, into the anthology. Nothing failed: the toast said
-    // "1 gathered", because the row it found was real and was the reader's own.
-    // `selectKind` is the kind this card was drawn as, which is the only thing that
-    // knows.
-    addToAnthology: (row) => gather.open({ items: [{ kind: ANTHOLOGY_KIND[selectKind], item_id: row.id }], count: 1 }),
     // Absent unless this quote has stored context: nothing to show is nothing to offer.
     inContext: inContext.open,
     remove,
@@ -1107,7 +1037,6 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
           <ActionRow acts={acts} item={a} kind="book" color={color} onColor={pickColor} onFavourite={(v) => patch(a, { favorite: v })} actionsAlwaysVisible={actionsAlwaysVisible} className="pt-1.5" />
         </div>
       {menu}
-      {gather.node}
       {inContext.node}
     </HandCard>
   )
@@ -1359,15 +1288,10 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, onAdd, dataN
       characterImages: a.character_images,
     })
 
-  // The card's copy glyph writes out the same quote the share dialog's plain-text
-  // format would — same payload, same default ticks — so the two cannot disagree
-  // about whether a copied quote carries its author.
-  const copyOne = (a) => copyQuote(sharePayload(a))
 
 
   const board = {
     onOpenCharacter,
-    onDuplicate: onAdd ? (row) => onAdd('quote', { type: 'book', id: bookId }, duplicateSeed(row)) : undefined,
     tagMap,
     stickerMap,
     stickers,
@@ -1377,7 +1301,6 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, onAdd, dataN
     save,
     patch,
     remove: setAsking,
-    onCopy: copyOne,
     onShare: setShareTarget,
   }
 

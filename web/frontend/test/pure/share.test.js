@@ -150,9 +150,9 @@ describe('favourite tools', () => {
     atRow(actionsFor(kind, row, { copy: () => {}, share: () => {} })).map((a) => a.id)
 
   describe('what the registry will put in a quote card’s tools row', () => {
-    it('gives copy and share to the three QUOTE kinds', () => {
+    it('gives share to the three QUOTE kinds', () => {
       for (const kind of ['annotation', 'dialogue', 'quote']) {
-        expect(toolsFor(kind), kind).toEqual(['copy', 'share'])
+        expect(toolsFor(kind), kind).toEqual(['share'])
       }
     })
   })

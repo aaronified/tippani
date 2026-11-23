@@ -2,12 +2,10 @@ import {
   ColorSwatches,
   Hearts,
   IconAnthology,
-  IconCopy,
   IconDelete,
   IconEdit,
   IconHeart,
   IconOpen,
-  IconMoveTo,
   IconPractise,
   IconShare,
   IconUpload,
@@ -56,14 +54,6 @@ const subjectOf = (kind) =>
 // line and a proverb alike; Bengali names each of them separately, so the noun is
 // a slot the locale fills rather than a word baked into the sentence. The kinds
 // come from `unit.*`, which already carries them for the counts.
-const duplicateNoun = (kind, item) =>
-  (kind === 'movie'
-    ? t('unit.dialogue.one')
-    : item?.kind === 'proverb'
-      ? t('vocab.quote-kind.proverb.label')
-      : t('unit.quote.one')
-  ).toLowerCase()
-
 // actionsFor lists what can be done to one item, in the order a surface should
 // show them. Filtering by `ctx` happens here so no caller has to remember which
 // actions its screen supports. A work gets a list too, and a quote gets none of
@@ -72,19 +62,6 @@ export function actionsFor(kind, item, ctx = {}) {
   const isWork = isWorkKind(kind)
   const subject = subjectOf(kind)
   const all = [
-    {
-      id: 'copy',
-      label: t('common.action.copy.label'),
-      where: ROW,
-      icon: <IconCopy />,
-      tooltip: t('common.action.copy.tip', { subject }),
-      // A work has no words to put on the clipboard — its quotes do, one level
-      // down — and no share card of its own. Both were "available" on a book
-      // for as long as this list was quote-only, and both would have thrown the
-      // moment a work surface passed the callbacks.
-      available: !isWork && !!ctx.copy,
-      run: () => ctx.copy(item),
-    },
     {
       id: 'share',
       label: t('common.action.share.label'),
@@ -171,47 +148,6 @@ export function actionsFor(kind, item, ctx = {}) {
       run: () => ctx.favourite(item),
     },
     {
-      id: 'duplicate',
-      label: t('common.action.duplicate.label'),
-      // THE ONE ROW IN THIS MENU THAT EXPLAINS ITSELF, and it has to: "Duplicate"
-      // is unambiguous about the verb and silent about the scope, and the scope is
-      // the whole question. What comes across is everything except the fact that
-      // Save writes a NEW record — so the sub-line lists what carries rather than
-      // leaving a reader to press it and find out.
-      sub: t('common.action.duplicate.sub', { kind: duplicateNoun(kind, item) }),
-      where: OVERFLOW,
-      icon: <IconCopy />,
-      tooltip: t('common.action.duplicate.tip'),
-      // IT OPENS THE FORM ON A COPY AND CREATES NOTHING UNTIL SAVE — a duplicate
-      // you abandon is a duplicate that never existed. That is why this is not a
-      // POST with an undo behind it: a reader duplicates a quote in order to
-      // CHANGE it, so the form is the point rather than a step after it.
-      //
-      // Duplicating forty quotes is not this action forty times; it is a thing
-      // nobody wants, and the form has one set of boxes.
-      // Not a work. "Another copy of this book" is a second edition or a re-read,
-      // and neither is a record this form can write.
-      available: !isWork && !!ctx.duplicate,
-      run: () => ctx.duplicate(item),
-    },
-    {
-      id: 'board',
-      label: t('common.action.board.label'),
-      where: OVERFLOW,
-      icon: <IconMoveTo />,
-      tooltip: t('common.action.board.tip'),
-      // Moving a quote between boards was reachable only by opening the edit form
-      // and changing one select in it — which is the whole form, and a full-state
-      // PUT, for a move.
-      //
-      // Gated on the CALLBACK, not on the kind: the Quotes screen renders the same
-      // AnnotationCard the Library does, and that call site names the kind
-      // 'annotation'. A kind test here would be a control that is right about
-      // boards and silently absent on the one screen that has them.
-      available: !!ctx.setBoard,
-      run: () => ctx.setBoard(item),
-    },
-    {
       id: 'anthology',
       label: t('common.action.anthology.label'),
       where: OVERFLOW,
@@ -231,7 +167,7 @@ export function actionsFor(kind, item, ctx = {}) {
       // three items up: the same card is rendered by screens that name the kind
       // differently, and a kind test here is a control that is right on one screen
       // and silently missing on another.
-      available: !!ctx.addToAnthology,
+      available: isWork && !!ctx.addToAnthology,
       run: () => ctx.addToAnthology(item),
     },
     {

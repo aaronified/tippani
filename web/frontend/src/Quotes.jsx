@@ -29,12 +29,12 @@ import { attributionParts } from './attribution.js'
 import { AnnotationCard, fmtDate } from './Library.jsx'
 import { TextOrderScope } from './textOrderHost.jsx'
 import { parseCreditSeps, usePeople } from './people.jsx'
-import { ShareDialog, copyQuote, quoteShare } from './share.jsx'
+import { ShareDialog, quoteShare } from './share.jsx'
 import { deleteWithUndo } from './undo.jsx'
 import { StickerPicker, useStickers } from './stickers.jsx'
 import { RunButton } from './speak.jsx'
 import { boardRun } from './readRuns.js'
-import { ALL_BOARD, BoardList, MoveToBoardDialog, useBoards } from './boards.jsx'
+import { ALL_BOARD, BoardList, useBoards } from './boards.jsx'
 import { ANNOTATION_PAGE, WorkListScaffold, patchMovesTheRow, useBoardWindow } from './works.jsx'
 import {
   ColorSwatches,
@@ -60,7 +60,6 @@ import {
   useFormHost,
   useIsMobileScreen,
   usePersistedState,
-  toast,
   PanelHost,
   usePanelStack,
 } from './ui.jsx'
@@ -766,7 +765,6 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
   const [editingId, setEditingId] = useState(null)
   const [shareFor, setShareFor] = useState(null)
   // The quote whose board is being changed from its own ⋯ menu.
-  const [movingQuote, setMovingQuote] = useState(null)
   const [expanded, setExpanded] = useState(null)
   const [exporting, setExporting] = useState(false)
   const [tags, setTags] = useState([])
@@ -989,8 +987,6 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
       save={save}
       patch={patch}
       remove={remove}
-      onMoveBoard={() => setMovingQuote(u)}
-      onCopy={() => copyQuote(sharePayload(u))}
       onShare={() => setShareFor(u)}
       tagSuggestions={Object.keys(tagMap)}
       expanded={expanded === u.id}
@@ -1085,21 +1081,6 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
       {/* One quote, from its own ⋯. Posted through the BULK endpoint with a single
           id — the same call the bar makes with forty — so there is no second path
           to keep in step, which is the rule deletes already follow. */}
-      {movingQuote && (
-        <MoveToBoardDialog
-          count={1}
-          currentBoardID={movingQuote.board_id ?? null}
-          onApply={async (target) => {
-            const u = movingQuote
-            setMovingQuote(null)
-            const r = await json('POST', '/quotes/bulk', { ids: [u.id], board_id: target })
-            if (!r.ok) return toast(errText(r, t('error.move.generic')))
-            toast(t('quotes.toast.moved'))
-            await load()
-          }}
-          onClose={() => setMovingQuote(null)}
-        />
-      )}
       {!rows ? (
         <Placeholder />
       ) : (

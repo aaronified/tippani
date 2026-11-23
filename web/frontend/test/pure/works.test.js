@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { groupWorks, pinInProgress } from '../../src/works.jsx'
 import { showsField } from '../../src/addFields.js'
-import { duplicateSeed } from '../../src/Library.jsx'
 import { MOVIE_FIELDS, specsFor } from '../../src/WorkDetails.jsx'
 
 // works.jsx — the shelf and grouping logic shared by Library and the Catalogue.
@@ -101,61 +100,6 @@ describe('add fields', () => {
 // is a warning on nothing — a reader who sees eight of them stops reading them,
 // and the one that mattered goes past with the rest. Filling a blank cannot lose
 // anything, so it says nothing.
-describe('duplicate seed', () => {
-  const FULL = {
-    id: 7,
-    quote: 'Manuscripts don’t burn.',
-    note: 'Woland, to the Master.',
-    chapter: 'Chapter Twenty-Four',
-    chapter_no: 24,
-    location: 'p.402',
-    character: 'Woland',
-    color: 'blue',
-    tags: ['craft', 'fire'],
-    // SEEDED NOW, AND THEY WERE NOT. The old capture card had no translation, no
-    // language and no sticker box, so seeding them would have put values in a draft
-    // nothing could show — the add surface's rework gave every quote form all
-    // three, and a duplicate that dropped the translation is a copy whose meaning
-    // has to be retyped.
-    translation: 'পাণ্ডুলিপি পোড়ে না।',
-    language: 'Bengali',
-    sticker_id: 3,
-    // Still not seeded: a duplicate is a NEW quote, so it starts unfavourited and
-    // with no id of its own.
-    favorite: 1,
-    id_of_something_else: 99,
-  }
-
-  describe('the draft a duplicate opens on', () => {
-    it('leaves a missing chapter number EMPTY rather than zero', () => {
-      // A form field is a string. `String(null)` is "null" and `Number(null)` is 0,
-      // and 0 is a real chapter — so "no chapter" has to arrive as no characters.
-      expect(duplicateSeed({ ...FULL, chapter_no: null }).chapter_no).toBe('')
-      expect(duplicateSeed({ ...FULL, chapter_no: 0 }).chapter_no).toBe('0')
-    })
-  })
-})
-
-// A game is not a film, and its Details page had been telling it otherwise.
-//
-// 0040 stores games as `movies` rows — the right decision, and the one that let
-// the Catalogue hold them at all. The cost is that every screen reading a movies
-// row treats a game as a film unless it is told not to, and for two releases
-// nothing told this one. Opening Mass Effect Legendary Edition showed:
-//
-//   TYPE       Film                       ← and no way to say otherwise
-//   DIRECTOR   Electronic Arts            ← a studio, labelled as a person's job
-//   TMDB ID    type an id, or fetch…      ← three film ids, none of them usable
-//   THETVDB ID type an id, or fetch…
-//   IMDB ID    not set
-//                                         ← and no IGDB id, the one that works
-//
-// None of it errored. Every field was a real field of a real row; they were just
-// the wrong ones, wearing the wrong words.
-//
-// These are pure because the defect is entirely in the two tables that decide
-// what a medium shows and what it calls it — no rendering required to catch it,
-// and a render test would have needed the whole panel to prove less.
 describe('game details', () => {
   const keys = (mt) => specsFor(MOVIE_FIELDS, mt).map((s) => s.key)
 

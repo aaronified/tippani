@@ -348,9 +348,6 @@ common.action.add.label = Add
 common.action.edit.label = Edit
 common.action.edit.field.aria = Edit {field}
 common.action.copy.label = Copy
-common.action.duplicate.label = Duplicate
-common.action.duplicate.sub = A copy of the {kind} with the same note, tags, colour and locator
-common.action.duplicate.tip = Open a copy of this quote — nothing is saved until you press save
 common.action.share.label = Share
 common.action.export.label = Export
 # PRINT AND NOT "SAVE AS PDF", though the dialog it opens offers both: the verb
@@ -365,7 +362,6 @@ common.action.remove.label = Remove
 # The × on a tag pill, a cover candidate, a device row, a search chip. {name} is
 # whatever is being taken out, so the sentence is the same in all four places.
 common.action.remove.aria = Remove {name}
-common.action.move.label = Move
 common.action.reload.label = Reload
 common.action.upload.busy = Uploading…
 common.action.load.busy = loading…
@@ -2008,8 +2004,6 @@ common.subject.book.label = this book
 common.subject.movie.label = this title
 common.subject.quote.label = this quote
 
-# The card actions. .label is the menu row, .tip the hover tooltip.
-common.action.copy.tip = Copy {subject}
 common.action.share.tip = Share {subject}
 common.action.edit.tip = Edit {subject}
 common.action.delete.tip = Delete {subject}
@@ -2021,9 +2015,6 @@ common.action.practise.tip = Quiz me on {subject}
 common.action.favourite.menu.on.label = Favourite
 common.action.favourite.menu.off.label = Unfavourite
 common.action.favourite.tip = Favourite {subject}
-# Filing a standalone quote on a different board.
-common.action.board.label = Move to board
-common.action.board.tip = File it on another board
 common.action.add-tags.label = Add tags
 common.action.anthology.label = Add to anthology
 common.action.anthology.tip = Gather {subject} into an anthology
@@ -2435,14 +2426,6 @@ quotes.board.delete.holds.body.other = {n} quotes are filed here. They move to a
 quotes.board.delete.move.aria = Move the quotes to
 quotes.board.delete.empty.body = Nothing is filed here.
 
-# THE MOVE-TO-BOARD SHEET, opened from a card's ⋯ and from the selection bar,
-# so common.* rather than quotes.*.
-common.board.move.title.one = Move this quote
-common.board.move.title.other = Move {n} quotes
-common.board.move.body.one = Which board it is filed on. Nothing else about the quote changes.
-common.board.move.body.other = All {n} move to one board. Nothing else about them changes.
-common.board.move.empty = There is nowhere to move them — make a board first.
-common.board.move.select.placeholder = choose a board
 
 # Two more shared verbs, and the pair on a board's own menu. The words say what
 # pressing them DOES, so Hide is on a board that is currently visible.
@@ -2800,7 +2783,6 @@ quotes.sort.recent.label = Recent
 quotes.sort.speaker.label = Speaker
 
 quotes.delete.confirm = Delete this quote?
-quotes.toast.moved = moved
 quotes.export.confirm.title = Export quotes
 quotes.export.confirm.body.one = {n} quote in view will be exported as one Markdown file that Tippani can import again.
 quotes.export.confirm.body.other = {n} quotes in view will be exported as one Markdown file that Tippani can import again.
@@ -2815,7 +2797,6 @@ common.filters.tag.all.label = all tags
 common.filters.group.aria = Group by
 
 error.add.starters = could not add them
-error.move.generic = could not move
 error.validate.quote-required = Write the quote
 error.validate.date = Check the date
 
