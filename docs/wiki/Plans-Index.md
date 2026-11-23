@@ -22,6 +22,8 @@ builds.
 2. [Episodes](Plan-Episodes.md): episode names, and up to three orderings of a series. The drag it was to extend now exists
    (`reorder.js`, built with the anthologies); reuse it.
 3. [Design consistency](Plan-Design-Consistency.md): last; an adversarial pass over the design against the owner's principles.
+4. [The web app, stripped](Plan-Phone-Web.md): the PWA cut to eight jobs for iPhone users. Added at the owner's request on 23
+   November; the owner has not yet placed it in the order.
 
 ## Partly built
 
