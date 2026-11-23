@@ -52,7 +52,6 @@ import {
   IconDelete,
   IconDetails,
   IconExport,
-  IconFilter,
   IconPractise,
   IconReadAgain,
   IconWatching,
@@ -125,7 +124,7 @@ export default function WorkDetail({
   dataNonce,
   // (item, fields) => full-state PUT body. bookState / movieState.
   stateBuilder,
-  // ({ item, spec, mobileFilter, setMobileFilter, onStats, seps, creditMaps }) => node
+  // ({ item, spec, onStats, seps, creditMaps }) => node
   renderBoard,
 }) {
   // A THEMED ROUND OVER THIS WORK. The engine has taken `?book=` and `?movie=`
@@ -161,7 +160,6 @@ export default function WorkDetail({
   // screen has had a panel stack since the details panel landed, so the surface
   // was one line away the whole time.
   const openPerson = usePersonOpener(detailsStack)
-  const [mobileFilter, setMobileFilter] = useState(false)
   // Live unfiltered quote counts, reported up by the board — total, plus how many
   // are favourited / noted / tagged. The total drives the Wishlist tag, so this
   // work's first quote retracts the tag on the spot rather than at the next
@@ -499,11 +497,9 @@ export default function WorkDetail({
       }]),
       { id: 'delete', icon: <IconDelete />, label: t('common.action.delete.label'), onClick: () => setAsking(true), danger: true },
     ],
-    // THE DOCK KEEPS FILTER AND GAINS A REAL SECOND VERB. Its ⋯ seat went to the
-    // top bar, and the seat it vacated is worth more as Details — the thing you
-    // press on a work's page after finishing it — than as a second door to a menu.
+    // THE DOCK'S SECOND VERB IS DETAILS — the thing you press on a work's page
+    // after finishing it.
     keys: mobile ? [
-      { id: 'filter', label: t(spec.detail.filterAria), icon: <IconFilter />, onClick: () => setMobileFilter(true) },
       { id: 'details', label: t('common.work.details.title'), icon: <IconDetails />, onClick: () => openDetails() },
     ] : null,
   })
@@ -698,8 +694,6 @@ export default function WorkDetail({
         spec,
         seps,
         creditMaps,
-        mobileFilter,
-        setMobileFilter,
         onStats: setQuoteStats,
         onAdd,
         dataNonce,

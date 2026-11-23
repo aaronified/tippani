@@ -13,7 +13,6 @@ import {
   ErrorText,
   ExpandableDescription,
   FavBadge,
-  GenreFilter,
   HandCard,
   Hearts,
   IconBack,
@@ -26,7 +25,6 @@ import {
   Tally,
   IconNavQuotes,
   MoreMenu,
-  MultiSelect,
   NameScroll,
   PageHeader,
   PartialDateField,
@@ -300,41 +298,6 @@ export function groupWorks(list, dim, opts = {}) {
   })
   if (sortMembers) for (const g of out) if (!g.residual) g.items = sortMembers(g.items, dim)
   return out
-}
-
-// wishFilter applies the 3-way wishlist scope to a list. `mode` is '' (all),
-// 'wishlist' (only works with nothing quoted yet) or 'annotated' (hide those).
-// `count` reads a row's quote/dialogue total — the same number the tile prints,
-// so what the filter matches is always what the board shows.
-//
-// Note it keys on the count alone, NOT on shelfState(): a book you are reading
-// with no quotes yet draws the reading mark rather than the wishlist one, but it
-// is still un-annotated, and hiding it from "annotated" would make the two chips
-// disagree about the same row.
-export function wishFilter(list, mode, count) {
-  if (mode === 'wishlist') return list.filter((it) => count(it) === 0)
-  if (mode === 'annotated') return list.filter((it) => count(it) > 0)
-  return list
-}
-
-// pinInProgress floats what you're reading/watching to the front of the default
-// view, keeping both blocks in their incoming (server, created_at DESC) order.
-// Only the default sort pins: picking anything from the sort menu is the user
-// taking control of the order, and the answer there is the sort they asked for.
-// Only the ACTIVE state pins — paused, abandoned and completed are not what you
-// are on with right now, so they stay where the data puts them.
-export function pinInProgress(list, kind) {
-  const pinned = list.filter((it) => isActive(kind, it))
-  if (pinned.length === 0 || pinned.length === list.length) return list
-  return [...pinned, ...list.filter((it) => !isActive(kind, it))]
-}
-
-// statusFilter keeps only rows whose status is among `states`. An empty
-// selection means "every state", which is what a filter with nothing ticked
-// should mean. 'none' matches works carrying no status at all.
-export function statusFilter(list, states) {
-  if (!states || states.length === 0) return list
-  return list.filter((it) => states.includes(it.status || 'none'))
 }
 
 // InProgressCapDialog — the soft cap. Starting one more work than the shelf holds
@@ -966,25 +929,10 @@ export function moveLabel(kind, from, to, item = {}) {
 // hand-drawn card frame + "quotes" vs the film's plain poster + "dialogues".
 // The book grid (Library) and poster grid (Movies) both deal these; each keeps
 // its own <ul>/grid wrapper and gap, sharing only the tile.
-// patchMovesTheRow — would this one-field change take the row off the board?
-//
-// EXPORTED AND PURE so the decision can be argued with. It is the whole safety of
-// splicing a PUT's reply in rather than refetching: the filters are applied by the
-// SERVER, so un-hearting a row while the favourites filter is on must remove it,
-// and a splice would leave it sitting there looking saved and wrong.
-//
-// It asks about the FILTERS IN FORCE, not about the fields: changing a colour
-// while no colour filter is on moves nothing, and refetching for it would be the
-// round trip this exists to avoid. A filter this does not know about is a filter
-// that has to be added here — which is why it takes the filter values rather than
-// reading them, so a caller cannot forget to pass one without the argument list
-// changing shape.
-export function patchMovesTheRow(fields, { fav, color, tag } = {}) {
-  return Boolean(
-    (fav && 'favorite' in fields) ||
-      (color && 'color' in fields) ||
-      (tag && 'tags' in fields),
-  )
+// patchMovesTheRow — would this one-field change take the row off the board? Only
+// the favourites filter is applied by the server, so only a favourite can.
+export function patchMovesTheRow(fields, { fav } = {}) {
+  return Boolean(fav && 'favorite' in fields)
 }
 
 // WorkDeleteConfirm — the one dialog every single-work delete asks through: the
@@ -1277,89 +1225,6 @@ export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps, onC
       {gather.node}
       {source.node}
     </>
-  )
-}
-
-// ---- the wishlist, folded into one tile (1.12.0) --------------------------
-//
-// A library that keeps quotes accumulates books it has nothing from yet: a
-// shelf photographed at a friend's house, an import that brought the titles and
-// not the highlights, everything bought and not started. They are the wishlist —
-// derived, with no column and no bookkeeping (a work with zero quotes IS the
-// wishlist, and it clears itself the moment you add one). The board already had
-// a chip triplet to browse them.
-//
-// What it did not have was a way to get them OUT OF THE WAY. Forty unopened
-// covers scattered through a grid of books you have actually read is forty tiles
-// of noise between the ones you are looking for, and the chip only helps if what
-// you want is the wishlist rather than everything else.
-//
-// So: one tile, opening the chip that already exists. The folder is a DOOR to a
-// filter rather than a new place things live — nothing moves, nothing is stored,
-// and there is no state that can disagree with the count on a cover.
-//
-// COLLAGE_SPANS decides the layout for one to four covers, because a 2×2 grid
-// holding one cover and three blanks reads as a broken image rather than as a
-// wishlist with one thing on it. Four or more is the plain quartet; fewer, and
-// the covers there are fill the box between them.
-const COLLAGE_SPANS = {
-  1: ['span 2 / span 2'],
-  2: ['span 2 / span 1', 'span 2 / span 1'],
-  3: ['span 2 / span 1', 'span 1 / span 1', 'span 1 / span 1'],
-}
-
-// WishlistFolder — the tile. Drawn as a WorkCard is drawn, deliberately: it sits
-// in the same grid at the same width, and a folder that wore a different material
-// would read as a control that had wandered into the board rather than as one of
-// its tiles.
-//
-// It has no menu either: it is not a work, and "delete the twelve behind it" is
-// not an act a single work's menu can say.
-export function WishlistFolder({ kind = 'book', items = [], onOpen }) {
-  const isBook = kind === 'book'
-  const n = items.length
-  // The first four, in the board's own order, so what the folder shows is what
-  // opening it shows first.
-  const covers = items.slice(0, 4).map((it) => (isBook ? it.cover_path : it.poster_path))
-  const spans = COLLAGE_SPANS[covers.length] || []
-  return (
-    <button
-      type="button"
-      onClick={onOpen}
-      className="cover-tile block w-full text-left"
-      title={t('common.wishlist-folder.tip', { n })}
-    >
-      <HandCard variant={0} className="relative overflow-hidden cover-lift">
-        <span className="wish-collage" aria-hidden="true">
-          {covers.map((path, i) => (
-            <span key={i} className="wish-cell" style={{ gridArea: spans[i] }}>
-              {path ? <img src={coverImgURL(path)} alt="" /> : null}
-            </span>
-          ))}
-        </span>
-        {/* The word, over the collage. Without it a quartet of covers is just four
-            covers at quarter size, and the one thing this tile has to say is what
-            it is. */}
-        <span className="wish-folder-tag tp-scrim-deep">{t('common.shelf.wishlist.book.label')}</span>
-      </HandCard>
-      <p className="mt-2.5 truncate" style={{ fontFamily: 'var(--font-quote-base)', fontStyle: 'var(--font-quote-base-style)', fontVariantCaps: 'var(--font-quote-base-caps)', textTransform: 'var(--font-quote-base-case)', fontVariantNumeric: 'var(--font-quote-base-figures)', fontWeight: 600, fontSize: 'var(--type-display-15)', color: 'var(--ink)' }}>
-        {t('common.shelf.wishlist.book.label')}
-      </p>
-      <div className="flex items-center gap-1.5">
-        <p className="min-w-0 truncate text-[13px]" style={{ color: 'var(--soft)' }}>
-          {t('common.wishlist-folder.subtitle.label')}
-        </p>
-      </div>
-      <div className="mt-0.5 flex items-center gap-2">
-        {isBook ? (
-          <MonoLabel style={{ color: 'var(--accent-ui)' }}>{t('common.count.phrase', { n, noun: t('unit.book', { count: n }) })}</MonoLabel>
-        ) : (
-          <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 'var(--type-mono-12)', color: 'var(--amber)' }}>
-            {t('common.count.phrase', { n, noun: t('unit.title', { count: n }) })}
-          </span>
-        )}
-      </div>
-    </button>
   )
 }
 
@@ -1845,40 +1710,37 @@ export function WorkHero({
   )
 }
 
-// WorkListScaffold — the shared catalogue list-page shell (Library + Movies):
-// header (title · counts · export / lookup aside), the desktop filter row
-// and mobile filter sheet (genre · [leading] · wishlist · favourites ·
-// reading/watching · tagged · has notes · series · [trailing] · sort), the empty
-// states, the grid (children), and the trailing surfaces
-// (export dialog, extra modals). The page owns its data + the
-// page-specific filter — a film's media-type via the `leading` slots, a book's
-// group-by via the `trailing` slots — and the derived `shown` list; the
-// scaffold owns the mobile-sheet open state and renders the shared favourites /
-// series / sort controls so those live in one place.
+// pinInProgress floats what you're reading/watching to the front of the default
+// view, keeping both blocks in their incoming (server, created_at DESC) order.
+// Only the default sort pins: picking anything from the sort menu is the user
+// taking control of the order, and the answer there is the sort they asked for.
+// Only the ACTIVE state pins — paused, abandoned and completed are not what you
+// are on with right now, so they stay where the data puts them.
+export function pinInProgress(list, kind) {
+  const pinned = list.filter((it) => isActive(kind, it))
+  if (pinned.length === 0 || pinned.length === list.length) return list
+  return [...pinned, ...list.filter((it) => !isActive(kind, it))]
+}
+
+
+// WorkListScaffold — the shared list-page shell (Library, Catalogue, Quotes):
+// header (title · counts · export / lookup aside), the filter row and its mobile
+// sheet (the favourites toggle and the sort), the empty states, the list
+// (children), and the trailing surfaces (export dialog, extra modals).
 //
-// Neither an Add control nor a "?" lives here any more (1.4.1). Both were shell
-// controls drawn a second time per page: the header's ＋ sat immediately beside
-// the top bar's own ＋ , and the top bar's Add now knows which page it is on, so
-// it adds a book on Library and a film on the Catalogue by itself. Help moved
-// into that same bar. What the header keeps is what is genuinely local to the
-// list — its filters and its export.
+// THE FILTERS ARE DELIBERATELY SMALL. A list has one toggle for what is a favourite
+// and one sort, and that is the whole of what this shell draws. Genre, series,
+// shelf state, credit, tags, notes, colour and grouping were each a second
+// question a reader had to answer before the list was the list; they are gone, and
+// the Search screen is where a reader narrows a library now.
 export function WorkListScaffold({
   mobile,
   title,
   counts,
   error,
-  // onBack (1.14.2) makes this scaffold a DETAIL page rather than a list one.
-  //
-  // A board is opened from a list of boards, so it needs a way back, and until
-  // now the scaffold had no slot for one — /quotes drew its own button in a
-  // <div> above, which on a phone is an entire row spent on a single back
-  // arrow while the title, the count and the filters sit in the row beneath it.
-  // A book's detail page has never done that: it puts all four in one bar.
-  //
-  // So the back arrow comes INSIDE the sticky bar, drawn by the same
-  // MobileDetailBar a work's page uses, rather than being another control
-  // stacked above it. Absent on the three list screens, which are nobody's
-  // detail page and have nowhere to go back to.
+  // onBack makes this scaffold a DETAIL page rather than a list one: the back arrow
+  // comes INSIDE the sticky bar, drawn by the same MobileDetailBar a work's page
+  // uses. Absent on the top-level lists, which have nowhere to go back to.
   onBack,
   onExport,
   headerAside,
@@ -1887,233 +1749,39 @@ export function WorkListScaffold({
   shownCount,
   emptyText,
   noMatchText,
-  genres = [],
-  genre,
-  setGenre,
   fav,
   setFav,
-  tagged,
-  setTagged,
-  noted,
-  setNoted,
-  wish, // '' = all | 'wishlist' | 'annotated'
-  setWish,
-  states = [], // shelf states to keep; [] = every state
-  setStates,
-  kind = 'book', // 'book' | 'movie' — which side's words the state control uses
-  // The in-progress word(s) this board can hold. A single-medium board has one;
-  // the catalogue has two once it contains a game, because a game is played and
-  // a film is watched and both are movies-table rows.
-  activeStates = [ACTIVE_STATUS[kind]],
-  noun = t('unit.book.one'), // what a row is, for the "show only" chip tooltips
-  // Its plural, compared against the default the way seriesNounPlural below is:
-  // a caller that renames the noun keeps the English s until it passes one.
-  nounPlural = noun === t('unit.book.one') ? t('unit.book.other') : `${noun}s`,
-  // Books group into a "series"; films and shows into a "collection" — the same
-  // movies.series column, but "series" already means a TV show on that page.
-  seriesNoun = t('common.filters.series.noun.one'),
-  // Carried separately because "series" is its own plural: appending an s gave
-  // the books filter "all seriess". Defaults to the regular English form, so
-  // "collection" still needs no call-site change.
-  seriesNounPlural = seriesNoun === t('common.filters.series.noun.one') ? t('common.filters.series.noun.other') : `${seriesNoun}s`,
-  seriesNames = [],
-  series,
-  setSeries,
-  // WHO IS QUOTED IN IT (1.14.2). Generic rather than `actorNames`, because the
-  // control is one dropdown over one column of names and the Library will want
-  // the same one for authors; `creditNoun` is the only thing that differs.
-  // Hidden when nothing supplies it, like the series select above — a board with
-  // no credits to filter by shows no credit filter rather than an empty one.
-  creditNames = [],
-  credit,
-  setCredit,
-  creditNoun = t('common.filters.credit.noun.one'),
-  creditNounPlural = creditNoun === t('common.filters.credit.noun.one') ? t('common.filters.credit.noun.other') : `${creditNoun}s`,
   sort,
   setSort,
   sortOptions = [],
-  leading, // desktop extra control before favourites (film media-type)
-  trailing, // desktop extra control before sort (book group-by)
-  leadingMobile, // mobile-sheet section for `leading`
-  trailingMobile, // mobile-sheet section for `trailing`
+  trailing, // desktop extra control after the sort (a board's own button)
   onReset,
-  children, // the grid (flat or grouped)
+  children, // the list
   exportDialog,
   extraModals,
 }) {
   const [mobileFilter, setMobileFilter] = useState(false)
-  // A section renders when its setter was supplied. One rule, applied the same
-  // way everywhere, so adding a screen to this scaffold is a question of which
-  // setters you pass rather than which booleans you remember to set.
-  //
-  // Quotes is why this exists: a standalone quote has no genre, no shelf state,
-  // no series and no wishlist (there is nothing to acquire), but it has colours,
-  // tags, notes, a speaker and a medium. Everything here is shared or absent —
-  // a second scaffold would have drifted from this one inside a release.
-  const hasGenre = !!setGenre
-  const hasWish = !!setWish
-  const hasStates = !!setStates
-  const hasSeries = !!setSeries && (seriesNames || []).length > 0
-  const hasCredit = !!setCredit && (creditNames || []).length > 0
+  const hasFav = !!setFav
   const hasSort = !!setSort && (sortOptions || []).length > 0
-  // "show only" — independent toggles, ANDed by the page's `shown` memo. Shared
-  // with the desktop row rather than mobile-only: the predicates live in that
-  // memo, so a phone-set filter would otherwise survive a resize past the
-  // breakpoint with no control left to see or clear it.
-  const onlyChips = (
-    <>
-      {setFav && (
-        <Tooltip label={t('common.filters.favourites.tip')}>
-          <button type="button" aria-pressed={!!fav} onClick={() => setFav(!fav)} className={filterChipClass(fav)}>
-            {t('common.filters.favourites.label')}
-          </button>
-        </Tooltip>
-      )}
-      {setTagged && (
-        <Tooltip label={t('common.filters.tagged.tip', { noun: nounPlural })}>
-          <button type="button" aria-pressed={!!tagged} onClick={() => setTagged(!tagged)} className={filterChipClass(tagged)}>
-            {t('common.filters.tagged.label')}
-          </button>
-        </Tooltip>
-      )}
-      {setNoted && (
-        <Tooltip label={t('common.filters.noted.tip', { noun: nounPlural })}>
-          <button type="button" aria-pressed={!!noted} onClick={() => setNoted(!noted)} className={filterChipClass(noted)}>
-            {t('common.filters.noted.label')}
-          </button>
-        </Tooltip>
-      )}
-    </>
-  )
-  // The wishlist control is a 3-way scope, not a toggle: a work with nothing
-  // annotated is "on the wishlist", and you either ignore that (all), browse only
-  // those (wishlist), or hide them to see just what you have actually quoted
-  // (annotated). Same chip-triplet shape as the Catalogue's movie/show control.
-  // A CHIP'S CHOSEN-NESS IS A STATE, AND A CLASS IS NOT ONE. `filterChipClass`
-  // returns `active`, which is what the stylesheet paints — and nothing else. A
-  // reader on a screen reader was told "annotated, button" whether it was the
-  // chosen scope or not, and `make controls` reported the chip as a control that
-  // does nothing and does not say so on a library where every work is annotated,
-  // because the list it filters to is the list that was already there and no
-  // attribute moved. Both are the same omission.
-  //
-  // `aria-pressed` AND NOT A RADIOGROUP, though these three are one question with
-  // three answers: `ChipSwitches` and `FilterChip` are the app's two chip
-  // mechanisms and both say `aria-pressed`, and this file's own comment on
-  // FilterChip is that a second answer to a question the app has already asked
-  // drifts from the first the day either is touched. A radiogroup here would need
-  // a wrapper element in two layouts to be valid ARIA, which is a layout change
-  // for a semantic gain the app does not use anywhere else.
-  const wishChips = [
-    ['', t('common.filters.wish.all.label'), t('common.filters.wish.all.tip', { noun })],
-    ['wishlist', t('common.filters.wish.only.label'), t('common.filters.wish.only.tip', { noun: nounPlural })],
-    ['annotated', t('common.filters.wish.annotated.label'), t('common.filters.wish.annotated.tip', { noun: nounPlural })],
-  ].map(([k, label, hint]) => (
-    <Tooltip key={k || 'all'} label={hint}>
-      <button type="button" aria-pressed={wish === k} className={filterChipClass(wish === k)} onClick={() => setWish(k)}>
-        {label}
+  const favChip = hasFav && (
+    <Tooltip label={t('common.filters.favourites.tip')}>
+      <button type="button" aria-pressed={!!fav} onClick={() => setFav(!fav)} className={filterChipClass(fav)}>
+        {t('common.filters.favourites.label')}
       </button>
     </Tooltip>
-  ))
-  // Shelf state is a multi-select rather than a chip per state: five states would
-  // double the length of the filter row, and "paused or abandoned" — the unfinished
-  // business you'd actually go looking for — is one dropdown away this way. Each
-  // row carries its bar colour, so the control and the board teach each other.
-  const stateSelect = (
-    <MultiSelect
-      ariaLabel={t('common.filters.shelf.aria')}
-      allLabel={t('common.filters.shelf.all.label')}
-      values={states}
-      onChange={setStates}
-      options={[
-        // One row per in-progress word the board can actually hold. A catalogue
-        // with games has two ('watching' and 'playing'), and they are separate
-        // options rather than one merged row because they are separate stored
-        // values — merging them would filter to neither.
-        ...activeStates.map((s) => [s, shelfLabel(s, kind), SHELF_META[s].color]),
-        // The three settled states read the same on both sides, so the book
-        // spelling is the only one there is to draw.
-        ['paused', t(SHELF_META.paused.book), SHELF_META.paused.color],
-        ['abandoned', t(SHELF_META.abandoned.book), SHELF_META.abandoned.color],
-        ['completed', t(SHELF_META.completed.book), SHELF_META.completed.color],
-        ['none', t('common.filters.shelf.none.label'), 'transparent'],
-      ]}
-    />
-  )
-  const seriesSelect = hasSeries && (
-    <Select
-      ariaLabel={t('common.filters.by.aria', { field: seriesNoun })}
-      value={series}
-      onChange={setSeries}
-      options={[['', t('common.filters.all.label', { field: seriesNounPlural })], ...seriesNames.map((s) => [s, s])]}
-    />
-  )
-  const creditSelect = hasCredit && (
-    <Select
-      ariaLabel={t('common.filters.by.aria', { field: creditNoun })}
-      value={credit}
-      onChange={setCredit}
-      options={[['', t('common.filters.all.label', { field: creditNounPlural })], ...creditNames.map((n) => [n, n])]}
-    />
   )
   const sortSelect = hasSort && <Select ariaLabel={t('common.filters.sort.aria')} value={sort} onChange={setSort} options={sortOptions} />
-  // The same two controls whichever bar draws them, so a board and a book put
-  // Filters and Export in the same place under the same thumb.
-  // A sub-board reached from somewhere — a series, a credit — used to draw its
-  // own MobileDetailBar, the same second top bar the work details drew. It
-  // publishes now: the shell's header takes the title and the counts, and the
-  // dock takes the two verbs. `onBack` is what marks it as a place you arrived
-  // at rather than a tab, and the dock's own Back key is what leaves it.
-  // ONE PUBLICATION FOR BOTH RANKS. A scaffold is either a top-level board
-  // (Library, the Catalogue, Quotes) or a sub-board you arrived at (a series, a
-  // credit, one board of quotes) — and on a phone both now spend their verbs the
-  // same way, in the dock, because the header they used to sit in is a header.
-  //
-  // The crumb is the one difference: only the arrived-at case publishes a title,
-  // since a top-level board's name is already what the shell calls the tab.
-  //
-  // AND IT PUBLISHES ON A DESK TOO. This said `mobile && onBack`, from when a
-  // desk still drew the scaffold's own <h1>. `.page-header h1` has been visually
-  // hidden since 3.0.0, on the promise that the breadcrumb names the page, and the
-  // breadcrumb prints what is published here, so an opened board of quotes had no
-  // name on a desk and no breadcrumb either.
+  // A sub-board reached from somewhere publishes its title for the breadcrumb; a
+  // top-level board's name is already what the shell calls the tab.
   useCrumb(onBack ? title : null)
-  // THE BOARD'S COMPLETE SET, for the top bar's ⋯ — see ScreenMenu.
-  //
-  // WHAT BECOMES A ROW AND WHAT BECOMES A DOOR. A menu bar can hold a choice
-  // among a handful of known values, so the sort options and the "show only"
-  // toggles are rows with their state on them. It cannot hold a select over forty
-  // genres, every series in the library, or every name credited on the board —
-  // those stay one row that OPENS the sheet they live in. The test is the size of
-  // the value set, not the kind of control: a menu that swallowed the genre list
-  // would be a worse genre picker than the one it replaced.
-  //
-  // NOT PHONE-ONLY, unlike the dock keys below it. The ⋯ is on both viewports and
-  // this is what fills it, so the guard the keys need would empty the menu on
-  // every desktop.
+  // THE BOARD'S SET, for the top bar's ⋯. Sort and the favourites toggle are on
+  // the page at desktop widths and behind the Filter key on a phone, so the ⋯ only
+  // carries the verbs.
   useScreenBar({
     actions: () => {
-      // NO "SHOW ONLY" AND NO "SORT" HERE ANY MORE, on the owner's call, and it
-      // is the menu-bar principle running out of room rather than being wrong.
-      // A menu bar earns its duplication by being one place a reader can always
-      // look — but on this screen every one of those rows is already reachable
-      // twice: the chips and the sort select are on the page at desktop widths,
-      // and behind the Filter key on a phone, where the sort now lives in the
-      // same sheet. Three doors to one control is not findability, it is a menu
-      // a reader stops reading because most of it is a copy of the page.
       const out = []
-
-      // The doors, and the verbs. `onReset` is offered whatever the filter state:
-      // a reader who cannot tell whether a filter is on is exactly the reader who
-      // wants this row, and a row that appears only once something is filtered is
-      // a row nobody learns is there.
       out.push({ id: 'h-do', heading: t('common.mono.actions.label') })
-      // THE ONE PLACE "COMPLETE" IS BOUNDED, and by the width rather than by the
-      // screen. The selects — genre, shelf state, series, who is credited — are
-      // drawn on the page at desktop widths, so a row here would open a sheet
-      // over controls the reader is already looking at. On a phone the same
-      // controls are BEHIND that sheet, so the row is how you reach them.
-      if (mobile && (hasGenre || hasStates || hasSeries || hasCredit || hasWish || hasSort)) {
+      if (mobile && (hasFav || hasSort)) {
         out.push({ id: 'filters', icon: <IconFilter />, label: t('common.filters.label'), onClick: () => setMobileFilter(true) })
       }
       if (onReset) out.push({ id: 'reset', icon: <IconReset />, label: t('common.filters.reset.label'), onClick: onReset })
@@ -2130,29 +1798,13 @@ export function WorkListScaffold({
         icon: <IconFilter />,
         onClick: () => setMobileFilter((o) => !o),
       },
-      // THE WAY TO THE OTHER BOARDS, in the seat Export had. Both of the reasons
-      // Export was put here have since gone: the sort moved into the sheet the
-      // key beside it opens, which is what freed the seat — and Export is in this
-      // screen's own ⋯ four rows up, so it was the one verb here that already had
-      // somewhere else to be. What a reader on a board actually wants from the
-      // dock is the OTHER boards: the rail is a desktop control and the drawer is
-      // at the top of a phone, which is the far end from the thumb.
-      //
-      // `{ id: 'nav' }` is a placeholder the shell swaps for its own boards key —
-      // only the shell knows which sections are switched on and only the shell
-      // can change tab, so this screen names the seat rather than building it.
+      // The way to the OTHER boards, in the seat the dock gives a list.
       { id: 'nav' },
     ] : null,
   })
 
   return (
     <section>
-      {/* ON A PHONE THIS IS A HEADING AND NOTHING ELSE. The counts went to the
-          shell header's sub-line and the two verbs went to the dock, so what is
-          left is the page's <h1> — kept, and taken off the screen by CSS rather
-          than out of the document, because it is the top of this page's outline
-          and a phone page with no heading at all is a worse bug than a repeated
-          word. */}
       <div>
         <PageHeader
           title={title}
@@ -2160,15 +1812,9 @@ export function WorkListScaffold({
           right={mobile ? null : (
             <>
               {headerAside}
-              {/* Export is a glyph, not a word: the header row is the tightest
-                  real estate on the page and "Export all" spent it on a label
-                  the ⬇ already carries.
-
-                  It says "Export", not "Export all", because it is not all: all
-                  three screens post `shown` — the filtered view — and the confirm
-                  dialog has always said "N in view". The label was the last
-                  survivor of the whole-collection export it replaced, and it
-                  contradicted the dialog directly above the button you press. */}
+              {/* Export is a glyph, not a word, and it says "Export" because it
+                  posts `shown` — the filtered view — and the confirm dialog says
+                  "N in view". */}
               {!DEMO && (
                 <IconButton icon={<IconExport />} label={t('common.action.export.label')}
             ariaLabel={t('common.action.export.label')} onClick={onExport} tooltip={t('common.action.export.shown.tip')} />
@@ -2179,16 +1825,10 @@ export function WorkListScaffold({
       </div>
       <ErrorText>{error}</ErrorText>
 
-      {hasItems && !mobile && (
+      {hasItems && !mobile && (hasFav || hasSort || trailing) && (
         <div className="filter-row mb-5">
-          {hasGenre ? <GenreFilter genres={genres} value={genre} onChange={setGenre} /> : <span />}
           <div className="ml-auto flex shrink-0 items-center gap-2">
-            {leading}
-            {hasWish && wishChips}
-            {onlyChips}
-            {hasStates && stateSelect}
-            {creditSelect}
-            {seriesSelect}
+            {favChip}
             {trailing}
             {hasSort && (
               <label className="flex items-center gap-2">
@@ -2214,57 +1854,15 @@ export function WorkListScaffold({
           }
         >
           <div className="space-y-5">
-            {hasGenre && (
+            {hasFav && (
               <div>
-                <MonoLabel className="mb-2 block">{t('common.filters.genre.label')}</MonoLabel>
-                {/* The same GenreFilter the desktop row uses — one select over every
-                    genre. The sheet reached that shape first (1.4.0), because a
-                    measured chip strip inside a full-width section always collapsed
-                    to zero visible chips; the desktop row joined it in 1.4.2. */}
-                <GenreFilter genres={genres} value={genre} onChange={setGenre} />
+                <MonoLabel className="mb-2 block">{t('common.filters.only.label')}</MonoLabel>
+                <div className="flex flex-wrap items-center gap-2">{favChip}</div>
               </div>
             )}
-            {leadingMobile}
-            {hasWish && (
-              <div>
-                <MonoLabel className="mb-2 block">{t('common.filters.wish.label')}</MonoLabel>
-                <div className="flex flex-wrap items-center gap-2">{wishChips}</div>
-              </div>
-            )}
-            <div>
-              <MonoLabel className="mb-2 block">{t('common.filters.only.label')}</MonoLabel>
-              <div className="flex flex-wrap items-center gap-2">{onlyChips}</div>
-            </div>
-            {hasStates && (
-              <div>
-                <MonoLabel className="mb-2 block">{t('common.filters.shelf.label')}</MonoLabel>
-                {stateSelect}
-              </div>
-            )}
-            {hasSeries && (
-              <div>
-                <MonoLabel className="mb-2 block">{seriesNoun}</MonoLabel>
-                {seriesSelect}
-              </div>
-            )}
-            {hasCredit && (
-              <div>
-                <MonoLabel className="mb-2 block">{creditNoun}</MonoLabel>
-                {creditSelect}
-              </div>
-            )}
-            {trailingMobile}
-            {/* THE ORDER, LAST IN THE FILTER SHEET. It had a sheet of its own and
-                a dock key of its own, on the argument that "a filter changes
-                WHICH rows you are looking at and a sort changes only their
-                order". True, and not worth a second surface: both answer "what am
-                I looking at" in one sitting, and two keys side by side opening
-                two sheets that look identical is a phone asking a reader to
-                remember which of two doors held the thing they wanted.
-
-                LAST, because it is the only section here that cannot change the
-                count the footer states. Everything above it narrows the board;
-                this one rearranges what is left. */}
+            {trailing}
+            {/* LAST, because it is the only section here that cannot change the count
+                the footer states: it rearranges what is left. */}
             {hasSort && (
               <div>
                 <MonoLabel className="mb-2 block">{t('common.filters.sort.label')}</MonoLabel>

@@ -7,7 +7,7 @@ It is generated from the glossary catalogue, `web/frontend/scripts/glossary/cata
 when a component has no entry, so a rename or a new control updates this page or fails the build. Each entry names the file
 that defines it.
 
-217 entries in 21 sections.
+215 entries in 21 sections.
 
 ## Shell
 
@@ -614,14 +614,6 @@ A dialog’s two answers are **yes and no**, and they sit together as ✓ and �
 
 The shared **Tiles / List / Table** switch — Library annotations and Catalogue dialogues offer the same three views through this one Toggle, its glyphs drawn by `ViewIcon` (also reused as IconGrid/IconList/IconTable).
 
-### GenreFilter
-
-*Defined in:* GenreFilter — ui.jsx
-
-The shared genre picker (Library + Catalogue): **one Select** over every genre, with "All genres" as its first option. 
- 
-It was a strip of tactile chips — "All" plus as many genres as genuinely fit — sized by measuring each chip's rendered text width on a canvas against the row's leftover space, with the true overflow in a "More…" dropdown. 1.4.2 gave up on that measurement rather than tuning it a third time. The row it measured against holds a dozen other controls whose widths change as the data does (a long series name, a two-digit count), so the answer was right only until something else on the row moved — and the failure was ugly in a specific way: a chip clipped mid-word against "More…", which reads as a rendering bug rather than a fitted layout. Chips also ordered genres by frequency, so which ones were reachable without opening a dropdown changed as the library grew. A select has none of those failure modes, costs one tap for *any* genre instead of one for some and two for the rest, and is already how series, sort, group and shelf read on the same row — and how genre itself has read in the mobile filter sheet since 1.4.0. This is the desktop row catching up with it.
-
 ### ColorSwatches
 
 *Defined in:* ColorSwatches — ui.jsx · .color-dot / .dot-* — index.css · categoryName / categoryHidden — theme.js
@@ -1116,18 +1108,6 @@ What a work is holding, said at the top of its own page — under the credit lin
 **Counted off the UNFILTERED set**, which is why both call sites only recompute on an unfiltered load — the same rule the toolbar's own total has always followed. A colour filter must not be able to make a book look emptier than it is. The consequence is stated rather than discovered: a mutation made while a filter is on holds the last unfiltered values until the filter clears, and because this line and the toolbar's read the *same* state they are stale together and can never disagree with each other. Two counts on one screen quietly contradicting each other is the worse bug. `minusQuote` covers the one path that cannot wait for a reload — a single delete, which the board already decrements optimistically — and it subtracts what *that* row contributed rather than blanket-decrementing, so the breakdown cannot drift a little at a time. 
  
 **Amber on the film side, by prop rather than by a page class** (`tone`): there is no page class to inherit, the Catalogue's credit line sets amber inline, and a terracotta total under an amber credit reads as two unrelated systems on one card.
-
-### Wishlist folder (1.12.0)
-
-*Defined in:* WishlistFolder — works.jsx · .wish-collage / .wish-cell / .wish-folder-tag — index.css
-
-A library that keeps quotes accumulates books it has nothing from yet: a shelf photographed at a friend's house, an import that brought the titles and not the highlights, everything bought and not started. The triplet above already let you *browse* them. What was missing was a way to get them **out of the way** — forty unopened covers scattered through a grid of books you have actually read is forty tiles of noise between the ones you are looking for, and a chip only helps when the wishlist is what you came for. 
- 
-**It is a DOOR, not a place.** Opening it is the `wishlist` chip that already exists. Nothing moves, nothing is stored, and there is no membership that could disagree with the count printed on a cover — which is the same reason the wishlist has no column: a second source of truth for something already computable. A book leaves the folder by itself the moment you save a quote from it. 
- 
-**Drawn as a WorkCard is drawn**, at the same width and the same 2/3 aspect, because a folder wearing a different material reads as a control that wandered into the Library rather than as one of its tiles. The collage adapts to how many covers there are (one spans the box, two split it, three make an L): a 2×2 holding one cover and three blanks reads as a broken image rather than as a wishlist with one thing on it. A cover-less book gets an empty cell rather than the &ldquo;COVER&rdquo; placeholder — that placeholder carries its own word, and four of them inside one tile is the word printed four times at quarter size. 
- 
-**Not selectable.** A tick in its corner would have to mean &ldquo;select the twelve behind it&rdquo;, which is a different act from every other tick on the board and one the bar has no way to report a count for. **Ungrouped Library only**: inside the wishlist chip there is nothing to fold away from, and a Wishlist folder inside the bucket for one author would mean something different in every group it appeared in. **Off until you turn it on**, and then it stays on — a grid that silently rearranged itself on upgrade is a library that looks like it lost books.
 
 ### What changed (1.12.0)
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { coverImgURL, json, errText, downloadPost } from './api.js'
 import { chapterLabel, chapterPatch } from './text.js'
 import { locatorMeta } from './attribution.js'
@@ -12,27 +12,20 @@ import { deleteWithUndo } from './undo.jsx'
 import { ActionRow, actionsFor } from './actions.jsx'
 import { ANTHOLOGY_KIND, useGatherDoor } from './anthologyGather.jsx'
 import { QuoteContext, contextKind, useInContext } from './sources.jsx'
-import { facetValue, facetValues, publishSearchSeed, seedableChips, withFacet, withFacetValues } from './facets.js'
 import { PeopleChips, SpeakerChips, chipRows, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import { useTextOrder } from './textOrderHost.jsx'
-import { BoardHead, BoardSheet, BoardStrip, columnActions, measureStyle } from './boardHead.jsx'
-import { annDate, groupAnnotations, sortAnnotations } from './boardOrder.js'
+import { BoardHead } from './boardHead.jsx'
+import { annDate, sortAnnotations } from './boardOrder.js'
 import {
-  GroupHeading,
   WorkCard,
-  WishlistFolder,
   WorkListScaffold,
   countQuotes,
-  groupWorks,
   minusQuote,
   patchMovesTheRow,
   pinInProgress,
-  statusFilter,
   useBoardWindow,
   ANNOTATION_PAGE,
-  wishFilter,
 } from './works.jsx'
-import { KINDS, bookGenres } from './workKinds.js'
 import WorkDetail from './WorkDetail.jsx'
 import { QUOTE_TEXT } from './fonts.js'
 import { t } from './i18n.js'
@@ -40,51 +33,32 @@ import { BookDuplicateConfirm } from './bookDuplicate.jsx'
 import { ProseArea } from './proseField.jsx'
 import {
   fmtDate,
-  QUOTE_COLUMNS_IN,
-  byLastRead,
-  byYear,
-  bySeries,
-  clampSequence,
   ColorSwatches,
   ConfirmDialog,
-  Cover,
   EmptyState,
   ErrorText,
   ExpandableText,
   Field,
-  FilterChip,
   FormModal,
   GhostButton,
   HandCard,
   HandNote,
-  IconSortAsc,
-  IconSortDesc,
-  Masonry,
   MonoLabel,
-  mulberry32,
   parseYearInput,
   YearField,
   yearInputValue,
   QuizSkipMark,
-  Scroller,
-  Select,
-  TableActions,
   TagChip,
   titleCaseGenre,
   TokenInput,
-  Tooltip,
   TranslationLine,
   useCardMenu,
-  useColumnsIn,
   useCoverSize,
   useFormHost,
   useIsMobileScreen,
   usePersistedState,
-  useScreenBar,
-  ViewIcon,
   PanelHost,
   usePanelStack,
-  IconHeartOn,
 } from './ui.jsx'
 
 const PRIMARY = 'tp-btn tp-btn-primary' // aesthetic-aware primary (§6)
@@ -110,14 +84,6 @@ export default function Library({ openId, onOpen, onClose, onOpenMovie, creditSe
 }
 
 // The five group-by dimensions. A function, not a table: it is read at render.
-const groupOptions = () => [
-  ['none', t('library.group.none.label')],
-  ['series', t('library.group.series.label')],
-  ['author', t('library.group.author.label')],
-  ['decade', t('library.group.decade.label')],
-  ['genre', t('library.group.genre.label')],
-]
-
 // countOf is "3 books" / "1 quote", from the shared unit table.
 const countOf = (n, unit) => t('common.count.phrase', { n, noun: t(unit, { count: n }) })
 
@@ -205,51 +171,8 @@ function BookGrid({ books, coverSize, onOpen, authorMap = {}, seps, leadingTile,
 
 function BookList({ onOpen, onOpenMovie, creditSeparators, dataNonce }) {
   const [books, setBooks] = useState(null)
-  // ONE LIST, NOT NINE useStates. Every filter this board offers is a chip, in
-  // the same shape the search box's chips take — which is what lets the sheet
-  // and the search bar be two editors of one thing rather than two ways to say
-  // "tagged stoicism" that do not know about each other.
-  //
-  // The controls below are unchanged: each still gets a value and a setter of
-  // exactly the shape it always took, so WorkListScaffold did not have to learn
-  // anything. What changed is that there is now one object underneath them, so
-  // `onReset` empties a list instead of remembering nine setters, and pressing
-  // Search hands over the very state the board was filtered by.
-  const [filters, setFilters] = useState([])
-  // Derived once per change rather than per render: `states` is a fresh array
-  // each time it is read, and the `shown` memo below has it in its dep list —
-  // recomputing it every render would re-filter the whole library on every
-  // keystroke anywhere on the screen.
-  const f = useMemo(() => ({
-    genre: facetValue(filters, 'genre'), // '' = All
-    series: facetValue(filters, 'series'), // '' = all series
-    fav: facetValue(filters, 'favourite') === 'yes',
-    tagged: facetValue(filters, 'tagged') === 'yes', // has at least one tagged quote
-    noted: facetValue(filters, 'noted') === 'yes', // has at least one quote with a note
-    // The board's three-way control over the server's two-way flag: '' = all,
-    // 'wishlist' = nothing saved out of it yet, 'annotated' = something was.
-    wish: { yes: 'wishlist', no: 'annotated' }[facetValue(filters, 'wishlist')] || '',
-    states: facetValues(filters, 'shelf'), // shelf states kept; [] = every state
-  }), [filters])
-  const { genre, series, fav, tagged, noted, wish, states } = f
-  const setGenre = (v) => setFilters((c) => withFacet(c, 'genre', v))
-  const setSeries = (v) => setFilters((c) => withFacet(c, 'series', v))
-  const setFav = (v) => setFilters((c) => withFacet(c, 'favourite', v ? 'yes' : ''))
-  const setTagged = (v) => setFilters((c) => withFacet(c, 'tagged', v ? 'yes' : ''))
-  const setNoted = (v) => setFilters((c) => withFacet(c, 'noted', v ? 'yes' : ''))
-  const setWish = (v) => setFilters((c) => withFacet(c, 'wishlist', v === 'wishlist' ? 'yes' : v === 'annotated' ? 'no' : ''))
-  const setStates = (v) => setFilters((c) => withFacetValues(c, 'shelf', v))
-  // Fold the wishlist into one tile. PERSISTED, unlike every filter beside it and
-  // unlike `groupBy`, because it is not a question about this visit — it is how you
-  // want your board to look, in the same class as the cover size. Which is also why
-  // `Reset` leaves it alone: reset clears what you were asking of the library, not
-  // how the library is drawn.
-  //
-  // OFF by default. Turning it on is one tap and reversible; a grid that silently
-  // rearranged itself on upgrade is a library that looks like it lost books.
-  const [wishFolder, setWishFolder] = usePersistedState('tippani:books:wishFolder', false)
+  const [fav, setFav] = useState(false)
   const [sort, setSort] = useState('recent')
-  const [groupBy, setGroupBy] = useState('none') // none | series | author | decade | genre
   const [exporting, setExporting] = useState(false)
   const [error, setError] = useState('')
   const [coverSize] = useCoverSize('tippani:size:books', 165) // set from Settings
@@ -263,14 +186,6 @@ function BookList({ onOpen, onOpenMovie, creditSeparators, dataNonce }) {
   const personStack = usePanelStack()
   const openPerson = usePersonOpener(personStack)
 
-  // A search started from a filtered shelf searches the filtered shelf. The
-  // board publishes what it is currently showing; the shell reads it at the
-  // moment ＋Search is pressed. Cleared on unmount, because a stale seed would
-  // narrow a search to a board you had already left.
-  useEffect(() => {
-    publishSearchSeed(seedableChips(filters))
-    return () => publishSearchSeed([])
-  }, [filters])
 
   async function load() {
     const r = await json('GET', '/books')
@@ -285,51 +200,14 @@ function BookList({ onOpen, onOpenMovie, creditSeparators, dataNonce }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dataNonce])
 
-  // Genres, most-used first (chips promote the common ones), tie-broken
-  // alphabetically. bookGenres normalises so "fantasy"/"Fantasy" and a
-  // comma-joined "Fiction, Fantasy" all collapse to the same chips.
-  const genres = useMemo(() => {
-    const counts = new Map()
-    for (const b of books || []) for (const g of bookGenres(b)) counts.set(g, (counts.get(g) || 0) + 1)
-    return [...counts.keys()].sort((a, b) => counts.get(b) - counts.get(a) || a.localeCompare(b))
-  }, [books])
-
-  // Unique series names for the series filter dropdown.
-  const seriesNames = useMemo(() => {
-    const s = new Set()
-    for (const b of books || []) if (b.series) s.add(b.series)
-    return [...s].sort()
-  }, [books])
-
   const shown = useMemo(() => {
-    let list = books || []
-    if (genre) list = list.filter((b) => bookGenres(b).includes(genre))
-    if (series) list = list.filter((b) => (b.series || '') === series)
-    if (fav) list = list.filter((b) => b.favorite)
-    if (tagged) list = list.filter((b) => (b.tagged_count || 0) > 0)
-    if (noted) list = list.filter((b) => (b.noted_count || 0) > 0)
-    list = statusFilter(list, states)
-    list = wishFilter(list, wish, (b) => b.annotation_count || 0)
+    const list = fav ? (books || []).filter((b) => b.favorite) : [...(books || [])]
     // Default view = server order (created_at DESC) with what you're reading
     // floated to the top; an explicit sort takes over completely.
     if (sort === 'recent') return pinInProgress(list, 'book')
-    list = [...list]
     if (sort === 'title') list.sort((a, b) => a.title.localeCompare(b.title))
-    else if (sort === 'author') list.sort((a, b) => (a.author || '').localeCompare(b.author || ''))
-    else if (sort === 'year') list.sort(byYear((b) => b.published_year))
-    else if (sort === 'series') list.sort(bySeries)
-    else if (sort === 'read') list.sort(byLastRead)
     return list
-  }, [books, genre, series, fav, tagged, noted, states, wish, sort])
-
-  // Folding, and the two piles it makes. Only on the FLAT, unscoped board: inside
-  // the wishlist chip there is nothing to fold away from, and a "Wishlist" folder
-  // sitting inside the bucket for one author or one series would be a folder that
-  // meant something different in every group it appeared in.
-  const foldWish = wishFolder && wish === '' && groupBy === 'none'
-  const unquoted = (b) => (b.annotation_count || 0) === 0
-  const wishBooks = useMemo(() => (foldWish ? shown.filter(unquoted) : []), [foldWish, shown])
-  const boardBooks = useMemo(() => (foldWish ? shown.filter((b) => !unquoted(b)) : shown), [foldWish, shown])
+  }, [books, fav, sort])
 
   // Edit one book from the bar, when exactly one is picked (1.12.0). The id
   // rather than the row: what this board holds is a LIST row, and the list
@@ -337,37 +215,6 @@ function BookList({ onOpen, onOpenMovie, creditSeparators, dataNonce }) {
   // full-state form would save blanks over the two fields it never had.
   const [editWork, setEditWork] = useState(null)
   const creditSeps = useMemo(() => parseCreditSeps(creditSeparators), [creditSeparators])
-  // Named for what it DOES rather than for what it is: "Fold wishlist" is an
-  // instruction, and the chip beside it that reads "wishlist" is a scope. Two
-  // controls with the same word meaning two different things on one row is exactly
-  // the confusion this board does not need.
-  const wishChip = (
-    <FilterChip
-      active={wishFolder}
-      label={t('library.filters.fold-wishlist.label')}
-      tooltip={t('library.filters.fold-wishlist.tip')}
-      onClick={() => setWishFolder((v) => !v)}
-    />
-  )
-  const grouped = useMemo(
-    () =>
-      groupBy === 'none'
-        ? null
-        : groupWorks(shown, groupBy, {
-            credit: (b) => b.author,
-            splitCredit: true,
-            creditResidual: t('library.group.residual.author.label'),
-            year: (b) => b.published_year,
-            genres: bookGenres,
-            series: (b) => b.series,
-            seps: creditSeps,
-            sortMembers: (items, dim) => (dim === 'series' ? [...items].sort(bySeries) : items),
-          }),
-    [shown, groupBy, creditSeps],
-  )
-
-  const groupWin = useBoardWindow(grouped ? grouped.length : 0, grouped, 12)
-
   const quoteTotal = (books || []).reduce((n, b) => n + (b.annotation_count || 0), 0)
 
   return (
@@ -388,64 +235,15 @@ function BookList({ onOpen, onOpenMovie, creditSeparators, dataNonce }) {
       shownCount={shown.length}
       emptyText={t('library.board.empty')}
       noMatchText={t('library.board.nomatch')}
-      genres={genres}
-      genre={genre}
-      setGenre={setGenre}
       fav={fav}
       setFav={setFav}
-      tagged={tagged}
-      setTagged={setTagged}
-      noted={noted}
-      setNoted={setNoted}
-      wish={wish}
-      setWish={setWish}
-      states={states}
-      setStates={setStates}
-      kind="book"
-      noun={t('unit.book.one')}
-      nounPlural={t('unit.book.other')}
-      seriesNames={seriesNames}
-      series={series}
-      setSeries={setSeries}
       sort={sort}
       setSort={setSort}
       sortOptions={[
         ['recent', t('library.sort.recent.label')],
         ['title', t('library.sort.title.label')],
-        ['author', t('library.sort.author.label')],
-        ['year', t('library.sort.year.label')],
-        ['series', t('library.sort.series.label')],
-        ['read', t('library.sort.read.label')],
       ]}
-      trailing={
-        <>
-          {wishChip}
-          <label className="flex items-center gap-2">
-            <MonoLabel>{t('common.mono.group.label')}</MonoLabel>
-            <Select
-              ariaLabel={t('common.filters.group.aria')}
-              value={groupBy}
-              onChange={setGroupBy}
-              options={groupOptions()}
-            />
-          </label>
-        </>
-      }
-      trailingMobile={
-        <>
-          <div>{wishChip}</div>
-          <div>
-            <MonoLabel className="mb-2 block">group</MonoLabel>
-            <Select
-              ariaLabel={t('common.filters.group.aria')}
-              value={groupBy}
-              onChange={setGroupBy}
-              options={groupOptions()}
-            />
-          </div>
-        </>
-      }
-      onReset={() => { setFilters([]); setGroupBy('none'); setSort('recent') }}
+      onReset={() => { setFav(false); setSort('recent') }}
       exportDialog={
         <ConfirmDialog
           open={exporting}
@@ -485,49 +283,15 @@ function BookList({ onOpen, onOpenMovie, creditSeparators, dataNonce }) {
         </>
       }
     >
-      {grouped ? (
-        <div className="space-y-10">
-          {grouped.slice(0, groupWin.count).map((g) => {
-            const isAuthor = groupBy === 'author' && !g.residual
-            return (
-              <section key={g.key}>
-                <GroupHeading
-                  label={g.label}
-                  count={g.items.length}
-                  noun={t('unit.book.one')}
-                  nounPlural={t('unit.book.other')}
-                  person={isAuthor ? authors.map[g.label] : null}
-                  onOpenPerson={isAuthor ? () => openPerson({ kind: 'author', name: g.label, person: authors.map[g.label] }) : undefined}
-                />
-                <BookGrid books={g.items} coverSize={coverSize} onOpen={onOpen} authorMap={authors.map} seps={creditSeps} onChanged={load} onEdit={setEditWork} />
-              </section>
-            )
-          })}
-          {/* Groups are windowed too. Each section's own grid stops at sixty,
-              but a hundred small sections is still the whole library mounted —
-              the bound has to exist at both levels or neither. */}
-          {groupWin.more && <div ref={groupWin.sentinel} aria-hidden="true" className="h-px" />}
-        </div>
-      ) : (
-        <BookGrid
-          books={boardBooks}
-          coverSize={coverSize}
-          onOpen={onOpen}
-          authorMap={authors.map}
-          seps={creditSeps}
-          onChanged={load}
-          onEdit={setEditWork}
-          leadingTile={
-            wishBooks.length > 0 ? (
-              // Opening it is switching to the chip that already exists. The folder
-              // is a DOOR to a filter rather than a place things live: nothing
-              // moves, nothing is stored, and there is no state that can disagree
-              // with the count printed on a cover.
-              <WishlistFolder kind="book" items={wishBooks} onOpen={() => setWish('wishlist')} />
-            ) : null
-          }
-        />
-      )}
+      <BookGrid
+        books={shown}
+        coverSize={coverSize}
+        onOpen={onOpen}
+        authorMap={authors.map}
+        seps={creditSeps}
+        onChanged={load}
+        onEdit={setEditWork}
+      />
     </WorkListScaffold>
   )
 }
@@ -632,7 +396,7 @@ function BookDetail(props) {
       {...props}
       side="book"
       stateBuilder={(book, fields) => ({ ...bookState(book), ...fields })}
-      renderBoard={({ item, seps, creditMaps, mobileFilter, setMobileFilter, onStats, onAdd, dataNonce, openCharacter }) => (
+      renderBoard={({ item, seps, creditMaps, onStats, onAdd, dataNonce, openCharacter }) => (
         <Annotations
           bookId={item.id}
           book={item}
@@ -640,8 +404,6 @@ function BookDetail(props) {
           seps={seps}
           onStats={onStats}
           onOpenCharacter={openCharacter}
-          mobileFilterOpen={mobileFilter}
-          onMobileFilterOpen={setMobileFilter}
           onAdd={onAdd}
           dataNonce={dataNonce}
         />
@@ -930,12 +692,12 @@ export function annotationState(a) {
 // ---- annotation views (v3): tiles (resizable board) · list · table ----
 
 // RE-EXPORTED RATHER THAN MOVED AT EVERY CALL SITE. `fmtDate` lives in ui.jsx and
-// `annDate`, `sortAnnotations` and `groupAnnotations` in boardOrder.js, beside the
+// `annDate` and `sortAnnotations` in boardOrder.js, beside the
 // film board that is now their second caller. Home, Quotes, Search and four test
 // files import them from this file and there is no reason for a fold to touch
 // their import lists: one definition is the point, not one path to it.
 export { fmtDate }
-export { annDate, groupAnnotations, sortAnnotations } from './boardOrder.js'
+export { annDate, sortAnnotations } from './boardOrder.js'
 // AnnotationBoard — one set of quotes, drawn in whichever view is chosen.
 //
 // IT EXISTS BECAUSE OF GROUPING. A grouped board draws its view once per section,
@@ -947,30 +709,10 @@ export { annDate, groupAnnotations, sortAnnotations } from './boardOrder.js'
 // board windows its rows and a grouped one windows its sections, which is the
 // caller's decision and not this component's.
 function AnnotationBoard({
-  rows, view, tagMap, stickerMap, stickers, reloadStickers, editingId, setEditingId,
-  save, patch, remove, onCopy, onShare, sort, onSort,
-  columns, clamp, expandedId, onToggleExpand, boardRef = null, pinnedCount = 0, seed = 1,
-  onDuplicate, onOpenCharacter,
+  rows, tagMap, stickerMap, stickers, reloadStickers, editingId, setEditingId,
+  save, patch, remove, onCopy, onShare, onDuplicate, onOpenCharacter,
 }) {
-  if (view === 'table') {
-    return (
-      <AnnotationTable
-        rows={rows}
-        tagMap={tagMap}
-        stickers={stickers}
-        reloadStickers={reloadStickers}
-        sort={sort}
-        onSort={onSort}
-        editingId={editingId}
-        setEditingId={setEditingId}
-        save={save}
-        remove={remove}
-        onCopy={onCopy}
-        onShare={onShare}
-      />
-    )
-  }
-  const card = (a, i, lines, expandable) => (
+  const card = (a, i) => (
     <AnnotationCard
       key={a.id}
       a={a}
@@ -986,51 +728,14 @@ function AnnotationBoard({
       remove={remove}
       onCopy={onCopy}
       onShare={onShare}
-      quoteLines={lines}
+      quoteLines={5}
       tagSuggestions={Object.keys(tagMap)}
       onOpenCharacter={onOpenCharacter}
       onDuplicate={onDuplicate}
-      {...(expandable
-        ? { expanded: expandedId === a.id, onToggleExpand: () => onToggleExpand(a.id) }
-        : null)}
     />
   )
-  if (view === 'list') {
-    return <div className="space-y-4">{rows.map((a, i) => card(a, i, 5, false))}</div>
-  }
-  // Masonry board in SOURCE order (newest first; newly-added quotes ride on top
-  // via the pinned prefix until refresh) — equal-width columns dealt onto the
-  // shortest pile. Each card clamps to a seeded per-card 3–5 lines with no
-  // three-in-a-row the same; since the layout keeps source order, those sizes
-  // vary the board without banding by height, and a quote shorter than its clamp
-  // just shows in full. Clicking a quote expands it; doing so collapses any other
-  // and locks the column order so the board never reshuffles under the reader.
-  return (
-    <Masonry
-      boardRef={boardRef}
-      columns={columns}
-      gap={12}
-      seed={seed}
-      pinnedCount={pinnedCount}
-      lockOrder={expandedId != null}
-      order="source"
-    >
-      {rows.map((a, i) => card(a, i, clamp?.[i], true))}
-    </Masonry>
-  )
+  return <div className="space-y-4">{rows.map((a, i) => card(a, i))}</div>
 }
-
-// ---- what a BOOK's board offers ---------------------------------------------
-//
-// The dimensions, and only the dimensions: how a board sorts and buckets lives in
-// boardOrder.js, which every kind calls. These two are what THIS screen is
-// allowed to offer, read off the kind table so the film board's are its own.
-export const SORT_DIMS = KINDS.book.sortDims
-export const GROUP_DIMS = KINDS.book.groupDims
-
-// VIEW_KINDS — the three the board actually renders, in the order the menu lists
-// them. AnnotationBoard has always drawn all three; only the toggle narrowed it.
-export const VIEW_KINDS = KINDS.book.views
 
 // quoteTexts / quoteBody / showsTranslationLine LIVE IN text.js and are
 // re-exported here, because this is where a reader looks for them and four test
@@ -1411,126 +1116,10 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
 // The columns are the kind table's; the getter is what keeps a label out of
 // module-load time, so it resolves in whichever language is applied when the
 // header is drawn rather than the one that happened to load first.
-const TABLE_COLS = KINDS.book.tableCols.map((c) => ({
-  key: c.key,
-  get label() { return t(c.labelKey) },
-}))
-
-function AnnotationTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSort, editingId, setEditingId, save, remove, onCopy, onShare }) {
-  // DRAWN, NOT TYPED. `▲`/`▼` render in the reader's font — solid on one platform,
-  // hollow on another, off the baseline the header's letters share — and are the
-  // one picture docs/ui-glossary.html cannot document. IconSortAsc/IconSortDesc
-  // are the pair every other sort control in this app uses.
-  const arrow = (k) => (sort.col !== k ? null
-    : sort.dir === 'asc' ? <IconSortAsc size={13} /> : <IconSortDesc size={13} />)
-  const editingRow = rows.find((a) => a.id === editingId)
-  // THE SAME STATE THE CARDS READ, taken from the host rather than passed in —
-  // the argument TextOrderHost exists for. Without it `quoteBody` fell to the
-  // default, so the table showed the original where a card showed the
-  // translation: one library, two answers, and the table's was the wrong one for
-  // exactly the quote the feature is for.
-  //
-  // NO LANGUAGE HERE, DELIBERATELY. A table row is one line of a work's
-  // highlights and the cell has the row in hand, so this could ask per row — but
-  // the table is a scan of one work and a column whose reading order changed line
-  // by line would be unreadable. The work's own state governs the column.
-  const order = useTextOrder()
-  return (
-    <Scroller className="ann-table-wrap">
-      <table className="ann-table">
-        <thead>
-          <tr>
-            {TABLE_COLS.map((c) => (
-              <th key={c.key} className="sortable" onClick={() => onSort(c.key)} aria-sort={sort.col === c.key ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
-                <Tooltip label={t('book.table.sort.tip')} side="bottom">
-                  {c.label}
-                  {arrow(c.key)}
-                </Tooltip>
-              </th>
-            ))}
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((a) => {
-            // ONE CALL, NOT quoteBody TWICE. The cell wants the text AND the face
-            // it is set in, and both come off the same answer — asking quoteBody
-            // for the words and then working out the script beside it would be
-            // this site holding a second opinion about which of the two texts is
-            // the quote, which is the divergence that once had the table and the
-            // cards disagreeing about which text leads at all.
-            const { body, bodyScript } = quoteTexts(a, order)
-            return (
-            <tr key={a.id}>
-              <td className="col-quote">
-                {/* The table honours the same setting the cards do — it is the
-                    one view where the translation was never drawn at all, so a
-                    reader who asked for "translation only" here used to get the
-                    original back with no sign the setting had done anything. */}
-                <ExpandableText
-                  text={body || a.note}
-                  className={bodyScript}
-                  lines={2}
-                  style={QUOTE_STYLE}
-                />
-                {a.tags && a.tags.length > 0 && (
-                  <div className="mt-1.5 flex flex-wrap gap-1.5">
-                    {a.tags.map((name) => {
-                      const tag = tagMap[name]
-                      return (
-                        <TagChip key={name} color={tag?.color} style={tag?.style}>
-                          {name}
-                        </TagChip>
-                      )
-                    })}
-                  </div>
-                )}
-              </td>
-              <td className="col-mono">{chapterLabel(a) || '—'}</td>
-              <td className="col-mono">{a.location || '—'}</td>
-              <td className="col-mono">{fmtDate(annDate(a)) || '—'}</td>
-              <td className="col-center">{a.favorite ? <IconHeartOn size={14} /> : '—'}</td>
-              <td className="col-actions">
-                {/* `remove` IS THIS SCREEN'S ASK, not its deletion: the parent
-                    binds the prop to `setAsking` (`remove: setAsking`), so the
-                    card and the row put the same question — which is what the
-                    directive requires of one control drawn twice.
-
-                    THIS LINE REACHED FOR THE PARENT'S OWN NAME. `setAsking` has
-                    no binding in this component, so Delete on a table row threw
-                    the moment it was pressed; the bundler resolved it as a global
-                    and said nothing, and nothing renders this table under test. */}
-                <TableActions
-                  noun={t('unit.quote.one')}
-                  nounPlural={t('unit.quote.other')}
-                  onCopy={onCopy && (() => onCopy(a))}
-                  onShare={onShare && (() => onShare(a))}
-                  onEdit={() => setEditingId(a.id)}
-                  onDelete={() => remove(a)}
-                />
-              </td>
-            </tr>
-            )
-          })}
-        </tbody>
-      </table>
-      <FormModal open={!!editingRow} onClose={() => setEditingId(null)} title={t('common.quote.edit.title')}>
-        {editingRow && (
-          <AnnotationForm initial={editingRow} onSubmit={(fields) => save(editingRow.id, fields)} onCancel={() => setEditingId(null)} submitLabel={t('common.action.save.label')} tagSuggestions={Object.keys(tagMap)} stickers={stickers} reloadStickers={reloadStickers} bookId={editingRow.book_id ?? null} />
-        )}
-      </FormModal>
-    </Scroller>
-  )
-}
-
-// Annotations is the per-book annotation section: filter row and hand-drawn
-// cards (§8.5). Adding opens in the standard pop-up form (FormModal) — the
-// sticky-bar ＋ on phones; the omnipresent top-bar ＋ Add elsewhere.
-// pinToTop floats just-added annotations to the front of whatever order the
-// view is currently in, preserving pinnedIds' order (most-recent add first) and
-// leaving the rest untouched. Ids that aren't present (filtered out, or a stale
-// pin) are simply skipped. Returns the input unchanged when there's nothing to
-// pin so identity is preserved for memo consumers.
+// Annotations is the per-book quote list: the sort bar and hand-drawn cards.
+// pinToTop floats just-added annotations to the front of the order the list is in,
+// preserving pinnedIds' order (most-recent add first). Ids that are not present
+// are skipped. Returns the input unchanged when there is nothing to pin.
 function pinToTop(arr, pinnedIds) {
   if (!pinnedIds.length || !arr || !arr.length) return arr
   const pset = new Set(pinnedIds)
@@ -1543,39 +1132,24 @@ function pinToTop(arr, pinnedIds) {
   return [...top, ...arr.filter((x) => !pset.has(x.id))]
 }
 
-function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilterOpen, onMobileFilterOpen, onAdd, dataNonce, onOpenCharacter }) {
+function Annotations({ bookId, book, authorMap = {}, seps, onStats, onAdd, dataNonce, onOpenCharacter }) {
   const [items, setItems] = useState(null)
   const [tags, setTags] = useState([]) // tag objects: {id, name, color, style, …}
   const [shareTarget, setShareTarget] = useState(null) // annotation being shared
-  const [color, setColor] = useState('') // filter, '' = all
-  const [tag, setTag] = useState('') // filter by NAME, '' = all
   const [fav, setFav] = useState(false)
-  // NOTED AND TAGGED, the pack's other two chips (its fourth, "unread", means
-  // nothing for a quote). CLIENT-SIDE, unlike colour/tag/favourite: those three
-  // are query parameters the server already understands, and adding two more
-  // would be a handler change and a store change for a filter over a set that is
-  // already in the browser. The unfiltered counts stay correct either way — they
-  // are recorded on an unfiltered REQUEST, and these two do not change the
-  // request.
-  const [noted, setNoted] = useState(false)
-  const [tagged, setTagged] = useState(false)
   const [editingId, setEditingId] = useState(null)
-  const [total, setTotal] = useState(null) // unfiltered count for "N quotes · M shown"
   // The same unfiltered set, counted four ways for the hero (see countQuotes).
   // Kept beside `total` rather than replacing it: this toolbar's label pairs the
   // unfiltered total with the number SHOWN, which is a fact about the filter, and
   // the hero's line is a fact about the book. Two labels, two jobs, one fetch.
   const [stats, setStats] = useState(null)
   const [error, setError] = useState('')
-  const [view, setView] = usePersistedState('tippani:annview', 'tiles') // list | tiles | table
   // ONE ORDER FOR EVERY VIEW. This was `table only`, and the two card views —
   // which is where a reader actually reads — had no order to choose at all and no
   // way to group. A board of three hundred highlights in the order they happened
   // to be saved is a board you scroll rather than read.
   const [sort, setSort] = usePersistedState('tippani:annsort', { col: 'default', dir: 'asc' })
-  const [groupBy, setGroupBy] = usePersistedState('tippani:anngroup', 'none')
   // 0 is Auto — the measured answer — and not "no columns". See columnActions.
-  const [columns, setColumns] = usePersistedState(KINDS.book.board.persist.columns, 0)
   // Ids of annotations added this session, most-recent first. They're floated to
   // the top of the pile (overriding the current order) so the user sees their
   // addition — until they sort, which clears the pin (see toggleSort).
@@ -1589,7 +1163,6 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
   const firstNonce = useRef(true)
   useEffect(() => {
     if (firstNonce.current) { firstNonce.current = false; return }
-    setExpandedId(null) // collapse before the longer set re-packs the board
     load()
     loadTags() // a capture can invent a tag
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1604,19 +1177,7 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
   }, [stats])
 
   const { stickers, reload: reloadStickers } = useStickers()
-  const filtering = Boolean(color || tag || fav || noted || tagged)
-  // THE CHIPS, DECLARED ONCE AND DRAWN TWICE — the desktop row and the phone's
-  // filter sheet. Written inline in both places they had already drifted to one
-  // chip on each; a screen that offers a different set of filters depending on
-  // the device is offering a different board.
-  //
-  // The pack draws four. Its fourth is "unread", which means nothing for a
-  // quote, so three is the whole set here.
-  const quoteChips = [
-    { on: fav, set: setFav, label: t('common.filters.favourites.label'), tip: t('common.favourite.filter.tip') },
-    { on: noted, set: setNoted, label: t('common.filters.noted.label'), tip: t('common.filters.noted.tip', { noun: t('unit.quote.other') }) },
-    { on: tagged, set: setTagged, label: t('common.filters.tagged.label'), tip: t('common.filters.tagged.tip', { noun: t('unit.quote.other') }) },
-  ]
+  const filtering = fav
   // Chips take colour + style from the tag object (name-keyed map).
   const tagMap = useMemo(() => Object.fromEntries(tags.map((row) => [row.name, row])), [tags])
   // Attached stickers resolve id → image for the card seal.
@@ -1628,30 +1189,14 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
     setPinned([])
     setSort((s) => (s.col === col ? { col, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { col, dir: 'asc' }))
   }
-  // The two client-side chips, applied before the sort so every view and the
-  // "N shown" count see the same set.
-  const chipRows = useMemo(() => {
-    if (!items) return items
-    if (!noted && !tagged) return items
-    return items.filter(
-      (a) => (!noted || (a.note || '').trim().length > 0) && (!tagged || (a.tags || []).length > 0),
-    )
-  }, [items, noted, tagged])
   // The chosen order, in every view — see sortAnnotations, which is where the
   // dimensions and their tie-breaks live.
-  const sortedRows = useMemo(() => sortAnnotations(chipRows || [], sort), [chipRows, sort])
+  const sortedRows = useMemo(() => sortAnnotations(items || [], sort), [items, sort])
   // What every view actually renders: the current order (server-recent for
   // list/tiles, the chosen column for table) with freshly-added items pinned on
   // top. sortedRows already returns a server-order copy of items for non-table
   // views, so this is the single source of truth for all three.
   const displayRows = useMemo(() => pinToTop(sortedRows, pinned), [sortedRows, pinned])
-  // The buckets, when there are any. null when grouping is off, which is what
-  // every renderer below tests — one branch rather than a group of one.
-  const groups = useMemo(() => groupAnnotations(displayRows, groupBy), [displayRows, groupBy])
-  // Groups are windowed like the Library's are: each section's own board stops at
-  // the page size, and a hundred small sections is still the whole book mounted,
-  // so the bound has to exist at both levels or neither.
-  const groupWin = useBoardWindow(groups ? groups.length : 0, groups, 8)
 
   // ── WHAT THE BOARD PUTS IN THE SCREEN'S ⋯ .
   //
@@ -1678,20 +1223,6 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
   // for — "it names which view you are in, which sort is running, what the filters
   // are". Ticked rows under a heading say that outright, at one press instead of
   // two.
-  useScreenBar({
-    actions: () => [
-      { id: 'h-view', heading: t('common.mono.view.label') },
-      ...VIEW_KINDS.map((v) => ({
-        id: `view-${v}`,
-        icon: <ViewIcon kind={v} />,
-        label: t(`common.view.${v}.label`),
-        checked: view === v,
-        onClick: () => setView(v),
-      })),
-      // Directly under the view, because a column count is a property OF a view.
-      ...columnActions({ view, columns, onColumns: setColumns }),
-    ],
-  })
 
   // Tiles are a height-packed masonry (1/2/3 cols by width). Newly-added quotes
   // (the pinned prefix of displayRows) stay glued to the top of the board.
@@ -1709,7 +1240,6 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
   // exports with no call site anywhere, which is why the board kept doing the
   // thing its own comment says it must not. Measured against the board, 880px is
   // two columns of ~430, which is the ~400 a quote wants to be read at.
-  const [tileCols, boardRef] = useColumnsIn(QUOTE_COLUMNS_IN)
   const pinnedShown = useMemo(
     () => (!pinned.length || !items ? 0 : pinned.filter((id) => items.some((x) => x.id === id)).length),
     [pinned, items],
@@ -1728,38 +1258,6 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
     [displayRows, rowsWin.count, pinnedShown],
   )
 
-  // HOW MANY THE FILTERS ARE HOLDING BACK. displayRows is what passes them;
-  // `total` is the unfiltered count the fetch reported. Not shownRows, which is
-  // the WINDOW — a board that has only drawn its first page is not a board that
-  // is hiding the rest, and saying so would report a filter nobody set.
-  const hidden = total != null ? Math.max(0, total - displayRows.length) : 0
-
-  // One board seed drives both the masonry jitter and each card's clamp height,
-  // so the two stay in step and a given book always lays out the same way.
-  const boardSeed = book?.id || bookId || 1
-  // Per-card clamp: uniform 3–5 lines with no three-adjacent the same, seeded off
-  // the book so it's stable across reloads. The tiles board is laid out in source
-  // order (newest first, new pins on top), so these clamp sizes land in that same
-  // order — the no-3-in-a-row rule reads that way on the board too.
-  const clampLines = useMemo(
-    () => clampSequence(displayRows.length, mulberry32(boardSeed)),
-    [displayRows.length, boardSeed],
-  )
-  // Tiles run a one-open-at-a-time accordion: expanding a quote collapses any
-  // other, and the masonry order locks while one is open so columns don't jump.
-  const [expandedId, setExpandedId] = useState(null)
-  const toggleExpanded = useCallback((id) => setExpandedId((cur) => (cur === id ? null : id)), [])
-  // Keep expandedId honest: if the open quote leaves the set (un-favourited or
-  // edited out of the active filter via patch/save, which don't reset it), clear
-  // it — a dangling id keeps the board's lockOrder stuck true and defeats the
-  // masonry's rising-edge freeze on the next expand.
-  useEffect(() => {
-    if (expandedId != null && items && !items.some((x) => x.id === expandedId)) setExpandedId(null)
-  }, [items, expandedId])
-  // A column-count change (responsive breakpoint / rotation) re-opens masonry
-  // packing; collapse any open quote at the cross so the board re-packs and
-  // re-freezes off collapsed heights, not around the still-expanded card.
-  useEffect(() => { setExpandedId(null) }, [tileCols])
 
   async function loadTags() {
     const r = await json('GET', '/tags')
@@ -1770,26 +1268,19 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
     // the newest response is allowed to render (a slow earlier one is dropped).
     const seq = ++reqSeq.current
     const params = new URLSearchParams({ book_id: bookId })
-    if (color) params.set('color', color)
-    if (tag) params.set('tag', tag)
     if (fav) params.set('favorite', '1')
     const r = await json('GET', `/annotations?${params}`)
     if (seq !== reqSeq.current) return
     if (r.ok) {
       setItems(r.data.annotations)
-      if (!color && !tag && !fav) {
-        setTotal(r.data.annotations.length)
+      if (!fav) {
         setStats(countQuotes(r.data.annotations))
       }
     } else setError(errText(r))
   }
   useEffect(() => {
-    // A book switch or filter change swaps the tile set, so collapse any open
-    // quote first: it keeps the masonry's column lock from being latched around
-    // an expanded card while the set changes underneath it (see Masonry).
-    setExpandedId(null)
     load()
-  }, [bookId, color, tag, fav])
+  }, [bookId, fav])
   useEffect(() => {
     loadTags()
   }, [bookId])
@@ -1811,12 +1302,10 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
     setAsking(null)
     const r = await deleteWithUndo(`/annotations/${a.id}`, { reload: load })
     if (r.ok) {
-      setTotal((n) => (n == null ? n : n - 1))
       // The hero's counts go down with it, subtracting what THIS row contributed
       // rather than only the total — see minusQuote. Without it the hero sits one
       // ahead of the toolbar for as long as a filter is on.
       setStats((s) => minusQuote(s, a))
-      setExpandedId(null) // collapse before the shorter set re-packs
       load()
     } else setError(errText(r))
   }
@@ -1844,7 +1333,7 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
       return false
     }
     setError('')
-    if (patchMovesTheRow(fields, { fav, color, tag })) load()
+    if (patchMovesTheRow(fields, { fav })) load()
     else setItems((cur) => (cur || []).map((x) => (x.id === a.id ? { ...x, ...r.data } : x)))
     return true
   }
@@ -1875,25 +1364,9 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
   // about whether a copied quote carries its author.
   const copyOne = (a) => copyQuote(sharePayload(a))
 
-  const countsLabel = !items
-    ? ''
-    : filtering && total != null
-      ? t('book.quotes.counts.shown', { a: countOf(total, 'unit.quote'), n: items.length })
-      : countOf(items.length, 'unit.quote')
 
-  // ONE RENDERER FOR THE THREE VIEWS, and the reason is grouping: a grouped board
-  // draws the same view once per section, and two copies of "how a quote is drawn"
-  // is two places for a card prop to go missing. Everything a board needs that
-  // does not change per section is bundled here.
   const board = {
-    view,
-    // Undefined on every surface but a work's own page, and the card checks: a
-    // chip that cannot open anything is worse than the text it would replace.
     onOpenCharacter,
-    // DUPLICATE OPENS THE SHELL'S ONE ADD SURFACE, on Capture, with this book as
-    // the target and the copied quote in the boxes. Nothing is written until Save
-    // — a duplicate you abandon is a duplicate that never existed — which is why
-    // it is a form and not a POST with an undo behind it.
     onDuplicate: onAdd ? (row) => onAdd('quote', { type: 'book', id: bookId }, duplicateSeed(row)) : undefined,
     tagMap,
     stickerMap,
@@ -1906,118 +1379,19 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
     remove: setAsking,
     onCopy: copyOne,
     onShare: setShareTarget,
-    sort,
-    onSort: toggleSort,
-    columns: tileCols,
-    expandedId,
-    onToggleExpand: toggleExpanded,
   }
 
   return (
-    // THE MEASURE THE READER ASKED FOR. The work page's stream caps every child
-    // at 880px, and the column ladder is measured against the board INSIDE that
-    // cap — so 880, being under the ladder's 1200 rung, was a hard ceiling of two
-    // columns whatever the window was. Set here rather than on the stream because
-    // the stream belongs to WorkDetail and the choice belongs to the board; the
-    // cap reads the property off the child it applies to, so the value lands
-    // where it is needed and the head above the board widens with it.
-    <div className="space-y-4" style={measureStyle(columns)}>
-      {mobile && (
-        <BoardSheet
-          open={mobileFilterOpen}
-          onClose={() => onMobileFilterOpen?.(false)}
-          title={t('book.quotes.filter.title')}
-          countLabel={countsLabel}
-          onReset={() => { setColor(''); setTag(''); setFav(false) }}
-          color={color}
-          onColor={setColor}
-          tags={tags}
-          tag={tag}
-          onTag={setTag}
-          tagAllLabel={t('common.filters.tag.all.label')}
-          chips={quoteChips}
-          view={view}
-          onView={setView}
-        />
-      )}
-      {/* THE BOARD'S HEAD IS ONE ROW, and the pack switches wrapping OFF rather
-          than tolerating it: "nothing left in it is wide enough to need a second
-          line". It used to wrap into two — a FILTER caption, six colour dots, a
-          tag select and a favourites chip on one line, then the count, the view
-          switch and Add on the next — which is two bands of chrome above the
-          quotes somebody came to read.
-
-          THE STRUCTURE IS THE PACK'S. A settings field and the category control
-          sit OUTSIDE the scroller, so a setting cannot scroll out of sight while
-          the chips do; the chip row is `flex: 1; min-width: 0` and takes all the
-          overflow, because it is the only part that can afford to lose its right
-          edge; the verbs are `flex: none` on the end.
-
-          THE COUNT IS GONE FROM HERE. "3 quotes" is a property of the WORK, and
-          the hero already states it beside how many are favourites, noted and
-          tagged — this was the same fact twice on one screen, and the pack moves
-          it to the hero for exactly that reason.
-
-          THE CAPTION IS GONE TOO. Six coloured dots under the word FILTER did not
-          need the word; the controls say what they are. The pack drops captions
-          first when the row is tight, and this row is tight at 1180 by design. */}
-      {/* ── THE PHONE'S ARRANGEMENT STRIP, and the hole it closes is not cosmetic.
-          The whole board-head is desktop-only, and GroupSortField had exactly one
-          call site inside it — so a reader on a phone could not group by chapter,
-          could not change the sort column and could not flip the direction AT
-          ALL. The values sat in localStorage at whatever a desktop session last
-          left them, which for a phone-only reader means permanently at the
-          defaults. Sorting and grouping were shipped and then reachable from one
-          of the two viewports.
-
-          THE PACK'S OWN BAND, between the hero and the stream: "a strip that
-          states the count should not be as tall as a toolbar, so both controls
-          lose their boxes and keep only their words". A hairline above and below,
-          the arrangement underlined on the right, and the direction as a key —
-          "direction is one bit, so it is one tap and never a sheet".
-
-          IT STATES WHAT IS HIDDEN RATHER THAN WHAT EXISTS. The pack's strip
-          carries "142 quotes", and the app's hero already says that beside how
-          many are favourites, noted and tagged — the same fact twice on one
-          screen, which is why the desktop head dropped it. What the hero cannot
-          say is that a filter is currently hiding half the board, so that is what
-          this says, and only while something is actually hidden. */}
-      {mobile && (
-        <BoardStrip dims={GROUP_DIMS} sortDims={SORT_DIMS} groupBy={groupBy} onGroup={setGroupBy} sort={sort} onSort={setSort}>
-          {/* UNCONDITIONAL NOW, and the note above says why it was not. It read
-              "the hero already says that beside how many are favourites, noted and
-              tagged" — true until the header stopped saying it on a phone, which
-              is the pack's own arrangement: the count belongs in this strip and
-              the header belongs to the book. What is still conditional is the
-              SHAPE: a plain count at rest, and how many of how many while a filter
-              is hiding some, because that second fact has nowhere else to appear. */}
-          <MonoLabel>
-            {hidden > 0
-              ? t('board.strip.shown.label', { n: displayRows.length, total })
-              : countOf(displayRows.length, 'unit.quote')}
-          </MonoLabel>
-        </BoardStrip>
-      )}
-      {!mobile && (
-        <BoardHead
-          dims={GROUP_DIMS}
-          sortDims={SORT_DIMS}
-          groupBy={groupBy}
-          onGroup={setGroupBy}
-          sort={sort}
-          onSort={setSort}
-          color={color}
-          onColor={setColor}
-          tags={tags}
-          tag={tag}
-          onTag={setTag}
-          tagAllLabel={t('common.filters.tag.all.label')}
-          chips={quoteChips}
-          captureLabel={t('book.quotes.capture.label')}
-          onCapture={() => onAdd?.('quote', { type: 'book', id: bookId })}
-        />
-      )}
-
+    <div className="space-y-4">
+      <BoardHead
+        sort={sort}
+        onSort={setSort}
+        sortOptions={[['default', t('board.sort.default.label')], ['date', t('board.sort.date.label')]]}
+        fav={fav}
+        onFav={setFav}
+        captureLabel={t('book.quotes.capture.label')}
+        onCapture={() => onAdd?.('quote', { type: 'book', id: bookId })}
+      />
       <ErrorText>{error}</ErrorText>
 
       {items && items.length === 0 && (
@@ -2025,41 +1399,9 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
           {t(filtering ? 'book.quotes.nomatch' : 'book.quotes.empty')}
         </EmptyState>
       )}
-      {/* GROUPED, AND THE HEADINGS ARE THE SAME HEADINGS the shelf uses — a
-          reader who has grouped a library by author and a book by chapter has met
-          one control, not two. Each section holds the view the reader chose, so
-          grouping is orthogonal to it: a control that worked in one view and
-          silently did nothing in another would be worse than no control. */}
-      {/* GROUPED, AND THE HEADINGS ARE THE SAME HEADINGS the shelf uses — a
-          reader who has grouped a library by author and a book by chapter has met
-          one control, not two. Each section holds the view the reader chose, so
-          grouping is orthogonal to it: a control that worked in one view and
-          silently did nothing in another would be worse than no control. */}
-      {items && items.length > 0 && groups && (
-        // Spaced from the constant rather than from a typed step: a section break
-        // is two and a half rows, and the row is `--row` wherever it is measured.
-        <div className="ann-groups" style={{ display: 'grid', gap: 'calc(var(--row) * 2.5)' }}>
-          {groups.slice(0, groupWin.count).map((g) => (
-            <section key={g.key}>
-              <GroupHeading
-                label={g.label}
-                count={g.items.length}
-                noun={t('unit.quote.one')}
-                nounPlural={t('unit.quote.other')}
-              />
-              <AnnotationBoard {...board} rows={g.items.slice(0, ANNOTATION_PAGE)} clamp={clampLines} seed={boardSeed} />
-            </section>
-          ))}
-          {groupWin.more && <div ref={groupWin.sentinel} aria-hidden="true" className="h-px" />}
-        </div>
-      )}
-      {items && items.length > 0 && !groups && (
+      {items && items.length > 0 && (
         <>
-          <AnnotationBoard {...board} rows={shownRows} clamp={clampLines} seed={boardSeed} boardRef={boardRef} pinnedCount={pinnedShown} />
-          {/* aria-hidden and empty: a scroll position, not content. See BookGrid.
-              OUTSIDE the board, because the tiles view positions its children
-              absolutely — a sentinel inside it would be placed as a card and never
-              reach the bottom. */}
+          <AnnotationBoard {...board} rows={shownRows} />
           {rowsWin.more && <div ref={rowsWin.sentinel} aria-hidden="true" className="h-px" />}
         </>
       )}

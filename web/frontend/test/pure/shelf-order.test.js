@@ -208,26 +208,6 @@ describe('board order', () => {
     })
   })
 
-  describe('grouping a board that is not a book', () => {
-    it('makes a season and an episode one heading', () => {
-      const g = groupAnnotations(
-        [
-          { id: 1, season: 2, episode: 3 },
-          { id: 2, season: 1, episode: 3 },
-          { id: 3, season: 1, episode: 3 },
-          { id: 4 },
-        ],
-        'episode',
-        SHOW,
-      )
-      // Season 1 episode 3 and season 2 episode 3 are two runs, not one.
-      expect(g.filter((x) => !x.residual).length).toBe(2)
-      expect(g[0].items.map((r) => r.id)).toEqual([2, 3])
-      expect(g[0].label).toMatch(/1/)
-      expect(g[0].label).toMatch(/3/)
-      expect(g.at(-1).label).toBe('No episode')
-    })
-  })
 })
 
 // A wall that reorders when you arrive and holds still while you work.

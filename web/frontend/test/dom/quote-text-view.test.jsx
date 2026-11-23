@@ -96,22 +96,3 @@ describe('which text a quote shows', () => {
 // `a.quote` that carries the face wherever the four states put it; the translation
 // beside it is in a language nothing stores and is never tagged. Row 2 has no
 // language at all, which is the case most of a library is in.
-describe('the face a quote is drawn in', () => {
-  // THE TABLE TOO, and the three cases above did not reach it — every one of them
-  // renders the CARD view, so replacing the table cell's class with '' left the
-  // whole DOM suite green. That is the gap this file opens by naming ("the
-  // resolver was right and the table view simply never asked it"), reopened one
-  // property later: the table does ask which text leads, and until this case it
-  // was nobody's job to check that it asks which face too.
-  //
-  // The view is a persisted preference rather than a prop, so the way to land in
-  // the table is the way a returning reader lands there.
-  it('reaches the table cell as well as the card', async () => {
-    localStorage.setItem('tippani:annview', '"table"')
-    board()
-    await waitFor(() => expect(document.querySelector('.ann-table')).toBeTruthy())
-    expect(screen.getByText('Call me Ishmael.').closest('.bengali')).toBeTruthy()
-    expect(screen.getByText('The whale.').closest('.bengali')).toBeNull()
-    localStorage.removeItem('tippani:annview')
-  })
-})

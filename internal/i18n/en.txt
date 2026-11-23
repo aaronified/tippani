@@ -639,14 +639,11 @@ settings.updates.version.now = You are on {v}
 # --- the tiles / list / table switch.
 common.view.toggle.aria = View
 common.view.tiles.label = Tiles
-common.view.list.label = List
 common.view.table.label = Table
 
 # --- tables and filter rows.
 common.table.sort.tip = Sort by this column
 common.filters.label = Filters
-common.filters.genre.aria = Filter by genre
-common.filters.genre.all.label = All genres
 common.filters.reset.label = Reset filters
 common.sheet.close.tip = Close this sheet
 common.more.aria = More actions
@@ -750,8 +747,6 @@ unit.show.one = show
 unit.show.other = shows
 unit.quote.one = quote
 unit.quote.other = quotes
-unit.column.one = column
-unit.column.other = columns
 # A quote saved against a film or show. The stored kind is 'dialogue' and the
 # WORD is "film line" — this pair composes the bulk toasts, and the typed delete
 # phrase the Go server checks is built from the English of it, not from here.
@@ -927,9 +922,6 @@ common.work.delete.confirm.body.other = It goes to the bin with its {n} quotes, 
 common.work.delete.confirm.body.empty = It goes to the bin and can be put back. The toast offers an Undo.
 common.work.delete.confirm.action.label = Delete it
 
-# --- the wishlist folder tile: the works you have nothing from yet, in one card.
-common.wishlist-folder.tip = The {n} you have nothing from yet
-common.wishlist-folder.subtitle.label = nothing quoted yet
 
 # --- the four numbers in a work's hero. {noun} is already the plural.
 common.hero.counts.empty.label = no {noun} yet
@@ -945,36 +937,9 @@ common.action.back.label = Back
 # the sentence, so a chip row can lose its words on a phone and still be readable.
 common.filters.favourites.label = ♥ favourites
 common.filters.favourites.tip = Show only favourites
-common.filters.tagged.label = tagged
-common.filters.tagged.tip = Only tagged {noun}
-common.filters.noted.label = has notes
-common.filters.noted.tip = Only {noun} with notes
-# The three-way wishlist scope. "all" ignores it, "wishlist" shows only the works
-# nothing is quoted from, "annotated" hides them.
-common.filters.wish.label = wishlist
-common.filters.wish.all.label = all
-common.filters.wish.all.tip = Every {noun}
-common.filters.wish.only.label = wishlist
-common.filters.wish.only.tip = Only unquoted {noun}
-common.filters.wish.annotated.label = annotated
-common.filters.wish.annotated.tip = Hide unquoted {noun}
-common.filters.shelf.label = shelf
-common.filters.shelf.aria = Filter by shelf state
-common.filters.shelf.all.label = any state
-common.filters.shelf.none.label = No shelf tag
-common.filters.genre.label = genre
 common.filters.only.label = show only
 common.filters.sort.label = sort
 common.filters.sort.aria = Sort
-# {field} is the name of the column being filtered — series, collection, actor.
-common.filters.by.aria = Filter by {field}
-common.filters.all.label = all {field}
-# What a book's group of related titles is called, and its plural. A film's is a
-# "collection", passed in by the Catalogue.
-common.filters.series.noun.one = series
-common.filters.series.noun.other = series
-common.filters.credit.noun.one = actor
-common.filters.credit.noun.other = actors
 # The live count in a filter sheet's footer.
 common.filters.shown.label = {n} shown
 common.action.export.shown.tip = Export what is shown
@@ -2828,37 +2793,11 @@ quotes.board.nomatch = no quotes match these filters
 quotes.board.counts = {n} {noun}
 quotes.board.counts-described = {n} {noun} · {description}
 
-# The filters. The colour swatch row doubles as its own off switch.
-quotes.filters.colour.aria = Filter by category
-quotes.filters.speaker.aria = Filter by speaker
-quotes.filters.speaker.all.label = all speakers
-quotes.filters.kind.aria = Filter by kind
-quotes.filters.kind.all.label = all kinds
-quotes.filters.language.aria = Filter by language
-quotes.filters.language.all.label = all languages
 
-# Group by. "Quotes" here means UNGROUPED — one pile.
-quotes.group.none.label = Quotes
-quotes.group.speaker.label = Speaker
-quotes.group.kind.label = Kind
-quotes.group.place.label = Place
-quotes.group.decade.label = Decade
-# Offered on a proverb board only: on a board of speeches the field is empty on
-# every row, which would be one section called "No language" holding all of it.
-quotes.group.language.label = Language
-# The catch-all section heading, per dimension. It says WHAT IS MISSING rather
-# than "None", because a proverb lands in the catch-all of every one of these.
-quotes.group.residual.speaker.label = No speaker
-quotes.group.residual.kind.label = No kind
-quotes.group.residual.place.label = No place
-quotes.group.residual.language.label = No language
-quotes.group.residual.none.label = None
 
 # Sort.
 quotes.sort.recent.label = Recent
 quotes.sort.speaker.label = Speaker
-quotes.sort.occasion.label = Occasion
-quotes.sort.said.label = When said
 
 quotes.delete.confirm = Delete this quote?
 quotes.toast.moved = moved
@@ -2871,15 +2810,7 @@ quotes.export.confirm.body.other = {n} quotes in view will be exported as one Ma
 common.mono.actions.label = actions
 common.mono.colour.label = colour
 common.mono.group.label = group
-common.mono.view.label = view
-common.mono.sort.label = sort
-common.mono.tag.label = tag
-common.mono.speaker.label = speaker
-common.mono.medium.label = medium
-common.mono.language.label = language
 
-# Filter controls shared by the Library, the Catalogue and Quotes.
-common.filters.tag.aria = Filter by tag
 common.filters.tag.all.label = all tags
 common.filters.group.aria = Group by
 
@@ -3732,25 +3663,10 @@ library.header.counts = {a} · {b}
 library.header.lookup.label = lookup: ISBN or title
 library.board.empty = no books yet — the ＋ in the top bar adds one, or imports a file of highlights
 library.board.nomatch = no books match these filters
-# The chip that folds every unquoted book into one tile.
-library.filters.fold-wishlist.label = Fold wishlist
-library.filters.fold-wishlist.tip = Fold the unquoted into one tile
-# The catch-all group heading where a book has no author recorded.
-library.group.residual.author.label = Unknown author
 
 # Sort, and group.
 library.sort.recent.label = Recent
 library.sort.title.label = Title
-library.sort.author.label = Author
-library.sort.year.label = Year
-library.sort.series.label = Series
-library.sort.read.label = Last read
-# "Books" here means UNGROUPED — one board of them.
-library.group.none.label = Books
-library.group.series.label = Series
-library.group.author.label = Author
-library.group.decade.label = Decade
-library.group.genre.label = Genre
 
 # Exporting the board.
 library.export.confirm.title = Export library
@@ -3758,7 +3674,6 @@ library.export.confirm.body = Exports {a} · {b} in view as one Markdown file pe
 
 # A BOOK'S OWN PAGE.
 book.title.fallback = Untitled
-book.filter.aria = Filter annotations
 book.export.label = Export .md
 book.practise.aria = Practise this book
 book.practise.menu.label = Practise this book
@@ -3803,14 +3718,6 @@ common.quote.edit.title = Edit quote
 # it back — see text.js. Changing it breaks the round trip.
 common.locator.chapter.label = CH. {name}
 
-# THE HIGHLIGHTS TABLE on a book's page.
-book.table.quote.label = Quote
-book.table.chapter.label = Chapter
-book.table.location.label = Location
-book.table.date.label = Date
-# The favourite column, a bare heart.
-book.table.favourite.label = ♥
-book.table.sort.tip = Sort by this column
 
 # The highlights board on a book's page.
 book.quotes.counts.shown = {a} · {n} shown
@@ -3844,26 +3751,12 @@ movies.header.nokey.label = no TMDB key — manual entry
 movies.header.lookup.label = lookup: title + year
 movies.board.empty = No titles yet — look one up on TMDB/TVDB or add it manually.
 movies.board.nomatch = no titles match these filters
-movies.group.residual.director.label = Unknown director
 
-# The media-type filter above the board. Only offered for the kinds you have.
-movies.filters.media.all.label = All
-movies.filters.media.movie.label = Movies
-movies.filters.media.show.label = Shows
-movies.filters.media.game.label = Games
 
 # Sort, and group. "Titles" means UNGROUPED; a film's franchise is a COLLECTION
 # where a book's is a series.
 movies.sort.recent.label = Recent
 movies.sort.title.label = Title
-movies.sort.year.label = Year
-movies.sort.series.label = Collection
-movies.sort.read.label = Last watched
-movies.group.none.label = Titles
-movies.group.series.label = Collection
-movies.group.author.label = Director
-movies.group.decade.label = Decade
-movies.group.genre.label = Genre
 
 # Exporting the board. Counted PER MEDIUM, because a game tallied as a movie is
 # a dialog that lies about what it is going to write.
@@ -3908,7 +3801,6 @@ film.form.media.movie.label = Movie
 
 # A TITLE'S OWN PAGE.
 film.title.fallback = Untitled
-film.filter.aria = Filter dialogues
 film.export.label = Export .md
 film.practise.aria = Practise this title
 film.practise.menu.label = Practise this title
@@ -3926,20 +3818,12 @@ film.shelf.cap.past.label = Mark as watched
 
 # The dialogue board on a title's page.
 film.lines.filter.title = Filter dialogues
-film.lines.filter.placeholder = character or tag…
 film.lines.filter.tag.all.label = All tags
 film.lines.capture.label = ＋ Capture a line
-film.lines.counts.shown = {a} · {n} shown
 film.lines.empty = No dialogues yet — the ＋ in the bar above captures the first line.
 film.lines.nomatch = No dialogues match the filters.
 film.lines.delete.confirm = Delete this dialogue?
 
-# THE DIALOGUE TABLE.
-film.table.quote.label = Quote
-film.table.character.label = Character
-film.table.episode.label = Episode
-film.table.time.label = Time
-film.table.favourite.label = ♥
 
 # ONE FILM LINE, as a card. Drawn on four screens, so common.*.
 common.dialogue.edit.title = Edit dialogue
@@ -3964,11 +3848,6 @@ unit.line.one = line
 unit.line.other = lines
 
 
-# ---------------------------------------------------------------------------
-# ONE MORE COUNTABLE NOUN, for the Catalogue's franchise filter.
-# ---------------------------------------------------------------------------
-unit.collection.one = collection
-unit.collection.other = collections
 
 # One more countable noun, for the studio whose credits are games.
 unit.game.one = game
@@ -7499,50 +7378,10 @@ links.already = Already on this record.
 links.save.nothing = Nothing to save yet
 links.remove.aria = Remove the {name} link
 
-# Ordering, grouping and filtering ANY board of quotes — a book's highlights and
-# a film's, a show's or a game's lines alike. One vocabulary, because one control
-# draws all of them: see boardHead.jsx. The dimensions are named for themselves
-# (chapter, character, episode, act, quest), so no two kinds collide and a kind
-# offers only the ones workKinds.js says it has.
-board.category.any.label = Any category
-board.columns.label = Columns
-board.columns.auto.label = Auto
-board.group.aria = Group quotes by
-board.group.none.label = none
-board.group.chapter.label = by chapter
-board.group.color.label = by category
-board.group.tag.label = by tag
-board.group.date.label = by date added
-board.group.chapter.numbered.label = Chapter {n}
-board.group.chapter.named.label = Ch {n}: {name}
-board.group.chapter.none.label = No chapter
-board.group.tag.none.label = No tags
-board.group.date.none.label = No date
 board.sort.default.label = Recent
 board.sort.date.label = Date added
-board.sort.chapter.label = Chapter
-board.sort.location.label = Location
-board.sort.length.label = Length
-board.sort.category.label = Category
-board.sort.dir.label = Direction
 board.sort.dir.asc.label = Ascending
 board.sort.dir.desc.label = Descending
-board.sort.menu.label = Sort
-board.group.character.label = by character
-board.group.episode.label = by episode
-board.group.act.label = by act
-board.group.quest.label = by quest
-board.sort.character.label = Character
-board.sort.episode.label = Episode
-board.sort.timestamp.label = Time
-board.sort.act.label = Act
-board.sort.quest.label = Quest
-board.group.character.none.label = No character
-board.group.episode.numbered.label = Episode {n}
-board.group.episode.seasoned.label = S{s} · E{n}
-board.group.episode.none.label = No episode
-board.group.act.none.label = No act
-board.group.quest.none.label = No quest
 board.strip.shown.label = {n} of {total} shown
 
 # ---- PRUNE: the saved records nothing points at ---------------------------

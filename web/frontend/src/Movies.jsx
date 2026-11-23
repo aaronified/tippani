@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { categoryVar } from './theme.js'
 import { episodeLabel } from './text.js'
 import { coverImgURL, json, errText, downloadPost } from './api.js'
@@ -10,89 +10,64 @@ import { deleteWithUndo } from './undo.jsx'
 import { ActionRow, actionsFor } from './actions.jsx'
 import { ANTHOLOGY_KIND, useGatherDoor } from './anthologyGather.jsx'
 import { QuoteContext, episodeKey, useInContext } from './sources.jsx'
-import { facetValue, facetValues, publishSearchSeed, seedableChips, withFacet, withFacetValues } from './facets.js'
 import { useCastArt } from './cast.jsx'
 import { LanguageCombo, SuggestCombo, useWorkSuggestions } from './suggest.jsx'
 import { CreditFaces, PersonName, SpeakerChips, chipRows, creditsNotOnChips, parseCreditSeps, personImgURL, splitCredits, usePeople } from './people.jsx'
 import {
-  GroupHeading,
   WorkCard,
   WorkListScaffold,
   capKeyFor,
   countQuotes,
   creditNounFor,
-  groupWorks,
   moveLabel,
   patchMovesTheRow,
   pinInProgress,
-  statusFilter,
   useBoardWindow,
-  wishFilter,
 } from './works.jsx'
-import { KINDS, specFor } from './workKinds.js'
-import { groupAnnotations, sortAnnotations } from './boardOrder.js'
-import { BoardHead, BoardSheet, BoardStrip, columnActions, measureStyle } from './boardHead.jsx'
+import { KINDS } from './workKinds.js'
+import { BoardHead } from './boardHead.jsx'
+import { sortAnnotations } from './boardOrder.js'
 import WorkDetail from './WorkDetail.jsx'
-import { QUOTE_TEXT, languageClass } from './fonts.js'
+import { QUOTE_TEXT } from './fonts.js'
 import { t } from './i18n.js'
 import { ProseArea } from './proseField.jsx'
 import { quoteTexts } from './text.js'
 import { useTextOrder } from './textOrderHost.jsx'
 import { usePersonOpener } from './personOpen.jsx'
 import {
-  QUOTE_COLUMNS_IN,
-  byLastRead,
-  byYear,
-  bySeries,
-  clampSequence,
   ColorSwatches,
   ConfirmDialog,
   EdgeRow,
   EmptyState,
   ErrorText,
   ExpandableText,
-  filterChipClass,
   FormModal,
   FrameCode,
   frameCode,
   GhostButton,
-  HandCard,
   HandNote,
   IconMetadata,
-  Masonry,
   MonoLabel,
-  mulberry32,
   NameInput,
   NameScroll,
   parseYearInput,
   YearField,
   yearInputValue,
   QuizSkipMark,
-  Scroller,
-  Select,
   Sprockets,
-  TableActions,
   TagChip,
   titleCaseGenre,
   Toggle,
   TokenInput,
-  Tooltip,
   TranslationLine,
   useCardMenu,
-  useColumnsIn,
   useCoverSize,
   useFormHost,
   useFrameBase,
   useIsMobileScreen,
-  ViewIcon,
-  usePersistedState,
-  useScreenBar,
   useReveal,
   PanelHost,
   usePanelStack,
-  IconHeartOn,
-  IconSortAsc,
-  IconSortDesc,
   Tally,
   IconNavQuotes,
 } from './ui.jsx'
@@ -145,42 +120,6 @@ function Reveal({ className = '', children, ...rest }) {
     </div>
   )
 }
-
-// MovieGroup is one grouped section. It is a component rather than a block inside
-// the map because each section carries its OWN window — a group of four hundred
-// films needs bounding exactly as the flat board does, and a hook cannot live in
-// a loop body.
-function MovieGroup({ group, coverSize, onOpen, directorMap, creditSeps, onChanged, setEditWork }) {
-  const win = useBoardWindow(group.items.length, group.items)
-  return (
-    <section>
-      <GroupHeading label={group.label} count={group.items.length} noun={t('unit.title.one')} nounPlural={t('unit.title.other')} />
-      <div
-        className="grid gap-x-5 gap-y-8"
-        style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${coverSize}px, 1fr))` }}
-      >
-        {group.items.slice(0, win.count).map((m) => (
-          <WorkCard key={m.id} kind="movie" item={m} onOpen={onOpen} people={directorMap} seps={creditSeps} onChanged={onChanged} onEdit={setEditWork} />
-        ))}
-        {win.more && <div ref={win.sentinel} aria-hidden="true" className="h-px" />}
-      </div>
-    </section>
-  )
-}
-
-// Group-by dimensions for the Catalogue. "Collection" is movies.series — the
-// column the 0006 migration already called a "franchise / collection name" —
-// relabelled here because "series" means a TV show on this page.
-const GROUP_OPTIONS = [
-  ['none', 'movies.group.none.label'],
-  ['series', 'movies.group.series.label'],
-  ['author', 'movies.group.author.label'],
-  ['decade', 'movies.group.decade.label'],
-  ['genre', 'movies.group.genre.label'],
-]
-
-// The table above holds KEYS; this is what the two Selects render.
-const groupOptions = () => GROUP_OPTIONS.map(([key, labelKey]) => [key, t(labelKey)])
 
 // countOf is "3 titles" / "1 line", from the shared unit table.
 const countOf = (n, unit) => t('common.count.phrase', { n, noun: t(unit, { count: n }) })
@@ -238,55 +177,18 @@ async function setMovieStatus(id, body) {
   return r.ok ? '' : errText(r, t('error.save.generic'))
 }
 
-// ---- movie list: poster grid mirroring Library (§8.6) ----
-
 function MovieList({ onOpen, creditSeparators, dataNonce }) {
   const [movies, setMovies] = useState(null)
   const { map: directorMap } = usePeople('director') // name→metadata, for director/creator face chips
   const creditSeps = useMemo(() => parseCreditSeps(creditSeparators), [creditSeparators])
   const [status, setStatus] = useState(null) // GET /metadata/status → Add-movie is status-aware
-  // ONE LIST, NOT TEN useStates — see BookList, which does the same with nine.
-  // The tenth here is `media`, the films/shows split, which is board-only: there
-  // is no facet for it, so it is dropped on the way to the search box.
-  const [filters, setFilters] = useState([])
-  const [groupBy, setGroupBy] = useState('none') // none | series | author | decade | genre
-  // Derived once per change, not per render: `states` is a fresh array each read
-  // and the `shown` memo has it in its deps.
-  const f = useMemo(() => ({
-    mediaType: facetValue(filters, 'media'), // '' = all, 'movie', 'show'
-    genre: facetValue(filters, 'genre'),
-    series: facetValue(filters, 'series'),
-    fav: facetValue(filters, 'favourite') === 'yes',
-    tagged: facetValue(filters, 'tagged') === 'yes', // has at least one tagged dialogue
-    noted: facetValue(filters, 'noted') === 'yes', // has at least one dialogue with a note
-    actor: facetValue(filters, 'actor'),
-    wish: { yes: 'wishlist', no: 'annotated' }[facetValue(filters, 'wishlist')] || '',
-    states: facetValues(filters, 'shelf'), // shelf states kept; [] = every state
-  }), [filters])
-  const { mediaType, genre, series, fav, tagged, noted, actor, wish, states } = f
-  const setMediaType = (v) => setFilters((c) => withFacet(c, 'media', v))
-  const setGenre = (v) => setFilters((c) => withFacet(c, 'genre', v))
-  const setSeries = (v) => setFilters((c) => withFacet(c, 'series', v))
-  const setActor = (v) => setFilters((c) => withFacet(c, 'actor', v))
-  const setFav = (v) => setFilters((c) => withFacet(c, 'favourite', v ? 'yes' : ''))
-  const setTagged = (v) => setFilters((c) => withFacet(c, 'tagged', v ? 'yes' : ''))
-  const setNoted = (v) => setFilters((c) => withFacet(c, 'noted', v ? 'yes' : ''))
-  const setWish = (v) => setFilters((c) => withFacet(c, 'wishlist', v === 'wishlist' ? 'yes' : v === 'annotated' ? 'no' : ''))
-  const setStates = (v) => setFilters((c) => withFacetValues(c, 'shelf', v))
+  const [fav, setFav] = useState(false)
   const [sort, setSort] = useState('recent')
   const [exporting, setExporting] = useState(false)
   const [error, setError] = useState('')
+  const [editWork, setEditWork] = useState(null)
   const [coverSize] = useCoverSize('tippani:size:movies', 150) // set from Settings
   const mobile = useIsMobileScreen()
-
-  // Mirrors the Library: a search started from a filtered catalogue searches
-  // the filtered catalogue. `mediaType` has no facet to map onto, so a board
-  // filtered to shows seeds everything else and leaves that one behind rather
-  // than seeding a facet that would empty the results.
-  useEffect(() => {
-    publishSearchSeed(seedableChips(filters))
-    return () => publishSearchSeed([])
-  }, [filters])
 
   async function load() {
     const r = await json('GET', '/movies')
@@ -296,9 +198,7 @@ function MovieList({ onOpen, creditSeparators, dataNonce }) {
   useEffect(() => {
     load()
     // A title added through the shell's Add surface lands server-side without this
-    // list knowing — and when the surface was opened FROM here, nothing remounts
-    // on the way back, so there is no other moment to refetch at. The key status
-    // is fetched once, not per nonce: it does not change when a film is added.
+    // list knowing — the surface ticks dataNonce when it closes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dataNonce])
   useEffect(() => {
@@ -308,103 +208,17 @@ function MovieList({ onOpen, creditSeparators, dataNonce }) {
   }, [])
 
   const tmdbSource = status?.tmdb?.source
-  const hasShows = (movies || []).some((m) => (m.media_type || 'movie') === 'show')
-  const hasGames = (movies || []).some((m) => m.media_type === 'game')
-  // ONE list, rendered twice. The desktop row and the mobile sheet used to carry
-  // their own copies of the same array, which is two places to forget a type —
-  // and the mobile one is the copy nobody looks at.
-  //
-  // A chip only appears when the catalogue actually holds that type, so a
-  // films-and-games library is not offered a Shows filter that matches nothing.
-  const typeChips = useMemo(() => {
-    const out = [['', t('movies.filters.media.all.label')], ['movie', t('movies.filters.media.movie.label')]]
-    if (hasShows) out.push(['show', t('movies.filters.media.show.label')])
-    if (hasGames) out.push(['game', t('movies.filters.media.game.label')])
-    return out
-  }, [hasShows, hasGames])
-  // The gate is on the whole catalogue rather than the filtered view, so the row
-  // cannot vanish underneath the filter that is using it.
-  const showTypeRow = hasShows || hasGames
-  // Most-common genres first — the select lists them in that order, so the ones
-  // you actually use are at the top of it.
-  const genres = useMemo(() => {
-    const counts = new Map()
-    for (const m of movies || []) for (const g of m.genres || []) counts.set(g, (counts.get(g) || 0) + 1)
-    return [...counts.keys()].sort((a, b) => counts.get(b) - counts.get(a) || a.localeCompare(b))
-  }, [movies])
-  const seriesNames = useMemo(() => {
-    const s = new Set()
-    for (const m of movies || []) if (m.series) s.add(m.series)
-    return [...s].sort()
-  }, [movies])
-  // Every actor with a line saved from them, in alphabetical order — the same
-  // names the credit chips on a line are drawn from, split the same way, so the
-  // dropdown cannot offer "Ford, Hauer" as one person.
-  //
-  // Most-common-first is what the genre select does, and is wrong here: a genre
-  // list is short and a cast list is not, so the useful ordering is the one you
-  // can scan for a name you already have in mind.
-  const actorNames = useMemo(() => {
-    const s = new Set()
-    for (const m of movies || []) for (const raw of m.actors || []) for (const n of splitCredits(raw, creditSeps)) s.add(n)
-    return [...s].sort((a, b) => a.localeCompare(b))
-  }, [movies, creditSeps])
 
+  // Favourites, then the sort. The default is server order with what you are
+  // watching floated to the top; an explicit sort takes over completely.
   const shown = useMemo(() => {
-    let list = movies || []
-    if (mediaType) list = list.filter((m) => (m.media_type || 'movie') === mediaType)
-    if (genre) list = list.filter((m) => (m.genres || []).includes(genre))
-    if (series) list = list.filter((m) => (m.series || '') === series)
-    // Exact name against the SPLIT credit, not a substring of the raw string: a
-    // line credits its actors as one field ("Ford, Hauer") and the dropdown
-    // offers the split names, so `includes(actor)` on the raw string would let
-    // "Ford" match a film credited only to "Harrison Fordham". splitCredits uses
-    // the reader's own separators, the same ones the credit chips are drawn from.
-    if (actor) list = list.filter((m) => (m.actors || []).some((a) => splitCredits(a, creditSeps).includes(actor)))
-    if (fav) list = list.filter((m) => m.favorite)
-    if (tagged) list = list.filter((m) => (m.tagged_count || 0) > 0)
-    if (noted) list = list.filter((m) => (m.noted_count || 0) > 0)
-    list = statusFilter(list, states)
-    list = wishFilter(list, wish, (m) => m.dialogue_count || 0)
-    // Default view = server order with what you're watching floated to the top;
-    // an explicit sort from the menu takes over completely.
+    const list = fav ? (movies || []).filter((m) => m.favorite) : [...(movies || [])]
     if (sort === 'recent') return pinInProgress(list, 'movie')
-    list = [...list]
     if (sort === 'title') list.sort((a, b) => a.title.localeCompare(b.title))
-    else if (sort === 'year') list.sort(byYear((m) => m.release_year))
-    else if (sort === 'series') list.sort(bySeries)
-    else if (sort === 'read') list.sort(byLastRead)
     return list
-  }, [movies, mediaType, genre, series, fav, tagged, noted, actor, states, wish, sort, creditSeps])
+  }, [movies, fav, sort])
 
-  // Edit one title from its card — see the Library board for why this is an id
-  // rather than the row it already has on screen.
-  const [editWork, setEditWork] = useState(null)
-
-  // Grouping only buckets the view — a title still appears in the flat list, and
-  // because media_type lives on the same row as series, one collection can hold
-  // a film and a show together (Twin Peaks and Fire Walk With Me).
-  const grouped = useMemo(
-    () =>
-      groupBy === 'none'
-        ? null
-        : groupWorks(shown, groupBy, {
-            credit: (m) => m.director,
-            splitCredit: true,
-            creditResidual: t('movies.group.residual.director.label'),
-            year: (m) => m.release_year,
-            genres: (m) => m.genres || [],
-            series: (m) => m.series,
-            seps: creditSeps,
-            sortMembers: (items, dim) => (dim === 'series' ? [...items].sort(bySeries) : items),
-          }),
-    [shown, groupBy, creditSeps],
-  )
-  // The Catalogue is the same board as the Library's and pays the same price for
-  // mounting all of it; both windows live here rather than inside the grid,
-  // because the flat board is a Reveal rather than a component of its own.
   const flatWin = useBoardWindow(shown.length, shown)
-  const groupWin = useBoardWindow(grouped ? grouped.length : 0, grouped, 12)
 
   const films = movies ? movies.length : 0
   const lines = movies ? movies.reduce((n, m) => n + (m.dialogue_count || 0), 0) : 0
@@ -432,92 +246,20 @@ function MovieList({ onOpen, creditSeparators, dataNonce }) {
       shownCount={shown.length}
       emptyText={t('movies.board.empty')}
       noMatchText={t('movies.board.nomatch')}
-      genres={genres}
-      genre={genre}
-      setGenre={setGenre}
       fav={fav}
       setFav={setFav}
-      tagged={tagged}
-      setTagged={setTagged}
-      noted={noted}
-      setNoted={setNoted}
-      wish={wish}
-      setWish={setWish}
-      states={states}
-      setStates={setStates}
-      kind="movie"
-      noun={t('unit.title.one')}
-      nounPlural={t('unit.title.other')}
-      seriesNames={seriesNames}
-      series={series}
-      setSeries={setSeries}
       sort={sort}
       setSort={setSort}
-      creditNames={actorNames}
-      credit={actor}
-      setCredit={setActor}
-      creditNoun={t('unit.actor.one')}
-      creditNounPlural={t('unit.actor.other')}
-      seriesNoun={t('unit.collection.one')}
-      seriesNounPlural={t('unit.collection.other')}
       sortOptions={[
         ['recent', t('movies.sort.recent.label')],
         ['title', t('movies.sort.title.label')],
-        ['year', t('movies.sort.year.label')],
-        ['series', t('movies.sort.series.label')],
-        ['read', t('movies.sort.read.label')],
       ]}
-      // The catalogue can hold two in-progress words at once, so the shelf-state
-      // filter lists both rather than only the film's.
-      activeStates={hasGames ? ['watching', 'playing'] : ['watching']}
-      leading={
-        showTypeRow &&
-        typeChips.map(([k, label]) => (
-          <button key={k} type="button" aria-pressed={mediaType === k} className={filterChipClass(mediaType === k)} onClick={() => setMediaType(k)}>
-            {label}
-          </button>
-        ))
-      }
-      leadingMobile={
-        showTypeRow && (
-          <div>
-            <MonoLabel className="mb-2 block">type</MonoLabel>
-            <div className="flex flex-wrap items-center gap-2">
-              {typeChips.map(([k, label]) => (
-                <button key={k} type="button" aria-pressed={mediaType === k} className={filterChipClass(mediaType === k)} onClick={() => setMediaType(k)}>
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-        )
-      }
-      trailing={
-        <label className="flex items-center gap-2">
-          <MonoLabel>{t('common.mono.group.label')}</MonoLabel>
-          <Select
-            ariaLabel={t('common.filters.group.aria')}
-            value={groupBy}
-            onChange={setGroupBy}
-            options={groupOptions()}
-          />
-        </label>
-      }
-      trailingMobile={
-        <div>
-          <MonoLabel className="mb-2 block">group</MonoLabel>
-          <Select ariaLabel={t('common.filters.group.aria')} value={groupBy} onChange={setGroupBy} options={groupOptions()} />
-        </div>
-      }
-      onReset={() => { setFilters([]); setGroupBy('none'); setSort('recent') }}
+      onReset={() => { setFav(false); setSort('recent') }}
       exportDialog={
         <ConfirmDialog
           open={exporting}
           title={t('movies.export.confirm.title')}
           body={(() => {
-            // Counted per type rather than "everything that is not a show", which
-            // is what this was: games would have been tallied as movies and the
-            // dialog would have said "3 movies" over a selection holding one.
             const shows = shown.filter((m) => (m.media_type || 'movie') === 'show').length
             const games = shown.filter((m) => m.media_type === 'game').length
             const films = shown.length - shows - games
@@ -549,33 +291,15 @@ function MovieList({ onOpen, creditSeparators, dataNonce }) {
           onCancel={() => setEditWork(null)}
         />
       )}
-      {grouped ? (
-        <div className="space-y-10">
-          {grouped.slice(0, groupWin.count).map((g) => (
-            <MovieGroup
-              key={g.key}
-              group={g}
-              coverSize={coverSize}
-              onOpen={onOpen}
-              directorMap={directorMap}
-              creditSeps={creditSeps}
-              onChanged={load}
-              setEditWork={setEditWork}
-            />
-          ))}
-          {groupWin.more && <div ref={groupWin.sentinel} aria-hidden="true" className="h-px" />}
-        </div>
-      ) : (
-        <Reveal
-          className="grid gap-x-5 gap-y-8"
-          style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${coverSize}px, 1fr))` }}
-        >
-          {shown.slice(0, flatWin.count).map((m) => (
-            <WorkCard key={m.id} kind="movie" item={m} onOpen={onOpen} people={directorMap} seps={creditSeps} onChanged={load} onEdit={setEditWork} />
-          ))}
-          {flatWin.more && <div ref={flatWin.sentinel} aria-hidden="true" className="h-px" />}
-        </Reveal>
-      )}
+      <Reveal
+        className="grid gap-x-5 gap-y-8"
+        style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${coverSize}px, 1fr))` }}
+      >
+        {shown.slice(0, flatWin.count).map((m) => (
+          <WorkCard key={m.id} kind="movie" item={m} onOpen={onOpen} people={directorMap} seps={creditSeps} onChanged={load} onEdit={setEditWork} />
+        ))}
+        {flatWin.more && <div ref={flatWin.sentinel} aria-hidden="true" className="h-px" />}
+      </Reveal>
     </WorkListScaffold>
   )
 }
@@ -779,7 +503,7 @@ function MovieDetail(props) {
       {...props}
       side="movie"
       stateBuilder={(movie, fields) => ({ ...movieState(movie), ...fields })}
-      renderBoard={({ item, seps, mobileFilter, setMobileFilter, onStats, onAdd, dataNonce, openCharacter }) => (
+      renderBoard={({ item, seps, onStats, onAdd, dataNonce, openCharacter }) => (
         <Dialogues
           movieId={item.id}
           cast={item.cast || []}
@@ -787,8 +511,6 @@ function MovieDetail(props) {
           creditSeps={seps}
           onStats={onStats}
           onOpenCharacter={openCharacter}
-          mobileFilterOpen={mobileFilter}
-          onMobileFilterOpen={setMobileFilter}
           onAdd={onAdd}
           dataNonce={dataNonce}
         />
@@ -1054,218 +776,70 @@ export function dialogueState(d) {
 // edge row (TIPPANI · SAFETY FILM + runtime-random frame code) → frame cards
 // separated by divider rows carrying the next code → closing sprockets.
 // Server orders by (timestamp IS NULL), timestamp, id — rendered as served.
-// DialogueBoard — one set of lines, drawn in whichever view is chosen.
-//
-// IT EXISTS BECAUSE OF GROUPING, exactly as AnnotationBoard does on the book
-// side: a grouped board draws its view once per section, so three sibling blocks
-// in the middle of a screen had to stop being three sibling blocks. Two copies of
-// "how a line is drawn" is two places for a card prop to go missing, silently, in
-// the view the author was not looking at.
-//
-// The window and the sentinel stay OUTSIDE it, with the caller — an ungrouped
-// board windows its rows and a grouped one windows its sections, which is the
-// caller's decision and not this component's.
+// DialogueBoard — one set of lines, drawn as the film strip. It is the only view:
+// the grid and the table were the same lines arranged two more ways, and a board
+// with one view has nothing to switch.
 function DialogueBoard({
-  rows, view, tagMap, stickerMap, stickers, reloadStickers, editingId, setEditingId,
+  rows, tagMap, stickerMap, stickers, reloadStickers, editingId, setEditingId,
   save, patch, setAsking, copyOne, setShareTarget, openPerson, onOpenCharacter,
-  actorMap, creditSeps, clampLines, show, game, cast, sort, toggleSort,
-  expandedId, toggleExpanded, tileCols, boardSeed, base, boardRef = null,
+  actorMap, creditSeps, show, game, cast, base,
 }) {
-  if (view === 'tiles') {
-    return (
-        // Tiles read like the book board (§8.6): a masonry collage (1/2/3 cols by
-        // width, seeded off the movie so it never wobbles) whose cards keep the
-        // film-frame skin — book layout, film-negative theme. Laid out in SOURCE
-        // order so each card's seeded 3–5 line clamp — not a height sort — is what
-        // varies the board. Clicking a dialogue expands it in place (chevron
-        // affordance, no button); doing so collapses any other and locks the
-        // column order so the board never reshuffles. The strip decoration
-        // (sprockets/edge/dividers) belongs to the list view.
-        <Reveal>
-          <Masonry boardRef={boardRef} columns={tileCols} gap={12} seed={boardSeed} lockOrder={expandedId != null} order="source">
-            {rows.map((d, i) => (
-              <Frame
-                key={d.id}
-                d={d}
-                wrapClass=""
-                tagMap={tagMap}
-                stickerMap={stickerMap}
-                stickers={stickers}
-                reloadStickers={reloadStickers}
-                editing={editingId === d.id}
-                show={show}
-                game={game}
-                cast={cast}
-                onEdit={() => setEditingId(d.id)}
-                onCancelEdit={() => setEditingId(null)}
-                onSave={(fields) => save(d.id, fields)}
-                onPatch={(fields) => patch(d, fields)}
-                onDelete={() => setAsking(d)}
-                onCopy={() => copyOne(d)}
-                onShare={() => setShareTarget(d)}
-                onOpenPerson={openPerson}
-                onOpenCharacter={onOpenCharacter}
-                actorMap={actorMap}
-                seps={creditSeps}
-                quoteLines={clampLines[i]}
-                expanded={expandedId === d.id}
-                onToggleExpand={() => toggleExpanded(d.id)}
-              />
-            ))}
-          </Masonry>
-        </Reveal>
-    )
-  }
-  if (view === 'list') {
-    return (
-        // List is the FILM STRIP (§6): strip container → sprockets → edge row →
-        // frames stacked vertically, divided by rows carrying the next frame code.
-        <Reveal className="film-strip">
-          <Sprockets count={15} />
-          <EdgeRow code={frameCode(base)} />
-          {rows.map((d, i) => (
-            <Fragment key={d.id}>
-              {i > 0 && <FrameDivider code={frameCode(base, i)} />}
-              <Frame
-                d={d}
-                tagMap={tagMap}
-                stickerMap={stickerMap}
-                stickers={stickers}
-                reloadStickers={reloadStickers}
-                editing={editingId === d.id}
-                show={show}
-                game={game}
-                cast={cast}
-                onEdit={() => setEditingId(d.id)}
-                onCancelEdit={() => setEditingId(null)}
-                onSave={(fields) => save(d.id, fields)}
-                onPatch={(fields) => patch(d, fields)}
-                onDelete={() => setAsking(d)}
-                onCopy={() => copyOne(d)}
-                onShare={() => setShareTarget(d)}
-                onOpenPerson={openPerson}
-                onOpenCharacter={onOpenCharacter}
-                actorMap={actorMap}
-                seps={creditSeps}
-                quoteLines={5}
-              />
-            </Fragment>
-          ))}
-          <Sprockets count={15} />
-        </Reveal>
-    )
-  }
   return (
-        <DialogueTable
-          rows={rows}
-          tagMap={tagMap}
-          stickers={stickers}
-          reloadStickers={reloadStickers}
-          sort={sort}
-          onSort={toggleSort}
-          editingId={editingId}
-          setEditingId={setEditingId}
-          save={save}
-          remove={setAsking}
-          show={show}
-          game={game}
-          cast={cast}
-          actorMap={actorMap}
-          onCopy={copyOne}
-          onShare={setShareTarget}
-        />
+    <Reveal className="film-strip">
+      <Sprockets count={15} />
+      <EdgeRow code={frameCode(base)} />
+      {rows.map((d, i) => (
+        <Fragment key={d.id}>
+          {i > 0 && <FrameDivider code={frameCode(base, i)} />}
+          <Frame
+            d={d}
+            tagMap={tagMap}
+            stickerMap={stickerMap}
+            stickers={stickers}
+            reloadStickers={reloadStickers}
+            editing={editingId === d.id}
+            show={show}
+            game={game}
+            cast={cast}
+            onEdit={() => setEditingId(d.id)}
+            onCancelEdit={() => setEditingId(null)}
+            onSave={(fields) => save(d.id, fields)}
+            onPatch={(fields) => patch(d, fields)}
+            onDelete={() => setAsking(d)}
+            onCopy={() => copyOne(d)}
+            onShare={() => setShareTarget(d)}
+            onOpenPerson={openPerson}
+            onOpenCharacter={onOpenCharacter}
+            actorMap={actorMap}
+            seps={creditSeps}
+            quoteLines={5}
+          />
+        </Fragment>
+      ))}
+      <Sprockets count={15} />
+    </Reveal>
   )
 }
 
-function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen, onMobileFilterOpen, onAdd, dataNonce, onOpenCharacter }) {
-  // Only a series carries an episode locator: a film is one runtime, so its
-  // timestamp already says where a line is. Drives the form fields, the Episode
-  // column, and nothing else — the credit line reads the row's own numbers, so a
-  // leftover pair from a work that used to be a show is still visible.
+function Dialogues({ movieId, cast, movie, creditSeps, onStats, onAdd, dataNonce, onOpenCharacter }) {
   const show = movie?.media_type === 'show'
-  // The other medium whose lines are located differently: a game has no runtime,
-  // so its line's edit form asks for the act and the quest instead of a timestamp
-  // (see DialogueForm). Derived here beside `show` and passed the same way, so the
-  // two answers to "what kind of work is this" cannot disagree.
   const game = movie?.media_type === 'game'
-  // WHICH DIMENSIONS THIS BOARD MAY OFFER, read off the kind table rather than
-  // guessed: a film sorts by its runtime, a show by season and episode, a game by
-  // act and quest. The board used to hold none of this and grouped by nothing at
-  // all. `movie` is the fallback because a row with no media_type is a film.
-  const kind = specFor('movie', movie)
   const [items, setItems] = useState(null)
   const [tags, setTags] = useState([]) // tag objects: {id, name, color, style, …}
   const [shareTarget, setShareTarget] = useState(null) // dialogue being shared
-  // THE PERSON'S OWN SCREEN, REACHABLE FROM HERE AT LAST. A film's PLAYED BY line and its director
-  // was handed `setPerson` straight, so it opened the older panel whatever the
-  // person's record held — this screen had no panel host at all, which is why the
-  // pack's person screen looked absent rather than unreachable. See
-  // personOpen.jsx: the id decides which of the two surfaces answers.
   const personStack = usePanelStack()
   const openPerson = usePersonOpener(personStack)
-  const [tag, setTag] = useState('') // filter by NAME, '' = all
   const [fav, setFav] = useState(false)
-  const [color, setColor] = useState('') // '' = all colours
-  // Client-side, like the book board's: the server has no has-a-note filter and
-  // does not need one, because the board already holds every row it is showing.
-  const [noted, setNoted] = useState(false)
-  const [tagged, setTagged] = useState(false)
   const [editingId, setEditingId] = useState(null)
-
-  // A line captured through the shell's Add surface lands server-side without
-  // this list knowing, so the shell ticks dataNonce and the list refetches.
-  // Skips the first render — the load() effect below already covers the mount.
-  const firstNonce = useRef(true)
-  useEffect(() => {
-    if (firstNonce.current) { firstNonce.current = false; return }
-    setExpandedId(null) // collapse before the longer set re-packs the board
-    load()
-    loadTags() // a capture can invent a tag
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dataNonce])
-
   const [error, setError] = useState('')
-  const [view, setView] = usePersistedState('tippani:view:dialogues', 'tiles')
-  // A show's table opens grouped by episode, which is the order the list view is
-  // served in; a film has only its runtime to sort by.
+  // Favourites, then the order: the default is the order the lines are in (by
+  // episode on a show), and the other is the time of the line.
   const [sort, setSort] = useState({ col: show ? 'episode' : 'timestamp', dir: 'asc' })
-  // PER SIDE, AND DELIBERATELY NOT SHARED with the book's — the kind table says so
-  // in as many words, and the reason is that a `chapter` grouping arriving on a
-  // film board would be refused by groupAnnotations and leave the board looking
-  // ungrouped with the control saying otherwise.
-  const [groupBy, setGroupBy] = usePersistedState(kind.board.persist.group, 'none')
-  // 0 is Auto — the measured answer — and not "no columns". See columnActions.
-  const [columns, setColumns] = usePersistedState(kind.board.persist.columns, 0)
-  // THE BOARD IS NOT THE WINDOW, and measuring the window is what put four
-  // ~170px columns of syllables on a 1080p screen — the owner's report, twice:
-  // "i see 4 columns in the board tile, all very skinny... the annotations need
-  // at least double the width". useColumnsAt reads window.innerWidth, which was
-  // the same question as "how wide is the container" for as long as every board
-  // sat in the page's one centred container. This one does not: it is the window
-  // MINUS the rail MINUS the hero column, then capped at 880px for measure, so
-  // at 1920 the ladder asked for FIVE columns inside 880px.
-  //
-  // Both the fix and its ladder were written when that was first diagnosed and
-  // NEITHER WAS EVER WIRED — useColumnsIn and QUOTE_COLUMNS_IN sat as dead
-  // exports with no call site anywhere, which is why the board kept doing the
-  // thing its own comment says it must not. Measured against the board, 880px is
-  // two columns of ~430, which is the ~400 a quote wants to be read at.
-  const [tileCols, boardRef] = useColumnsIn(QUOTE_COLUMNS_IN)
   const reqSeq = useRef(0)
   const base = useFrameBase() // frame codes regenerate per mount (§6)
-  const toggleSort = (col) => setSort((s) => (s.col === col ? { col, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { col, dir: 'asc' }))
   const mobile = useIsMobileScreen()
-
   const { stickers, reload: reloadStickers } = useStickers()
   const { map: actorMap, reload: reloadActors } = usePeople('actor') // name→metadata, for actor face icons
-  // THE FACES THIS BOARD DRAWS, fetched once if they are not local yet — in one
-  // request for the page (see cast.jsx). A line's chip shows the character in
-  // costume where there is one (2.2.0), and the actor wherever a role has no art
-  // of its own, which is most roles; nothing had ever asked for either outside the
-  // People panel, so a reader who never opened it saw blank faces for ever. Costs
-  // no request at all when every face is already stored. The character art is on
-  // the movie's own rows and the headshots on the actor map, so each reloads only
-  // when something of its kind arrived.
   const boardActors = useMemo(
     () => [...new Set(cast.map((c) => (c.actor || '').trim()).filter(Boolean))],
     [cast],
@@ -1279,64 +853,37 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen
       if (portraits) reloadActors()
     },
   })
-  const castListId = `cast-characters-${movieId}`
-  const characters = [...new Set(cast.map((c) => c.character).filter(Boolean))]
   const tagMap = Object.fromEntries(tags.map((row) => [row.name, row]))
   const stickerMap = useMemo(() => Object.fromEntries(stickers.map((s) => [s.id, s])), [stickers])
 
-  // Tiles board (mirrors the Library's annotation board): one seed off the movie
-  // drives both the masonry and each card's clamp height. Cards clamp to a seeded
-  // 3–5 lines with no three-adjacent the same; the board is laid out in source
-  // order so the clamp — not a height sort — is what varies it. A one-open-at-a-
-  // time accordion expands a dialogue in place and locks the column order while
-  // one is open, so nothing reshuffles under the reader.
-  const boardSeed = Number(movieId) || 1
-  const clampLines = useMemo(() => clampSequence(items?.length || 0, mulberry32(boardSeed)), [items?.length, boardSeed])
-  const [expandedId, setExpandedId] = useState(null)
-  const toggleExpanded = useCallback((id) => setExpandedId((cur) => (cur === id ? null : id)), [])
-  // Keep expandedId honest: if the open dialogue leaves the set (filtered out via
-  // patch/save, which don't reset it), clear it — a dangling id keeps lockOrder
-  // stuck true and defeats the masonry's rising-edge freeze on the next expand.
+  const firstNonce = useRef(true)
   useEffect(() => {
-    if (expandedId != null && items && !items.some((x) => x.id === expandedId)) setExpandedId(null)
-  }, [items, expandedId])
-  // A column-count change (breakpoint / rotation) re-opens masonry packing;
-  // collapse any open dialogue so the board re-packs off collapsed heights.
-  useEffect(() => { setExpandedId(null) }, [tileCols])
-
+    if (firstNonce.current) { firstNonce.current = false; return }
+    load()
+    loadTags() // a capture can invent a tag
+  }, [dataNonce])
   async function loadTags() {
     const r = await json('GET', '/tags')
     if (r.ok) setTags(r.data.tags)
   }
   async function load() {
-    // Sequence guard: only the newest response renders when filters toggle fast.
     const seq = ++reqSeq.current
     const params = new URLSearchParams({ movie_id: movieId })
-    if (tag) params.set('tag', tag)
     if (fav) params.set('favorite', '1')
-    if (color) params.set('color', color)
     const r = await json('GET', `/dialogues?${params}`)
     if (seq !== reqSeq.current) return
     if (r.ok) setItems(r.data.dialogues)
     else setError(errText(r))
   }
   useEffect(() => {
-    // A movie switch or filter change swaps the tile set, so collapse any open
-    // dialogue first (keeps the masonry column lock from latching around an
-    // expanded card while the set changes underneath it).
-    setExpandedId(null)
     load()
-  }, [movieId, tag, fav, color])
+  }, [movieId, fav])
   useEffect(() => {
     loadTags()
   }, [movieId])
-  // Report the unfiltered dialogue counts up to the detail: the total decides the
-  // Wishlist tag, and all four print in the hero. Only while nothing is filtered —
-  // a filtered view would otherwise report a zero that means "none match", not
-  // "none exist" — so under a filter these hold their last unfiltered values.
   useEffect(() => {
-    if (items && !tag && !fav && !color) onStats?.(countQuotes(items))
-  }, [items, tag, fav, color])
+    if (items && !fav) onStats?.(countQuotes(items))
+  }, [items, fav])
 
   async function save(id, fields) {
     const r = await json('PUT', `/dialogues/${id}`, fields)
@@ -1346,68 +893,21 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen
     loadTags()
     return null
   }
-
-  // Asked in the app's voice, and asked on every door: the registry calls
-  // ctx.remove(item), so handing it the asker is what makes the confirm
-  // unskippable rather than one path out of three.
   const [asking, setAsking] = useState(null)
   async function remove(d) {
     setAsking(null)
     const r = await deleteWithUndo(`/dialogues/${d.id}`, { reload: load })
-    if (r.ok) { setExpandedId(null); load() } // collapse before the shorter set re-packs
+    if (r.ok) load()
     else setError(errText(r))
   }
-
-  // patch PUTs a row's full current state with one field changed (♥ clicks).
-  //
-  // THE THIRD BOARD, and it was left out when the other two stopped refetching.
-  // The reply carries the updated row; asking the server for every line on the
-  // screen to learn what it just said is the second of two serialised round trips
-  // on the most frequent interaction there is. `patchMovesTheRow` is the shared
-  // rule — a refetch is still right when the change takes the row out of the
-  // filter being looked through — rather than a third hand-rolled copy of it.
   async function patch(d, fields) {
     const r = await json('PUT', `/dialogues/${d.id}`, { ...dialogueState(d), ...fields })
     if (!r.ok) return setError(errText(r, t('error.save.dialogue')))
     setError('')
-    if (patchMovesTheRow(fields, { fav, color, tag })) load()
+    if (patchMovesTheRow(fields, { fav })) load()
     else setItems((cur) => (cur || []).map((x) => (x.id === d.id ? { ...x, ...r.data } : x)))
   }
-
-  const filtering = Boolean(tag || fav || color || noted || tagged)
-
-  // THREE CHIPS, NOT ONE, and every one of them announces its state. The book
-  // board has offered these three since they were drawn and this one offered a
-  // single hand-rolled <button> that carried its heart as a CHARACTER in the
-  // label — so the mark sized and coloured as text and was read out as a word.
-  // FilterChip sets aria-pressed; the list is written once here and read by both
-  // the desk row and the phone sheet.
-  const lineChips = [
-    { on: fav, set: setFav, label: t('common.filters.favourites.label'), tip: t('common.favourite.filter.tip') },
-    { on: noted, set: setNoted, label: t('common.filters.noted.label'), tip: t('common.filters.noted.tip', { noun: t('unit.line.other') }) },
-    { on: tagged, set: setTagged, label: t('common.filters.tagged.label'), tip: t('common.filters.tagged.tip', { noun: t('unit.line.other') }) },
-  ]
-  // The two client-side chips, applied before the sort so every view and the
-  // "N shown" count see the same set — the book board's own words, and its own
-  // filter: a line with a note and a line with tags are the same two questions.
-  const chipRows = useMemo(() => {
-    if (!items) return items
-    if (!noted && !tagged) return items
-    return items.filter(
-      (d) => (!noted || (d.note || '').trim().length > 0) && (!tagged || (d.tags || []).length > 0),
-    )
-  }, [items, noted, tagged])
-
-  // THE CHOSEN ORDER, IN EVERY VIEW. It used to be the table's alone: the tiles
-  // and the list rendered `items` as served, so a reader who set an order in the
-  // table went back to the board and found it ignored.
-  const sortedRows = useMemo(() => sortAnnotations(chipRows || [], sort), [chipRows, sort])
-  const groups = useMemo(
-    () => groupAnnotations(sortedRows, groupBy, kind.groupDims),
-    [sortedRows, groupBy, kind],
-  )
-
-  // Build the normalised share payload from the chosen dialogue + its movie.
+  const sortedRows = useMemo(() => sortAnnotations(items || [], sort), [items, sort])
   const sharePayload = (d) =>
     movieShare({
       quote: d.quote,
@@ -1428,174 +928,54 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen
       seps: creditSeps,
       characterImages: d.character_images,
     })
-
-  // The frame's copy glyph writes out the same line the share dialog's plain-text
-  // format would — same payload, same default ticks (see copyQuote).
   const copyOne = (d) => copyQuote(sharePayload(d))
 
-  // WHAT THE BOARD PUTS IN THE SCREEN'S ⋯ — the same section the book board
-  // publishes, for the same reason. The view lived in this bar as a 210px
-  // three-option strip wearing the accent gradient, so the loudest control in a
-  // row whose one verb ADDS something was a lens. The pack's argument moved the
-  // book's and it moves this one: "a setting that costs the most width and earns
-  // the least use belongs behind ⋯".
-  useScreenBar({
-    actions: () => [
-      { id: 'h-view', heading: t('common.mono.view.label') },
-      ...kind.views.map((v) => ({
-        id: `view-${v}`,
-        icon: <ViewIcon kind={v} />,
-        label: t(`common.view.${v}.label`),
-        checked: view === v,
-        onClick: () => setView(v),
-      })),
-      // Directly under the view, because a column count is a property OF a view.
-      ...columnActions({ view, columns, onColumns: setColumns }),
-    ],
-  })
-
-  const countsLabel = !items
-    ? ''
-    : filtering
-      ? t('film.lines.counts.shown', { a: countOf(items.length, 'unit.line'), n: sortedRows.length })
-      : countOf(items.length, 'unit.line')
-
-  // ONE RENDERER FOR THE THREE VIEWS — see DialogueBoard. Everything a board
-  // needs that does not change between an ungrouped board and one section of a
-  // grouped one is gathered here and spread, so a prop cannot reach one and miss
-  // the other.
-  const board = {
-    view,
-    tagMap,
-    stickerMap,
-    stickers,
-    reloadStickers,
-    editingId,
-    setEditingId,
-    save,
-    patch,
-    setAsking,
-    copyOne,
-    setShareTarget,
-    openPerson,
-    onOpenCharacter,
-    actorMap,
-    creditSeps,
-    clampLines,
-    show,
-    game,
-    cast,
-    sort,
-    toggleSort,
-    expandedId,
-    toggleExpanded,
-    tileCols,
-    boardSeed,
-    base,
-  }
-
   return (
-    // The measure the reader asked for — see Annotations, and measureStyle.
-    <div className="space-y-4" style={measureStyle(columns)}>
+    <div className="space-y-4">
       {mobile && (
-        <BoardSheet
-          open={mobileFilterOpen}
-          onClose={() => onMobileFilterOpen?.(false)}
-          title={t('film.lines.filter.title')}
-          countLabel={countsLabel}
-          onReset={() => { setTag(''); setFav(false); setColor(''); setNoted(false); setTagged(false) }}
-          color={color}
-          onColor={setColor}
-          tags={tags}
-          tag={tag}
-          onTag={setTag}
-          tagAllLabel={t('film.lines.filter.tag.all.label')}
-          chips={lineChips}
-          view={view}
-          onView={setView}
-          extra={
-            /* THE ONE CONTROL THE BOOK'S SHEET HAS NO USE FOR, so it is passed in
-               rather than built into the shared sheet: a box that completes on
-               the cast, for a reader who is looking for one character's lines and
-               remembers the name rather than the tag. */
-            <div>
-              <MonoLabel className="mb-2 block">character / tag</MonoLabel>
-              <input
-                className="tp-input"
-                list={characters.length > 0 ? castListId : undefined}
-                placeholder={t('film.lines.filter.placeholder')}
-                value={tag}
-                onChange={(e) => setTag(e.target.value)}
-              />
-            </div>
-          }
-        />
-      )}
-      {mobile && (
-        <BoardStrip dims={kind.groupDims} sortDims={kind.sortDims} groupBy={groupBy} onGroup={setGroupBy} sort={sort} onSort={setSort}>
-          <MonoLabel>
-            {filtering
-              ? t('board.strip.shown.label', { n: sortedRows.length, total: items?.length || 0 })
-              : countOf(sortedRows.length, 'unit.line')}
-          </MonoLabel>
-        </BoardStrip>
-      )}
-      {!mobile && (
-        <BoardHead
-          dims={kind.groupDims}
-          sortDims={kind.sortDims}
-          groupBy={groupBy}
-          onGroup={setGroupBy}
-          sort={sort}
-          onSort={setSort}
-          color={color}
-          onColor={setColor}
-          tags={tags}
-          tag={tag}
-          onTag={setTag}
-          tagAllLabel={t('film.lines.filter.tag.all.label')}
-          chips={lineChips}
-          captureLabel={t('film.lines.capture.label')}
-          onCapture={() => onAdd?.('quote', { type: 'movie', id: movieId })}
-        />
-      )}
-      {characters.length > 0 && (
-        <datalist id={castListId}>
-          {characters.map((c) => (
-            <option key={c} value={c} />
-          ))}
-        </datalist>
-      )}
-
-      <ErrorText>{error}</ErrorText>
-
-      {items && items.length === 0 && (
-        <EmptyState>
-          {t(filtering ? 'film.lines.nomatch' : 'film.lines.empty')}
-        </EmptyState>
-      )}
-      {/* GROUPED, AND THE HEADINGS ARE THE BOOK BOARD'S HEADINGS — a reader who
-          has grouped a library by author and a show by episode has met one
-          control, not two. Each section holds the view the reader chose, so
-          grouping is orthogonal to it: a control that worked in one view and
-          silently did nothing in another would be worse than no control. */}
-      {items && items.length > 0 && groups && (
-        <div className="ann-groups" style={{ display: 'grid', gap: 'calc(var(--row) * 2.5)' }}>
-          {groups.map((g) => (
-            <section key={g.key}>
-              <GroupHeading
-                label={g.label}
-                count={g.items.length}
-                noun={t('unit.line.one')}
-                nounPlural={t('unit.line.other')}
-              />
-              <DialogueBoard {...board} rows={g.items} />
-            </section>
-          ))}
+        <div className="board-strip">
+          <MonoLabel>{countOf(sortedRows.length, 'unit.line')}</MonoLabel>
         </div>
       )}
-      {items && items.length > 0 && !groups && <DialogueBoard {...board} rows={sortedRows} boardRef={boardRef} />}
-
+      <BoardHead
+        sort={sort}
+        onSort={setSort}
+        sortOptions={[['default', t('board.sort.default.label')], ['date', t('board.sort.date.label')]]}
+        fav={fav}
+        onFav={setFav}
+        captureLabel={t('film.lines.capture.label')}
+        onCapture={() => onAdd?.('quote', { type: 'movie', id: movieId })}
+      />
+      <ErrorText>{error}</ErrorText>
+      {items && items.length === 0 && (
+        <EmptyState>
+          {t(fav ? 'film.lines.nomatch' : 'film.lines.empty')}
+        </EmptyState>
+      )}
+      {items && items.length > 0 && (
+        <DialogueBoard
+          rows={sortedRows}
+          tagMap={tagMap}
+          stickerMap={stickerMap}
+          stickers={stickers}
+          reloadStickers={reloadStickers}
+          editingId={editingId}
+          setEditingId={setEditingId}
+          save={save}
+          patch={patch}
+          setAsking={setAsking}
+          copyOne={copyOne}
+          setShareTarget={setShareTarget}
+          openPerson={openPerson}
+          onOpenCharacter={onOpenCharacter}
+          actorMap={actorMap}
+          creditSeps={creditSeps}
+          show={show}
+          game={game}
+          cast={cast}
+          base={base}
+        />
+      )}
       {shareTarget && <ShareDialog share={sharePayload(shareTarget)} seen={{ kind: 'screen', id: shareTarget.id }} onClose={() => setShareTarget(null)} />}
       {/* Shows the LINE rather than naming the row, because that is the only
           thing that says whether the row under your finger was the one you
@@ -1608,9 +988,8 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen
         onConfirm={() => remove(asking)}
         onCancel={() => setAsking(null)}
       />
-      {/* THE HOST FOR THE PERSON'S OWN SCREEN. Without it the router
-          above opens a panel into nothing, which is a dead press — the exact
-          failure this whole change is about. */}
+      {/* THE HOST FOR THE PERSON'S OWN SCREEN. Without it the router above opens a
+          panel into nothing, which is a dead press. */}
       <PanelHost stack={personStack} />
     </div>
   )
@@ -1629,131 +1008,6 @@ function FrameDivider({ code }) {
 }
 
 // A show gains an Episode column; a film has no episodes to show one for.
-const dialogueCols = (show) =>
-  [
-    { key: 'quote', label: t('film.table.quote.label') },
-    { key: 'character', label: t('film.table.character.label') },
-    show ? { key: 'episode', label: t('film.table.episode.label') } : null,
-    { key: 'timestamp', label: t('film.table.time.label') },
-    { key: 'favorite', label: t('film.table.favourite.label') },
-  ].filter(Boolean)
-
-// THE ORDERING LIVES IN boardOrder.js NOW, and this is what was here: a second
-// comparator that knew favourite, character, episode and timestamp and sent
-// everything else to the quote's text. It answered four of the six dimensions
-// workKinds.js declares for a film — `default`, `date`, `length` and `category`
-// all fell through to alphabetical — and it ran on the TABLE view alone, so the
-// same board was ordered in one view and served in source order in the other two.
-// Its episode key is kept whole in sortValue's `episode` case, Infinity and all.
-
-// DialogueTable — the sortable table view for dialogues, mirroring the Library
-// annotation table (shared .ann-table styles): sortable columns + inline edit;
-// ♥ is shown read-only here and toggled from the tiles/list views.
-function DialogueTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSort, editingId, setEditingId, save, remove, show = false, game = false, cast = [], actorMap = {}, onCopy, onShare }) {
-  // DRAWN, NOT TYPED. `▲`/`▼` render in the reader's font — solid on one platform,
-  // hollow on another, off the baseline the header's letters share — and are the
-  // one picture docs/ui-glossary.html cannot document. IconSortAsc/IconSortDesc
-  // are the pair every other sort control in this app uses.
-  const arrow = (k) => (sort.col !== k ? null
-    : sort.dir === 'asc' ? <IconSortAsc size={13} /> : <IconSortDesc size={13} />)
-  const editingRow = rows.find((d) => d.id === editingId)
-  return (
-    <Scroller className="ann-table-wrap">
-      <table className="ann-table">
-        <thead>
-          <tr>
-            {dialogueCols(show).map((c) => (
-              <th
-                key={c.key}
-                className="sortable"
-                onClick={() => onSort(c.key)}
-                aria-sort={sort.col === c.key ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
-              >
-                <Tooltip label={t('book.table.sort.tip')} side="bottom">
-                  <span>
-                    {c.label}
-                    {arrow(c.key)}
-                  </span>
-                </Tooltip>
-              </th>
-            ))}
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((d) => (
-            <tr key={d.id}>
-              <td className="col-quote">
-                {/* THE TABLE CELL TAKES THE FACE TOO. It prints `d.quote` directly
-                    — no quoteTexts, so no text-order either, which is a real
-                    difference from the book table next door and is #171's to
-                    settle — but the slot IS the quote, so the language answers
-                    with no order involved. Without this the same line reads in
-                    two faces between the frame view and the table view. */}
-                <ExpandableText text={d.quote} lines={2} className={languageClass(d.language)} style={{ ...QUOTE_TEXT }} />
-                {d.tags?.length > 0 && (
-                  <div className="mt-1.5 flex flex-wrap gap-1.5">
-                    {d.tags.map((name) => {
-                      const tag = tagMap[name]
-                      return (
-                        <TagChip key={name} color={tag?.color} style={tag?.style}>
-                          {name}
-                        </TagChip>
-                      )
-                    })}
-                  </div>
-                )}
-              </td>
-              <td className="col-mono">{[d.character, d.actor && `(${d.actor})`].filter(Boolean).join(' ') || '—'}</td>
-              {show && <td className="col-mono">{episodeLabel(d) || '—'}</td>}
-              <td className="col-mono">{d.timestamp || '—'}</td>
-              <td className="col-center">{d.favorite ? <IconHeartOn size={14} /> : '—'}</td>
-              <td className="col-actions">
-                {/* `remove` is this screen's ASK — the parent binds the prop to
-                    `setAsking`, so a row puts the same question a card does. This
-                    line reached for `setAsking` itself, which has no binding
-                    here, and Delete on a row threw when pressed. */}
-                <TableActions
-                  noun={t('unit.line.one')}
-                  nounPlural={t('unit.line.other')}
-                  onCopy={onCopy && (() => onCopy(d))}
-                  onShare={onShare && (() => onShare(d))}
-                  onEdit={() => setEditingId(d.id)}
-                  onDelete={() => remove(d)}
-                />
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <FormModal open={!!editingRow} onClose={() => setEditingId(null)} title={t('common.dialogue.edit.title')}>
-        {editingRow && (
-          <DialogueForm initial={editingRow} onSubmit={(fields) => save(editingRow.id, fields)} onCancel={() => setEditingId(null)} submitLabel={t('common.action.save.label')} show={show} game={game} cast={cast} actorMap={actorMap} tagSuggestions={Object.keys(tagMap)} stickers={stickers} reloadStickers={reloadStickers} />
-        )}
-      </FormModal>
-    </Scroller>
-  )
-}
-
-// Frame — one dialogue as a film frame: Newsreader quote, amber mono credit
-// line, tag chips, ♥ (immediate PUT patches), note, edit/delete.
-//
-// WHY A DIALOGUE IS SOMETIMES THIS AND SOMETIMES A HAND-CARD, written down
-// because the difference has read as drift for three releases. The frame is a
-// property of the STRIP, not of the dialogue: on a film's own page the lines are
-// laid out as a strip with sprockets and edge codes, and a frame is what sits in
-// a strip. In a mixed list — Home's favourites, which interleaves book
-// highlights and film lines in one column — there is no strip, and a dialogue is
-// a quote like any other, so it wears the same card its neighbours do. The
-// search modal shows a single line in isolation and mimics the strip, which is
-// why it uses this.
-//
-// What made that look like a bug rather than a choice is that until 1.6.0
-// .film-frame had no material at all — no texture tile, no dither, no answer to
-// the aesthetic toggle — so the difference between a dialogue on Home and the
-// same dialogue on its film's page was "a textured card" versus "an untextured
-// rectangle". It is now "a torn-edged card" versus "a square lit panel", which
-// is a difference you can mean.
 export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, show = false, game = false, cast = [], onEdit, onCancelEdit, onSave, onPatch, onDelete, onCopy, onShare, onOpenPerson, actorMap = {}, seps, actionsAlwaysVisible = false, editInline = false, wrapClass = 'mx-4 my-1.5', quoteLines = 6, expanded, onToggleExpand, onOpenCharacter }) {
   // wrapClass carries the frame's outer spacing: the strip (list) view indents
   // frames from the film edges (mx-4 my-1.5); the masonry (tiles) view drops it

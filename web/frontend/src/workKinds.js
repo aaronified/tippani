@@ -152,20 +152,9 @@ export const KINDS = {
       // change the first time they rearrange a book — and a `chapter` order
       // arriving on a film board would send every row into the sort's `missing`
       // partition, so the board would look unsorted with no control saying why.
-      persist: { view: 'tippani:annview', sort: 'tippani:annsort', group: 'tippani:anngroup', columns: 'tippani:anncols' },
     },
     card: { skin: 'hand', listSkin: 'plain' },
-    views: ['tiles', 'list', 'table'],
     defaultSort: { col: 'default', dir: 'asc' },
-    sortDims: ['default', 'date', 'chapter', 'location', 'length', 'category'],
-    groupDims: ['none', 'chapter', 'color', 'tag', 'date'],
-    tableCols: [
-      { key: 'quote', labelKey: 'book.table.quote.label' },
-      { key: 'chapter', labelKey: 'book.table.chapter.label' },
-      { key: 'location', labelKey: 'book.table.location.label' },
-      { key: 'date', labelKey: 'book.table.date.label' },
-      { key: 'favorite', labelKey: 'book.table.favourite.label' },
-    ],
 
     // ---- what a quote of this kind IS ----
     // 'quote-or-note' because annotationReq accepts a row with a note and no
@@ -196,7 +185,6 @@ export const KINDS = {
     meta: ['character', 'chapter', 'location', 'date'],
 
     detail: {
-      filterAria: 'book.filter.aria',
       practiseMenu: 'book.practise.menu.label',
       practiseAria: 'book.practise.aria',
       practiseTip: 'book.practise.tip',
@@ -281,22 +269,12 @@ export const KINDS = {
       deleteConfirm: 'film.lines.delete.confirm',
       editTitle: 'common.dialogue.edit.title',
       tagAll: 'film.lines.filter.tag.all.label',
-      persist: { view: 'tippani:view:dialogues', sort: 'tippani:dlgsort', group: 'tippani:dlggroup', text: 'tippani:dlgtext', columns: 'tippani:dlgcols' },
       // countsShown / stripShown / selectMenu land with the shared board: this
       // screen builds those three strings in English in the source today, so the
       // keys do not exist yet.
     },
     card: { skin: 'frame', listSkin: 'strip' },
-    views: ['tiles', 'list', 'table'],
     defaultSort: { col: 'timestamp', dir: 'asc' },
-    sortDims: ['default', 'date', 'character', 'timestamp', 'length', 'category'],
-    groupDims: ['none', 'character', 'color', 'tag', 'date'],
-    tableCols: [
-      { key: 'quote', labelKey: 'film.table.quote.label' },
-      { key: 'character', labelKey: 'film.table.character.label' },
-      { key: 'timestamp', labelKey: 'film.table.time.label' },
-      { key: 'favorite', labelKey: 'film.table.favourite.label' },
-    ],
 
     // The server says why in as many words: a dialogue is always a spoken line,
     // so there is no note-only form, because a thought about a film belongs on
@@ -321,7 +299,6 @@ export const KINDS = {
     meta: ['episode', 'character', 'actor', 'timestamp'],
 
     detail: {
-      filterAria: 'film.filter.aria',
       practiseMenu: 'film.practise.menu.label',
       practiseAria: 'film.practise.aria',
       practiseTip: 'film.practise.tip',
@@ -351,15 +328,6 @@ export const KINDS = {
     capWords: { one: 'unit.show.one', other: 'unit.show.other', past: 'film.shelf.cap.past.label' },
     credits: [{ field: 'director', personKind: 'director', labelKey: 'common.badge.created-by' }],
     defaultSort: { col: 'episode', dir: 'asc' },
-    sortDims: ['default', 'date', 'episode', 'character', 'timestamp', 'length', 'category'],
-    groupDims: ['none', 'episode', 'character', 'color', 'tag', 'date'],
-    tableCols: [
-      { key: 'quote', labelKey: 'film.table.quote.label' },
-      { key: 'character', labelKey: 'film.table.character.label' },
-      { key: 'episode', labelKey: 'film.table.episode.label' },
-      { key: 'timestamp', labelKey: 'film.table.time.label' },
-      { key: 'favorite', labelKey: 'film.table.favourite.label' },
-    ],
     locators: [
       { key: 'season', labelKey: 'common.field.season.label', placeholderKey: 'film.line.form.season.placeholder', tipKey: 'film.line.form.season.tip', input: 'number', min: 0, max: 999, number: YES, requiredFor: 'episode', bulk: YES },
       { key: 'episode', labelKey: 'common.field.episode.label', placeholderKey: 'film.line.form.episode.placeholder', tipKey: 'film.line.form.episode.tip', input: 'number', min: 0, max: 9999, number: YES, bulk: YES },
@@ -391,15 +359,6 @@ export const KINDS = {
       { field: 'publisher', personKind: 'publisher', labelKey: 'film.credit.publisher.label' },
     ],
     defaultSort: { col: 'act', dir: 'asc' },
-    sortDims: ['default', 'date', 'act', 'quest', 'character', 'length', 'category'],
-    groupDims: ['none', 'act', 'quest', 'character', 'color', 'tag', 'date'],
-    tableCols: [
-      { key: 'quote', labelKey: 'film.table.quote.label' },
-      { key: 'character', labelKey: 'film.table.character.label' },
-      { key: 'act', labelKey: 'common.field.act.label' },
-      { key: 'quest', labelKey: 'common.field.quest.label' },
-      { key: 'favorite', labelKey: 'film.table.favourite.label' },
-    ],
     locators: [
       { key: 'act', labelKey: 'common.field.act.label', placeholderKey: 'film.line.form.act.placeholder', tipKey: 'film.line.form.act.tip', bulk: YES, sticky: YES },
       { key: 'quest', labelKey: 'common.field.quest.label', placeholderKey: 'film.line.form.quest.placeholder', tipKey: 'film.line.form.quest.tip', bulk: YES },

@@ -51,8 +51,6 @@ describe('patch refetch', () => {
   describe('and with the filter that reads it', () => {
     it('moves the row, so the board is refetched', () => {
       expect(patchMovesTheRow({ favorite: false }, { fav: true })).toBe(true)
-      expect(patchMovesTheRow({ color: 'blue' }, { color: 'pink' })).toBe(true)
-      expect(patchMovesTheRow({ tags: [] }, { tag: 'grief' })).toBe(true)
     })
   })
 })

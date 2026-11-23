@@ -2,9 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { attribution, attributionParts } from '../../src/attribution.js'
 import { quoteKindMeta } from '../../src/quoteKind.js'
 import { quoteTexts } from '../../src/text.js'
-import { groupUtterances } from '../../src/Quotes.jsx'
 import { resolveTextOrder } from '../../src/textOrder.js'
-import { groupAnnotations, sortAnnotations } from '../../src/Library.jsx'
+import { sortAnnotations } from '../../src/Library.jsx'
 
 // The kind's own line on a quote card, and the report that caused it.
 //
@@ -128,50 +127,6 @@ describe('quote texts', () => {
 // The residual bucket carries more weight here than on the other two screens: a
 // proverb has no speaker, no medium, no place and no date, so it lands in the
 // catch-all of every dimension and its label has to say which thing is missing.
-describe('quotes grouping', () => {
-  const BOSE = { id: 1, speaker: 'Subhas Chandra Bose', occasion: 'Burma Radio broadcast', occasion_date: '1944', place: 'Burma', kind: 'speech' }
-  const BOSE2 = { id: 2, speaker: 'Subhas Chandra Bose', occasion: 'Burma Radio broadcast', occasion_date: '1944', place: 'Burma', kind: 'speech' }
-  const FDR = { id: 3, speaker: 'Franklin D. Roosevelt', occasion: 'first inaugural address', occasion_date: '1933-03-04', place: 'Washington', kind: 'letter' }
-  const PROVERB = { id: 4, speaker: '', occasion: '', occasion_date: '', place: '', kind: '' }
-
-  const ALL = [BOSE, BOSE2, FDR, PROVERB]
-  const labels = (groups) => groups.map((g) => g.label)
-  const ids = (group) => group.items.map((i) => i.id)
-
-  describe('grouping by speaker', () => {
-    it('splits a credit naming two people into both buckets', () => {
-      // The card and the share image both split the speaker; a grouping that did
-      // not would file a joint line under a speaker who does not exist.
-      const joint = [{ id: 9, speaker: 'Subhas Chandra Bose, Franklin D. Roosevelt' }]
-      const groups = groupUtterances(joint, 'speaker')
-      expect(labels(groups)).toEqual(['Franklin D. Roosevelt', 'Subhas Chandra Bose'])
-      expect(ids(groups[0])).toEqual([9])
-      expect(ids(groups[1])).toEqual([9])
-    })
-  })
-
-  describe('every dimension', () => {
-    it('keeps every quote, and loses none', () => {
-      for (const dim of ['speaker', 'kind', 'place', 'decade']) {
-        const seen = new Set()
-        for (const g of groupUtterances(ALL, dim)) for (const u of g.items) seen.add(u.id)
-        expect([...seen].sort(), dim).toEqual([1, 2, 3, 4])
-      }
-    })
-  })
-})
-
-// WHO DECIDES HOW MUCH OF THE ORIGINAL A CARD SHOWS.
-//
-// The owner's four states and three scopes, and the precedence between them:
-// "the work controls will supercede the metadata controls."
-//
-// WHY THE PRECEDENCE IS THE THING WORTH TESTING. Each individual state is a line
-// of `quoteTexts` and is covered beside it; what can go wrong here is a scope
-// being consulted in the wrong order, or an empty value being read as an opinion
-// rather than as silence. Both are silent in a screenshot: a card shows SOME text
-// either way, and the reader only finds out their per-work setting is being
-// ignored by comparing two screens.
 describe('text order', () => {
   describe('the precedence', () => {
     const byLanguage = { german: 'trans-first' }
@@ -212,19 +167,4 @@ describe('annotation order', () => {
     })
   })
 
-  describe('grouping a board', () => {
-    // A QUOTE WITH SEVERAL TAGS APPEARS UNDER EACH, exactly as a book with several
-    // genres does — and the biggest bucket leads, because tags have no order of
-    // their own.
-    it('puts a multi-tagged quote in every one of its buckets', () => {
-      const g = groupAnnotations(rows, 'tag')
-      const craft = g.find((x) => x.label === 'craft')
-      const truth = g.find((x) => x.label === 'truth')
-      expect(ids(craft.items)).toEqual([1, 2])
-      expect(ids(truth.items)).toEqual([2])
-      // The residual sinks whatever its size — here it holds two of the four.
-      expect(g[g.length - 1].residual).toBe(true)
-      expect(g[g.length - 1].items).toHaveLength(2)
-    })
-  })
 })

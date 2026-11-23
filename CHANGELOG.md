@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- **Group-by, the table and grid views, and the list filters.** The Library, Catalogue and
+  Quotes lists, and a work's quotes and lines, keep one list view, a favourites toggle and a
+  basic sort; grouping, the table and cover-grid views, the sort options beyond the basics and
+  the filter panels are gone. (ADR-0936)
+
 - **Multi-select and the bulk bar.** Selecting several books, films, quotes or search results,
   and the bar that acts on them, including bulk season and episode, are gone from the web app;
   single-item edit and delete menus stay. (ADR-0936)
