@@ -68,15 +68,13 @@ describe('every screen you can reach has help', () => {
     }
   })
 
-  // THE ADD SURFACE PICKS BETWEEN TWO, and that is the point: import is a MODE of
-  // it, not a screen, so `helpScreen` never sees import and the surface decides.
-  // It hardcoded `capture` on both its headers for a release, which is how the
-  // import mode's "?" came to answer a question about capturing a quote.
-  it('the add surface answers for whichever mode it is in', () => {
+  // THE ADD SURFACE ANSWERS WITH CAPTURE HELP. Its file import mode left with the
+  // import queue (ADR-0936), so there is one mode of help to name.
+  it('the add surface answers with the capture help', () => {
     const add = src('AddSurface.jsx')
-    expect(add, 'the "?" is back to naming one screen for both modes').toContain('<PageHelp screen={helpKey} />')
-    expect(add).toContain("const helpKey = mode === 'import' ? 'import' : 'capture'")
-    for (const key of ['capture', 'import']) expect(HELP[key], key).toBeTruthy()
+    expect(add, 'the "?" is back to naming no screen').toContain('<PageHelp screen={helpKey} />')
+    expect(add).toContain("const helpKey = 'capture'")
+    expect(HELP.capture, 'capture').toBeTruthy()
   })
 
   it('an unknown key is null rather than a half-built panel', () => {

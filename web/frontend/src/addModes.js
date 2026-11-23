@@ -25,10 +25,11 @@
 
 import { QUOTE_KIND_DOORS } from './addFields.js'
 
-// The five, in the order the first screen offers them: the three containers
-// first — a work, a board, an anthology — then the standalone quote, then the
-// bulk path. Machine values; the words are the locale file's.
-export const ADD_MODES = ['work', 'board', 'anthology', 'quote', 'import']
+// The four, in the order the first screen offers them: the three containers
+// first — a work, a board, an anthology — then the standalone quote. Machine
+// values; the words are the locale file's. File import left this surface with
+// the import queue (ADR-0936).
+export const ADD_MODES = ['work', 'board', 'anthology', 'quote']
 
 // WHICH MODES CANNOT ACT UNTIL SOMETHING IS NAMED. A work and a board are
 // containers: a highlight belongs to a book and a proverb sits on a board, so the

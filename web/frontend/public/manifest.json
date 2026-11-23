@@ -36,45 +36,6 @@
           "sizes": "192x192"
         }
       ]
-    },
-    {
-      "name": "Daily quiz",
-      "short_name": "Quiz",
-      "url": "/",
-      "icons": [
-        {
-          "src": "/icons/icon-192.png",
-          "sizes": "192x192"
-        }
-      ]
-    },
-    {
-      "name": "Pending imports",
-      "short_name": "Pending",
-      "url": "/pending",
-      "icons": [
-        {
-          "src": "/icons/icon-192.png",
-          "sizes": "192x192"
-        }
-      ]
-    }
-  ],
-  "file_handlers": [
-    {
-      "action": "/import",
-      "accept": {
-        "text/markdown": [
-          ".md",
-          ".markdown"
-        ],
-        "text/plain": [
-          ".txt"
-        ],
-        "application/json": [
-          ".json"
-        ]
-      }
     }
   ],
   "launch_handler": {

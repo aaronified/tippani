@@ -7,7 +7,7 @@ It is generated from the glossary catalogue, `web/frontend/scripts/glossary/cata
 when a component has no entry, so a rename or a new control updates this page or fails the build. Each entry names the file
 that defines it.
 
-219 entries in 22 sections.
+215 entries in 21 sections.
 
 ## Shell
 
@@ -1215,33 +1215,11 @@ A film is one runtime, so a timestamp locates a line completely. A show is not: 
 
 Every import parses into a holding area and stays there — indefinitely, across sessions, books and films mixed together — until it is explicitly approved.
 
-### Destination heading
-
-*Defined in:* StagingPage.jsx — one group per work the quotes will attach to
-
-Each heading says **where its quotes are going** — an existing title, or a new one — so a wrong guess is visible before anything is written. Recomputed on every read, because the library moves while quotes wait in the queue.
-
-### Location formulae
-
-*Defined in:* StagingPage.jsx · locformula.go
-
-Arithmetic over the numeric runs inside free text, which is what a Kindle location-to-page division or a PDF page offset actually needs. `p.142` minus 5 is `p.137`; a range moves at both ends; leading zeros and thousands separators survive; clock values convert through seconds and come back with their original padding. Detection is by **value**, not by field. Formulae chain, and **reset** restores every row's as-imported snapshot — so one applied by mistake is undone rather than lived with.
-
 ### BulkBar
 
 *Defined in:* BulkBar — ui.jsx · shared by Search, Metadata and Staging
 
 One selection strip, three screens. In staging it does two things the live endpoints cannot: tags come **off** as well as on, and the work can be **retargeted across kinds** — book and film interchangeable — because a staged row carries both locator sets, so the move never destroys the ones the destination won't use.
-
-### Pending badge
-
-*Defined in:* App.jsx — the ＋ Add pill, the drawer, and a card on Home
-
-A count on the ＋ Add pill, so a half-finished import is not forgotten. Staged quotes carry no FTS triggers and no review rows, so an unapproved import never turns up in search, never gets pulled into a quiz, and its tags never join your vocabulary.
-
-## Help & density (1.4.0)
-
-The app used to explain itself in standing prose — Settings card copy, drawer subtexts, microcopy under controls. Good writing, and a lot of it, and it is why some screens read dense. The rule now: a **label** (what this control is) and **state** (what is true right now) stay on the page; an **explanation** (why it exists, what the trade-off is) moves into an info dot. And every screen carries a **?** that lists its own controls.
 
 ### FilterChip · search scopes (1.11.2)
 
@@ -1714,12 +1692,6 @@ A stack of three planes, on the door that opens **Change one surface yourself**:
 *Defined in:* IconNavSearch — ui.jsx · rule 2 · names a place, not a job
 
 Search as a destination. Phosphor `magnifying-glass`. IconSearch has thirteen other callers where it is the verb, and every one stays drawn.
-
-### IconImport
-
-*Defined in:* IconImport — ui.jsx · rule 2 · names a place, not a job
-
-The Import tab. Phosphor `tray-arrow-down`. Nav-only, so the drawing was replaced rather than twinned.
 
 ### IconNavProfile
 

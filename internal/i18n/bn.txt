@@ -1128,8 +1128,6 @@ shell.drawer.close.aria = মেনু বন্ধ করুন
 # The app's name in Bengali, and what the word means. ALREADY BENGALI on the
 # English side, and it stays: it is the app naming itself.
 shell.drawer.tagline.label = টিপ্পনী · মার্জিনে লেখা কথা
-# What the one Add row can reach, as a badge beside it.
-shell.drawer.pending.label = যাচাই বাকি ইমপোর্ট
 # The Metadata row's badge when the console has nothing to fix.
 shell.drawer.metadata.clear.label = সব ঠিক আছে
 shell.drawer.settings.version.label = v{version}
@@ -1144,8 +1142,6 @@ shell.dock.sections.label = বিভাগ
 shell.dock.tools.label = সরঞ্জাম
 shell.sheet.grip.aria = এই শিটের মাপ বদলান
 shell.totop.aria = উপরে ফিরুন
-# The same button when an import is waiting in the pending queue.
-shell.add.pending.tip = {n}টা ইমপোর্ট দেখে নেওয়া বাকি
 # --- Search, and its global mode (right-click on a desktop).
 shell.crumbs.aria = আপনি কোথায় আছেন
 shell.search.scope.thisbook = এই বই
@@ -1810,14 +1806,6 @@ tour.step.cleanup.title = পাতা যা ফেলে রেখে গে�
 tour.step.cleanup.prose = প্রতিটা উদ্ধৃতি পড়ে দেখে কোনটা লেখকের নয়, বরং {em1} থেকে এসেছে: ভুল করে ঢুকে পড়া পাতার নম্বর, লাইন ভাঙার হাইফেন, পাদটীকার চিহ্ন।
 tour.step.cleanup.em1.label = পাতা
 tour.step.cleanup.more = যা পায় শুধু তালিকা করে; নিজে থেকে কিছু বদলায় না। নিয়ম ধরে ছাঁকুন, সারি খুলে ঠিক করুন, আর সংগ্রহ খুব বড় হলে বাকিটার জন্য আবার চালান।
-
-# Step "staging" — the imports waiting room.
-tour.step.staging.name = যাচাই বাকি ইমপোর্ট
-tour.step.staging.blurb = ইমপোর্ট আগে এখানে নামে, মেনে নিলে তবে বেরোয়
-tour.step.staging.title = না দেখে কিছু ঢোকে না
-tour.step.staging.prose = যতক্ষণ না আপনি {em1}, ইমপোর্ট করা জিনিস এখানেই থাকে — তাই ভুল ইমপোর্ট সংগ্রহে ঢোকে না।
-tour.step.staging.em1.label = মেনে নেন
-tour.step.staging.more = পুরো দলটা একসঙ্গে ঠিক করুন — কোন বই, বক্তার নাম, রং — তারপর যা চান মেনে নিন, বাকিটা ফেলে দিন। এখানকার কিছুই এখনো আপনার সংগ্রহে ঢোকেনি।
 
 # Step "book" — a book's own page.
 tour.step.book.name = বইয়ের নিজের পাতা
@@ -2504,10 +2492,6 @@ error.load.quiz-card = এই উদ্ধৃতিটা আনা গেল �
 # library that are neither the quiz nor a search.
 # ---------------------------------------------------------------------------
 
-# The small caps kind tag on a favourite tile. SMALL CAPS IN A FIXED SLOT —
-# three or four characters is all that fits, and a script with no case will
-# need a shorter word rather than a translated one.
-common.badge.book = বই
 common.badge.film = সিনেমা
 common.badge.show = শো
 home.favourites.delete.annotation.confirm = এই উদ্ধৃতিটা মুছবেন?
@@ -2778,11 +2762,6 @@ capture.form.missing.hint = {reason} — তবেই সেভ হবে।
 capture.toast.annotation = উদ্ধৃতি তুলে রাখা হল
 capture.toast.dialogue = সংলাপ তুলে রাখা হল
 capture.toast.quote = উক্তি তুলে রাখা হল
-
-# An import already waiting, shown on the Import tab.
-capture.import.pending.one = {n}টা উদ্ধৃতি বাকি — তালিকাটা দেখে নিন
-capture.import.pending.other = {n}টা উদ্ধৃতি বাকি — তালিকাটা দেখে নিন
-
 
 # What must be filled before a capture can save. Each doubles as the tooltip on
 # the greyed ✓, so each has to make sense on its own.
@@ -3222,7 +3201,6 @@ bin.kind.quote.label = উক্তি
 # ---------------------------------------------------------------------------
 checks.title = যাচাইকরণ
 checks.tab.aria = যাচাইকরণের ভাগ
-checks.tab.imports.label = ইমপোর্ট
 checks.tab.marks.label = বাড়তি চিহ্ন
 checks.tab.files.label = ফাইল
 checks.files.empty = এখানে কিছু অপেক্ষায় নেই। খোঁজায় আপনার কাজের জন্য পাওয়া ফাইল, আর ফাইলের প্রস্তাব করা সময়, জায়গা ও সংশোধন এই ট্যাবে আসবে।
@@ -3363,153 +3341,7 @@ offers.taken.toast = {field} এখন {source} থেকে আসছে
 offers.none.prose = এই ফিল্ড নিয়ে আর কোনও জোগানদারের আলাদা বয়ান নেই।
 offers.unpinned.prose = এই রেকর্ড কোনও জোগানদারের সঙ্গে বাঁধা নেই। আগে খুঁজে নিয়ে বেঁধে ফেলুন।
 
-# ---------------------------------------------------------------------------
-# IMPORT — ImportPage.jsx. Seven source formats, each a card with a how-to, and
-# the per-file result rows underneath.
-#
-# THE FORMAT NAMES ARE PROPER NOUNS and stay as themselves (§8): Markdown,
-# Bookcision, Hardcover, Goodreads, IMDb, Kindle. Where a common noun is stuck to
-# one — “IMDb quotes”, “Kindle notebook” — the common half translates and the
-# name does not. “My Clippings” is the FILENAME on the device, so it stays Latin
-# in every language or the instruction stops being followable.
-#
-# The steps are numbered by the code, so each is one line of instruction with no
-# number in it.
-# ---------------------------------------------------------------------------
-# bn: The eight format names are proper nouns and stay as themselves (§8); “My
-# Clippings” is the filename on the device. URLs, file extensions and the
-# Ctrl+S / ⌘S key names are Latin for the same reason.
-import.source.markdown.title = Markdown
-import.source.markdown.desc = Tippani থেকে এক্সপোর্ট করা বই বা ক্যাটালগ, কিংবা Readest-এর এক্সপোর্ট — .json আর Markdown দুটোই পড়া যায়।
-import.source.markdown.step.1 = Tippani-র এক্সপোর্ট (বই বা ক্যাটালগ), Readest-এর এক্সপোর্ট, বা নিজের লেখা frontmatter আর উদ্ধৃতি ইমপোর্ট করুন।
-import.source.markdown.step.2 = একটা .md ফাইলে অনেক বই বা টাইটেল থাকতে পারে — প্রত্যেকটাই আসবে।
-
-import.source.readest.title = Readest
-import.source.readest.desc = Readest-এর হাইলাইট এক্সপোর্ট — রং আর প্রতিটা হাইলাইটের তারিখও চলে আসে।
-import.source.readest.step.1 = Readest-এ বইটার অ্যানোটেশন খুলে এক্সপোর্ট করুন।
-import.source.readest.step.2 = .json ফাইলটা আনুন — Readest-এর Markdown এক্সপোর্টও পড়া হয়।
-
-import.source.bookcision.title = Bookcision
-import.source.bookcision.desc = Bookcision বুকমার্কলেট দিয়ে Kindle-এর উদ্ধৃতি।
-import.source.bookcision.step.1 = read.amazon.com/notebook-এ গিয়ে বইয়ের Notes & Highlights খুলুন।
-import.source.bookcision.step.2 = Bookcision বুকমার্কলেট চালান, তারপর Download → JSON, আর সেই ফাইলটা আনুন।
-import.source.bookcision.step.3 = বুকমার্কলেট চান না? তার বদলে সেভ করা কিন্ডল নোটবুক পাতাটা ইমপোর্ট করুন — রংও থেকে যায়।
-
-import.source.hardcover-html.title = Hardcover
-import.source.hardcover-html.desc = Hardcover-এ একটা বইয়ের পড়ার জার্নালের পাতা।
-import.source.hardcover-html.step.1 = নিজের জার্নালের পাতা খুলুন, যেমন hardcover.app/books/<book>/journals/@you
-import.source.hardcover-html.step.2 = পাতাটা ওয়েব পেজ হিসেবে সেভ করুন, শুধু HTML (Ctrl+S / ⌘S)।
-import.source.hardcover-html.step.3 = সেভ করা .html আনুন।
-
-import.source.goodreads-html.title = Goodreads
-import.source.goodreads-html.desc = বইয়ের খোলা Quotes পাতা — উদ্ধৃতির ট্যাগও সঙ্গে আসে।
-import.source.goodreads-html.step.1 = বইয়ের Quotes পাতা খুলুন, যেমন goodreads.com/work/quotes/<id>-<book>
-import.source.goodreads-html.step.2 = পাতাটা ওয়েব পেজ হিসেবে সেভ করুন, শুধু HTML (Ctrl+S / ⌘S)।
-import.source.goodreads-html.step.3 = সেভ করা .html আনুন।
-
-import.source.imdb-quotes.title = IMDb উদ্ধৃতি
-import.source.imdb-quotes.desc = সিনেমা বা শো-র Quotes পাতা → সংলাপ (ক্যাটালগে)।
-import.source.imdb-quotes.step.1 = টাইটেলের Quotes পাতা খুলুন, যেমন imdb.com/title/tt0434409/quotes
-import.source.imdb-quotes.step.2 = পাতাটা ওয়েব পেজ হিসেবে সেভ করুন, শুধু HTML (Ctrl+S / ⌘S)।
-import.source.imdb-quotes.step.3 = সেভ করা .html আনুন।
-
-import.source.kindle-notebook.title = Kindle নোটবুক
-import.source.kindle-notebook.desc = Kindle-এর Notes & Highlights পাতা — রং আর লোকেশন সঙ্গে আসে।
-import.source.kindle-notebook.step.1 = read.amazon.com/notebook খুলে বইটা বাছুন।
-import.source.kindle-notebook.step.2 = পাতাটা ওয়েব পেজ হিসেবে সেভ করুন, শুধু HTML (Ctrl+S / ⌘S)।
-import.source.kindle-notebook.step.3 = সেভ করা .html আনুন।
-
-# The filename on the device. Latin in every language, per §8.
-import.source.kindle-clippings.title = My Clippings
-import.source.kindle-clippings.desc = Kindle যন্ত্রপাতির নিজের ফাইল — একবারে সব বই, উদ্ধৃতি আর নোট সমেত।
-import.source.kindle-clippings.step.1 = USB দিয়ে Kindle লাগান।
-import.source.kindle-clippings.step.2 = যন্ত্রপাতি থেকে documents/My Clippings.txt কপি করুন।
-import.source.kindle-clippings.step.3 = এটাই আনুন — ফাইলের সব বই একবারেই আসবে।
-# Not keyed as .info or .hint on purpose: this is a caveat under a chip, not a
-# dot's body, and it is longer than the 240 those are held to.
-import.source.kindle-clippings.caveat = কিন্ডলের ক্লিপিংস ফাইলের কোনো লিখিত নিয়ম নেই, আর যন্ত্রের ভাষা অনুযায়ী বদলায় — তাই কিছু লেখা ঠিকমতো পড়া না-ও যেতে পারে। যা পড়া যায় না তা বাদ যায়, আর কটা বাদ গেল জানানো হয়।
-
-# The honest chip beside a format that can misread a file.
-import.experimental.label = পরীক্ষামূলক
-# The drop target's two lines. The first is the press, the second says the box
-# takes a dropped file too — not a separate control, the same one.
-import.choose.label = ফাইল বাছুন — একটা বা অনেকগুলো
-import.drop.hint = বা এখানে টেনে এনে ছাড়ুন
 # The eight how-tos moved to the "?" (import.help.sources).
-
-# WHEN THE BYTES DO NOT SAY. The reader's override, offered only on a file no
-# parser claimed.
-import.unknown.body = ফাইলটার ভিতরে কোথাও লেখা নেই এটা কী। ফরম্যাট বেছে দিন, আবার পড়া হবে।
-import.read-as.label = এই ফরম্যাট হিসেবে পড়ুন…
-import.read-as.aria = আপনার বেছে দেওয়া ফরম্যাট হিসেবে ফাইলটা পড়া হবে
-import.read-as.placeholder = ফরম্যাট বাছুন
-import.read-as.unqueued = এই ফাইল থেকে কিছুই জমা হয়নি। ওপরে একটা ধাঁচ বাছুন, বা পরে ফাইলটা আবার দিন।
-
-# WHAT THE FILE ACTUALLY IS. Each names the door that does take it — the screen
-# names are this file's own (settings.restore.title, settings.section.lang.label).
-import.near-miss.backup = এটা টিপ্পনীর ব্যাকআপ — সেটিংস → ফিরিয়ে আনা দিয়ে ফেরান।
-import.near-miss.zip = এক্সপোর্টের আর্কাইভ গোটাটা ইমপোর্ট হয় না — unzip করে ভিতরের ফাইলগুলো ছাড়ুন।
-import.near-miss.epub = Tippani হাইলাইট রাখে, বই নয় — তার বদলে আপনার রিডার থেকে হাইলাইটগুলো এক্সপোর্ট করুন।
-import.near-miss.image = প্রচ্ছদ বসে বই বা সিনেমার নিজের পাতা থেকে।
-import.near-miss.font = ফন্ট আপলোড হয় সেটিংস → ফন্ট থেকে।
-import.near-miss.binary = ফাইলটা টেক্সট নয়, তাই পড়ার মতো কিছু নেই।
-
-# The run's summary line. Two plural families rather than one sentence, because
-# the file count and the quote count pluralise independently.
-import.summary.files.one = {n}টা ফাইল
-import.summary.files.other = {n}টা ফাইল
-import.summary.quotes.one = {n}টা উদ্ধৃতি বাকি
-import.summary.quotes.other = {n}টা উদ্ধৃতি বাকি
-import.summary.arrow = {files} → {quotes} · গ্রন্থাগারে এখনও কিছু ঢোকেনি
-# One row per file.
-import.row.staged.one = {n}টা উদ্ধৃতি জমা হয়েছে
-import.row.staged.other = {n}টা উদ্ধৃতি জমা হয়েছে
-# bn: পাঠানো for "sent", a file handed to the server; আপলোড হয়নি was the other
-import.row.unsent = এখনও পাঠানো হয়নি
-import.row.halted = {state} — সেটিংস → কাজ-এ আবার চালানো যায়
-# bn: আবার দিন for "drop it again", as import.read-as.unqueued says it
-import.row.lost = {state} — ফাইলটা সার্ভারে আর নেই; আবার দিন
-# bn: স্ক্রিন, not the draft's পর্দা (v3.1); চলতে থাকবে as reverify.checking.away says it
-import.queued.note = যে ফাইল পাঠানো হয়ে গেছে, এই স্ক্রিন ছেড়ে গেলেও সেটা সেটিংস → কাজ-এ চলতে থাকবে; যেটা এখনও পাঠানো হয়নি, সেটা নয়।
-import.row.duplicate = ⚠ মনে হচ্ছে বইটা আগে থেকেই আছে: {titles} — অপেক্ষার তালিকায় উদ্ধৃতিগুলো সেখানে সরিয়ে দিন, বা আলাদা বই হিসেবে মেনে নিন
-# The hand-over to the queue.
-import.review.one = বাকি পড়ে থাকা {n}টা উদ্ধৃতি দেখুন
-import.review.other = বাকি পড়ে থাকা {n}টা উদ্ধৃতি দেখুন
-import.review.absent = দেখে মেনে নিতে “যাচাই বাকি ইমপোর্ট” খুলুন
-
-# Where one parsed work will land. Two keys rather than one with an optional
-# parenthetical, so neither language has to build a bracket.
-import.work.joins = আগের “{title}”-এর সঙ্গে জুড়বে
-import.work.joins-year = আগের “{title}” ({year})-এর সঙ্গে জুড়বে
-import.work.new = নতুন একটা {kind}
-import.work.ambiguous = ⚠ “{title}” নামে আপনার {n}টা আছে — অপেক্ষার তালিকায় দেখা যাবে কোনটা বাছা হয়েছে, আর বদলানোও যাবে
-
-# What a My Clippings.txt import dropped, and why. A best-effort parser that
-# quietly returns fewer quotes than the file held is worse than one that says so.
-import.clippings.bookmarks.one = {n}টা বুকমার্ক বাদ (আনার মতো লেখা নেই)
-import.clippings.bookmarks.other = {n}টা বুকমার্ক বাদ (আনার মতো লেখা নেই)
-import.clippings.notes.one = {n}টা নোট নিজের উদ্ধৃতির সঙ্গে জুড়েছে
-import.clippings.notes.other = {n}টা নোট নিজের উদ্ধৃতির সঙ্গে জুড়েছে
-import.clippings.duplicates.one = {n}টা দুবার-সেভ-করা উদ্ধৃতি এক হয়েছে
-import.clippings.duplicates.other = {n}টা দুবার-সেভ-করা উদ্ধৃতি এক হয়েছে
-import.clippings.malformed.one = {n}টা রেকর্ড পড়া গেল না
-import.clippings.malformed.other = {n}টা রেকর্ড পড়া গেল না
-
-# The contract of the screen, stated in place so the absence of “12 added” reads
-# as intended rather than as a failure. {queue} is the queue's own name, in bold.
-import.nothing-lands.body = ইমপোর্ট করা সব কিছু আপনি মেনে না নেওয়া পর্যন্ত {queue}-এ থাকে — তার আগে সংগ্রহে, খোঁজে বা অনুশীলনীতে কিছুই ঢোকে না। ওখানে একসঙ্গে অধ্যায় আর অবস্থান ঠিক করুন, উদ্ধৃতি ঠিক বই-সিনেমায় সরান, তারপর মেনে নিন বা ফেলে দিন।
-# Why imports are save-the-page-and-upload rather than paste-a-URL — a natural
-# question, answered once and collapsed. {emphasis} is “on their page”, italic.
-import.why-upload.summary = সেভ করা পাতা আপলোড করতে বলছি, URL দিলেই হত না?
-import.why-upload.body = Amazon, IMDb বা Goodreads-এর মতো সাইট ব্রাউজারকে অন্য জায়গা থেকে তাদের পাতা আনতে দেয় না — তাই Bookcision-এর মতো বুকমার্কলেটকে {emphasis} চালাতে হয়। সার্ভার পাতা আনতে পারত, কিন্তু ব্যক্তিগত পাতার জন্য আপনার লগ-ইন লাগে, আর এভাবে পাতা ছেঁকে আনা সহজেই বিগড়ায়। নিজের ব্রাউজারে পাতাটা সেভ করে আপলোড করাই ভরসার পথ।
-import.why-upload.emphasis = ওদের পাতাতেই
-
-error.import.failed = ইমপোর্ট করা গেল না
-
-# The queue's own name, which the import screen also puts in bold in its
-# standing note. ONE KEY, so the two screens cannot disagree about what the
-# place is called.
-staging.title = যাচাই বাকি ইমপোর্ট
 
 # ---------------------------------------------------------------------------
 # PROFILE — Account.jsx. Everything about “you on this server”, in the order you
@@ -3853,243 +3685,6 @@ error.validate.lookup-fields = আগে নাম, ISBN বা ASIN দিন
 # common.action.edit.*. A staged chapter is the same chapter it will be after
 # approval, so it is spelt the same way.
 # ---------------------------------------------------------------------------
-
-# The synthetic group a batch of standalone quotes hangs from. The other three
-# badges are common.badge.book / .film / .show; only this one is a PLURAL, because
-# the group is not one work. ⚠ SMALL CAPS IN A NARROW SLOT, and a script with no
-# case wants one short word rather than a translated shout.
-staging.badge.quotes = উক্তি
-
-# The three states before the list. "nothing waiting" sits in the header's counts
-# slot; "nothing staged" is the empty state under it; the third is what a batch
-# filter says when the file it points at has no rows left.
-staging.state.loading = অপেক্ষার তালিকা পড়া হচ্ছে…
-staging.state.empty-counts = কিছু বাকি নেই
-staging.state.empty = কিছুই জমা নেই — ইমপোর্ট আগে এখানেই আসে, আর আপনি মেনে না নেওয়া পর্যন্ত এখানেই থাকে
-staging.state.empty-file = ওই ফাইলে জমা কোনও উদ্ধৃতি নেই
-
-# The header's counts. A batch can hold works and no quotes at all (a book
-# exported with none), which is why there are two of these rather than one.
-staging.counts.quotes.one = {n}টা উদ্ধৃতি বাকি
-staging.counts.quotes.other = {n}টা উদ্ধৃতি বাকি
-staging.counts.works.one = {n}টা উৎস বাকি, কোনও উদ্ধৃতি নেই
-staging.counts.works.other = {n}টা উৎস বাকি, কোনও উদ্ধৃতি নেই
-
-# The batch filter. It is a FILTER and not a view: the queue stays one list and
-# this narrows it to the file being worked through. {name} is the uploaded
-# filename, or the source's name when the file had none.
-staging.filter.file.label = ফাইল
-
-# The strip of destination covers under the file filter, and its "everything" chip.
-staging.filter.work.aria = অপেক্ষার তালিকা কমিয়ে একটি গন্তব্যে আনুন
-staging.filter.all-works.label = সবগুলো ({n}টি) উৎস
-# bn: The control picks a file, so the file is what it is called; Bengali needs no word for a batch.
-staging.filter.batch.aria = ইমপোর্টের ফাইল
-staging.filter.all-files.label = সব ফাইল ({n})
-staging.filter.batch.label = {name} · {n}
-staging.select-all.label = {n}টাই বাছুন
-
-# The two page-level actions, which end the whole queue. The count on Approve
-# appears only when there is something to count, so it is two keys rather than a
-# number glued onto a label.
-staging.approve-all.label = সব মেনে নিন
-staging.approve-all.count.label = {n}টাই মেনে নিন
-staging.discard-all.label = সব ফেলে দিন
-staging.discard-all.confirm.title = জমা সবকিছু ফেলে দেবেন?
-staging.discard-all.confirm.body = সব ফাইলের জমা {n}টা উদ্ধৃতিই চলে যাবে। গ্রন্থাগারের কিছুতে হাত পড়বে না।
-
-# THE BULK BAR, over the checked rows. The colour swatches, the two favourite
-# buttons, the three panel toggles, and the pair that ends the selection.
-staging.bulk.colour.aria = রঙের ঘর বসান
-staging.bulk.favourite.label = ♥ প্রিয়
-staging.bulk.unfavourite.label = ♥ সরান
-staging.bulk.unfavourite.tip = প্রিয় থেকে সরান
-staging.bulk.fields.label = ঘর এডিট করুন…
-staging.bulk.move.label = পাঠান…
-staging.bulk.locations.label = লোকেশন…
-staging.bulk.approve.label = {n}টা মেনে নিন
-# One word for the bulk button and for the confirm's own button, so the dialog
-# cannot promise something the bar did not offer.
-staging.discard.label = ফেলে দিন
-staging.discard.confirm.title.one = জমা {n}টা উদ্ধৃতি ফেলে দেবেন?
-staging.discard.confirm.title.other = জমা {n}টা উদ্ধৃতি ফেলে দেবেন?
-staging.discard.confirm.body = গ্রন্থাগারে না ঢুকেই অপেক্ষার তালিকা থেকে চলে যাবে।
-
-# THE FLASH LINE beside the header — what the last bulk POST did. Every action
-# funnels through one request, so these are one family rather than a toast per
-# control.
-staging.flash.updated = {n}টা বদলেছে
-# Approving reports three numbers, and the third only when the server actually
-# fetched metadata. THREE KEYS JOINED BY THE CODE rather than one value with an
-# optional tail: the parser trims a value, so a file cannot carry the leading
-# " · " a third fragment would need.
-staging.flash.approved.added = {n}টা যোগ হয়েছে
-staging.flash.approved.skipped = {n}টা বাদ
-staging.flash.approved.relinked = {n}টা আপনার আগে থেকে থাকা উদ্ধৃতির সঙ্গে মেলানো হল
-staging.flash.approved.enriched = {n}টায় মেটাডেটা এসেছে
-# bn: {total}-এর মধ্যে {done}, settings.jobs.progress's own order
-staging.approving.progress = মেনে নেওয়া চলছে — {total}-এর মধ্যে {done}
-# bn: names the approval where the draft said এটা, as reverify.checking.away names the check; স্ক্রিন, not পর্দা (v3.1)
-staging.approving.away = এই স্ক্রিন ছেড়ে গেলেও মেনে নেওয়া চলতে থাকবে — সেটিংস → কাজ-এ পাবেন।
-staging.flash.discarded = {n}টা ফেলে দেওয়া হয়েছে
-staging.flash.saved = সেভ হয়েছে
-# {name} is the CATEGORY's name, not the stored colour token — it said
-# "colour → blue" while every card on the screen said "Fact".
-staging.flash.colour = → {name}
-staging.flash.favourited = প্রিয়তে গেল
-staging.flash.unfavourited = প্রিয় থেকে সরল
-staging.flash.edited = {n}টা এডিট হয়েছে
-# bn: The hole goes after a colon rather than taking -এ, so no case marker lands on a name nobody can see (§5.4).
-staging.flash.moved = {n}টা পাঠানো হয়েছে: {title}
-staging.flash.merged = {n}টা এক করা হয়েছে
-# {op} is one of the six operation words below.
-staging.flash.formula = {n}টায় {op} বসেছে
-
-# ONE GROUP — a target work and the staged quotes going to it. The heading is the
-# contract: it names where these will land if approved, so a misdetected file is
-# visible before the write rather than after it.
-staging.group.select.tip = গোটা গ্রুপটা বাছুন
-staging.group.select.aria = জমা সব উদ্ধৃতি বাছুন: {title}
-# Where the group will land, in three shapes. The standalone-quote group has no
-# destination at all — it is the queue's way of holding quotes that belong to
-# nothing.
-staging.group.standalone.prose = → কোনও বই বা সিনেমার নয় — নিজেদের মতো উক্তি হয়ে সেভ হবে
-# {target} IS A NODE — the destination's name as a link, supplied by the call
-# site, because markup never goes in a locale value.
-staging.group.joins.prose = → যেটা আগে থেকেই আছে, তাতেই জুড়বে: {target}
-# The link's own words. Two keys rather than one with an optional parenthetical,
-# so no language has to build the bracket itself.
-staging.group.target.year.label = {title} ({year})
-# The match was pinned by hand rather than guessed, which is worth saying.
-# bn: আপনি stays: the point of the line is that this match was your choice, not the app's guess (§1.3).
-staging.group.pinned.label = আপনিই বেছেছেন
-# {kind} is a singular unit.* noun: book, show or film.
-staging.group.new.prose = → নতুন {kind} হিসেবে যোগ হবে
-# {n} is at least 2 by construction — a work is only ambiguous when a second
-# title shares its name — so this needs no plural family.
-staging.group.ambiguous.warning = ⚠ এই নামে {n}টা টাইটেল আছে — ঠিকটাতেই গেছে কি না দেখে নিন
-# A group with no quotes left in it. An empty WORK still creates the book or
-# film on approval; an empty quotes group creates nothing, because there is
-# nothing to it but the quotes.
-staging.group.empty.standalone = এই গ্রুপে আর কোনও উক্তি নেই
-staging.group.empty.work = কোনও উদ্ধৃতি নেই — মেনে নিলে {kind}-টাই শুধু যোগ হবে
-
-# ONE STAGED ROW. Its locators are drawn from the data; these are the words
-# around them.
-staging.row.select.tip = এই উদ্ধৃতিটা বাছুন
-staging.row.select.aria = এই জমা উদ্ধৃতিটা বাছুন
-staging.row.note.label = নোট: {note}
-# WHAT THE LINE SAYS, on a staged row. Drawn above the note, the order every card
-# in the app uses, and lower-cased to match its neighbour — these two are the row's
-# quiet second line, not headings.
-staging.row.translation.label = অনুবাদ: {text}
-# The mark on a row a location formula has moved. ⚠ MONO SLOT — one short word.
-staging.row.shifted.label = সরেছে
-staging.row.shifted.tip = লোকেশনের ফর্মুলা এটা সরিয়েছে; আগের মতো করলে ফিরে আসবে
-
-# THE BULK FIELD EDITOR, following the Metadata console: a blank box is ambiguous
-# between "leave it" and "clear it", so the tick is what says "act on this field"
-# and an empty value then genuinely clears it. The eight field names are the
-# shared common.field.* labels.
-staging.fields.panel.title = বাছা {n}টা এডিট করুন
-# {field} is one of those eight labels, LOWER-CASED BY THE CALLER — the same
-# arrangement bin.filter.only.tip uses, and the reason a field's name stays a
-# single source of truth rather than being written out eight more times.
-staging.fields.set.placeholder = {field} বসান (ফাঁকা = মুছে যাবে)
-staging.fields.add-tags.aria = যে ট্যাগ যোগ হবে
-staging.fields.remove-tags.label = ট্যাগ সরান
-staging.fields.remove-tags.info = মেনে নেওয়ার আগেই বাছা উদ্ধৃতিগুলো থেকে এই ট্যাগগুলো সরিয়ে দেয়।
-staging.fields.remove-tags.placeholder = কোন ট্যাগ সরবে…
-staging.fields.remove-tags.aria = যে ট্যাগ সরবে
-staging.fields.apply.label = {n}টায় বসান
-
-# RETARGETING. Book and film are interchangeable here on purpose: moving a batch
-# onto the other kind is the repair for a misdetected file, and a staged row keeps
-# both locator sets so the move is reversible.
-staging.move.panel.title = বাছা {n}টা পাঠান
-staging.move.library.label = গ্রন্থাগারের কোনও বই-সিনেমায়
-staging.move.library.info = ধরন পেরিয়েও চলে — বইয়ের হাইলাইট সিনেমায় সরানো যায়, আবার ফেরানোও যায়। মেনে নেওয়ার সময় গন্তব্যের যা দরকার সেই অবস্থান-তথ্যই নেওয়া হয়।
-# The button, before and after something is picked. Two keys, so neither language
-# has to build "Move to" plus a noun out of two fragments.
-staging.move.button.label = পাঠান: {title}
-staging.move.button.none.label = কোনও বই-সিনেমায় পাঠান
-# The other half: merging into a group already in the queue. {badge} is one of
-# the kind badges above.
-staging.move.merge.label = বা এই তালিকারই আর কোনও গ্রুপের সঙ্গে এক করে দিন
-staging.move.group.aria = জমা গ্রুপ
-staging.move.group.placeholder = গ্রুপ বাছুন…
-staging.move.group.option = {title} · {badge} ({n})
-staging.move.merge.button.label = এক করুন
-
-# THE LOCATION FORMULA — the reason bulk location editing needs more than a text
-# box: a Kindle export numbers by location rather than by page (a division), and
-# a PDF runs a few pages ahead of the print edition (a subtraction).
-staging.formula.panel.title = বাছা {n}টার লোকেশন সরান
-staging.formula.field.label = ঘর
-staging.formula.field.aria = কোন ঘর
-# The visible label and the Select's aria label are the same word, so they are
-# one key rather than two chances to disagree.
-staging.formula.op.label = কাজ
-# The six operations. STORED TOKENS live in the code; these are the words, and
-# they are resolved during render rather than at import — a table of copy at
-# module scope freezes the language.
-# bn: Nouns, not imperatives: the same word reads as an option in a Select and as the
-# subject of staging.flash.formula. The four arithmetic words are the schoolbook ones.
-staging.formula.op.add.label = যোগ
-staging.formula.op.subtract.label = বিয়োগ
-staging.formula.op.multiply.label = গুণ
-staging.formula.op.divide.label = ভাগ
-staging.formula.op.set.label = নতুন মান
-staging.formula.op.reset.label = আগের মতো
-# The number to shift by, and the text to set instead. Both labels sit in boxes
-# 110px and 160px wide.
-staging.formula.by.label = কত
-staging.formula.by.placeholder = 5
-staging.formula.to.label = কী
-staging.formula.to.placeholder = পৃ.1
-# What a formula does to the text, stated once under the controls. FIVE HOLES,
-# ALL OF THEM NODES: the four worked examples and the reset operation's own name
-# are drawn in bold by the call site, because markup never goes in a value. Named
-# .prose rather than .info.body or .hint on purpose — it is a worked explanation
-# under a control, not a popover, and it is longer than a dot's 240-character
-# budget allows.
-staging.formula.prose = লেখার শুধু সংখ্যাগুলো বদলায়: {from} থেকে 5 বাদ দিলে {to}, আর {range}-এর মতো রেঞ্জের দুই মাথাই সরে। সময় সেকেন্ডের হিসেবে সরে, ফেরে {clock} হয়ে। ফল শূন্যের নিচে নামে না; ভাগফল গোল হয়। {reset} প্রতিটা সারিকে ইমপোর্টের সময়ের মানে ফিরিয়ে দেয়।
-# The five bold fragments. HH:MM:SS is a picture of a time format rather than
-# words and stays as it is in every language.
-staging.formula.example.page-from = পৃ.142
-staging.formula.example.page-to = পৃ.137
-staging.formula.example.range = 610-612
-staging.formula.example.clock = HH:MM:SS
-staging.formula.example.reset = আগের মতো
-
-# THE PER-ROW EDITOR, for one-offs. The quote's own text is not editable here,
-# because a staged row is a record of what the file said; wording is fixed after
-# approval, in the normal edit form.
-staging.form.title = জমা উদ্ধৃতি এডিট করুন
-# The row's words, shown back as a quotation. The curly pair, as everywhere else.
-staging.form.quoted = “{text}”
-staging.form.locators.prose = জমা থাকা উদ্ধৃতি দুই ধরনের লোকেশনই রাখে। মেনে নেওয়ার সময় যেখানে যাচ্ছে সেখানকারটাই কাজে লাগে, তাই বই আর সিনেমার মধ্যে সরালে কিছু হারায় না।
-# The eight example values. The labels above them are the shared common.field.*
-# ones. Philip Marlowe and Elliott Gould are proper nouns; 01:02:03 is a picture
-# of a time format.
-staging.form.chapter-no.placeholder = 7
-staging.form.chapter.placeholder = ঐচ্ছিক
-staging.form.location.placeholder = পৃ.142
-staging.form.character.placeholder = ফিলিপ মার্লো
-staging.form.actor.placeholder = এলিয়ট গুল্ড
-staging.form.season.placeholder = 2 (শুধু শো-র জন্য)
-staging.form.episode.placeholder = 5 (সিজন লাগবে)
-staging.form.timestamp.placeholder = 01:02:03
-
-# THE HOME-SCREEN NUDGE. A half-finished import must not be forgettable, so the
-# count surfaces outside the Add surface too. ⚠ THE LABEL IS A MONO SLOT, and it
-# is lower case where staging.title is not — the two are different roles, not two
-# spellings of one.
-staging.card.label = যাচাই বাকি ইমপোর্ট
-# bn: আপনার stays here: it is your approval the queue is waiting on, and that is the whole sentence (§1.3).
-staging.card.body.one = ইমপোর্ট করা {n}টা উদ্ধৃতি আপনার মেনে নেওয়া বাকি।
-staging.card.body.other = ইমপোর্ট করা {n}টা উদ্ধৃতি আপনার মেনে নেওয়া বাকি।
-staging.card.review.label = {n}টা দেখে নিন
 
 # ---------------------------------------------------------------------------
 # METADATA — MetadataPage.jsx. The management console: coverage tiles, the
@@ -5004,12 +4599,7 @@ settings.logs.export.all.aria = রাখা সব লগ এক্সপোর
 # defined twice, so a translator can search the namespace and find all of it.
 # ===========================================================================
 
-# --- from staging ---
-error.load.import-queue = ইমপোর্টের অপেক্ষার তালিকা পড়া গেল না
 error.load.recall = এই উদ্ধৃতির উত্তরগুলো পড়া গেল না
-error.apply.edit = এডিট বসানো গেল না
-error.approve.generic = মেনে নেওয়া গেল না
-error.discard.generic = ফেলে দেওয়া গেল না
 common.field.favourite.label = প্রিয়
 
 # --- from metadata ---
@@ -5637,20 +5227,6 @@ metadata.help.bulk-edit.what = বাছা প্রতিটা সারি�
 # staging.help.* — the "?" panel’s section for Pending import.
 # ---------------------------------------------------------------------------
 
-# The help panel’s heading on the import staging screen.
-staging.help.title = যাচাই বাকি ইমপোর্ট
-
-# Why an import waits here instead of landing in the library.
-staging.help.why.term = যাচাই ছাড়া কিছু ঢোকে না
-staging.help.why.what = গ্রন্থাগারে কিছু পৌঁছনোর আগে ইমপোর্ট এখানে থাকে, যতক্ষণ না আপনি মেনে নেন।
-
-staging.help.bulk-fix.term = একসঙ্গে ঠিক করুন
-staging.help.bulk-fix.what = অনেক সারিতে একসঙ্গে অধ্যায় আর লোকেশন শুধরে নিন, বা উদ্ধৃতিগুলো ঠিক বই বা সিনেমার নিচে সরিয়ে দিন।
-
-# The Approve / discard pair.
-staging.help.approve.term = মেনে নিন / ফেলে দিন
-staging.help.approve.what = মেনে নিলে উদ্ধৃতিগুলো গ্রন্থাগারে ঢুকে যায়; ফেলে দিলে যায় না। একই ফাইল আবার ইমপোর্ট করলে কিছু দুবার হয় না।
-
 # ---------------------------------------------------------------------------
 # bin.help.* — the "?" panel’s section for The bin.
 # ---------------------------------------------------------------------------
@@ -5859,35 +5435,6 @@ capture.help.save.more = দরকারি ঘরগুলো ভরা না 
 # surface rather than a screen of its own. It was one row inside capture.help
 # until the eight formats and their step-lists needed somewhere to live.
 # ---------------------------------------------------------------------------
-
-# The help panel’s heading on the ＋ surface’s import mode.
-import.help.title = ইমপোর্ট
-
-# The one upload well, which is also the drop target.
-import.help.drop.term = আপলোডের ঘর
-import.help.drop.what = ফাইল এখানে ছেড়ে দিন, বা চেপে বেছে নিন। যত খুশি দিন; প্রতিটা আলাদা করে পড়া হয়।
-
-# That there is no format to choose: the server sniffs the bytes.
-import.help.detect.term = ফরম্যাট নিজেই বুঝে নেয়
-import.help.detect.what = ধাঁচ বাছার দরকার নেই; ভেতরের লেখা দেখেই প্রতিটা ফাইল চেনা যায়।
-import.help.detect.more = ভুল চিনলে সারিতেই “এই ফরম্যাট হিসেবে পড়ুন…” আসে, অন্য ধাঁচ হিসেবে আবার পড়ার জন্য। সঙ্গে সঙ্গে করে নিন — ভুলভাবে পড়া ফাইল থেকে কিছুই জমা হয় না।
-
-# Where everything lands, and the diagram under it.
-import.help.pending.term = যাচাই বাকি ইমপোর্ট
-import.help.pending.what = আপলোড করলেই কিছু গ্রন্থাগারে ঢোকে না। আপনি মেনে না নেওয়া পর্যন্ত প্রতিটা লাইন “যাচাইকরণ”-এ থাকে।
-import.help.pending.more = “যাচাইকরণ”-এ থাকা লাইন বদলানো যায় — অধ্যায়, চরিত্র, সময় আর ভাষা। ইমপোর্টের সময় যা আন্দাজ করা হয়েছে, তা ঠিক করার এটাই সবচেয়ে সহজ সময়।
-
-# The accessible name of the little diagram in the Pending entry — a screen reader reads this instead of the three boxes.
-import.help.flow.aria = ফাইল আগে যাচাই বাকি ইমপোর্টে যায়, আপনি মেনে নিলে তবেই গ্রন্থাগারে পৌঁছয়
-# The three boxes of that diagram, in order, then the arrow between the last two. Each sits in a fixed 52-68px box in a mono face, so a long word will not fit — abbreviate rather than overflow.
-import.help.flow.file.label = ফাইল
-import.help.flow.pending.label = যাচাই
-import.help.flow.library.label = গ্রন্থাগার
-import.help.flow.approve.label = মেনে নিন
-
-# The list under this row is drawn from the importer’s own table — the eight rows, their extensions and their steps are import.source.* below.
-import.help.sources.term = ফাইলগুলো কোথায় পাবেন
-import.help.sources.what = প্রতিটায় লেখা আছে কী সেভ করবেন আর কোথা থেকে। ফাইলের এক্সটেনশন শুধু একটা ইঙ্গিত, বাঁধা নিয়ম নয়।
 
 # ---------------------------------------------------------------------------
 # common.help.* — the shell’s own rows, appended to EVERY screen’s panel, and
@@ -6488,20 +6035,11 @@ common.action.source.add.label = সূত্র ফাইল যোগ কর�
 common.action.source.add.tip = এই {subject} যে ফাইল থেকে এসেছে সেটি জুড়ুন
 common.source.added = {name} যোগ হয়েছে
 common.source.removed = সূত্র ফাইল সরানো হয়েছে
-common.source.error = ফাইলটি যোগ করা গেল না
 common.source.remove.aria = সূত্র ফাইল {name} সরান
 common.source.episode.title = কোন পর্ব?
 common.source.episode.label = পর্ব
 common.source.episode.choose = ফাইল বাছুন
 common.source.pick.aria = সূত্র ফাইল বাছুন
-# A dropped file that is not highlights: a subtitle track or an ebook. The row asks which work it is the file of.
-import.row.source.subtitle = এটি সাবটাইটেল ফাইল, হাইলাইট নয়। কোন ফিল্ম বা সিরিজের?
-import.row.source.ebook = এটি ই-বুক, হাইলাইট নয়। কোন বইয়ের?
-import.row.source.lyrics = এটি গানের কথার ফাইল, হাইলাইট নয়। গানটির নিজের পাতা থেকে জুড়ুন।
-import.row.source.attach = {title}-এর সঙ্গে জুড়ুন
-import.row.source.attach.none = জুড়ুন
-import.row.source.attached = {title}-এর সঙ্গে জুড়ে দেওয়া হয়েছে
-import.row.source.episode = পর্ব
 # The quote in its source file: what came before and after, from rows stored when the file was added.
 common.action.context.label = প্রসঙ্গসহ
 common.action.context.tip = সূত্র ফাইলে এই {subject}-এর আগে-পরের লাইনগুলো দেখান

@@ -41,7 +41,7 @@
 // opened Profile and closed the drawer in ONE handler, so two of those markers
 // were being pushed and unwound against each other in a single commit. A screen
 // pushes one ordinary route entry and owns it.
-export const ROUTE_TABS = ['search', 'quotes', 'anthologies', 'metadata', 'settings', 'staging', 'cleanup', 'checks', 'profile']
+export const ROUTE_TABS = ['search', 'quotes', 'anthologies', 'metadata', 'settings', 'cleanup', 'checks', 'profile']
 
 // ---- the nav contract ----
 //
@@ -309,9 +309,7 @@ export function parsePath(pathname) {
   // bare shelf.
   if (a === 'metadata' && b === 'reverify') return { tab: 'metadata', detail: workID(c) ? { type: 'reverify', id: workID(c) } : null }
   if ((a === 'settings' || a === 'metadata') && b) return { tab: a, detail: { type: 'section', id: b } }
-  if (a === 'import') return { tab: 'import', detail: null }
   if (a === 'capture') return { tab: 'capture', detail: null }
-  if (a === 'pending') return { tab: 'staging', detail: null }
   if (ROUTE_TABS.includes(a)) return { tab: a, detail: null }
   return { tab: 'home', detail: null }
 }
@@ -326,7 +324,6 @@ export function statePath(tab, detail) {
   if (tab === 'home') return '/'
   if (tab === 'library') return '/library'
   if (tab === 'movies') return '/catalogue'
-  if (tab === 'staging') return '/pending'
   return `/${tab}`
 }
 
@@ -334,7 +331,7 @@ export function statePath(tab, detail) {
 // desktop breadcrumb and the phone's header.
 //
 // `nav.tab.<tab>.label` covers only the nine destinations that have a nav row.
-// Four routable screens do not — bin, cleanup, staging and checks are reached
+// Three routable screens do not — bin, cleanup, and checks are reached
 // from the rail's foot or from each other — so asking for their nav key got the
 // humanised stub back, and the phone header on Checks read "Label". A stub is
 // the right behaviour for a key nobody wrote; the bug was asking for a key that
@@ -345,7 +342,6 @@ export function statePath(tab, detail) {
 const TITLE_KEYS = {
   bin: 'bin.title',
   cleanup: 'cleanup.title',
-  staging: 'staging.title',
   checks: 'checks.title',
 }
 export function screenTitleKey(tab) {

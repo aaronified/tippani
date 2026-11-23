@@ -15,7 +15,6 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 import { BULK_QUOTE_FIELDS, BULK_WORK_FIELDS } from '../../src/bulkOps.jsx'
-import { WRITABLE_FIELDS } from '../../src/StagingPage.jsx'
 import { SRC } from '../src-files.js'
 
 const GO = (f) => readFileSync(join(SRC, '..', '..', '..', 'internal', 'httpapi', f), 'utf8')
@@ -33,9 +32,6 @@ const asked = [
   ...[...BULK_QUOTE_FIELDS, ...BULK_WORK_FIELDS]
     .filter((f) => f.vocab)
     .map((f) => ({ where: `bulkOps ${f.key}`, key: f.vocab })),
-  ...WRITABLE_FIELDS
-    .filter(([, , opts]) => opts?.vocab)
-    .map(([key, , opts]) => ({ where: `staged ${key}`, key: opts.vocab })),
 ]
 
 describe('the pools the bulk panels ask for', () => {
@@ -49,19 +45,11 @@ describe('the pools the bulk panels ask for', () => {
   it('and there are fields asking for them', () => {
     // The other half of the floor: an empty `asked` satisfies the assertion below
     // without comparing anything, which is what a dropped `vocab` key would look like.
-    expect(asked.length, 'no field names a pool — the vocab key is gone from both panels').toBeGreaterThan(8)
+    expect(asked.length, 'no field names a pool — the vocab key is gone from the bulk panel').toBeGreaterThanOrEqual(8)
   })
 
   it('are every one of them served', () => {
     const missing = asked.filter((a) => !served.has(a.key)).map((a) => `${a.where} -> ${a.key}`)
     expect(missing, 'a field asks for a list /search/vocabulary does not return').toEqual([])
-  })
-
-  it('and BOTH panels ask, so one cannot quietly stop', () => {
-    // The live panel is SelectionBar, the staged one is StagingPage, and they are
-    // two files that drew the same bare box for the same reason. Whichever is fixed
-    // alone is the one that goes on being right.
-    expect(asked.some((a) => a.where.startsWith('bulkOps')), 'the live bulk panel names no pool').toBe(true)
-    expect(asked.some((a) => a.where.startsWith('staged')), 'the staged bulk panel names no pool').toBe(true)
   })
 })

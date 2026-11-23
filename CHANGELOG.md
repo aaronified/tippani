@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- **Imports are gone from the web app.** The import queue, its Checks tab, the pending badge,
+  the Add surface's file import and the file-open handler are removed. Manual add and metadata
+  lookup stay.
+  (ADR-0936)
+
 - **The Tags screen is gone from the web app.** Tags are plain text on the quotes that wear
   them; the tag list, its merge and its style pickers are no longer offered. The colour labels
   stay on the Metadata Categories section. (ADR-0936)

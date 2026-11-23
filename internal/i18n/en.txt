@@ -1129,8 +1129,6 @@ shell.drawer.close.aria = Close menu
 # The app's name in Bengali, and what the word means. ALREADY BENGALI on the
 # English side, and it stays: it is the app naming itself.
 shell.drawer.tagline.label = টিপ্পনী · a marginal annotation
-# What the one Add row can reach, as a badge beside it.
-shell.drawer.pending.label = Pending import
 # The Metadata row's badge when the console has nothing to fix.
 shell.drawer.metadata.clear.label = all clear
 shell.drawer.settings.version.label = v{version}
@@ -1145,8 +1143,6 @@ shell.dock.sections.label = Sections
 shell.dock.tools.label = Tools
 shell.sheet.grip.aria = Resize this sheet
 shell.totop.aria = Back to the top
-# The same button when an import is waiting in the pending queue.
-shell.add.pending.tip = {n} imports awaiting review
 
 # --- Search, and its global mode (right-click on a desktop).
 shell.crumbs.aria = Where you are
@@ -1814,14 +1810,6 @@ tour.step.cleanup.title = What the page left behind
 tour.step.cleanup.prose = Reads every quote for things that came from the {em1}, not the writer: a stray page number, a hyphen from a line break, a footnote mark.
 tour.step.cleanup.em1.label = page
 tour.step.cleanup.more = It only lists what it finds; nothing changes by itself. Filter by rule, open a row to fix it, and run again for the rest of a very large library.
-
-# Step "staging" — the imports waiting room.
-tour.step.staging.name = Imports waiting
-tour.step.staging.blurb = an import lands here first and is approved out of it
-tour.step.staging.title = Nothing lands unseen
-tour.step.staging.prose = Imports wait here until you {em1} them, so a bad import never reaches your library.
-tour.step.staging.em1.label = approve
-tour.step.staging.more = Fix a whole batch at once — which book, a speaker's name, a colour — then approve what you want and drop the rest. Nothing here is in your library yet.
 
 # Step "book" — a book's own page.
 tour.step.book.name = A book's own page
@@ -2551,10 +2539,6 @@ error.load.quiz-card = couldn’t load this quote
 # library that are neither the quiz nor a search.
 # ---------------------------------------------------------------------------
 
-# The small caps kind tag on a favourite tile. SMALL CAPS IN A FIXED SLOT —
-# three or four characters is all that fits, and a script with no case will
-# need a shorter word rather than a translated one.
-common.badge.book = BOOK
 common.badge.film = FILM
 common.badge.show = SHOW
 home.favourites.delete.annotation.confirm = Delete this annotation?
@@ -2846,11 +2830,6 @@ capture.form.missing.hint = {reason} to save.
 capture.toast.annotation = annotation captured
 capture.toast.dialogue = dialogue captured
 capture.toast.quote = quote captured
-
-# An import already waiting, shown on the Import tab.
-capture.import.pending.one = {n} staged quote waiting — review the queue
-capture.import.pending.other = {n} staged quotes waiting — review the queue
-
 
 # What must be filled before a capture can save. Each doubles as the tooltip on
 # the greyed ✓, so each has to make sense on its own.
@@ -3291,7 +3270,6 @@ bin.kind.quote.label = Quote
 # ---------------------------------------------------------------------------
 checks.title = Checks
 checks.tab.aria = Checks sections
-checks.tab.imports.label = Imports
 checks.tab.marks.label = Stray marks
 checks.tab.files.label = Files
 checks.files.empty = Nothing is waiting here. Files a scan finds for your works, and the times, places and corrections a file proposes, appear on this tab.
@@ -3428,162 +3406,8 @@ offers.taken.toast = {field} now comes from {source}
 offers.none.prose = No source has another answer for this field.
 offers.unpinned.prose = This record is not pinned to a source. Use Look up to pin it first.
 
-# ---------------------------------------------------------------------------
-# IMPORT — ImportPage.jsx. ONE drop target: the bytes say what a file is, so the
-# eight formats are a how-to list behind a disclosure rather than eight cards
-# with a file input each. Under it, one result row per file.
-#
-# THE FORMAT NAMES ARE PROPER NOUNS and stay as themselves (§8): Markdown,
-# Bookcision, Hardcover, Goodreads, IMDb, Kindle. Where a common noun is stuck to
-# one — “IMDb quotes”, “Kindle notebook” — the common half translates and the
-# name does not. “My Clippings” is the FILENAME on the device, so it stays Latin
-# in every language or the instruction stops being followable.
-#
-# The steps are numbered by the code, so each is one line of instruction with no
-# number in it.
-# ---------------------------------------------------------------------------
-import.source.markdown.title = Markdown
-import.source.markdown.desc = Tippani exports of books or the catalogue, or a Readest export — both the .json and the Markdown are read.
-import.source.markdown.step.1 = Import a Tippani export (books or catalogue), a Readest export, or your own frontmatter and quotes.
-import.source.markdown.step.2 = A single .md may hold many books or titles — each one is imported.
-
-import.source.readest.title = Readest
-import.source.readest.desc = Readest's annotation export — colours and the date of each highlight come across.
-import.source.readest.step.1 = In Readest, open the book’s annotations and export them.
-import.source.readest.step.2 = Import the .json — Readest’s Markdown export is read too.
-
-import.source.bookcision.title = Bookcision
-import.source.bookcision.desc = Kindle highlights via the Bookcision bookmarklet.
-import.source.bookcision.step.1 = On read.amazon.com/notebook, open the book’s Notes & Highlights.
-import.source.bookcision.step.2 = Run the Bookcision bookmarklet, then Download → JSON, and import that file.
-import.source.bookcision.step.3 = Don't want the bookmarklet? Import the saved Kindle notebook page instead — it keeps the colours.
-
-import.source.hardcover-html.title = Hardcover
-import.source.hardcover-html.desc = Your reading-journal page for one book.
-import.source.hardcover-html.step.1 = Open your journal page, e.g. hardcover.app/books/<book>/journals/@you
-import.source.hardcover-html.step.2 = Save it as a web page, HTML only (Ctrl+S / ⌘S).
-import.source.hardcover-html.step.3 = Import the saved .html.
-
-import.source.goodreads-html.title = Goodreads
-import.source.goodreads-html.desc = A book's public Quotes page — quote tags come across too.
-import.source.goodreads-html.step.1 = Open the book’s Quotes page, e.g. goodreads.com/work/quotes/<id>-<book>
-import.source.goodreads-html.step.2 = Save it as a web page, HTML only (Ctrl+S / ⌘S).
-import.source.goodreads-html.step.3 = Import the saved .html.
-
-import.source.imdb-quotes.title = IMDb quotes
-import.source.imdb-quotes.desc = A movie or show’s Quotes page → dialogues (into Movies & Shows).
-import.source.imdb-quotes.step.1 = Open the title’s Quotes page, e.g. imdb.com/title/tt0434409/quotes
-import.source.imdb-quotes.step.2 = Save it as a web page, HTML only (Ctrl+S / ⌘S).
-import.source.imdb-quotes.step.3 = Import the saved .html.
-
-import.source.kindle-notebook.title = Kindle notebook
-import.source.kindle-notebook.desc = Your Kindle Notes & Highlights page — colours + locations come across.
-import.source.kindle-notebook.step.1 = Open read.amazon.com/notebook and pick the book.
-import.source.kindle-notebook.step.2 = Save it as a web page, HTML only (Ctrl+S / ⌘S).
-import.source.kindle-notebook.step.3 = Import the saved .html.
-
-# The filename on the device. Latin in every language, per §8.
-import.source.kindle-clippings.title = My Clippings
-import.source.kindle-clippings.desc = The Kindle device’s own file — every book at once, highlights and notes.
-import.source.kindle-clippings.step.1 = Plug the Kindle in by USB.
-import.source.kindle-clippings.step.2 = Copy documents/My Clippings.txt off the device.
-import.source.kindle-clippings.step.3 = Import it — every book in the file lands at once.
-# Not keyed as .info or .hint on purpose: this is a caveat under a chip, not a
-# dot's body, and it is longer than the 240 those are held to.
-import.source.kindle-clippings.caveat = Kindle's clippings format is undocumented and changes by device language, so some entries may not read correctly. Anything unreadable is skipped and counted.
-
-# The honest chip beside a format that can misread a file.
-import.experimental.label = experimental
-# The drop target's two lines. The first is the press, the second says the box
-# takes a dropped file too — not a separate control, the same one.
-import.choose.label = Choose file — one or many
-import.drop.hint = or drag & drop here
 # The eight how-tos moved to the "?" (import.help.sources): they are reference
 # rather than a control, and they were the only reason this screen had a fold.
-
-# WHEN THE BYTES DO NOT SAY. The sniffer answers first and this is the reader's
-# override — a second door rather than a front one, offered only on a file no
-# parser claimed, because detection is the one import fault the staging queue
-# cannot repair.
-import.unknown.body = Nothing in this file says what it is. Pick its format and it will be read again.
-import.read-as.label = Read this as…
-import.read-as.aria = Read this file as a format you pick
-import.read-as.placeholder = pick a format
-import.read-as.unqueued = Nothing was queued from this file. Pick a format above, or drop the file again later.
-
-# WHAT THE FILE ACTUALLY IS, when it is something the app knows and import is
-# the wrong door for it. Each names the door that does take it, because
-# “unrecognised” to a backup archive is a worse answer than the wall of cards
-# was.
-import.near-miss.backup = That is a Tippani backup — restore it from Settings → Restore.
-import.near-miss.zip = An export archive is not imported whole — unzip it and drop the files inside.
-import.near-miss.epub = Tippani keeps highlights, not books — export the annotations from your reader instead.
-import.near-miss.image = Covers are set from a book or film’s own page.
-import.near-miss.font = A typeface is uploaded from Settings → Type.
-import.near-miss.binary = That file is not text, so there is nothing here to read.
-
-# The run's summary line. Two plural families rather than one sentence, because
-# the file count and the quote count pluralise independently.
-import.summary.files.one = {n} file
-import.summary.files.other = {n} files
-import.summary.quotes.one = {n} quote staged
-import.summary.quotes.other = {n} quotes staged
-import.summary.arrow = {files} → {quotes} · nothing has entered your library yet
-# One row per file.
-import.row.staged.one = {n} quote staged
-import.row.staged.other = {n} quotes staged
-# A file's row before its upload has gone: it is only in this page, and leaving
-# the page takes it. (From 3.1.0 a file that has gone is a job on the server.)
-import.row.unsent = not sent yet
-# A file whose job was stopped, or cut off by a restart, before it staged
-# anything. {state} is that state's own word (Stopped, Interrupted). The upload is
-# kept, so Run again in Settings → Jobs finishes it.
-import.row.halted = {state} — Settings → Jobs can run it again
-# The same, where the job has no upload left to run again: cut off by a restart
-# just after it let go of the file and before its staging committed. The page
-# still holds the file, so dropping it again is the way on.
-import.row.lost = {state} — the server no longer has this file; drop it again
-# Under the rows while a batch of several files is still sending.
-import.queued.note = A file already sent carries on in Settings → Jobs if you leave this screen; one not sent yet does not.
-import.row.duplicate = ⚠ looks like a book you already have: {titles} — move the staged quotes onto it in the queue, or approve them as a separate book
-# The hand-over to the queue.
-import.review.one = Review {n} staged quote
-import.review.other = Review {n} staged quotes
-import.review.absent = open Pending import to review and approve them
-
-# Where one parsed work will land. Two keys rather than one with an optional
-# parenthetical, so neither language has to build a bracket.
-import.work.joins = joins your existing “{title}”
-import.work.joins-year = joins your existing “{title}” ({year})
-import.work.new = a new {kind}
-import.work.ambiguous = ⚠ you have {n} titles called “{title}” — the queue shows which one it picked, and lets you change it
-
-# What a My Clippings.txt import dropped, and why. A best-effort parser that
-# quietly returns fewer quotes than the file held is worse than one that says so.
-import.clippings.bookmarks.one = {n} bookmark skipped (no text to import)
-import.clippings.bookmarks.other = {n} bookmarks skipped (no text to import)
-import.clippings.notes.one = {n} note attached to their highlight
-import.clippings.notes.other = {n} notes attached to their highlight
-import.clippings.duplicates.one = {n} re-saved highlight collapsed
-import.clippings.duplicates.other = {n} re-saved highlights collapsed
-import.clippings.malformed.one = {n} record couldn’t be read
-import.clippings.malformed.other = {n} records couldn’t be read
-
-# The contract of the screen, stated in place so the absence of “12 added” reads
-# as intended rather than as a failure. {queue} is the queue's own name, in bold.
-import.nothing-lands.body = Imports wait in {queue} until you approve them — nothing reaches your library, search or quiz before that. Fix chapters and locations in bulk there, move quotes to the right work, then approve or discard.
-# Why imports are save-the-page-and-upload rather than paste-a-URL — a natural
-# question, answered once and collapsed. {emphasis} is “on their page”, italic.
-import.why-upload.summary = Why upload the saved page, not paste a URL?
-import.why-upload.body = Browsers can't fetch pages from sites like Amazon, IMDb and Goodreads (they block it), which is why a bookmarklet like Bookcision has to run {emphasis}. A server could fetch them, but private pages need your login and scraping breaks easily. Saving the page in your own browser and uploading it is the reliable way.
-import.why-upload.emphasis = on their page
-
-error.import.failed = import failed
-
-# The queue's own name, which the import screen also puts in bold in its
-# standing note. ONE KEY, so the two screens cannot disagree about what the
-# place is called.
-staging.title = Pending import
 
 # ---------------------------------------------------------------------------
 # PROFILE — Account.jsx. Everything about “you on this server”, in the order you
@@ -3945,240 +3769,6 @@ error.validate.lookup-fields = enter a title, ISBN, or ASIN first
 # common.action.edit.*. A staged chapter is the same chapter it will be after
 # approval, so it is spelt the same way.
 # ---------------------------------------------------------------------------
-
-# The synthetic group a batch of standalone quotes hangs from. The other three
-# badges are common.badge.book / .film / .show; only this one is a PLURAL, because
-# the group is not one work. ⚠ SMALL CAPS IN A NARROW SLOT, and a script with no
-# case wants one short word rather than a translated shout.
-staging.badge.quotes = QUOTES
-
-# The three states before the list. "nothing waiting" sits in the header's counts
-# slot; "nothing staged" is the empty state under it; the third is what a batch
-# filter says when the file it points at has no rows left.
-staging.state.loading = reading the queue…
-staging.state.empty-counts = nothing waiting
-staging.state.empty = nothing staged — an import lands here first, and stays until you okay it
-staging.state.empty-file = no staged quotes in that file
-
-# The header's counts. A batch can hold works and no quotes at all (a book
-# exported with none), which is why there are two of these rather than one.
-staging.counts.quotes.one = {n} quote waiting
-staging.counts.quotes.other = {n} quotes waiting
-staging.counts.works.one = {n} work waiting, no quotes
-staging.counts.works.other = {n} works waiting, no quotes
-
-# The batch filter. It is a FILTER and not a view: the queue stays one list and
-# this narrows it to the file being worked through. {name} is the uploaded
-# filename, or the source's name when the file had none.
-staging.filter.file.label = File
-
-# The strip of destination covers under the file filter, and its "everything" chip.
-# A reader with four exports of one library asks "what is going into THIS book" far
-# more often than "what did that file bring".
-staging.filter.work.aria = Narrow the queue to one destination
-staging.filter.all-works.label = All {n} works
-staging.filter.batch.aria = Import batch
-staging.filter.all-files.label = All files ({n})
-staging.filter.batch.label = {name} · {n}
-staging.select-all.label = select all {n}
-
-# The two page-level actions, which end the whole queue. The count on Approve
-# appears only when there is something to count, so it is two keys rather than a
-# number glued onto a label.
-staging.approve-all.label = Approve all
-staging.approve-all.count.label = Approve all {n}
-staging.discard-all.label = Discard all
-staging.discard-all.confirm.title = Discard everything staged?
-staging.discard-all.confirm.body = All {n} staged quotes go, from every file. Nothing in your library is touched.
-
-# THE BULK BAR, over the checked rows. The colour swatches, the two favourite
-# buttons, the three panel toggles, and the pair that ends the selection.
-staging.bulk.colour.aria = Set category
-staging.bulk.favourite.label = ♥ favourite
-staging.bulk.unfavourite.label = un-♥
-staging.bulk.unfavourite.tip = Remove the favourite mark
-staging.bulk.fields.label = Edit fields…
-staging.bulk.move.label = Move to…
-staging.bulk.locations.label = Locations…
-staging.bulk.approve.label = Approve {n}
-# One word for the bulk button and for the confirm's own button, so the dialog
-# cannot promise something the bar did not offer.
-staging.discard.label = Discard
-staging.discard.confirm.title.one = Discard {n} staged quote?
-staging.discard.confirm.title.other = Discard {n} staged quotes?
-staging.discard.confirm.body = They leave the queue without ever entering your library.
-
-# THE FLASH LINE beside the header — what the last bulk POST did. Every action
-# funnels through one request, so these are one family rather than a toast per
-# control.
-staging.flash.updated = updated {n}
-# Approving reports three numbers, and the third only when the server actually
-# fetched metadata. THREE KEYS JOINED BY THE CODE rather than one value with an
-# optional tail: the parser trims a value, so a file cannot carry the leading
-# " · " a third fragment would need.
-staging.flash.approved.added = {n} added
-staging.flash.approved.skipped = {n} skipped
-staging.flash.approved.enriched = {n} enriched
-staging.flash.approved.relinked = {n} matched to a quote you already have
-# The approval's bar while it runs, in works written. (From 3.1.0 approving is a
-# job on the server's queue.)
-staging.approving.progress = Approving — {done} of {total}
-# Beside the approval's Stop.
-staging.approving.away = Leave this screen and it carries on — Settings → Jobs has it.
-staging.flash.discarded = discarded {n}
-staging.flash.saved = saved
-# {name} is the CATEGORY's name, not the stored colour token — it said
-# "colour → blue" while every card on the screen said "Fact".
-staging.flash.colour = → {name}
-staging.flash.favourited = favourited
-staging.flash.unfavourited = unfavourited
-staging.flash.edited = edited {n}
-staging.flash.moved = moved {n} to {title}
-staging.flash.merged = merged {n}
-# {op} is one of the six operation words below.
-staging.flash.formula = {op} applied to {n}
-
-# ONE GROUP — a target work and the staged quotes going to it. The heading is the
-# contract: it names where these will land if approved, so a misdetected file is
-# visible before the write rather than after it.
-staging.group.select.tip = Select this whole group
-staging.group.select.aria = Select every staged quote for {title}
-# Where the group will land, in three shapes. The standalone-quote group has no
-# destination at all — it is the queue's way of holding quotes that belong to
-# nothing.
-staging.group.standalone.prose = → will be saved as quotes of their own, from no book and no film
-# {target} IS A NODE — the destination's name as a link, supplied by the call
-# site, because markup never goes in a locale value.
-staging.group.joins.prose = → joins your existing {target}
-# The link's own words. Two keys rather than one with an optional parenthetical,
-# so no language has to build the bracket itself.
-staging.group.target.year.label = {title} ({year})
-# The match was pinned by hand rather than guessed, which is worth saying.
-staging.group.pinned.label = you chose this
-# {kind} is a singular unit.* noun: book, show or film.
-staging.group.new.prose = → will be added as a new {kind}
-# {n} is at least 2 by construction — a work is only ambiguous when a second
-# title shares its name — so this needs no plural family.
-staging.group.ambiguous.warning = ⚠ you have {n} titles with this name — check it went to the right one
-# A group with no quotes left in it. An empty WORK still creates the book or
-# film on approval; an empty quotes group creates nothing, because there is
-# nothing to it but the quotes.
-staging.group.empty.standalone = no quotes left in this group
-staging.group.empty.work = no quotes — approving adds the {kind} itself
-
-# ONE STAGED ROW. Its locators are drawn from the data; these are the words
-# around them.
-staging.row.select.tip = Select this quote
-staging.row.select.aria = Select this staged quote
-staging.row.note.label = note: {note}
-# WHAT THE LINE SAYS, on a staged row. Drawn above the note, the order every card
-# in the app uses, and lower-cased to match its neighbour — these two are the row's
-# quiet second line, not headings.
-staging.row.translation.label = translation: {text}
-# The mark on a row a location formula has moved. ⚠ MONO SLOT — one short word.
-staging.row.shifted.label = shifted
-staging.row.shifted.tip = a location formula moved this; reset restores it
-
-# THE BULK FIELD EDITOR, following the Metadata console: a blank box is ambiguous
-# between "leave it" and "clear it", so the tick is what says "act on this field"
-# and an empty value then genuinely clears it. The eight field names are the
-# shared common.field.* labels.
-staging.fields.panel.title = Edit {n} selected
-# {field} is one of those eight labels, LOWER-CASED BY THE CALLER — the same
-# arrangement bin.filter.only.tip uses, and the reason a field's name stays a
-# single source of truth rather than being written out eight more times.
-staging.fields.set.placeholder = set {field} (blank = clear)
-staging.fields.add-tags.aria = Tags to add
-staging.fields.remove-tags.label = Remove tags
-staging.fields.remove-tags.info = Removes these tags from the selected quotes before they are approved.
-staging.fields.remove-tags.placeholder = remove a tag…
-staging.fields.remove-tags.aria = Tags to remove
-staging.fields.apply.label = Apply to {n}
-
-# RETARGETING. Book and film are interchangeable here on purpose: moving a batch
-# onto the other kind is the repair for a misdetected file, and a staged row keeps
-# both locator sets so the move is reversible.
-staging.move.panel.title = Move {n} selected
-staging.move.library.label = Onto a work in your library
-staging.move.library.info = Works across kinds — book highlights can move onto a film and back. Approval uses whichever locators the destination needs.
-# The button, before and after something is picked. Two keys, so neither language
-# has to build "Move to" plus a noun out of two fragments.
-staging.move.button.label = Move to {title}
-staging.move.button.none.label = Move to a work
-# The other half: merging into a group already in the queue. {badge} is one of
-# the kind badges above.
-staging.move.merge.label = Or merge into another group in this queue
-staging.move.group.aria = Staged group
-staging.move.group.placeholder = pick a group…
-staging.move.group.option = {title} · {badge} ({n})
-staging.move.merge.button.label = Merge
-
-# THE LOCATION FORMULA — the reason bulk location editing needs more than a text
-# box: a Kindle export numbers by location rather than by page (a division), and
-# a PDF runs a few pages ahead of the print edition (a subtraction).
-staging.formula.panel.title = Shift locations on {n} selected
-staging.formula.field.label = Field
-staging.formula.field.aria = Locator field
-# The visible label and the Select's aria label are the same word, so they are
-# one key rather than two chances to disagree.
-staging.formula.op.label = Operation
-# The six operations. STORED TOKENS live in the code; these are the words, and
-# they are resolved during render rather than at import — a table of copy at
-# module scope freezes the language.
-staging.formula.op.add.label = add
-staging.formula.op.subtract.label = subtract
-staging.formula.op.multiply.label = multiply
-staging.formula.op.divide.label = divide
-staging.formula.op.set.label = set to
-staging.formula.op.reset.label = reset
-# The number to shift by, and the text to set instead. Both labels sit in boxes
-# 110px and 160px wide.
-staging.formula.by.label = By
-staging.formula.by.placeholder = 5
-staging.formula.to.label = To
-staging.formula.to.placeholder = p.1
-# What a formula does to the text, stated once under the controls. FIVE HOLES,
-# ALL OF THEM NODES: the four worked examples and the reset operation's own name
-# are drawn in bold by the call site, because markup never goes in a value. Named
-# .prose rather than .info.body or .hint on purpose — it is a worked explanation
-# under a control, not a popover, and it is longer than a dot's 240-character
-# budget allows.
-staging.formula.prose = Only the numbers in the text change: {from} minus 5 is {to}, and a range like {range} shifts at both ends. Timestamps shift in seconds and come back as {clock}. Results stop at zero; division rounds. {reset} puts every row back to its imported value.
-# The five bold fragments. HH:MM:SS is a picture of a time format rather than
-# words and stays as it is in every language.
-staging.formula.example.page-from = p.142
-staging.formula.example.page-to = p.137
-staging.formula.example.range = 610-612
-staging.formula.example.clock = HH:MM:SS
-staging.formula.example.reset = Reset
-
-# THE PER-ROW EDITOR, for one-offs. The quote's own text is not editable here,
-# because a staged row is a record of what the file said; wording is fixed after
-# approval, in the normal edit form.
-staging.form.title = Edit staged quote
-# The row's words, shown back as a quotation. The curly pair, as everywhere else.
-staging.form.quoted = “{text}”
-staging.form.locators.prose = A staged quote keeps both kinds of location. Approval uses the one its destination needs, so moving it between a book and a film loses nothing.
-# The eight example values. The labels above them are the shared common.field.*
-# ones. Philip Marlowe and Elliott Gould are proper nouns; 01:02:03 is a picture
-# of a time format.
-staging.form.chapter-no.placeholder = 7
-staging.form.chapter.placeholder = optional
-staging.form.location.placeholder = p.142
-staging.form.character.placeholder = Philip Marlowe
-staging.form.actor.placeholder = Elliott Gould
-staging.form.season.placeholder = 2 (shows only)
-staging.form.episode.placeholder = 5 (needs a season)
-staging.form.timestamp.placeholder = 01:02:03
-
-# THE HOME-SCREEN NUDGE. A half-finished import must not be forgettable, so the
-# count surfaces outside the Add surface too. ⚠ THE LABEL IS A MONO SLOT, and it
-# is lower case where staging.title is not — the two are different roles, not two
-# spellings of one.
-staging.card.label = pending import
-staging.card.body.one = {n} imported quote is waiting for you to okay it.
-staging.card.body.other = {n} imported quotes are waiting for you to okay them.
-staging.card.review.label = Review {n}
 
 # ---------------------------------------------------------------------------
 # METADATA — MetadataPage.jsx. The management console: coverage tiles, the
@@ -5167,12 +4757,7 @@ settings.logs.export.all.aria = Export all the logs kept (30 days)
 # defined twice, so a translator can search the namespace and find all of it.
 # ===========================================================================
 
-# --- from staging ---
-error.load.import-queue = could not read the import queue
 error.load.recall = could not read this quote's answers
-error.apply.edit = could not apply the edit
-error.approve.generic = could not approve
-error.discard.generic = could not discard
 common.field.favourite.label = Favourite
 
 # --- from metadata ---
@@ -5811,20 +5396,6 @@ metadata.help.bulk-edit.what = Applies an author, series or set of genres to eve
 # staging.help.* — the "?" panel’s section for Pending import.
 # ---------------------------------------------------------------------------
 
-# The help panel’s heading on the import staging screen.
-staging.help.title = Pending import
-
-# Why an import waits here instead of landing in the library.
-staging.help.why.term = Nothing lands unchecked
-staging.help.why.what = An import waits here for your approval before anything reaches your library.
-
-staging.help.bulk-fix.term = Fix in bulk
-staging.help.bulk-fix.what = Correct chapters and locations across many rows at once, or move quotes onto the right book or film.
-
-# The Approve / discard pair.
-staging.help.approve.term = Approve / discard
-staging.help.approve.what = Approving files the quotes; discarding drops them. Re-importing the same file never duplicates.
-
 # ---------------------------------------------------------------------------
 # bin.help.* — the "?" panel’s section for The bin.
 # ---------------------------------------------------------------------------
@@ -6032,35 +5603,6 @@ capture.help.save.more = It stays greyed until the must-fill fields are filled, 
 # surface rather than a screen of its own. It was one row inside capture.help
 # until the eight formats and their step-lists needed somewhere to live.
 # ---------------------------------------------------------------------------
-
-# The help panel’s heading on the ＋ surface’s import mode.
-import.help.title = Import
-
-# The one upload well, which is also the drop target.
-import.help.drop.term = The upload well
-import.help.drop.what = Drop files here or press to choose them. Add as many as you like; each is read separately.
-
-# That there is no format to choose: the server sniffs the bytes.
-import.help.detect.term = It works out the format
-import.help.detect.what = No need to pick a format; each file is recognised from its contents.
-import.help.detect.more = If it guesses wrong, the row offers “Read this as…” to re-read the file as another format. Do it right away — a file read the wrong way stages nothing.
-
-# Where everything lands, and the diagram under it.
-import.help.pending.term = Pending import
-import.help.pending.what = Nothing reaches your library on upload. Every line waits in Checks until you approve it.
-import.help.pending.more = Waiting lines can be edited — chapter, character, timestamp and language. It's the easiest time to fix what the importer guessed.
-
-# The accessible name of the little diagram in the Pending entry — a screen reader reads this instead of the three boxes.
-import.help.flow.aria = A file goes to Pending import, and reaches your library only when you approve it
-# The three boxes of that diagram, in order, then the arrow between the last two. Each sits in a fixed 52-68px box in a mono face, so a long word will not fit — abbreviate rather than overflow.
-import.help.flow.file.label = file
-import.help.flow.pending.label = pending
-import.help.flow.library.label = library
-import.help.flow.approve.label = approve
-
-# The list under this row is drawn from the importer’s own table — the eight rows, their extensions and their steps are import.source.* below.
-import.help.sources.term = Where the files come from
-import.help.sources.what = Each says what to save and where from. The file extension is a hint, not a rule.
 
 # ---------------------------------------------------------------------------
 # common.help.* — the shell’s own rows, appended to EVERY screen’s panel, and
@@ -6822,20 +6364,11 @@ common.action.source.add.label = Add source file
 common.action.source.add.tip = Attach the file this {subject} came from
 common.source.added = Added {name}
 common.source.removed = Source file removed
-common.source.error = That file could not be added
 common.source.remove.aria = Remove the source file {name}
 common.source.episode.title = Which episode?
 common.source.episode.label = Episode
 common.source.episode.choose = Choose file
 common.source.pick.aria = Choose a source file
-# A dropped file that is not highlights: a subtitle track or an ebook. The row asks which work it is the file of.
-import.row.source.subtitle = A subtitle file, not highlights. Which film or show is it for?
-import.row.source.ebook = An ebook, not highlights. Which book is it from?
-import.row.source.lyrics = A lyrics file, not highlights. Attach it from the song's own page.
-import.row.source.attach = Attach to {title}
-import.row.source.attach.none = Attach
-import.row.source.attached = Attached to {title}
-import.row.source.episode = Episode
 # The quote in its source file: what came before and after, from rows stored when the file was added.
 common.action.context.label = In context
 common.action.context.tip = Show the lines around this {subject} in its source file

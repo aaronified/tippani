@@ -261,19 +261,6 @@ const TOUR_STEPS = [
     },
     get more() { return t('tour.step.cleanup.more') },
   },
-  {
-    key: 'staging',
-    tab: 'staging',
-    get name() { return t('tour.step.staging.name') },
-    get blurb() { return t('tour.step.staging.blurb') },
-    get title() { return t('tour.step.staging.title') },
-    get body() {
-      return tNodes('tour.step.staging.prose', {
-        em1: <b key="em1">{t('tour.step.staging.em1.label')}</b>,
-      })
-    },
-    get more() { return t('tour.step.staging.more') },
-  },
   // THE TWO SCREENS THAT ARE NOT TABS. `helpScreen` answers 'book-detail' and
   // 'movie-detail' for a work you have open, so that is what their walks are keyed
   // to — and `fullTour: false` keeps them out of the welcome sequence, which has

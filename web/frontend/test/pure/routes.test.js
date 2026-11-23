@@ -23,7 +23,6 @@ describe('routes', () => {
       ['home', null],
       ['library', null],
       ['movies', null],
-      ['staging', null],
       ['search', null],
       ['metadata', null],
       ['settings', null],

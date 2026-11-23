@@ -35,7 +35,6 @@ import AnthologiesPage from './anthologies.jsx'
 import { SearchDoor, WorkDoor } from './personOpen.jsx'
 import { TextOrderHost, textOrderFrom } from './textOrderHost.jsx'
 const SearchPage = lazy(() => import('./SearchPage.jsx'))
-const StagingPage = lazy(() => import('./StagingPage.jsx'))
 const Settings = lazy(() => import('./Settings.jsx'))
 const CleanupPage = lazy(() => import('./CleanupPage.jsx'))
 const ChecksPage = lazy(() => import('./ChecksPage.jsx'))
@@ -821,17 +820,6 @@ function NavCount({ value, className }) {
   )
 }
 
-// checksBadge — the Checks row's pair, in the same shape and by the same rule.
-//
-// IT IS NOT IN navBadge because Checks is not a tab: it has no row in
-// CONTENT_TABS or UTILITY_TABS, it lives in the rail's foot beside the Bin, and
-// its two numbers come from two fetches rather than from `stats`. Putting it in
-// that switch would mean giving navBadge a second source and a key that is not a
-// tab, to save one exported function.
-export function checksBadge(pending, stray) {
-  return pair(pending, stray)
-}
-
 export function navBadge(key, { stats, metaIssues, version } = {}) {
   if (stats) {
     // stats.quotes counts the utterances table — the standalone quotes, which is
@@ -1155,7 +1143,7 @@ function TopBarSearch({ scope, scopeLabel, onSearch, onDropScope }) {
 // right shape for a row of peers and the wrong one for a column of destinations:
 // a segment implies "one of these", and this column also holds a rule, the bin and
 // an account. The rows are buttons and the rule is a span — see below.
-export function NavRail({ tab, onChange, sections, order = null, user, onAccount, onChecks, badges = {}, checkCount = 0, strayCount = 0 }) {
+export function NavRail({ tab, onChange, sections, order = null, user, onAccount, onChecks, badges = {}, strayCount = 0 }) {
   const dark = useResolvedDark()
   const railRef = useRef(null)
   // Nine destinations in a short window outrun the column, and the app's own rule
@@ -1222,13 +1210,7 @@ export function NavRail({ tab, onChange, sections, order = null, user, onAccount
         >
           <span className="rail-icon"><IconChecks /></span>
           <span className="rail-label">{t('checks.title')}</span>
-          {/* BOTH HALVES, ALWAYS, once either has anything in it. A single number
-              on a row that leads to two lists cannot say which list it came
-              from, and "0" beside it is the useful half of the answer — the
-              queue is clear, the marks are not. */}
-          {checkCount > 0 || strayCount > 0 ? (
-            <NavCount className="rail-count" value={checksBadge(checkCount, strayCount)} />
-          ) : null}
+          {strayCount > 0 ? <NavCount className="rail-count" value={String(strayCount)} /> : null}
         </button>
         <button
           type="button"
@@ -1265,9 +1247,6 @@ function AccountChip({ user, onOpen }) {
 // refresh on /books/42 is served index.html by the server, then Shell restores
 // this state from the URL — and back/forward, including the mouse back button,
 // just work.
-// 'staging' (the pending-import queue) is routable but deliberately NOT a nav
-// tab: Import stopped being a permanent destination in 0.4.3, so the queue is
-// reached from the ＋ Add surface, its badge, and the Home nudge.
 //
 // The table itself, and the three shell controls derived from it, are in
 // routes.js — pure functions of (tab, detail), testable without rendering the
@@ -1287,7 +1266,7 @@ function rememberScroll(key) {
 // Drawer — the hamburger nav (§7 redesign): primary nav on mobile, opened by
 // the ☰ button or the avatar chip. Scrim tap / Escape / any navigation closes
 // it. Library/Catalogue show live counts.
-export function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccount, user, stats, pendingImport, metaIssues, dark, onUser, sections, order = null, checkCount = 0, strayCount = 0 }) {
+export function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccount, user, stats, metaIssues, dark, onUser, sections, order = null, checkCount = 0, strayCount = 0 }) {
   // Metadata "issues" = items the console flags (a book with no cover or no
   // ids; a film/show with no poster, cast or source) — the same predicate the
   // Metadata page uses. Fetched lazily the first time the drawer opens (it's a
@@ -1365,17 +1344,6 @@ export function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccou
               by opening a drawer first — one more tap for the same surface.
               The owner: "in the mobile sidebar, the top add is useless. Lose it
               too." */}
-          {pendingImport > 0 && (
-            <button
-              type="button"
-              className="drawer-item"
-              onClick={() => { selectTab('staging'); onClose() }}
-            >
-              <NavIcon name="import" />
-              {t('shell.drawer.pending.label')}
-              <span className="drawer-badge" style={{ color: 'var(--accent-ui)' }}>{pendingImport}</span>
-            </button>
-          )}
           {visibleTabs(DRAWER_TABS, sections, order).map((row, i) =>
             row === null ? (
               <div key={`div-${i}`} className="drawer-divider" aria-hidden="true" />
@@ -1432,9 +1400,7 @@ export function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccou
           >
             <IconChecks />
             {t('checks.title')}
-            {checkCount > 0 || strayCount > 0 ? (
-              <NavCount className="drawer-badge" value={checksBadge(checkCount, strayCount)} />
-            ) : null}
+            {strayCount > 0 ? <NavCount className="drawer-badge" value={String(strayCount)} /> : null}
           </button>
         </div>
         {/* The footer chip IS the way to Profile, exactly as in both top bars —
@@ -1717,7 +1683,7 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
   const initial = parsePath(typeof window !== 'undefined' ? window.location.pathname : '/')
   // /import isn't a tab any more — start on Home and open the Add surface there.
   // Neither /import nor /capture is a tab: both are the Add surface over Home.
-  const initialTab = initial.tab === 'import' || initial.tab === 'capture' ? 'home' : initial.tab
+  const initialTab = initial.tab === 'capture' ? 'home' : initial.tab
   const [tab, setTab] = useState(initialTab)
   useEffect(warmScreens, [])
   const [detail, setDetail] = useState(initial.detail) // {type: 'book' | 'movie', id}
@@ -1776,13 +1742,6 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
   // wants to hear about it too.
   const [dataNonce, setDataNonce] = useState(0)
   const bumpData = () => setDataNonce((n) => n + 1)
-  // pendingImport = quotes sitting in the import staging queue. A half-finished
-  // import must not be forgettable, so the count badges the ＋ Add control and
-  // surfaces on Home until the queue is cleared.
-  const [pendingImport, setPendingImport] = useState(0)
-  const refreshPendingImport = () => {
-    json('GET', '/import/staged?counts=1').then((r) => { if (r.ok) setPendingImport(r.data.pending || 0) })
-  }
   useEffect(() => {
     json('GET', '/metadata/library').then((r) => {
       if (!r.ok || !r.data) return
@@ -1809,8 +1768,8 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
   // repeating it for. The number goes stale within a session and that is the right
   // trade: it is a nudge towards a screen, not a live readout.
   const [metaIssues, setMetaIssues] = useState(null)
-  // strayCount — quotes with something odd still flagged in them, the right-hand
-  // number on the rail's Checks row. Its left-hand number is pendingImport.
+  // strayCount — quotes with something odd still flagged in them, the number on the
+  // rail's Checks row.
   const [strayCount, setStrayCount] = useState(0)
   // Update-check result, shared so the mobile drawer's "update available" link
   // mirrors the Settings → Updates card. Populated on demand when an admin runs
@@ -1848,36 +1807,9 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
   }
   useEffect(() => {
     refreshStats()
-    refreshPendingImport()
-    // An old /import link lands here — open the Add surface on Import. /capture is
-    // the icon shortcut's URL and does the same for the capture section.
-    if (initial.tab === 'import') openAdd('import')
+    // /capture is the icon shortcut's URL and opens the Add surface on a quote.
     if (initial.tab === 'capture') openAdd('quote')
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // THE INSTALLED APP'S ICON BADGE: cards due plus imports waiting, set by the
-  // client whenever either changes.
-  //
-  // NOTHING SCHEDULED, and that is the point of doing it this way. A real
-  // notification needs something that wakes up on its own — a service worker, a push
-  // subscription, a server that knows when your day starts — and every one of those
-  // wakes on its own, which nothing in this app does or will. A badge set on load
-  // carries most of the same value: you glance at the home screen, and it says
-  // whether there is anything to come back for.
-  //
-  // Best-effort by construction: the API exists on installed PWAs on some platforms
-  // and nowhere else, so the guard is the feature working where it can rather than a
-  // capability check the reader ever sees. Zero CLEARS the badge rather than showing
-  // a nought, which is what setAppBadge(0) means and why it is not simply skipped.
-  useEffect(() => {
-    const n = pendingImport || 0
-    try {
-      if (n > 0) navigator.setAppBadge?.(n)
-      else navigator.clearAppBadge?.()
-    } catch {
-      /* not installed, or a platform without it — nothing to report */
-    }
-  }, [pendingImport])
 
   // Mirror tab/detail ↔ URL. popstate (back/forward) restores state from the
   // path; landing on an unknown path rewrites the bar to the canonical one.
@@ -1926,8 +1858,6 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
       if (popIsOverlay(statePath(cur.tab, cur.detail))) return
       if (!cur.detail) rememberScroll(statePath(cur.tab, null))
       const s = parsePath(window.location.pathname)
-      // /import via back/forward opens the Add surface over Home (no import tab).
-      if (s.tab === 'import') { setTab('home'); setDetail(null); openAdd('import'); return }
       if (s.tab === 'capture') { setTab('home'); setDetail(null); openAdd('quote'); return }
       setTab(s.tab)
       setDetail(s.detail)
@@ -2092,9 +2022,6 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
 
   const logout = () => signOut(onLogout)
 
-  // The ＋ Add pill carries the staging count, because that is where imports
-  // start and where the queue is reached from.
-  const importBadge = pendingImport > 0 && <span className="add-badge">{pendingImport}</span>
   // Which sections this reader has left switched on (Settings → Features),
   // resolved once per render beside the three route-derived controls. It is read
   // from the same preference bag every applier reads, so the strip, the drawer,
@@ -2291,11 +2218,10 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
             .map(([k]) => [k, navBadge(k, { stats, metaIssues, version: user.version })])
             .filter(([, v]) => v),
         )}
-        // The import queue only. THE STRAY-MARKS COUNT IS DELIBERATELY ABSENT: that
-        // scan reads every quote in the library, and running it on every page load to
-        // draw one badge is exactly the kind of standing cost this app refuses. It is
+        // THE STRAY-MARKS COUNT IS DELIBERATELY ABSENT from the first load: that scan
+        // reads every quote in the library, and running it on every page load to draw
+        // one badge is exactly the kind of standing cost this app refuses. It is
         // counted when you open Checks, where you are about to read it anyway.
-        checkCount={pendingImport}
         strayCount={strayCount}
       />
       <header className="topbar">
@@ -2317,7 +2243,7 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
             <Tooltip
               side="bottom"
               className="shrink-0"
-              label={pendingImport > 0 ? t('shell.add.pending.tip', { n: pendingImport }) : addLabel}
+              label={addLabel}
             >
               <button
                 type="button"
@@ -2328,7 +2254,6 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
               >
                 <IconPlus />
                 <span>{t('common.action.add.label')}</span>
-                {importBadge}
               </button>
             </Tooltip>
             <PageHelp
@@ -2507,16 +2432,6 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
             />
           </div>
         )}
-        {tab === 'staging' && (
-          <div data-screen-label="staging">
-            <StagingPage
-              onPending={setPendingImport}
-              onOpenBook={openBook}
-              onOpenMovie={openMovie}
-              onApproved={refreshStats}
-            />
-          </div>
-        )}
         {/* CHECKS — the rail and the drawer have carried a counted row to this
             screen since the rail landed, and until now it went nowhere: 'checks'
             was in no route table and no render branch, so the row opened a blank
@@ -2524,10 +2439,8 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
         {tab === 'checks' && (
           <div data-screen-label="checks">
             <ChecksPage
-              onPending={setPendingImport}
               onOpenBook={openBook}
               onOpenMovie={openMovie}
-              onApproved={refreshStats}
               onOpenQuotes={() => go('quotes', null)}
             />
           </div>
@@ -2624,7 +2537,6 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
         searchIcon={globalSearch ? <IconSearchGlobe /> : <IconSearch />}
         onAdd={() => openAdd(addKind, addFor)}
         addLabel={addLabel}
-        addBadge={importBadge}
       />
       <Drawer
         metaIssues={metaIssues}
@@ -2644,8 +2556,6 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
         onAccount={() => go('profile')}
         user={user}
         stats={stats}
-        pendingImport={pendingImport}
-        checkCount={pendingImport}
         strayCount={strayCount}
         dark={dark}
         onUser={onUser}
@@ -2657,11 +2567,8 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
         initialTarget={addTarget}
         initialBoard={addBoard}
         initialFields={addFields}
-        pendingImport={pendingImport}
         sections={sections}
         order={order}
-        onReviewImport={() => { setAddOpen(false); selectTab('staging') }}
-        onStaged={refreshPendingImport}
         onClose={() => setAddOpen(false)}
         onAdded={(what) => {
           setAddOpen(false)

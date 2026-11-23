@@ -82,7 +82,6 @@ export const WORK_QUOTE_DOORS = ['annotation', 'dialogue']
 // is a container you make before you file into it, not a thing you file.
 export const WORK_DOORS = ['book', 'film', 'show', 'game', 'board']
 
-export const ALL_DOORS = [...WORK_DOORS, ...WORK_QUOTE_DOORS, ...QUOTE_KIND_DOORS, 'import']
 
 // FIELDS is the per-door table. `main` and `more` hold field keys in draw order;
 // anything absent from both is hard dropped for that door.

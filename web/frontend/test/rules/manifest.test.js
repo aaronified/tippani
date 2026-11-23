@@ -28,8 +28,10 @@ describe('the manifest', () => {
 })
 
 describe('icon shortcuts', () => {
-  it('offers the three a long press should offer', () => {
-    expect(manifest.shortcuts.map((s) => s.short_name)).toEqual(['Capture', 'Quiz', 'Pending'])
+  it('offers the one a long press should offer', () => {
+    // The quiz and the import queue left the web app (ADR-0936); capture is the one
+    // door the iPhone reader still needs from the home screen.
+    expect(manifest.shortcuts.map((s) => s.short_name)).toEqual(['Capture'])
   })
 
   it('names only URLs the app actually routes', () => {
@@ -42,7 +44,6 @@ describe('icon shortcuts', () => {
     }
     // And specifically: each one reaches the surface it promises.
     expect(parsePath('/capture').tab).toBe('capture')
-    expect(parsePath('/pending').tab).toBe('staging')
     expect(parsePath('/').tab).toBe('home')
   })
 
@@ -53,22 +54,7 @@ describe('icon shortcuts', () => {
   })
 })
 
-describe('file handlers', () => {
-  it('lands a tapped file in import staging', () => {
-    expect(manifest.file_handlers).toHaveLength(1)
-    expect(parsePath(manifest.file_handlers[0].action).tab).toBe('import')
-  })
-
-  it('accepts the three shapes the importer can actually read', () => {
-    // Markdown (Tippani's own export and Readest's), a Kindle My Clippings.txt, and
-    // a Bookcision .json. Accepting anything else would be an "open with Tippani"
-    // that ends in a parse error.
-    const exts = Object.values(manifest.file_handlers[0].accept).flat()
-    for (const want of ['.md', '.txt', '.json']) {
-      expect(exts, want).toContain(want)
-    }
-  })
-
+describe('launch', () => {
   it('focuses the window it already has', () => {
     // An installed app opening a second window per file is how you end up with two
     // copies of the staging queue disagreeing with each other.

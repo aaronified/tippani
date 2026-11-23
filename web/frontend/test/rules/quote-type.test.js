@@ -176,7 +176,7 @@ describe('one way to set a quote', () => {
     expect(slots.length, 'the walk found no quote slots — languageClass moved, or the tree did')
       .toBeGreaterThanOrEqual(16)
     expect(spreads.length, 'nothing spreads QUOTE_TEXT, so questions B and C are asking about an empty list')
-      .toBeGreaterThanOrEqual(11)
+      .toBeGreaterThanOrEqual(9)
     expect(slots.filter((s) => !s.tag.trim().startsWith('<')).map((s) => `${s.file}:${s.line}`),
       'a slot’s enclosing tag could not be read, so its answer below means nothing').toEqual([])
   })

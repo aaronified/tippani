@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { canGoBack, historyDepth, historySeq, jumpBack, navigateBack, noteRoute, pushRoute, recentRoutes, seedRoute, stampPush } from '../../src/history.js'
 import { RAIL_WORDS_MAX, TYPE_FACTORS, TYPE_FACTOR_MAX, applyTypeScale } from '../../src/type.js'
-import { Drawer, checksBadge, navBadge } from '../../src/App.jsx'
+import { Drawer, navBadge } from '../../src/App.jsx'
 import { cleanup, render } from '@testing-library/react'
 import { ShortcutSheet } from '../../src/ui.jsx'
 import { SHORTCUTS, shortcutFor } from '../../src/keys.js'

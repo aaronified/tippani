@@ -38,7 +38,6 @@ import { CandidateRow, groupEditions } from './CoverPicker.jsx'
 import { ManualTab, isIsbn } from './Library.jsx'
 import { BookDuplicateConfirm } from './bookDuplicate.jsx'
 import { ManualMovie, sourceRef, candSourceID, DuplicateConfirm, countOrNull } from './Movies.jsx'
-import ImportPage from './ImportPage.jsx'
 import { PageHelp } from './help.jsx'
 import {
   useEscape,
@@ -890,8 +889,6 @@ export function useWorks() {
 // and choosing what to put on it two screens apart — and gave the surface three
 // steps to walk back through instead of one.
 //
-// AND IMPORT IS A DROP TARGET ON THIS SCREEN, not a second one: "import should be
-// single upload (and a drag and drop target) in the first screen."
 // WHAT A CHOICE ON THIS SCREEN LOOKS LIKE, in one function the four rows call.
 //
 // A RATER'S FINDING, and the second time the same rule drifted here: the pressed
@@ -912,7 +909,6 @@ export function AddChooser({
   target, onTarget, onCreateWork,
   boards, onNewBoard,
   doors, onDoor,
-  pendingImport, onReviewImport, onStaged,
 }) {
   const works = useWorks()
   const wantsTarget = modeNeedsTarget(mode)
@@ -1015,18 +1011,6 @@ export function AddChooser({
           a control that cannot be pressed cannot say why. */}
       {modeIsHeld(mode) && <p className="microcopy">{t('add.mode.anthology.held.prose')}</p>}
 
-      {mode === 'import' && (
-        <div className="flex flex-col gap-4">
-          {/* An import still waiting in the queue must be visible from the one
-              place you would start another one. */}
-          {pendingImport > 0 && onReviewImport && (
-            <button type="button" className="tp-btn tp-btn-primary w-full" onClick={onReviewImport}>
-              {t('capture.import.pending', { count: pendingImport, n: pendingImport })}
-            </button>
-          )}
-          <ImportPage onReviewImport={onReviewImport} onStaged={onStaged} />
-        </div>
-      )}
     </div>
   )
 }
@@ -1714,7 +1698,7 @@ function BoardDoor({ onSaved, onSaveState, onCancel }) {
 // have made a shell change out of a form change.
 //
 // `initialSection` is still the five values `routes.js` produces — 'book',
-// 'film', 'quote', 'standalone', 'import' — and `doorFor` below maps them onto
+// 'film', 'quote', 'standalone' — and `doorFor` below maps them onto
 // doors. Anything it cannot answer opens the chooser, which is the honest
 // behaviour: the surface asks rather than guessing which of nine kinds you meant.
 export default function AddSurface({
@@ -1728,9 +1712,6 @@ export default function AddSurface({
   onOpenMovie,
   onCaptured,
   onWorkCreated,
-  pendingImport = 0,
-  onReviewImport,
-  onStaged,
   sections,
 }) {
   const { boards } = useBoards()
@@ -1780,7 +1761,6 @@ export default function AddSurface({
   // chooser asks.
   const opening = useMemo(() => {
     const none = { mode: null, target: null, door: null }
-    if (initialSection === 'import') return { mode: 'import', target: null, door: null }
     if (initialTarget) {
       const mode = 'work'
       return { mode, target: initialTarget, door: soleDoor(mode, initialTarget) }
@@ -1833,11 +1813,8 @@ export default function AddSurface({
     return () => { stale = true }
   }, [initialTarget?.type, initialTarget?.id])
   const target = pickedTarget ?? (pickedMode ? null : (openedWork || opening.target))
-  // WHICH HELP THE "?" OPENS, once, for both headers below. Import is a mode of
-  // this surface rather than a screen, so `helpScreen` in routes.js never sees it
-  // — there is no tab to derive it from. Hardcoding `capture` on both branches is
-  // what made the import mode's "?" answer a question about capturing a quote.
-  const helpKey = mode === 'import' ? 'import' : 'capture'
+  // WHICH HELP THE "?" OPENS, once, for both headers below.
+  const helpKey = 'capture'
   const door = pickedDoor ?? (pickedMode || pickedTarget ? null : opening.door)
 
   // The forms this mode and container can reach, and the one it opens with no
@@ -1874,7 +1851,7 @@ export default function AddSurface({
 
   // A step with nothing to save must not leave the previous one's Save in the bar.
   useEffect(() => {
-    if (!settledDoor || mode === 'import' || mode === 'anthology') setSaveState(null)
+    if (!settledDoor || mode === 'anthology') setSaveState(null)
   }, [settledDoor, mode])
 
   if (!open) return null
@@ -2030,9 +2007,6 @@ export default function AddSurface({
       onNewBoard={() => setNewBoard(true)}
       doors={doors}
       onDoor={(d) => setPickedDoor(d)}
-      pendingImport={pendingImport}
-      onReviewImport={onReviewImport}
-      onStaged={onStaged}
     />
   )
 

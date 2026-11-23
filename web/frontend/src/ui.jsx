@@ -10497,10 +10497,6 @@ export function IconSliders({ size = ICON_SIZE }) { return <svg {...iconFill} vi
 // IconLayers — the stack of three planes the "change one surface yourself" door wears. It is not IconSliders on purpose:
 // the dials door beside it wears those, and one drawing on two doors says they open the same thing.
 export function IconLayers({ size = ICON_SIZE }) { return <svg {...iconFill} viewBox="0 0 256 256" width={size} height={size}><path d="M230.91,172A8,8,0,0,1,228,182.91l-96,56a8,8,0,0,1-8.06,0l-96-56A8,8,0,0,1,36,169.09l92,53.65,92-53.65A8,8,0,0,1,230.91,172ZM220,121.09l-92,53.65L36,121.09A8,8,0,0,0,28,134.91l96,56a8,8,0,0,0,8.06,0l96-56A8,8,0,1,0,220,121.09ZM24,80a8,8,0,0,1,4-6.91l96-56a8,8,0,0,1,8.06,0l96,56a8,8,0,0,1,0,13.82l-96,56a8,8,0,0,1-8.06,0l-96-56A8,8,0,0,1,24,80Z"/></svg> }
-// IconImport — into the tray, where IconExport goes down onto a floor. Both are
-// down arrows because that is the convention everywhere; what differs is whether
-// the arrow arrives somewhere or leaves.
-export function IconImport({ size = ICON_SIZE }) { return <svg {...iconFill} viewBox="10.9 10.9 234.1 234.1" width={size} height={size}><path d="M208,32H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32ZM90.34,114.34a8,8,0,0,1,11.32,0L120,132.69V72a8,8,0,0,1,16,0v60.69l18.34-18.35a8,8,0,0,1,11.32,11.32l-32,32a8,8,0,0,1-11.32,0l-32-32A8,8,0,0,1,90.34,114.34ZM208,208H48V168H76.69L96,187.32A15.89,15.89,0,0,0,107.31,192h41.38A15.86,15.86,0,0,0,160,187.31L179.31,168H208v40Z"/></svg> }
 
 // ---- what a selection can do, as pictures (1.12.0) ------------------------
 //
@@ -10718,7 +10714,6 @@ if (import.meta.env.DEV) {
   IconSliders.glossary = { demo: (h) => h(IconSliders, { size: 28 }) };
   IconLayers.glossary = { demo: (h) => h(IconLayers, { size: 28 }) };
   IconNavSearch.glossary = { demo: (h) => h(IconNavSearch, { size: 28 }) };
-  IconImport.glossary = { demo: (h) => h(IconImport, { size: 28 }) };
   IconNavProfile.glossary = { demo: (h) => h(IconNavProfile, { size: 28 }) };
   IconNavUsers.glossary = { demo: (h) => h(IconNavUsers, { size: 28 }) };
   IconPalette.glossary = { demo: (h) => h(IconPalette, { size: 28 }) };
@@ -10763,7 +10758,6 @@ export function NavIcon({ name }) {
     case 'show': return <IconWatching />
     case 'game': return <IconPlaying />
     case 'metadata': return <IconRecords />
-    case 'import': return <IconImport />
     case 'search': return <IconNavSearch />
     case 'stats': return <IconStats />
     case 'settings': return <IconSliders />
