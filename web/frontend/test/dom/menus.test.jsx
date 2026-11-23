@@ -4,7 +4,7 @@ import { ActionMenu, Tooltip, useCardMenu } from '../../src/ui.jsx'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { WorkCard } from '../../src/works.jsx'
-import { actionsFor, bulkActionsFor } from '../../src/actions.jsx'
+import { actionsFor } from '../../src/actions.jsx'
 import { useRef } from 'react'
 
 // The menu, and the keyboard behaviour that makes it one.
@@ -277,19 +277,8 @@ function withSelection(node) {
 }
 })
 
-// A work's own context menu (1.14.2).
-//
-// WHAT WAS EMPTY WAS THE REGISTRY, NOT THE GESTURE. WorkCard passed `[]` to
-// useCardMenu with a comment saying a menu offering nothing would teach a
-// gesture and then refuse it — true, and a fair reading of the state it was
-// written in. The state was that `bulkActionsFor` grew a work branch in 1.11.1
-// and `actionsFor` stayed quote-only, so the selection bar could skip a book in
-// the quiz, fill its gaps, edit it and delete it with exactly ONE thing
-// selected, and the tile that one was selected from could do none of them.
-//
-// So the assertions that matter here are about the pair, not about the menu: the
-// bar and the card read one registry and act through one hook, and anything the
-// bar can do to a selection of one is on the card it came from.
+// A work's own context menu: Edit and Delete, the two things a single work
+// keeps. Delete is the one destructive act, so the phrase guard is what is held.
 describe('work card menu', () => {
   const BOOK = { id: 4, title: 'The Chicago Manual of Style', author: 'UCP', annotation_count: 12 }
 
@@ -317,8 +306,8 @@ describe('work card menu', () => {
     // reads exactly like a working control and destroys the book on one press.
     //
     // The dialog's own presence is what is asserted, not a delete spy — the tile
-    // deletes through useBulkOps rather than through a prop, and reaching in to
-    // stub that would test the stub. A dialog that is still open did not delete.
+    // deletes through its own request rather than through a prop, and reaching in
+    // to stub that would test the stub. A dialog that is still open did not delete.
     it('will not delete until the phrase is typed', () => {
       openMenu({ ...BOOK, annotation_count: 12 })
       fireEvent.click(screen.getByText('Delete'))

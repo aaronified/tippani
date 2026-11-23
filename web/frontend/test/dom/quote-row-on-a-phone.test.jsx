@@ -29,30 +29,27 @@ afterEach(() => {
 })
 
 const row = () => {
-  const copy = vi.fn()
   const share = vi.fn()
   const item = { id: 1, quote: 'Manuscripts do not burn.', favorite: false }
-  const acts = actionsFor('annotation', item, { copy, share, edit: () => {}, remove: () => {} })
+  const acts = actionsFor('annotation', item, { share, edit: () => {}, remove: () => {} })
   render(<ActionRow acts={acts} item={item} color="yellow" onColor={() => {}} onFavourite={() => {}} />)
-  return { copy, share }
+  return { share }
 }
 
 const menuTrigger = () => screen.getByRole('button', { name: /more/i })
 
 describe('a quote card on a phone', () => {
-  it('keeps copy and share out of the row and behind the ⋯', () => {
+  it('keeps share out of the row and behind the ⋯', () => {
     setViewport(true)
-    const { copy } = row()
-    expect(screen.queryByRole('button', { name: 'Copy' })).toBeNull()
+    const { share } = row()
     expect(screen.queryByRole('button', { name: 'Share' })).toBeNull()
 
     fireEvent.click(menuTrigger())
     const names = screen.getAllByRole('menuitem').map((m) => m.textContent)
-    expect(names.some((n) => /Copy/.test(n))).toBe(true)
     expect(names.some((n) => /Share/.test(n))).toBe(true)
 
-    fireEvent.click(screen.getAllByRole('menuitem').find((m) => /^Copy/.test(m.textContent)))
-    expect(copy).toHaveBeenCalledTimes(1)
+    fireEvent.click(screen.getAllByRole('menuitem').find((m) => /^Share/.test(m.textContent)))
+    expect(share).toHaveBeenCalledTimes(1)
   })
 
   it('still offers the heart in the row', () => {
@@ -63,10 +60,9 @@ describe('a quote card on a phone', () => {
 })
 
 describe('a quote card on a desk', () => {
-  it('keeps copy and share in the row', () => {
+  it('keeps share in the row', () => {
     setViewport(false)
     row()
-    expect(screen.getByRole('button', { name: 'Copy' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Share' })).toBeTruthy()
   })
 })

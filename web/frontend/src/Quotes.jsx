@@ -24,20 +24,18 @@ import { usePersonOpener } from './personOpen.jsx'
 // THE ONE SOURCE FOR WHAT A KIND CARRIES, read here as well as by the add
 // surface. See the note on `door` below for why this form drew everything.
 import { QUOTE_KIND_DOORS, showsField } from './addFields.js'
-import { QUOTE_KINDS, quoteKindLabel, quoteKindMeta, quoteKindOptions } from './quoteKind.js'
+import { quoteKindMeta, quoteKindOptions } from './quoteKind.js'
 import { attributionParts } from './attribution.js'
 import { AnnotationCard, fmtDate } from './Library.jsx'
 import { TextOrderScope } from './textOrderHost.jsx'
-import { CreditFaces, DEFAULT_CREDIT_SEPS, PersonName, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
-import { ShareDialog, copyQuote, quoteShare } from './share.jsx'
+import { parseCreditSeps, usePeople } from './people.jsx'
+import { ShareDialog, quoteShare } from './share.jsx'
 import { deleteWithUndo } from './undo.jsx'
-import { useSelection } from './selection.jsx'
-import { SelectionBar } from './SelectionBar.jsx'
 import { StickerPicker, useStickers } from './stickers.jsx'
 import { RunButton } from './speak.jsx'
 import { boardRun } from './readRuns.js'
-import { ALL_BOARD, BoardList, MoveToBoardDialog, useBoards } from './boards.jsx'
-import { ANNOTATION_PAGE, GroupHeading, WorkListScaffold, groupWorks, patchMovesTheRow, useBoardWindow } from './works.jsx'
+import { ALL_BOARD, BoardList, useBoards } from './boards.jsx'
+import { ANNOTATION_PAGE, WorkListScaffold, patchMovesTheRow, useBoardWindow } from './works.jsx'
 import {
   ColorSwatches,
   ConfirmDialog,
@@ -50,7 +48,6 @@ import {
   PartialDateField,
   Placeholder,
   Select,
-  Toggle,
   TokenInput,
   formatPartialDate,
   isPartialDate,
@@ -63,7 +60,6 @@ import {
   useFormHost,
   useIsMobileScreen,
   usePersistedState,
-  toast,
   PanelHost,
   usePanelStack,
 } from './ui.jsx'
@@ -158,9 +154,8 @@ export function utteranceState(u) {
     // full-state PUT, which includes recolouring a card.
     kind: u.kind || '',
     // 0035, AND THIS IS A SILENT-LOSS SITE. Every PUT here is full-state, so a field
-    // missing from this object is a field CLEARED by the request. The ♥ on a card,
-    // the colour dots and the selection bar all save through it — so omitting these
-    // three would mean recolouring a Bengali proverb quietly threw away its
+    // missing from this object is a field CLEARED by the request. The ♥ on a card
+    // and the colour dots all save through it — so omitting these three would mean recolouring a Bengali proverb quietly threw away its
     // category, its language and its English. 0034 records the same trap catching
     // `translator` on bookState.
     category: u.category || 'other',
@@ -168,8 +163,8 @@ export function utteranceState(u) {
     translation: u.translation || '',
     // 0036, AND THE SAME SILENT-LOSS SITE AS THE THREE ABOVE. A PUT with no
     // board_id does not leave the quote where it is — it MOVES it to the default
-    // board, because every PUT here is full-state. The ♥, the colour dots and the
-    // selection bar all save through this object.
+    // board, because every PUT here is full-state. The ♥ and the colour dots all
+    // save through this object.
     board_id: u.board_id || null,
     // 0047's five, AND THE THIRD TIME THIS TRAP HAS BEEN SPRUNG in this one object.
     // A letter's recipient, a proverb's region, an essay's title and page and the
@@ -678,83 +673,9 @@ export function utteranceYear(u) {
 // piles by. The residual bucket matters more here than on the other two screens:
 // a proverb has no speaker, no medium and no date, so it lands in the catch-all
 // of every one of these, which is why the label says what is missing.
-const groupOptions = () => [
-  ['none', t('quotes.group.none.label')],
-  ['speaker', t('quotes.group.speaker.label')],
-  ['kind', t('quotes.group.kind.label')],
-  ['place', t('quotes.group.place.label')],
-  ['decade', t('quotes.group.decade.label')],
-]
-// The catch-all heading per dimension, as KEYS — resolved at grouping time.
-const GROUP_RESIDUAL = {
-  kind: 'quotes.group.residual.kind.label',
-  place: 'quotes.group.residual.place.label',
-  language: 'quotes.group.residual.language.label',
-}
-
-// The per-language sections on a proverb board (0037) — what the request called
-// subfolders, and it is a GROUPING rather than a folder for a reason worth
-// stating: a folder is a place a quote lives, and a proverb already lives on the
-// board. Grouping is the same shelf read in language order, so it can be turned
-// on and off without moving anything, and every other view of the board still
-// shows all of it.
-//
-// Offered on a proverb board ONLY. Language is the field that carries a proverb;
-// on a board of speeches it is empty on every row, which would be a section
-// called "No language" holding the entire board.
-export function groupOptionsFor(board) {
-  if (board?.kind !== 'proverb') return groupOptions()
-  return [...groupOptions(), ['language', t('quotes.group.language.label')]]
-}
-
-// THE THREE-CATEGORY CONTROL IS GONE, and its two tables went with it (2.2.0).
-//
-// `CATEGORY_OPTIONS` and `CATEGORY_NOUN` described the three boards from 0035 —
-// Proverbs, Speeches, Others — as a control this page drew. 0037 replaced that
-// with the BOARD's own `kind`, which is why `utterance.category` still exists on
-// the row and nothing reads these two tables: zero importers of the exported one,
-// zero readers of the private one.
-//
-// They are DELETED rather than translated, and that is the point worth recording.
-// Both held hardcoded English — the only untranslated copy left on this screen —
-// so the obvious fix was a locale token each. Tokens for a control nobody renders
-// are orphan keys, which locale-complete.test.js fails the build over, and it was
-// written after 37 of them had to be deleted. Dead English is deleted; live
-// English gets a token. The live one in this release is the share image's proverb
-// legend (`share.field.proverb.legend`).
-
-// groupUtterances buckets quotes for the group-by view. Extracted from the
-// component so the four dimensions can be checked without rendering a screen —
-// and because the speaker dimension is the one place this page has to agree
-// with the card and the share image about who is credited, which is a claim
-// worth a test rather than a reading.
-export function groupUtterances(list, dim, seps) {
-  // 'speaker' is this page's name for the dimension groupWorks calls 'author':
-  // the credit, split into the people it names. Without the translation it fell
-  // through to the generic facet branch, which reads the raw column — so a line
-  // credited to two speakers filed under the joined string as though that were
-  // a person, and the residual bucket read "None" instead of "No speaker".
-  const workDim = dim === 'speaker' ? 'author' : dim
-  return groupWorks(list, workDim, {
-    credit: (u) => u.speaker,
-    splitCredit: true,
-    creditResidual: t('quotes.group.residual.speaker.label'),
-    year: utteranceYear,
-    // place is a literal column name, so the accessor is the dim. `kind` is a
-    // column too but its VALUE is a machine word, so it groups by the label — a
-    // shelf heading reading "speech" in a Bengali interface would be the one
-    // untranslated string on the screen.
-    facet: (u, d) => (d === 'kind' ? quoteKindLabel(u.kind) : u[d]),
-    facetResidual: (d) => t(GROUP_RESIDUAL[d] || 'quotes.group.residual.none.label'),
-    seps,
-  })
-}
-
 const sortOptions = () => [
   ['recent', t('quotes.sort.recent.label')],
   ['speaker', t('quotes.sort.speaker.label')],
-  ['occasion', t('quotes.sort.occasion.label')],
-  ['said', t('quotes.sort.said.label')],
 ]
 
 // QuotesPage renders on the same scaffold as the Library and the Catalogue,
@@ -843,22 +764,14 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
   const [error, setError] = useState('')
   const [editingId, setEditingId] = useState(null)
   const [shareFor, setShareFor] = useState(null)
-  // The quote whose board is being changed from its own ⋯ menu. The selection bar
-  // asks the same question of a whole selection with the same dialog.
-  const [movingQuote, setMovingQuote] = useState(null)
+  // The quote whose board is being changed from its own ⋯ menu.
   const [expanded, setExpanded] = useState(null)
   const [exporting, setExporting] = useState(false)
   const [tags, setTags] = useState([])
-  const [color, setColor] = usePersistedState('tippani:quotes:color', '')
   const [favOnly, setFavOnly] = usePersistedState('tippani:quotes:fav', false)
-  const [tagged, setTagged] = usePersistedState('tippani:quotes:tagged', false)
-  const [noted, setNoted] = usePersistedState('tippani:quotes:noted', false)
-  const [tag, setTag] = usePersistedState('tippani:quotes:tag', '')
-  const [speaker, setSpeaker] = usePersistedState('tippani:quotes:speaker', '')
   // 0053. A NEW KEY rather than the old `…:medium`, and that discards whatever
   // free text was last filtered on — which is the right outcome: the old value is
   // not a legal kind, so keeping it would restore a filter that matches nothing.
-  const [kind, setKind] = usePersistedState('tippani:quotes:kind', '')
   // THE BOARD, not a filter — one of the three, always exactly one.
   //
   // It defaults to 'other', which is what every quote already in a library IS: 0035
@@ -869,7 +782,6 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
   // reload lands where the address says rather than where a filter last was.
   const isAll = boardId === ALL_BOARD
   const openBoard = (boards || []).find((b) => String(b.id) === String(boardId)) || null
-  const [language, setLanguage] = usePersistedState('tippani:quotes:language', '')
   const [sort, setSort] = usePersistedState('tippani:quotes:sort', 'recent')
   // 0053. A READER WHO WAS GROUPING BY MEDIUM WENT ON GROUPING BY IT. The filter
   // was given a new key when the field changed (see `kind` above) and this one was
@@ -880,8 +792,6 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
   // Read through a rename rather than re-keyed, because unlike the filter the
   // stored value has an exact successor: somebody who chose to group by what a
   // quote IS still wants that.
-  const [rawGroupBy, setGroupBy] = usePersistedState('tippani:quotes:group', 'none')
-  const groupBy = rawGroupBy === 'medium' ? 'kind' : rawGroupBy
   const { stickers, reload: reloadStickers } = useStickers()
   // Speaker portraits for the card's credit line, the group headings AND the
   // share image — the same enrichment authors and actors get, now that
@@ -944,59 +854,19 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
   // console or a fixed vocabulary: an unenriched speaker is still a speaker, and
   // `medium` is a free-text field, so the only honest list is the one in use.
   // Built from every row on the board, never from the filtered view.
-  const speakers = useMemo(() => {
-    const seen = new Set()
-    for (const u of board) for (const n of splitCredits(u.speaker || '', seps)) seen.add(n)
-    return [...seen].sort((a, b) => a.localeCompare(b))
-  }, [board, seps])
   // 0053. From the FIXED list, narrowed to what this board actually holds — not
   // from the values in use, which is what `medium` needed because it was free text.
   // In the list's own order rather than alphabetically: it is a vocabulary, and its
   // order is a decision (see quoteKind.js).
-  const kinds = useMemo(() => {
-    const seen = new Set(board.map((u) => u.kind).filter(Boolean))
-    return QUOTE_KINDS.filter((k) => seen.has(k))
-  }, [board])
   // Free text in 0035, so the only honest list is the one in use — the same rule
   // `mediums` follows. Offered only when the board actually holds more than one.
-  const languages = useMemo(() => {
-    const seen = new Set()
-    for (const u of board) if (u.language) seen.add(u.language)
-    return [...seen].sort((a, b) => a.localeCompare(b))
-  }, [board])
 
   const shown = useMemo(() => {
-    let list = board
-    if (color) list = list.filter((u) => u.color === color)
-    if (favOnly) list = list.filter((u) => u.favorite)
-    if (tagged) list = list.filter((u) => (u.tags || []).length > 0)
-    if (noted) list = list.filter((u) => !!(u.note || '').trim())
-    if (tag) list = list.filter((u) => (u.tags || []).includes(tag))
-    // Matched against the SPLIT credit, so picking one of two co-speakers finds
-    // the lines they said together — the same rule the card and the share image
-    // use to decide who is credited.
-    if (speaker) list = list.filter((u) => splitCredits(u.speaker || '', seps).includes(speaker))
-    if (kind) list = list.filter((u) => u.kind === kind)
-    if (language) list = list.filter((u) => u.language === language)
+    const list = favOnly ? board.filter((u) => u.favorite) : [...board]
     if (sort === 'recent') return list
-    list = [...list]
     if (sort === 'speaker') list.sort((a, b) => (a.speaker || '').localeCompare(b.speaker || ''))
-    else if (sort === 'occasion') list.sort((a, b) => (a.occasion || '').localeCompare(b.occasion || ''))
-    // Partial dates sort correctly as strings BECAUSE they are zero-padded and
-    // big-endian: '1944' < '1944-08' < '1945'. Undated sinks rather than leading.
-    // BY THE YEAR AS A NUMBER, not as text. '-0399' and '-0040' sort the wrong way
-    // round as strings — 40 BCE reads as earlier than 399 BCE — because a minus
-    // sign reverses the order it prefixes and a padded string cannot know that.
-    // The month and day still compare as text, where the padding does the work.
-    else if (sort === 'said') list.sort((a, b) => {
-      const pa = parsePartialDate(a.occasion_date || '', { historical: true })
-      const pb = parsePartialDate(b.occasion_date || '', { historical: true })
-      if (!pa || !pb) return (pa ? 0 : 1) - (pb ? 0 : 1)
-      if (pa.year !== pb.year) return pa.year - pb.year
-      return (a.occasion_date || '').slice(-6).localeCompare((b.occasion_date || '').slice(-6))
-    })
     return list
-  }, [board, color, favOnly, tagged, noted, tag, speaker, kind, language, sort, seps])
+  }, [board, favOnly, sort])
 
   // groupBy is persisted across boards, so a grouping only one KIND of board
   // offers has to be checked against the board you are actually on rather than
@@ -1006,18 +876,12 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
   // following the reader somewhere it does not apply, which is the exact trap
   // 1.14.0 exists to undo. Falls back to ungrouped for the render and leaves the
   // stored value alone, so walking back finds the sections still on.
-  const groupable = groupOptionsFor(openBoard).some(([v]) => v === groupBy) ? groupBy : 'none'
-
-  const grouped = useMemo(
-    () => (groupable === 'none' ? null : groupUtterances(shown, groupable, seps)),
-    [shown, groupable, seps],
-  )
   // READ ALOUD: the board in the order it shows its quotes, which is group by group when it is grouped.
   // Not drawn where the device has no voices.
   const runButton = (
     <RunButton
       id={`run:board:${boardId ?? 'all'}`}
-      segments={() => boardRun(grouped ? grouped.flatMap((g) => g.items) : shown)}
+      segments={() => boardRun(shown)}
       disabled={shown.length === 0}
     />
   )
@@ -1025,7 +889,6 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
   // window the catalogue uses: grouping by speaker over a large board is otherwise
   // one heading and one Masonry per speaker, all mounted at once, which is the very
   // cost the card window just removed arriving one level up.
-  const groupWin = useBoardWindow(grouped ? grouped.length : 0, grouped, 12)
 
   async function save(id, fields) {
     const r = await json('PUT', `/quotes/${id}`, fields)
@@ -1039,7 +902,7 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
   // Takes the reply rather than asking again — see the note on Library's `patch`,
   // which is the same control on the other board and had the same cost. The
   // filters here are client-side EXCEPT the board, which a patch cannot change
-  // (moving a quote between boards goes through the selection bar), so the only
+  // (moving a quote between boards goes through its own ⋯ menu), so the only
   // field that can move a row out of view is the one the colour filter reads.
   async function patch(u, fields) {
     const r = await json('PUT', `/quotes/${u.id}`, { ...utteranceState(u), ...fields })
@@ -1048,11 +911,9 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
       return false
     }
     setError('')
-    // The shared rule, not a fourth copy of it: this board's other filters are
-    // client-side, so the colour is the only one the server applies — which the
-    // helper expresses by being told which filters are in force rather than
-    // guessing.
-    if (patchMovesTheRow(fields, { color })) await load()
+    // The shared rule, not a fourth copy of it: the favourites filter is the only
+    // one the server applies, so it is the only one that can move a row out of view.
+    if (patchMovesTheRow(fields, { fav: favOnly })) await load()
     else setRows((cur) => (cur || []).map((x) => (x.id === u.id ? { ...x, ...r.data } : x)))
     return true
   }
@@ -1086,15 +947,6 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
       seps,
     })
 
-  // The selection is over `shown` — the visible, filtered, sorted list — so a
-  // filter change drops the ids that left the screen rather than leaving the bar
-  // reporting a number about rows nobody can see (see useSelection).
-  const selection = useSelection(shown.map((u) => u.id))
-  const afterBulk = () => {
-    selection.clear()
-    load()
-  }
-
   // Memoised: an inline arrow here would be a NEW component type on every
   // render, so React would unmount and remount the form between keystrokes and
   // the field would lose focus mid-word.
@@ -1106,7 +958,6 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
   const card = (u, i) => (
     <AnnotationCard
       key={u.id}
-      selection={selection}
       selectKind="quote"
       a={u}
       variant={i}
@@ -1136,8 +987,6 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
       save={save}
       patch={patch}
       remove={remove}
-      onMoveBoard={() => setMovingQuote(u)}
-      onCopy={() => copyQuote(sharePayload(u))}
       onShare={() => setShareFor(u)}
       tagSuggestions={Object.keys(tagMap)}
       expanded={expanded === u.id}
@@ -1147,25 +996,6 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
 
   // The colour swatch doubles as its own off switch: there is no "no colour" to
   // pick, so tapping the chosen one clears it.
-  const colourFilter = (
-    <ColorSwatches value={color} onChange={(c) => setColor(c === color ? '' : c)} ariaLabel={t('quotes.filters.colour.aria')} />
-  )
-  // A Toggle rather than a Select: three boards is a segmented control, and the one
-  // you are on should be readable without opening anything. Changing board clears
-  // the filters that belong to the board you are leaving — a speaker who is only on
-  // Speeches would otherwise follow you to Proverbs and show an empty shelf that
-  // looks like a bug.
-
-  const selects = [
-    tags.length > 0 && ['tag', t('common.filters.tag.aria'), tag, setTag, [['', t('common.filters.tag.all.label')], ...tags.map((row) => [row.name, row.name])]],
-    speakers.length > 0 && ['speaker', t('quotes.filters.speaker.aria'), speaker, setSpeaker, [['', t('quotes.filters.speaker.all.label')], ...speakers.map((n) => [n, n])]],
-    kinds.length > 0 && ['kind', t('quotes.filters.kind.aria'), kind, setKind, [['', t('quotes.filters.kind.all.label')], ...kinds.map((k) => [k, quoteKindLabel(k)])]],
-    languages.length > 1 && ['language', t('quotes.filters.language.aria'), language, setLanguage, [['', t('quotes.filters.language.all.label')], ...languages.map((l) => [l, l])]],
-  ].filter(Boolean)
-
-  const groupSelect = (
-    <Select ariaLabel={t('common.filters.group.aria')} value={groupable} onChange={setGroupBy} options={groupOptionsFor(openBoard)} />
-  )
 
   // Above the scaffold rather than inside it: the grid slot does not render when a
   // board is empty, and an empty Proverbs board is exactly when this has to show.
@@ -1212,68 +1042,15 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
       shownCount={shown.length}
       emptyText={t('quotes.board.empty')}
       noMatchText={t('quotes.board.nomatch')}
-      noun={t('unit.quote.one')}
-      nounPlural={t('unit.quote.other')}
       fav={favOnly}
       setFav={setFavOnly}
-      tagged={tagged}
-      setTagged={setTagged}
-      noted={noted}
-      setNoted={setNoted}
       sort={sort}
       setSort={setSort}
       sortOptions={sortOptions()}
-      leading={colourFilter}
-      leadingMobile={
-        <div>
-          <MonoLabel className="mb-2 block">{t('common.mono.colour.label')}</MonoLabel>
-          {colourFilter}
-        </div>
-      }
-      trailing={
-        <>
-          {runButton}
-          {selects.map(([key, label, value, onChange, options]) => (
-            <Select key={key} ariaLabel={label} value={value} onChange={onChange} options={options} />
-          ))}
-          <label className="flex items-center gap-2">
-            <MonoLabel>{t('common.mono.group.label')}</MonoLabel>
-            {groupSelect}
-          </label>
-        </>
-      }
-      trailingMobile={
-        <>
-          {runButton}
-          {selects.map(([key, label, value, onChange, options]) => (
-            <div key={key}>
-              <MonoLabel className="mb-2 block">{t(`common.mono.${key}.label`)}</MonoLabel>
-              <Select ariaLabel={label} value={value} onChange={onChange} options={options} />
-            </div>
-          ))}
-          <div>
-            <MonoLabel className="mb-2 block">{t('common.mono.group.label')}</MonoLabel>
-            {groupSelect}
-          </div>
-        </>
-      }
+      trailing={runButton}
       onReset={() => {
-        setColor('')
         setFavOnly(false)
-        setTagged(false)
-        setNoted(false)
-        setTag('')
-        setSpeaker('')
-        // KIND AND LANGUAGE, and this line used to read `setMedium('')` — a setter
-        // that has not existed since 0053 renamed the column's meaning. Nothing
-        // caught it: there is no ESLint in this project, the handler is only
-        // reached by pressing Reset, and a ReferenceError inside an onClick takes
-        // the press and not the page. So Reset half-worked, and the two filters it
-        // failed to clear are `usePersistedState` — they survived a reload too.
-        setKind('')
-        setLanguage('')
         setSort('recent')
-        setGroupBy('none')
       }}
       exportDialog={
         <ConfirmDialog
@@ -1301,51 +1078,11 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
         </>
       }
     >
-      {selection.open && (
-        <SelectionBar selection={selection} rows={shown} onDone={afterBulk} tagSuggestions={Object.keys(tagMap)} onEdit={setEditingId} />
-      )}
       {/* One quote, from its own ⋯. Posted through the BULK endpoint with a single
           id — the same call the bar makes with forty — so there is no second path
           to keep in step, which is the rule deletes already follow. */}
-      {movingQuote && (
-        <MoveToBoardDialog
-          count={1}
-          currentBoardID={movingQuote.board_id ?? null}
-          onApply={async (target) => {
-            const u = movingQuote
-            setMovingQuote(null)
-            const r = await json('POST', '/quotes/bulk', { ids: [u.id], board_id: target })
-            if (!r.ok) return toast(errText(r, t('error.move.generic')))
-            toast(t('quotes.toast.moved'))
-            await load()
-          }}
-          onClose={() => setMovingQuote(null)}
-        />
-      )}
       {!rows ? (
         <Placeholder />
-      ) : grouped ? (
-        <div className="space-y-10">
-          {grouped.slice(0, groupWin.count).map((g) => {
-            // A speaker heading gets their portrait and opens their panel — the
-            // same chip an author heading gets in the Library.
-            const isSpeaker = groupable === 'speaker' && !g.residual
-            return (
-              <section key={g.key}>
-                <GroupHeading
-                  label={g.label}
-                  count={g.items.length}
-                  noun={t('unit.quote.one')}
-                  nounPlural={t('unit.quote.other')}
-                  person={isSpeaker ? speakerMap[g.label] : null}
-                  onOpenPerson={isSpeaker ? () => openPerson({ kind: 'speaker', name: g.label, person: speakerMap[g.label] }) : undefined}
-                />
-                <QuoteBoard items={g.items} columns={columns} card={card} />
-              </section>
-            )
-          })}
-          {groupWin.more && <div ref={groupWin.sentinel} aria-hidden="true" className="h-px" />}
-        </div>
       ) : (
         <QuoteBoard items={shown} columns={columns} card={card} />
       )}

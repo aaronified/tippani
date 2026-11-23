@@ -300,9 +300,6 @@ common.action.add.label = যোগ করুন
 common.action.edit.label = এডিট
 common.action.edit.field.aria = {field} এডিট করুন
 common.action.copy.label = কপি
-common.action.duplicate.label = নকল করুন
-common.action.duplicate.sub = সবকিছু নকল করে আরেকটা {kind}
-common.action.duplicate.tip = এই উদ্ধৃতির একটা কপি খুলুন — সেভ না করা পর্যন্ত কিছুই লেখা হয় না
 common.action.share.label = শেয়ার
 common.action.export.label = এক্সপোর্ট
 common.action.print.label = প্রিন্ট
@@ -314,12 +311,9 @@ common.action.remove.label = সরান
 # The × on a tag pill, a cover candidate, a device row, a search chip. {name} is
 # whatever is being taken out, so the sentence is the same in all four places.
 common.action.remove.aria = {name} সরান
-# bn: Move and Remove would both be সরান; a quote is "sent" to a board — বোর্ডে পাঠান.
-common.action.move.label = পাঠান
 common.action.reload.label = রিলোড করুন
 common.action.upload.busy = আপলোড হচ্ছে…
 common.action.load.busy = লোড হচ্ছে…
-common.action.fetch.busy = আনা হচ্ছে…
 common.action.show.label = দেখান
 common.action.hide.label = লুকান
 common.action.show-less.label = কম দেখান
@@ -327,11 +321,6 @@ common.action.got-it.label = বুঝেছি
 # The favourite toggle says what PRESSING it will do, not what the state is.
 common.action.favourite.on.label = প্রিয়তে রাখুন
 common.action.favourite.off.label = প্রিয় থেকে সরান
-# The tick on a card or a row, which names what is being picked.
-common.action.select.aria = {name} বাছুন
-common.action.deselect.aria = বাছাই তুলুন: {name}
-# What the tick calls the thing when its caller did not name it.
-common.select.target.fallback = এটা
 
 # Tooltips on a table row's action cell. {noun} is what the row holds.
 common.action.copy.row.tip = এই {noun} কপি করুন
@@ -562,14 +551,11 @@ settings.updates.version.now = আপনি {v}-এ আছেন
 # --- the tiles / list / table switch.
 common.view.toggle.aria = ভিউ
 common.view.tiles.label = টাইল
-common.view.list.label = তালিকা
 common.view.table.label = টেবিল
 
 # --- tables and filter rows.
 common.table.sort.tip = এই কলাম ধরে সাজান
 common.filters.label = ফিল্টার
-common.filters.genre.aria = ঘরানা ধরে ফিল্টার
-common.filters.genre.all.label = সব ঘরানা
 common.filters.reset.label = ফিল্টার তুলে দিন
 common.sheet.close.tip = এই প্যানেল বন্ধ করুন
 common.more.aria = আরও অপশন
@@ -659,11 +645,6 @@ unit.show.one = শো
 unit.show.other = শো
 unit.quote.one = উদ্ধৃতি
 unit.quote.other = উদ্ধৃতি
-unit.column.one = কলাম
-unit.column.other = কলাম
-# A quote saved against a book.
-unit.highlight.one = উদ্ধৃতি
-unit.highlight.other = উদ্ধৃতি
 # A quote saved against a film or show. The stored kind is 'dialogue' and the
 # WORD is "film line" — this pair composes the bulk toasts, and the typed delete
 # phrase the Go server checks is built from the English of it, not from here.
@@ -742,40 +723,7 @@ common.position.episode.label = E{a}
 common.position.episode-season.label = {a} · S{b}
 common.position.page.label = পৃ. {a}/{b}
 
-# --- the progress editor under a work's state chip.
-common.progress.editor.title = কতদূর
-common.progress.unit.aria = কীসে মাপবেন
-common.progress.unit.percent.label = %
-common.progress.unit.pages.label = পৃষ্ঠা
-common.progress.unit.episodes.label = এপিসোড
-common.progress.field.season.label = সিজন
-common.progress.field.episode.label = এপিসোড
-common.progress.field.page.label = পৃষ্ঠা
-# The word between "episode 6" and "10" — 6 OF 10.
-# bn: No Bengali word sits between two numerals here; a slash is what a Bengali writes.
-common.progress.field.of.label = /
-common.action.set.label = রাখুন
 
-# --- the read / watch log.
-common.read-log.unknown.label = জানা নেই
-# A finished read, as a date range.
-common.read-log.range.label = {a} – {b}
-# One still open. {a} is the date it was started.
-common.read-log.range.open.label = {a} – এখনও চলছে
-common.read-log.abandoned.label = (ছেড়ে দেওয়া)
-# Why the open row cannot be edited here: the status control above sets it.
-common.read-log.open.hint = উপর থেকে বদলায়
-# The log's own small lower-case buttons. Lower case is the slot, not a mistake.
-common.read-log.edit.label = এডিট
-common.read-log.save.label = সেভ
-common.read-log.cancel.label = বাতিল
-common.read-log.delete.label = মুছুন
-common.read-log.add.book.label = আগের একটা পড়া যোগ করুন
-common.read-log.add.film.label = আগের একটা দেখা যোগ করুন
-common.read-log.started.placeholder = 2009 বা 2009-06-14
-common.read-log.finished.placeholder = 2009-06
-common.read-log.outcome.finished.label = শেষ হয়েছে
-common.read-log.outcome.abandoned.label = ছেড়ে দেওয়া
 common.field.started.label = শুরু
 common.field.finished.label = শেষ
 common.field.outcome.label = কী হল
@@ -796,11 +744,6 @@ common.shelf.shelve.label = তাকে তুলুন
 common.shelf.wishlist.tip = উইশলিস্টে কেন
 common.shelf.wishlist.explainer.prose = এখান থেকে এখনো কোনো উদ্ধৃতি নেই, তাই ইচ্ছে-তালিকায় আছে। উদ্ধৃতি যোগ করলেই নিজে থেকে সরে যাবে। নিচে কোনো তাকে রাখা আলাদা ব্যাপার।
 common.shelf.change.tip = তাকের অবস্থা বদলান
-# How many times it has been finished, as a multiplier.
-common.shelf.reads.label = ×{n}
-# bn: The one tip serves books and films alike, so it names the ledger by what it
-# records — starts and finishes — rather than by reading or watching.
-common.shelf.read-log.tip = শুরু-শেষের খাতা খুলুন
 
 # --- the shelf transitions, named by what pressing one will DO. The word follows
 # the medium: a book is read, a film watched, a game played.
@@ -840,9 +783,6 @@ common.work.delete.confirm.body.other = এটা তার {n}টা উদ্�
 common.work.delete.confirm.body.empty = ডাস্টবিনে যাবে, পরে ফিরিয়েও আনা যাবে। নিচের বার্তায় আনডু থাকবে।
 common.work.delete.confirm.action.label = মুছে দিন
 
-# --- the wishlist folder tile: the works you have nothing from yet, in one card.
-common.wishlist-folder.tip = যেগুলো থেকে এখনও কিছু তোলা হয়নি — সেই {n}টা
-common.wishlist-folder.subtitle.label = এখনও কিছু তোলা হয়নি
 
 # --- the four numbers in a work's hero. {noun} is already the plural.
 common.hero.counts.empty.label = এখনও কোনও {noun} নেই
@@ -857,36 +797,9 @@ common.action.back.label = ফিরে যান
 # the sentence, so a chip row can lose its words on a phone and still be readable.
 common.filters.favourites.label = ♥ প্রিয়
 common.filters.favourites.tip = শুধু প্রিয়গুলো দেখান
-common.filters.tagged.label = ট্যাগ করা
-common.filters.tagged.tip = শুধু ট্যাগ করা {noun}
-common.filters.noted.label = নোট আছে
-common.filters.noted.tip = শুধু নোট আছে এমন {noun}
-# The three-way wishlist scope. "all" ignores it, "wishlist" shows only the works
-# nothing is quoted from, "annotated" hides them.
-common.filters.wish.label = উইশলিস্ট
-common.filters.wish.all.label = সব
-common.filters.wish.all.tip = সব {noun}
-common.filters.wish.only.label = উইশলিস্ট
-common.filters.wish.only.tip = শুধু যেসব {noun} থেকে এখনও কিছু তোলা হয়নি
-common.filters.wish.annotated.label = তোলা আছে
-common.filters.wish.annotated.tip = যেসব {noun} থেকে কিছু তোলা হয়নি, লুকান
-common.filters.shelf.label = তাক
-common.filters.shelf.aria = তাকের অবস্থা ধরে ফিল্টার
-common.filters.shelf.all.label = যে কোনও অবস্থা
-common.filters.shelf.none.label = তাকে নেই
-common.filters.genre.label = ঘরানা
 common.filters.only.label = শুধু দেখান
 common.filters.sort.label = সাজান
 common.filters.sort.aria = সাজান
-# {field} is the name of the column being filtered — series, collection, actor.
-common.filters.by.aria = {field} ধরে ফিল্টার
-common.filters.all.label = সব {field}
-# What a book's group of related titles is called, and its plural. A film's is a
-# "collection", passed in by the Catalogue.
-common.filters.series.noun.one = সিরিজ
-common.filters.series.noun.other = সিরিজ
-common.filters.credit.noun.one = অভিনেতা
-common.filters.credit.noun.other = অভিনেতা
 # The live count in a filter sheet's footer.
 common.filters.shown.label = {n}টা দেখা যাচ্ছে
 common.action.export.shown.tip = যা দেখা যাচ্ছে, এক্সপোর্ট করুন
@@ -897,12 +810,8 @@ common.action.export.shown.tip = যা দেখা যাচ্ছে, এক�
 # deliberate one.
 # ---------------------------------------------------------------------------
 error.save.generic = সেভ করা গেল না
-error.save.read = পড়ার খাতায় এটা সেভ করা গেল না
-error.save.watch = দেখার খাতায় এটা সেভ করা গেল না
 error.validate.partial-date = YYYY, YYYY-MM বা YYYY-MM-DD — এই তিন আকারের একটায় লিখুন
 error.validate.historical-date = সাল, সাল-মাস, বা পুরো তারিখ — "399 BCE" আর "c. 40" দুটোই চলে
-error.validate.episodes-total = এই সিজনে কটা এপিসোড?
-error.validate.pages-total = বইটায় মোট কটা পৃষ্ঠা?
 
 # ---------------------------------------------------------------------------
 # vocab.key.* — the words on a key cap. keys.js draws these; a keyboard's own
@@ -1270,30 +1179,8 @@ vocab.yesno.no.label = না
 # a second copy of it. Undoing says common.toast.restored.label, up there, because
 # undoing one row and undoing forty say the same word.
 common.toast.deleted = {n}টা মোছা হয়েছে
-# Fill gaps: the three outcomes. "nothing was missing" is the GOOD case and has
-# to read like one, or people learn to distrust the button.
-common.selection.fill.toast.nothing-missing = কোনও ঘরই ফাঁকা ছিল না
-common.selection.fill.toast.none-fetched = কিছুই আনা গেল না
-# {n} counts FIELDS filled, not works — "filled 3 books" over a selection of
-# forty reads as a failure where "filled 7 fields" reads as the win it is.
-common.selection.fill.toast.filled = {n}টা ঘর ভরা হল
 
-# Under one field of the bulk edit sheet, warning what setting it would destroy.
-# {n} is how many rows already hold a value; {value} is that value when they all
-# agree; {distinct} is how many different ones there are when they do not.
-common.selection.edit.title = {n}টায় একটা ঘর বসান
-common.selection.edit.body = একটা ঘর আর একটা মান বাছুন। বাছা সবকটাতে সেটাই বসবে; আর কিছু বদলাবে না।
-common.selection.edit.field.label = ঘর
-common.selection.edit.field.aria = কোন ঘরে বসাবেন
-common.selection.edit.value.aria = যে মান বসবে
-common.selection.edit.value.none.label = (কিছু না)
-common.selection.edit.clear.hint = ফাঁকা রাখলে ঘরটা মুছে যাবে।
-common.selection.edit.overwrite.same = যে {n}টায় আগে থেকেই “{value}” লেখা, সেগুলোও বদলে যাবে
-common.selection.edit.overwrite.differ = {n}টা বদলে যাবে — এখন তাতে {distinct} রকম মান আছে
 
-# Failures, keyed by WHAT failed rather than by where.
-error.apply.generic = বসানো গেল না
-error.fill.generic = শূন্যস্থান পূরণ করা গেল না
 error.delete.generic = মোছা গেল না
 error.undo.generic = আনডু করা গেল না
 
@@ -1314,95 +1201,29 @@ common.subject.book.label = এই বই
 common.subject.movie.label = এই টাইটেল
 common.subject.quote.label = এই উদ্ধৃতি
 
-# The card actions. .label is the menu row, .tip the hover tooltip.
-common.action.copy.tip = {subject} কপি করুন
 common.action.share.tip = {subject} শেয়ার করুন
 common.action.edit.tip = {subject} এডিট করুন
 common.action.delete.tip = {subject} মুছুন
-# Fetch only what is MISSING and touch nothing else.
-common.action.fill.label = শূন্যস্থান পূরণ
-common.action.fill.tip = ফাঁকা ঘরগুলো ভরান
 # The other flipping pair: .on when the row is NOT a favourite yet, .off when
 # it already is. Bengali negation is a different construction, so both are keys.
 common.action.favourite.menu.on.label = প্রিয়তে রাখুন
 common.action.favourite.menu.off.label = প্রিয় থেকে সরান
 common.action.favourite.tip = {subject} প্রিয়তে রাখুন
-# Filing a standalone quote on a different board.
-common.action.board.label = বোর্ডে পাঠান
-common.action.board.tip = অন্য বোর্ডে সরিয়ে রাখুন
-# The bulk-only actions: recolour, tag, sticker ("seal"), shelf, anthology, and
-# setting fields across several works at once.
-common.action.colour.label = রং
-common.action.add-tags.label = ট্যাগ যোগ করুন
-# bn: The English "seal" is the sticker itself, pinned to a quote. Bengali does not
-# need a second word for it — সিল is a rubber stamp — so every "seal" is স্টিকার.
-common.action.seal.label = স্টিকার বসান
-common.action.shelf.label = তাক
 common.action.anthology.label = সংকলনে দিন
 common.action.anthology.tip = {subject} সংকলনে জড়ো করুন
-common.action.set-fields.label = ঘরে মান বসান
 
-# The select controls a card's own menu puts above its actions. {n} is how many
-# cards are on screen — never how many the library holds, because a filter may
-# be hiding four hundred.
-common.selection.menu.select.label = বাছুন
-common.selection.menu.deselect.label = বাছাই তুলুন
-common.selection.menu.select-all.label = {n}টাই বাছুন
-common.selection.menu.deselect-all.label = সব বাছাই তুলুন
 
-# THE SELECTION BAR. The count badge at the left empties the picks and leaves
-# the bar standing; the ✕ at the right ends the mode. {noun} arrives already in
-# the right form from unit.*.
-common.selection.deselect-all.label = সব বাছাই তুলুন
-# Spoken and hovered when nothing is picked. A bare 0 in a count reads as
-# something having gone wrong, so zero is worded rather than numbered.
-common.selection.none.aria = কোনও {noun} বাছা হয়নি
 common.selection.count.aria = সব বাছাই তুলুন — {n} {noun} বাছা হয়েছে
 common.selection.count.tip = {n} {noun} বাছা হয়েছে
-common.selection.colour.aria = বাছা {n}টার রং বদলান
-common.selection.shelf.aria = বাছা {n}টা তাকে তুলুন
-common.selection.shelf.tip = তাকে তুলুন
-# The first row of the shelf menu: take the selection off its shelf entirely.
-common.selection.shelf.clear.label = তাক থেকে নামান
-common.selection.more.aria = বাছা {n}টার জন্য আরও
-common.selection.more.tip = আরও অপশন
-common.selection.dismiss.aria = বাছাই বন্ধ করুন
 
-# Toasts after a bulk action. {n} is how many rows were touched.
-common.selection.toast.recoloured = {n}টার রং বদলাল
-common.selection.toast.tagged = {n}টায় ট্যাগ বসল
-common.selection.toast.sealed = {n}টায় স্টিকার বসল
-common.selection.toast.seals-removed = স্টিকার উঠে গেল
-common.selection.toast.fields-set.one = 1টা রেকর্ড বদলাল
-common.selection.toast.fields-set.other = {n}টা রেকর্ড বদলাল
-common.selection.toast.favourited = {n}টা প্রিয়তে গেল
-common.selection.toast.moved = {n}টা পাঠানো হল
 # Gathering into an anthology. A quote already there is SKIPPED, not an error,
 # so the second form reports both numbers rather than claiming they all landed.
 common.selection.toast.gathered = {n}টা জড়ো হল
 common.selection.toast.gathered-some = {n}টা জড়ো হল, {skipped}টা আগেই ছিল
 
-# The delete confirmation. The reader has to TYPE {phrase} — and {phrase} is
-# still assembled in English by bulkOps.deletePhrase, because the Go server
-# compares it byte for byte. Translating this sentence without the server would
-# make the control impossible to satisfy.
-common.selection.delete.confirm.title = {n} {noun} মুছবেন?
-# bn: {phrase} is assembled in English by bulkOps.deletePhrase and compared byte
-# for byte by the server, so the sentence tells the reader to type the words shown.
-common.selection.delete.confirm.body.work = এগুলো সব উদ্ধৃতি সমেত বিনে যাবে — পুরো বাছাইটা একটাই জিনিস হিসেবে। নিশ্চিত করতে {phrase} লিখুন।
-common.selection.delete.confirm.body.quote = পুরো বাছাইটা একটাই জিনিস হিসেবে বিনে যাবে, পরে ফেরানো যায়। নিশ্চিত করতে {phrase} লিখুন।
 common.selection.delete.confirm.phrase.aria = নিশ্চিত করার কথাটা লিখুন
-common.selection.delete.confirm.action.label = মুছে দিন
 
-# The tag sheet the bar opens. Every tag is ADDED; nothing is removed.
-common.selection.tags.title = {n}টায় ট্যাগ
-common.selection.tags.body = এখানে যে ট্যাগ দেবেন, {n}টার সবগুলোতেই যোগ হবে। আগে থেকে যা আছে, কিছুই সরে না।
-common.selection.tags.placeholder = ট্যাগ লিখুন
-common.selection.tags.input.aria = বাছাই করা সবগুলোয় যে ট্যাগ যোগ হবে
 
-# The sticker sheet. "none" is the option that takes the seal off.
-common.selection.seal.title = {n}টায় স্টিকার
-common.selection.seal.body = পুরো বাছাইয়ে একটাই স্টিকার। “কিছু না” বাছলে সবকটা থেকে স্টিকার সরে যায়।
 
 error.add.generic = ওগুলো যোগ করা গেল না
 
@@ -1573,14 +1394,6 @@ quotes.board.delete.holds.body.other = এখানে {n}টা উক্তি
 quotes.board.delete.move.aria = উক্তিগুলো কোন বোর্ডে যাবে
 quotes.board.delete.empty.body = এখানে কিছুই রাখা নেই।
 
-# THE MOVE-TO-BOARD SHEET, opened from a card's ⋯ and from the selection bar,
-# so common.* rather than quotes.*.
-common.board.move.title.one = এই উক্তি পাঠান
-common.board.move.title.other = {n}টা উক্তি পাঠান
-common.board.move.body.one = কোন বোর্ডে থাকবে, শুধু সেটাই বদলায়। উক্তির আর কিছু নয়।
-common.board.move.body.other = {n}টাই একটা বোর্ডে যাবে। আর কিছুই বদলায় না।
-common.board.move.empty = পাঠানোর জায়গা নেই — আগে একটা বোর্ড তৈরি করুন।
-common.board.move.select.placeholder = একটা বোর্ড বাছুন
 
 # Two more shared verbs, and the pair on a board's own menu. The words say what
 # pressing them DOES, so Hide is on a board that is currently visible.
@@ -1885,41 +1698,13 @@ quotes.board.nomatch = এই ফিল্টারে কোনও উক্ত
 quotes.board.counts = {n} {noun}
 quotes.board.counts-described = {n} {noun} · {description}
 
-# The filters. The colour swatch row doubles as its own off switch.
-quotes.filters.colour.aria = রং ধরে ফিল্টার
-quotes.filters.speaker.aria = বক্তা ধরে ফিল্টার
-quotes.filters.speaker.all.label = সব বক্তা
-quotes.filters.kind.aria = ধরন ধরে ফিল্টার
-quotes.filters.kind.all.label = সব ধরন
-quotes.filters.language.aria = ভাষা ধরে ফিল্টার
-quotes.filters.language.all.label = সব ভাষা
 
-# Group by. "Quotes" here means UNGROUPED — one pile.
-# bn: The ungrouped option says so — "one pile" — rather than repeating the tab's name.
-quotes.group.none.label = ভাগ নেই
-quotes.group.speaker.label = বক্তা
-quotes.group.kind.label = ধরন
-quotes.group.place.label = জায়গা
-quotes.group.decade.label = দশক
-# Offered on a proverb board only: on a board of speeches the field is empty on
-# every row, which would be one section called "No language" holding all of it.
-quotes.group.language.label = ভাষা
-# The catch-all section heading, per dimension. It says WHAT IS MISSING rather
-# than "None", because a proverb lands in the catch-all of every one of these.
-quotes.group.residual.speaker.label = বক্তা নেই
-quotes.group.residual.kind.label = ধরন দেওয়া নেই
-quotes.group.residual.place.label = জায়গা নেই
-quotes.group.residual.language.label = ভাষা নেই
-quotes.group.residual.none.label = নেই
 
 # Sort.
 quotes.sort.recent.label = নতুন আগে
 quotes.sort.speaker.label = বক্তা
-quotes.sort.occasion.label = উপলক্ষ
-quotes.sort.said.label = কবে বলা
 
 quotes.delete.confirm = এই উক্তিটা মুছবেন?
-quotes.toast.moved = পাঠানো হয়েছে
 quotes.export.confirm.title = উক্তি এক্সপোর্ট
 quotes.export.confirm.body.one = স্ক্রিনে থাকা {n}টা উক্তি একটা Markdown ফাইলে এক্সপোর্ট হবে, যা Tippani-তে আবার ইমপোর্ট করা যায়।
 quotes.export.confirm.body.other = স্ক্রিনে থাকা {n}টা উক্তি একটা Markdown ফাইলে এক্সপোর্ট হবে, যা Tippani-তে আবার ইমপোর্ট করা যায়।
@@ -1931,20 +1716,11 @@ common.mono.actions.label = কাজ
 # Their Title Case twins are common.field.*.label and are different strings.
 common.mono.colour.label = রং
 common.mono.group.label = ভাগ
-common.mono.view.label = দৃশ্য
-common.mono.sort.label = ক্রম
-common.mono.tag.label = ট্যাগ
-common.mono.speaker.label = বক্তা
-common.mono.medium.label = মাধ্যম
-common.mono.language.label = ভাষা
 
-# Filter controls shared by the Library, the Catalogue and Quotes.
-common.filters.tag.aria = ট্যাগ ধরে ফিল্টার
 common.filters.tag.all.label = সব ট্যাগ
 common.filters.group.aria = কী ধরে ভাগ
 
 error.add.starters = ওগুলো যোগ করা গেল না
-error.move.generic = পাঠানো গেল না
 error.validate.quote-required = উক্তিটা লিখুন
 error.validate.date = তারিখটা দেখে নিন
 
@@ -2528,20 +2304,7 @@ search.group.genre.label = ঘরানা
 search.group.residual.author.label = লেখক অজানা
 search.group.residual.director.label = পরিচালক অজানা
 
-# THE TABLE VIEW. Every column head names a stored field.
-search.table.select-all.tip = সব সারি বাছুন
-search.table.select-all.aria = সব বাছুন
-search.table.select-row.tip = এই সারিটা বাছুন
-search.table.select-row.aria = সারি বাছুন
 
-# The table's inline bulk editor.
-search.bulk.author.placeholder = লেখক বসান
-search.bulk.director.placeholder = পরিচালক বসান
-search.bulk.series.placeholder = সিরিজ বসান
-search.bulk.tags.placeholder = ট্যাগ যোগ করুন (কমা দিয়ে আলাদা)
-search.bulk.genres.placeholder = ঘরানা যোগ করুন (কমা দিয়ে আলাদা)
-search.bulk.tags.blocked.tip = অন্তত একটা ট্যাগ লিখুন
-search.bulk.fields.blocked.tip = আগে একটা ঘর ভরুন
 
 # One search hit opened in place.
 search.hit.title.fallback = উদ্ধৃতি
@@ -2554,8 +2317,6 @@ search.hit.work.aria = {title} খুলুন
 
 error.search.failed = খুঁজে পাওয়া গেল না
 error.bulk.failed = একসঙ্গে কাজটা করা গেল না
-error.validate.tag-required = অন্তত একটা ট্যাগ লিখুন
-error.validate.field-required = আগে একটা ঘর ভরুন
 
 # ---------------------------------------------------------------------------
 # THE LIBRARY (Library.jsx) — books, and every highlight kept from them.
@@ -2571,25 +2332,10 @@ library.header.counts = {a} · {b}
 library.header.lookup.label = খোঁজা যায় ISBN বা নামে
 library.board.empty = এখনও কোনও বই নেই — উপরের বারের ＋ দিয়ে একটা যোগ করুন, বা উদ্ধৃতির ফাইল ইমপোর্ট করুন
 library.board.nomatch = এই ফিল্টারে কোনও বই মিলল না
-# The chip that folds every unquoted book into one tile.
-library.filters.fold-wishlist.label = উইশলিস্ট গুটিয়ে নিন
-library.filters.fold-wishlist.tip = যেগুলো থেকে কিছু তোলেননি, সব এক টাইলে
-# The catch-all group heading where a book has no author recorded.
-library.group.residual.author.label = লেখক অজানা
 
 # Sort, and group.
 library.sort.recent.label = নতুন আগে
 library.sort.title.label = নাম
-library.sort.author.label = লেখক
-library.sort.year.label = সাল
-library.sort.series.label = সিরিজ
-library.sort.read.label = শেষ কবে পড়া
-# "Books" here means UNGROUPED — one board of them.
-library.group.none.label = ভাগ নেই
-library.group.series.label = সিরিজ
-library.group.author.label = লেখক
-library.group.decade.label = দশক
-library.group.genre.label = ঘরানা
 
 # Exporting the board.
 library.export.confirm.title = গ্রন্থাগার এক্সপোর্ট
@@ -2597,7 +2343,6 @@ library.export.confirm.body = চোখের সামনের {a} · {b} এ�
 
 # A BOOK'S OWN PAGE.
 book.title.fallback = নামহীন
-book.filter.aria = উদ্ধৃতি ফিল্টার করুন
 book.export.label = .md এক্সপোর্ট
 book.practise.aria = এই বইটা ঝালিয়ে নিন
 book.practise.menu.label = এই বইটা ঝালিয়ে নিন
@@ -2637,20 +2382,11 @@ common.quote.speaker.tip = {name} বলেছেন — চরিত্রট�
 # having spoken it, so there is no record to open behind them.
 common.quote.named.tip = এই লাইনে {name}-এর নাম আছে
 common.quote.edit.title = উদ্ধৃতি এডিট করুন
-common.quote.pick.label = এই উদ্ধৃতি
 # The chapter and page locator under a highlight. ⚠ "CH." here is spelled the
 # same way the Markdown export writes a chapter heading and the importer reads
 # it back — see text.js. Changing it breaks the round trip.
 common.locator.chapter.label = অধ্যা. {name}
 
-# THE HIGHLIGHTS TABLE on a book's page.
-book.table.quote.label = উদ্ধৃতি
-book.table.chapter.label = অধ্যায়
-book.table.location.label = লোকেশন
-book.table.date.label = তারিখ
-# The favourite column, a bare heart.
-book.table.favourite.label = ♥
-book.table.sort.tip = এই কলাম ধরে সাজান
 
 # The highlights board on a book's page.
 book.quotes.counts.shown = {a} · {n}টা দেখাচ্ছে
@@ -2684,26 +2420,12 @@ movies.header.nokey.label = TMDB-র চাবি নেই — নিজে হ
 movies.header.lookup.label = খোঁজা যায় নাম + সাল দিয়ে
 movies.board.empty = এখনও কোনও টাইটেল নেই — TMDB/TVDB-তে খুঁজে নিন, বা নিজে হাতে যোগ করুন।
 movies.board.nomatch = এই ফিল্টারে কোনও টাইটেল মিলল না
-movies.group.residual.director.label = পরিচালক অজানা
 
-# The media-type filter above the board. Only offered for the kinds you have.
-movies.filters.media.all.label = সব
-movies.filters.media.movie.label = সিনেমা
-movies.filters.media.show.label = শো
-movies.filters.media.game.label = গেম
 
 # Sort, and group. "Titles" means UNGROUPED; a film's franchise is a COLLECTION
 # where a book's is a series.
 movies.sort.recent.label = নতুন আগে
 movies.sort.title.label = নাম
-movies.sort.year.label = সাল
-movies.sort.series.label = সিরিজ
-movies.sort.read.label = শেষ কবে দেখা
-movies.group.none.label = ভাগ নেই
-movies.group.series.label = সিরিজ
-movies.group.author.label = পরিচালক
-movies.group.decade.label = দশক
-movies.group.genre.label = ঘরানা
 
 # Exporting the board. Counted PER MEDIUM, because a game tallied as a movie is
 # a dialog that lies about what it is going to write.
@@ -2748,7 +2470,6 @@ film.form.media.movie.label = সিনেমা
 
 # A TITLE'S OWN PAGE.
 film.title.fallback = নামহীন
-film.filter.aria = সংলাপ ফিল্টার করুন
 film.export.label = .md এক্সপোর্ট
 film.practise.aria = এই টাইটেলটা ঝালিয়ে নিন
 film.practise.menu.label = এই টাইটেলটা ঝালিয়ে নিন
@@ -2766,25 +2487,15 @@ film.shelf.cap.past.label = দেখা শেষ
 
 # The dialogue board on a title's page.
 film.lines.filter.title = সংলাপ ফিল্টার করুন
-film.lines.filter.placeholder = চরিত্র বা ট্যাগ…
 film.lines.filter.tag.all.label = সব ট্যাগ
 film.lines.capture.label = ＋ একটা সংলাপ তুলে রাখুন
-film.lines.select.menu.label = সংলাপ বাছাই
-film.lines.counts.shown = {a} · {n}টা দেখাচ্ছে
 film.lines.empty = এখনও কোনও সংলাপ নেই — উপরের বারের ＋ দিয়ে প্রথমটা তুলে রাখুন।
 film.lines.nomatch = এই ফিল্টারে কোনও সংলাপ মিলল না।
 film.lines.delete.confirm = এই সংলাপটা মুছবেন?
 
-# THE DIALOGUE TABLE.
-film.table.quote.label = সংলাপ
-film.table.character.label = চরিত্র
-film.table.episode.label = এপিসোড
-film.table.time.label = সময়
-film.table.favourite.label = ♥
 
 # ONE FILM LINE, as a card. Drawn on four screens, so common.*.
 common.dialogue.edit.title = সংলাপ এডিট করুন
-common.dialogue.pick.label = এই সংলাপ
 
 # The dialogue form.
 film.line.form.quote.placeholder = সংলাপ (দিতেই হবে)
@@ -2806,11 +2517,6 @@ unit.line.one = সংলাপ
 unit.line.other = সংলাপ
 
 
-# ---------------------------------------------------------------------------
-# ONE MORE COUNTABLE NOUN, for the Catalogue's franchise filter.
-# ---------------------------------------------------------------------------
-unit.collection.one = সিরিজ
-unit.collection.other = সিরিজ
 
 # One more countable noun, for the studio whose credits are games.
 unit.game.one = গেম
@@ -5217,52 +4923,11 @@ links.reading.none = এটা এখনও কোনও ঠিকানা ন�
 links.already = এটা ইতিমধ্যেই এই রেকর্ডে আছে।
 links.save.nothing = এখনো সেভ করার কিছু নেই
 links.remove.aria = {name} লিংকটা সরান
-# Ordering, grouping and filtering ANY board of quotes — a book's highlights and
-# a film's, a show's or a game's lines alike. One vocabulary, because one control
-# draws all of them: see boardHead.jsx. The dimensions are named for themselves
-# (chapter, character, episode, act, quest), so no two kinds collide and a kind
-# offers only the ones workKinds.js says it has.
-board.category.any.label = যে কোনও শ্রেণি
-board.columns.label = কলাম
-board.columns.auto.label = আপনা-আপনি
-board.group.aria = উদ্ধৃতি সাজান
-board.group.none.label = কিছু না
-board.group.chapter.label = অধ্যায় অনুযায়ী
-board.group.color.label = শ্রেণি অনুযায়ী
-board.group.tag.label = ট্যাগ অনুযায়ী
-board.group.date.label = যোগ করার তারিখ অনুযায়ী
-board.group.chapter.numbered.label = অধ্যায় {n}
-board.group.chapter.named.label = অধ্যা. {n}: {name}
-board.group.chapter.none.label = অধ্যায় নেই
-board.group.tag.none.label = ট্যাগ নেই
-board.group.date.none.label = তারিখ নেই
 board.sort.default.label = সাম্প্রতিক
 board.sort.date.label = যোগ করার তারিখ
-board.sort.chapter.label = অধ্যায়
-board.sort.location.label = অবস্থান
-board.sort.length.label = দৈর্ঘ্য
-board.sort.category.label = শ্রেণি
-board.sort.dir.label = ক্রম
 board.sort.dir.asc.label = ছোট থেকে বড়
 board.sort.dir.desc.label = বড় থেকে ছোট
-board.sort.menu.label = সাজানো
-board.group.character.label = চরিত্র অনুযায়ী
-board.group.episode.label = এপিসোড অনুযায়ী
-board.group.act.label = অঙ্ক অনুযায়ী
-board.group.quest.label = কোয়েস্ট অনুযায়ী
-board.sort.character.label = চরিত্র
-board.sort.episode.label = এপিসোড
-board.sort.timestamp.label = সময়
-board.sort.act.label = অঙ্ক
-board.sort.quest.label = কোয়েস্ট
-board.group.character.none.label = চরিত্র নেই
-board.group.episode.numbered.label = এপিসোড {n}
-board.group.episode.seasoned.label = সি{s} · এ{n}
-board.group.episode.none.label = এপিসোড নেই
-board.group.act.none.label = অঙ্ক নেই
-board.group.quest.none.label = কোয়েস্ট নেই
 board.strip.shown.label = {total}টার মধ্যে {n}টা দেখানো হচ্ছে
-book.select.menu.label = উদ্ধৃতি বাছাই
 
 # ---- PRUNE: the saved records nothing points at ---------------------------
 # bn: "orphan" has no good Bengali for a record — অনাথ is for a child. পড়ে থাকা

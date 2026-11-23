@@ -48,6 +48,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   settings, Sections, language marks and voices, and the reading fields are gone (ADR-0936); the
   Android app keeps them.
 
+- **The read log and the progress editor.** A work's shelf chip no longer opens an editor for
+  progress or for the dates it was read; the state and the change of state stay. (ADR-0936)
+
+- **Copy, duplicate, move to board and gather on a quote's menu.** A quote's ⋯ keeps Edit,
+  Share, Context, Favourite and Delete; the other actions a quote card offered are gone from the
+  web app. (ADR-0936)
+
+- **Group-by, the table and grid views, and the list filters.** The Library, Catalogue and
+  Quotes lists, and a work's quotes and lines, keep one list view, a favourites toggle and a
+  basic sort; grouping, the table and cover-grid views, the sort options beyond the basics and
+  the filter panels are gone. (ADR-0936)
+
+- **Multi-select and the bulk bar.** Selecting several books, films, quotes or search results,
+  and the bar that acts on them, including bulk season and episode, are gone from the web app;
+  single-item edit and delete menus stay. (ADR-0936)
+
 - **Settings › Theme is a dropdown on the web.** The material tiles, physics dials, true glass,
   per-surface materials, saved looks and cover-size sliders are gone; you pick a theme from a
   list, then light, dark or match system, and a colour (ADR-0936).

@@ -1,8 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { groupWorks, pinInProgress } from '../../src/works.jsx'
 import { showsField } from '../../src/addFields.js'
-import { bulkFieldsFor, overwriteWarning } from '../../src/bulkOps.jsx'
-import { duplicateSeed } from '../../src/Library.jsx'
 import { MOVIE_FIELDS, specsFor } from '../../src/WorkDetails.jsx'
 
 // works.jsx — the shelf and grouping logic shared by Library and the Catalogue.
@@ -102,110 +100,6 @@ describe('add fields', () => {
 // is a warning on nothing — a reader who sees eight of them stops reading them,
 // and the one that mattered goes past with the rest. Filling a blank cannot lose
 // anything, so it says nothing.
-describe('bulk fields', () => {
-  const keys = (kind) => bulkFieldsFor(kind).map((f) => f.key)
-
-  describe('what may be set over a selection', () => {
-    // THE RULE THIS FILE EXISTS FOR. A title is what tells five rows apart;
-    // setting it across them destroys four records and leaves five nothing can
-    // distinguish afterwards.
-    it('never the name of a work', () => {
-      for (const kind of ['book', 'movie']) {
-        expect(keys(kind), `${kind} must not offer its title`).not.toContain('title')
-      }
-    })
-
-    it('never the words of a quote', () => {
-      for (const kind of ['annotation', 'dialogue', 'quote']) {
-        expect(keys(kind), `${kind} must not offer its own text`).not.toContain('quote')
-      }
-    })
-  })
-
-  describe('the per-field warning', () => {
-    it('counts only the rows that would actually lose something', () => {
-      const rows = [{ series: 'Hainish' }, { series: '' }, { series: 'Earthsea' }, {}]
-      const w = overwriteWarning(rows, 'series')
-      expect(w.rows).toBe(2)
-      expect(w.distinct).toBe(2)
-      expect(w.text).toMatch(/2 different values/)
-    })
-  })
-
-  // ---- one column, two words for it -------------------------------------------
-  //
-  // A book's `series` is a Series and a film's is a Collection — which is what both
-  // Details panels call them. The bulk editor said "Series" over a selection of
-  // films, the one place in the app using the other side's word.
-})
-
-// WHAT A DUPLICATE CARRIES, pinned field by field.
-//
-// The menu row promises "the same note, tags, colour and locator", and a promise
-// in a label is only as good as the mapping under it — this is that mapping. It
-// is a pure function precisely so the promise can be checked without a screen.
-//
-// ONE CONVERSION IS LEFT, AND IT WAS TWO. A row's `chapter_no` is a number or
-// null while every box holds a string — the kind of thing that "works" in a
-// browser by coercion and then saves 0 for "no chapter". The other was `tags`:
-// the old capture card kept them in a comma box so this joined the array, and the
-// add-surface rework replaced that box with the token input the three edit forms
-// have always used, which takes the array the row already carries.
-describe('duplicate seed', () => {
-  const FULL = {
-    id: 7,
-    quote: 'Manuscripts don’t burn.',
-    note: 'Woland, to the Master.',
-    chapter: 'Chapter Twenty-Four',
-    chapter_no: 24,
-    location: 'p.402',
-    character: 'Woland',
-    color: 'blue',
-    tags: ['craft', 'fire'],
-    // SEEDED NOW, AND THEY WERE NOT. The old capture card had no translation, no
-    // language and no sticker box, so seeding them would have put values in a draft
-    // nothing could show — the add surface's rework gave every quote form all
-    // three, and a duplicate that dropped the translation is a copy whose meaning
-    // has to be retyped.
-    translation: 'পাণ্ডুলিপি পোড়ে না।',
-    language: 'Bengali',
-    sticker_id: 3,
-    // Still not seeded: a duplicate is a NEW quote, so it starts unfavourited and
-    // with no id of its own.
-    favorite: 1,
-    id_of_something_else: 99,
-  }
-
-  describe('the draft a duplicate opens on', () => {
-    it('leaves a missing chapter number EMPTY rather than zero', () => {
-      // A form field is a string. `String(null)` is "null" and `Number(null)` is 0,
-      // and 0 is a real chapter — so "no chapter" has to arrive as no characters.
-      expect(duplicateSeed({ ...FULL, chapter_no: null }).chapter_no).toBe('')
-      expect(duplicateSeed({ ...FULL, chapter_no: 0 }).chapter_no).toBe('0')
-    })
-  })
-})
-
-// A game is not a film, and its Details page had been telling it otherwise.
-//
-// 0040 stores games as `movies` rows — the right decision, and the one that let
-// the Catalogue hold them at all. The cost is that every screen reading a movies
-// row treats a game as a film unless it is told not to, and for two releases
-// nothing told this one. Opening Mass Effect Legendary Edition showed:
-//
-//   TYPE       Film                       ← and no way to say otherwise
-//   DIRECTOR   Electronic Arts            ← a studio, labelled as a person's job
-//   TMDB ID    type an id, or fetch…      ← three film ids, none of them usable
-//   THETVDB ID type an id, or fetch…
-//   IMDB ID    not set
-//                                         ← and no IGDB id, the one that works
-//
-// None of it errored. Every field was a real field of a real row; they were just
-// the wrong ones, wearing the wrong words.
-//
-// These are pure because the defect is entirely in the two tables that decide
-// what a medium shows and what it calls it — no rendering required to catch it,
-// and a render test would have needed the whole panel to prove less.
 describe('game details', () => {
   const keys = (mt) => specsFor(MOVIE_FIELDS, mt).map((s) => s.key)
 

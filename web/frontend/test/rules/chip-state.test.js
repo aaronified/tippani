@@ -61,7 +61,7 @@ describe('a filter chip', () => {
     // The guard on the guard. A regex that stops matching — a prop reordered, the
     // helper renamed — would turn every case below green while the rule went
     // unchecked, which is the failure mode a source scan has and a render does not.
-    expect(chips.length, 'no filter chips found — the scan has gone stale').toBeGreaterThan(4)
+    expect(chips.length, 'no filter chips found — the scan has gone stale').toBeGreaterThan(2)
   })
 
   it('says whether it is the chosen one, and not only in a class name', () => {

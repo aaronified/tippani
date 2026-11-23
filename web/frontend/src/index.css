@@ -24,7 +24,7 @@
        agree about it and only one of them draws it. `.topbar` is sticky at
        top: 0, so anything else that sticks to the top of the page has to start
        below this or it parks behind a bar that answers every click first — see
-       `.selection-bar`, which did exactly that. A literal in both places is the
+       a sticky selection bar, which did exactly that before it was cut. A literal in both places is the
        drift this block's next paragraph is about, and the phone already keeps
        the same offset against `.mobile-topbar`. */
     --topbar-h: 56px;
@@ -2511,118 +2511,6 @@
     filter: drop-shadow(0 2px 3px rgba(20, 16, 12, .32));
   }
 
-  /* The TICKMARK in a card's corner, and the card that is picked.
-
-     WHEN IT SHOWS. Hover-revealed on a pointer, like the colour dots and the
-     copy/share pair — and standing on EVERY card of a board that has a selection
-     running (.is-selecting), because a mark you can only find by hovering is no way
-     to see what is currently picked, and because the cards you have NOT picked are
-     half of that answer.
-
-     It no longer stands on a phone at rest, which it used to. There was nothing to
-     select with then; there is now — a long press on the card — and a hollow circle
-     on every book cover in the Library, permanently, for a mode nobody had entered
-     is a lot of furniture for an affordance the gesture already provides.
-
-     And on a touch screen the mode is now the ONLY thing that reveals it. See the
-     gate below: hover and focus were leaving one card's mark lit after the
-     selection had been emptied, because a tap leaves :focus-within behind it.
-
-     Absolutely positioned so it costs the card no layout: a mark in the flow would
-     re-wrap the quote on every board the moment selection mode existed. */
-  .card-pick {
-    position: absolute;
-    top: 6px;
-    right: 8px;
-    z-index: 2;
-    display: inline-flex;
-    padding: 4px;
-    cursor: pointer;
-    opacity: 0;
-    transition: opacity .18s ease;
-  }
-  /* Visually hidden, NOT display:none — it is still the control. Clipped to a
-     pixel rather than moved off-screen, so focusing it by keyboard cannot scroll
-     the board sideways. */
-  .card-pick input {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    margin: 0;
-    padding: 0;
-    opacity: 0;
-    pointer-events: none;
-  }
-  .card-pick-mark {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 22px;
-    height: 22px;
-    border-radius: 999px;
-    border: 1.5px solid color-mix(in srgb, var(--ink) 34%, transparent);
-    /* Opaque, because it sits over a cover: a translucent circle on a dark poster
-       is a smudge, and on a pale one it is invisible. */
-    background: var(--card);
-    color: transparent; /* the tick is drawn in currentColor — hidden until picked */
-    box-shadow: 0 1px 3px rgba(41, 38, 29, .28);
-    transition: background .14s ease, border-color .14s ease, color .14s ease;
-  }
-  .card-pick-mark svg { width: 15px; height: 15px; }
-  .card-pick input:checked + .card-pick-mark {
-    background: var(--accent-ui);
-    border-color: var(--accent-ui);
-    color: var(--on-accent);
-  }
-  /* Keyboard only. A tap focuses too, and a ring under a thumb is noise. */
-  .card-pick input:focus-visible + .card-pick-mark {
-    outline: 2px solid var(--accent-ui);
-    outline-offset: 2px;
-  }
-  /* A work tile: the cover button, with the tick laid over it rather than inside
-     it. A <label> wrapping an <input> inside a <button> is invalid HTML and the
-     browsers disagree about which of the two nested controls a tap belongs to, so
-     the tile stays a plain button and this is the positioned host that lets the
-     mark sit on top of it. See WorkCard. */
-  .work-tile { position: relative; }
-  /* The mark rides on the ARTWORK, not the caption under it: `top` clears nothing
-     because the poster starts at the top of the tile. */
-  .work-tile > .card-pick { top: 6px; right: 8px; }
-  /* THE MODE REVEALS EVERY MARK, at every width, and nothing else does on a touch
-     screen. `.is-selecting` is the bar being up (see useSelection: it tracks the
-     MODE now, not the count), so the rule a person can actually hold is "the ticks
-     are up while the bar is up" — and dismissing puts all of them away together. */
-  .is-selecting .card-pick,
-  .is-picked .card-pick { opacity: 1; }
-  /* Hover and focus reveal one card's mark, and are gated on having a pointer that
-     can hover. THIS IS THE BUG THAT WAS LEFT LIT: on a touch screen the tile keeps
-     :focus-within after the tap that long-pressed it, so the dot on that one card
-     stayed up after the selection was emptied — until a reload, which is the only
-     thing that dropped the focus. Nothing was selected and one card said it was.
-
-     `:focus-within` is not lost by gating it: it is here for a keyboard tabbing
-     down the board, and a keyboard comes with a pointer that hovers. */
-  @media (hover: hover) {
-    .hand-card:hover .card-pick,
-    .hand-card:focus-within .card-pick,
-    .film-frame:hover .card-pick,
-    .film-frame:focus-within .card-pick,
-    .work-tile:hover .card-pick,
-    .work-tile:focus-within .card-pick { opacity: 1; }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .card-pick,
-    .card-pick-mark { transition: none; }
-  }
-  /* The picked card. An accent RING rather than a fill: a quote card already carries
-     a colour bar that means something else entirely, and tinting the paper would
-     fight it — and on a frame it would fight the border. The ring is what
-     you see from across the board; the tick is what you read up close. */
-  .is-picked {
-    position: relative;
-    box-shadow: 0 0 0 2px var(--accent-ui), 0 10px 24px -18px rgba(0, 0, 0, .5);
-  }
-
   /* The quote itself, and the note under it — the region a long press must NOT
      take, because reaching into text is the one thing a thumb has no other way to
      do. `.card-menu-host` below turns the platform callout off for the card; this
@@ -2703,80 +2591,6 @@
      unrelated systems on one card. See HeroCounts' `tone`. */
   .hero-counts-amber .hero-counts-total { color: var(--amber); }
 
-  /* The bar a selection puts up.
-     STICKY, and that is the feature rather than a flourish: selecting forty things
-     and scrolling to check one of them must not lose the controls, and the count is
-     the only thing on screen that says how many are picked.
-
-     z-index 30 sits under every overlay tier this app already has (the drawer and
-     sheets at 50, the grain at 60, toasts at 70) and above the boards it floats
-     over. `top: 0` is deliberate on a desktop — the page's own header scrolls away,
-     so there is nothing above it to clear — while the mobile shell keeps its top
-     bar, and the media query below hands the bar the space under it. */
-  /* THE SELECTION COUNT, drawn as a glyph.
-     It rides in IconButton's icon slot, so it inherits that button's round 44px
-     border and lines up with every other control in the row. Mono and tabular so
-     the badge does not change width between 3 and 8 — a control that resizes as
-     you tick things is a control that moves under your thumb. */
-  .selection-count {
-    font-family: var(--font-mono);
-    font-style: var(--font-mono-style);
-    font-variant-caps: var(--font-mono-caps);
-    text-transform: var(--font-mono-case);
-    font-variant-numeric: tabular-nums;
-    font-size: var(--type-mono-13);
-    font-weight: 600;
-    line-height: 1;
-    color: var(--accent-ui);
-  }
-  /* Dimmed rather than hidden at zero: the button is disabled there, and a badge
-     that vanishes when you clear the picks takes the bar's own explanation with it. */
-  .tp-btn:disabled .selection-count { color: var(--soft); }
-
-  /* The starter-proverb offer, above an empty Proverbs board. Quiet: it is an
-     invitation, not a warning, and it disappears the moment the board has anything
-     in it. */
-  .starter-proverbs {
-    margin-bottom: 14px;
-    padding: 12px 14px;
-    border: 1px dashed var(--line);
-    border-radius: 10px;
-    background: color-mix(in srgb, var(--accent) 4%, transparent);
-  }
-
-  .selection-bar {
-    position: sticky;
-    /* UNDER THE TOP BAR, NOT UNDERNEATH IT. `top: 0` stuck this to the viewport's
-       top edge, which on a desktop is where `.topbar` already is — sticky, 56px
-       tall and z-index 40. So the moment the page scrolled past the toolbar the
-       whole selection bar slid behind it: still in the accessibility tree, still
-       reporting a box, and every control in it answering to nothing, because
-       `elementFromPoint` at the ⋯ returned the top bar's search box. That is why
-       "Set fields" has been unreachable in a browser since 1.16.0 and why a
-       journey over a work selection could not be written — it was read as a
-       harness limitation for as long as nobody measured it.
-       The phone half of this was already right (`top: var(--phone-bar-h)` below, mirroring
-       `.mobile-topbar`'s height the way `.mobile-sticky-bar` does); this is the
-       same offset for the bar a desktop actually has. */
-    top: var(--topbar-h);
-    z-index: 30;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 12px;
-    padding: 8px 12px;
-    border: 1px solid color-mix(in srgb, var(--accent) 34%, var(--line));
-    border-radius: 10px;
-    /* Opaque, not translucent: cards scroll UNDER this and a see-through bar over a
-       wall of quotes is unreadable exactly when it matters most. */
-    background: color-mix(in srgb, var(--accent) 10%, var(--card-top));
-    box-shadow: 0 6px 16px -10px rgba(0, 0, 0, .45);
-  }
-  /* The tag input takes the slack so the buttons keep their size, and never grows
-     past the point where the row wraps into three lines. */
-  .selection-tags { flex: 1 1 160px; min-width: 140px; max-width: 320px; }
-
   /* A card that answers a right-click or a long press (useCardMenu).
      iOS raises its own callout menu (Copy / Look Up / Share) on a long press over
      text, which would land on top of ours. Everything else about the card —
@@ -2795,9 +2609,8 @@
      confirmation of WHICH one it would delete. The card says so instead of the
      menu carrying a title, because the answer to "which one" is the card.
 
-     An ACCENT RING, exactly as a selected card wears (see PickMark): the two are
-     the same statement — this is the card being acted on — and inventing a
-     second look for it would ask the reader to learn two marks for one idea. It
+     An ACCENT RING: it says the card is the one being acted on, and a second
+     look for that would ask the reader to learn two marks for one idea. It
      is an outline rather than a border so nothing reflows, and rather than a
      tint because a quote card's colour bar already means something else and a
      film poster's frame would fight it.
@@ -8336,15 +8149,6 @@ html[data-theme="dark"] .mobile-sheet-footer {
      wider cards, where the six DO show and 6×28 has room. */
   .hand-card .color-dot-btn,
   .film-frame .color-dot-btn { min-width: 28px; }
-  /* No hover to reveal it with — but no permanent circle on every card either.
-     The long press is the way in on a phone, and once one card is picked the board
-     wears .is-selecting and every mark stands (see .card-pick). */
-  .card-pick { padding: 7px; }
-
-  /* Under the phone's own top bar rather than at the very top of the viewport,
-     which is where .mobile-topbar already is. */
-  .selection-bar { top: var(--phone-bar-h); }
-
   /* No hover on a phone, so the quick-pick and the copy/share pair stand beside
      the ♥. Edit and delete still fold behind the ⋯. */
   .card-colors,

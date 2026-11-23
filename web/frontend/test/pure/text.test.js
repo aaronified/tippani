@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import { chapterLabel, chapterPatch, editDistance, quoteTexts } from '../../src/text.js'
-import { groupAnnotations } from '../../src/Library.jsx'
 
 // text.js — the string primitives shared by the People console and the search
 // box's facet dropdown.
@@ -70,30 +69,6 @@ describe('text', () => {
 // WHAT A TEST WRITER NEEDS TO KNOW: the paragraphs above. Nothing here asserts a
 // sentence — the labels are locale strings — only that the number and the name
 // are both IN the heading, and which chapter each quote lands under.
-describe('chapter headings', () => {
-  const q = (id, chapter_no, chapter) => ({ id, chapter_no, chapter })
-  const labels = (rows) => groupAnnotations(rows, 'chapter').map((g) => g.label)
-
-  describe('a chapter heading on a grouped board', () => {
-    it('is one group per chapter, however many of its quotes were given the name', () => {
-      const groups = groupAnnotations([q(1, 7, ''), q(2, 7, 'The Duel'), q(3, 7, '')], 'chapter')
-      expect(groups.length, 'one chapter came out as two groups').toBe(1)
-      expect(groups[0].items.length).toBe(3)
-      expect(groups[0].label, 'the group took the heading of whichever quote came first')
-        .toContain('The Duel')
-    })
-  })
-})
-
-// A chapter's number and its name, printed as one thing.
-//
-// 0044 split `chapter` in two. Every display site went through one of two helpers
-// rather than punctuating the pair itself, and these are the rules those helpers
-// keep — including the one that matters most and is easiest to break silently: the
-// string chapterLabel produces has to be BYTE-IDENTICAL to the "## " heading
-// export_handlers.go writes, because the importer reads that heading back. A space
-// added on one side of the middle dot here and not there would round-trip every
-// chapter number into a chapter name, and nothing would fail.
 describe('chapter label', () => {
   describe('chapterLabel', () => {
     // THE SEPARATOR IS THE ROUND TRIP. chapterHeading in export_handlers.go writes

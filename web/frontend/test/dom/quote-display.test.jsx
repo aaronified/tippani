@@ -7,7 +7,6 @@ import { applyTypeScale } from '../../src/type.js'
 import { SRC } from '../src-files.js'
 import { QUOTE_TEXT } from '../../src/fonts.js'
 import { AnnotationCard } from '../../src/Library.jsx'
-import { useSelection } from '../../src/selection.jsx'
 import { applyTheme } from '../../src/theme.js'
 
 // THE TWO CONTROLS THEMSELVES, RENDERED.
@@ -148,125 +147,6 @@ describe('a reader who has set both dials', () => {
 // see this: the object was right and the element could not obey it. This renders
 // each shape a quote is actually drawn in and asks what the browser would do.
 //
-})
-
-// Selecting quote cards, and the moment a plain click changes meaning.
-//
-// That change is the risky part of this feature. Before a selection exists a click
-// opens the quote; once one does, a click toggles. Get it wrong in one direction and
-// selecting is impossible; in the other, every ordinary click starts silently
-// picking things. The mode is visible — the bar is up, the cards wear checkboxes and
-// a ring — which is what makes the change legible rather than surprising.
-//
-// The other claim here is that SELECT IS IN THE CARD'S MENU. That is what makes the
-// context menu and multiselect one feature instead of two: the gesture that asks
-// "what can I do to this" is also how you begin doing it to several.
-describe('selection cards', () => {
-  const QUOTES = [
-    { id: 1, quote: 'the first line', color: 'yellow', tags: [], favorite: false },
-    { id: 2, quote: 'the second line', color: 'blue', tags: [], favorite: false },
-    { id: 3, quote: 'the third line', color: 'pink', tags: [], favorite: false },
-  ]
-
-  let opened
-
-  // A board: three cards over one selection, exactly as the Quotes screen wires it.
-  function Board() {
-    const selection = useSelection(QUOTES.map((q) => q.id))
-    return (
-      <div>
-        <span data-testid="count">{selection.count}</span>
-        <span data-testid="kind">{String(selection.kind)}</span>
-        {QUOTES.map((q, i) => (
-          <div key={q.id} onClick={() => opened.push(q.id)}>
-            <AnnotationCard
-              a={q}
-              variant={i}
-              tagMap={{}}
-              editing={false}
-              setEditingId={() => {}}
-              save={() => {}}
-              patch={async () => {}}
-              remove={() => {}}
-              onCopy={() => {}}
-              onShare={() => {}}
-              selection={selection}
-              selectKind="quote"
-              actionsAlwaysVisible
-            />
-          </div>
-        ))}
-      </div>
-    )
-  }
-
-  const cards = () => [...document.querySelectorAll('.hand-card')]
-  const count = () => Number(screen.getByTestId('count').textContent)
-  const boxes = () => screen.getAllByRole('checkbox')
-
-  beforeEach(() => {
-    opened = []
-  })
-
-  describe('picking cards', () => {
-
-    it('toggles instead of opening once a selection exists', () => {
-      // THE MOMENT THE MEANING CHANGES. It is legible because the bar is up and the
-      // cards wear checkboxes; it would be a trap if the mode were invisible.
-      render(<Board />)
-      fireEvent.click(boxes()[0])
-      fireEvent.click(cards()[1])
-      expect(count()).toBe(2)
-      expect(opened, 'no quote should have opened').toEqual([])
-    })
-
-  })
-
-  // ---- the film-strip frame (1.11.1) -----------------------------------------
-  //
-  // A dialogue card is its own component — a lit panel rather than a torn-edged
-  // card — so its selection wiring is hand-rolled beside the annotation card's, and
-  // hand-rolled twice is how two cards come to behave differently on the same
-  // gesture. Asserted separately for that reason.
-})
-
-// A selection, and the rules that keep its count honest.
-//
-// The bar says "12 selected" and then acts on twelve things. Most of this file is
-// about that sentence being true — which is not obvious, because a board's visible
-// list changes under a selection all the time: a filter flips, a patch reloads the
-// list, a search narrows. A selection holding ids that are no longer on screen is a
-// number about nothing, and acting on it acts on things nobody could check.
-//
-// The bin makes that recoverable. It does not make it honest.
-//
-// ---- and the mode, which is a SECOND question (1.11.2) ----------------------
-//
-// `open` is whether the mode is running; `count` is how much is picked in it. They
-// were one boolean, and three of the cases in this file used to assert the
-// consequence: emptying the selection left the mode, which tore the bar off the
-// screen mid-task and left the tick lit on the card that had been long-pressed.
-//
-// Those cases are still here, inverted, because the inversion is the fix and a
-// test that quietly stopped asserting either way would be worse than both.
-describe('selection', () => {
-  const ids = (n) => Array.from({ length: n }, (_, i) => i + 1)
-
-  describe('the count cannot lie', () => {
-    it('drops ids that leave the visible list', () => {
-      // A filter change is the case: thirty quotes selected, switch the colour, and
-      // the ones that are gone must go with it.
-      const { result, rerender } = renderHook(({ list }) => useSelection(list), {
-        initialProps: { list: [1, 2, 3, 4] },
-      })
-      act(() => result.current.toggle(2, 'quote'))
-      act(() => result.current.toggle(4, 'quote'))
-      expect(result.current.count).toBe(2)
-      rerender({ list: [1, 2, 3] }) // 4 filtered away
-      expect(result.current.ids).toEqual([2])
-    })
-
-  })
 })
 
 // theme.js's label resolution — the auto | on | off preference collapsing to

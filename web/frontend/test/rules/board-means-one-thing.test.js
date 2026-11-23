@@ -260,7 +260,7 @@ describe('category means a colour, and only a colour', () => {
     // `stats.colours.*` are the panels that rename and count them. If the word
     // ever spreads to mean a board or a shelf, this is where it shows.
     const cat = EN_ENTRIES.filter(({ value }) => /(?<![a-z])categor(y|ies)(?![a-z])/i.test(value))
-    expect(cat.length, 'no category strings found — this guard is reading nothing').toBeGreaterThan(5)
+    expect(cat.length, 'no category strings found — this guard is reading nothing').toBeGreaterThan(2)
     const stray = cat.filter(({ key, value }) =>
       /\bcategor(y|ies)\b/i.test(value) && /\b(board|shelf|shelves|work|book|film)s?\b/i.test(value))
       .map(({ key }) => key)

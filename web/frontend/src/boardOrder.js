@@ -20,7 +20,6 @@
 import { t } from './i18n.js'
 import { categoryName } from './theme.js'
 import { ANNOTATION_COLORS, fmtDate } from './ui.jsx'
-import { KINDS } from './workKinds.js'
 
 // annDate prefers the source/original date (noted_at, set on import or manual
 // add) and falls back to the row's created_at.
@@ -139,118 +138,5 @@ export function sortAnnotations(rows, sort) {
 // would make every group hold one quote, which is a list with headings.
 function dayOf(a) {
   return String(annDate(a) || '').slice(0, 10)
-}
-
-// groupAnnotations buckets a board, in the order each dimension is actually read
-// in — and that is why this is not groupWorks.
-//
-// `groupWorks` orders its buckets by LABEL, which is right for a shelf of series
-// and authors and wrong for all four of these: chapters run in reading order,
-// colours run in the order the swatches are drawn, days run newest first, and
-// tags run by how many quotes wear them. Four dimensions, four orders, none of
-// them alphabetical — bending groupWorks to take them would have been a fifth
-// option on a function that already takes eight, and the result would order a
-// shelf and a board by rules neither call site could read off it.
-//
-// A quote with several tags appears under each of them, exactly as a book with
-// several genres does. Everything else is single-valued, and a quote missing the
-// value lands in a residual bucket that always sinks to the end.
-export function groupAnnotations(rows, dim, dims = KINDS.book.groupDims) {
-  if (dim === 'none' || !dims.includes(dim)) return null
-  const map = new Map()
-  const add = (key, label, row, order, residual) => {
-    let g = map.get(key)
-    if (!g) {
-      g = { key, label, items: [], order, residual: !!residual }
-      map.set(key, g)
-    }
-    g.items.push(row)
-  }
-  // A CHAPTER'S NAME, BY ITS NUMBER, so that one chapter is one group even when
-  // only some of its quotes were saved with the name typed in. Without it the
-  // heading is whatever the first row of that chapter happened to carry, and a
-  // chapter half-named splits into two groups a reader cannot tell apart.
-  const chapterNames = new Map()
-  if (dim === 'chapter') {
-    for (const a of rows) {
-      const nm = (a.chapter || '').trim()
-      if (a.chapter_no != null && nm && !chapterNames.has(a.chapter_no)) chapterNames.set(a.chapter_no, nm)
-    }
-  }
-  for (const a of rows) {
-    if (dim === 'chapter') {
-      const n = a.chapter_no
-      const name = n != null ? (chapterNames.get(n) || '') : (a.chapter || '').trim()
-      if (name || n != null) {
-        // THE PACK'S THREE CASES, and the app had two of them (`book-detail.dc.html`
-        // :2566). A chapter with a number AND a name printed the name alone, so the
-        // heading lost the one thing that puts the groups in the order they are in:
-        // a board grouped by chapter came out sorted by a number it never showed.
-        //
-        // A SECTION WITH NO NUMBER IS NOT A CHAPTER — it is a named part of the book,
-        // an Epilogue or an Afterword — so it is called by its name alone. The pack
-        // says it in those words, and "Ch Epilogue" says nothing true.
-        const label = n == null
-          ? name
-          : name
-            ? t('board.group.chapter.named.label', { n, name })
-            : t('board.group.chapter.numbered.label', { n })
-        // KEYED ON THE NUMBER, not on the label, for the reason the name map above
-        // exists: the group is the chapter, and two spellings of one chapter's name
-        // are one chapter.
-        // Numbered chapters in reading order; named ones after them, alphabetical.
-        add(n != null ? `ch#${n}` : `ch:${label}`, label, a, n != null ? n : Number.MAX_SAFE_INTEGER, false)
-      } else add('~none', t('board.group.chapter.none.label'), a, Infinity, true)
-    } else if (dim === 'character' || dim === 'act' || dim === 'quest') {
-      // THREE FREE-TEXT DIMENSIONS, ONE BRANCH. A character, an act and a quest
-      // are all a name the reader typed, so the bucket is the name and the order
-      // is alphabetical — there is no other order a name has. Keyed on the
-      // folded spelling so "HAL" and "Hal" are one character, and labelled with
-      // the first spelling seen rather than the folded one, because a heading
-      // should read the way the reader wrote it.
-      const raw = (a[dim] || '').trim()
-      if (raw) add(raw.toLowerCase(), raw, a, 0, false)
-      else add('~none', t(`board.group.${dim}.none.label`), a, Infinity, true)
-    } else if (dim === 'episode') {
-      // A SEASON AND AN EPISODE ARE ONE HEADING. Grouping on the episode alone
-      // would put season 2's third episode in with season 1's, which is a board
-      // claiming two different runs are one.
-      const s = a.season
-      const n = a.episode
-      if (n != null) {
-        add(
-          `ep#${s ?? ''}:${n}`,
-          s != null ? t('board.group.episode.seasoned.label', { s, n }) : t('board.group.episode.numbered.label', { n }),
-          a,
-          (s ?? 0) * 100000 + n,
-          false,
-        )
-      } else add('~none', t('board.group.episode.none.label'), a, Infinity, true)
-    } else if (dim === 'color') {
-      const tok = a.color || 'yellow'
-      add(tok, categoryName(tok), a, Math.max(0, ANNOTATION_COLORS.indexOf(tok)), false)
-    } else if (dim === 'tag') {
-      const tags = a.tags || []
-      if (tags.length) tags.forEach((tg) => add(tg, tg, a, 0, false))
-      else add('~none', t('board.group.tag.none.label'), a, Infinity, true)
-    } else {
-      // DATE, and it is the last branch rather than a named one because it is the
-      // only dimension every kind has. A dim this function does not know cannot
-      // reach here: the guard at the top refuses anything the kind did not
-      // declare.
-      const d = dayOf(a)
-      if (d) add(d, fmtDate(d), a, -new Date(`${d}T00:00:00`).getTime(), false)
-      else add('~none', t('board.group.date.none.label'), a, Infinity, true)
-    }
-  }
-  const out = [...map.values()]
-  out.sort((x, y) => {
-    if (x.residual !== y.residual) return x.residual ? 1 : -1
-    // Tags have no order of their own, so the biggest group leads — the same
-    // rule a shelf grouped by genre uses, and for the same reason.
-    if (dim === 'tag') return y.items.length - x.items.length || x.label.localeCompare(y.label)
-    return x.order - y.order || x.label.localeCompare(y.label)
-  })
-  return out
 }
 

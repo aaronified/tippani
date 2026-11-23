@@ -93,6 +93,6 @@ describe('only one thing in this app listens for Escape', () => {
     // change — but a sweep that deleted them all would be caught.
     let n = 0
     for (const [, raw] of sources()) n += [...decommented(raw).matchAll(/useEscape\(/g)].length
-    expect(n, 'the surfaces stopped registering with the ladder').toBeGreaterThanOrEqual(15)
+    expect(n, 'the surfaces stopped registering with the ladder').toBeGreaterThanOrEqual(14)
   })
 })

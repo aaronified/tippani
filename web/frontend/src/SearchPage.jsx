@@ -35,9 +35,8 @@ import { TextOrderScope } from './textOrderHost.jsx'
 import { AnnotationCard, annotationState, annDate, fmtDate } from './Library.jsx'
 import { Frame, dialogueState } from './Movies.jsx'
 import { UtteranceForm, utteranceMeta, utteranceState } from './Quotes.jsx'
-import { ShareDialog, bookShare, copyQuote, movieShare, quoteShare } from './share.jsx'
+import { ShareDialog, bookShare, movieShare, quoteShare } from './share.jsx'
 import { deleteWithUndo } from './undo.jsx'
-import { BULK_FIELDS, BULK_TAGS, bulkActionsFor } from './actions.jsx'
 import { CharacterFaces, CreditFaces, PersonCredit, PersonPortrait, creditsNotOnChips, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import { groupWorks } from './works.jsx'
 import { useStickers } from './stickers.jsx'
@@ -46,7 +45,6 @@ import { QUOTE_TEXT, languageClass } from './fonts.js'
 import { chapterLabel, episodeLabel } from './text.js'
 import {
   useEscape,
-  BulkBar,
   CloseButton,
   EmptyState,
   ErrorText,
@@ -76,7 +74,6 @@ import {
   Select,
   skipReason,
   SortableTh,
-  splitCommas,
   Tooltip,
   useConfirm,
   useAnchoredPosition,
@@ -562,7 +559,7 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators, 
   const [view, setView] = usePersistedState('tippani:searchview', 'tiles') // tiles | list | table
   const [group, setGroup] = usePersistedState('tippani:search:group', 'none') // none|series|author|decade|genre (tiles/list)
   const [filtersOpen, setFiltersOpen] = useState(false)
-  const [nonce, setNonce] = useState(0) // bump to re-run the search after a bulk action
+  const [nonce, setNonce] = useState(0) // bump to re-run the search after a change
   const reload = () => setNonce((n) => n + 1)
   const [quote, setQuote] = useState(null) // { kind, hit } — a single quote opened from a result
   const [gathering, setGathering] = useState(false) // the anthology picker, over this search
@@ -856,7 +853,7 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators, 
             />
           )}
           {view === 'table' ? (
-            <SearchTables results={results} terms={terms} onOpenBook={onOpenBook} onOpenMovie={onOpenMovie} reload={reload} />
+            <SearchTables results={results} terms={terms} onOpenBook={onOpenBook} onOpenMovie={onOpenMovie} />
           ) : (
             <>
               {bookGroups.length > 0 && (
@@ -1301,7 +1298,6 @@ export function QuoteModal({ kind, hit, authorMap = {}, actorMap = {}, speakerMa
             save={save}
             patch={patch}
             remove={remove}
-            onCopy={() => copyQuote(sharePayload())}
             onShare={() => setShareOpen(true)}
             quoteLines={40}
             tagSuggestions={Object.keys(tagMap)}
@@ -1323,7 +1319,6 @@ export function QuoteModal({ kind, hit, authorMap = {}, actorMap = {}, speakerMa
             onSave={(fields) => save(row.id, fields)}
             onPatch={(fields) => patch(row, fields)}
             onDelete={() => remove(row)}
-            onCopy={() => copyQuote(sharePayload())}
             onShare={() => setShareOpen(true)}
             quoteLines={40}
             // THE READER'S OWN SEPARATORS, which this card was never given. Without
@@ -1344,10 +1339,8 @@ export function QuoteModal({ kind, hit, authorMap = {}, actorMap = {}, speakerMa
 }
 
 // SearchTables — the table view: one sortable, flat table per result kind that
-// has hits. Rows open their parent book/movie; rows can also be selected for a
-// bulk action (tag annotations/dialogues, field-correct books/movies). Sorting
-// is table-only.
-function SearchTables({ results, terms, onOpenBook, onOpenMovie, reload }) {
+// has hits. Rows open their parent book/movie. Sorting is table-only.
+function SearchTables({ results, terms, onOpenBook, onOpenMovie }) {
   const r = results
   return (
     <div className="space-y-6">
@@ -1357,8 +1350,6 @@ function SearchTables({ results, terms, onOpenBook, onOpenMovie, reload }) {
           rows={r.books}
           terms={terms}
           onOpen={(row) => onOpenBook(row.id)}
-          bulk={{ endpoint: '/books/bulk', kind: 'book-fields' }}
-          reload={reload}
           cols={[
             { key: 'title', label: t('common.field.title.label'), val: (b) => b.title, highlight: true, main: true },
             { key: 'author', label: t('common.field.author.label'), val: (b) => b.author || '', mono: true },
@@ -1372,8 +1363,6 @@ function SearchTables({ results, terms, onOpenBook, onOpenMovie, reload }) {
           rows={r.annotations}
           terms={terms}
           onOpen={(row) => onOpenBook(row.book_id)}
-          bulk={{ endpoint: '/annotations/bulk', kind: 'tag' }}
-          reload={reload}
           cols={[
             { key: 'quote', label: t('common.field.quote.label'), val: (a) => a.quote || a.note || '', highlight: true, main: true },
             { key: 'book', label: t('share.field.work.book.label'), val: (a) => a.book_title || '', mono: true },
@@ -1386,8 +1375,6 @@ function SearchTables({ results, terms, onOpenBook, onOpenMovie, reload }) {
           rows={r.movies}
           terms={terms}
           onOpen={(row) => onOpenMovie(row.id)}
-          bulk={{ endpoint: '/movies/bulk', kind: 'movie-fields' }}
-          reload={reload}
           cols={[
             { key: 'title', label: t('common.field.title.label'), val: (m) => m.title, highlight: true, main: true },
             { key: 'director', label: t('common.field.director.label'), val: (m) => m.director || '', mono: true },
@@ -1401,8 +1388,6 @@ function SearchTables({ results, terms, onOpenBook, onOpenMovie, reload }) {
           rows={r.dialogues}
           terms={terms}
           onOpen={(row) => onOpenMovie(row.movie_id)}
-          bulk={{ endpoint: '/dialogues/bulk', kind: 'tag' }}
-          reload={reload}
           cols={[
             { key: 'quote', label: t('common.field.quote.label'), val: (d) => d.quote || '', highlight: true, main: true },
             { key: 'character', label: t('common.field.character.label'), val: (d) => d.character || '', mono: true },
@@ -1420,43 +1405,21 @@ function SearchTables({ results, terms, onOpenBook, onOpenMovie, reload }) {
   )
 }
 
-function ResultTable({ label, rows, cols, terms, onOpen, bulk, reload }) {
+function ResultTable({ label, rows, cols, terms, onOpen }) {
   const { sort, toggle, apply } = useSort(cols[0].key, 'asc')
-  const [sel, setSel] = useState(() => new Set())
   const valueFns = Object.fromEntries(cols.filter((c) => c.sort !== false).map((c) => [c.key, (row) => {
     const v = c.val(row)
     return typeof v === 'string' ? v.toLowerCase() : v
   }]))
   const sorted = apply(rows, valueFns)
-  const ids = rows.map((row) => row.id)
-  const allSel = ids.length > 0 && ids.every((id) => sel.has(id))
-  const toggleId = (id) => setSel((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
-  const toggleAll = () => setSel(() => (allSel ? new Set() : new Set(ids)))
-  const selectedIds = ids.filter((id) => sel.has(id))
 
   return (
     <section className="space-y-2">
       <MonoLabel className="block">{label}</MonoLabel>
-      {bulk && selectedIds.length > 0 && (
-        <SearchBulkForm
-          n={selectedIds.length}
-          ids={selectedIds}
-          bulk={bulk}
-          onClear={() => setSel(new Set())}
-          onDone={() => { setSel(new Set()); reload && reload() }}
-        />
-      )}
       <Scroller className="ann-table-wrap">
         <table className="ann-table">
           <thead>
             <tr>
-              {bulk && (
-                <th style={{ width: 34 }}>
-                  <Tooltip label={t('search.table.select-all.tip')} side="bottom">
-                    <input type="checkbox" checked={allSel} onChange={toggleAll} aria-label={t('search.table.select-all.aria')} />
-                  </Tooltip>
-                </th>
-              )}
               {cols.map((c) =>
                 c.sort === false ? (
                   <th key={c.key}>{c.label}</th>
@@ -1469,13 +1432,6 @@ function ResultTable({ label, rows, cols, terms, onOpen, bulk, reload }) {
           <tbody>
             {sorted.map((row) => (
               <tr key={row.id}>
-                {bulk && (
-                  <td className="col-center" onClick={(e) => e.stopPropagation()}>
-                    <Tooltip label={t('search.table.select-row.tip')} side="bottom">
-                      <input type="checkbox" checked={sel.has(row.id)} onChange={() => toggleId(row.id)} aria-label={t('search.table.select-row.aria')} />
-                    </Tooltip>
-                  </td>
-                )}
                 {cols.map((c) => (
                   <td key={c.key} className={c.main ? 'col-quote' : 'col-mono'} style={{ cursor: 'pointer' }} onClick={() => onOpen(row)}>
                     {c.highlight ? <Highlight text={String(c.val(row))} terms={terms} /> : c.val(row) || '—'}
@@ -1487,93 +1443,6 @@ function ResultTable({ label, rows, cols, terms, onOpen, bulk, reload }) {
         </table>
       </Scroller>
     </section>
-  )
-}
-
-// SearchBulkForm — the action controls for a table's current selection, hosted
-// inside the shared BulkBar strip. Tag kinds add tags; field kinds set
-// author/director + series + genres. Posts to the kind's bulk endpoint, then
-// clears + reloads the search.
-function SearchBulkForm({ n, ids, bulk, onClear, onDone }) {
-  const [text, setText] = useState('') // tags (tag kind) or genres (field kind)
-  const [series, setSeries] = useState('')
-  const [nameField, setNameField] = useState('') // author or director
-  const [busy, setBusy] = useState(false)
-  const [err, setErr] = useState('')
-  const isTag = bulk.kind === 'tag'
-  const isBook = bulk.kind === 'book-fields'
-  // WHICH INPUTS TO SHOW COMES FROM THE REGISTRY (actions.jsx), not from this
-  // component's own reading of `bulk.kind`. Both lists — what you can do to one
-  // quote and what you can do to a selection — now come from the same file, which
-  // is the point: a card menu and a bulk bar that each decide for themselves are
-  // two answers to one question, and they diverge the first time one of them gains
-  // an action.
-  //
-  // The single Apply that posts one body is unchanged, deliberately: this commit is
-  // meant to move the DEFINITIONS, not the behaviour.
-  const forms = new Set(
-    bulkActionsFor(isTag ? 'annotation' : isBook ? 'book' : 'movie', ids, {
-      addTags: true,
-      setFields: true,
-    }).map((a) => a.form),
-  )
-  const canSetFields = forms.has(BULK_FIELDS)
-  const canAddTags = forms.has(BULK_TAGS)
-
-  // Nothing typed is the must-fill case here — a bulk action over N rows that
-  // sets nothing is a no-op with a confirmation, which is worse than a greyed
-  // button. Same predicate as the guards inside apply().
-  const nothingSet = isTag
-    ? splitCommas(text).length === 0
-    : !nameField.trim() && !series.trim() && splitCommas(text).length === 0
-
-  async function apply() {
-    const body = { ids }
-    if (isTag) {
-      const tags = splitCommas(text)
-      if (!tags.length) return setErr(t('error.validate.tag-required'))
-      body.add_tags = tags
-    } else {
-      const genres = splitCommas(text)
-      if (nameField.trim()) body[isBook ? 'author' : 'director'] = nameField.trim()
-      if (series.trim()) body.series = series.trim()
-      if (genres.length) body.add_genres = genres
-      if (!body.author && !body.director && !body.series && !body.add_genres) return setErr(t('error.validate.field-required'))
-    }
-    setBusy(true)
-    setErr('')
-    const r = await json('POST', bulk.endpoint, body)
-    setBusy(false)
-    if (!r.ok) return setErr(errText(r, t('error.bulk.failed')))
-    onDone()
-  }
-
-  return (
-    <BulkBar n={n} onClear={onClear}>
-      {canSetFields && (
-        <input className="tp-input w-auto" style={{ minWidth: 130 }} placeholder={t(isBook ? 'search.bulk.author.placeholder' : 'search.bulk.director.placeholder')} value={nameField} onChange={(e) => setNameField(e.target.value)} />
-      )}
-      {canSetFields && (
-        <input className="tp-input w-auto" style={{ minWidth: 110 }} placeholder={t('search.bulk.series.placeholder')} value={series} onChange={(e) => setSeries(e.target.value)} />
-      )}
-      {canAddTags && <input
-        className="tp-input w-auto"
-        style={{ minWidth: 150 }}
-        placeholder={t(isTag ? 'search.bulk.tags.placeholder' : 'search.bulk.genres.placeholder')}
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); apply() } }}
-      />}
-      <button
-        className="tp-btn tp-btn-primary"
-        disabled={busy || nothingSet}
-        title={nothingSet ? t(isTag ? 'search.bulk.tags.blocked.tip' : 'search.bulk.fields.blocked.tip') : undefined}
-        onClick={apply}
-      >
-        Apply to {n}
-      </button>
-      {err && <span className="microcopy" style={{ color: 'var(--error)' }}>{err}</span>}
-    </BulkBar>
   )
 }
 

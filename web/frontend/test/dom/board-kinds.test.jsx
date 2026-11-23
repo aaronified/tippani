@@ -34,7 +34,6 @@ vi.mock('../../src/api.js', async (orig) => ({
 }))
 
 const { BoardList } = await import('../../src/boards.jsx')
-const { groupOptionsFor } = await import('../../src/Quotes.jsx')
 
 const board = (id, name, over = {}) => ({
   id, name, quotes: 0, description: '', color: 'yellow', image_path: '',

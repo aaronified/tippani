@@ -3448,68 +3448,6 @@ if (import.meta.env.DEV) {
   };
 }
 
-// MultiSelect — a dropdown you can tick more than one row in, wearing the same
-// trigger/panel skin as Select so the filter row stays of one piece. No selection
-// means "everything", which is what a filter with nothing chosen should mean, so
-// there is no separate All row to keep in sync.
-export function MultiSelect({ values = [], onChange, options, ariaLabel, allLabel = "all", width }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef(null);
-  const { popRef, style } = useAnchoredPosition(open, ref, { matchWidth: "min", minHeight: 140 });
-  useDismiss(open, () => setOpen(false), [ref, popRef]);
-  const picked = options.filter(([v]) => values.includes(v));
-  const label = picked.length === 0 ? allLabel : picked.length === 1 ? picked[0][1] : `${picked.length} states`;
-  const toggle = (v) => onChange(values.includes(v) ? values.filter((x) => x !== v) : [...values, v]);
-  return (
-    <span className="tp-select" ref={ref} style={width ? { width } : undefined}>
-      <button
-        type="button"
-        className="tp-select-trigger tactile"
-        aria-label={ariaLabel}
-        aria-expanded={open}
-        onClick={() => setOpen((o) => !o)}
-      >
-        <span className={picked.length ? "" : "tp-select-ph"}>{label}</span>
-        <span className="tp-select-chev" aria-hidden="true">
-          <IconChevron size={16} />
-        </span>
-      </button>
-      {open && createPortal(
-        <span ref={popRef} className="hand-card hc-r2 tp-select-panel tp-multi" role="listbox" aria-multiselectable="true" style={style}>
-          {options.map(([v, text, swatch]) => {
-            const on = values.includes(v);
-            return (
-              <button
-                key={v}
-                type="button"
-                role="option"
-                aria-selected={on}
-                className={`menu-item${on ? " active" : ""}`}
-                onClick={() => toggle(v)}
-              >
-                <span aria-hidden="true" style={{ width: 14, flex: "none", display: "inline-flex", justifyContent: "center" }}>
-                  {on ? <IconCheck size={13} /> : null}
-                </span>
-                {swatch && (
-                  <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: 2, background: swatch, flex: "none" }} />
-                )}
-                {text}
-              </button>
-            );
-          })}
-          {values.length > 0 && (
-            <button type="button" className="menu-item" style={{ color: "var(--soft)" }} onClick={() => onChange([])}>
-              <span aria-hidden="true" style={{ width: 14, flex: "none" }} />
-              clear
-            </button>
-          )}
-        </span>,
-        document.body,
-      )}
-    </span>
-  );
-}
-
 // ---- tags (§6): five CSS-only styles × four colours ----
 // `style` here is the tag style name (sticker|banner|flyout|tape|reel), not a
 // React style object — it is consumed, never forwarded to the DOM.
@@ -9227,37 +9165,6 @@ export function FilterChip({ active, icon, keepLabel, label, tooltip, onClick, .
   return <Tooltip label={tooltip || label}>{chip}</Tooltip>
 }
 
-// GenreFilter — the shared genre picker used by Library + Catalogue so both
-// toolbars read identically: ONE dropdown holding every genre, with "All" as its
-// first option.
-//
-// It was a strip of tactile chips (All + the most common genres) with the
-// overflow tucked into a "More…" dropdown, sized by MEASURING how many chips fit
-// the available width. That measurement was the problem, and 1.4.2 gives up on
-// it rather than tuning it again. The row it measures against holds a dozen other
-// controls whose widths change as the data does — a long series name, a
-// two-digit count — so the answer was right only until something else on the row
-// moved, and the failure was ugly in a specific way: a chip clipped mid-word
-// against "More…", which reads as a rendering bug rather than a fitted layout.
-// Chips also sorted the genres by frequency, so which ones were reachable
-// without opening a dropdown changed as the library grew.
-//
-// A select has none of those failure modes, costs one tap for any genre instead
-// of one tap for some and two for the rest, and is already how series, sort,
-// group and shelf read on the same row — and how genre itself has read in the
-// mobile filter sheet since 1.4.0. This is the chip strip catching up with it.
-export function GenreFilter({ genres, value, onChange }) {
-  if (!genres || genres.length === 0) return null;
-  return (
-    <Select
-      ariaLabel={t("common.filters.genre.aria")}
-      value={value}
-      onChange={onChange}
-      options={[["", t("common.filters.genre.all.label")], ...genres.map((g) => [g, g])]}
-    />
-  );
-}
-
 // seriesLabel renders a book/movie's series as "Name #1.5" (or just "Name").
 export function seriesLabel(x) {
   if (!x.series) return "";
@@ -11503,40 +11410,6 @@ export function useCardMenu(items = [], { onLongPress } = {}) {
     open: !!at,
     close,
   };
-}
-
-// PickMark — the tick in a card's corner that says whether the card is selected.
-//
-// ONE DRAWING FOR EVERY BOARD. A quote card, a book cover and a film poster are
-// three very different rectangles, and a selection that looked like a checkbox on
-// one and a ring on another would be three affordances for one idea.
-//
-// It is a REAL CHECKBOX under the tick — visually hidden, not display:none, so it
-// keeps its role, its checked state, its label and its place in the tab order. The
-// span beside it is the thing you see. A div with an onClick would have looked
-// identical and told a screen reader nothing.
-//
-// `label` completes "Select …" / "Deselect …", so the announcement names what is
-// being picked rather than saying "checkbox" forty times down a board.
-export function PickMark({ picked, onChange, label }) {
-  return (
-    <label
-      className="card-pick"
-      // The card underneath selects on click too. Without this, ticking the box
-      // toggles once for the input and once for the card, i.e. never.
-      onClick={(e) => e.stopPropagation()}
-    >
-      <input
-        type="checkbox"
-        checked={picked}
-        aria-label={t(picked ? "common.action.deselect.aria" : "common.action.select.aria", { name: label || t("common.select.target.fallback") })}
-        onChange={onChange}
-      />
-      <span className="card-pick-mark" aria-hidden="true">
-        <IconCheck />
-      </span>
-    </label>
-  );
 }
 
 // TableActions — the actions cell at the end of a table row.

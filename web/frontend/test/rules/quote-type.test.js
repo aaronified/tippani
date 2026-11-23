@@ -174,9 +174,9 @@ describe('one way to set a quote', () => {
   // failure src-files.js's own header was written for, one level up.
   it('found the quote slots to ask about', () => {
     expect(slots.length, 'the walk found no quote slots — languageClass moved, or the tree did')
-      .toBeGreaterThanOrEqual(16)
+      .toBeGreaterThanOrEqual(14)
     expect(spreads.length, 'nothing spreads QUOTE_TEXT, so questions B and C are asking about an empty list')
-      .toBeGreaterThanOrEqual(9)
+      .toBeGreaterThanOrEqual(8)
     expect(slots.filter((s) => !s.tag.trim().startsWith('<')).map((s) => `${s.file}:${s.line}`),
       'a slot’s enclosing tag could not be read, so its answer below means nothing').toEqual([])
   })
