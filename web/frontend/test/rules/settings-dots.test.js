@@ -30,10 +30,9 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const SRC = process.env.TIPPANI_SRC
-// SETTINGS IS TWO FILES NOW. The Jobs section's three cards live in
-// jobsSection.jsx (3.1.0), and a group-level dot there is the same defect as one
-// here — so the guard reads both, or the sixth section would be the one place a
-// heading could grow a dot unseen.
+// SETTINGS IS TWO FILES: the Server section's system logs card lives in
+// jobsSection.jsx, and a group-level dot there is the same defect as one here —
+// so the guard reads both.
 const FILE = ['Settings.jsx', 'jobsSection.jsx'].map((f) => readFileSync(join(SRC, f), 'utf8')).join('\n')
 
 // Every `<PrefGroup … >` opening tag, whole, however many lines it spans.
@@ -43,7 +42,9 @@ describe('an info dot in Settings', () => {
   it('there are groups to check, so this test is testing something', () => {
     // The sweep's own failure mode: a regex that stops matching asserts nothing
     // about an empty list and passes for ever.
-    expect(groups().length).toBeGreaterThan(9)
+    // THE FLOOR IS 1: Settings is Theme, Language and Server now, and Server has
+    // one group (the update card). A floor of 2 would fail the honest page.
+    expect(groups().length).toBeGreaterThan(0)
   })
 
   it('is never on a group heading, except the one group that earns it', () => {

@@ -75,10 +75,7 @@ settings.section.jobs.info.body = কী চলছে, কী অপেক্ষ
 settings.section.aria = কোন সেটিংস বদলাবেন
 settings.section.theme.label = থিম
 settings.section.lang.label = ভাষা ও ফন্ট
-settings.section.sections.label = বিভাগ
 settings.section.server.label = সার্ভার
-# bn: "job" → কাজ, the everyday word; the Additions table already gives কাজ to an arithmetic "operation" in a mono Select, a different screen
-settings.section.jobs.label = কাজ
 # The information dot beside that row.
 settings.language.info.title = ভাষা
 settings.language.info.body = ইংরেজি আর বাংলা অ্যাপেই আছে। অন্য ভাষা চাইলে data/Locales/_TEMPLATE.txt ফাইলটা fr.txt-এর মতো নামে কপি করে অনুবাদ করুন — নতুন করে বিল্ড না করেই এখানে দেখা যাবে।
@@ -548,16 +545,6 @@ common.filmstrip.edge.label = TIPPANI · SAFETY FILM
 # keeps its script because changing that is a branding decision, not a translation.
 shell.wordmark.label = tippani
 
-# --- THE THREE THINGS ON THIS SCREEN THAT ARE NOT COPY.
-#
-# Each goes through the resolver anyway, because the alternative is an exemption
-# in the pseudo-locale gate and a gate with exemptions in it stops being a gate.
-# Each carries the SAME VALUE IN EVERY LANGUAGE, exactly as
-# common.filmstrip.edge.label does and as §6.3's "unchanged" rows do.
-#
-# The size readout beside the Type card's slider. A unit symbol next to a Western
-# digit, in the same class as {n}h / {n}d / ×{n} — not a word.
-settings.type.size.format = {n}px
 # The four credit separators, as the chip DRAWS them. These are the characters the
 # splitter actually matches, so translating one would name a separator nothing
 # splits on: an author line reads "Gaiman & Pratchett" or "Gaiman and Pratchett"
@@ -1150,128 +1137,23 @@ settings.credits.info.body = “Gaiman & Pratchett”-এর মতো একস
 settings.credits.chip.tip = এই চিহ্ন দেখলে নাম ভাগ হবে
 settings.credits.off.prose = ভাগ করা বন্ধ — নামের লাইন যেমন আছে, এক জন মানুষ বলেই ধরা হবে
 
-# --- colour categories. Renaming changes the words and never the stored value.
-# Slot 1 has no name, and its dot says so instead of offering a rename.
-settings.colours.fixed.tip = কিছু না বাছলে এই রং
-settings.colours.fixed.info.title = এটার নাম নেই কেন
-settings.colours.fixed.info.body = কোনো রং না বাছলে — ইমপোর্ট করা উদ্ধৃতিতেও — উদ্ধৃতি এখানেই যায়। এর নাম নেই, তবে রংটা বদলানো যায়।
-# {name} is the category's current name.
-settings.colours.recolour.tip = {name} ঘরের রং বদলান
-settings.colours.name.aria = {name} ঘরের নাম
-settings.colours.palette.aria = {name} ঘরের রং
-settings.colours.offer.aria = এই ঘর দেখান
-settings.colours.hide.aria = এই ঘর লুকান
-settings.colours.offer.tip = আবার দেখান
-# Two categories is the floor, so the second-to-last cannot be hidden.
-settings.colours.keep-two.tip = অন্তত দুটো ঘর রাখতেই হয়
-settings.colours.hide.tip = আর দেখাবেন না
-settings.colours.unmake.aria = {name} মুছে দিন — অ্যাপের নিজের নাম আর রঙে ফিরে যাবে
-settings.colours.unmake.tip = অ্যাপের নিজের নাম আর রঙে ফিরিয়ে দিন
-settings.colours.unmake.confirm.title = {name} মুছে দেব?
-settings.colours.unmake.confirm.body = এর নাম, রং আর দেখানো-লুকোনো অ্যাপের আগের মতো হয়ে যাবে। এই রঙে রাখা উদ্ধৃতি এই রঙেই থাকবে।
-settings.colours.unmake.cta = মুছে দিন
-settings.colours.reset.aria = এই রং আগের মতো করুন
-settings.colours.reset.tip = আগের রঙে ফিরুন
 
-settings.type.own.title = আপনার নিজের ফন্ট
-settings.type.faces.title = ইন্টারফেসের ফন্ট
-settings.quote-faces.title = উদ্ধৃতির ফন্ট
-settings.quote-faces.link.prose = প্রতিটা ভাষার উদ্ধৃতির ফন্ট ঠিক হয় মেটাডেটা › ভাষা-তে, সেই ভাষার বাকি সেটিংসের পাশে।
-settings.quote-faces.add.open = ভাষার তালিকা খুলুন
-settings.type.added.title = যোগ করা ফন্ট
-settings.type.added.sub = প্রতিটা নিজের চেহারাতেই দেখানো
-settings.type.added.none = এখনও কিছু নেই — নিচে একটা আপলোড করুন
-settings.type.add.title = একটা ফন্ট যোগ করুন
-settings.type.add.sub = woff2, woff, otf বা ttf — এটা এই সার্ভারেই থাকে
-settings.type.add.action = ফন্ট আপলোড করুন
-settings.type.style.aria = {name}-এর স্টাইল
-# WHOSE INTERFACE these faces are for. '' is the answer every UI language
-# inherits; a code is that language's own. Not "English" — the inherited answer
-# applies in every language, and English can overrule it like any other.
-settings.type.faces.sub = {language} যে হরফে লেখা হয়। অন্য ভাষার জন্য উপরে ভাষা বদলান।
-settings.type.scope.revert.aria = {name}-এর জন্য সব ভাষার ফন্টেই ফিরুন
-settings.type.scope.revert.tip = সবার জন্য যেটা, সেটাতেই ফিরুন
-settings.type.style.title = স্টাইল
-settings.type.face.aria = {name} লেখার ফন্ট
-settings.type.face.filter.placeholder = ফন্টের নাম লিখুন
-settings.type.font.remove.tip = এই ফন্ট সরান
-settings.type.font.remove.confirm = {name} সরাবেন? যে কাজে এটা বসানো আছে, সেখানে অ্যাপের নিজের ফন্ট ফিরে আসবে।
-# Shown when an uploaded face measures as though it does not draw the script the
-# role needs. A warning and not a refusal. {field} is the script's name.
-settings.type.script-warning.prose = এই ফন্টে হয়তো {field} লেখা যায় না। তবু বসানো হলো — নিচের লেখায় চৌকো ঘর দেখা গেলে কারণ এটাই।
-# The script a role needs when the role does not name one.
-vocab.script.latin.label = রোমান
 
-# --- Settings → Language marks. The mark a proverb board wears.
-# মেটাডেটা উৎস পাতার কার্ড: দরজাটা কীসের জন্য, আর দরজার নিজের কথা।
-settings.languages.glyphs.aria = {name} ভাষার লিপির অক্ষর
-settings.languages.no-script.prose = {name} ভাষার জন্য কোনও লিপির অক্ষর নেই — নিচে নিজের একটা চিহ্ন দিন।
-# The reader's own marks, and how many of the allowance are used. {done}/{total}.
-settings.languages.mark.remove.aria = {field} থেকে {name} সরান
-settings.languages.full.prose = {name} ভাষার নিজের চিহ্ন বড়জোর {n}টা — নতুন দিতে হলে একটা সরান।
-settings.languages.order.title = মূলের কতটা
-settings.languages.order.custom.tip = কিছু ভাষার আলাদা সেটিং আছে; এটা বদলালে সেগুলোও এর সঙ্গে মিলে যাবে।
+
 vocab.textorder.trans-only.label = শুধু অনুবাদ
 vocab.textorder.trans-first.label = আগে অনুবাদ
 vocab.textorder.quote-first.label = আগে উদ্ধৃতি
 vocab.textorder.quote-only.label = শুধু উদ্ধৃতি
-settings.languages.remove.in-use.tip = {name} ব্যবহারে আছে — আপনার উদ্ধৃতি বা বই এই ভাষায় রয়েছে
-# Renaming a language is a DISPLAY name. The stored name stays and is shown
-# beside it, so "why does my Bangla board say Bengali" stays answerable.
-# What this language's QUOTES are set in — every face the app ships, because the
-# question is "what does my German look like" and the answer may be a sans or a
-# hand. "Follows the card" is a real answer and so is an option, not a clear button.
-settings.languages.face.inherit = উদ্ধৃতির ফন্ট মেনে চলে
-settings.languages.face.aria = {name} ভাষার উদ্ধৃতির ফন্ট
-settings.languages.add.label = ভাষা যোগ করুন
-settings.languages.name.label = ভাষার নাম
-settings.languages.order.all.label = সব ভাষা
-settings.languages.order.own.label = নিজস্ব সেটিং
-settings.languages.key.quote = উদ্ধৃতি, যেমন লেখা
-settings.languages.key.trans = অনুবাদ
-settings.languages.edit.aria = {name} এডিট করুন: নাম, কোড আর চিহ্ন
-settings.languages.iso.label = ISO 639-3 কোড
-settings.languages.iso.none = ISO কোড নেই
-settings.languages.iso.link.label = কোড যুক্ত করুন
-settings.languages.iso.change.label = বদলান
-settings.languages.iso.clear.aria = ISO কোড সরিয়ে দিন
-settings.languages.iso.search.placeholder = নাম বা কোড, যেমন Sylheti বা syl
-settings.languages.iso.nomatch = ISO 639-3-এ এর সঙ্গে মেলে এমন কোনও ভাষা নেই।
-settings.languages.iso.type.extinct = বিলুপ্ত
-settings.languages.iso.type.ancient = প্রাচীন
-settings.languages.iso.type.historical = ঐতিহাসিক
-settings.languages.iso.type.constructed = কৃত্রিম
-settings.languages.iso.type.macro = ভাষাগুচ্ছ
-settings.languages.add.search.label = ভাষা খুঁজুন
-settings.languages.add.free = কোড ছাড়াই “{name}” যোগ করুন
-settings.languages.mark.title = উক্তির কার্ডে এর চিহ্ন
-settings.languages.add-mark.aria = নিজের একটা চিহ্ন যোগ করুন
-settings.languages.reset.label = চিহ্ন আর নাম আগের মতো করুন
-settings.languages.remove.label = ভাষাটা সরান
-settings.languages.remove.confirm.title = {name} সরাবেন?
-settings.languages.remove.confirm.body = এর চিহ্ন, নাম আর কোড মুছে যাবে। কোনও উক্তি বদলাবে না।
 
-# --- Settings → Features. Hiding a section is cosmetic: it takes away the doors.
-settings.features.locked.prose = শেষ বিভাগটা থাকতেই হবে — আগে অন্য একটা চালু করুন।
-settings.features.show.label = দেখান
-settings.features.hide.label = লুকান
 
-settings.features.order.title = আমাকে দেখাও, এই ক্রমে
-settings.features.order.prose = সাইডবার, মেনু আর ＋ বোতামে এই ক্রমই থাকে। সবার ওপরেরটায় অ্যাপ খোলে।
-settings.features.order.drag.aria = {name} সরাতে টানুন
-settings.features.order.up.aria = {name} উপরে নিন
-settings.features.order.down.aria = {name} নিচে নিন
 
-# --- button labels: whether a glyph shows its words.
-settings.labels.title = বোতামের লেখা
-settings.labels.info.title = বোতামের লেখা
-settings.labels.info.body = আইকনওয়ালা বোতামে লেখাটাও দেখাবে কি না। অটো হলে ডেস্কটপে দেখায়, ফোনে লুকায়। লুকোনো লেখা স্ক্রিন রিডার তবু পড়ে, আর মাউস রাখলে বা চেপে ধরলে প্রতিটা আইকন নিজের নাম বলে।
-settings.labels.auto.label = অটো
+
+
+
 
 # --- Appearance.
 settings.search.none = “{q}”-এর সঙ্গে সেটিংসের কিছু মিলছে না।
 settings.appearance.group.material.title = কী দিয়ে গড়া
-settings.appearance.matset.info.body = প্রতিটা সেট চারটে তলের জমিন ঠিক করে, হালকা-গাঢ় দুটোতেই চলে। অলিন্দে কোনো জমিন নেই, তাই সবচেয়ে দ্রুত।
 
 settings.appearance.theme.title = আপনি কোনটা দেখেন
 settings.appearance.theme.light.label = হালকা
@@ -1289,28 +1171,7 @@ settings.appearance.colours.light.title = দিনের জমি
 settings.appearance.colours.dark.title = রাতের জমি
 settings.appearance.colours.accent.title = বাঁধাইয়ের রং
 settings.appearance.colours.hide.aria = বিকল্পগুলো লুকোন
-settings.features.covers.title = বইয়ের প্রচ্ছদ
-settings.features.posters.title = ক্যাটালগের পোস্টার
-settings.features.sizes.aside = শুধু এই ডিভাইসে
 
-settings.appearance.ground.info.body = পেছনের রং তিন পরতে: পুরো পাতা, প্যানেল, আর যে কার্ডে উদ্ধৃতি থাকে। হালকা আর গাঢ় আলাদা করে ঠিক হয়; এখন যেটা স্ক্রিনে আছে, এই সারি সেটাই বদলায়।
-settings.appearance.phys.info.body = আপনার সেটের চারটে উপাদান আলোয় কেমন সাড়া দেবে, প্রত্যেকটার জন্য আলাদা। পাথরে ছোট উজ্জ্বল ঝলক, পশমে ছড়ানো ম্লান আলো।
-settings.appearance.phys.hard.label = কাঠিন্য
-settings.appearance.phys.sss.label = ভিতর দিয়ে দীপ্তি
-settings.appearance.phys.diff.label = রঙের বিস্তার
-settings.appearance.phys.refl.label = ঘর প্রতিফলন
-settings.appearance.slots.info.body = সেট প্রতিটা তলে একটি করে উপকরণ দেয়। চাইলে যেকোনো একটির জন্য অন্যটি বেছে নিন; সেটের নিজেরটি তালিকার প্রথমেই থাকে, আর ফাঁকা পছন্দের মানেও তা-ই।
-settings.appearance.saved.info.body = দুটো ব্যাকগ্রাউন্ড, অ্যাকসেন্ট রং, উপাদান-সেট আর তার সব মাপ একসঙ্গে রাখা থাকে — এক ছোঁয়ায় চেহারা বদলানো যায়। প্রতি প্রোফাইলে চারটে পর্যন্ত।
-settings.appearance.saved.export.default = আমার চেহারা
-settings.appearance.saved.import.label = ইমপোর্ট
-settings.appearance.saved.import.unnamed = ইমপোর্ট করা
-settings.appearance.glass.info.body = পেছনের জিনিস ঝাপসা না করে বাঁকিয়ে দেখায় এমন কাচ। প্রতিবার স্ক্রল করতে যন্ত্রকে খাটতে হয়, তাই শুরুতে বন্ধ।
-settings.appearance.glass.clarity.label = কতটা স্বচ্ছ
-settings.appearance.glass.refract.label = কতটা বাঁকায়
-settings.appearance.glass.bevel.label = কিনারা কত চওড়া
-settings.appearance.glass.fringe.label = ধারে রামধনু
-settings.appearance.glass.gain.label = বাঁক কত খাড়া
-settings.appearance.glass.blur.label = পিছনের কোমলতা
 vocab.ground.cream.label = ক্রিম
 vocab.ground.white.label = সাদা
 vocab.ground.sepia.label = সেপিয়া
@@ -1319,21 +1180,6 @@ vocab.ground.night.label = রাত
 vocab.ground.ink.label = কালি
 vocab.ground.soot.label = কাজল
 vocab.ground.tobacco.label = তামাক
-settings.appearance.contrast.aria = কনট্রাস্ট
-# --- চেহারা -> উদ্ধৃতির নিজের দুটি পড়ার ডায়াল (§৬ প্রবেশগম্যতা)।
-settings.appearance.quote-leading.label = উদ্ধৃতির লাইনগুলির মধ্যে ফাঁক
-settings.appearance.quote-leading.aria = উদ্ধৃতির লাইনগুলোর মধ্যে ফাঁক
-settings.appearance.quote-leading.tight = ঠাসা
-settings.appearance.quote-leading.snug = ঘন
-settings.appearance.quote-leading.normal = স্বাভাবিক
-settings.appearance.quote-leading.relaxed = খোলা
-settings.appearance.quote-leading.loose = ঢিলা
-settings.appearance.quote-measure.label = উদ্ধৃতি কত চওড়ায় চলে
-settings.appearance.quote-measure.aria = উদ্ধৃতির একটি লাইন কত লম্বা হতে পারে
-settings.appearance.quote-measure.full = পুরো চওড়া
-settings.appearance.quote-measure.chars = {n}টি অক্ষর
-settings.appearance.quote-leading.info.body = উদ্ধৃতির লাইনগুলোর মধ্যে ফাঁক। শুধু উদ্ধৃতিতেই খাটে, অ্যাপের বাকি লেখায় নয়।
-settings.appearance.quote-measure.info.body = উদ্ধৃতির এক লাইনে কটা অক্ষর ধরবে, তারপর পরের লাইনে যাবে। লম্বা লেখার জন্য ৪৫ থেকে ৭৫ পড়তে সবচেয়ে আরাম।
 # --- Appearance -> Material. Seven sets, each naming what four surfaces are
 # made of: the desk under everything, the furniture, the page you read, the
 # binding on a cover. Independent of light/dark -- every set works in both -- so
@@ -1347,26 +1193,12 @@ settings.material.atelier.label = তাঁতঘর
 settings.material.bindery.label = বাঁধাইয়ের দোকান
 settings.material.quarry.label = খাদান
 settings.material.atrium.label = অলিন্দ
-# {name} is one of the vocab.accent.* words.
-settings.appearance.accent.aria = {name} অ্যাকসেন্ট
-settings.features.book-size.label = গ্রন্থাগারের কভারের মাপ
-settings.features.film-size.label = ক্যাটালগের পোস্টারের মাপ
 
-# The global dial. It RENORMALISES rather than multiplying: moving it writes
-# itself into all four kinds (type.js).
-settings.appearance.text-size.label = লেখার মাপ
-settings.appearance.text-size.info.body = সব লেখা একসঙ্গে বড়-ছোট করে। তারপর “ফন্ট”-এ গিয়ে আলাদা আলাদা করে ঠিক করা যায়।
-settings.type.size.factor = {n}%
-# What the global dial reads when the four kinds no longer agree. An em dash,
-# deliberately not a word: it is the absence of one answer, not a state.
-settings.type.size.mixed = —
-settings.type.size.aria = {name} লেখার মাপ
 
 # --- yes / no, the two words every switch in the quiz panel uses.
 vocab.yes.label = হ্যাঁ
 vocab.no.label = না
 
-error.delete.font = ফন্টটা সরানো গেল না
 # A language may keep only so many marks of its own. {name} is the language,
 # {n} the allowance.
 
@@ -1637,6 +1469,11 @@ error.validate.name-required = একটা নাম দিতে হবে
 # key below it — <step>.em1.label and so on. The sentence may move them wherever
 # it needs to; the words inside them are translated like any others.
 # ---------------------------------------------------------------------------
+
+
+
+
+
 
 
 
@@ -3135,25 +2972,14 @@ offers.unpinned.prose = এই রেকর্ড কোনও জোগান�
 
 # The eight how-tos moved to the "?" (import.help.sources).
 
-# ---------------------------------------------------------------------------
-# PROFILE — Account.jsx. Everything about “you on this server”, in the order you
-# would ask it: who you are, which account you are in, your password, and — for
-# an admin — everyone else's accounts and the recovery tools.
-#
-# RESET IS NOT TRANSLATED. The reset confirmation asks you to type RESET and the
-# client sends that exact word to the server, which compares it. Translating the
-# word the reader must type would make the instruction unfollowable, exactly as
-# with the bulk-delete phrase (§8). The prose around it translates; {word} is
-# supplied by the code and is always RESET.
-# ---------------------------------------------------------------------------
-# bn: RESET STAYS LATIN. The reader must type the word the server compares, so
-# {word} arrives as RESET and the sentence is built around it.
-account.photo.upload = ছবি আপলোড করুন
-account.photo.change = ছবি বদলান
-account.photo.info.title = প্রোফাইলের ছবি
-account.photo.info.body = ওপরের বারে, মেনুতে আর ব্যবহারকারীর তালিকায় দেখা যায়। চৌকো ছবি সবচেয়ে ভালো মানায়; ৫ MB পর্যন্ত।
-account.photo.remove.aria = ছবি সরান
-account.photo.remove.tip = ছবিটা সরিয়ে দিন
+
+
+
+
+
+
+
+
 
 account.name.label = যে নাম দেখা যাবে
 account.name.save = নাম সেভ করুন
@@ -3186,58 +3012,8 @@ account.logout.info.title = লগ আউট
 account.logout.info.body = শুধু এই ব্রাউজার থেকে বেরোয়। অন্য ব্রাউজারে লগ ইন থেকে যায়।
 account.logout.action = লগ আউট
 
-account.sso.label = সিঙ্গল সাইন-অন
-account.sso.info.body = পাসওয়ার্ডের বদলে আপনার {name} অ্যাকাউন্ট দিয়ে লগ ইন করুন। যুক্ত করতে এখানে আর {name}-এ দুই জায়গাতেই লগ ইন থাকতে হয়, তাই অন্যের অ্যাকাউন্ট কেউ জুড়তে পারে না।
-account.sso.linked = {name}-এর সঙ্গে যুক্ত। যেকোনোটা দিয়ে লগ ইন করা যায়।
-account.sso.unlinked = যুক্ত নয়। {name} দিয়ে লগ ইন করতে যুক্ত করুন।
-account.sso.link.action = {name} যুক্ত করুন
-account.sso.unlink.action = বিচ্ছিন্ন করুন
-account.sso.linked.flash = যুক্ত হয়েছে।
-account.sso.off = এই সার্ভারে চালু করা নেই।
-account.sso.off.info = সিঙ্গল সাইন-অন অপারেটর TIPPANI_OIDC_* সেটিং দিয়ে চালু করেন; README-র "Single sign-on" অংশে Authelia দিয়ে ধাপে ধাপে দেখানো আছে।
-account.sso.unlink.confirm.title = {name} বিচ্ছিন্ন করবেন?
-account.sso.unlink.confirm.body = লগ ইন করতে এই অ্যাকাউন্টের পাসওয়ার্ড লাগবে। {name} যে অ্যাকাউন্ট বানিয়েছে তার পাসওয়ার্ড আপনার জানা নেই — আগে অ্যাডমিনকে দিয়ে একটা বসিয়ে নিন।
 
-account.widget.label = ড্যাশবোর্ড উইজেট
-account.widget.info.body = gethomepage-এর মতো ড্যাশবোর্ড এই চাবি দিয়ে আপনার সংগ্রহের চারটে সংখ্যা দেখায়: রচনা, উদ্ধৃতি, ভুলে যাওয়া আর আয়ত্ত। এটা আর কিছু খোলে না।
-account.widget.none = এখনো কোনো চাবি নেই।
-account.widget.exists = একটা চাবি চালু আছে।
-account.widget.once = এখনই কপি করুন — চাবিটা একবারই দেখানো হয়।
-account.widget.yaml.aria = gethomepage services.yaml-এর অংশ
-account.widget.copy = YAML কপি করুন
-account.widget.copied = কপি হয়েছে
-account.widget.make.action = চাবি বানান
-account.widget.rotate.action = চাবি বদলান
-account.widget.rotate.confirm.title = উইজেটের চাবি বদলাবেন?
-account.widget.rotate.confirm.body = পুরনো চাবি সঙ্গে সঙ্গে অচল হবে; ড্যাশবোর্ডে নতুনটা বসান।
-account.widget.revoke.action = বাতিল করুন
-account.widget.field.works = রচনা
-account.widget.field.quotes = উদ্ধৃতি
-account.widget.field.forgot = ভুলে গেছি
-account.widget.field.mastered = আয়ত্ত
 
-account.notify.label = বিজ্ঞপ্তি
-account.notify.info.body = Pushover দিয়ে আপনার ফোনে বার্তা: দিনের রিভিউ তৈরি হলে, আর বড় ইমপোর্ট, ফেচ বা ব্যাকআপ শেষ হলে। pushover.net-এ লগ ইন করলে আপনার ইউজার কি পাবেন।
-account.notify.user.label = Pushover ইউজার কি
-account.notify.user.placeholder = Pushover ইউজার কি
-account.notify.token.label = Pushover অ্যাপ্লিকেশন টোকেন
-account.notify.token.placeholder = অ্যাপ্লিকেশন টোকেন
-account.notify.token.placeholder.set = অ্যাপ্লিকেশন টোকেন (রাখা আছে — বদলাতে টাইপ করুন)
-account.notify.token.placeholder.server = অ্যাপ্লিকেশন টোকেন (ঐচ্ছিক — সার্ভারে একটা আছে)
-account.notify.save = চাবি রাখুন
-account.notify.saved = রাখা হয়েছে।
-account.notify.token.clear = সার্ভারের টোকেন ব্যবহার করুন
-account.notify.token.cleared = আপনার নিজের টোকেন সরানো হয়েছে।
-account.notify.test.action = পরীক্ষা পাঠান
-account.notify.test.sent = পাঠানো হয়েছে — ফোন দেখুন।
-account.notify.event.daily.title = দিনের রিভিউ তৈরি
-account.notify.event.daily.sub = দিনে একবার, ডেকে কার্ড থাকলে। সার্ভারের দৈনিক কাজ চালু থাকা চাই।
-account.notify.event.import.title = বড় ইমপোর্ট
-account.notify.event.import.sub = ৫০ বা তার বেশি উদ্ধৃতির যাচাই বাকি থাকলে, আর সেগুলো যোগ হলে।
-account.notify.event.fetch.title = লম্বা মেটাডেটা ফেচ
-account.notify.event.fetch.sub = ২০ বা তার বেশি রচনার ফেচ শেষ হলে।
-account.notify.event.backup.title = ব্যাকআপ
-account.notify.event.backup.sub = ব্যাকআপ আর্কাইভ লেখা হয়ে গেলে।
 
 account.maintenance.label = দেখভাল
 account.reindex.title = খোঁজের ইনডেক্স আবার বানান
@@ -3248,41 +3024,8 @@ account.reindex.busy = বানানো হচ্ছে…
 account.reindex.done = খোঁজের ইনডেক্স আবার তৈরি হল — খোঁজ এখন কাজ করা উচিত।
 account.reindex.partial = কিছু ইনডেক্স এত নষ্ট যে আবার বানানো গেল না ({failed})। তারপরও খোঁজ না চললে পুরো রিসেটই শেষ উপায়।
 
-account.reset.title = সব ডেটা মুছে দিন
-account.reset.info.title = সব ডেটা মুছে দিন
-account.reset.info.body = সব চিরতরে মুছে যায় — প্রতিটা অ্যাকাউন্ট, বই-সিনেমা, উদ্ধৃতি, ট্যাগ, মানুষ, স্টিকার, কভার, কী আর সেটিংস — আর অ্যাপ একেবারে প্রথম দিনের মতো নতুন করে শুরু হয়। কোনো ব্যাকআপ নেওয়া হয় না। ফেরানো যায় না।
-account.reset.open = সব ডেটা মুছে দিন…
-account.reset.confirm.prose = সব মুছে ফেলতে চান, তা নিশ্চিত করতে {word} লিখুন:
-account.reset.submit = সব মুছে নতুন করে শুরু করুন
-account.reset.busy = মোছা হচ্ছে…
-# Above step one of the factory reset, read when it opens: the same refusal as
-# the restore's, and the waiting jobs go with everything else.
-account.reset.queue.running = {title} চলছে। সেটা থেমে না যাওয়া বা শেষ না হওয়া পর্যন্ত সব ডেটা মোছা যাবে না — আগে সেটিংস → কাজ-এ গিয়ে থামান।
-# bn: অপেক্ষার তালিকায় for "is waiting", since nothing inanimate waits (v3.7)
-account.reset.queue.waiting.one = অপেক্ষার তালিকায় একটা কাজ আছে — বাকি সবকিছুর সঙ্গে সেটাও মুছে যাবে।
-account.reset.queue.waiting.other = অপেক্ষার তালিকায় {n}টা কাজ আছে — বাকি সবকিছুর সঙ্গে সেগুলোও মুছে যাবে।
 
-# The admin's list of everyone on the server. Granting is something you do to
-# others; revoking is something you do only to yourself.
-account.users.label = এই সার্ভারের ইউজাররা
-account.users.info.title = ইউজার সামলানো
-account.users.info.body = প্রত্যেক ব্যবহারকারীর সংগ্রহ আলাদা। কাউকে অ্যাডমিন করতে পারেন, কিন্তু সেই পদ ছাড়তে পারেন শুধু তিনি নিজে; শেষ অ্যাডমিন ছাড়তে পারেন না।
 account.users.admin.chip = অ্যাডমিন
-account.users.you.chip = আপনি
-account.users.step-down = অ্যাডমিন থেকে নামুন
-account.users.step-down.tip = নিজের অ্যাডমিন অধিকার ছেড়ে দিন
-account.users.make-admin = অ্যাডমিন করুন
-account.users.make-admin.tip = {name}-কে অ্যাডমিন করুন
-account.users.only-admin = একমাত্র অ্যাডমিন
-account.users.their-own = শুধু নিজেই
-account.users.delete.tip = {name} আর তার গ্রন্থাগার মুছুন
-account.users.delete.aria = {name} মুছুন
-account.users.delete.confirm = “{name}” ইউজার আর তার গ্রন্থাগার মুছবেন?
-account.users.delete.note = অ্যাকাউন্টটা বন্ধ অবস্থায় আপনার ডাস্টবিনে থাকবে, ডাস্টবিন বাকি সবকিছু যতদিন রাখে ততদিন। ফিরিয়ে আনলে পুরোটাই তার মালিকের কাছে ফেরে।
-account.users.add = ইউজার যোগ করুন
-# ইংরেজি ফাইলের নোট দেখুন: উপরের "নতুন পাসওয়ার্ড" বাক্সের সঙ্গে এটির নাম এক হয়ে
-# যাচ্ছিল, তাই স্ক্রিন রিডারে দুটোকে আলাদা করা যেত না।
-account.users.add.password.placeholder = নতুন অ্যাকাউন্টের পাসওয়ার্ড ({min}–{max})
 
 # What went wrong, keyed by what failed.
 error.validate.name-cannot-be-blank = নাম ফাঁকা রাখা যায় না
@@ -3291,20 +3034,13 @@ error.validate.password-mismatch = নতুন দুটো পাসওয়�
 error.validate.switch-name-required = অ্যাকাউন্টের নাম দিন
 error.validate.switch-same = এই অ্যাকাউন্টেই তো আপনি আছেন
 error.validate.switch-password-required = ওই অ্যাকাউন্টের পাসওয়ার্ড দিন
-error.validate.username-required-add = একটা ইউজারনেম দিন
 error.upload.failed = আপলোড করা গেল না
-error.remove.photo = ছবি সরানো গেল না
 error.save.name = নাম বদলানো গেল না
 error.save.password = পাসওয়ার্ড বদলানো গেল না
 error.switch.account = অ্যাকাউন্ট বদলানো গেল না
 error.reindex.failed = খোঁজের ইনডেক্স আবার বানানো গেল না
-error.reset.failed = ডেটাবেস মোছা গেল না
-error.load.users = ইউজারদের তালিকা আনা গেল না
 error.open.person = এই ব্যক্তিকে খোলা গেল না
 person.opening = খুলছে…
-error.add.user = ইউজার যোগ করা গেল না
-error.save.role = অ্যাডমিনের ভার বদলানো গেল না
-error.delete.user = ইউজার মোছা গেল না
 
 # ---------------------------------------------------------------------------
 # PEOPLE — people.jsx. The panel behind every credited name: bio, portrait,
@@ -3601,7 +3337,6 @@ metadata.section.characters.label = চরিত্র
 metadata.section.sources.label = সূত্র
 metadata.section.languages.label = ভাষা
 metadata.section.categories.label = শ্রেণি
-metadata.categories.colours.title = রং
 metadata.section.aria = কোন মেটাডেটা নিয়ে কাজ
 metadata.rail.count.word = মনোযোগ দরকার
 metadata.search.placeholder = খুঁজুন…
@@ -3873,140 +3608,16 @@ settings.updates.toast.reload = একটু পরে পাতাটা রি
 settings.updates.toast.same = Tippani আবার চালু হলো, কিন্তু পুরনো বিল্ডেই — নতুন ইমেজ এখনো প্রকাশ হয়নি। কয়েক মিনিট পরে আবার চেষ্টা করুন।
 settings.updates.toast.copied = কমান্ড কপি হয়েছে
 
-# ---------------------------------------------------------------------------
-# THE RELEASE LOG — the release history out of the binary itself, on Server.
-# ---------------------------------------------------------------------------
-settings.changelog.title = কী কী বদলেছে
-settings.changelog.empty.prose = দেখানোর মতো কোনো রিলিজ নেই — এই বিল্ডটি কোনো রিলিজের বাইরে তৈরি।
-settings.changelog.more.label = পুরো তালিকা পড়ুন (আরও {n}টি)
-settings.changelog.fold.label = তালিকা গুটিয়ে নিন
-# Which release you are actually running, marked on its own row.
-settings.changelog.running.label = চলছে
-settings.changelog.unlisted.prose = আপনি {version} চালাচ্ছেন, যা তালিকার কোনো রিলিজ নয় — আলাদা করে বানানো বিল্ড।
 
 # ---------------------------------------------------------------------------
 # ONBOARDING — the guided tour's home.
 # ---------------------------------------------------------------------------
 # The Resume button carries its own step count, which is why it keeps its words.
 
-# ---------------------------------------------------------------------------
-# DEVICES — pair a phone with this account, and unpair it again.
-# ---------------------------------------------------------------------------
-settings.devices.title = যন্ত্রপাতি
-settings.devices.info.body = অ্যান্ড্রয়েড অ্যাপকে এই অ্যাকাউন্টের সঙ্গে জোড়ে। এখান থেকে আনপেয়ার না করা পর্যন্ত ফোন জোড়া থাকে — পাসওয়ার্ড বদলালেও বেরোয় না।
-settings.devices.paired.count = {n}টা পেয়ার করা
-settings.devices.code.label = পেয়ারিং কোড
-settings.devices.code.info.title = পেয়ারিং কোড
-settings.devices.code.info.body = পাঁচ মিনিটের মধ্যে অ্যাপে কোডটা দিন। একবারই কাজ করে; আরেকটা যন্ত্রের জন্য নতুন করে পেয়ারিং শুরু করুন।
-settings.devices.code.copy.aria = পেয়ারিং কোড কপি করুন
-settings.devices.code.copy.tip = কোড কপি করুন
-settings.devices.code.done.aria = পেয়ারিং শেষ
-settings.devices.pair.label = যন্ত্রপাতি পেয়ার করুন
-settings.devices.revoke-all.aria = সব যন্ত্রপাতি আনপেয়ার করুন
-settings.devices.revoke-all.confirm = সব যন্ত্রপাতি আনপেয়ার করবেন? প্রত্যেকটা এখনই কাজ করা বন্ধ করে দেবে।
-# {name} is the device's own name, as the phone reported it.
-settings.devices.revoke.aria = {name} আনপেয়ার করুন
-settings.devices.revoke.confirm = “{name}” আনপেয়ার করবেন? এখনই কাজ করা বন্ধ করে দেবে।
-settings.devices.last-seen.label = শেষ দেখা {when}
-settings.devices.never.label = কখনও ব্যবহার হয়নি
-settings.devices.empty.prose = এখনও কোনও যন্ত্রপাতি পেয়ার করা হয়নি।
-settings.devices.toast.unpaired = যন্ত্রপাতি আনপেয়ার হল
-settings.devices.toast.all-unpaired = সব যন্ত্রপাতি আনপেয়ার হল
 
 
 
-# ---------------------------------------------------------------------------
-# BACKUP (admin only) — one dated, encrypted archive, and the prompt that seals
-# it. The restore half is settings.restore.* below.
-# ---------------------------------------------------------------------------
-settings.backup.title = ব্যাকআপ আর ফিরিয়ে আনা
-# The prompt's own name, and the button inside it. One act, one word.
-settings.backup.prompt.title = ব্যাকআপ নিন
-settings.backup.info.body = সবকিছুর একটা তারিখ-দেওয়া, এনক্রিপ্ট করা আর্কাইভ, আপনার পাসওয়ার্ড বা পাসফ্রেজ দিয়ে তালাবন্ধ। অন্য কোথাও খুলতে সেই পাসওয়ার্ডই লাগবে; পাসফ্রেজ হারালে আর ফেরানো যায় না। রিস্টোর করলে এখানকার সবকিছু বদলে যায়।
-settings.backup.what.prose = আর্কাইভে সব ব্যবহারকারী, সংগ্রহ, পাসওয়ার্ডের হ্যাশ আর API কী থাকে, তাই সার্ভার ছাড়ার আগেই এনক্রিপ্ট করা হয়। চাবিটা যত্নে রাখুন — অন্য কোথাও খুলতে ওটাই লাগবে।
-settings.backup.password.prose = এই পাসওয়ার্ডে যেকোনো Tippani-তে আর্কাইভ খোলে। এই সার্ভারে আপনার এখনকার পাসওয়ার্ডেও সবসময় খোলে, বদলানোর পরেও।
-settings.backup.passphrase.label = পাসফ্রেজ · {min}–{max} অক্ষর
-settings.backup.passphrase.prose = কোনও অ্যাকাউন্টের সঙ্গে বাঁধা নয় — আর ফেরানোরও পথ নেই। হারালে আর্কাইভও গেল।
-settings.backup.use-passphrase.label = বদলে আলাদা একটা পাসফ্রেজ দিন
-settings.backup.use-password.label = বদলে নিজের অ্যাকাউন্টের পাসওয়ার্ডই নিন
-settings.backup.make.label = ব্যাকআপ নিন
-settings.backup.now.label = এখনই ব্যাকআপ নিন
-settings.backup.now.busy = ব্যাকআপ হচ্ছে…
-settings.backup.download.label = শেষটা ডাউনলোড করুন
-# {when} arrives as a bold node; {size} is a byte count in MB or KB, which are
-# symbols rather than words.
-settings.backup.last.prose = শেষ ব্যাকআপ: {when} · {size} · পরেরটা না হওয়া পর্যন্ত এই সার্ভারে থাকে
-settings.backup.empty.prose = এই সার্ভারে এখনও কোনও ব্যাকআপ নেই
-# A mono label above the source picker, whose own words are shell.restore.*.
-settings.backup.restore-from.label = কোথা থেকে
-# What the chosen archive will ask for, said before you commit to it.
-settings.backup.asks.passphrase = এর পাসফ্রেজ চাইবে
-settings.backup.asks.password = আপনার পাসওয়ার্ড চাইবে
-# bn: The marker sits on অ্যাকাউন্টের, never on the hole (§5.4).
-settings.backup.asks.password.named = তৈরির সময় ‘{name}’ অ্যাকাউন্টের যে পাসওয়ার্ড ছিল, সেটা চাইবে
-# The same, for an archive whose header names nobody. This used to read
-# "the password ‘it’ had" — a pronoun assembled in code.
-settings.backup.asks.password.era = যে পাসওয়ার্ডে এনক্রিপ্ট করা হয়েছিল, সেটা চাইবে
-settings.backup.asks.unknown = পড়া যাচ্ছে না, বা নতুন কোনও টিপ্পনীর লেখা
-settings.backup.asks.unkeyed = 1.4.1-এর আগের · চাবি নেই, RESTORE লিখতে বলবে
-settings.backup.server.empty.prose = এখানে এখনও কিছুই রাখা নেই
-settings.backup.file.choose.label = ফাইল বাছুন…
-settings.backup.file.replace.label = অন্য ফাইল বাছুন…
-settings.backup.file.none.label = কোনও ফাইল বাছা হয়নি
-settings.backup.file.chosen.label = {name} · {size}
-settings.backup.restore.label = ফিরিয়ে আনুন…
-settings.backup.toast.created = ব্যাকআপ তৈরি হল
-settings.backup.toast.restored = ফিরিয়ে আনা হল · লগ আউট হচ্ছে
-# A backup is a job on the server since 3.1.0; these two are how it can end
-# without an archive other than failing — stopped from Settings › Jobs, or cut
-# short by a restart. Toasts, five words or fewer.
-settings.backup.toast.stopped = ব্যাকআপ থামানো হল
-settings.backup.toast.interrupted = ব্যাকআপ মাঝপথে থেমে গেল
 
-# ---------------------------------------------------------------------------
-# THE RESTORE PROMPT — one dialog, asking for exactly what the chosen archive's
-# own header needs. The consequence line lives here rather than on the card,
-# because this is the moment it applies.
-# ---------------------------------------------------------------------------
-settings.restore.title = ফিরিয়ে আনা
-# TWO WHOLE SENTENCES, not one with a hole in it: the date clause lands in the
-# middle of the warning, and a value cannot begin with the space that would
-# need — the parser trims both halves.
-settings.restore.warn.prose = এই সার্ভারের সবকিছু বদলে যাবে — সব ব্যবহারকারী, সংগ্রহ আর সেটিং — আর সবাই লগ আউট হবেন। এখনকার তথ্যের একটা কপি ফেরানোর জন্য সার্ভারে রেখে দেওয়া হয়।
-settings.restore.warn.dated.prose = এই সার্ভারের সবকিছু {date}-এর ব্যাকআপ দিয়ে বদলে যাবে — সব ব্যবহারকারী, সংগ্রহ আর সেটিং — আর সবাই লগ আউট হবেন। এখনকার তথ্যের একটা কপি ফেরানোর জন্য রাখা থাকে।
-# Above step one of the restore prompt, read when it opens. A restore swaps the
-# database under the job queue (3.1.0), so the server refuses it while a job
-# runs, and the jobs still waiting end with the old database. {title} is the
-# running job's name, which the app composes from its kind and what it was about.
-settings.restore.queue.running = {title} চলছে। সেটা থেমে না যাওয়া বা শেষ না হওয়া পর্যন্ত ফিরিয়ে আনা যাবে না — আগে সেটিংস → কাজ-এ গিয়ে থামান।
-# bn: “মাঝপথে থেমেছে” quotes the interrupted state's chip (settings.jobs.state.interrupted)
-settings.restore.queue.waiting.one = অপেক্ষার তালিকায় একটা কাজ আছে — ফিরিয়ে আনলে সেটা আর চলবে না, “মাঝপথে থেমেছে” হয়ে থেকে যাবে।
-settings.restore.queue.waiting.other = অপেক্ষার তালিকায় {n}টা কাজ আছে — ফিরিয়ে আনলে সেগুলো আর চলবে না, প্রতিটা “মাঝপথে থেমেছে” হয়ে থেকে যাবে।
-# The account password, as against a passphrase — which is why it is not just
-# common.field.password.label.
-# bn: আপনার stays: the contrast with a passphrase is the point of the label (§1.3).
-settings.restore.password.label = আপনার পাসওয়ার্ড
-# bn: "sealed" is এনক্রিপ্ট করা here and in the two password labels below, as every backup line says it (v3.1)
-settings.safety.why.prose = প্রথমে এই সার্ভারে এখন যা আছে তার একটা কপি ডাউনলোড করুন। অন্য ব্যাকআপের মতোই কপিটা এনক্রিপ্ট করা থাকে, আর এখানে রাখা হয় না।
-settings.safety.done.prose = কপি ডাউনলোড হয়েছে। নতুন ডেটা ঠিক আছে কিনা নিশ্চিত না হওয়া পর্যন্ত এটা রেখে দিন।
-settings.safety.action = আগে একটা ব্যাকআপ ডাউনলোড করুন
-settings.safety.busy = কপি তৈরি হচ্ছে…
-settings.safety.first.reason = আগে একটা ব্যাকআপ ডাউনলোড করুন
-settings.safety.password.label = কপি এনক্রিপ্ট করার জন্য আপনার পাসওয়ার্ড
-settings.safety.passphrase.label = কপি এনক্রিপ্ট করার জন্য পাসফ্রেজ
-# bn: এনক্রিপ্ট করা for "sealed" (v3.1), as every backup line says it; the draft had সিল করা, after this step's older lines
-settings.safety.wait.prose = কপিটা সার্ভারে একটা কাজ হিসেবে এনক্রিপ্ট করা হয়, তৈরি হলে এখানেই ডাউনলোড হবে। ততক্ষণ এটা খোলা রাখুন।
-# bn: Current jobs' "থামান: {title}" frame, with settings.safety.busy's কপি তৈরি as the title
-settings.safety.stop.aria = থামান: কপি তৈরি
-# bn: থামানো হয়েছে is the state chip's word (settings.jobs.state.stopped); যখন চান for "when you are ready"
-settings.safety.stopped = থামানো হয়েছে: কোনও কপি তৈরি হয়নি, সার্ভারে তার কিছুই থেকে যায়নি। যখন চান আবার নিন।
-settings.restore.password.recoverable.prose = এই আর্কাইভ এই সার্ভারেরই তৈরি, তাই আপনার এখনকার পাসওয়ার্ডেই খুলবে।
-settings.restore.password.named.prose = অন্য সার্ভারে ‘{name}’-এর তৈরি, তাই তখন ওই অ্যাকাউন্টের যে পাসওয়ার্ড ছিল সেটাই লাগবে।
-settings.restore.password.era.prose = অন্য সার্ভারে তৈরি, তাই তৈরির সময় যে পাসওয়ার্ড ছিল সেটাই লাগবে।
-# A pre-1.4.1 archive carries no key at all, so the typed word stands for it.
-# RESTORE is compared byte for byte and stays Latin in every language.
-settings.restore.confirm.label = RESTORE লিখুন
-settings.restore.confirm.prose = এই আর্কাইভ 1.4.1-এর আগের, এতে কোনো চাবি নেই — তাই শব্দটা টাইপ করলেই নিশ্চিত হবে।
 # The close on both prompts: backing out of a form is not the same as closing a
 # window you were only reading.
 settings.prompt.close.tip = বাতিল করে বন্ধ করুন
@@ -4237,121 +3848,18 @@ settings.jobs.took.s = {s}s
 settings.jobs.took.m = {m}m {s}s
 settings.jobs.took.h = {h}h {m}m
 
-# --- a job's log, in its row. {title} is the job's name from the list above.
-# bn: the hole stays bare (§5.4), so the frame puts the name after a colon.
-settings.jobs.log.aria = লগ: {title}
-settings.jobs.log.copy.aria = লগ কপি: {title}
-settings.jobs.log.empty = এখনও কিছু লেখা হয়নি।
-settings.jobs.log.trimmed = শুরুর দিকের লাইনগুলো এক্সপোর্টে আছে।
 
-# --- Current jobs: what is running and what waits behind it.
-settings.jobs.current.title = চলতি কাজ
-settings.jobs.current.log.aria = চলতি লগ: {title}
-settings.jobs.current.log.copy.aria = চলতি লগ কপি: {title}
-# The words beside the two counts in the card's head: "1 running", "3 waiting".
-# bn: বাকি, the word v3.7 gave to a thing still to be done — a job cannot wait.
-settings.jobs.current.running.word = চলছে
-settings.jobs.current.waiting.word = বাকি
-settings.jobs.current.empty = কিছুই চলছে না, অপেক্ষার তালিকাও খালি।
-settings.jobs.current.fold.label = চলতি কাজ গুটিয়ে নিন
-settings.jobs.current.unfold.label = চলতি কাজ দেখান
 # A waiting job's one line. "Ahead" counts every job before it in the queue,
 # whoever started it, the running one included.
 settings.jobs.current.ahead.one = অপেক্ষার তালিকায় — আগে একটা কাজ
 settings.jobs.current.ahead.other = অপেক্ষার তালিকায় — আগে {n}টা কাজ
 settings.jobs.current.next = অপেক্ষার তালিকায় — এরপরেই
-settings.jobs.current.stop.label = থামান
-settings.jobs.current.stop.running.aria = থামান: {title} (চলছে)
-settings.jobs.current.stop.next.aria = থামান: {title} (এরপরেই)
-settings.jobs.current.stop.ahead.aria.one = থামান: {title} (আগে একটা কাজ)
-settings.jobs.current.stop.ahead.aria.other = থামান: {title} (আগে {n}টা কাজ)
-# A Stop is at once, and the job's item in hand is left untouched.
-settings.jobs.current.stopping = থামছে…
-settings.jobs.current.stop-all.label = সব থামান
-settings.jobs.current.stop-all.confirm.title = সব কাজ থামাবেন?
-# The confirm's body is these sentences, the ones that apply, joined in code.
-# bn: সঙ্গে সঙ্গে for "at once"; যেমন ছিল তেমনই থাকবে for "left untouched", with no form-Bengali word for untouched
-settings.jobs.current.stop-all.confirm.running = যেটা চলছে, সেটা সঙ্গে সঙ্গে থামবে, আর হাতেরটুকু যেমন ছিল তেমনই থাকবে।
-settings.jobs.current.stop-all.confirm.waiting.one = অপেক্ষার তালিকার কাজটা শুরুই হবে না।
-settings.jobs.current.stop-all.confirm.waiting.other = অপেক্ষার তালিকার {n}টা কাজ শুরুই হবে না।
-settings.jobs.current.stop-all.confirm.kept = প্রতিটা তার লগ নিয়ে থেকে যাবে, আর যিনি চালিয়েছিলেন তিনি আবার চালাতে পারবেন।
-# Said only to an admin, whose Stop all reaches every reader's jobs.
-settings.jobs.current.stop-all.confirm.admin = অন্য পাঠকদের কাজও এর মধ্যে পড়ে।
-settings.jobs.current.stop-all.confirm.verb = থামান
-settings.jobs.current.stop-all.done.one = {n}টা কাজ থামানো হল
-settings.jobs.current.stop-all.done.other = {n}টা কাজ থামানো হল
 
-# --- Common jobs: the jobs a reader runs again and again, each with a place of
-# its own. A row is the job's name, one line of what it does, how it went the last
-# time, and Run (Run again once it has run) — or Stop while that job runs or waits.
-# bn: a row's name is a noun phrase, as every job's is (কভার আনা), because the two
-# library-wide rows name the job in Current and Past jobs too.
-# bn: নিয়মিত for "common", the jobs run as a matter of course (each row has its own Run, so no timer is implied); বারবারের কাজ was the other. Not সাধারণ, which reads as "ordinary"
-settings.jobs.common.title = নিয়মিত কাজ
 # bn: উৎস for "work" (unit.work); the job's name in Current and Past jobs too
 settings.jobs.common.fill-all.label = সব উৎসের শূন্যস্থান পূরণ
-settings.jobs.common.fill-all.prose = প্রতিটা বই আর সিনেমার যা নেই, খুঁজে দেখে শুধু ফাঁকা ঘরগুলো ভরায়।
 # bn: "missing people" are people whose details are missing: না-থাকা তথ্য. মানুষের যা নেই, আনা was the other
 settings.jobs.common.people-missing.label = মানুষের না-থাকা তথ্য আনা
-# bn: তথ্যসূত্রের লিংক, as the People console says "reference links" (metadata.section.people.info.body)
-settings.jobs.common.people-missing.prose = যাঁদের মুখের ছবি বা তথ্যসূত্রের লিংক নেই, তাঁদের সবার জন্য আনে।
-settings.jobs.common.covers.label = কভার আর তথ্য আনা
-# bn: a sentence with a verb, as the other three rows' are; the draft's list ended on নেই, which read as saying the details were not there. সংগ্রহ for "the library", as settings.backup.what.prose says it; গ্রন্থাগার is the books' screen
-settings.jobs.common.covers.prose = পুরো সংগ্রহ জুড়ে কভার আর পোস্টার আনে, সঙ্গে উৎসগুলোর যা তথ্য নেই সেটুকুও।
-settings.jobs.common.backup.label = এখনই ব্যাকআপ নেওয়া
-# bn: "seals" is এনক্রিপ্ট করা (v3.1); একমাত্র আর্কাইভ, since the server keeps only the newest
-settings.jobs.common.backup.prose = পুরো সংগ্রহ এনক্রিপ্ট করে সার্ভারের একমাত্র আর্কাইভে রাখে।
-settings.jobs.common.fill-all.pending = — পূরণযোগ্য শূন্যস্থান আছে
-settings.jobs.common.fill-all.pending.none = পূরণ করার মতো কিছু নেই
-settings.jobs.common.fill-all.blocked.one = — আগে একটা সূত্র লাগবে
-settings.jobs.common.fill-all.blocked.other = — আগে একটা সূত্র লাগবে
-settings.jobs.common.people-missing.pending = — ছবি বা লিংক নেই
-settings.jobs.common.covers.pending = — কভার বা পোস্টার নেই
-settings.jobs.common.covers.pending.none = আনার মতো কিছু নেই
-settings.jobs.common.pending.none = কিছুই বাকি নেই
-settings.jobs.common.run.label = চালান
-settings.jobs.common.again.label = আবার চালান
-# The covers pass's quick run: only what is missing, never a better picture over one already stored.
-settings.jobs.common.missing-only.label = শুধু যা নেই
-settings.jobs.common.missing-only.tip = শুধু যে কভার আর পোস্টার নেই; একটা থাকলে সেটাই থাকবে
-# Each press's name for a screen reader, since every row has one. {title} is the row's name.
-# bn: the hole stays bare (§5.4), so the frame puts the name after a colon, as the Stop buttons do.
-settings.jobs.common.run.aria = চালান: {title}
-settings.jobs.common.again.aria = আবার চালান: {title}
-settings.jobs.common.missing-only.aria = শুধু যা নেই: {title}
-settings.jobs.common.stop.aria = থামান: {title}
-# Under a row: how its last run ended. The state, the time and what it did are
-# drawn after this word; {state} and {when} are the same two in the button's name.
-settings.jobs.common.last.label = শেষবার
-settings.jobs.common.last.aria = শেষবার: {title} — {state}, {when}
-settings.jobs.common.log.aria = শেষবারের লগ: {title}
-settings.jobs.common.log.copy.aria = শেষবারের লগ কপি: {title}
-settings.jobs.common.never = গত 30 দিনে চালানো হয়নি
-# A server that runs no jobs (a test server's, the daily-deck command's) has no row to offer.
-settings.jobs.common.empty = এই সার্ভারে এখান থেকে কিছুই চালানো যায় না।
 
-# --- Past jobs: everything that finished in the last 30 days, newest first.
-settings.jobs.past.title = আগের কাজ
-settings.jobs.past.filter.aria = কোন কাজগুলো দেখাবে
-settings.jobs.past.filter.all.label = সব
-settings.jobs.past.empty = গত 30 দিনে কিছুই শেষ হয়নি।
-settings.jobs.past.empty.filtered = গত 30 দিনে এমন কিছু নেই।
-settings.jobs.past.more.label = আরও পুরোনো দেখান
-# The details under an opened row.
-settings.jobs.past.who.label = কে চালিয়েছেন
-settings.jobs.past.when.label = কখন শুরু
-settings.jobs.past.took.label = কতক্ষণ লাগল
-settings.jobs.past.result.label = ফল
-settings.jobs.past.error.label = কী গোলমাল হল
-settings.jobs.past.export.tip = এই কাজের লগ, Markdown ফাইল হিসেবে
-settings.jobs.past.rerun.label = আবার চালান
-settings.jobs.past.rerun.done = আবার শুরু হল
-# A re-verify's findings wait to be looked over; Review findings opens them on
-# Metadata, where the changes are chosen and applied. Not "Review" alone: the
-# Settings rail's Review tab is on the same desk screen.
-# bn: not রিভিউ, the Settings rail's tab on the same screen; যা পাওয়া গেছে is reverify.kept.review's phrase, দেখে নিন the staging card's verb for looking over before taking
-settings.jobs.past.review.label = যা পাওয়া গেছে, দেখে নিন
-settings.jobs.past.review.tip = যা যা বদল পাওয়া গেছে, মেটাডেটায় খুলে বেছে নিন কোনগুলো বসাবেন
 
 # --- System logs: the app's own log, for an admin.
 settings.logs.title = সিস্টেম লগ
@@ -4422,36 +3930,16 @@ unit.speaker.other = বক্তা
 unit.person.one = জন
 unit.person.other = জন
 
-# --- from settings ---
-# The toast that follows a backup offers the copy. "Export" is the neighbouring
-# verb and is a different act — this one hands you a file the server already has.
-common.action.download.label = ডাউনলোড
 
 # Updates.
 error.check.updates = আপডেট আছে কি না দেখা গেল না
 error.update.start = আপডেট শুরুই হল না
 # A clipboard write the browser refused — the command is still on screen.
 error.copy.manual = কপি করা গেল না — নিজে সিলেক্ট করে কপি করুন
-error.load.changelog = “কী বদলেছে” আনা গেল না
 
-# Devices.
-error.load.devices = যন্ত্রপাতির তালিকা আনা গেল না
-error.pair.device = পেয়ারিং শুরু করা গেল না
-error.revoke.device = যন্ত্রপাতিটা আনপেয়ার করা গেল না
-error.revoke.devices = যন্ত্রপাতি আনপেয়ার করা গেল না
 
-# Backup and restore. "data intact" is the load-bearing half: a restore that
-# failed changed nothing.
-error.backup.failed = ব্যাকআপ হল না
-error.restore.intact = ফিরিয়ে আনা গেল না — ডেটা যেমন ছিল তেমনই আছে
 
-# An uploaded typeface the server would not take.
-error.upload.font = ফন্টটা আপলোড করা গেল না
 
-# The third validate reason the restore prompt needs. The other two already
-# exist (error.validate.password-required, error.validate.archive-passphrase-
-# required) and are reused. RESTORE is compared byte for byte and stays Latin.
-error.validate.restore-word = নিশ্চিত করতে RESTORE লিখুন
 
 # ===========================================================================
 # THE REST OF THE SHARED VOCABULARY — common.field.* and one shell key.
@@ -5084,10 +4572,6 @@ cleanup.help.cap.more = কয়েকটা ঠিক করে বাকি�
 
 # Heading: aliases nav.tab.settings.label, so the screen has ONE name. Nothing to add here.
 
-# The names of the six highlight colours.
-metadata.help.colour-categories.term = রঙের ঘর
-metadata.help.colour-categories.what = হাইলাইটের রংগুলোর নাম। যেকোনোটার নাম বদলানো যায়।
-metadata.help.colour-categories.more = নাম বদলালে শুধু দেখানো নামটাই বদলায়; ভেতরের রং একই থাকে, তাই এক্সপোর্ট-ইমপোর্টে তফাত হয় না। কোনো রং লুকোলে বাছার তালিকা থেকে সরে যায়, কিন্তু যেসব উদ্ধৃতিতে সেটা আছে সেগুলোতে হাত পড়ে না।
 
 settings.help.appearance.term = চেহারা
 settings.help.appearance.what = হালকা না গাঢ়, রং, উপাদান-সেট, কাচ আর কভারের মাপ। প্রত্যেক ব্যবহারকারীর নিজের নিজের।
@@ -5137,23 +4621,9 @@ metadata.help.credit-separators.more = বইয়ে লেখা নাম �
 
 # The Settings tile that opens the bin.
 
-settings.help.backup.term = ব্যাকআপ আর ফিরিয়ে আনা
-settings.help.backup.what = শুধু অ্যাডমিন: সবকিছুর একটা তারিখ-দেওয়া, এনক্রিপ্ট করা আর্কাইভ — এখানেই ফেরানো যায়, অন্য Tippani-তেও।
-settings.help.backup.more = যে সার্ভারে তৈরি, সেখানে আপনার এখনকার পাসওয়ার্ডেই খোলে। অন্য কোথাও লাগে তৈরির সময়ের পাসওয়ার্ড। পাসফ্রেজ দেওয়া আর্কাইভ পাসফ্রেজ ছাড়া কোনোভাবেই খোলা যায় না।
 
-# The button that makes the archive.
-settings.help.backup-now.term = এখনই ব্যাকআপ নিন
-settings.help.backup-now.what = আর্কাইভটা বানিয়ে এখানেই, সার্ভারেই রেখে দেয় — যখন দরকার, ফিরিয়ে আনার জন্য তৈরি।
-settings.help.backup-now.more = চাইলে নিশ্চিতকরণ বার্তা থেকেই ডাউনলোড করা যায়।
 
-# The link that hands over the archive already on the server.
-settings.help.backup-download.term = শেষটা ডাউনলোড করুন
-settings.help.backup-download.what = সার্ভারে রাখা আর্কাইভটা ডাউনলোড করে। এটা সাধারণ লিংক, তাই “Save link as”-ও চলে।
-settings.help.backup-download.more = সবচেয়ে নতুন আর্কাইভটাই শুধু রাখা হয় — নতুন ব্যাকআপ নিলে সেটা আগেরটার জায়গা নেয়।
 
-settings.help.changelog.term = কী বদলেছে
-settings.help.changelog.what = প্রতিটা রিলিজের কথা, নতুনটা আগে — অ্যাপের ভেতরেই আছে, তাই ইন্টারনেট ছাড়াও দেখা যায়।
-settings.help.changelog.more = শুধু নতুনটা খোলা থাকে; বাকিগুলো ভাঁজ করা। আপনি যেটা চালাচ্ছেন সেটা চিহ্নিত করা থাকে। আপনার চেয়ে নতুন সংস্করণের জন্য নম্বরটায় চাপলে রিলিজের পাতা খোলে।
 
 settings.help.updates.term = আপডেট
 settings.help.updates.what = শুধু অ্যাডমিনের জন্য, চাইলে তখনই দেখে নেয় — পিছনে চুপিচুপি কখনও নয়।
@@ -5165,8 +4635,6 @@ settings.help.updates.what = শুধু অ্যাডমিনের জন�
 # The help panel’s heading on the profile panel.
 profile.help.title = প্রোফাইল
 
-profile.help.photo.term = ছবি
-profile.help.photo.what = উপরের বারে আপনার ছবিটা। চৌকো ছবি সবচেয়ে ভালো বসে।
 
 profile.help.display-name.term = যে নাম দেখা যাবে
 profile.help.display-name.what = শুভেচ্ছা আর ইউজার-তালিকা আপনাকে যে নামে ডাকবে।
@@ -5182,14 +4650,7 @@ profile.help.password.term = পাসওয়ার্ড
 profile.help.password.what = 8–20টা অক্ষর — ইংরেজি বর্ণ, অঙ্ক আর যতিচিহ্ন; é-র মতো চিহ্নওয়ালা অক্ষর নয়।
 profile.help.password.more = পাসওয়ার্ড দিয়েই ব্যাকআপ খোলে, তাই যেকোনো মেশিনে টাইপ করা যাওয়া চাই। বদলালে অন্য ব্রাউজার থেকে লগ আউট হয়, আর এই সার্ভারের বানানো সব আর্কাইভ এখনকার পাসওয়ার্ডেই খোলে।
 
-# The admin-only user list, on the profile panel.
-profile.help.users.term = এই সার্ভারের ইউজাররা
-profile.help.users.what = শুধু অ্যাডমিনের জন্য: অ্যাকাউন্ট যোগ করুন, অ্যাডমিনের ভার দিন বা ফিরিয়ে নিন, বা একটা অ্যাকাউন্ট তার গোটা গ্রন্থাগার সমেত মুছে দিন।
-profile.help.users.more = ভার হাতবদল করতে হলে আগে অন্য কাউকে অ্যাডমিন করুন, তারপর নিজেরটা ফিরিয়ে নিন।
 
-# The admin-only rebuild-index and reset-instance pair.
-profile.help.maintenance.term = দেখভাল
-profile.help.maintenance.what = শুধু অ্যাডমিনের জন্য: খোঁজ কাজ না করলে ইনডেক্স আবার বানান, বা পুরো সার্ভার মুছে প্রথম দিনের অবস্থায় ফেরান।
 
 # ---------------------------------------------------------------------------
 # capture.help.* — the "?" panel’s section for Add & capture.
@@ -5866,10 +5327,6 @@ context.rule.ask.leave = আগের উদ্ধৃতিগুলো যে�
 context.rule.ask.clear.work = এই কাজের প্রতিটি উদ্ধৃতির আলাদা বদল মুছে দিন
 context.rule.ask.clear.board = এই বোর্ডের প্রতিটি উদ্ধৃতির আলাদা বদল মুছে দিন
 context.rule.ask.cancel = বাতিল
-settings.context.before.label = উদ্ধৃতির আগের প্রসঙ্গ
-settings.context.before.info.body = প্রসঙ্গসহ খুললে উদ্ধৃতির আগে কাজের ফাইলের কতটা দেখানো হবে। কাজ বা বোর্ড নিজের মান ঠিক করতে পারে, উদ্ধৃতিও পারে।
-settings.context.after.label = উদ্ধৃতির পরের প্রসঙ্গ
-settings.context.after.info.body = প্রসঙ্গসহ খুললে উদ্ধৃতির পরে কাজের ফাইলের কতটা দেখানো হবে। কাজ বা বোর্ড নিজের মান ঠিক করতে পারে, উদ্ধৃতিও পারে।
 # Checks: times a work's subtitle proposes for its film lines. Nothing is written until you press.
 locators.title = ফাইল থেকে সময় ও স্থান
 locators.counts = {exact}টি হুবহু · {review}টি দেখার মতো
@@ -5926,28 +5383,6 @@ found.failed.one = {n}টি জোড়া যায়নি
 found.failed.other = {n}টি জোড়া যায়নি
 found.skipped.one = {n}টি অন্য দলের, তাই বাদ গেছে
 found.skipped.other = {n}টি অন্য দলের, তাই বাদ গেছে
-# Settings, Server: the folders a library lives in, and whether a backup carries attached files.
-settings.library.title = লাইব্রেরি
-settings.library.folders.label = লাইব্রেরি ফোল্ডার
-settings.library.folders.info = আপনার বই ও ফিল্ম যে ফোল্ডারে আছে সেগুলো কেবল-পঠনযোগ্য করে মাউন্ট করুন, আর কন্টেনারের ভেতরের পথ এখানে যোগ করুন। তারপর পাঠকেরা চেক্স থেকে সাবটাইটেল ও ই-বুক খুঁজতে পারবেন। এই অ্যাপ শুধু পড়ে, কখনও লেখে না।
-settings.library.folders.none = এখনও কোনো ফোল্ডার নেই।
-settings.library.folders.remove.aria = {label} ফোল্ডার আর ব্যবহার করবেন না
-settings.library.add.label = ফোল্ডার যোগ করুন
-settings.library.add.path = কন্টেনারের ভেতরের পথ
-settings.library.add.name = নাম
-settings.library.add.button = যোগ করুন
-settings.library.backup.label = ব্যাকআপে জোড়া ফাইল রাখুন
-settings.library.backup.sub = ডিফল্টে বন্ধ: ফাইল থেকে যা পড়া হয়েছে তা সবসময় থাকে, আর ফাইল আবার জোড়া যায়।
-# Settings, Server, Library: stored source files that nothing names, and rows whose file is gone.
-settings.library.tidy.label = জোড়া ফাইল গোছান
-settings.library.tidy.info = যে সংরক্ষিত ফাইল আর কোনো কাজের নয় তা সরায়। যে কাজের ফাইল নেই তা শুধু জানানো হয়: ফাইল থেকে যা পড়া হয়েছিল তা থাকে, আর ফাইল আবার জোড়া যায়।
-settings.library.tidy.orphans.one = {n}টি সংরক্ষিত ফাইল কোনো কাজের নয়।
-settings.library.tidy.orphans.other = {n}টি সংরক্ষিত ফাইল কোনো কাজের নয়।
-settings.library.tidy.missing.one = {n}টি কাজের ফাইল নেই।
-settings.library.tidy.missing.other = {n}টি কাজের ফাইল নেই।
-settings.library.tidy.button = সরিয়ে দিন
-settings.library.tidy.done.one = {n}টি ফাইল সরানো হয়েছে
-settings.library.tidy.done.other = {n}টি ফাইল সরানো হয়েছে
 # The files attached to your works, and the prune: keep what was read, throw the file away.
 attached.title = জোড়া ফাইল
 attached.counts = {n}টি ফাইল · ছাঁটলে প্রায় {frees} খালি হবে
@@ -5988,7 +5423,6 @@ common.source.why.nofolder = কোনো লাইব্রেরি ফোল�
 common.source.why.notscanned = আপনার লাইব্রেরি ফোল্ডারগুলো এখনও খোঁজা হয়নি।
 common.source.why.partial = শেষ খোঁজা সম্পূর্ণ হয়নি, তাই এই কাজের ফাইল হয়তো এখনও খোঁজা হয়নি।
 common.source.why.nomatch = শেষ খোঁজায় আপনার লাইব্রেরি ফোল্ডারে এই কাজের কোনো ফাইল পাওয়া যায়নি।
-settings.library.folders.scan = যাচাইকরণে এই ফোল্ডারগুলো খুঁজুন
 common.source.noanswer = সার্ভার সাড়া দেয়নি। হয়তো ব্যস্ত। এক মিনিট পরে আবার চেষ্টা করুন।
 common.source.failed = কিছু একটা গোলমাল হয়েছে: {error}
 common.source.failed.generic = সার্ভারে কিছু একটা গোলমাল হয়েছে। আবার চেষ্টা করুন।
@@ -6012,7 +5446,6 @@ found.unclaimed.other = আপনার ফোল্ডারের {n}টি �
 files.found.label = পাওয়া ফাইল
 files.found.word = পাওয়া
 attached.error.load = জোড়া ফাইলগুলো পড়া গেল না। {why}
-settings.library.error.load = লাইব্রেরি ফোল্ডার পড়া গেল না। {why}
 files.error.load = সূত্র ফাইলগুলো পড়া গেল না। {why}
 files.folders.title = লাইব্রেরি ফোল্ডার
 files.folders.info = এই সার্ভারে অ্যাডমিন যে ফোল্ডারগুলো মাউন্ট করেছেন। খুঁজলে সেখানে আপনার কাজের সাবটাইটেল আর ই-বুক খোঁজা হয়। আপনি মেনে না নেওয়া পর্যন্ত কিছুই জোড়া হয় না।

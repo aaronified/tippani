@@ -20,7 +20,6 @@ import {
   HelpButton,
   HelpList,
   HelpSheet,
-  IconArchive,
   IconCalendar,
   IconCopy,
   IconDelete,
@@ -282,7 +281,6 @@ export const HELP = {
     entry('metadata.help.language-marks', { icon: <IconLanguages />, more: true }),
     entry('metadata.help.source-files', { icon: <IconSourceFile />, more: true }),
     entry('metadata.help.credit-separators', { more: true }),
-    entry('metadata.help.colour-categories', { asset: <HelpSwatches />, more: true }),
   ]),
   // Stray marks sits next to the bin: both are pages you are sent to rather
   // than pages you browse.
@@ -307,20 +305,13 @@ export const HELP = {
     entry('settings.help.features', { more: true }),
     entry('settings.help.type', { icon: <IconType />, more: true }),
     entry('settings.help.upload-font', { more: true }),
-    entry('settings.help.backup', { more: true }),
-    entry('settings.help.backup-now', { icon: <IconArchive />, more: true }),
-    entry('settings.help.backup-download', { icon: <IconExport />, more: true }),
-    entry('settings.help.changelog', { more: true }),
     entry('settings.help.updates'),
   ]),
   profile: section('profile.help.title', [
-    entry('profile.help.photo', { icon: <IconUpload /> }),
     entry('profile.help.display-name'),
     entry('profile.help.switch-account', { more: true }),
     entry('profile.help.log-out'),
     entry('profile.help.password', { more: true }),
-    entry('profile.help.users', { icon: <IconPlus />, more: true }),
-    entry('profile.help.maintenance'),
   ]),
   capture: section('capture.help.title', [
     entry('capture.help.no-work'),

@@ -70,9 +70,7 @@ settings.section.jobs.info.body = What is running, what is waiting its turn, and
 settings.section.aria = Which settings to change
 settings.section.theme.label = Theme
 settings.section.lang.label = Language and font
-settings.section.sections.label = Sections
 settings.section.server.label = Server
-settings.section.jobs.label = Jobs
 # The information dot beside that row.
 settings.language.info.title = Language
 settings.language.info.body = English and Bengali are built in. To add another, copy data/Locales/_TEMPLATE.txt to a file like fr.txt and translate it — it appears here without a rebuild.
@@ -542,16 +540,6 @@ common.filmstrip.edge.label = TIPPANI · SAFETY FILM
 # somewhere to say so.
 shell.wordmark.label = tippani
 
-# --- THE THREE THINGS ON THIS SCREEN THAT ARE NOT COPY.
-#
-# Each goes through the resolver anyway, because the alternative is an exemption
-# in the pseudo-locale gate and a gate with exemptions in it stops being a gate.
-# Each carries the SAME VALUE IN EVERY LANGUAGE, exactly as
-# common.filmstrip.edge.label does and as §6.3's "unchanged" rows do.
-#
-# The size readout beside the Type card's slider. A unit symbol next to a Western
-# digit, in the same class as {n}h / {n}d / ×{n} — not a word.
-settings.type.size.format = {n}px
 # The four credit separators, as the chip DRAWS them. These are the characters the
 # splitter actually matches, so translating one would name a separator nothing
 # splits on: an author line reads "Gaiman & Pratchett" or "Gaiman and Pratchett"
@@ -1152,138 +1140,23 @@ settings.credits.info.body = Splits a credit like “Gaiman & Pratchett” into 
 settings.credits.chip.tip = Split credits on this separator
 settings.credits.off.prose = splitting is off — every credit stays one person
 
-# --- colour categories. Renaming changes the words and never the stored value.
-# Slot 1 has no name, and its dot says so instead of offering a rename.
-settings.colours.fixed.tip = The default colour
-settings.colours.fixed.info.title = Why this one has no name
-settings.colours.fixed.info.body = Where a quote goes when no colour is picked, including imports with none. It has no name; its colour can still be changed.
-# {name} is the category's current name.
-settings.colours.recolour.tip = Recolour {name}
-settings.colours.name.aria = Name for the {name} category
-settings.colours.palette.aria = Colour for {name}
-settings.colours.offer.aria = Offer this category
-settings.colours.hide.aria = Hide this category
-settings.colours.offer.tip = Offer this again
-# Two categories is the floor, so the second-to-last cannot be hidden.
-settings.colours.keep-two.tip = Keep two categories
-settings.colours.hide.tip = Stop offering this
-# UN-MAKING A COLOUR CATEGORY. A category is one of eight SLOTS, not a row, so
-# there is nothing to remove — "delete" means it stops being one you made: name,
-# colour and hiding all back to what the app shipped. No quote changes; the stored
-# value never moves, which is what makes exports round-trip.
-settings.colours.unmake.aria = Un-make {name} — back to the app's own name and colour
-settings.colours.unmake.tip = Back to the app's own name and colour
-settings.colours.unmake.confirm.title = Un-make {name}?
-settings.colours.unmake.confirm.body = Its name, colour and visibility go back to the app's defaults. Quotes filed under this colour stay under it.
-settings.colours.unmake.cta = Un-make
-settings.colours.reset.aria = Reset this colour
-settings.colours.reset.tip = Back to the original
 
-settings.type.own.title = Your own fonts
-settings.type.faces.title = Interface faces
-# --- Quote faces, one per language. The list is Metadata's language table; this
-# only says what each language's QUOTES are set in.
-settings.quote-faces.title = Quote fonts
-settings.quote-faces.link.prose = Each language’s quote font is set in Metadata › Languages, beside its other settings.
-settings.quote-faces.add.open = Open the language table
-# Your own faces: the list, and the way one more gets in.
-settings.type.added.title = Added fonts
-settings.type.added.sub = Each one shown in its own face
-settings.type.added.none = None yet — upload one below
-settings.type.add.title = Add a font
-settings.type.add.sub = woff2, woff, otf or ttf — it stays on this server
-settings.type.add.action = Upload a font
-settings.type.style.aria = Style modifiers for {name}
-# WHOSE INTERFACE these faces are for. '' is the answer every UI language
-# inherits; a code is that language's own. Not "English" — the inherited answer
-# applies in every language, and English can overrule it like any other.
-# WHOSE FACES THESE ARE — said under the heading, not asked in a row. The chooser
-# that used to ask it sat under the card that picks the interface language, which
-# is the same question twice.
-settings.type.faces.sub = The faces {language} is set in. Switch language above to set another one’s.
-settings.type.scope.revert.aria = Follow every language for {name}
-settings.type.scope.revert.tip = Back to the shared answer
-settings.type.style.title = style
-settings.type.face.aria = Typeface for {name}
-settings.type.face.filter.placeholder = Type a typeface name
-settings.type.font.remove.tip = Remove this font
-settings.type.font.remove.confirm = Remove {name}? Any role using it goes back to its built-in.
-# Shown when an uploaded face measures as though it does not draw the script the
-# role needs. A warning and not a refusal. {field} is the script's name.
-settings.type.script-warning.prose = This font may not support {field}. It is applied anyway — if the text below shows boxes, this is why.
-# The script a role needs when the role does not name one.
-vocab.script.latin.label = Latin
 
-# --- Settings → Language marks. The mark a proverb board wears.
-# The card on Metadata sources: what the door is for, and the door's own word.
-settings.languages.glyphs.aria = Script letters for {name}
-settings.languages.no-script.prose = No script letters for {name} — give it a mark of your own below.
-# The reader's own marks, and how many of the allowance are used. {done}/{total}.
-settings.languages.mark.remove.aria = Remove {name} from {field}
-settings.languages.full.prose = {name} keeps {n} marks of its own — remove one to add another.
-settings.languages.order.title = how much of the original
-settings.languages.order.custom.tip = Some languages have their own setting; changing this resets them to match.
+
 vocab.textorder.trans-only.label = translation only
 vocab.textorder.trans-first.label = translation first
 vocab.textorder.quote-first.label = quotation first
 vocab.textorder.quote-only.label = quotation only
-settings.languages.remove.in-use.tip = {name} is in use — quotes or books of yours are in it
-# Renaming a language is a DISPLAY name. The stored name stays and is shown
-# beside it, so "why does my Bangla board say Bengali" stays answerable.
-# What this language's QUOTES are set in — every face the app ships, because the
-# question is "what does my German look like" and the answer may be a sans or a
-# hand. "Follows the card" is a real answer and so is an option, not a clear button.
-settings.languages.face.inherit = Follows the Quotes face
-settings.languages.face.aria = Typeface for quotes in {name}
-settings.languages.add.label = Add a language
-settings.languages.name.label = Language name
-settings.languages.order.all.label = All languages
-settings.languages.order.own.label = own setting
-settings.languages.key.quote = quotation, as written
-settings.languages.key.trans = translation
-settings.languages.edit.aria = Edit {name}: name, code and mark
-settings.languages.iso.label = ISO 639-3 code
-settings.languages.iso.none = no ISO code
-settings.languages.iso.link.label = Link a code
-settings.languages.iso.change.label = Change
-settings.languages.iso.clear.aria = Unlink the ISO code
-settings.languages.iso.search.placeholder = name or code, e.g. Sylheti or syl
-settings.languages.iso.nomatch = No ISO 639-3 language matches that.
-settings.languages.iso.type.extinct = extinct
-settings.languages.iso.type.ancient = ancient
-settings.languages.iso.type.historical = historical
-settings.languages.iso.type.constructed = constructed
-settings.languages.iso.type.macro = macrolanguage
-settings.languages.add.search.label = Find a language
-settings.languages.add.free = Add “{name}” without a code
-settings.languages.mark.title = mark on its quote cards
-settings.languages.add-mark.aria = Add a mark of your own
-settings.languages.reset.label = Reset mark and name
-settings.languages.remove.label = Remove language
-settings.languages.remove.confirm.title = Remove {name}?
-settings.languages.remove.confirm.body = Its mark, name and code are forgotten. No quote changes.
 
-# --- Settings → Features. Hiding a section is cosmetic: it takes away the doors.
-settings.features.locked.prose = The last section has to stay — turn another one on first.
-settings.features.show.label = Show
-settings.features.hide.label = Hide
 
-settings.features.order.title = Show me, in this order
-settings.features.order.prose = This order is used in the sidebar, the menu and the ＋ button. The top one is where the app opens.
-settings.features.order.drag.aria = Drag to move {name}
-settings.features.order.up.aria = Move {name} up
-settings.features.order.down.aria = Move {name} down
 
-# --- button labels: whether a glyph shows its words.
-settings.labels.title = Button labels
-settings.labels.info.title = Button labels
-settings.labels.info.body = Show or hide the words on buttons that have an icon. Auto shows them on desktop and hides them on a phone. Screen readers still read hidden words, and every icon names itself on hover or long-press.
-settings.labels.auto.label = Auto
+
+
+
 
 # --- Appearance.
 settings.search.none = Nothing in Settings matches “{q}”.
 settings.appearance.group.material.title = What it is made of
-settings.appearance.matset.info.body = Each set covers four surfaces and works in light and dark. Atrium has no material and is the fastest.
 
 settings.appearance.theme.title = Which one you see
 settings.appearance.theme.light.label = Light
@@ -1301,28 +1174,7 @@ settings.appearance.colours.light.title = The light ground
 settings.appearance.colours.dark.title = The dark ground
 settings.appearance.colours.accent.title = The accent
 settings.appearance.colours.hide.aria = Hide the options
-settings.features.covers.title = Library covers
-settings.features.posters.title = Catalogue posters
-settings.features.sizes.aside = this device only
 
-settings.appearance.ground.info.body = The background in three shades: the page behind, the panels, and the card a quote sits on. Light and dark are set separately; this row edits the one on screen.
-settings.appearance.phys.info.body = How each material reacts to light, set per material for the four in your set. Stone gives a small bright highlight; wool a wide, dim one.
-settings.appearance.phys.hard.label = Hardness
-settings.appearance.phys.sss.label = Glow through
-settings.appearance.phys.diff.label = Colour spread
-settings.appearance.phys.refl.label = Reflects the room
-settings.appearance.slots.info.body = The set gives every surface a material. Pick another for any one of them; the set's own is always the first choice, and it is what an empty choice means.
-settings.appearance.saved.info.body = Saves both backgrounds, the accent, the material set and its settings together, so you can switch looks in one tap. Up to four per profile.
-settings.appearance.saved.export.default = My look
-settings.appearance.saved.import.label = Import
-settings.appearance.saved.import.unnamed = Imported
-settings.appearance.glass.info.body = Glass that bends what is behind it instead of blurring it. It costs the device work on every scroll, so it is off by default.
-settings.appearance.glass.clarity.label = How clear it is
-settings.appearance.glass.refract.label = How much it bends
-settings.appearance.glass.bevel.label = How wide the rim is
-settings.appearance.glass.fringe.label = Rainbow at the edge
-settings.appearance.glass.gain.label = How steep the bend
-settings.appearance.glass.blur.label = Softness behind it
 vocab.ground.cream.label = Cream
 vocab.ground.white.label = White
 vocab.ground.sepia.label = Sepia
@@ -1331,23 +1183,6 @@ vocab.ground.night.label = Night
 vocab.ground.ink.label = Ink
 vocab.ground.soot.label = Soot
 vocab.ground.tobacco.label = Tobacco
-settings.appearance.contrast.aria = Contrast
-# --- Appearance -> the quote's own two reading dials (§6 access). They set the
-# QUOTE text and nothing else: the interface has its own size dial above, and a
-# reader narrowing a column of prose is not asking for a narrower app.
-settings.appearance.quote-leading.label = Space between a quote's lines
-settings.appearance.quote-leading.aria = Space between the lines of a quote
-settings.appearance.quote-leading.tight = Tight
-settings.appearance.quote-leading.snug = Snug
-settings.appearance.quote-leading.normal = Normal
-settings.appearance.quote-leading.relaxed = Relaxed
-settings.appearance.quote-leading.loose = Loose
-settings.appearance.quote-measure.label = How wide a quote runs
-settings.appearance.quote-measure.aria = How long a line of a quote is allowed to be
-settings.appearance.quote-measure.full = Full width
-settings.appearance.quote-measure.chars = {n} characters
-settings.appearance.quote-leading.info.body = Space between the lines of a quote. It affects quotes only, not the rest of the app.
-settings.appearance.quote-measure.info.body = How many characters a line of a quote can hold before it wraps. 45–75 is easiest for long passages.
 # --- Appearance -> Material. Seven sets, each naming what four surfaces are
 # made of: the desk under everything, the furniture, the page you read, the
 # binding on a cover. Independent of light/dark -- every set works in both -- so
@@ -1361,26 +1196,12 @@ settings.material.atelier.label = Atelier
 settings.material.bindery.label = Bindery
 settings.material.quarry.label = Quarry
 settings.material.atrium.label = Atrium
-# {name} is one of the vocab.accent.* words.
-settings.appearance.accent.aria = {name} accent
-settings.features.book-size.label = Library cover size
-settings.features.film-size.label = Catalogue poster size
 
-# The global dial. It RENORMALISES rather than multiplying: moving it writes
-# itself into all four kinds (type.js).
-settings.appearance.text-size.label = Text size
-settings.appearance.text-size.info.body = Scales all text at once. You can then adjust each kind separately under Type.
-settings.type.size.factor = {n}%
-# What the global dial reads when the four kinds no longer agree. An em dash,
-# deliberately not a word: it is the absence of one answer, not a state.
-settings.type.size.mixed = —
-settings.type.size.aria = Size of {name} text
 
 # --- yes / no, the two words every switch in the quiz panel uses.
 vocab.yes.label = Yes
 vocab.no.label = No
 
-error.delete.font = could not remove that font
 # A language may keep only so many marks of its own. {name} is the language,
 # {n} the allowance.
 
@@ -1645,6 +1466,11 @@ error.validate.name-required = A name is required
 # key below it — <step>.em1.label and so on. The sentence may move them wherever
 # it needs to; the words inside them are translated like any others.
 # ---------------------------------------------------------------------------
+
+
+
+
+
 
 
 
@@ -3205,23 +3031,14 @@ offers.unpinned.prose = This record is not pinned to a source. Use Look up to pi
 # The eight how-tos moved to the "?" (import.help.sources): they are reference
 # rather than a control, and they were the only reason this screen had a fold.
 
-# ---------------------------------------------------------------------------
-# PROFILE — Account.jsx. Everything about “you on this server”, in the order you
-# would ask it: who you are, which account you are in, your password, and — for
-# an admin — everyone else's accounts and the recovery tools.
-#
-# RESET IS NOT TRANSLATED. The reset confirmation asks you to type RESET and the
-# client sends that exact word to the server, which compares it. Translating the
-# word the reader must type would make the instruction unfollowable, exactly as
-# with the bulk-delete phrase (§8). The prose around it translates; {word} is
-# supplied by the code and is always RESET.
-# ---------------------------------------------------------------------------
-account.photo.upload = Upload photo
-account.photo.change = Change photo
-account.photo.info.title = Profile photo
-account.photo.info.body = Shown in the top bar, the menu and the user list. Square images look best; up to 5 MB.
-account.photo.remove.aria = Remove photo
-account.photo.remove.tip = Remove the photo
+
+
+
+
+
+
+
+
 
 account.name.label = Display name
 account.name.save = Save name
@@ -3254,61 +3071,8 @@ account.logout.info.title = Log out
 account.logout.info.body = Signs out this browser only. Other browsers stay signed in.
 account.logout.action = Log out
 
-# Single sign-on — the operator's OpenID Connect provider, named {name}.
-account.sso.label = Single sign-on
-account.sso.info.body = Sign in with your {name} account instead of a password. Linking needs you signed in here and at {name}, so nobody can attach an account they do not own.
-account.sso.linked = Linked to {name}. You can sign in with either.
-account.sso.unlinked = Not linked. Link it to sign in with {name}.
-account.sso.link.action = Link {name}
-account.sso.unlink.action = Unlink
-account.sso.linked.flash = Linked.
-account.sso.off = Not set up on this server.
-account.sso.off.info = Single sign-on is switched on by the operator with the TIPPANI_OIDC_* settings; the README's "Single sign-on" section walks through Authelia.
-account.sso.unlink.confirm.title = Unlink {name}?
-account.sso.unlink.confirm.body = You will need this account's password to sign in. An account {name} created has no password you know — ask an admin to set one first.
 
-# A read-only key for a dashboard widget (gethomepage's Custom API widget).
-account.widget.label = Dashboard widget
-account.widget.info.body = A key a dashboard such as gethomepage uses to show four numbers from your library: works, quotes, forgotten and mastered. It opens nothing else.
-account.widget.none = No key yet.
-account.widget.exists = A key is active.
-account.widget.once = Copy it now — the key is shown only once.
-account.widget.yaml.aria = gethomepage services.yaml entry
-account.widget.copy = Copy YAML
-account.widget.copied = Copied
-account.widget.make.action = Make a key
-account.widget.rotate.action = Replace key
-account.widget.rotate.confirm.title = Replace the widget key?
-account.widget.rotate.confirm.body = The old key stops working at once; update your dashboard with the new one.
-account.widget.revoke.action = Revoke
-account.widget.field.works = Works
-account.widget.field.quotes = Quotes
-account.widget.field.forgot = Forgot
-account.widget.field.mastered = Mastered
 
-# Pushover messages on the reader's phone.
-account.notify.label = Notifications
-account.notify.info.body = Messages on your phone through Pushover: when the day's review is ready, and when a long import, fetch or backup finishes. Your user key is on pushover.net after you sign in.
-account.notify.user.label = Pushover user key
-account.notify.user.placeholder = Pushover user key
-account.notify.token.label = Pushover application token
-account.notify.token.placeholder = application token
-account.notify.token.placeholder.set = application token (saved — type to replace)
-account.notify.token.placeholder.server = application token (optional — the server has one)
-account.notify.save = Save keys
-account.notify.saved = Saved.
-account.notify.token.clear = Use the server's token
-account.notify.token.cleared = Your own token is removed.
-account.notify.test.action = Send a test
-account.notify.test.sent = Sent — check your phone.
-account.notify.event.daily.title = Daily review ready
-account.notify.event.daily.sub = Once a day, when your deck has cards. Needs the server's daily job.
-account.notify.event.import.title = Large imports
-account.notify.event.import.sub = When 50 or more quotes wait for review, and when they land.
-account.notify.event.fetch.title = Long metadata fetches
-account.notify.event.fetch.sub = When a fetch over 20 or more works finishes.
-account.notify.event.backup.title = Backups
-account.notify.event.backup.sub = When a backup archive has been written.
 
 account.maintenance.label = Maintenance
 account.reindex.title = Rebuild search index
@@ -3319,43 +3083,8 @@ account.reindex.busy = Rebuilding…
 account.reindex.done = Search index rebuilt — search should work again.
 account.reindex.partial = Some indexes were too damaged to rebuild ({failed}). If search still fails, a full reset is the last option.
 
-account.reset.title = Reset all data
-account.reset.info.title = Reset all data
-account.reset.info.body = Permanently deletes everything — every account, work, quote, tag, person, sticker, cover, key and setting — and returns to first-time setup. No backup is made. This cannot be undone.
-account.reset.open = Reset all data…
-account.reset.confirm.prose = Type {word} to confirm you want to delete everything:
-account.reset.submit = Delete everything & restart
-account.reset.busy = Resetting…
-# Above step one of the factory reset, read when it opens: the same refusal as
-# the restore's, and the waiting jobs go with everything else.
-account.reset.queue.running = {title} is running. The reset is refused until it stops or finishes — stop it in Settings → Jobs first.
-account.reset.queue.waiting.one = One job is waiting; a reset deletes it with everything else.
-account.reset.queue.waiting.other = {n} jobs are waiting; a reset deletes them with everything else.
 
-# The admin's list of everyone on the server. Granting is something you do to
-# others; revoking is something you do only to yourself.
-account.users.label = Users on this server
-account.users.info.title = User management
-account.users.info.body = Every user has a separate library. You can make someone an admin, but only they can give it up; the last admin cannot.
 account.users.admin.chip = admin
-account.users.you.chip = you
-account.users.step-down = Step down
-account.users.step-down.tip = Give up your own admin rights
-account.users.make-admin = Make admin
-account.users.make-admin.tip = Make {name} an admin
-account.users.only-admin = only admin
-account.users.their-own = their own
-account.users.delete.tip = Delete {name} and their library
-account.users.delete.aria = Delete {name}
-account.users.delete.confirm = Delete user "{name}" and their library?
-account.users.delete.note = The account waits in your bin, sealed, for as long as the bin keeps anything else. Restoring it gives it back to its owner, whole.
-account.users.add = Add user
-# ITS OWN PLACEHOLDER, AND THE REASON IS NOT COSMETIC. This box and the "new
-# password" box under CHANGE PASSWORD above it computed to the SAME accessible
-# name, so a screen reader announced both as "new password (8-20)" — one of which
-# changes the reader's own login and one of which sets a stranger's. The headings
-# separate them for eyes and for nobody else.
-account.users.add.password.placeholder = password for the new account ({min}–{max})
 
 # What went wrong, keyed by what failed.
 error.validate.name-cannot-be-blank = name cannot be blank
@@ -3364,20 +3093,13 @@ error.validate.password-mismatch = The new passwords do not match
 error.validate.switch-name-required = Enter the account name
 error.validate.switch-same = That is the account you are already in
 error.validate.switch-password-required = Enter that account’s password
-error.validate.username-required-add = Enter a username
 error.upload.failed = upload failed
-error.remove.photo = could not remove photo
 error.save.name = could not change name
 error.save.password = could not change password
 error.switch.account = could not switch account
 error.reindex.failed = could not rebuild the search index
-error.reset.failed = could not reset the database
-error.load.users = could not load users
 error.open.person = could not open this person
 person.opening = Opening…
-error.add.user = could not add user
-error.save.role = could not change role
-error.delete.user = could not delete user
 
 # ---------------------------------------------------------------------------
 # PEOPLE — people.jsx. The panel behind every credited name: bio, portrait,
@@ -3696,7 +3418,6 @@ metadata.section.characters.label = Characters
 metadata.section.sources.label = Sources
 metadata.section.languages.label = Languages
 metadata.section.categories.label = Categories
-metadata.categories.colours.title = Colours
 metadata.section.aria = Which metadata to work on
 # THE NOUN BEHIND THE NUMBER ON A TAB. The digit is all an eye needs beside a
 # word it can already read; a screen reader gets "Works 44" and no reason for it.
@@ -3993,45 +3714,12 @@ settings.updates.toast.reload = reload in a moment
 settings.updates.toast.same = Tippani restarted on the same build — the new image isn't published yet. Try again in a few minutes.
 settings.updates.toast.copied = command copied
 
-# ---------------------------------------------------------------------------
-# THE RELEASE LOG — the release history out of the binary itself, on Server.
-# ---------------------------------------------------------------------------
-settings.changelog.title = What changed
-settings.changelog.empty.prose = No releases to show — this build was made outside a release.
-settings.changelog.more.label = Read the whole log ({n} more)
-settings.changelog.fold.label = Fold the log
-# Which release you are actually running, marked on its own row.
-settings.changelog.running.label = running
-settings.changelog.unlisted.prose = You're running {version}, which isn't a listed release — a custom build.
 
 # ---------------------------------------------------------------------------
 # ONBOARDING — the guided tour's home.
 # ---------------------------------------------------------------------------
 # The Resume button carries its own step count, which is why it keeps its words.
 
-# ---------------------------------------------------------------------------
-# DEVICES — pair a phone with this account, and unpair it again.
-# ---------------------------------------------------------------------------
-settings.devices.title = Devices
-settings.devices.info.body = Pairs the Android app with this account. A phone stays paired until you unpair it here — changing your password does not sign it out.
-settings.devices.paired.count = {n} paired
-settings.devices.code.label = pairing code
-settings.devices.code.info.title = Pairing code
-settings.devices.code.info.body = Enter this code in the app within five minutes. It works once; start a new pairing for another device.
-settings.devices.code.copy.aria = Copy the pairing code
-settings.devices.code.copy.tip = Copy the code
-settings.devices.code.done.aria = Done pairing
-settings.devices.pair.label = Pair a device
-settings.devices.revoke-all.aria = Unpair every device
-settings.devices.revoke-all.confirm = Unpair every device? Each will stop working immediately.
-# {name} is the device's own name, as the phone reported it.
-settings.devices.revoke.aria = Unpair {name}
-settings.devices.revoke.confirm = Unpair “{name}”? It will stop working immediately.
-settings.devices.last-seen.label = last seen {when}
-settings.devices.never.label = never used
-settings.devices.empty.prose = No devices paired yet.
-settings.devices.toast.unpaired = device unpaired
-settings.devices.toast.all-unpaired = all devices unpaired
 
 # ---------------------------------------------------------------------------
 # THE BIN, AS A TILE. The list is a page of its own (bin.*), and the tile draws
@@ -4049,98 +3737,7 @@ settings.devices.toast.all-unpaired = all devices unpaired
 # ---------------------------------------------------------------------------
 # {count} arrives already counted, through common.count.phrase + unit.quote.
 
-# ---------------------------------------------------------------------------
-# BACKUP (admin only) — one dated, encrypted archive, and the prompt that seals
-# it. The restore half is settings.restore.* below.
-# ---------------------------------------------------------------------------
-settings.backup.title = Backup & restore
-# The prompt's own name, and the button inside it. One act, one word.
-settings.backup.prompt.title = Back up
-settings.backup.info.body = One dated, encrypted archive of everything, locked with your password or a passphrase. Opening it elsewhere needs the same password; a lost passphrase cannot be recovered. Restoring replaces everything here.
-settings.backup.what.prose = The archive holds every user, library, password hash and API key, so it is encrypted before it leaves the server. Keep the key — you need it to open the archive elsewhere.
-settings.backup.password.prose = This password opens the archive on any Tippani. On this server, your current password always opens it, even after you change it.
-settings.backup.passphrase.label = Passphrase · {min}–{max} characters
-settings.backup.passphrase.prose = Not tied to any account — and not recoverable. Lose it and the archive is lost.
-settings.backup.use-passphrase.label = Set a separate passphrase instead
-settings.backup.use-password.label = Use my account password instead
-settings.backup.make.label = Make a backup
-settings.backup.now.label = Back up now
-settings.backup.now.busy = Backing up…
-settings.backup.download.label = Download the last one
-# {when} arrives as a bold node; {size} is a byte count in MB or KB, which are
-# symbols rather than words.
-settings.backup.last.prose = last backup: {when} · {size} · kept on this server until the next one
-settings.backup.empty.prose = no backup on this server yet
-# A mono label above the source picker, whose own words are shell.restore.*.
-settings.backup.restore-from.label = Restore from
-# What the chosen archive will ask for, said before you commit to it.
-settings.backup.asks.passphrase = asks for its passphrase
-settings.backup.asks.password = asks for your password
-settings.backup.asks.password.named = asks for the password ‘{name}’ had when it was made
-# The same, for an archive whose header names nobody. This used to read
-# "the password ‘it’ had" — a pronoun assembled in code.
-settings.backup.asks.password.era = asks for the password it was sealed with
-settings.backup.asks.unknown = unreadable, or written by a newer Tippani
-settings.backup.asks.unkeyed = predates 1.4.1 · no key, asks you to type RESTORE
-settings.backup.server.empty.prose = nothing kept here yet
-settings.backup.file.choose.label = Choose file…
-settings.backup.file.replace.label = Choose a different file…
-settings.backup.file.none.label = no file chosen
-settings.backup.file.chosen.label = {name} · {size}
-settings.backup.restore.label = Restore…
-settings.backup.toast.created = backup created
-settings.backup.toast.restored = restored · logging you out
-# A backup is a job on the server since 3.1.0; these two are how it can end
-# without an archive other than failing — stopped from Settings › Jobs, or cut
-# short by a restart. Toasts, five words or fewer.
-settings.backup.toast.stopped = backup stopped
-settings.backup.toast.interrupted = backup interrupted
 
-# ---------------------------------------------------------------------------
-# THE RESTORE PROMPT — one dialog, asking for exactly what the chosen archive's
-# own header needs. The consequence line lives here rather than on the card,
-# because this is the moment it applies.
-# ---------------------------------------------------------------------------
-settings.restore.title = Restore
-# TWO WHOLE SENTENCES, not one with a hole in it: the date clause lands in the
-# middle of the warning, and a value cannot begin with the space that would
-# need — the parser trims both halves.
-settings.restore.warn.prose = Replaces everything on this server — every user, library and setting — and signs everyone out. One copy of the current data is kept on the server for recovery.
-settings.restore.warn.dated.prose = Replaces everything on this server with the backup from {date} — every user, library and setting — and signs everyone out. One copy of the current data is kept for recovery.
-# Above step one of the restore prompt, read when it opens. A restore swaps the
-# database under the job queue (3.1.0), so the server refuses it while a job
-# runs, and the jobs still waiting end with the old database. {title} is the
-# running job's name, which the app composes from its kind and what it was about.
-settings.restore.queue.running = {title} is running. The restore is refused until it stops or finishes — stop it in Settings → Jobs first.
-settings.restore.queue.waiting.one = One job is waiting; a restore ends it, and it is kept as interrupted.
-settings.restore.queue.waiting.other = {n} jobs are waiting; a restore ends them, and each is kept as interrupted.
-# The account password, as against a passphrase — which is why it is not just
-# common.field.password.label.
-settings.restore.password.label = Your password
-settings.safety.why.prose = First, download a copy of everything on this server as it is now. It is sealed like any backup and is not kept here.
-settings.safety.done.prose = Copy downloaded. Keep it until you are sure the new data is right.
-settings.safety.action = Download a backup first
-settings.safety.busy = Preparing the copy…
-settings.safety.first.reason = Download a backup first
-settings.safety.password.label = Your password, to seal the copy
-settings.safety.passphrase.label = Passphrase, to seal the copy
-# While the copy's job waits or runs (3.1.0: the safety copy is a job on the
-# server's queue). The step downloads the file itself once the job has sealed it,
-# so the dialog has to stay open until then.
-settings.safety.wait.prose = The copy is sealed on the server as a job, and downloads here when it is ready. Keep this open until then.
-# The Stop beside that line, named for what it stops; the button itself says Stop
-# (settings.jobs.current.stop.label).
-settings.safety.stop.aria = Stop the copy
-# A copy stopped before it was sealed: its job leaves nothing on the server, and
-# the step offers the button again.
-settings.safety.stopped = Stopped: no copy was made, and nothing of it is left on the server. Take it again when you are ready.
-settings.restore.password.recoverable.prose = This server made this archive, so your current password opens it.
-settings.restore.password.named.prose = Made by ‘{name}’ on another server, so it needs that account's password from that time.
-settings.restore.password.era.prose = Made on another server, so it needs the password in use when it was made.
-# A pre-1.4.1 archive carries no key at all, so the typed word stands for it.
-# RESTORE is compared byte for byte and stays Latin in every language.
-settings.restore.confirm.label = Type RESTORE
-settings.restore.confirm.prose = This archive is from before 1.4.1 and has no key, so typing the word confirms it.
 # The close on both prompts: backing out of a form is not the same as closing a
 # window you were only reading.
 settings.prompt.close.tip = Cancel and close
@@ -4392,127 +3989,18 @@ settings.jobs.took.s = {s}s
 settings.jobs.took.m = {m}m {s}s
 settings.jobs.took.h = {h}h {m}m
 
-# --- a job's log, in its row. {title} is the job's name from the list above.
-settings.jobs.log.aria = Log of {title}
-# The copy button in a job's log. Named for the job, because System logs has one too.
-settings.jobs.log.copy.aria = Copy the log of {title}
-settings.jobs.log.empty = Nothing logged yet.
-settings.jobs.log.trimmed = The earliest lines are in the export.
 
-# --- Current jobs: what is running and what waits behind it.
-settings.jobs.current.title = Current jobs
-# A running job's log, open under its row. Past jobs may hold the same job's last
-# run open on the same screen (settings.jobs.log.*), so these name it as live.
-settings.jobs.current.log.aria = Live log of {title}
-settings.jobs.current.log.copy.aria = Copy the live log of {title}
-# The words beside the two counts in the card's head: "1 running", "3 waiting".
-settings.jobs.current.running.word = running
-settings.jobs.current.waiting.word = waiting
-settings.jobs.current.empty = Nothing is running or waiting.
-settings.jobs.current.fold.label = Fold current jobs
-settings.jobs.current.unfold.label = Show current jobs
 # A waiting job's one line. "Ahead" counts every job before it in the queue,
 # whoever started it, the running one included.
 settings.jobs.current.ahead.one = Waiting — one job ahead
 settings.jobs.current.ahead.other = Waiting — {n} jobs ahead
 settings.jobs.current.next = Waiting — next
-settings.jobs.current.stop.label = Stop
-# Each Stop's name for a screen reader, and it says where that job stands, because
-# two jobs of one kind share a title. {title} is the job's name, with its subject.
-settings.jobs.current.stop.running.aria = Stop {title} (running)
-settings.jobs.current.stop.next.aria = Stop {title} (next)
-settings.jobs.current.stop.ahead.aria.one = Stop {title} (one job ahead)
-settings.jobs.current.stop.ahead.aria.other = Stop {title} ({n} jobs ahead)
-# Said on the row from the instant Stop is pressed until the job reads stopped,
-# which is a moment: a Stop is at once, and the job's item in hand is left untouched.
-settings.jobs.current.stopping = Stopping…
-settings.jobs.current.stop-all.label = Stop all
-settings.jobs.current.stop-all.confirm.title = Stop all jobs?
-# The confirm's body is these sentences, the ones that apply, joined in code.
-settings.jobs.current.stop-all.confirm.running = The running job stops at once, and the item it has in hand is left untouched.
-settings.jobs.current.stop-all.confirm.waiting.one = The one waiting is stopped before it starts.
-settings.jobs.current.stop-all.confirm.waiting.other = The {n} waiting are stopped before they start.
-# True for a reader and for an admin alike: only the reader who started a job can run it again.
-settings.jobs.current.stop-all.confirm.kept = Each is kept with its log, and whoever started it can run it again.
-# Said only to an admin, whose Stop all reaches every reader's jobs.
-settings.jobs.current.stop-all.confirm.admin = This includes other readers' jobs.
-settings.jobs.current.stop-all.confirm.verb = Stop them
-# The toast after Stop all, counting every job it reached. Nothing is said when it reached none.
-settings.jobs.current.stop-all.done.one = {n} job stopped
-settings.jobs.current.stop-all.done.other = {n} jobs stopped
 
-# --- Common jobs: the jobs a reader runs again and again, each with a place of
-# its own. A row is the job's name, one line of what it does, how it went the last
-# time, and Run (Run again once it has run) — or Stop while that job runs or waits.
-settings.jobs.common.title = Common jobs
 # The four rows. A label is also the name of the job in Current and Past jobs, for
 # the two a row starts over the whole library.
 settings.jobs.common.fill-all.label = Fill gaps in every work
-settings.jobs.common.fill-all.prose = Looks up what every book and film is missing, and fills only the empty fields.
 settings.jobs.common.people-missing.label = Fetch missing people
-settings.jobs.common.people-missing.prose = A portrait and reference links for everyone still missing either.
-settings.jobs.common.covers.label = Fetch covers and details
-settings.jobs.common.covers.prose = Covers, posters and the details your works are missing, across the library.
-settings.jobs.common.backup.label = Back up now
-settings.jobs.common.backup.prose = Seals the library into the one archive the server keeps.
-# What each library job could still fill in, after a count that wears its noun and
-# glyph ("12 works with a gap it can fill"), counted from the rows the Metadata
-# screen draws. The backup has none. A `none` stands alone when a job has nothing
-# left it can close: the fill and the covers pass say what they cannot do rather
-# than "Nothing missing", because a work with no source still misses things. The
-# fill's `blocked` follows its count: works with a gap it cannot find at a supplier.
-settings.jobs.common.fill-all.pending = with a gap it can fill
-settings.jobs.common.fill-all.pending.none = Nothing it can fill
-settings.jobs.common.fill-all.blocked.one = needs a source first
-settings.jobs.common.fill-all.blocked.other = need a source first
-settings.jobs.common.people-missing.pending = missing a portrait or links
-settings.jobs.common.covers.pending = with no cover or poster
-settings.jobs.common.covers.pending.none = Nothing it can fetch
-settings.jobs.common.pending.none = Nothing missing
-settings.jobs.common.run.label = Run
-settings.jobs.common.again.label = Run again
-# The covers pass's quick run: only what is missing, never a better picture over one already stored.
-settings.jobs.common.missing-only.label = Missing only
-settings.jobs.common.missing-only.tip = Only the covers and posters that are missing; one already stored is kept
-# Each press's name for a screen reader, since every row has one. {title} is the row's name.
-settings.jobs.common.run.aria = Run {title}
-settings.jobs.common.again.aria = Run again: {title}
-settings.jobs.common.missing-only.aria = {title}: missing only
-settings.jobs.common.stop.aria = Stop {title}
-# Under a row: how its last run ended. The state, the time and what it did are
-# drawn after this word; {state} and {when} are the same two in the button's name.
-settings.jobs.common.last.label = Last run
-settings.jobs.common.last.aria = Last run of {title}: {state}, {when}
-# The last run's log, opened under its row. Past jobs can hold the same job's log
-# open on the same screen, under settings.jobs.log.*, so these name the run.
-settings.jobs.common.log.aria = Log of the last run of {title}
-settings.jobs.common.log.copy.aria = Copy the log of the last run of {title}
-settings.jobs.common.never = Not run in the last 30 days
-# A server that runs no jobs (a test server's, the daily-deck command's) has no row to offer.
-settings.jobs.common.empty = Nothing can be run from here on this server.
 
-# --- Past jobs: everything that finished in the last 30 days, newest first.
-settings.jobs.past.title = Past jobs
-settings.jobs.past.filter.aria = Which jobs to show
-settings.jobs.past.filter.all.label = All
-settings.jobs.past.empty = Nothing has finished in the last 30 days.
-settings.jobs.past.empty.filtered = None of these in the last 30 days.
-settings.jobs.past.more.label = Load older
-# The details under an opened row.
-settings.jobs.past.who.label = Started by
-settings.jobs.past.when.label = Started
-settings.jobs.past.took.label = Took
-settings.jobs.past.result.label = Result
-settings.jobs.past.error.label = What went wrong
-settings.jobs.past.export.tip = This job's log, as a Markdown file
-settings.jobs.past.rerun.label = Run again
-settings.jobs.past.rerun.done = Started again
-# A re-verify's findings wait to be looked over; Review findings opens them on
-# Metadata, where the changes are chosen and applied. Not "Review" alone: the
-# Settings rail's Review tab is on the same desk screen, and two presses with one
-# name cannot be told apart by a screen reader or a press by name.
-settings.jobs.past.review.label = Review findings
-settings.jobs.past.review.tip = Open what it found on Metadata and choose what to apply
 
 # --- System logs: the app's own log, for an admin.
 settings.logs.title = System logs
@@ -4584,36 +4072,16 @@ unit.speaker.other = speakers
 unit.person.one = person
 unit.person.other = people
 
-# --- from settings ---
-# The toast that follows a backup offers the copy. "Export" is the neighbouring
-# verb and is a different act — this one hands you a file the server already has.
-common.action.download.label = Download
 
 # Updates.
 error.check.updates = couldn’t check for updates
 error.update.start = update failed to start
 # A clipboard write the browser refused — the command is still on screen.
 error.copy.manual = copy failed — select it manually
-error.load.changelog = could not load the changelog
 
-# Devices.
-error.load.devices = could not load devices
-error.pair.device = could not start pairing
-error.revoke.device = could not revoke device
-error.revoke.devices = could not revoke devices
 
-# Backup and restore. "data intact" is the load-bearing half: a restore that
-# failed changed nothing.
-error.backup.failed = Backup failed
-error.restore.intact = restore failed — data intact
 
-# An uploaded typeface the server would not take.
-error.upload.font = could not upload that font
 
-# The third validate reason the restore prompt needs. The other two already
-# exist (error.validate.password-required, error.validate.archive-passphrase-
-# required) and are reused. RESTORE is compared byte for byte and stays Latin.
-error.validate.restore-word = Type RESTORE to confirm
 
 # ===========================================================================
 # THE REST OF THE SHARED VOCABULARY — common.field.* and one shell key.
@@ -5256,10 +4724,6 @@ cleanup.help.cap.more = Fix some, then check again for the rest.
 
 # Heading: aliases nav.tab.settings.label, so the screen has ONE name. Nothing to add here.
 
-# The names of the six highlight colours.
-metadata.help.colour-categories.term = Colour categories
-metadata.help.colour-categories.what = The names of the highlight colours. Rename any of them.
-metadata.help.colour-categories.more = Renaming changes only the label; the stored colour stays the same, so exports and imports are unaffected. Hiding a colour removes it from the pickers without changing quotes that use it.
 
 settings.help.appearance.term = Appearance
 settings.help.appearance.what = Light or dark, colours, material set, glass and cover sizes. Each user has their own.
@@ -5309,23 +4773,9 @@ metadata.help.credit-separators.more = The stored author line is never changed, 
 
 # The Settings tile that opens the bin.
 
-settings.help.backup.term = Backup & restore
-settings.help.backup.what = Admin only: one dated, encrypted archive of everything, restored here or on another Tippani.
-settings.help.backup.more = On the server that made it, your current password opens it. Elsewhere it needs the password it was made with. A passphrase archive cannot be recovered without the passphrase.
 
-# The button that makes the archive.
-settings.help.backup-now.term = Back up now
-settings.help.backup-now.what = Makes the archive and keeps it here, on the server, ready to restore from.
-settings.help.backup-now.more = The confirmation offers a download if you want one.
 
-# The link that hands over the archive already on the server.
-settings.help.backup-download.term = Download the last one
-settings.help.backup-download.what = Downloads the archive stored on the server. It is a normal link, so “Save link as” works.
-settings.help.backup-download.more = Only the newest archive is kept — a new backup replaces it.
 
-settings.help.changelog.term = Changelog
-settings.help.changelog.what = Every release, newest first, built into the app — it works offline too.
-settings.help.changelog.more = Only the newest is open; the rest are folded. The version you're running is marked. For versions newer than yours, the version number links to the releases page.
 
 settings.help.updates.term = Updates
 settings.help.updates.what = Admin only, checked on demand — never in the background.
@@ -5337,8 +4787,6 @@ settings.help.updates.what = Admin only, checked on demand — never in the back
 # The help panel’s heading on the profile panel.
 profile.help.title = Profile
 
-profile.help.photo.term = Photo
-profile.help.photo.what = Your avatar chip. A square image reads best.
 
 profile.help.display-name.term = Display name
 profile.help.display-name.what = What the greeting and the user list call you.
@@ -5354,14 +4802,7 @@ profile.help.password.term = Password
 profile.help.password.what = 8–20 characters — letters, digits and punctuation, no accents.
 profile.help.password.more = It also opens your backups, so it must be typeable on any machine. Changing it signs out other browsers, and your current password still opens every archive this server made.
 
-# The admin-only user list, on the profile panel.
-profile.help.users.term = Users on this server
-profile.help.users.what = Admin only: add an account, grant or revoke admin, or delete an account and everything in its library.
-profile.help.users.more = To hand over, grant another user admin first, then revoke your own.
 
-# The admin-only rebuild-index and reset-instance pair.
-profile.help.maintenance.term = Maintenance
-profile.help.maintenance.what = Admin only: rebuild the search index if search fails, or wipe the server back to first-time setup.
 
 # ---------------------------------------------------------------------------
 # capture.help.* — the "?" panel’s section for Add & capture.
@@ -6199,10 +5640,6 @@ context.rule.ask.leave = Leave existing quotes as they are
 context.rule.ask.clear.work = Clear the per-quote adjustments on this work
 context.rule.ask.clear.board = Clear the per-quote adjustments on this board
 context.rule.ask.cancel = Cancel
-settings.context.before.label = Context before a quote
-settings.context.before.info.body = How much of a work’s file shows before a quote when you open it in context. A work or board can set its own, and a quote its own.
-settings.context.after.label = Context after a quote
-settings.context.after.info.body = How much of a work’s file shows after a quote when you open it in context. A work or board can set its own, and a quote its own.
 # Checks: times a work's subtitle proposes for its film lines. Nothing is written until you press.
 locators.title = Times and places from files
 locators.counts = {exact} exact · {review} to look at
@@ -6259,28 +5696,6 @@ found.failed.one = {n} could not be attached
 found.failed.other = {n} could not be attached
 found.skipped.one = {n} belonged to the other group and was skipped
 found.skipped.other = {n} belonged to the other group and were skipped
-# Settings, Server: the folders a library lives in, and whether a backup carries attached files.
-settings.library.title = Library
-settings.library.folders.label = Library folders
-settings.library.folders.info = Mount the folders your books and films already live in, read-only, and add their paths inside the container here. Readers can then scan them from Checks for subtitle and ebook files. This app only ever reads from them.
-settings.library.folders.none = No folders yet.
-settings.library.folders.remove.aria = Stop using the folder {label}
-settings.library.add.label = Add a folder
-settings.library.add.path = Path in the container
-settings.library.add.name = Name
-settings.library.add.button = Add
-settings.library.backup.label = Include attached files in backups
-settings.library.backup.sub = Off by default: what was read from them is always kept, and the files can be attached again.
-# Settings, Server, Library: stored source files that nothing names, and rows whose file is gone.
-settings.library.tidy.label = Tidy attached files
-settings.library.tidy.info = Removes stored files that no work names any more. A work whose file is missing is only reported: what was read from it is kept, and the file can be added again.
-settings.library.tidy.orphans.one = {n} stored file belongs to no work.
-settings.library.tidy.orphans.other = {n} stored files belong to no work.
-settings.library.tidy.missing.one = {n} work is missing its file.
-settings.library.tidy.missing.other = {n} works are missing their files.
-settings.library.tidy.button = Remove them
-settings.library.tidy.done.one = Removed {n} file
-settings.library.tidy.done.other = Removed {n} files
 # The files attached to your works, and the prune: keep what was read, throw the file away.
 attached.title = Attached files
 attached.counts = {n} files · pruning frees about {frees}
@@ -6321,7 +5736,6 @@ common.source.why.nofolder = No library folder is set up, so there is nowhere to
 common.source.why.notscanned = Your library folders have not been scanned yet.
 common.source.why.partial = The last scan did not finish, so this work's file may not have been looked for yet.
 common.source.why.nomatch = The last scan found no file for this work in your library folders.
-settings.library.folders.scan = Scan these folders on Checks
 common.source.noanswer = The server did not answer. It may be busy. Try again in a minute.
 common.source.failed = Something went wrong: {error}
 common.source.failed.generic = Something went wrong on the server. Try again.
@@ -6345,7 +5759,6 @@ found.unclaimed.other = {n} files in your folders matched no work.
 files.found.label = Found files
 files.found.word = found
 attached.error.load = Could not read the attached files. {why}
-settings.library.error.load = Could not read the library folders. {why}
 files.error.load = Could not read the source files. {why}
 files.folders.title = Library folders
 files.folders.info = The folders the administrator mounted for this server. Scan reads them for subtitle and ebook files of your works. Nothing is attached until you accept.

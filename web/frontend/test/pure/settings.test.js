@@ -53,17 +53,6 @@ describe('reset reaches every section', () => {
   })
 })
 
-// parseScope — the client's reading of the srReviewScope preference, which must
-// match the server's scopeFlags exactly.
-//
-// Two parsers of one string is the shape that drifts, and the cost of drift here
-// is specific: the Settings screen shows chips that do not describe the deck you
-// are actually being served. Nothing errors, and the deck looks like a
-// preference you set.
-//
-// The Go side has the same table in review_test.go. Keeping both is the
-// point — the agreement is what is being asserted, and one test cannot assert it
-// from only one side.
 describe('saved themes', () => {
   const WEARING = {
     theme: 'dark', materialSet: 'bindery', accent: 'olive',

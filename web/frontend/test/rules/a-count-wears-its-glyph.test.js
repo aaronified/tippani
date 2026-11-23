@@ -44,8 +44,6 @@ const STANDALONE = new RegExp(`^([a-z0-9._-]+) = (\\{n\\} ${DRAWN})$`, 'gm')
 // one of these is a place a glyph cannot go rather than a place it was not worth
 // putting.
 const KEPT = {
-  'settings.appearance.quote-measure.chars':
-    'the "characters" here are LETTERS, not people — a measure in ems. The word is the only thing that says so, and the person glyph beside it would say the opposite.',
   'metadata.prune.confirm.people':
     'the body of a confirm dialog — a sentence the reader has to weigh before pressing something destructive.',
   'metadata.prune.confirm.characters': 'the same dialog, the other noun.',
@@ -136,7 +134,6 @@ describe('the glyph rule reaches the screens it was asked for', () => {
   const CONVERTED = [
     'works.jsx', 'MetadataPage.jsx',
     'identity.jsx', 'identityLocal.jsx', 'Movies.jsx',
-    'jobsSection.jsx',
   ]
   // `sourcesUnder` rather than a readdir of my own: the repo has ONE walk over
   // its source tree, and a second one that quietly finds nothing is a guard that

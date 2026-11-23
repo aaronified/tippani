@@ -1,26 +1,23 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useStuck } from './stuck.js'
 import { CATEGORY_SLOTS, categoryHidden, categoryName, categoryVar } from './theme.js'
-import { languageMarksState } from './languages.jsx'
-import { cachedVocabulary, primeSearchVocabulary } from './vocabulary.js'
 import { coverImgURL, errText, json } from './api.js'
 import { t } from './i18n.js'
 import { BookLookupPicker, MovieLookupPicker } from './CoverPicker.jsx'
 import { bookState, EditBook } from './Library.jsx'
 import { EditMovie } from './Movies.jsx'
-import { BulkBar, EmptyState, ErrorText, FieldIconButton, GhostButton, HandCard, Card, SectionTitle, IconBooks, IconButton, IconChecks, IconDelete, IconEdit, IconKey, IconLanguages, IconMerge, IconMetadata, IconOpen, IconPerson, IconFetch, IconSearch, IconUsers, InfoDot, MonoLabel, NameInput, NameScroll, normName, MobileSheet, ProgressBar, IconQuote, IconReel, Scroller, Select, splitCommas, toast, Tooltip, PanelHost, usePanelStack, useConfirm, useIsMobileScreen, usePersistedState, useScreenBar, useScreenSearch, IconArrow, IconHighlight, Lightbox, IconRoleActor, IconRoleAuthor, IconRoleDirector, IconRolePublisher, IconRoleSpeaker, IconRoleStudio, IconRoleTranslator, IconNavCatalogue, IconNavMasks, IconNavSources, IconNavTags, IconNavUsers, IconNavWorks, IconNavQuotes, IconNavLibrary, IconSourceFile, Tally } from './ui.jsx'
+import { BulkBar, EmptyState, ErrorText, GhostButton, HandCard, IconBooks, IconButton, IconChecks, IconDelete, IconEdit, IconMerge, IconMetadata, IconOpen, IconPerson, IconFetch, IconSearch, IconUsers, MonoLabel, NameInput, NameScroll, MobileSheet, ProgressBar, IconReel, Scroller, Select, splitCommas, toast, Tooltip, PanelHost, usePanelStack, useConfirm, useIsMobileScreen, usePersistedState, useScreenBar, useScreenSearch, IconArrow, IconHighlight, Lightbox, IconRoleActor, IconRoleAuthor, IconRoleDirector, IconRolePublisher, IconRoleSpeaker, IconRoleStudio, IconRoleTranslator, IconNavCatalogue, IconNavMasks, IconNavSources, IconNavTags, IconNavUsers, IconNavWorks, IconNavQuotes, IconNavLibrary, IconSourceFile, Tally } from './ui.jsx'
 import SourceFilesConsole, { ScanShortcuts } from './SourceFilesConsole.jsx'
 import { personImgURL, ProviderChips, parseCreditSeps, parseLinks, splitCredits } from './people.jsx'
 import { characterPanel, MergeSheet, personPanel } from './identity.jsx'
-import { ColourCategoriesCard } from './Settings.jsx'
 import { CardHead } from './prefRow.jsx'
-import { LanguageMarksSettings, MetadataSources } from './MetadataSources.jsx'
+import { MetadataSources } from './MetadataSources.jsx'
 import { Face } from './characterRows.jsx'
 import { RecordRow, RowArt } from './recordRow.jsx'
 import { SectionRail } from './sectionRail.jsx'
 import { ReverifyFlow } from './ReverifyReview.jsx'
 import { jobOutcome, jobStateLabel, jobWaitingText, useKindJob } from './jobs.js'
-import { CreditPills, IssuePills, RowCounts, WorkPills } from './issuePills.jsx'
+import { CreditPills, IssuePills, RowCounts } from './issuePills.jsx'
 import { workDetailsPanel } from './WorkDetails.jsx'
 import { nearDupGroups } from './nearDupes.js'
 import { BOOK_GAPS, MOVIE_GAPS, bookPasses, fetchable, lacksLinks, lacksPhoto, moviePasses } from './libraryGaps.js'
@@ -89,17 +86,6 @@ const METADATA_SECTIONS = [
   ['works', 'metadata.section.works.label', <IconNavWorks />],
   ['people', 'metadata.section.people.label', <IconNavUsers />],
   ['characters', 'metadata.section.characters.label', <IconNavMasks />],
-  // LANGUAGES IS A SECTION, AND THE v3 PACK DOES NOT DRAW ONE. That is the pack
-  // being wrong rather than this being an invention: its own Settings prototype
-  // says the quote faces are "read from the metadata language table, which is the
-  // only place a quote's language is defined; Settings links there rather than
-  // keeping a second list" — so it removed the door and never built the room. The
-  // table was a FormModal behind a button inside Sources, which is not somewhere
-  // another screen can send a reader.
-  ['languages', 'metadata.section.languages.label', <IconLanguages />],
-  // CATEGORIES: THE COLOURS. Tags left this section with the Tags screen (ADR-0936);
-  // the id stays `categories`, so the colours' address still works.
-  ['categories', 'metadata.section.categories.label', <IconNavTags />],
   ['sources', 'metadata.section.sources.label', <IconNavSources />],
   // SOURCE FILES: every work with quotes and the file they came from, with the library
   // folders and their scan on top. A work's own panel shows the same rows for one work.
@@ -353,8 +339,6 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
     // The sources row carries no number. Every other door counts records or gaps;
     // this one is a set of settings, and "5 keys" answers a question nobody has.
     sources: null,
-    // NOR DOES CATEGORIES: the colours are named on the card beneath it.
-    categories: null,
     // Nor Source files, whose list is fetched by the section behind the door.
     files: null,
   }
@@ -371,20 +355,11 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
   // SO EACH DOOR SAYS WHAT IS BEHIND IT. The three consoles show their open issues
   // as pills, and a pill is a door straight to the console filtered to that issue —
   // the numbers the issues sheet counts, where the reader was already looking. The
-  // verbs keep their words (Scan, Fetch, Prune). Languages shows the languages in
-  // their marks; Categories shows the colours by name. Sources has no summary that
-  // does not need its own fetch, so it stays a door.
+  // verbs keep their words (Scan, Fetch, Prune). Categories shows the colours by name.
+  // Sources has no summary that does not need its own fetch, so it stays a door.
   // ONE PILL PER NAME, which libraryIssues already guarantees: a gap books and
   // films share is one row, counted over both, opening on every type.
   const doorPills = (section) => issues.filter((x) => x.go.section === section)
-  // The library's languages, from the session cache and then fresh — the index is
-  // often the first screen that asks, so reading the cache alone drew nothing.
-  const [vocabLanguages, setVocabLanguages] = useState(() => cachedVocabulary()?.languages || [])
-  useEffect(() => {
-    if (!mobile) return
-    primeSearchVocabulary().then((v) => setVocabLanguages(v?.languages || [])).catch(() => {})
-  }, [mobile])
-  const doorLanguages = mobile ? languageMarksState(vocabLanguages) : []
   const sectionActions = mobile ? {
     works: (
       <div className="section-index-body">
@@ -412,32 +387,7 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
     characters: doorPills('characters').length > 0 ? (
       <div className="section-index-body"><IssueDoors rows={doorPills('characters')} onPick={pickGap} /></div>
     ) : null,
-    languages: doorLanguages.length > 0 ? (
-      <div className="section-index-body">
-        {/* A PREVIEW, NOT A ROW OF DOORS: every chip would open the same section,
-            so they are drawn as what is there and the door is the row's arrow. */}
-        <Scroller axis="x" className="issue-pills section-index-pills">
-          {doorLanguages.map((row) => (
-            <span key={row.key} className="section-index-preview">
-              <span className="section-index-lang-mark" aria-hidden="true">{row.resolved || [...row.name][0]}</span>
-              {row.name}
-            </span>
-          ))}
-        </Scroller>
-      </div>
-    ) : null,
-    categories: (
-      <div className="section-index-body">
-        <Scroller axis="x" className="issue-pills section-index-pills">
-          {CATEGORY_SLOTS.filter((c) => !categoryHidden(c)).map((c) => (
-            <span key={c} className="section-index-preview">
-              <span className="section-index-swatch" style={{ background: categoryVar(c) }} aria-hidden="true" />
-              {categoryName(c)}
-            </span>
-          ))}
-        </Scroller>
-      </div>
-    ),
+
     // THE LIBRARY FOLDERS' TWO SHORTCUTS on a phone: Scan, and the findings on Checks.
     files: <div className="section-index-body"><ScanShortcuts /></div>,
   } : {}
@@ -563,19 +513,6 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
                 onReverify={(selection) => setReverify(selection)}
               />
             </>
-          ) : sect === 'categories' ? (
-            <ColourCategoriesCard prefs={user.preferences} onSaved={onPreferences} />
-          ) : sect === 'languages' ? (
-            // THE PANEL ITSELF, not a door to it. It was a FormModal behind a
-            // button on Sources; Settings now points at this section for what a
-            // quote's language is, and a pointer to a pop-up inside a different
-            // section is not an address.
-            <Card className="lang-card">
-              {/* THE SECTION IS THE HEADING — see CharactersConsole. The tab says
-                  "Languages" and carries the dot; this said "Language marks"
-                  underneath it with a second one. */}
-              <LanguageMarksSettings prefs={user.preferences} onSaved={onPreferences} />
-            </Card>
           ) : sect === 'sources' ? (
             <MetadataSources user={user} onPreferences={onPreferences} />
           ) : sect === 'files' ? (

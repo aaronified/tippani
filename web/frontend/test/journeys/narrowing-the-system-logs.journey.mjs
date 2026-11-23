@@ -54,7 +54,7 @@ const KEPT = 'tippani listening on http://127.0.0.1'
 const HIDDEN = 'config: data='
 
 it('an admin narrows the system logs from the top bar and exports what is shown', async () => {
-  await app.goto('/settings/jobs')
+  await app.goto('/settings/server')
   await app.see('System logs')
   await app.see(KEPT)
   await app.see(HIDDEN)

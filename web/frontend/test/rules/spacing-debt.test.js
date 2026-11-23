@@ -35,7 +35,7 @@ const SRC = process.env.TIPPANI_SRC || join(process.cwd(), 'src')
 // EDGE and to a row's own layout, not to ROW.
 const STEP = /\b(?:space-y-\d+|gap-y-\d+)\b/g
 
-const CEILING = 141
+const CEILING = 121
 
 function countedFiles() {
   return sourcesUnder((n) => n.endsWith('.jsx') || n.endsWith('.js'), 60).sort()

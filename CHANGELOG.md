@@ -33,6 +33,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The guided tour, the per-screen tour, the gesture drawings and the keyboard shortcut legend
   are gone from the web app.** Help keeps its per-control text; the keys still work. (ADR-0936)
 
+- **Metadata loses the colour categories card from the web app.** The server keeps every
+  category's name, colour and hiding; the web app no longer changes them. (ADR-0936)
+
+- **Account loses the photo, single sign-on setup, phone notifications, the dashboard key, user
+  management and the factory reset from the web app.** Sign-in, sign-out and changing your
+  password stay. (ADR-0936)
+
+- **Server settings lose backup and restore, library folders, paired devices, the release log
+  and the job queue cards from the web app.** Settings keeps the update control and the system
+  logs. (ADR-0936)
+
+- **Settings on the web is Theme, Language and Server only.** The font picker, Review
+  settings, Sections, language marks and voices, and the reading fields are gone (ADR-0936); the
+  Android app keeps them.
+
 - **Settings › Theme is a dropdown on the web.** The material tiles, physics dials, true glass,
   per-surface materials, saved looks and cover-size sliders are gone; you pick a theme from a
   list, then light, dark or match system, and a colour (ADR-0936).
