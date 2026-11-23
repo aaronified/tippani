@@ -27,6 +27,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   needs (ADR-0936); the Android app and the API keep their statistics. A bookmark to /stats
   opens Home.
 
+### Added
+
+- **The web app works as an iPhone home-screen app with no signal.** A service worker caches the
+  app shell, never the API, and the home-screen title and status bar are set. (ADR-0936)
+
 ## [3.10.1] - 2026-11-15
 
 ### Fixed

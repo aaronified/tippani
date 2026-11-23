@@ -61,3 +61,14 @@ if (import.meta.env.VITE_DEMO) {
 } else {
   boot()
 }
+
+// The app shell is cached by a service worker, so the installed iPhone app opens
+// with no signal. Production builds only: in development the worker would serve a
+// stale module over Vite's hot reload. The demo build never registers one, because
+// its data is a fetch shim the worker cannot see. `sw.js` is served from the root
+// with no-cache, which is what lets it control the whole site.
+if (import.meta.env.PROD && !import.meta.env.VITE_DEMO && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {})
+  })
+}
