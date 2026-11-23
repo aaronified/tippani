@@ -14,7 +14,6 @@ import { join } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
-import { BULK_QUOTE_FIELDS, BULK_WORK_FIELDS } from '../../src/bulkOps.jsx'
 import { WRITABLE_FIELDS } from '../../src/StagingPage.jsx'
 import { SRC } from '../src-files.js'
 
@@ -28,17 +27,14 @@ const served = new Set([
   ...[...HANDLER.matchAll(/^\s*\{"([a-z_]+)",\s*`SELECT id/gm)].map((m) => m[1]),
 ])
 
-// The pool names the two bulk panels ask for.
+// The pool names the staging panels ask for.
 const asked = [
-  ...[...BULK_QUOTE_FIELDS, ...BULK_WORK_FIELDS]
-    .filter((f) => f.vocab)
-    .map((f) => ({ where: `bulkOps ${f.key}`, key: f.vocab })),
   ...WRITABLE_FIELDS
     .filter(([, , opts]) => opts?.vocab)
     .map(([key, , opts]) => ({ where: `staged ${key}`, key: opts.vocab })),
 ]
 
-describe('the pools the bulk panels ask for', () => {
+describe('the pools the staged panels ask for', () => {
   it('reads the handler at all', () => {
     // A scan that matched nothing would pass the case below in silence.
     expect(served.has('speakers'), 'the vocabulary handler no longer parses the way this reads').toBe(true)
@@ -49,7 +45,7 @@ describe('the pools the bulk panels ask for', () => {
   it('and there are fields asking for them', () => {
     // The other half of the floor: an empty `asked` satisfies the assertion below
     // without comparing anything, which is what a dropped `vocab` key would look like.
-    expect(asked.length, 'no field names a pool — the vocab key is gone from both panels').toBeGreaterThan(8)
+    expect(asked.length, 'no field names a pool — the vocab key is gone from both panels').toBeGreaterThan(4)
   })
 
   it('are every one of them served', () => {
@@ -61,7 +57,6 @@ describe('the pools the bulk panels ask for', () => {
     // The live panel is SelectionBar, the staged one is StagingPage, and they are
     // two files that drew the same bare box for the same reason. Whichever is fixed
     // alone is the one that goes on being right.
-    expect(asked.some((a) => a.where.startsWith('bulkOps')), 'the live bulk panel names no pool').toBe(true)
     expect(asked.some((a) => a.where.startsWith('staged')), 'the staged bulk panel names no pool').toBe(true)
   })
 })

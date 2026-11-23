@@ -10,9 +10,7 @@ import { deleteWithUndo } from './undo.jsx'
 import { ActionRow, actionsFor } from './actions.jsx'
 import { ANTHOLOGY_KIND, useGatherDoor } from './anthologyGather.jsx'
 import { QuoteContext, episodeKey, useInContext } from './sources.jsx'
-import { selectionClick, selectionMenuItems, useSelection } from './selection.jsx'
 import { facetValue, facetValues, publishSearchSeed, seedableChips, withFacet, withFacetValues } from './facets.js'
-import { SelectionBar } from './SelectionBar.jsx'
 import { useCastArt } from './cast.jsx'
 import { LanguageCombo, SuggestCombo, useWorkSuggestions } from './suggest.jsx'
 import { CreditFaces, PersonName, SpeakerChips, chipRows, creditsNotOnChips, parseCreditSeps, personImgURL, splitCredits, usePeople } from './people.jsx'
@@ -58,7 +56,6 @@ import {
   FrameCode,
   frameCode,
   GhostButton,
-  IconCheckAll,
   HandCard,
   HandNote,
   IconMetadata,
@@ -70,7 +67,6 @@ import {
   parseYearInput,
   YearField,
   yearInputValue,
-  PickMark,
   QuizSkipMark,
   Scroller,
   Select,
@@ -154,7 +150,7 @@ function Reveal({ className = '', children, ...rest }) {
 // the map because each section carries its OWN window — a group of four hundred
 // films needs bounding exactly as the flat board does, and a hook cannot live in
 // a loop body.
-function MovieGroup({ group, coverSize, onOpen, directorMap, creditSeps, selection, afterBulk, setEditWork }) {
+function MovieGroup({ group, coverSize, onOpen, directorMap, creditSeps, onChanged, setEditWork }) {
   const win = useBoardWindow(group.items.length, group.items)
   return (
     <section>
@@ -164,7 +160,7 @@ function MovieGroup({ group, coverSize, onOpen, directorMap, creditSeps, selecti
         style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${coverSize}px, 1fr))` }}
       >
         {group.items.slice(0, win.count).map((m) => (
-          <WorkCard key={m.id} kind="movie" item={m} onOpen={onOpen} people={directorMap} seps={creditSeps} selection={selection} onChanged={afterBulk} onEdit={setEditWork} />
+          <WorkCard key={m.id} kind="movie" item={m} onOpen={onOpen} people={directorMap} seps={creditSeps} onChanged={onChanged} onEdit={setEditWork} />
         ))}
         {win.more && <div ref={win.sentinel} aria-hidden="true" className="h-px" />}
       </div>
@@ -381,13 +377,7 @@ function MovieList({ onOpen, creditSeparators, dataNonce }) {
     return list
   }, [movies, mediaType, genre, series, fav, tagged, noted, actor, states, wish, sort, creditSeps])
 
-  // Over `shown`, the visible order — see the Library board and useSelection.
-  const selection = useSelection(shown.map((m) => m.id))
-  const afterBulk = () => {
-    selection.clear()
-    load()
-  }
-  // Edit one title from the bar — see the Library board for why this is an id
+  // Edit one title from its card — see the Library board for why this is an id
   // rather than the row it already has on screen.
   const [editWork, setEditWork] = useState(null)
 
@@ -547,10 +537,6 @@ function MovieList({ onOpen, creditSeparators, dataNonce }) {
         />
       }
     >
-      {/* The MODE, not the count — see useSelection. */}
-      {selection.open && (
-        <SelectionBar selection={selection} rows={shown} onDone={afterBulk} onEdit={setEditWork} />
-      )}
       {editWork != null && (
         <EditWorkModal
           kind="movies"
@@ -558,7 +544,7 @@ function MovieList({ onOpen, creditSeparators, dataNonce }) {
           title={t('film.form.edit.title')}
           onDone={() => {
             setEditWork(null)
-            afterBulk()
+            load()
           }}
           onCancel={() => setEditWork(null)}
         />
@@ -573,8 +559,7 @@ function MovieList({ onOpen, creditSeparators, dataNonce }) {
               onOpen={onOpen}
               directorMap={directorMap}
               creditSeps={creditSeps}
-              selection={selection}
-              afterBulk={afterBulk}
+              onChanged={load}
               setEditWork={setEditWork}
             />
           ))}
@@ -586,7 +571,7 @@ function MovieList({ onOpen, creditSeparators, dataNonce }) {
           style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${coverSize}px, 1fr))` }}
         >
           {shown.slice(0, flatWin.count).map((m) => (
-            <WorkCard key={m.id} kind="movie" item={m} onOpen={onOpen} people={directorMap} seps={creditSeps} selection={selection} onChanged={afterBulk} onEdit={setEditWork} />
+            <WorkCard key={m.id} kind="movie" item={m} onOpen={onOpen} people={directorMap} seps={creditSeps} onChanged={load} onEdit={setEditWork} />
           ))}
           {flatWin.more && <div ref={flatWin.sentinel} aria-hidden="true" className="h-px" />}
         </Reveal>
@@ -813,8 +798,7 @@ function MovieDetail(props) {
 }
 
 
-// EditWorkModal — the work's own edit form, opened from the selection bar when
-// exactly ONE work is picked.
+// EditWorkModal — the work's own edit form, opened from a card's ⋯ menu.
 //
 // It FETCHES the row rather than taking the one the board is already holding.
 // The list endpoints send a summary — no description, no genres — and every form
@@ -1047,7 +1031,7 @@ export function dialogueState(d) {
     episode: d.episode ?? null,
     // THE REST OF WHAT THE ROW STORES, and the comment above this function says
     // why they have to be here: a field missing from this object is a field the
-    // request CLEARS. The ♥, the colour dots and the selection bar all save
+    // request CLEARS. The ♥ and the colour dots all save
     // through it, so without these a recolour used to throw away an episode's
     // title and a game line's act and quest (0047) — and would have thrown away
     // the translation (0051) exactly the same way. utteranceState names the same
@@ -1084,7 +1068,7 @@ export function dialogueState(d) {
 function DialogueBoard({
   rows, view, tagMap, stickerMap, stickers, reloadStickers, editingId, setEditingId,
   save, patch, setAsking, copyOne, setShareTarget, openPerson, onOpenCharacter,
-  actorMap, creditSeps, clampLines, show, game, cast, dlgSelection, sort, toggleSort,
+  actorMap, creditSeps, clampLines, show, game, cast, sort, toggleSort,
   expandedId, toggleExpanded, tileCols, boardSeed, base, boardRef = null,
 }) {
   if (view === 'tiles') {
@@ -1126,7 +1110,6 @@ function DialogueBoard({
                 quoteLines={clampLines[i]}
                 expanded={expandedId === d.id}
                 onToggleExpand={() => toggleExpanded(d.id)}
-                selection={dlgSelection}
               />
             ))}
           </Masonry>
@@ -1165,7 +1148,6 @@ function DialogueBoard({
                 actorMap={actorMap}
                 seps={creditSeps}
                 quoteLines={5}
-                selection={dlgSelection}
               />
             </Fragment>
           ))}
@@ -1310,14 +1292,6 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen
   // one is open, so nothing reshuffles under the reader.
   const boardSeed = Number(movieId) || 1
   const clampLines = useMemo(() => clampSequence(items?.length || 0, mulberry32(boardSeed)), [items?.length, boardSeed])
-  // Over the visible order. The table view has no tickmarks — a row is already a
-  // row of controls — so this is offered on the strip and the tiles board, where a
-  // long press means something.
-  const dlgSelection = useSelection((items || []).map((d) => d.id))
-  const afterBulk = () => {
-    dlgSelection.clear()
-    load()
-  }
   const [expandedId, setExpandedId] = useState(null)
   const toggleExpanded = useCallback((id) => setExpandedId((cur) => (cur === id ? null : id)), [])
   // Keep expandedId honest: if the open dialogue leaves the set (filtered out via
@@ -1475,9 +1449,6 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen
         checked: view === v,
         onClick: () => setView(v),
       })),
-      ...(dlgSelection.active
-        ? []
-        : [{ id: 'select', icon: <IconCheckAll />, label: t('film.lines.select.menu.label'), onClick: () => dlgSelection.begin('dialogue') }]),
       // Directly under the view, because a column count is a property OF a view.
       ...columnActions({ view, columns, onColumns: setColumns }),
     ],
@@ -1514,7 +1485,6 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen
     show,
     game,
     cast,
-    dlgSelection,
     sort,
     toggleSort,
     expandedId,
@@ -1603,15 +1573,6 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen
         <EmptyState>
           {t(filtering ? 'film.lines.nomatch' : 'film.lines.empty')}
         </EmptyState>
-      )}
-      {dlgSelection.open && (
-        <SelectionBar
-          selection={dlgSelection}
-          rows={items || []}
-          onDone={afterBulk}
-          tagSuggestions={Object.keys(tagMap)}
-          onEdit={setEditingId}
-        />
       )}
       {/* GROUPED, AND THE HEADINGS ARE THE BOOK BOARD'S HEADINGS — a reader who
           has grouped a library by author and a show by episode has met one
@@ -1793,7 +1754,7 @@ function DialogueTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSo
 // same dialogue on its film's page was "a textured card" versus "an untextured
 // rectangle". It is now "a torn-edged card" versus "a square lit panel", which
 // is a difference you can mean.
-export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, show = false, game = false, cast = [], onEdit, onCancelEdit, onSave, onPatch, onDelete, onCopy, onShare, onOpenPerson, actorMap = {}, seps, actionsAlwaysVisible = false, editInline = false, wrapClass = 'mx-4 my-1.5', quoteLines = 6, expanded, onToggleExpand, selection, selectKind = 'dialogue', onOpenCharacter }) {
+export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, show = false, game = false, cast = [], onEdit, onCancelEdit, onSave, onPatch, onDelete, onCopy, onShare, onOpenPerson, actorMap = {}, seps, actionsAlwaysVisible = false, editInline = false, wrapClass = 'mx-4 my-1.5', quoteLines = 6, expanded, onToggleExpand, onOpenCharacter }) {
   // wrapClass carries the frame's outer spacing: the strip (list) view indents
   // frames from the film edges (mx-4 my-1.5); the masonry (tiles) view drops it
   // so the card fills its column slot and the masonry gap does the spacing.
@@ -1823,25 +1784,7 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
   // is left to the browser so a thumb can still pull a phrase out (useCardMenu).
   // Select first, which is what makes the menu and multiselect one feature, with
   // Select all under it — one helper, so the three boards cannot disagree.
-  const menuItems = [
-    ...selectionMenuItems(selection, d.id, selectKind),
-    ...acts.map((x) => ({ ...x, onClick: x.run })),
-  ]
-  const { cardProps, menuClass, menu } = useCardMenu(
-    menuItems,
-    selection ? { onLongPress: () => selection.toggle(d.id, selectKind) } : undefined,
-  )
-  const picked = !!selection?.isSelected(d.id)
-  const onFrameClick = selection
-    ? (e) => {
-        const what = selectionClick(e, selection)
-        if (what === 'open') return
-        e.preventDefault()
-        e.stopPropagation()
-        if (what === 'extend') selection.extendTo(d.id, selectKind)
-        else selection.toggle(d.id, selectKind)
-      }
-    : undefined
+  const { cardProps, menuClass, menu } = useCardMenu(acts.map((x) => ({ ...x, onClick: x.run })))
   // The colour bar is the same affordance annotations get from HandCard's
   // colorBar — a dialogue is a quote like any other, so it wears its colour the
   // same way. Inline rather than a class because the frame's own borders are
@@ -1982,18 +1925,10 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
         {editForm}
       </FormModal>
     <article
-      className={`${frameClass} ${menuClass}${picked ? ' is-picked' : ''}${selection?.active ? ' is-selecting' : ''}`}
+      className={`${frameClass} ${menuClass}`}
       style={frameStyle}
       {...cardProps}
-      onClickCapture={(e) => {
-        // The press already acted; running the click too would toggle it back.
-        if (cardProps.onClickCapture?.(e)) return
-        onFrameClick?.(e)
-      }}
     >
-      {selection && (
-        <PickMark picked={picked} label={t('common.dialogue.pick.label')} onChange={() => selection.toggle(d.id, selectKind)} />
-      )}
       {frameBody &&
         (sticker ? (
           <FlowQuote

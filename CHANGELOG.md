@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- **Multi-select and the bulk bar.** Selecting several books, films, quotes or search results,
+  and the bar that acts on them, including bulk season and episode, are gone from the web app;
+  single-item edit and delete menus stay. (ADR-0936)
+
 - **Settings › Theme is a dropdown on the web.** The material tiles, physics dials, true glass,
   per-surface materials, saved looks and cover-size sliders are gone; you pick a theme from a
   list, then light, dark or match system, and a colour (ADR-0936).

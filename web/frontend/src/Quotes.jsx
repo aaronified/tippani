@@ -31,8 +31,6 @@ import { TextOrderScope } from './textOrderHost.jsx'
 import { CreditFaces, DEFAULT_CREDIT_SEPS, PersonName, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import { ShareDialog, copyQuote, quoteShare } from './share.jsx'
 import { deleteWithUndo } from './undo.jsx'
-import { useSelection } from './selection.jsx'
-import { SelectionBar } from './SelectionBar.jsx'
 import { StickerPicker, useStickers } from './stickers.jsx'
 import { RunButton } from './speak.jsx'
 import { boardRun } from './readRuns.js'
@@ -158,9 +156,8 @@ export function utteranceState(u) {
     // full-state PUT, which includes recolouring a card.
     kind: u.kind || '',
     // 0035, AND THIS IS A SILENT-LOSS SITE. Every PUT here is full-state, so a field
-    // missing from this object is a field CLEARED by the request. The ♥ on a card,
-    // the colour dots and the selection bar all save through it — so omitting these
-    // three would mean recolouring a Bengali proverb quietly threw away its
+    // missing from this object is a field CLEARED by the request. The ♥ on a card
+    // and the colour dots all save through it — so omitting these three would mean recolouring a Bengali proverb quietly threw away its
     // category, its language and its English. 0034 records the same trap catching
     // `translator` on bookState.
     category: u.category || 'other',
@@ -168,8 +165,8 @@ export function utteranceState(u) {
     translation: u.translation || '',
     // 0036, AND THE SAME SILENT-LOSS SITE AS THE THREE ABOVE. A PUT with no
     // board_id does not leave the quote where it is — it MOVES it to the default
-    // board, because every PUT here is full-state. The ♥, the colour dots and the
-    // selection bar all save through this object.
+    // board, because every PUT here is full-state. The ♥ and the colour dots all
+    // save through this object.
     board_id: u.board_id || null,
     // 0047's five, AND THE THIRD TIME THIS TRAP HAS BEEN SPRUNG in this one object.
     // A letter's recipient, a proverb's region, an essay's title and page and the
@@ -843,8 +840,7 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
   const [error, setError] = useState('')
   const [editingId, setEditingId] = useState(null)
   const [shareFor, setShareFor] = useState(null)
-  // The quote whose board is being changed from its own ⋯ menu. The selection bar
-  // asks the same question of a whole selection with the same dialog.
+  // The quote whose board is being changed from its own ⋯ menu.
   const [movingQuote, setMovingQuote] = useState(null)
   const [expanded, setExpanded] = useState(null)
   const [exporting, setExporting] = useState(false)
@@ -1039,7 +1035,7 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
   // Takes the reply rather than asking again — see the note on Library's `patch`,
   // which is the same control on the other board and had the same cost. The
   // filters here are client-side EXCEPT the board, which a patch cannot change
-  // (moving a quote between boards goes through the selection bar), so the only
+  // (moving a quote between boards goes through its own ⋯ menu), so the only
   // field that can move a row out of view is the one the colour filter reads.
   async function patch(u, fields) {
     const r = await json('PUT', `/quotes/${u.id}`, { ...utteranceState(u), ...fields })
@@ -1086,15 +1082,6 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
       seps,
     })
 
-  // The selection is over `shown` — the visible, filtered, sorted list — so a
-  // filter change drops the ids that left the screen rather than leaving the bar
-  // reporting a number about rows nobody can see (see useSelection).
-  const selection = useSelection(shown.map((u) => u.id))
-  const afterBulk = () => {
-    selection.clear()
-    load()
-  }
-
   // Memoised: an inline arrow here would be a NEW component type on every
   // render, so React would unmount and remount the form between keystrokes and
   // the field would lose focus mid-word.
@@ -1106,7 +1093,6 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
   const card = (u, i) => (
     <AnnotationCard
       key={u.id}
-      selection={selection}
       selectKind="quote"
       a={u}
       variant={i}
@@ -1301,9 +1287,6 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
         </>
       }
     >
-      {selection.open && (
-        <SelectionBar selection={selection} rows={shown} onDone={afterBulk} tagSuggestions={Object.keys(tagMap)} onEdit={setEditingId} />
-      )}
       {/* One quote, from its own ⋯. Posted through the BULK endpoint with a single
           id — the same call the bar makes with forty — so there is no second path
           to keep in step, which is the rule deletes already follow. */}

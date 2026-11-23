@@ -12,9 +12,7 @@ import { deleteWithUndo } from './undo.jsx'
 import { ActionRow, actionsFor } from './actions.jsx'
 import { ANTHOLOGY_KIND, useGatherDoor } from './anthologyGather.jsx'
 import { QuoteContext, contextKind, useInContext } from './sources.jsx'
-import { selectionClick, selectionMenuItems, useSelection } from './selection.jsx'
 import { facetValue, facetValues, publishSearchSeed, seedableChips, withFacet, withFacetValues } from './facets.js'
-import { SelectionBar } from './SelectionBar.jsx'
 import { PeopleChips, SpeakerChips, chipRows, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import { useTextOrder } from './textOrderHost.jsx'
 import { BoardHead, BoardSheet, BoardStrip, columnActions, measureStyle } from './boardHead.jsx'
@@ -59,7 +57,6 @@ import {
   GhostButton,
   HandCard,
   HandNote,
-  IconCheckAll,
   IconSortAsc,
   IconSortDesc,
   Masonry,
@@ -68,7 +65,6 @@ import {
   parseYearInput,
   YearField,
   yearInputValue,
-  PickMark,
   QuizSkipMark,
   Scroller,
   Select,
@@ -180,11 +176,7 @@ async function setBookStatus(id, body) {
 }
 
 // BookGrid is the cover-tile board, shared by the flat list and each group.
-//
-// `selection` is threaded through rather than held here, because the board is what
-// knows the visible ORDER — Shift-click extends over that, and a per-group hook
-// would extend over one bucket while the reader saw the whole board.
-function BookGrid({ books, coverSize, onOpen, authorMap = {}, seps, selection, leadingTile, onChanged, onEdit }) {
+function BookGrid({ books, coverSize, onOpen, authorMap = {}, seps, leadingTile, onChanged, onEdit }) {
   // Bounded by what has been scrolled to, not by what the shelf holds; `books`
   // itself is the reset key, because a new array here is a re-filtered board and
   // a re-filtered board starts at its own top. See useBoardWindow.
@@ -197,7 +189,7 @@ function BookGrid({ books, coverSize, onOpen, authorMap = {}, seps, selection, l
       {leadingTile && <li>{leadingTile}</li>}
       {books.slice(0, win.count).map((b, i) => (
         <li key={b.id}>
-          <WorkCard kind="book" item={b} index={i} onOpen={onOpen} people={authorMap} seps={seps} selection={selection} onChanged={onChanged} onEdit={onEdit} />
+          <WorkCard kind="book" item={b} index={i} onOpen={onOpen} people={authorMap} seps={seps} onChanged={onChanged} onEdit={onEdit} />
         </li>
       ))}
       {/* aria-hidden and empty: this is a scroll position, not content. It sits
@@ -339,17 +331,6 @@ function BookList({ onOpen, onOpenMovie, creditSeparators, dataNonce }) {
   const wishBooks = useMemo(() => (foldWish ? shown.filter(unquoted) : []), [foldWish, shown])
   const boardBooks = useMemo(() => (foldWish ? shown.filter((b) => !unquoted(b)) : shown), [foldWish, shown])
 
-  // Over `boardBooks` — what is actually on screen as a tile — so changing a
-  // filter, or folding the wishlist away, drops the ids that left rather than
-  // leaving the bar reporting a number about books nobody can see (see
-  // useSelection). The folder itself is not selectable: a tick on it would have to
-  // mean "select the twelve behind it", which is a different act from every other
-  // tick on the board and one the bar cannot report a count for.
-  const selection = useSelection(boardBooks.map((b) => b.id))
-  const afterBulk = () => {
-    selection.clear()
-    load()
-  }
   // Edit one book from the bar, when exactly one is picked (1.12.0). The id
   // rather than the row: what this board holds is a LIST row, and the list
   // endpoint does not carry the description or the genres. Handing that to a
@@ -496,7 +477,7 @@ function BookList({ onOpen, onOpenMovie, creditSeparators, dataNonce }) {
               title={t('book.form.edit.title')}
               onDone={() => {
                 setEditWork(null)
-                afterBulk()
+                load()
               }}
               onCancel={() => setEditWork(null)}
             />
@@ -504,11 +485,6 @@ function BookList({ onOpen, onOpenMovie, creditSeparators, dataNonce }) {
         </>
       }
     >
-      {/* The MODE, not the count: emptying the selection leaves the bar standing
-          so picking a different four does not cost a fresh gesture. */}
-      {selection.open && (
-        <SelectionBar selection={selection} rows={boardBooks} onDone={afterBulk} onEdit={setEditWork} />
-      )}
       {grouped ? (
         <div className="space-y-10">
           {grouped.slice(0, groupWin.count).map((g) => {
@@ -523,7 +499,7 @@ function BookList({ onOpen, onOpenMovie, creditSeparators, dataNonce }) {
                   person={isAuthor ? authors.map[g.label] : null}
                   onOpenPerson={isAuthor ? () => openPerson({ kind: 'author', name: g.label, person: authors.map[g.label] }) : undefined}
                 />
-                <BookGrid books={g.items} coverSize={coverSize} onOpen={onOpen} authorMap={authors.map} seps={creditSeps} selection={selection} onChanged={afterBulk} onEdit={setEditWork} />
+                <BookGrid books={g.items} coverSize={coverSize} onOpen={onOpen} authorMap={authors.map} seps={creditSeps} onChanged={load} onEdit={setEditWork} />
               </section>
             )
           })}
@@ -539,8 +515,7 @@ function BookList({ onOpen, onOpenMovie, creditSeparators, dataNonce }) {
           onOpen={onOpen}
           authorMap={authors.map}
           seps={creditSeps}
-          selection={selection}
-          onChanged={afterBulk}
+          onChanged={load}
           onEdit={setEditWork}
           leadingTile={
             wishBooks.length > 0 ? (
@@ -676,7 +651,7 @@ function BookDetail(props) {
 }
 
 
-// EditWorkModal — the work's own edit form, opened from the selection bar when
+// EditWorkModal — the work's own edit form, opened from a card's ⋯ menu when
 // exactly ONE work is picked.
 //
 // It FETCHES the row rather than taking the one the board is already holding.
@@ -934,8 +909,7 @@ export function annotationState(a) {
     location: a.location || '',
     // A SILENT-LOSS SITE, named the way utteranceState names its own. Every PUT
     // here is full-state, so a field missing from this object is a field CLEARED
-    // by the request — and the ♥ on a card, the colour dots and the selection bar
-    // all save through it. `character` (0047) was missing from here for four
+    // by the request — and the ♥ on a card and the colour dots all save through it. `character` (0047) was missing from here for four
     // releases, which meant recolouring a highlight quietly threw away who said
     // it; `translation` (0051) is the same shape of field and would have gone the
     // same way. 0034 records the trap catching `translator` on bookState first.
@@ -974,7 +948,7 @@ export { annDate, groupAnnotations, sortAnnotations } from './boardOrder.js'
 // caller's decision and not this component's.
 function AnnotationBoard({
   rows, view, tagMap, stickerMap, stickers, reloadStickers, editingId, setEditingId,
-  save, patch, remove, onCopy, onShare, selection, sort, onSort,
+  save, patch, remove, onCopy, onShare, sort, onSort,
   columns, clamp, expandedId, onToggleExpand, boardRef = null, pinnedCount = 0, seed = 1,
   onDuplicate, onOpenCharacter,
 }) {
@@ -1014,7 +988,6 @@ function AnnotationBoard({
       onShare={onShare}
       quoteLines={lines}
       tagSuggestions={Object.keys(tagMap)}
-      selection={selection}
       onOpenCharacter={onOpenCharacter}
       onDuplicate={onDuplicate}
       {...(expandable
@@ -1139,7 +1112,7 @@ export function duplicateSeed(a) {
 // colour dots are keyed to the same two selectors. A bespoke wrapper would look
 // right on a desktop screenshot and silently lose the aesthetic toggle, the
 // hover affordances and the 320px layout all at once.
-export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, setEditingId, save, patch, remove, onCopy, onShare, quoteLines = 6, tagSuggestions = [], actionsAlwaysVisible = false, editInline = false, expanded, onToggleExpand, meta, form: Form = AnnotationForm, selection, selectKind = 'annotation', onMoveBoard, onDuplicate, textOrder = null, onOpenCharacter, people = {}, onOpenPerson = null, seps }) {
+export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, setEditingId, save, patch, remove, onCopy, onShare, quoteLines = 6, tagSuggestions = [], actionsAlwaysVisible = false, editInline = false, expanded, onToggleExpand, meta, form: Form = AnnotationForm, selectKind = 'annotation', onMoveBoard, onDuplicate, textOrder = null, onOpenCharacter, people = {}, onOpenPerson = null, seps }) {
   const sticker = a.sticker_id != null ? stickerMap[a.sticker_id] : null
   // PROVIDED, NOT THREADED — see textOrderHost.jsx. The board's own text menu
   // reached a card by being handed down two components that did nothing but pass
@@ -1302,35 +1275,7 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
     inContext: inContext.open,
     remove,
   })
-  // SELECT IS THE FIRST ITEM IN THE MENU, and that is what makes the context menu
-  // and multiselect one feature rather than two: the gesture that asks "what can I
-  // do to this" is also how you start doing it to several. Select all sits under
-  // it, from the same helper every board uses (selection.jsx).
-  const menuItems = [
-    ...selectionMenuItems(selection, a.id, selectKind),
-    ...acts.map((x) => ({ ...x, onClick: x.run })),
-  ]
-  // A long press on the card's WHITESPACE selects it; a long press on the quote
-  // itself is left to the browser, so a thumb can still pull a phrase out of it.
-  // Where there is no selection to enter, the press keeps opening the menu.
-  const { cardProps, menuClass, menu } = useCardMenu(
-    menuItems,
-    selection ? { onLongPress: () => selection.toggle(a.id, selectKind) } : undefined,
-  )
-  const picked = !!selection?.isSelected(a.id)
-  // Once a selection exists a plain click TOGGLES rather than opens, on every
-  // device. The mode is visible — the bar is up and the cards wear checkboxes — so
-  // the change of meaning is not a surprise, and clicking the last one off leaves it.
-  const onCardClick = selection
-    ? (e) => {
-        const what = selectionClick(e, selection)
-        if (what === 'open') return
-        e.preventDefault()
-        e.stopPropagation()
-        if (what === 'extend') selection.extendTo(a.id, selectKind)
-        else selection.toggle(a.id, selectKind)
-      }
-    : undefined
+  const { cardProps, menuClass, menu } = useCardMenu(acts.map((x) => ({ ...x, onClick: x.run })))
   // editInline renders the form in place of the card body — used inside the
   // search QuoteModal, which is itself a pop-up (avoids stacking two overlays).
   // Everywhere else the edit opens in a FormModal, the house style.
@@ -1347,27 +1292,9 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
     <HandCard
       variant={variant}
       colorBar={color}
-      className={`px-5 py-4 ${menuClass}${picked ? ' is-picked' : ''}${selection?.active ? ' is-selecting' : ''}`}
+      className={`px-5 py-4 ${menuClass}`}
       {...cardProps}
-      onClickCapture={(e) => {
-        // The press already acted. Running the click handler too would toggle a
-        // second time and undo the long press — see useCardMenu.
-        if (cardProps.onClickCapture?.(e)) return
-        onCardClick?.(e)
-      }}
     >
-      {selection && (
-        /* The tickmark: a real checkbox under a drawn tick, in the card's corner,
-           revealed on hover on a desktop and standing on every card once a selection
-           is running. Long-press, Ctrl/Cmd-click and this are three doors into the
-           same mode — one you already know from a phone, one from a file manager,
-           one you find by looking. */
-        <PickMark
-          picked={picked}
-          label={t('common.quote.pick.label')}
-          onChange={() => selection.toggle(a.id, selectKind)}
-        />
-      )}
       {!editInline && (
         <FormModal open={editing} onClose={() => setEditingId(null)} title={t('common.quote.edit.title')}>
           {editForm}
@@ -1725,15 +1652,6 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
   // the page size, and a hundred small sections is still the whole book mounted,
   // so the bound has to exist at both levels or neither.
   const groupWin = useBoardWindow(groups ? groups.length : 0, groups, 8)
-  // Over the visible order, so changing a filter drops the ids that left the board.
-  // The table view has no tickmarks — a row is already a row of controls — so the
-  // selection is offered on the two CARD views, which is where a long press means
-  // anything.
-  const selection = useSelection(displayRows.map((a) => a.id))
-  const afterBulk = () => {
-    selection.clear()
-    load()
-  }
 
   // ── WHAT THE BOARD PUTS IN THE SCREEN'S ⋯ .
   //
@@ -1770,17 +1688,6 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
         checked: view === v,
         onClick: () => setView(v),
       })),
-      // THE THIRD DOOR INTO SELECTING, and the only one that can be found by
-      // looking. The other two — a long press and a Ctrl-click — are gestures a
-      // reader has to already know, on a board where nothing says the mode exists.
-      // Hidden while the mode is running: a row offering to start what is already
-      // started is the dead control the selection menu's own note argues against.
-      ...(selection.active
-        ? []
-        // THE PLURAL TICK, not the confirming one — see IconCheckAll. This row
-        // starts multi-select; it commits nothing, and the ✓ beside it is the
-        // same drawing every form's Save wears.
-        : [{ id: 'select', icon: <IconCheckAll />, label: t('book.select.menu.label'), onClick: () => selection.begin('annotation') }]),
       // Directly under the view, because a column count is a property OF a view.
       ...columnActions({ view, columns, onColumns: setColumns }),
     ],
@@ -1999,7 +1906,6 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
     remove: setAsking,
     onCopy: copyOne,
     onShare: setShareTarget,
-    selection,
     sort,
     onSort: toggleSort,
     columns: tileCols,
@@ -2118,15 +2024,6 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
         <EmptyState>
           {t(filtering ? 'book.quotes.nomatch' : 'book.quotes.empty')}
         </EmptyState>
-      )}
-      {selection.open && (
-        <SelectionBar
-          selection={selection}
-          rows={displayRows}
-          onDone={afterBulk}
-          tagSuggestions={Object.keys(tagMap)}
-          onEdit={setEditingId}
-        />
       )}
       {/* GROUPED, AND THE HEADINGS ARE THE SAME HEADINGS the shelf uses — a
           reader who has grouped a library by author and a book by chapter has met

@@ -11599,40 +11599,6 @@ export function useCardMenu(items = [], { onLongPress } = {}) {
   };
 }
 
-// PickMark — the tick in a card's corner that says whether the card is selected.
-//
-// ONE DRAWING FOR EVERY BOARD. A quote card, a book cover and a film poster are
-// three very different rectangles, and a selection that looked like a checkbox on
-// one and a ring on another would be three affordances for one idea.
-//
-// It is a REAL CHECKBOX under the tick — visually hidden, not display:none, so it
-// keeps its role, its checked state, its label and its place in the tab order. The
-// span beside it is the thing you see. A div with an onClick would have looked
-// identical and told a screen reader nothing.
-//
-// `label` completes "Select …" / "Deselect …", so the announcement names what is
-// being picked rather than saying "checkbox" forty times down a board.
-export function PickMark({ picked, onChange, label }) {
-  return (
-    <label
-      className="card-pick"
-      // The card underneath selects on click too. Without this, ticking the box
-      // toggles once for the input and once for the card, i.e. never.
-      onClick={(e) => e.stopPropagation()}
-    >
-      <input
-        type="checkbox"
-        checked={picked}
-        aria-label={t(picked ? "common.action.deselect.aria" : "common.action.select.aria", { name: label || t("common.select.target.fallback") })}
-        onChange={onChange}
-      />
-      <span className="card-pick-mark" aria-hidden="true">
-        <IconCheck />
-      </span>
-    </label>
-  );
-}
-
 // TableActions — the actions cell at the end of a table row.
 //
 // It was `share` `edit` `del` as tp-links, and `del` is the tell: the same

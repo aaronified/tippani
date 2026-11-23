@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { groupWorks, pinInProgress } from '../../src/works.jsx'
 import { showsField } from '../../src/addFields.js'
-import { bulkFieldsFor, overwriteWarning } from '../../src/bulkOps.jsx'
 import { duplicateSeed } from '../../src/Library.jsx'
 import { MOVIE_FIELDS, specsFor } from '../../src/WorkDetails.jsx'
 
@@ -102,55 +101,6 @@ describe('add fields', () => {
 // is a warning on nothing — a reader who sees eight of them stops reading them,
 // and the one that mattered goes past with the rest. Filling a blank cannot lose
 // anything, so it says nothing.
-describe('bulk fields', () => {
-  const keys = (kind) => bulkFieldsFor(kind).map((f) => f.key)
-
-  describe('what may be set over a selection', () => {
-    // THE RULE THIS FILE EXISTS FOR. A title is what tells five rows apart;
-    // setting it across them destroys four records and leaves five nothing can
-    // distinguish afterwards.
-    it('never the name of a work', () => {
-      for (const kind of ['book', 'movie']) {
-        expect(keys(kind), `${kind} must not offer its title`).not.toContain('title')
-      }
-    })
-
-    it('never the words of a quote', () => {
-      for (const kind of ['annotation', 'dialogue', 'quote']) {
-        expect(keys(kind), `${kind} must not offer its own text`).not.toContain('quote')
-      }
-    })
-  })
-
-  describe('the per-field warning', () => {
-    it('counts only the rows that would actually lose something', () => {
-      const rows = [{ series: 'Hainish' }, { series: '' }, { series: 'Earthsea' }, {}]
-      const w = overwriteWarning(rows, 'series')
-      expect(w.rows).toBe(2)
-      expect(w.distinct).toBe(2)
-      expect(w.text).toMatch(/2 different values/)
-    })
-  })
-
-  // ---- one column, two words for it -------------------------------------------
-  //
-  // A book's `series` is a Series and a film's is a Collection — which is what both
-  // Details panels call them. The bulk editor said "Series" over a selection of
-  // films, the one place in the app using the other side's word.
-})
-
-// WHAT A DUPLICATE CARRIES, pinned field by field.
-//
-// The menu row promises "the same note, tags, colour and locator", and a promise
-// in a label is only as good as the mapping under it — this is that mapping. It
-// is a pure function precisely so the promise can be checked without a screen.
-//
-// ONE CONVERSION IS LEFT, AND IT WAS TWO. A row's `chapter_no` is a number or
-// null while every box holds a string — the kind of thing that "works" in a
-// browser by coercion and then saves 0 for "no chapter". The other was `tags`:
-// the old capture card kept them in a comma box so this joined the array, and the
-// add-surface rework replaced that box with the token input the three edit forms
-// have always used, which takes the array the row already carries.
 describe('duplicate seed', () => {
   const FULL = {
     id: 7,

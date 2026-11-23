@@ -369,7 +369,6 @@ common.action.move.label = Move
 common.action.reload.label = Reload
 common.action.upload.busy = Uploading…
 common.action.load.busy = loading…
-common.action.fetch.busy = Fetching…
 # The verb on a button. The named MODE is quiz.practice.label — English tells the
 # two apart with an s and a c, which no other language can reproduce.
 common.action.practise.label = Practise
@@ -380,11 +379,6 @@ common.action.got-it.label = Got it
 # The favourite toggle says what PRESSING it will do, not what the state is.
 common.action.favourite.on.label = Add to favourites
 common.action.favourite.off.label = Remove from favourites
-# The tick on a card or a row, which names what is being picked.
-common.action.select.aria = Select {name}
-common.action.deselect.aria = Deselect {name}
-# What the tick calls the thing when its caller did not name it.
-common.select.target.fallback = this
 
 # Tooltips on a table row's action cell. {noun} is what the row holds.
 common.action.copy.row.tip = Copy this {noun}
@@ -758,9 +752,6 @@ unit.quote.one = quote
 unit.quote.other = quotes
 unit.column.one = column
 unit.column.other = columns
-# A quote saved against a book.
-unit.highlight.one = highlight
-unit.highlight.other = highlights
 # A quote saved against a film or show. The stored kind is 'dialogue' and the
 # WORD is "film line" — this pair composes the bulk toasts, and the typed delete
 # phrase the Go server checks is built from the English of it, not from here.
@@ -2030,30 +2021,8 @@ vocab.yesno.no.label = no
 # a second copy of it. Undoing says common.toast.restored.label, up there, because
 # undoing one row and undoing forty say the same word.
 common.toast.deleted = deleted {n}
-# Fill gaps: the three outcomes. "nothing was missing" is the GOOD case and has
-# to read like one, or people learn to distrust the button.
-common.selection.fill.toast.nothing-missing = nothing was missing
-common.selection.fill.toast.none-fetched = nothing could be fetched
-# {n} counts FIELDS filled, not works — "filled 3 books" over a selection of
-# forty reads as a failure where "filled 7 fields" reads as the win it is.
-common.selection.fill.toast.filled = filled {n} fields
 
-# Under one field of the bulk edit sheet, warning what setting it would destroy.
-# {n} is how many rows already hold a value; {value} is that value when they all
-# agree; {distinct} is how many different ones there are when they do not.
-common.selection.edit.title = Set a field on {n}
-common.selection.edit.body = Pick one field and one value. Every selected item gets it; nothing else changes.
-common.selection.edit.field.label = field
-common.selection.edit.field.aria = Which field to set
-common.selection.edit.value.aria = The value to set
-common.selection.edit.value.none.label = (none)
-common.selection.edit.clear.hint = Empty clears the field.
-common.selection.edit.overwrite.same = overwrites {n} that already say “{value}”
-common.selection.edit.overwrite.differ = overwrites {n}, with {distinct} different values
 
-# Failures, keyed by WHAT failed rather than by where.
-error.apply.generic = could not apply
-error.fill.generic = could not fill
 error.delete.generic = could not delete
 error.undo.generic = could not undo
 
@@ -2079,17 +2048,9 @@ common.action.copy.tip = Copy {subject}
 common.action.share.tip = Share {subject}
 common.action.edit.tip = Edit {subject}
 common.action.delete.tip = Delete {subject}
-# Fetch only what is MISSING and touch nothing else.
-common.action.fill.label = Fill gaps
-common.action.fill.tip = Fill the empty fields
 # While it is fetching.
 # A themed quiz round over one book or one title.
 common.action.practise.tip = Quiz me on {subject}
-# The quiz toggle, which flips to name what pressing it will do.
-common.action.review.add.label = Add to quiz
-common.action.review.add.tip = Put it back in the quiz
-common.action.review.skip.label = Skip in quiz
-common.action.review.skip.tip = Keep it out of the quiz
 # The other flipping pair: .on when the row is NOT a favourite yet, .off when
 # it already is. Bengali negation is a different construction, so both are keys.
 common.action.favourite.menu.on.label = Favourite
@@ -2098,77 +2059,22 @@ common.action.favourite.tip = Favourite {subject}
 # Filing a standalone quote on a different board.
 common.action.board.label = Move to board
 common.action.board.tip = File it on another board
-# The bulk-only actions: recolour, tag, sticker ("seal"), shelf, anthology, and
-# setting fields across several works at once.
-common.action.colour.label = Colour
 common.action.add-tags.label = Add tags
-common.action.seal.label = Seal
-common.action.shelf.label = Shelf
 common.action.anthology.label = Add to anthology
 common.action.anthology.tip = Gather {subject} into an anthology
-common.action.set-fields.label = Set fields
 
-# The select controls a card's own menu puts above its actions. {n} is how many
-# cards are on screen — never how many the library holds, because a filter may
-# be hiding four hundred.
-common.selection.menu.select.label = Select
-common.selection.menu.deselect.label = Deselect
-common.selection.menu.select-all.label = Select all {n}
-common.selection.menu.deselect-all.label = Deselect all
 
-# THE SELECTION BAR. The count badge at the left empties the picks and leaves
-# the bar standing; the ✕ at the right ends the mode. {noun} arrives already in
-# the right form from unit.*.
-common.selection.deselect-all.label = Deselect all
-# Spoken and hovered when nothing is picked. A bare 0 in a count reads as
-# something having gone wrong, so zero is worded rather than numbered.
-common.selection.none.aria = no {noun} selected
 common.selection.count.aria = Deselect all, {n} {noun} selected
 common.selection.count.tip = {n} {noun} selected
-common.selection.colour.aria = Recolour the {n} selected
-common.selection.shelf.aria = Move the {n} selected to a shelf
-common.selection.shelf.tip = Move to a shelf
-# The first row of the shelf menu: take the selection off its shelf entirely.
-common.selection.shelf.clear.label = Clear
-common.selection.more.aria = More for the {n} selected
-common.selection.more.tip = More actions
-common.selection.dismiss.aria = Dismiss the selection
 
-# Toasts after a bulk action. {n} is how many rows were touched.
-common.selection.toast.recoloured = recoloured {n}
-common.selection.toast.tagged = tagged {n}
-common.selection.toast.sealed = sealed {n}
-common.selection.toast.seals-removed = seals removed
-common.selection.toast.fields-set.one = 1 record updated
-common.selection.toast.fields-set.other = {n} records updated
-common.selection.toast.favourited = favourited {n}
-common.selection.toast.moved = moved {n}
-common.selection.toast.back-in-quiz = back in the quiz
-common.selection.toast.skipping = skipping {n}
 # Gathering into an anthology. A quote already there is SKIPPED, not an error,
 # so the second form reports both numbers rather than claiming they all landed.
 common.selection.toast.gathered = {n} gathered
 common.selection.toast.gathered-some = {n} gathered, {skipped} already there
 
-# The delete confirmation. The reader has to TYPE {phrase} — and {phrase} is
-# still assembled in English by bulkOps.deletePhrase, because the Go server
-# compares it byte for byte. Translating this sentence without the server would
-# make the control impossible to satisfy.
-common.selection.delete.confirm.title = Delete {n} {noun}?
-common.selection.delete.confirm.body.work = They go to the bin with all their quotes, as one item for the whole selection. Type {phrase} to confirm.
-common.selection.delete.confirm.body.quote = They go to the bin as one item for the whole selection, and can be restored. Type {phrase} to confirm.
 common.selection.delete.confirm.phrase.aria = Type the confirmation phrase
-common.selection.delete.confirm.action.label = Delete them
 
-# The tag sheet the bar opens. Every tag is ADDED; nothing is removed.
-common.selection.tags.title = Tag {n}
-common.selection.tags.body = Every tag here is ADDED to all {n}. Nothing already on them is removed.
-common.selection.tags.placeholder = add tags
-common.selection.tags.input.aria = Tags to add to the selection
 
-# The sticker sheet. "none" is the option that takes the seal off.
-common.selection.seal.title = Seal {n}
-common.selection.seal.body = One sticker for the whole selection. “none” removes the sticker from all of them.
 
 error.add.generic = could not add those
 
@@ -3798,20 +3704,7 @@ search.group.genre.label = Genre
 search.group.residual.author.label = Unknown author
 search.group.residual.director.label = Unknown director
 
-# THE TABLE VIEW. Every column head names a stored field.
-search.table.select-all.tip = Select every row
-search.table.select-all.aria = Select all
-search.table.select-row.tip = Select this row
-search.table.select-row.aria = Select row
 
-# The table's inline bulk editor.
-search.bulk.author.placeholder = set author
-search.bulk.director.placeholder = set director
-search.bulk.series.placeholder = set series
-search.bulk.tags.placeholder = add tags (comma-separated)
-search.bulk.genres.placeholder = add genres (comma-separated)
-search.bulk.tags.blocked.tip = Type at least one tag
-search.bulk.fields.blocked.tip = Set a field first
 
 # One search hit opened in place.
 search.hit.title.fallback = Quote
@@ -3824,8 +3717,6 @@ search.hit.work.aria = Open {title}
 
 error.search.failed = search failed
 error.bulk.failed = bulk action failed
-error.validate.tag-required = type at least one tag
-error.validate.field-required = set a field first
 
 # ---------------------------------------------------------------------------
 # THE LIBRARY (Library.jsx) — books, and every highlight kept from them.
@@ -3907,7 +3798,6 @@ common.quote.speaker.tip = Spoken by {name} — open the character
 # having spoken it, so there is no record to open behind them.
 common.quote.named.tip = {name} is named on this line
 common.quote.edit.title = Edit quote
-common.quote.pick.label = this quote
 # The chapter and page locator under a highlight. ⚠ "CH." here is spelled the
 # same way the Markdown export writes a chapter heading and the importer reads
 # it back — see text.js. Changing it breaks the round trip.
@@ -4039,7 +3929,6 @@ film.lines.filter.title = Filter dialogues
 film.lines.filter.placeholder = character or tag…
 film.lines.filter.tag.all.label = All tags
 film.lines.capture.label = ＋ Capture a line
-film.lines.select.menu.label = Select lines
 film.lines.counts.shown = {a} · {n} shown
 film.lines.empty = No dialogues yet — the ＋ in the bar above captures the first line.
 film.lines.nomatch = No dialogues match the filters.
@@ -4054,7 +3943,6 @@ film.table.favourite.label = ♥
 
 # ONE FILM LINE, as a card. Drawn on four screens, so common.*.
 common.dialogue.edit.title = Edit dialogue
-common.dialogue.pick.label = this line
 
 # The dialogue form.
 film.line.form.quote.placeholder = Quote (required)
@@ -7656,7 +7544,6 @@ board.group.episode.none.label = No episode
 board.group.act.none.label = No act
 board.group.quest.none.label = No quest
 board.strip.shown.label = {n} of {total} shown
-book.select.menu.label = Select quotes
 
 # ---- PRUNE: the saved records nothing points at ---------------------------
 # One endpoint, two consoles. The button draws nothing at zero, so every string

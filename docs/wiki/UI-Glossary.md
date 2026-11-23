@@ -7,7 +7,7 @@ It is generated from the glossary catalogue, `web/frontend/scripts/glossary/cata
 when a component has no entry, so a rename or a new control updates this page or fails the build. Each entry names the file
 that defines it.
 
-221 entries in 22 sections.
+217 entries in 21 sections.
 
 ## Shell
 
@@ -1229,7 +1229,7 @@ Arithmetic over the numeric runs inside free text, which is what a Kindle locati
 
 ### BulkBar
 
-*Defined in:* BulkBar — ui.jsx · shared by Search, Metadata and Staging
+*Defined in:* BulkBar — ui.jsx · shared by Metadata, Checks and Staging
 
 One selection strip, three screens. In staging it does two things the live endpoints cannot: tags come **off** as well as on, and the work can be **retargeted across kinds** — book and film interchangeable — because a staged row carries both locator sets, so the move never destroys the ones the destination won't use.
 
@@ -1324,72 +1324,6 @@ Was `Good ${morning|afternoon|evening}`: three strings for 365 days. Now a pool 
 *Defined in:* `.drawer::before` / `.mobile-dock::before` — index.css
 
 The two nav surfaces a phone actually touches — the ☰ drawer and the floating bottom bar — were the last bare ones in the app: every card, button, toggle thumb and select thumb already wears a tile, and these two read as plastic beside them. They take the **shell** material (wood on paper, brushed metal on film), the same tile the nav toggle's thumb wears, not the card material — the shell is a different substance from the things sitting on it. Same recipe as `.hand-card`: `isolation:isolate` plus a `z-index:-1` `::before`, so the grain sits above the surface's own background and below its content, and the blend flips to `screen` in dark mode where multiplying a grey tile just makes mud.
-
-## Selecting several (1.10.0 · works and the long press 1.11.1 · the mode 1.11.2)
-
-One selection mechanism over five kinds of thing, entered three ways, acting through one registry. The tick and the ring are the whole of the visible mode — there is no button to get *into* it. There is now one to get out of, and it had to exist: the mode outlives the picks, so emptying the selection no longer tears the bar off the screen.
-
-### PickMark · is-picked
-
-*Defined in:* PickMark — ui.jsx · .card-pick / .card-pick-mark / .is-picked / .is-selecting — index.css
-
-A drawn tick over a **real, visually-hidden checkbox** — role, checked state, label and tab order all kept, because a div with an onClick would look identical and announce nothing. One drawing for every board: a quote card, a book cover and a film poster are three very different rectangles, and a selection that looked like a checkbox on one and something else on another would be two affordances for one idea. 
- 
-**When it shows.** On hover on a pointer, like the colour dots and the copy/share pair, and standing on *every* card of a board with a selection running (`.is-selecting`) — the cards you have *not* picked are half the answer to &ldquo;what am I about to act on&rdquo;. It no longer stands permanently on a phone, which it used to: there was nothing to select with then, and a hollow circle on every cover for a mode nobody had entered is a lot of furniture for an affordance the long press now provides. 
- 
-**And on a touch screen the mode is the only thing that reveals it (1.11.2).** The hover and `:focus-within` reveals are gated behind `(hover: hover)`, because a tap leaves focus on the card it landed on — so a phone was keeping the dot lit on the card that had been long-pressed after everything was deselected, until a reload, which is the only thing that drops the focus. Nothing was selected and one card said it was. `.is-selecting` now tracks the *mode* rather than the count, which makes the pairing the rule: the ticks are up while the bar is up, and dismissing puts every one of them away together. 
- 
-**An accent RING rather than a fill** for the picked card: a quote card already carries a colour bar that means something else entirely, and tinting the paper would fight it — on the film aesthetic it would fight the frame. The ring is what you see from across the board; the tick is what you read up close.
-
-### SelectionBar (glyphs 1.12.0)
-
-*Defined in:* SelectionBar.jsx · bulkActionsFor — actions.jsx · .selection-bar — index.css
-
-**Sticky, and that is the feature rather than a flourish:** selecting forty things and scrolling to check one of them must not lose the controls. The count is the only thing on screen saying how many are picked, and it is a count the bar can act on — the selection drops ids that leave the visible list, so the bar goes with them rather than reporting a number about nothing. 
- 
-**One bar, two very different selections.** A quote gets colour, tags, one seal across the lot, favourite, the quiz toggle and delete; a book, film or show gets fill-the-gaps, a shelf, set-fields, the quiz toggle and delete. A colour category is a note about a *quote* and a work has never had one; a shelf is a fact about a *work* and a quote has none. Which appear is decided by which callbacks the bar passes for the kind in hand, from the same registry the card menu reads — a bar offering something the menu does not looks completely normal on both screens, and the divergence only surfaces when somebody wonders why they cannot do to forty what they just did to one. 
- 
-**Delete is last, danger-styled, and the only one that asks.** It is unreachable by gesture: select, press Delete, then type what it will do. Over works the dialog says plainly that the quotes go with them. 
- 
-**The mode outlives the picks (1.11.2), and the two controls at the right-hand end are that distinction.** The bar used to render on `count > 0`, so taking the last card off tore it off the screen mid-task — &ldquo;these four are the wrong four&rdquo; cost a fresh long press to undo. It now renders on the *mode*: **Deselect all** empties the selection and leaves the bar standing, reading *no books selected* with every action disabled, and the **×** ends the mode and takes every tick on the board with it. Escape does the same, so the way out is not something you have to find. Zero is *spoken* in words rather than shown as a bare `0` — the badge reads `0`, dimmed and disabled, and its accessible name is *no books selected*, so the reason is carried where it can still be heard once the words are clipped; the actions are disabled rather than hidden, because a row that changes shape at zero is a row you have to re-read. The kind is *kept* at zero too — drop it and an empty selection of books would render the quote actions, since `isWorkKind(null)` is false. 
- 
-**A row of glyphs, and only three of them (1.12.0).** It shipped with four word-buttons and left 1.11.1 with eleven controls — colour dots, a tag field, a tag button, Seal, Favourite, a shelf dropdown, Fill gaps, Skip in quiz, Delete, Deselect all, ×. Every one was added for a good reason and none of them is the one that broke it, because nothing broke: it simply became, on a phone, a strip wider than the phone, one release at a time. Three stand in the row now — for quotes the colour, the &hearts; and the quiz toggle; for works fill-the-gaps, the shelf and the quiz toggle — and the rest fold behind a `&ctdot;`. 
- 
-**Which three is decided in `actions.jsx`** (`where: ROW | OVERFLOW`), not here, and a test asserts the count is exactly three: a fourth fits on a desktop and pushes the count off the screen on a phone, silently. The three that fold away have one thing in common — each needs something MORE from you before it can run. Tags need a keyboard, the seal needs a picture chosen, Delete needs a phrase typed. Standing open in the row, the tag field was the widest control in the strip and was open on every selection whether or not anybody meant to type into it; it asks in a dialog now. 
- 
-**The quiz toggle's PICTURE flips with its label**, which stopped being optional the moment the words came off. That label was doing two jobs — naming the action and reporting which way round the selection is — and a fixed glyph keeps the first and silently drops the second. It is the one place the icon set holds two drawings that are nearly the same picture on purpose. 
- 
-**Edit appears at exactly one**, in the `&ctdot;`, opening the same form the card's own `&ctdot;` opens. Pick a second and it is gone rather than greyed. **Set fields is its mirror** — two upwards only — so a selection never shows two ways to change the same fields, and neither is ever a dead control. **THE COUNT IS THE CONTROL (1.13.0), and the bar finally obeys Button labels.** It was built entirely from glyph-only primitives — `IconButton` and `MoreMenu`, neither of which rendered a `.btn-label` span — so *Show* had no name to reveal and *Hide* had none to clip. The one row in the app that ignored the preference in both directions, on the surface with the least room, where it matters most. Nothing failed: it looked right on a desktop, which is where it was built. Both primitives now take an optional `label` and render the same two spans `Button` does, so the existing collapse rule does all of it. 
- 
-The count moved into the glyph slot of that button: the number wears the same round 44px border as every control beside it, and clearing the picks is the obvious thing to tap. *Deselect all* is its word, standing on a desktop and clipping to the badge on a phone. That merged two items into one — a sentence saying how many and a worded button undoing it were one idea drawn twice — and it moved the pair apart: *Deselect all* and **×** side by side read as the same control twice, and the one that ends the mode is the one you reach for by accident. The badge is mono and tabular so it does not change width between 3 and 8, because a control that resizes as you tick things is a control that moves under your thumb. The `&ctdot;` stays nameless on purpose: *More* beside three dots is the same thing said twice.
-
-### What a long press means (revised 1.11.1 · the highlight 1.11.2)
-
-*Defined in:* useCardMenu — ui.jsx · .card-text / .card-menu-host — index.css
-
-The plan this came from said &ldquo;long-press always means menu, with no exceptions&rdquo;, and put touch's way into a selection in a toolbar toggle. Both halves were wrong, and both only show up under a thumb. The menu on the press, plus `-webkit-touch-callout: none` on the card, meant a finger could not select half a sentence out of a quote — in a note-keeping app, which is the one gesture a phone has for reaching into text. And long-press-to-select is what every photo grid, file manager and mail app already does; a toolbar toggle is a thing you have to be told about. 
- 
-So the press splits by **where it lands**. `.card-text` marks the quote and the note — set by ExpandableText, FlowQuote and HandNote rather than by each card, because those *are* the prose everywhere they appear, and a card that forgot the class would be a quote nobody could copy from with no visible sign of it. A cover tile carries no `.card-text` at all: a poster is a picture, so every press that is not on a control belongs to the card. 
- 
-Right-click and Shift+F10 keep the menu, so nothing was lost — it gave up one of three triggers, and the two it keeps are the two a pointer and a keyboard use. A surface with no selection to enter (Home's favourites, the search modal) keeps the menu on the press too. 
- 
-**And it must not highlight anything on the way (1.11.2).** The same 500ms hold means two things to two systems and both are right: to this hook it is the gesture, to the browser it is the start of a text selection. So a press on a card's whitespace fired correctly *and* came up with a stray word shaded under the menu — nothing broken, and it looked broken. Two mechanisms fix it because they fail on opposite hardware: the stylesheet takes `user-select` off the card body behind `(hover: none) and (pointer: coarse)`, so the highlight is never drawn on a phone or tablet, and the hook drops any live range at the instant the press fires, which covers a hybrid laptop (it answers `hover: hover`, so the CSS never applies) and any browser that latches a word before the timer. Gated on the **pointer** rather than the width on purpose: a tablet at 900px has the gesture and a narrow desktop window does not, and the answer must not change when somebody drags a window. The clear runs only after a press has *fired* — never on a tap, never after a drag, and never on the quote, where no timer is armed at all — because eating a selection somebody made deliberately is the worse bug. 
- 
-**The page holds still, and the card says it is the one (1.14.2).** Both of those follow from the same fact: the menu is placed once, in script, at the *point the press landed* rather than being anchored to the card. That placement is right — it is what puts the list under the pointer and keeps it inside the viewport — and two consequences came with it that nobody decided. The page scrolled out from under an open menu, which on a desktop happened constantly because the wheel is under the same hand that just right-clicked: the menu stays pinned where it was while every card slides away, so it ends up hanging over some other card with its actions still belonging to one now off screen. So the body scroll is **locked** while a card menu is open, through the same refcounted lock every dialog uses. Locked rather than re-anchored on scroll, because a menu that chases its card is one you can drag around the screen with the wheel and it still leaves you acting on something you cannot see. And a context menu **names no target** — it is a floating list beside the pointer — so over a grid of near-identical covers, *Delete* was pressed on faith. The card now wears `.is-menu-target`: the **same accent ring a selected card wears**, because the two are the same statement (this is the card being acted on) and a second look for one idea is a second thing to learn. An outline rather than a border so nothing reflows, and not transitioned — the menu opens instantly, and a ring that fades in over 180ms arrives after the decision it exists to inform.
-
-### Set fields · tp-warn (registry 1.16.0 · wired 2.2.3)
-
-*Defined in:* SetFieldsDialog — SelectionBar.jsx · BULK_WORK_FIELDS / overwriteWarning — bulkOps.jsx · .tp-warn — index.css
-
-One field, one value, across a whole selection of works — the series on five books in one press. 
- 
-**The whole feature was one argument wide.** The action has been in the registry since 1.16.0 with its label, its glyph and its single/bulk rule; the per-kind field tables and the overwrite warning were written beside it; and `/books/bulk` has taken every field a work has for as long. The bar simply never passed the callback, and the action reads `available: … && !!ctx.setFields` — so the menu item was absent, nothing errored and nothing logged. The registry test asserts the action EXISTS and the bar’s tests assert what the bar SHOWS, so neither could see it. 
- 
-**One field at a time, not a form of all of them.** A form of every field with a &ldquo;leave alone&rdquo; state per row is a form where &ldquo;I did not touch this&rdquo; and &ldquo;I meant to clear this&rdquo; look identical across forty rows. One named field and one value is a sentence you can read back before pressing it, and pressing it twice is how you set two. 
- 
-**The warning counts only what would be DESTROYED.** Filling a blank is not a loss, so a field that is empty across the whole selection says nothing at all; a field with values says how many rows and how many *distinct* answers are about to become one, because &ldquo;overwrites 12&rdquo; and &ldquo;overwrites 12 different answers&rdquo; are different sizes of mistake. `.tp-warn` takes the accent rather than the error red: nothing has gone wrong, this is what the button would do. Empty is a clear and stays offered — a bulk editor that can set a series but never unset one sends you back to forty forms for the mistake it just helped you make. It is offered over SEVERAL and never over one, where the work’s own form is strictly better. 
- 
-**A field whose column has no empty offers no blank** (2.2.5). `media_type` is NOT NULL and the server reads a blank as *Film*, so &ldquo;(none)&rdquo; under the words &ldquo;Empty clears the field&rdquo; converted every selected show and game into a film — the loudest possible edit made by the quietest possible control, under a sentence that was false. Such a field now offers no blank, promises no clear, and will not apply until a real value is picked. The overwrite warning is not an answer to that on its own: a reader who has just been told the field will be *cleared* reads it as the cost of clearing.
 
 ## The bin (1.8.0 · a page of its own 1.11.2)
 

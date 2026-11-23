@@ -30,7 +30,6 @@ import {
   NameScroll,
   PageHeader,
   PartialDateField,
-  PickMark,
   Placeholder,
   QuizSkipMark,
   SHELF_META,
@@ -50,14 +49,13 @@ import {
   formatPartialDate,
   seriesLabel,
   shelfLabel,
+  toast,
   useCardMenu,
 } from './ui.jsx'
 import { actionsFor } from './actions.jsx'
 import { ANTHOLOGY_KIND, useGatherDoor, workRule } from './anthologyGather.jsx'
 import { useSourceDoor } from './sources.jsx'
 import { usePractice } from './review.jsx'
-import { deletePhrase, useBulkOps } from './bulkOps.jsx'
-import { selectionClick, selectionMenuItems } from './selection.jsx'
 
 // ---- how much of a board is mounted at once --------------------------------
 //
@@ -69,7 +67,7 @@ import { selectionClick, selectionMenuItems } from './selection.jsx'
 // Measured on a four-hundred-book library, which is not a large one: the board
 // mounted 401 tiles, 7,492 elements, and spent 707ms of a single blocking task
 // building them — on a page where eighteen tiles are visible. Every one of those
-// tiles carries a context menu, a selection tick and a shelf control, so the cost
+// tiles carries a context menu and a shelf control, so the cost
 // is per tile and it is not small.
 //
 // A "load more" button was the alternative and is the wrong shape for a shelf:
@@ -1014,6 +1012,44 @@ export function patchMovesTheRow(fields, { fav, color, tag } = {}) {
 // body and is not being given one for a dialog. So this is a guard against the
 // misclick, which is the whole thing it was asked to be — not an authorisation,
 // and it does not pretend to be one.
+// deletePhrase has to match the server's, exactly, because the server is where
+// it is checked. Duplicated on purpose rather than fetched: a client that cannot
+// compose the phrase cannot show it, and showing it is the whole affordance.
+//
+// AND IT IS THEREFORE NOT TRANSLATED. It is the one user-facing string here still
+// assembled from English literals, because the check is in Go: a Bengali prompt
+// over an English comparison is a control nobody can satisfy.
+const DELETE_NOUN = { book: ['book', 'books'], movie: ['title', 'titles'] }
+export function deletePhrase(kind, n) {
+  const pair = DELETE_NOUN[kind] || ['item', 'items']
+  return `delete ${n} ${n === 1 ? pair[0] : pair[1]}`
+}
+
+// deleteWork removes one work. It goes through the BULK delete even for one row,
+// and that is not laziness: it is the endpoint that writes ONE bin entry for
+// everything it took — a book and the quotes that went with it — so the Undo in
+// the toast puts the whole thing back or nothing.
+async function deleteWork(kind, id, onDone) {
+  const path = kind === 'book' ? '/books/bulk/delete' : '/movies/bulk/delete'
+  const r = await json('POST', path, { ids: [id], confirm: deletePhrase(kind, 1) })
+  if (!r.ok) return toast(errText(r, t('error.delete.generic')))
+  const trashID = r.data?.trash_id
+  toast(
+    t('common.toast.deleted', { count: 1, n: 1 }),
+    trashID
+      ? {
+          label: t('common.action.undo.label'),
+          onClick: async () => {
+            const u = await json('POST', `/trash/${trashID}/restore`)
+            toast(u.ok ? t('common.toast.restored.label') : errText(u, t('error.undo.generic')))
+            onDone?.()
+          },
+        }
+      : undefined,
+  )
+  onDone?.()
+}
+
 export function WorkDeleteConfirm({ open, kind, title, count = 0, onConfirm, onCancel }) {
   const [typed, setTyped] = useState('')
   const phrase = deletePhrase(kind, 1)
@@ -1058,7 +1094,7 @@ export function WorkDeleteConfirm({ open, kind, title, count = 0, onConfirm, onC
   )
 }
 
-export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps, selection, selectKind = kind, onChanged, onEdit }) {
+export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps, onChanged, onEdit }) {
   const isBook = kind === 'book'
   const isShow = !isBook && (item.media_type || 'movie') === 'show'
   const credit = isBook ? item.author : item.director
@@ -1099,34 +1135,6 @@ export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps, sel
   // stripe floating below it — and the artwork stays completely unobscured,
   // which is the whole point of a bar over a badge. That was already the book
   // branch's reasoning; it was never poster-specific.
-  // ---- selecting a work (1.11.1) --------------------------------------------
-  //
-  // Long-press, Ctrl/Cmd-click, or the tickmark in the corner — the same three
-  // doors a quote card has, and the same tick, because a selection that looked
-  // like a checkbox on one board and something else on another would be two
-  // affordances for one idea.
-  //
-  // THERE IS NO .card-text HERE, and that is the whole difference from a quote
-  // card. A cover is a picture: there is nothing on this tile a thumb could
-  // usefully select, so every press that is not on a control belongs to the card.
-  // The title and the credit line under the artwork are labels rather than prose.
-  //
-  // ---- and its own menu (1.14.2) ---------------------------------------------
-  //
-  // This said "no context menu (an empty `items` list)", and gave a good reason:
-  // a menu that opened on a gesture and offered nothing would teach the gesture
-  // and then refuse it. What was actually empty was the registry's ITEM list for
-  // a work — `bulkActionsFor` grew a work branch in 1.11.1 and `actionsFor` never
-  // did — so the bar could skip a book in the quiz, fill its gaps, edit it and
-  // delete it with exactly one thing selected, and the tile it was selected from
-  // could do none of them. The gesture was not the problem; the list was.
-  //
-  // Everything here runs through the same `useBulkOps` the bar calls, with one id
-  // instead of forty. Not for tidiness: two implementations of "skip this in the
-  // quiz" is how a card and a bar come to disagree about what the act does, and
-  // the card's own mark reports the result of whichever one ran.
-  const picked = !!selection?.isSelected(item.id)
-  const ops = useBulkOps({ kind, ids: [item.id], onDone: onChanged })
   const [asking, setAsking] = useState(false)
   // "Quiz me on this one." The dialog belongs to the tile that opened it, so it
   // closes with the board rather than outliving it.
@@ -1137,24 +1145,6 @@ export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps, sel
     // NOT gated on onChanged: a source file is stored beside the work and this tile
     // draws nothing of it, so there is nothing for a reload to catch up with.
     addSource: () => source.add(kind, item),
-    // Absent unless the board passes a reload — a surface that cannot refresh
-    // after a write should not offer the write. That is the registry's rule and
-    // it is what keeps this menu empty in a read-only context rather than
-    // full of controls that appear to do nothing.
-    fillGaps: onChanged ? () => ops.fillGaps() : undefined,
-    setReview: onChanged
-      ? (_, wasExcluded) =>
-          ops.post(
-            { review: wasExcluded },
-            // The bar's own two, at n = 1. Spelled in English here until now, which
-            // is a class of miss the pseudo-locale gate cannot catch: a toast is
-            // not on screen when a screen mounts.
-            wasExcluded
-              ? t('common.selection.toast.back-in-quiz')
-              : t('common.selection.toast.skipping', { n: 1, count: 1 }),
-          )
-      : undefined,
-    excluded: !!item.review_excluded,
     edit: onEdit ? () => onEdit(item.id) : undefined,
     // A WORK'S PASSAGES, NOT THE WORK. A book cannot be an anthology entry —
     // `quoteOwned` accepts book, screen and utterance and refuses everything else —
@@ -1168,6 +1158,8 @@ export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps, sel
     // anthology somewhere else entirely and leaves the work untouched, so there is
     // nothing on this screen for a reload to catch up with.
     addToAnthology: () => gather.open({ rule: workRule(kind, item.id) }),
+    // Absent unless the board passes a reload — a surface that cannot refresh
+    // after a delete should not offer one.
     remove: onChanged ? () => setAsking(true) : undefined,
     // NOT gated on onChanged, unlike its neighbours. Every other action here
     // writes, and a surface that cannot reload after a write should not offer
@@ -1178,30 +1170,13 @@ export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps, sel
   // SELECT FIRST, the same as a quote card's menu: the gesture that asks "what
   // can I do to this" is also how you start doing it to several. Select all
   // under it, from the shared helper.
-  const menuItems = [
-    ...selectionMenuItems(selection, item.id, selectKind),
-    ...acts.map((x) => ({ ...x, onClick: x.run })),
-  ]
-  const { cardProps, menuClass, menu } = useCardMenu(
-    menuItems,
-    selection ? { onLongPress: () => selection.toggle(item.id, selectKind) } : undefined,
-  )
+  const { cardProps, menuClass, menu } = useCardMenu(acts.map((x) => ({ ...x, onClick: x.run })))
   const onClick = (e) => {
-    // The press already acted; running the click too would toggle it straight back.
+    // The press already acted; running the click too would open the work it just
+    // opened a menu for.
     if (cardProps.onClickCapture?.(e)) return
-    if (!selection) return onOpen(item.id)
-    const what = selectionClick(e, selection)
-    if (what === 'open') return onOpen(item.id)
-    e.preventDefault()
-    if (what === 'extend') selection.extendTo(item.id, selectKind)
-    else selection.toggle(item.id, selectKind)
+    onOpen(item.id)
   }
-  // The tick sits OUTSIDE the button, over it. A <label> wrapping an <input>
-  // inside a <button> is invalid HTML and the browsers disagree about which of
-  // the two nested controls a tap belongs to — so the tile stays a plain button
-  // and the checkbox is a sibling positioned on top of it. `.work-tile` is the
-  // positioned host, and the reason the hover rule keys off it rather than off
-  // the tile.
   const tile = (
     <button
       type="button"
@@ -1215,7 +1190,7 @@ export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps, sel
     >
       <HandCard
         variant={index % 4}
-        className={`relative overflow-hidden cover-lift${picked ? ' is-picked' : ''}`}
+        className="relative overflow-hidden cover-lift"
       >
         {image}
         {state && <StatusBar state={state} kind={kind} progress={item.progress} />}
@@ -1288,37 +1263,20 @@ export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps, sel
       count={count}
       onConfirm={() => {
         setAsking(false)
-        ops.remove()
+        deleteWork(kind, item.id, onChanged)
       }}
       onCancel={() => setAsking(false)}
     />
   )
-  if (!selection) {
-    return (
-      <>
-        {tile}
-        {menu}
-        {confirm}
-        {practiceDialog}
-        {gather.node}
-        {source.node}
-      </>
-    )
-  }
   return (
-    <div className={`work-tile${selection.active ? ' is-selecting' : ''}`}>
+    <>
       {tile}
-      <PickMark
-        picked={picked}
-        label={isBook ? 'this book' : isShow ? 'this show' : 'this film'}
-        onChange={() => selection.toggle(item.id, selectKind)}
-      />
       {menu}
       {confirm}
       {practiceDialog}
       {gather.node}
       {source.node}
-    </div>
+    </>
   )
 }
 
@@ -1355,10 +1313,8 @@ const COLLAGE_SPANS = {
 // would read as a control that had wandered into the board rather than as one of
 // its tiles.
 //
-// It is NOT selectable. A selection acts on rows, and this is not a row — a tick
-// in its corner would have to mean "select the twelve behind it", which is a
-// different act from every other tick on the board and one the bar has no way to
-// report a count for.
+// It has no menu either: it is not a work, and "delete the twelve behind it" is
+// not an act a single work's menu can say.
 export function WishlistFolder({ kind = 'book', items = [], onOpen }) {
   const isBook = kind === 'book'
   const n = items.length

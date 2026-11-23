@@ -72,7 +72,7 @@ export const KINDS = {
     seenKind: 'book', // POST /review/seen { kind: seenKind }
     workActionKind: 'book', // the actions.jsx registry
     quoteActionKind: 'annotation',
-    selectKind: 'annotation', // selection.jsx + the bulkOps.jsx endpoints
+    selectKind: 'annotation', // the kind a card of this work draws its quotes as
     screenLabel: 'book-detail',
     scrollKey: 'book', // useColumnScroll(`${scrollKey}:${id}:hero`)
 
@@ -146,9 +146,7 @@ export const KINDS = {
       deleteConfirm: 'book.quotes.delete.confirm',
       countsShown: 'book.quotes.counts.shown',
       stripShown: 'board.strip.shown.label',
-      selectMenu: 'book.select.menu.label',
       editTitle: 'common.quote.edit.title',
-      pickLabel: 'common.quote.pick.label',
       tagAll: 'common.filters.tag.all.label',
       // PER SIDE, and deliberately not shared. A reader's film layout must not
       // change the first time they rearrange a book — and a `chapter` order
@@ -282,7 +280,6 @@ export const KINDS = {
       nomatch: 'film.lines.nomatch',
       deleteConfirm: 'film.lines.delete.confirm',
       editTitle: 'common.dialogue.edit.title',
-      pickLabel: 'common.dialogue.pick.label',
       tagAll: 'film.lines.filter.tag.all.label',
       persist: { view: 'tippani:view:dialogues', sort: 'tippani:dlgsort', group: 'tippani:dlggroup', text: 'tippani:dlgtext', columns: 'tippani:dlgcols' },
       // countsShown / stripShown / selectMenu land with the shared board: this

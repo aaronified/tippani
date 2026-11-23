@@ -89,15 +89,6 @@ const LABEL = /(?:label|aria-label|ariaLabel|placeholder)=\{t\('([^']+)'\)\}/
 const MENTIONS_HINT = /\bnameCase\b|autoCapitalize=/
 const HINT_TURNED_OFF = /nameCase=\{\s*false\s*\}|autoCapitalize=(?:"(?:none|off)"|\{\s*['"](?:none|off)['"]\s*\})/
 
-// WHAT THIS WALK CANNOT SEE, named rather than left as a hole: a box whose label
-// is a VARIABLE. `SelectionBar`'s bulk editor draws one input for whichever field
-// the reader picked, so its label is `spec?.label` and LABEL above never matches
-// it — and for a while that box capitalised every non-numeric field, including a
-// page reference and a clock reading. It is policed instead by the table it reads:
-// `bulk-fields.test.js` holds every prose-shaped entry in `BULK_QUOTE_FIELDS` to
-// carrying `prose: true`, which is what turns the hint off there. A rule about
-// which BOXES exist cannot reach a box whose identity is chosen at runtime; the
-// rule has to move to the data that chooses it.
 
 // THROUGH sourcesUnder, NOT A HAND-ROLLED readdir. `one-walk.test.js` refuses a
 // second walk over src/ and its reason is this test's own worry, already solved:

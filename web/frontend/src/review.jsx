@@ -24,7 +24,6 @@ import { locatorMeta } from './attribution.js'
 import { forgetDailyDeck } from './daily.js'
 import { keepAnswer } from './answerQueue.js'
 import { CreditFaces, DEFAULT_CREDIT_SEPS, splitCredits, usePeople } from './credits.jsx'
-import { REVIEW_BULK_KIND } from './bulkOps.jsx'
 import { SpeakButton } from './speak.jsx'
 import { tagFor, textSegments } from './speech.js'
 import {
@@ -585,6 +584,20 @@ function SourceLines({ card, maps = {} }) {
 // whose options are actor names. Both were about revealing something early. Once
 // nothing folds back before the grade, the remaining rule is small enough to
 // state in one place — see foldEdit.
+
+// REVIEW_BULK_KIND crosses from the SCHEDULE's vocabulary to the quote routes'.
+//
+// A review card names its kind the way item_reviews does — book / screen /
+// utterance — because that is what the schedule is keyed on. The bulk endpoints
+// name the same three things annotation / dialogue / quote, because that is what
+// the rows are. "Stop asking me about this one" is written by the BULK endpoint —
+// no single-item PUT touches review_excluded — so the review card has to speak
+// that vocabulary to set it.
+const REVIEW_BULK_KIND = {
+  book: 'annotation',
+  screen: 'dialogue',
+  utterance: 'quote',
+}
 
 // CARD_ROWS crosses from the schedule's kind vocabulary to the CRUD routes, one
 // row per kind: where to read the full row, and what that list calls its rows.
