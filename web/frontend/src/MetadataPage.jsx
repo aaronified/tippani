@@ -11,7 +11,6 @@ import { BulkBar, EmptyState, ErrorText, GhostButton, HandCard, IconBooks, IconB
 import SourceFilesConsole, { ScanShortcuts } from './SourceFilesConsole.jsx'
 import { personImgURL, ProviderChips, parseCreditSeps, parseLinks, splitCredits } from './people.jsx'
 import { characterPanel, MergeSheet, personPanel } from './identity.jsx'
-import { ColourCategoriesCard } from './Settings.jsx'
 import { CardHead } from './prefRow.jsx'
 import { MetadataSources } from './MetadataSources.jsx'
 import { Face } from './characterRows.jsx'
@@ -546,9 +545,8 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
               />
             </>
           ) : sect === 'categories' ? (
-            // THE TAGS SCREEN WITH THE COLOURS AS ITS FIRST CARD, packed as
-            // masonry like every other section's cards.
-            <TagsPage embedded lead={<ColourCategoriesCard prefs={user.preferences} onSaved={onPreferences} />} />
+            // THE TAGS SCREEN, packed as masonry like every other section's cards.
+            <TagsPage embedded />
           ) : sect === 'sources' ? (
             <MetadataSources user={user} onPreferences={onPreferences} />
           ) : sect === 'files' ? (

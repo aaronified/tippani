@@ -1,15 +1,15 @@
 import { ScanShortcuts } from './SourceFilesConsole.jsx'
 import { useEffect, useState } from 'react'
-import { json, errText, copyText } from './api.js'
-import { ACCENTS, GROUNDS, paletteFor, applyColors, applyLabels, applyTheme, CAT_NAME_MAX, CATEGORY_PALETTE, categoryState, getResolvedTheme, labelsPref, MAT_SET_LABELS, MAT_SETS, SLOTS, UNSET_LABEL } from './theme.js'
+import { json, copyText } from './api.js'
+import { ACCENTS, GROUNDS, paletteFor, applyTheme, getResolvedTheme, MAT_SET_LABELS, MAT_SETS } from './theme.js'
 import PREF_DEFAULTS from './prefDefaults.json'
-import { CardHead, PrefColumns, PrefGroup, PrefRow } from './prefRow.jsx'
+import { PrefColumns, PrefGroup, PrefRow } from './prefRow.jsx'
 import { SECTIONS, sectionOrder } from './routes.js'
 import { RESTART_FAILED, RESTART_NEW, RESTART_SAME, waitForRestart } from './update.js'
 import { LanguagePicker } from './locale.jsx'
 import { createPortal } from 'react-dom'
 import { fullKeys, t, tNodes } from './i18n.js'
-import { ariaLabelText, backdropClose, Card, CloseButton, ErrorText, FieldIconButton, formatPartialDate, FormModal, ConfirmDialog, GhostButton, IconChevron, IconDelete, IconDevice, IconEye, IconEyeOff, IconOpen, IconLanguages, IconMoveTo, IconPalette, IconQuiz, IconUpdate, IconReset, InfoDot, isPartialDate, MobileSheet, MonoLabel, SCRIM_CENTERED, SectionTitle, Select, Slider, StickerButton, toast, Toggle, Tooltip, useBackToClose, useConfirm, useIsMobileScreen, useScreenBar, useScreenSearch, usePersistedState } from './ui.jsx'
+import { ariaLabelText, backdropClose, Card, CloseButton, formatPartialDate, FormModal, ConfirmDialog, GhostButton, IconChevron, IconDevice, IconOpen, IconLanguages, IconMoveTo, IconPalette, IconQuiz, IconUpdate, IconReset, isPartialDate, MobileSheet, MonoLabel, SCRIM_CENTERED, SectionTitle, Select, Slider, StickerButton, toast, Toggle, Tooltip, useBackToClose, useIsMobileScreen, useScreenBar, useScreenSearch, usePersistedState } from './ui.jsx'
 import { SectionRail } from './sectionRail.jsx'
 import { SystemLogsCard } from './jobsSection.jsx'
 
@@ -53,10 +53,6 @@ const WIKI_BASE = 'https://github.com/aaronified/tippani/wiki/'
 // present — and so invisible, which is why they outlived the tiles by several
 // releases. Found by the scanner that pairs this list against the search prefixes:
 // two ids with nowhere to look them up.
-// 'colors' LEFT THIS LIST FOR THE METADATA CONSOLE. A colour category says what
-// KIND of note a quote is, which is a fact about the library rather than a
-// preference about the app — the same reason the language table and the tags are
-// over there. The card itself is unchanged and is exported from this file.
 // 'logs' is built for an admin only, exactly as 'server' is: registering it is
 // what draws it, and a reader has no business with the server's own log.
 export const SETTINGS_CARDS = ['server', 'logs']
@@ -159,9 +155,9 @@ export const SECTION_PREFS = {
 // - `tour`/`tourStep` are where a reader got to in a tour, which is progress.
 // - `defaultBoardId` is chosen on the board, not here.
 // - `creditSeparators` is a Metadata-screen decision about how credits are written.
-// - the `cat*` triples are the colour categories, which left Settings for the
-//   Metadata console — counting them under Theme would put a number on a tab that
-//   has nothing to do with the screen the reader changed them on.
+// - the `cat*` triples are the colour categories. Their card was cut from the web
+//   app (ADR-0936); the server still stores them, and counting them under Theme
+//   would put a number on a tab that has nothing to do with the screen.
 export const UNCOUNTED_PREFS = [
   // THE LANGUAGE FACES, TYPE SIZES, VOICES, MARKS AND READING FIELDS ARE STORED BUT NOT DRAWN. The web app is
   // cut to the iPhone's jobs (ADR-0936), so no Settings section sets these any more. The server keeps them and
@@ -645,248 +641,6 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, se
   )
 }
 
-
-// Slider — a labelled range that commits on release (pointer/key up), so a drag
-// is one PUT, not one per step. Mirrors its `value` prop if it changes upstream.
-// A FORMAT KEY, NOT A UNIT SUFFIX. The readout used to be `{show}{unit}` with the
-// unit written as ' days' — a leading space no locale line can carry, since the
-// parser trims both halves, and a word order English happens to share with the
-// number. So the whole readout is one string: `{n} days`, `{n}×`, whatever the
-// language puts where. `count` rides along so a language with a singular form gets
-// it (`{n} day` at 1).
-// Slider MOVED TO ui.jsx. The Metadata screen's per-language rows need the same
-// control — a stepped range that commits on release — and the repo's directive is
-// that a control drawn on two screens lives in one function both call, not in a
-// line each. It gained one option there (`readout`), because these stops are named
-// states rather than numbers.
-
-// ---- colour categories --------------------------------------------------
-
-// CAT_NAME_MAX comes from theme.js, which is also where the Stats breakdown gets
-// it — one number, so the input's cap and the column cut to hold it cannot drift
-// apart. The server REFUSES a longer name rather than truncating it, so the
-// maxLength below is the courtesy that stops anyone reaching that: the input will
-// not take a 16th character, and the rejection path stays there for a client that
-// is not this one.
-
-// ColourCategoriesCard — what the four highlight colours are CALLED.
-//
-// A quote's colour is the top of the hierarchy: tags say what it is about, the
-// colour says what kind of note it is. Naming them is the difference between
-// filtering by "blue" and filtering by "Fact".
-//
-// THE STORED TOKEN NEVER CHANGES. Everything here is presentation, which is why
-// a rename cannot break a Markdown export or an import — and why the Go side has
-// a test whose whole job is to prove that.
-//
-// THE FIRST SLOT IS NOT A CATEGORY. It is the default: the column default is
-// yellow and an import with no colour writes yellow too, so a yellow quote may
-// be yellow because you chose it or because nobody chose anything. Naming it
-// would relabel every unmarked quote you have ever imported, so the field is not
-// offered and the server refuses it. Its colour is presentation and stays yours.
-// EXPORTED, BECAUSE IT IS A SECTION OF THE METADATA CONSOLE NOW. A colour
-// category is not a preference — it is what KIND of note a quote is, which is a
-// fact about the library in exactly the way a tag or a language is. It sat in
-// Settings because Settings was where everything went; the v3 pack files it with
-// the rest of what the library is made of, beside Tags and Languages.
-export function ColourCategoriesCard({ prefs, onSaved }) {
-  const [rows, setRows] = useState(categoryState)
-  const [picking, setPicking] = useState(null) // slot whose palette is open
-  const [err, setErr] = useState('')
-  const { ask, confirmDialog } = useConfirm()
-
-  // Re-seed when the session prefs change under us — another tab, or the
-  // account switching. categoryState reads the applied values, so this stays in
-  // step with what is on screen rather than with a stale prop.
-  useEffect(() => { setRows(categoryState()) }, [prefs])
-
-  // `from` — WHICH ROWS TO COLLECT, because `unmake` clears a name in state and
-  // then saves in the same tick: `rows` is still the old array inside this
-  // closure, so collecting from it would put the cleared name straight back.
-  async function save(patch, from = rows) {
-    const next = { ...collect(from), ...patch }
-    applyColors({ ...prefs, ...next })
-    setRows(categoryState())
-    const r = await json('PUT', '/auth/me/preferences', next)
-    if (!r.ok) {
-      setErr(errText(r, t('error.save.generic')))
-      // Put the screen back to what the server still believes, so the card can
-      // never show a name that was refused.
-      applyColors(prefs || {})
-      setRows(categoryState())
-      return
-    }
-    setErr('')
-    onSaved?.(next)
-  }
-
-  const visible = rows.filter((r) => !r.hidden).length
-
-  // unmake — one save, not three. `save` merges a patch over `collect(rows)`, so
-  // the name has to be cleared in the ROWS as well as in the patch: collect reads
-  // the live input value, and a patch alone would be overwritten by the field the
-  // reader has not touched.
-  async function unmake(row) {
-    if (!(await ask(t('settings.colours.unmake.confirm.title', { name: row.label }), {
-      body: t('settings.colours.unmake.confirm.body'),
-      confirmLabel: t('settings.colours.unmake.cta'),
-      danger: true,
-      // NOTHING ABOUT A QUOTE CHANGES, so this is not the one-way act the bin
-      // glyph otherwise promises — and the dialog's own reversibility line is
-      // where the app says that everywhere else.
-      reversible: true,
-    }))) return
-    const cleared = rows.map((r) => (r.slot === row.slot ? { ...r, name: '' } : r))
-    setRows(cleared)
-    await save({
-      [`catName${row.slot}`]: '',
-      [`catColor${row.slot}`]: '',
-      [`catHidden${row.slot}`]: false,
-    }, cleared)
-  }
-
-  return (
-    // The dot goes THROUGH SectionTitle rather than beside it. Wrapping the
-    // title in another flex row put the heading's own 16px bottom margin between
-    // the two, so the dot floated above the baseline of the words it belongs to;
-    // SectionTitle already lays a dot out on the heading's own line, which is
-    // where it was wanted, and it carries the standing copy that a line of
-    // microcopy underneath was repeating in shorter words.
-    //
-    // NO `data-tour` HERE ANY MORE. This card carried `data-tour="categories"` and
-    // no step ever named it — an anchor with nothing on the other end, which is the
-    // same defect as the tour step that named `[data-tour="search"]` after the
-    // element lost it, seen from the opposite side. Both cost nothing and do
-    // nothing, and neither the build nor any test says a word. If the colour
-    // categories ever earn a step, the attribute comes back with it.
-    <Card pad="" className="pref-group">
-      {/* ITS HEAD IS "COLOURS", beside Tags and Stickers in Metadata's
-          Categories section — the one thing that mounts this card. It was
-          "Colour categories" under a tab that said "Colours"; the tab says
-          Categories now, and this names which kind of category. */}
-      <CardHead title={t('metadata.categories.colours.title')} />
-      <div>
-        {rows.map((row) => (
-          <div key={row.token} className="inline-field">
-            <div className={'inline-field-head' + (picking === row.slot ? '' : ' is-flush')} style={{ gap: 10 }}>
-              <Tooltip label={row.fixed ? t('settings.colours.fixed.tip') : t('settings.colours.recolour.tip', { name: row.label })}>
-                <button
-                  type="button"
-                  className="color-dot-btn"
-                  aria-label={t('settings.colours.recolour.tip', { name: row.label })}
-                  aria-expanded={picking === row.slot}
-                  onClick={() => setPicking(picking === row.slot ? null : row.slot)}
-                >
-                  <span className="color-dot active" style={{ background: `var(--hl-${row.slot})` }} />
-                </button>
-              </Tooltip>
-              {row.fixed ? (
-                <div className="min-w-0 flex-1">
-                  <span style={{ fontWeight: 600 }}>{t(UNSET_LABEL)}</span>
-                  <InfoDot title={t('settings.colours.fixed.info.title')} text={t('settings.colours.fixed.info.body')} />
-                </div>
-              ) : (
-                <input
-                  className="tp-input"
-                  style={{ flex: 1, minWidth: 0 }}
-                  value={row.name}
-                  maxLength={CAT_NAME_MAX}
-                  placeholder={row.defaultName}
-                  aria-label={t('settings.colours.name.aria', { name: row.token })}
-                  onChange={(e) => setRows(rows.map((r) => (r.slot === row.slot ? { ...r, name: e.target.value } : r)))}
-                  onBlur={() => save({})}
-                  onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
-                />
-              )}
-              {!row.fixed && (
-                <FieldIconButton
-                  icon={row.hidden ? <IconEyeOff /> : <IconEye />}
-                  ariaLabel={row.hidden ? t('settings.colours.offer.aria') : t('settings.colours.hide.aria')}
-                  aria-pressed={row.hidden}
-                  disabled={!row.hidden && visible <= 2}
-                  onClick={() => save({ [`catHidden${row.slot}`]: !row.hidden })}
-                  tooltip={row.hidden ? t('settings.colours.offer.tip') : visible <= 2 ? t('settings.colours.keep-two.tip') : t('settings.colours.hide.tip')}
-                  active={row.hidden}
-                />
-              )}
-              {row.custom && (
-                <FieldIconButton
-                  icon={<IconReset />}
-                  ariaLabel={t('settings.colours.reset.aria')}
-                  onClick={() => save({ [`catColor${row.slot}`]: '' })}
-                  tooltip={t('settings.colours.reset.tip')}
-                />
-              )}
-              {/* ── UN-MAKE THE CATEGORY, which the pack draws as a trash act on
-                  every non-fixed row (metadata.dc.html:741) and this card had no
-                  verb for at all.
-
-                  A CATEGORY IS A SLOT, NOT A ROW, so there is nothing to remove —
-                  eight positions exist whether or not you have used them. What a
-                  reader means by "delete this one" is that it stops being one they
-                  MADE: its name, its colour and its hiding all go back to what the
-                  app shipped. That took three separate acts, one of which was
-                  selecting the text in a field and deleting it.
-
-                  IT IS OFFERED ONLY ON A SLOT SOMEBODY HAS TOUCHED, because on an
-                  untouched one it would do nothing — and a row of controls that do
-                  nothing is what teaches a reader the controls here are inert.
-
-                  AND NO QUOTE CHANGES, which is why the confirm says so rather than
-                  the bin implying otherwise. The stored value never moves — this
-                  section's own dot promises exactly that, so exports round-trip —
-                  and a quote filed under this colour goes on being filed under it,
-                  wearing the app's default name again. */}
-              {!row.fixed && (row.name || row.custom || row.hidden) && (
-                <FieldIconButton
-                  icon={<IconDelete />}
-                  danger
-                  ariaLabel={t('settings.colours.unmake.aria', { name: row.label })}
-                  onClick={() => unmake(row)}
-                  tooltip={t('settings.colours.unmake.tip')}
-                />
-              )}
-            </div>
-            {picking === row.slot && (
-              <div className="cat-palette" role="listbox" aria-label={t('settings.colours.palette.aria', { name: row.label })}>
-                {CATEGORY_PALETTE.map(([hex, nameKey]) => (
-                  <Tooltip key={hex} label={t(nameKey)}>
-                    <button
-                      type="button"
-                      role="option"
-                      aria-selected={row.hex.toLowerCase() === hex.toLowerCase()}
-                      aria-label={t(nameKey)}
-                      className={'cat-swatch' + (row.hex.toLowerCase() === hex.toLowerCase() ? ' is-on' : '')}
-                      style={{ background: hex }}
-                      onClick={() => { setPicking(null); save({ [`catColor${row.slot}`]: hex }) }}
-                    />
-                  </Tooltip>
-                ))}
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-      <ErrorText>{err}</ErrorText>
-      {confirmDialog}
-    </Card>
-  )
-}
-
-// collect turns the card's rows back into the flat preference fields. Flat
-// because the Go struct is flat, and the Go struct is flat because ui_test.go
-// compares it with != and a struct holding a map is not comparable.
-function collect(rows) {
-  const out = {}
-  for (const r of rows) {
-    if (!r.fixed) {
-      out[`catName${r.slot}`] = r.name.trim()
-      out[`catHidden${r.slot}`] = r.hidden
-    }
-    out[`catColor${r.slot}`] = r.custom ? r.hex : ''
-  }
-  return out
-}
 
 // The eye pair: whether a category is offered in the pickers. Not a delete —
 // nothing about a quote changes — so an eye rather than a bin.

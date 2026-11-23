@@ -1238,32 +1238,6 @@ settings.credits.info.body = Splits a credit like “Gaiman & Pratchett” into 
 settings.credits.chip.tip = Split credits on this separator
 settings.credits.off.prose = splitting is off — every credit stays one person
 
-# --- colour categories. Renaming changes the words and never the stored value.
-# Slot 1 has no name, and its dot says so instead of offering a rename.
-settings.colours.fixed.tip = The default colour
-settings.colours.fixed.info.title = Why this one has no name
-settings.colours.fixed.info.body = Where a quote goes when no colour is picked, including imports with none. It has no name; its colour can still be changed.
-# {name} is the category's current name.
-settings.colours.recolour.tip = Recolour {name}
-settings.colours.name.aria = Name for the {name} category
-settings.colours.palette.aria = Colour for {name}
-settings.colours.offer.aria = Offer this category
-settings.colours.hide.aria = Hide this category
-settings.colours.offer.tip = Offer this again
-# Two categories is the floor, so the second-to-last cannot be hidden.
-settings.colours.keep-two.tip = Keep two categories
-settings.colours.hide.tip = Stop offering this
-# UN-MAKING A COLOUR CATEGORY. A category is one of eight SLOTS, not a row, so
-# there is nothing to remove — "delete" means it stops being one you made: name,
-# colour and hiding all back to what the app shipped. No quote changes; the stored
-# value never moves, which is what makes exports round-trip.
-settings.colours.unmake.aria = Un-make {name} — back to the app's own name and colour
-settings.colours.unmake.tip = Back to the app's own name and colour
-settings.colours.unmake.confirm.title = Un-make {name}?
-settings.colours.unmake.confirm.body = Its name, colour and visibility go back to the app's defaults. Quotes filed under this colour stay under it.
-settings.colours.unmake.cta = Un-make
-settings.colours.reset.aria = Reset this colour
-settings.colours.reset.tip = Back to the original
 
 
 
@@ -4761,7 +4735,6 @@ metadata.section.characters.label = Characters
 metadata.section.sources.label = Sources
 metadata.section.languages.label = Languages
 metadata.section.categories.label = Categories
-metadata.categories.colours.title = Colours
 metadata.section.aria = Which metadata to work on
 # THE NOUN BEHIND THE NUMBER ON A TAB. The digit is all an eye needs beside a
 # word it can already read; a screen reader gets "Works 44" and no reason for it.
@@ -6124,10 +6097,6 @@ cleanup.help.cap.more = Fix some, then check again for the rest.
 
 # Heading: aliases nav.tab.settings.label, so the screen has ONE name. Nothing to add here.
 
-# The names of the six highlight colours.
-metadata.help.colour-categories.term = Colour categories
-metadata.help.colour-categories.what = The names of the highlight colours. Rename any of them.
-metadata.help.colour-categories.more = Renaming changes only the label; the stored colour stays the same, so exports and imports are unaffected. Hiding a colour removes it from the pickers without changing quotes that use it.
 
 settings.help.appearance.term = Appearance
 settings.help.appearance.what = Light or dark, colours, material set, glass and cover sizes. Each user has their own.

@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- **Metadata loses the colour categories card from the web app.** The server keeps every
+  category's name, colour and hiding; the web app no longer changes them. (ADR-0936)
+
 - **Account loses the photo, single sign-on setup, phone notifications, the dashboard key, user
   management and the factory reset from the web app.** Sign-in, sign-out and changing your
   password stay. (ADR-0936)

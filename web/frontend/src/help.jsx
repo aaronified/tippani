@@ -376,7 +376,6 @@ export const HELP = {
     entry('metadata.help.language-marks', { icon: <IconLanguages />, more: true }),
     entry('metadata.help.source-files', { icon: <IconSourceFile />, more: true }),
     entry('metadata.help.credit-separators', { more: true }),
-    entry('metadata.help.colour-categories', { asset: <HelpSwatches />, more: true }),
   ]),
   staging: section('staging.help.title', [
     entry('staging.help.why'),

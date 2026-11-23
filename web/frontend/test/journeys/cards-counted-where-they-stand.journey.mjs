@@ -32,9 +32,8 @@ it('Settings counts its cards in order', async () => {
 
 it('Metadata counts its cards the same way', async () => {
   await app.goto('/metadata/categories')
-  await app.see('1 · Colours')
-  await app.see('2 · Tags')
-  await app.see('3 · Stickers')
+  await app.see('1 · Tags')
+  await app.see('2 · Stickers')
   expect(app.pageErrors(), 'the page threw on the way').toEqual([])
 })
 

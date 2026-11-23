@@ -1239,28 +1239,6 @@ settings.credits.info.body = “Gaiman & Pratchett”-এর মতো একস
 settings.credits.chip.tip = এই চিহ্ন দেখলে নাম ভাগ হবে
 settings.credits.off.prose = ভাগ করা বন্ধ — নামের লাইন যেমন আছে, এক জন মানুষ বলেই ধরা হবে
 
-# --- colour categories. Renaming changes the words and never the stored value.
-# Slot 1 has no name, and its dot says so instead of offering a rename.
-settings.colours.fixed.tip = কিছু না বাছলে এই রং
-settings.colours.fixed.info.title = এটার নাম নেই কেন
-settings.colours.fixed.info.body = কোনো রং না বাছলে — ইমপোর্ট করা উদ্ধৃতিতেও — উদ্ধৃতি এখানেই যায়। এর নাম নেই, তবে রংটা বদলানো যায়।
-# {name} is the category's current name.
-settings.colours.recolour.tip = {name} ঘরের রং বদলান
-settings.colours.name.aria = {name} ঘরের নাম
-settings.colours.palette.aria = {name} ঘরের রং
-settings.colours.offer.aria = এই ঘর দেখান
-settings.colours.hide.aria = এই ঘর লুকান
-settings.colours.offer.tip = আবার দেখান
-# Two categories is the floor, so the second-to-last cannot be hidden.
-settings.colours.keep-two.tip = অন্তত দুটো ঘর রাখতেই হয়
-settings.colours.hide.tip = আর দেখাবেন না
-settings.colours.unmake.aria = {name} মুছে দিন — অ্যাপের নিজের নাম আর রঙে ফিরে যাবে
-settings.colours.unmake.tip = অ্যাপের নিজের নাম আর রঙে ফিরিয়ে দিন
-settings.colours.unmake.confirm.title = {name} মুছে দেব?
-settings.colours.unmake.confirm.body = এর নাম, রং আর দেখানো-লুকোনো অ্যাপের আগের মতো হয়ে যাবে। এই রঙে রাখা উদ্ধৃতি এই রঙেই থাকবে।
-settings.colours.unmake.cta = মুছে দিন
-settings.colours.reset.aria = এই রং আগের মতো করুন
-settings.colours.reset.tip = আগের রঙে ফিরুন
 
 
 
@@ -4663,7 +4641,6 @@ metadata.section.characters.label = চরিত্র
 metadata.section.sources.label = সূত্র
 metadata.section.languages.label = ভাষা
 metadata.section.categories.label = শ্রেণি
-metadata.categories.colours.title = রং
 metadata.section.aria = কোন মেটাডেটা নিয়ে কাজ
 metadata.rail.count.word = মনোযোগ দরকার
 metadata.search.placeholder = খুঁজুন…
@@ -5954,10 +5931,6 @@ cleanup.help.cap.more = কয়েকটা ঠিক করে বাকি�
 
 # Heading: aliases nav.tab.settings.label, so the screen has ONE name. Nothing to add here.
 
-# The names of the six highlight colours.
-metadata.help.colour-categories.term = রঙের ঘর
-metadata.help.colour-categories.what = হাইলাইটের রংগুলোর নাম। যেকোনোটার নাম বদলানো যায়।
-metadata.help.colour-categories.more = নাম বদলালে শুধু দেখানো নামটাই বদলায়; ভেতরের রং একই থাকে, তাই এক্সপোর্ট-ইমপোর্টে তফাত হয় না। কোনো রং লুকোলে বাছার তালিকা থেকে সরে যায়, কিন্তু যেসব উদ্ধৃতিতে সেটা আছে সেগুলোতে হাত পড়ে না।
 
 settings.help.appearance.term = চেহারা
 settings.help.appearance.what = হালকা না গাঢ়, রং, উপাদান-সেট, কাচ আর কভারের মাপ। প্রত্যেক ব্যবহারকারীর নিজের নিজের।

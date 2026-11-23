@@ -49,7 +49,7 @@ const tagUses = (tag) => tag.annotations + tag.dialogues + (tag.utterances || 0)
 // site read as correct and the screen went on drawing its own chrome. The counts
 // belong to the header, so they go with it — and the rail beside the section is where
 // a section's size is stated, which is the arrangement every other door already uses.
-export default function TagsPage({ embedded = false, lead = null }) {
+export default function TagsPage({ embedded = false }) {
   const [tags, setTags] = useState(null)
   const [error, setError] = useState('')
   const [showTable, setShowTable] = useState(false)
@@ -147,14 +147,13 @@ export default function TagsPage({ embedded = false, lead = null }) {
           that has no ceiling. `auto-fit` at the pack's own 340px minimum, so a
           phone gets one column without a media query deciding for it. */}
       {/* INSIDE METADATA IT IS ONE SECTION WITH THE COLOURS — "Categories", the
-          owner's merge of the two pages: the colour categories (`lead`), the tags
+          owner's merge of the two pages: the colour categories, the tags
           and the stickers are three kinds of label a reader makes, so they are
           three cards packed the way every other section's cards are. */}
       <div className={embedded ? 'meta-columns categories-grid' : 'tag-vocabularies'} ref={embedded ? packed : undefined}>
         {/* EACH OF THE THREE KINDS IS NAMED, THE SAME WAY. Stickers always had
             its heading; merged onto one page, colours and tags without theirs were
             two unnamed blocks beside a named one. */}
-        {lead}
         <section className={embedded ? 'hand-card pref-group space-y-4' : 'space-y-4'} aria-label={t('nav.tab.tags.label')}>
           {embedded && <CardHead title={t('nav.tab.tags.label')} />}
           <NewTagCard ref={newTagRef} onCreated={load} />
