@@ -180,21 +180,6 @@ const TOUR_STEPS = [
     get more() { return t('tour.step.keys.more') },
   },
   {
-    key: 'backup',
-    tab: 'settings',
-    anchor: '[data-tour="backup"]',
-    admin: true,
-    get name() { return t('tour.step.backup.name') },
-    get blurb() { return t('tour.step.backup.blurb') },
-    get title() { return t('tour.step.backup.title') },
-    get body() {
-      return tNodes('tour.step.backup.prose', {
-        em1: <b key="em1">{t('tour.step.backup.em1.label')}</b>,
-      })
-    },
-    get more() { return t('tour.step.backup.more') },
-  },
-  {
     key: 'account',
     anchor: '[data-tour="account"]',
     // NO `screen: 'profile'`, AND THE REASON IS WORTH THE LINES because it looked

@@ -76,8 +76,6 @@ settings.section.aria = কোন সেটিংস বদলাবেন
 settings.section.theme.label = থিম
 settings.section.lang.label = ভাষা ও ফন্ট
 settings.section.server.label = সার্ভার
-# bn: "job" → কাজ, the everyday word; the Additions table already gives কাজ to an arithmetic "operation" in a mono Select, a different screen
-settings.section.jobs.label = কাজ
 # The information dot beside that row.
 settings.language.info.title = ভাষা
 settings.language.info.body = ইংরেজি আর বাংলা অ্যাপেই আছে। অন্য ভাষা চাইলে data/Locales/_TEMPLATE.txt ফাইলটা fr.txt-এর মতো নামে কপি করে অনুবাদ করুন — নতুন করে বিল্ড না করেই এখানে দেখা যাবে।
@@ -2124,13 +2122,6 @@ tour.step.keys.title = মেটাডেটার চাবি আর Amazon �
 tour.step.keys.prose = খোঁজার কাজ চলে উজ্জ্বল করা কার্ডের কী দিয়ে। প্রতিটা ঘর আলাদা করে সেভ হয়, আর তার তথ্য-বিন্দুতে লেখা থাকে কী কোথায় পাবেন। এখনই বসান, বা “পরেরটা” চেপে পরে যোগ করুন।
 tour.step.keys.more = TMDB (সিনেমা আর শো) সাধারণত শুরু থেকেই ভাগ করা একটা কী-তে চলে। TheTVDB ঐচ্ছিক, লম্বা চলা শো-এর জন্য প্রায়ই ভালো। Google Books-এ দিনে প্রায় ১,০০০ খোঁজের বেশি হলে তবেই কী লাগে। Amazon কুকি ঐচ্ছিক। বইয়ের জন্য কোনো কী-ই লাগে না।
 
-# Step "backup".
-tour.step.backup.name = ব্যাকআপ, ফিরিয়ে আনা আর আপডেট
-tour.step.backup.blurb = তারিখ-দেওয়া একটা এনক্রিপ্ট করা আর্কাইভ, এখানে বা অন্য সার্ভারে ফেরানো যায়; চাইলে তবেই হালনাগাদ (অ্যাডমিন)
-tour.step.backup.title = নিশ্চিন্তে ঘুমোন
-tour.step.backup.prose = এক ক্লিকে সবকিছুর একটা তারিখ-দেওয়া আর্কাইভ তৈরি হয়, আপনার পাসওয়ার্ড দিয়ে {em1}। এখানে ফেরাতে পারেন, বা অন্য Tippani-তে নিয়ে গিয়ে সেখানে।
-tour.step.backup.em1.label = এনক্রিপ্ট করা
-tour.step.backup.more = আর্কাইভে পাসওয়ার্ডের হ্যাশ আর API কী-ও থাকে, তাই এনক্রিপ্ট করা হয়। আপনার পাসওয়ার্ডে যেকোনো Tippani-তে খোলে, চাইলে আলাদা পাসফ্রেজও দিতে পারেন। চাবিটা কোথাও রাখা হয় না, তাই নিজে যত্নে রাখুন। হালনাগাদ খোঁজা হয় শুধু আপনি চাইলে।
 
 # Step "account".
 tour.step.account.name = প্রোফাইল আর ইউজার
@@ -5053,119 +5044,18 @@ settings.updates.toast.reload = একটু পরে পাতাটা রি
 settings.updates.toast.same = Tippani আবার চালু হলো, কিন্তু পুরনো বিল্ডেই — নতুন ইমেজ এখনো প্রকাশ হয়নি। কয়েক মিনিট পরে আবার চেষ্টা করুন।
 settings.updates.toast.copied = কমান্ড কপি হয়েছে
 
-# ---------------------------------------------------------------------------
-# THE RELEASE LOG — the release history out of the binary itself, on Server.
-# ---------------------------------------------------------------------------
-settings.changelog.title = কী কী বদলেছে
-settings.changelog.empty.prose = দেখানোর মতো কোনো রিলিজ নেই — এই বিল্ডটি কোনো রিলিজের বাইরে তৈরি।
-settings.changelog.more.label = পুরো তালিকা পড়ুন (আরও {n}টি)
-settings.changelog.fold.label = তালিকা গুটিয়ে নিন
-# Which release you are actually running, marked on its own row.
-settings.changelog.running.label = চলছে
-settings.changelog.unlisted.prose = আপনি {version} চালাচ্ছেন, যা তালিকার কোনো রিলিজ নয় — আলাদা করে বানানো বিল্ড।
 
 # ---------------------------------------------------------------------------
 # ONBOARDING — the guided tour's home.
 # ---------------------------------------------------------------------------
 # The Resume button carries its own step count, which is why it keeps its words.
 
-# ---------------------------------------------------------------------------
-# DEVICES — pair a phone with this account, and unpair it again.
-# ---------------------------------------------------------------------------
-settings.devices.title = যন্ত্রপাতি
-settings.devices.info.body = অ্যান্ড্রয়েড অ্যাপকে এই অ্যাকাউন্টের সঙ্গে জোড়ে। এখান থেকে আনপেয়ার না করা পর্যন্ত ফোন জোড়া থাকে — পাসওয়ার্ড বদলালেও বেরোয় না।
-settings.devices.paired.count = {n}টা পেয়ার করা
-settings.devices.code.label = পেয়ারিং কোড
-settings.devices.code.info.title = পেয়ারিং কোড
-settings.devices.code.info.body = পাঁচ মিনিটের মধ্যে অ্যাপে কোডটা দিন। একবারই কাজ করে; আরেকটা যন্ত্রের জন্য নতুন করে পেয়ারিং শুরু করুন।
-settings.devices.code.copy.aria = পেয়ারিং কোড কপি করুন
-settings.devices.code.copy.tip = কোড কপি করুন
-settings.devices.code.done.aria = পেয়ারিং শেষ
-settings.devices.pair.label = যন্ত্রপাতি পেয়ার করুন
-settings.devices.revoke-all.aria = সব যন্ত্রপাতি আনপেয়ার করুন
-settings.devices.revoke-all.confirm = সব যন্ত্রপাতি আনপেয়ার করবেন? প্রত্যেকটা এখনই কাজ করা বন্ধ করে দেবে।
-# {name} is the device's own name, as the phone reported it.
-settings.devices.revoke.aria = {name} আনপেয়ার করুন
-settings.devices.revoke.confirm = “{name}” আনপেয়ার করবেন? এখনই কাজ করা বন্ধ করে দেবে।
-settings.devices.last-seen.label = শেষ দেখা {when}
-settings.devices.never.label = কখনও ব্যবহার হয়নি
-settings.devices.empty.prose = এখনও কোনও যন্ত্রপাতি পেয়ার করা হয়নি।
-settings.devices.toast.unpaired = যন্ত্রপাতি আনপেয়ার হল
-settings.devices.toast.all-unpaired = সব যন্ত্রপাতি আনপেয়ার হল
 
 
 
-# ---------------------------------------------------------------------------
-# BACKUP (admin only) — one dated, encrypted archive, and the prompt that seals
-# it. The restore half is settings.restore.* below.
-# ---------------------------------------------------------------------------
-settings.backup.title = ব্যাকআপ আর ফিরিয়ে আনা
-# The prompt's own name, and the button inside it. One act, one word.
-settings.backup.prompt.title = ব্যাকআপ নিন
-settings.backup.info.body = সবকিছুর একটা তারিখ-দেওয়া, এনক্রিপ্ট করা আর্কাইভ, আপনার পাসওয়ার্ড বা পাসফ্রেজ দিয়ে তালাবন্ধ। অন্য কোথাও খুলতে সেই পাসওয়ার্ডই লাগবে; পাসফ্রেজ হারালে আর ফেরানো যায় না। রিস্টোর করলে এখানকার সবকিছু বদলে যায়।
-settings.backup.what.prose = আর্কাইভে সব ব্যবহারকারী, সংগ্রহ, পাসওয়ার্ডের হ্যাশ আর API কী থাকে, তাই সার্ভার ছাড়ার আগেই এনক্রিপ্ট করা হয়। চাবিটা যত্নে রাখুন — অন্য কোথাও খুলতে ওটাই লাগবে।
-settings.backup.password.prose = এই পাসওয়ার্ডে যেকোনো Tippani-তে আর্কাইভ খোলে। এই সার্ভারে আপনার এখনকার পাসওয়ার্ডেও সবসময় খোলে, বদলানোর পরেও।
-settings.backup.passphrase.label = পাসফ্রেজ · {min}–{max} অক্ষর
-settings.backup.passphrase.prose = কোনও অ্যাকাউন্টের সঙ্গে বাঁধা নয় — আর ফেরানোরও পথ নেই। হারালে আর্কাইভও গেল।
 settings.backup.use-passphrase.label = বদলে আলাদা একটা পাসফ্রেজ দিন
 settings.backup.use-password.label = বদলে নিজের অ্যাকাউন্টের পাসওয়ার্ডই নিন
-settings.backup.make.label = ব্যাকআপ নিন
-settings.backup.now.label = এখনই ব্যাকআপ নিন
-settings.backup.now.busy = ব্যাকআপ হচ্ছে…
-settings.backup.download.label = শেষটা ডাউনলোড করুন
-# {when} arrives as a bold node; {size} is a byte count in MB or KB, which are
-# symbols rather than words.
-settings.backup.last.prose = শেষ ব্যাকআপ: {when} · {size} · পরেরটা না হওয়া পর্যন্ত এই সার্ভারে থাকে
-settings.backup.empty.prose = এই সার্ভারে এখনও কোনও ব্যাকআপ নেই
-# A mono label above the source picker, whose own words are shell.restore.*.
-settings.backup.restore-from.label = কোথা থেকে
-# What the chosen archive will ask for, said before you commit to it.
-settings.backup.asks.passphrase = এর পাসফ্রেজ চাইবে
-settings.backup.asks.password = আপনার পাসওয়ার্ড চাইবে
-# bn: The marker sits on অ্যাকাউন্টের, never on the hole (§5.4).
-settings.backup.asks.password.named = তৈরির সময় ‘{name}’ অ্যাকাউন্টের যে পাসওয়ার্ড ছিল, সেটা চাইবে
-# The same, for an archive whose header names nobody. This used to read
-# "the password ‘it’ had" — a pronoun assembled in code.
-settings.backup.asks.password.era = যে পাসওয়ার্ডে এনক্রিপ্ট করা হয়েছিল, সেটা চাইবে
-settings.backup.asks.unknown = পড়া যাচ্ছে না, বা নতুন কোনও টিপ্পনীর লেখা
-settings.backup.asks.unkeyed = 1.4.1-এর আগের · চাবি নেই, RESTORE লিখতে বলবে
-settings.backup.server.empty.prose = এখানে এখনও কিছুই রাখা নেই
-settings.backup.file.choose.label = ফাইল বাছুন…
-settings.backup.file.replace.label = অন্য ফাইল বাছুন…
-settings.backup.file.none.label = কোনও ফাইল বাছা হয়নি
-settings.backup.file.chosen.label = {name} · {size}
-settings.backup.restore.label = ফিরিয়ে আনুন…
-settings.backup.toast.created = ব্যাকআপ তৈরি হল
-settings.backup.toast.restored = ফিরিয়ে আনা হল · লগ আউট হচ্ছে
-# A backup is a job on the server since 3.1.0; these two are how it can end
-# without an archive other than failing — stopped from Settings › Jobs, or cut
-# short by a restart. Toasts, five words or fewer.
-settings.backup.toast.stopped = ব্যাকআপ থামানো হল
-settings.backup.toast.interrupted = ব্যাকআপ মাঝপথে থেমে গেল
 
-# ---------------------------------------------------------------------------
-# THE RESTORE PROMPT — one dialog, asking for exactly what the chosen archive's
-# own header needs. The consequence line lives here rather than on the card,
-# because this is the moment it applies.
-# ---------------------------------------------------------------------------
-settings.restore.title = ফিরিয়ে আনা
-# TWO WHOLE SENTENCES, not one with a hole in it: the date clause lands in the
-# middle of the warning, and a value cannot begin with the space that would
-# need — the parser trims both halves.
-settings.restore.warn.prose = এই সার্ভারের সবকিছু বদলে যাবে — সব ব্যবহারকারী, সংগ্রহ আর সেটিং — আর সবাই লগ আউট হবেন। এখনকার তথ্যের একটা কপি ফেরানোর জন্য সার্ভারে রেখে দেওয়া হয়।
-settings.restore.warn.dated.prose = এই সার্ভারের সবকিছু {date}-এর ব্যাকআপ দিয়ে বদলে যাবে — সব ব্যবহারকারী, সংগ্রহ আর সেটিং — আর সবাই লগ আউট হবেন। এখনকার তথ্যের একটা কপি ফেরানোর জন্য রাখা থাকে।
-# Above step one of the restore prompt, read when it opens. A restore swaps the
-# database under the job queue (3.1.0), so the server refuses it while a job
-# runs, and the jobs still waiting end with the old database. {title} is the
-# running job's name, which the app composes from its kind and what it was about.
-settings.restore.queue.running = {title} চলছে। সেটা থেমে না যাওয়া বা শেষ না হওয়া পর্যন্ত ফিরিয়ে আনা যাবে না — আগে সেটিংস → কাজ-এ গিয়ে থামান।
-# bn: “মাঝপথে থেমেছে” quotes the interrupted state's chip (settings.jobs.state.interrupted)
-settings.restore.queue.waiting.one = অপেক্ষার তালিকায় একটা কাজ আছে — ফিরিয়ে আনলে সেটা আর চলবে না, “মাঝপথে থেমেছে” হয়ে থেকে যাবে।
-settings.restore.queue.waiting.other = অপেক্ষার তালিকায় {n}টা কাজ আছে — ফিরিয়ে আনলে সেগুলো আর চলবে না, প্রতিটা “মাঝপথে থেমেছে” হয়ে থেকে যাবে।
-# The account password, as against a passphrase — which is why it is not just
-# common.field.password.label.
-# bn: আপনার stays: the contrast with a passphrase is the point of the label (§1.3).
-settings.restore.password.label = আপনার পাসওয়ার্ড
 # bn: "sealed" is এনক্রিপ্ট করা here and in the two password labels below, as every backup line says it (v3.1)
 settings.safety.why.prose = প্রথমে এই সার্ভারে এখন যা আছে তার একটা কপি ডাউনলোড করুন। অন্য ব্যাকআপের মতোই কপিটা এনক্রিপ্ট করা থাকে, আর এখানে রাখা হয় না।
 settings.safety.done.prose = কপি ডাউনলোড হয়েছে। নতুন ডেটা ঠিক আছে কিনা নিশ্চিত না হওয়া পর্যন্ত এটা রেখে দিন।
@@ -5180,13 +5070,6 @@ settings.safety.wait.prose = কপিটা সার্ভারে একট�
 settings.safety.stop.aria = থামান: কপি তৈরি
 # bn: থামানো হয়েছে is the state chip's word (settings.jobs.state.stopped); যখন চান for "when you are ready"
 settings.safety.stopped = থামানো হয়েছে: কোনও কপি তৈরি হয়নি, সার্ভারে তার কিছুই থেকে যায়নি। যখন চান আবার নিন।
-settings.restore.password.recoverable.prose = এই আর্কাইভ এই সার্ভারেরই তৈরি, তাই আপনার এখনকার পাসওয়ার্ডেই খুলবে।
-settings.restore.password.named.prose = অন্য সার্ভারে ‘{name}’-এর তৈরি, তাই তখন ওই অ্যাকাউন্টের যে পাসওয়ার্ড ছিল সেটাই লাগবে।
-settings.restore.password.era.prose = অন্য সার্ভারে তৈরি, তাই তৈরির সময় যে পাসওয়ার্ড ছিল সেটাই লাগবে।
-# A pre-1.4.1 archive carries no key at all, so the typed word stands for it.
-# RESTORE is compared byte for byte and stays Latin in every language.
-settings.restore.confirm.label = RESTORE লিখুন
-settings.restore.confirm.prose = এই আর্কাইভ 1.4.1-এর আগের, এতে কোনো চাবি নেই — তাই শব্দটা টাইপ করলেই নিশ্চিত হবে।
 # The close on both prompts: backing out of a form is not the same as closing a
 # window you were only reading.
 settings.prompt.close.tip = বাতিল করে বন্ধ করুন
@@ -5417,121 +5300,21 @@ settings.jobs.took.s = {s}s
 settings.jobs.took.m = {m}m {s}s
 settings.jobs.took.h = {h}h {m}m
 
-# --- a job's log, in its row. {title} is the job's name from the list above.
-# bn: the hole stays bare (§5.4), so the frame puts the name after a colon.
-settings.jobs.log.aria = লগ: {title}
-settings.jobs.log.copy.aria = লগ কপি: {title}
-settings.jobs.log.empty = এখনও কিছু লেখা হয়নি।
-settings.jobs.log.trimmed = শুরুর দিকের লাইনগুলো এক্সপোর্টে আছে।
 
-# --- Current jobs: what is running and what waits behind it.
-settings.jobs.current.title = চলতি কাজ
-settings.jobs.current.log.aria = চলতি লগ: {title}
-settings.jobs.current.log.copy.aria = চলতি লগ কপি: {title}
-# The words beside the two counts in the card's head: "1 running", "3 waiting".
-# bn: বাকি, the word v3.7 gave to a thing still to be done — a job cannot wait.
-settings.jobs.current.running.word = চলছে
-settings.jobs.current.waiting.word = বাকি
-settings.jobs.current.empty = কিছুই চলছে না, অপেক্ষার তালিকাও খালি।
-settings.jobs.current.fold.label = চলতি কাজ গুটিয়ে নিন
-settings.jobs.current.unfold.label = চলতি কাজ দেখান
 # A waiting job's one line. "Ahead" counts every job before it in the queue,
 # whoever started it, the running one included.
 settings.jobs.current.ahead.one = অপেক্ষার তালিকায় — আগে একটা কাজ
 settings.jobs.current.ahead.other = অপেক্ষার তালিকায় — আগে {n}টা কাজ
 settings.jobs.current.next = অপেক্ষার তালিকায় — এরপরেই
 settings.jobs.current.stop.label = থামান
-settings.jobs.current.stop.running.aria = থামান: {title} (চলছে)
-settings.jobs.current.stop.next.aria = থামান: {title} (এরপরেই)
-settings.jobs.current.stop.ahead.aria.one = থামান: {title} (আগে একটা কাজ)
-settings.jobs.current.stop.ahead.aria.other = থামান: {title} (আগে {n}টা কাজ)
 # A Stop is at once, and the job's item in hand is left untouched.
 settings.jobs.current.stopping = থামছে…
-settings.jobs.current.stop-all.label = সব থামান
-settings.jobs.current.stop-all.confirm.title = সব কাজ থামাবেন?
-# The confirm's body is these sentences, the ones that apply, joined in code.
-# bn: সঙ্গে সঙ্গে for "at once"; যেমন ছিল তেমনই থাকবে for "left untouched", with no form-Bengali word for untouched
-settings.jobs.current.stop-all.confirm.running = যেটা চলছে, সেটা সঙ্গে সঙ্গে থামবে, আর হাতেরটুকু যেমন ছিল তেমনই থাকবে।
-settings.jobs.current.stop-all.confirm.waiting.one = অপেক্ষার তালিকার কাজটা শুরুই হবে না।
-settings.jobs.current.stop-all.confirm.waiting.other = অপেক্ষার তালিকার {n}টা কাজ শুরুই হবে না।
-settings.jobs.current.stop-all.confirm.kept = প্রতিটা তার লগ নিয়ে থেকে যাবে, আর যিনি চালিয়েছিলেন তিনি আবার চালাতে পারবেন।
-# Said only to an admin, whose Stop all reaches every reader's jobs.
-settings.jobs.current.stop-all.confirm.admin = অন্য পাঠকদের কাজও এর মধ্যে পড়ে।
-settings.jobs.current.stop-all.confirm.verb = থামান
-settings.jobs.current.stop-all.done.one = {n}টা কাজ থামানো হল
-settings.jobs.current.stop-all.done.other = {n}টা কাজ থামানো হল
 
-# --- Common jobs: the jobs a reader runs again and again, each with a place of
-# its own. A row is the job's name, one line of what it does, how it went the last
-# time, and Run (Run again once it has run) — or Stop while that job runs or waits.
-# bn: a row's name is a noun phrase, as every job's is (কভার আনা), because the two
-# library-wide rows name the job in Current and Past jobs too.
-# bn: নিয়মিত for "common", the jobs run as a matter of course (each row has its own Run, so no timer is implied); বারবারের কাজ was the other. Not সাধারণ, which reads as "ordinary"
-settings.jobs.common.title = নিয়মিত কাজ
 # bn: উৎস for "work" (unit.work); the job's name in Current and Past jobs too
 settings.jobs.common.fill-all.label = সব উৎসের শূন্যস্থান পূরণ
-settings.jobs.common.fill-all.prose = প্রতিটা বই আর সিনেমার যা নেই, খুঁজে দেখে শুধু ফাঁকা ঘরগুলো ভরায়।
 # bn: "missing people" are people whose details are missing: না-থাকা তথ্য. মানুষের যা নেই, আনা was the other
 settings.jobs.common.people-missing.label = মানুষের না-থাকা তথ্য আনা
-# bn: তথ্যসূত্রের লিংক, as the People console says "reference links" (metadata.section.people.info.body)
-settings.jobs.common.people-missing.prose = যাঁদের মুখের ছবি বা তথ্যসূত্রের লিংক নেই, তাঁদের সবার জন্য আনে।
-settings.jobs.common.covers.label = কভার আর তথ্য আনা
-# bn: a sentence with a verb, as the other three rows' are; the draft's list ended on নেই, which read as saying the details were not there. সংগ্রহ for "the library", as settings.backup.what.prose says it; গ্রন্থাগার is the books' screen
-settings.jobs.common.covers.prose = পুরো সংগ্রহ জুড়ে কভার আর পোস্টার আনে, সঙ্গে উৎসগুলোর যা তথ্য নেই সেটুকুও।
-settings.jobs.common.backup.label = এখনই ব্যাকআপ নেওয়া
-# bn: "seals" is এনক্রিপ্ট করা (v3.1); একমাত্র আর্কাইভ, since the server keeps only the newest
-settings.jobs.common.backup.prose = পুরো সংগ্রহ এনক্রিপ্ট করে সার্ভারের একমাত্র আর্কাইভে রাখে।
-settings.jobs.common.fill-all.pending = — পূরণযোগ্য শূন্যস্থান আছে
-settings.jobs.common.fill-all.pending.none = পূরণ করার মতো কিছু নেই
-settings.jobs.common.fill-all.blocked.one = — আগে একটা সূত্র লাগবে
-settings.jobs.common.fill-all.blocked.other = — আগে একটা সূত্র লাগবে
-settings.jobs.common.people-missing.pending = — ছবি বা লিংক নেই
-settings.jobs.common.covers.pending = — কভার বা পোস্টার নেই
-settings.jobs.common.covers.pending.none = আনার মতো কিছু নেই
-settings.jobs.common.pending.none = কিছুই বাকি নেই
-settings.jobs.common.run.label = চালান
-settings.jobs.common.again.label = আবার চালান
-# The covers pass's quick run: only what is missing, never a better picture over one already stored.
-settings.jobs.common.missing-only.label = শুধু যা নেই
-settings.jobs.common.missing-only.tip = শুধু যে কভার আর পোস্টার নেই; একটা থাকলে সেটাই থাকবে
-# Each press's name for a screen reader, since every row has one. {title} is the row's name.
-# bn: the hole stays bare (§5.4), so the frame puts the name after a colon, as the Stop buttons do.
-settings.jobs.common.run.aria = চালান: {title}
-settings.jobs.common.again.aria = আবার চালান: {title}
-settings.jobs.common.missing-only.aria = শুধু যা নেই: {title}
-settings.jobs.common.stop.aria = থামান: {title}
-# Under a row: how its last run ended. The state, the time and what it did are
-# drawn after this word; {state} and {when} are the same two in the button's name.
-settings.jobs.common.last.label = শেষবার
-settings.jobs.common.last.aria = শেষবার: {title} — {state}, {when}
-settings.jobs.common.log.aria = শেষবারের লগ: {title}
-settings.jobs.common.log.copy.aria = শেষবারের লগ কপি: {title}
-settings.jobs.common.never = গত 30 দিনে চালানো হয়নি
-# A server that runs no jobs (a test server's, the daily-deck command's) has no row to offer.
-settings.jobs.common.empty = এই সার্ভারে এখান থেকে কিছুই চালানো যায় না।
 
-# --- Past jobs: everything that finished in the last 30 days, newest first.
-settings.jobs.past.title = আগের কাজ
-settings.jobs.past.filter.aria = কোন কাজগুলো দেখাবে
-settings.jobs.past.filter.all.label = সব
-settings.jobs.past.empty = গত 30 দিনে কিছুই শেষ হয়নি।
-settings.jobs.past.empty.filtered = গত 30 দিনে এমন কিছু নেই।
-settings.jobs.past.more.label = আরও পুরোনো দেখান
-# The details under an opened row.
-settings.jobs.past.who.label = কে চালিয়েছেন
-settings.jobs.past.when.label = কখন শুরু
-settings.jobs.past.took.label = কতক্ষণ লাগল
-settings.jobs.past.result.label = ফল
-settings.jobs.past.error.label = কী গোলমাল হল
-settings.jobs.past.export.tip = এই কাজের লগ, Markdown ফাইল হিসেবে
-settings.jobs.past.rerun.label = আবার চালান
-settings.jobs.past.rerun.done = আবার শুরু হল
-# A re-verify's findings wait to be looked over; Review findings opens them on
-# Metadata, where the changes are chosen and applied. Not "Review" alone: the
-# Settings rail's Review tab is on the same desk screen.
-# bn: not রিভিউ, the Settings rail's tab on the same screen; যা পাওয়া গেছে is reverify.kept.review's phrase, দেখে নিন the staging card's verb for looking over before taking
-settings.jobs.past.review.label = যা পাওয়া গেছে, দেখে নিন
-settings.jobs.past.review.tip = যা যা বদল পাওয়া গেছে, মেটাডেটায় খুলে বেছে নিন কোনগুলো বসাবেন
 
 # --- System logs: the app's own log, for an admin.
 settings.logs.title = সিস্টেম লগ
@@ -5609,34 +5392,19 @@ unit.speaker.other = বক্তা
 unit.person.one = জন
 unit.person.other = জন
 
-# --- from settings ---
-# The toast that follows a backup offers the copy. "Export" is the neighbouring
-# verb and is a different act — this one hands you a file the server already has.
-common.action.download.label = ডাউনলোড
 
 # Updates.
 error.check.updates = আপডেট আছে কি না দেখা গেল না
 error.update.start = আপডেট শুরুই হল না
 # A clipboard write the browser refused — the command is still on screen.
 error.copy.manual = কপি করা গেল না — নিজে সিলেক্ট করে কপি করুন
-error.load.changelog = “কী বদলেছে” আনা গেল না
 
-# Devices.
-error.load.devices = যন্ত্রপাতির তালিকা আনা গেল না
-error.pair.device = পেয়ারিং শুরু করা গেল না
-error.revoke.device = যন্ত্রপাতিটা আনপেয়ার করা গেল না
-error.revoke.devices = যন্ত্রপাতি আনপেয়ার করা গেল না
 
 # Backup and restore. "data intact" is the load-bearing half: a restore that
 # failed changed nothing.
 error.backup.failed = ব্যাকআপ হল না
-error.restore.intact = ফিরিয়ে আনা গেল না — ডেটা যেমন ছিল তেমনই আছে
 
 
-# The third validate reason the restore prompt needs. The other two already
-# exist (error.validate.password-required, error.validate.archive-passphrase-
-# required) and are reused. RESTORE is compared byte for byte and stays Latin.
-error.validate.restore-word = নিশ্চিত করতে RESTORE লিখুন
 
 # ===========================================================================
 # THE REST OF THE SHARED VOCABULARY — common.field.* and one shell key.
@@ -6376,23 +6144,9 @@ metadata.help.credit-separators.more = বইয়ে লেখা নাম �
 
 # The Settings tile that opens the bin.
 
-settings.help.backup.term = ব্যাকআপ আর ফিরিয়ে আনা
-settings.help.backup.what = শুধু অ্যাডমিন: সবকিছুর একটা তারিখ-দেওয়া, এনক্রিপ্ট করা আর্কাইভ — এখানেই ফেরানো যায়, অন্য Tippani-তেও।
-settings.help.backup.more = যে সার্ভারে তৈরি, সেখানে আপনার এখনকার পাসওয়ার্ডেই খোলে। অন্য কোথাও লাগে তৈরির সময়ের পাসওয়ার্ড। পাসফ্রেজ দেওয়া আর্কাইভ পাসফ্রেজ ছাড়া কোনোভাবেই খোলা যায় না।
 
-# The button that makes the archive.
-settings.help.backup-now.term = এখনই ব্যাকআপ নিন
-settings.help.backup-now.what = আর্কাইভটা বানিয়ে এখানেই, সার্ভারেই রেখে দেয় — যখন দরকার, ফিরিয়ে আনার জন্য তৈরি।
-settings.help.backup-now.more = চাইলে নিশ্চিতকরণ বার্তা থেকেই ডাউনলোড করা যায়।
 
-# The link that hands over the archive already on the server.
-settings.help.backup-download.term = শেষটা ডাউনলোড করুন
-settings.help.backup-download.what = সার্ভারে রাখা আর্কাইভটা ডাউনলোড করে। এটা সাধারণ লিংক, তাই “Save link as”-ও চলে।
-settings.help.backup-download.more = সবচেয়ে নতুন আর্কাইভটাই শুধু রাখা হয় — নতুন ব্যাকআপ নিলে সেটা আগেরটার জায়গা নেয়।
 
-settings.help.changelog.term = কী বদলেছে
-settings.help.changelog.what = প্রতিটা রিলিজের কথা, নতুনটা আগে — অ্যাপের ভেতরেই আছে, তাই ইন্টারনেট ছাড়াও দেখা যায়।
-settings.help.changelog.more = শুধু নতুনটা খোলা থাকে; বাকিগুলো ভাঁজ করা। আপনি যেটা চালাচ্ছেন সেটা চিহ্নিত করা থাকে। আপনার চেয়ে নতুন সংস্করণের জন্য নম্বরটায় চাপলে রিলিজের পাতা খোলে।
 
 settings.help.updates.term = আপডেট
 settings.help.updates.what = শুধু অ্যাডমিনের জন্য, চাইলে তখনই দেখে নেয় — পিছনে চুপিচুপি কখনও নয়।
@@ -7204,28 +6958,6 @@ found.failed.one = {n}টি জোড়া যায়নি
 found.failed.other = {n}টি জোড়া যায়নি
 found.skipped.one = {n}টি অন্য দলের, তাই বাদ গেছে
 found.skipped.other = {n}টি অন্য দলের, তাই বাদ গেছে
-# Settings, Server: the folders a library lives in, and whether a backup carries attached files.
-settings.library.title = লাইব্রেরি
-settings.library.folders.label = লাইব্রেরি ফোল্ডার
-settings.library.folders.info = আপনার বই ও ফিল্ম যে ফোল্ডারে আছে সেগুলো কেবল-পঠনযোগ্য করে মাউন্ট করুন, আর কন্টেনারের ভেতরের পথ এখানে যোগ করুন। তারপর পাঠকেরা চেক্স থেকে সাবটাইটেল ও ই-বুক খুঁজতে পারবেন। এই অ্যাপ শুধু পড়ে, কখনও লেখে না।
-settings.library.folders.none = এখনও কোনো ফোল্ডার নেই।
-settings.library.folders.remove.aria = {label} ফোল্ডার আর ব্যবহার করবেন না
-settings.library.add.label = ফোল্ডার যোগ করুন
-settings.library.add.path = কন্টেনারের ভেতরের পথ
-settings.library.add.name = নাম
-settings.library.add.button = যোগ করুন
-settings.library.backup.label = ব্যাকআপে জোড়া ফাইল রাখুন
-settings.library.backup.sub = ডিফল্টে বন্ধ: ফাইল থেকে যা পড়া হয়েছে তা সবসময় থাকে, আর ফাইল আবার জোড়া যায়।
-# Settings, Server, Library: stored source files that nothing names, and rows whose file is gone.
-settings.library.tidy.label = জোড়া ফাইল গোছান
-settings.library.tidy.info = যে সংরক্ষিত ফাইল আর কোনো কাজের নয় তা সরায়। যে কাজের ফাইল নেই তা শুধু জানানো হয়: ফাইল থেকে যা পড়া হয়েছিল তা থাকে, আর ফাইল আবার জোড়া যায়।
-settings.library.tidy.orphans.one = {n}টি সংরক্ষিত ফাইল কোনো কাজের নয়।
-settings.library.tidy.orphans.other = {n}টি সংরক্ষিত ফাইল কোনো কাজের নয়।
-settings.library.tidy.missing.one = {n}টি কাজের ফাইল নেই।
-settings.library.tidy.missing.other = {n}টি কাজের ফাইল নেই।
-settings.library.tidy.button = সরিয়ে দিন
-settings.library.tidy.done.one = {n}টি ফাইল সরানো হয়েছে
-settings.library.tidy.done.other = {n}টি ফাইল সরানো হয়েছে
 # The files attached to your works, and the prune: keep what was read, throw the file away.
 attached.title = জোড়া ফাইল
 attached.counts = {n}টি ফাইল · ছাঁটলে প্রায় {frees} খালি হবে
@@ -7266,7 +6998,6 @@ common.source.why.nofolder = কোনো লাইব্রেরি ফোল�
 common.source.why.notscanned = আপনার লাইব্রেরি ফোল্ডারগুলো এখনও খোঁজা হয়নি।
 common.source.why.partial = শেষ খোঁজা সম্পূর্ণ হয়নি, তাই এই কাজের ফাইল হয়তো এখনও খোঁজা হয়নি।
 common.source.why.nomatch = শেষ খোঁজায় আপনার লাইব্রেরি ফোল্ডারে এই কাজের কোনো ফাইল পাওয়া যায়নি।
-settings.library.folders.scan = যাচাইকরণে এই ফোল্ডারগুলো খুঁজুন
 common.source.noanswer = সার্ভার সাড়া দেয়নি। হয়তো ব্যস্ত। এক মিনিট পরে আবার চেষ্টা করুন।
 common.source.failed = কিছু একটা গোলমাল হয়েছে: {error}
 common.source.failed.generic = সার্ভারে কিছু একটা গোলমাল হয়েছে। আবার চেষ্টা করুন।
@@ -7290,7 +7021,6 @@ found.unclaimed.other = আপনার ফোল্ডারের {n}টি �
 files.found.label = পাওয়া ফাইল
 files.found.word = পাওয়া
 attached.error.load = জোড়া ফাইলগুলো পড়া গেল না। {why}
-settings.library.error.load = লাইব্রেরি ফোল্ডার পড়া গেল না। {why}
 files.error.load = সূত্র ফাইলগুলো পড়া গেল না। {why}
 files.folders.title = লাইব্রেরি ফোল্ডার
 files.folders.info = এই সার্ভারে অ্যাডমিন যে ফোল্ডারগুলো মাউন্ট করেছেন। খুঁজলে সেখানে আপনার কাজের সাবটাইটেল আর ই-বুক খোঁজা হয়। আপনি মেনে না নেওয়া পর্যন্ত কিছুই জোড়া হয় না।

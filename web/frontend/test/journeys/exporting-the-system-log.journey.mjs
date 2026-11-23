@@ -39,7 +39,7 @@ const app = openApp()
 it('an admin exports what the System logs card shows, and the file holds the lines on it', async () => {
   await app.goto('/')
   await app.press('Settings')
-  await app.press('Jobs')
+  await app.press('Server')
 
   await app.see('System logs')
   await app.see('POST /api/auth/login')

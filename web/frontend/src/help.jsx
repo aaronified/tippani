@@ -409,10 +409,6 @@ export const HELP = {
     entry('settings.help.upload-font', { more: true }),
     entry('settings.help.review', { more: true }),
     entry('settings.help.in-depth', { more: true }),
-    entry('settings.help.backup', { more: true }),
-    entry('settings.help.backup-now', { icon: <IconArchive />, more: true }),
-    entry('settings.help.backup-download', { icon: <IconExport />, more: true }),
-    entry('settings.help.changelog', { more: true }),
     entry('settings.help.updates'),
   ]),
   profile: section('profile.help.title', [

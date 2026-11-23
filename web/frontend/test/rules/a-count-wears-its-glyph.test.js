@@ -136,7 +136,6 @@ describe('the glyph rule reaches the screens it was asked for', () => {
   const CONVERTED = [
     'works.jsx', 'MetadataPage.jsx',
     'identity.jsx', 'identityLocal.jsx', 'Movies.jsx',
-    'jobsSection.jsx',
   ]
   // `sourcesUnder` rather than a readdir of my own: the repo has ONE walk over
   // its source tree, and a second one that quietly finds nothing is a guard that

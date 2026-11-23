@@ -47,7 +47,7 @@ const app = openApp({ viewport: PHONE })
 it('on a phone the system logs read in a still well, copy from its corner, and filter and export from one row each', async () => {
   // A few screens first, so the server has request lines to show.
   for (const path of ['/', '/library', '/quotes', '/stats']) await app.goto(path)
-  await app.goto('/settings/jobs')
+  await app.goto('/settings/server')
   await app.see('System logs')
   await app.see('What is shown')
 

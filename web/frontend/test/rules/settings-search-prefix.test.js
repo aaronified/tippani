@@ -48,12 +48,12 @@ const prefixed = [...prefixBlock.matchAll(/^\s*'?([A-Za-z0-9_-]+)'?:\s*(\[\s*'[^
 
 describe('searching Settings', () => {
   it('found both lists at all, so this file cannot pass by finding nothing', () => {
-    // THE FLOOR IS 3, NOT 4. It was 4 when Updates and Backup were two cards; they
-    // are one Server tile now, as the pack draws them, so the honest floor moved
-    // with them. What this case is for is a parse that found NOTHING — a regex
-    // that stopped matching after a rename — and zero still fails it.
-    expect(cards.length, 'SETTINGS_CARDS did not parse; the scan is broken').toBeGreaterThan(2)
-    expect(prefixed.length, 'SETTINGS_PREFIX did not parse; the scan is broken').toBeGreaterThan(2)
+    // THE FLOOR IS 1. Settings has two cards left (the update control and the
+    // system logs) and two prefixed entries. What this case is for is a parse that
+    // found NOTHING — a regex that stopped matching after a rename — and zero still
+    // fails it.
+    expect(cards.length, 'SETTINGS_CARDS did not parse; the scan is broken').toBeGreaterThan(1)
+    expect(prefixed.length, 'SETTINGS_PREFIX did not parse; the scan is broken').toBeGreaterThan(1)
   })
 
   it('can reach every registered card', () => {

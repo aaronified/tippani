@@ -71,7 +71,6 @@ settings.section.aria = Which settings to change
 settings.section.theme.label = Theme
 settings.section.lang.label = Language and font
 settings.section.server.label = Server
-settings.section.jobs.label = Jobs
 # The information dot beside that row.
 settings.language.info.title = Language
 settings.language.info.body = English and Bengali are built in. To add another, copy data/Locales/_TEMPLATE.txt to a file like fr.txt and translate it — it appears here without a rebuild.
@@ -2119,13 +2118,6 @@ tour.step.keys.title = Metadata keys & the Amazon cookie
 tour.step.keys.prose = Lookups use the keys in the highlighted card. Each field saves on its own, and its info dot says where to get that key. Paste them now or press Next and add them later.
 tour.step.keys.more = TMDB (films and shows) usually works out of the box on a shared key. TheTVDB is optional and often better for long-running shows. Google Books only needs a key past about 1,000 lookups a day. The Amazon cookie is optional. Books need no key at all.
 
-# Step "backup".
-tour.step.backup.name = Backup, restore & updates
-tour.step.backup.blurb = one dated, encrypted archive, restored here or on another server; updates on demand (admin)
-tour.step.backup.title = Sleep well
-tour.step.backup.prose = One click makes a dated archive of everything, {em1} with your password. Restore it here, or on another Tippani to move.
-tour.step.backup.em1.label = encrypted
-tour.step.backup.more = The archive includes password hashes and API keys, so it is encrypted. Your password opens it on any Tippani, or set a separate passphrase. The key is never stored, so keep it safe. Updates are checked only when you ask.
 
 # Step "account".
 tour.step.account.name = Profile & users
@@ -5178,45 +5170,12 @@ settings.updates.toast.reload = reload in a moment
 settings.updates.toast.same = Tippani restarted on the same build — the new image isn't published yet. Try again in a few minutes.
 settings.updates.toast.copied = command copied
 
-# ---------------------------------------------------------------------------
-# THE RELEASE LOG — the release history out of the binary itself, on Server.
-# ---------------------------------------------------------------------------
-settings.changelog.title = What changed
-settings.changelog.empty.prose = No releases to show — this build was made outside a release.
-settings.changelog.more.label = Read the whole log ({n} more)
-settings.changelog.fold.label = Fold the log
-# Which release you are actually running, marked on its own row.
-settings.changelog.running.label = running
-settings.changelog.unlisted.prose = You're running {version}, which isn't a listed release — a custom build.
 
 # ---------------------------------------------------------------------------
 # ONBOARDING — the guided tour's home.
 # ---------------------------------------------------------------------------
 # The Resume button carries its own step count, which is why it keeps its words.
 
-# ---------------------------------------------------------------------------
-# DEVICES — pair a phone with this account, and unpair it again.
-# ---------------------------------------------------------------------------
-settings.devices.title = Devices
-settings.devices.info.body = Pairs the Android app with this account. A phone stays paired until you unpair it here — changing your password does not sign it out.
-settings.devices.paired.count = {n} paired
-settings.devices.code.label = pairing code
-settings.devices.code.info.title = Pairing code
-settings.devices.code.info.body = Enter this code in the app within five minutes. It works once; start a new pairing for another device.
-settings.devices.code.copy.aria = Copy the pairing code
-settings.devices.code.copy.tip = Copy the code
-settings.devices.code.done.aria = Done pairing
-settings.devices.pair.label = Pair a device
-settings.devices.revoke-all.aria = Unpair every device
-settings.devices.revoke-all.confirm = Unpair every device? Each will stop working immediately.
-# {name} is the device's own name, as the phone reported it.
-settings.devices.revoke.aria = Unpair {name}
-settings.devices.revoke.confirm = Unpair “{name}”? It will stop working immediately.
-settings.devices.last-seen.label = last seen {when}
-settings.devices.never.label = never used
-settings.devices.empty.prose = No devices paired yet.
-settings.devices.toast.unpaired = device unpaired
-settings.devices.toast.all-unpaired = all devices unpaired
 
 # ---------------------------------------------------------------------------
 # THE BIN, AS A TILE. The list is a page of its own (bin.*), and the tile draws
@@ -5234,74 +5193,9 @@ settings.devices.toast.all-unpaired = all devices unpaired
 # ---------------------------------------------------------------------------
 # {count} arrives already counted, through common.count.phrase + unit.quote.
 
-# ---------------------------------------------------------------------------
-# BACKUP (admin only) — one dated, encrypted archive, and the prompt that seals
-# it. The restore half is settings.restore.* below.
-# ---------------------------------------------------------------------------
-settings.backup.title = Backup & restore
-# The prompt's own name, and the button inside it. One act, one word.
-settings.backup.prompt.title = Back up
-settings.backup.info.body = One dated, encrypted archive of everything, locked with your password or a passphrase. Opening it elsewhere needs the same password; a lost passphrase cannot be recovered. Restoring replaces everything here.
-settings.backup.what.prose = The archive holds every user, library, password hash and API key, so it is encrypted before it leaves the server. Keep the key — you need it to open the archive elsewhere.
-settings.backup.password.prose = This password opens the archive on any Tippani. On this server, your current password always opens it, even after you change it.
-settings.backup.passphrase.label = Passphrase · {min}–{max} characters
-settings.backup.passphrase.prose = Not tied to any account — and not recoverable. Lose it and the archive is lost.
 settings.backup.use-passphrase.label = Set a separate passphrase instead
 settings.backup.use-password.label = Use my account password instead
-settings.backup.make.label = Make a backup
-settings.backup.now.label = Back up now
-settings.backup.now.busy = Backing up…
-settings.backup.download.label = Download the last one
-# {when} arrives as a bold node; {size} is a byte count in MB or KB, which are
-# symbols rather than words.
-settings.backup.last.prose = last backup: {when} · {size} · kept on this server until the next one
-settings.backup.empty.prose = no backup on this server yet
-# A mono label above the source picker, whose own words are shell.restore.*.
-settings.backup.restore-from.label = Restore from
-# What the chosen archive will ask for, said before you commit to it.
-settings.backup.asks.passphrase = asks for its passphrase
-settings.backup.asks.password = asks for your password
-settings.backup.asks.password.named = asks for the password ‘{name}’ had when it was made
-# The same, for an archive whose header names nobody. This used to read
-# "the password ‘it’ had" — a pronoun assembled in code.
-settings.backup.asks.password.era = asks for the password it was sealed with
-settings.backup.asks.unknown = unreadable, or written by a newer Tippani
-settings.backup.asks.unkeyed = predates 1.4.1 · no key, asks you to type RESTORE
-settings.backup.server.empty.prose = nothing kept here yet
-settings.backup.file.choose.label = Choose file…
-settings.backup.file.replace.label = Choose a different file…
-settings.backup.file.none.label = no file chosen
-settings.backup.file.chosen.label = {name} · {size}
-settings.backup.restore.label = Restore…
-settings.backup.toast.created = backup created
-settings.backup.toast.restored = restored · logging you out
-# A backup is a job on the server since 3.1.0; these two are how it can end
-# without an archive other than failing — stopped from Settings › Jobs, or cut
-# short by a restart. Toasts, five words or fewer.
-settings.backup.toast.stopped = backup stopped
-settings.backup.toast.interrupted = backup interrupted
 
-# ---------------------------------------------------------------------------
-# THE RESTORE PROMPT — one dialog, asking for exactly what the chosen archive's
-# own header needs. The consequence line lives here rather than on the card,
-# because this is the moment it applies.
-# ---------------------------------------------------------------------------
-settings.restore.title = Restore
-# TWO WHOLE SENTENCES, not one with a hole in it: the date clause lands in the
-# middle of the warning, and a value cannot begin with the space that would
-# need — the parser trims both halves.
-settings.restore.warn.prose = Replaces everything on this server — every user, library and setting — and signs everyone out. One copy of the current data is kept on the server for recovery.
-settings.restore.warn.dated.prose = Replaces everything on this server with the backup from {date} — every user, library and setting — and signs everyone out. One copy of the current data is kept for recovery.
-# Above step one of the restore prompt, read when it opens. A restore swaps the
-# database under the job queue (3.1.0), so the server refuses it while a job
-# runs, and the jobs still waiting end with the old database. {title} is the
-# running job's name, which the app composes from its kind and what it was about.
-settings.restore.queue.running = {title} is running. The restore is refused until it stops or finishes — stop it in Settings → Jobs first.
-settings.restore.queue.waiting.one = One job is waiting; a restore ends it, and it is kept as interrupted.
-settings.restore.queue.waiting.other = {n} jobs are waiting; a restore ends them, and each is kept as interrupted.
-# The account password, as against a passphrase — which is why it is not just
-# common.field.password.label.
-settings.restore.password.label = Your password
 settings.safety.why.prose = First, download a copy of everything on this server as it is now. It is sealed like any backup and is not kept here.
 settings.safety.done.prose = Copy downloaded. Keep it until you are sure the new data is right.
 settings.safety.action = Download a backup first
@@ -5319,13 +5213,6 @@ settings.safety.stop.aria = Stop the copy
 # A copy stopped before it was sealed: its job leaves nothing on the server, and
 # the step offers the button again.
 settings.safety.stopped = Stopped: no copy was made, and nothing of it is left on the server. Take it again when you are ready.
-settings.restore.password.recoverable.prose = This server made this archive, so your current password opens it.
-settings.restore.password.named.prose = Made by ‘{name}’ on another server, so it needs that account's password from that time.
-settings.restore.password.era.prose = Made on another server, so it needs the password in use when it was made.
-# A pre-1.4.1 archive carries no key at all, so the typed word stands for it.
-# RESTORE is compared byte for byte and stays Latin in every language.
-settings.restore.confirm.label = Type RESTORE
-settings.restore.confirm.prose = This archive is from before 1.4.1 and has no key, so typing the word confirms it.
 # The close on both prompts: backing out of a form is not the same as closing a
 # window you were only reading.
 settings.prompt.close.tip = Cancel and close
@@ -5577,127 +5464,22 @@ settings.jobs.took.s = {s}s
 settings.jobs.took.m = {m}m {s}s
 settings.jobs.took.h = {h}h {m}m
 
-# --- a job's log, in its row. {title} is the job's name from the list above.
-settings.jobs.log.aria = Log of {title}
-# The copy button in a job's log. Named for the job, because System logs has one too.
-settings.jobs.log.copy.aria = Copy the log of {title}
-settings.jobs.log.empty = Nothing logged yet.
-settings.jobs.log.trimmed = The earliest lines are in the export.
 
-# --- Current jobs: what is running and what waits behind it.
-settings.jobs.current.title = Current jobs
-# A running job's log, open under its row. Past jobs may hold the same job's last
-# run open on the same screen (settings.jobs.log.*), so these name it as live.
-settings.jobs.current.log.aria = Live log of {title}
-settings.jobs.current.log.copy.aria = Copy the live log of {title}
-# The words beside the two counts in the card's head: "1 running", "3 waiting".
-settings.jobs.current.running.word = running
-settings.jobs.current.waiting.word = waiting
-settings.jobs.current.empty = Nothing is running or waiting.
-settings.jobs.current.fold.label = Fold current jobs
-settings.jobs.current.unfold.label = Show current jobs
 # A waiting job's one line. "Ahead" counts every job before it in the queue,
 # whoever started it, the running one included.
 settings.jobs.current.ahead.one = Waiting — one job ahead
 settings.jobs.current.ahead.other = Waiting — {n} jobs ahead
 settings.jobs.current.next = Waiting — next
 settings.jobs.current.stop.label = Stop
-# Each Stop's name for a screen reader, and it says where that job stands, because
-# two jobs of one kind share a title. {title} is the job's name, with its subject.
-settings.jobs.current.stop.running.aria = Stop {title} (running)
-settings.jobs.current.stop.next.aria = Stop {title} (next)
-settings.jobs.current.stop.ahead.aria.one = Stop {title} (one job ahead)
-settings.jobs.current.stop.ahead.aria.other = Stop {title} ({n} jobs ahead)
 # Said on the row from the instant Stop is pressed until the job reads stopped,
 # which is a moment: a Stop is at once, and the job's item in hand is left untouched.
 settings.jobs.current.stopping = Stopping…
-settings.jobs.current.stop-all.label = Stop all
-settings.jobs.current.stop-all.confirm.title = Stop all jobs?
-# The confirm's body is these sentences, the ones that apply, joined in code.
-settings.jobs.current.stop-all.confirm.running = The running job stops at once, and the item it has in hand is left untouched.
-settings.jobs.current.stop-all.confirm.waiting.one = The one waiting is stopped before it starts.
-settings.jobs.current.stop-all.confirm.waiting.other = The {n} waiting are stopped before they start.
-# True for a reader and for an admin alike: only the reader who started a job can run it again.
-settings.jobs.current.stop-all.confirm.kept = Each is kept with its log, and whoever started it can run it again.
-# Said only to an admin, whose Stop all reaches every reader's jobs.
-settings.jobs.current.stop-all.confirm.admin = This includes other readers' jobs.
-settings.jobs.current.stop-all.confirm.verb = Stop them
-# The toast after Stop all, counting every job it reached. Nothing is said when it reached none.
-settings.jobs.current.stop-all.done.one = {n} job stopped
-settings.jobs.current.stop-all.done.other = {n} jobs stopped
 
-# --- Common jobs: the jobs a reader runs again and again, each with a place of
-# its own. A row is the job's name, one line of what it does, how it went the last
-# time, and Run (Run again once it has run) — or Stop while that job runs or waits.
-settings.jobs.common.title = Common jobs
 # The four rows. A label is also the name of the job in Current and Past jobs, for
 # the two a row starts over the whole library.
 settings.jobs.common.fill-all.label = Fill gaps in every work
-settings.jobs.common.fill-all.prose = Looks up what every book and film is missing, and fills only the empty fields.
 settings.jobs.common.people-missing.label = Fetch missing people
-settings.jobs.common.people-missing.prose = A portrait and reference links for everyone still missing either.
-settings.jobs.common.covers.label = Fetch covers and details
-settings.jobs.common.covers.prose = Covers, posters and the details your works are missing, across the library.
-settings.jobs.common.backup.label = Back up now
-settings.jobs.common.backup.prose = Seals the library into the one archive the server keeps.
-# What each library job could still fill in, after a count that wears its noun and
-# glyph ("12 works with a gap it can fill"), counted from the rows the Metadata
-# screen draws. The backup has none. A `none` stands alone when a job has nothing
-# left it can close: the fill and the covers pass say what they cannot do rather
-# than "Nothing missing", because a work with no source still misses things. The
-# fill's `blocked` follows its count: works with a gap it cannot find at a supplier.
-settings.jobs.common.fill-all.pending = with a gap it can fill
-settings.jobs.common.fill-all.pending.none = Nothing it can fill
-settings.jobs.common.fill-all.blocked.one = needs a source first
-settings.jobs.common.fill-all.blocked.other = need a source first
-settings.jobs.common.people-missing.pending = missing a portrait or links
-settings.jobs.common.covers.pending = with no cover or poster
-settings.jobs.common.covers.pending.none = Nothing it can fetch
-settings.jobs.common.pending.none = Nothing missing
-settings.jobs.common.run.label = Run
-settings.jobs.common.again.label = Run again
-# The covers pass's quick run: only what is missing, never a better picture over one already stored.
-settings.jobs.common.missing-only.label = Missing only
-settings.jobs.common.missing-only.tip = Only the covers and posters that are missing; one already stored is kept
-# Each press's name for a screen reader, since every row has one. {title} is the row's name.
-settings.jobs.common.run.aria = Run {title}
-settings.jobs.common.again.aria = Run again: {title}
-settings.jobs.common.missing-only.aria = {title}: missing only
-settings.jobs.common.stop.aria = Stop {title}
-# Under a row: how its last run ended. The state, the time and what it did are
-# drawn after this word; {state} and {when} are the same two in the button's name.
-settings.jobs.common.last.label = Last run
-settings.jobs.common.last.aria = Last run of {title}: {state}, {when}
-# The last run's log, opened under its row. Past jobs can hold the same job's log
-# open on the same screen, under settings.jobs.log.*, so these name the run.
-settings.jobs.common.log.aria = Log of the last run of {title}
-settings.jobs.common.log.copy.aria = Copy the log of the last run of {title}
-settings.jobs.common.never = Not run in the last 30 days
-# A server that runs no jobs (a test server's, the daily-deck command's) has no row to offer.
-settings.jobs.common.empty = Nothing can be run from here on this server.
 
-# --- Past jobs: everything that finished in the last 30 days, newest first.
-settings.jobs.past.title = Past jobs
-settings.jobs.past.filter.aria = Which jobs to show
-settings.jobs.past.filter.all.label = All
-settings.jobs.past.empty = Nothing has finished in the last 30 days.
-settings.jobs.past.empty.filtered = None of these in the last 30 days.
-settings.jobs.past.more.label = Load older
-# The details under an opened row.
-settings.jobs.past.who.label = Started by
-settings.jobs.past.when.label = Started
-settings.jobs.past.took.label = Took
-settings.jobs.past.result.label = Result
-settings.jobs.past.error.label = What went wrong
-settings.jobs.past.export.tip = This job's log, as a Markdown file
-settings.jobs.past.rerun.label = Run again
-settings.jobs.past.rerun.done = Started again
-# A re-verify's findings wait to be looked over; Review findings opens them on
-# Metadata, where the changes are chosen and applied. Not "Review" alone: the
-# Settings rail's Review tab is on the same desk screen, and two presses with one
-# name cannot be told apart by a screen reader or a press by name.
-settings.jobs.past.review.label = Review findings
-settings.jobs.past.review.tip = Open what it found on Metadata and choose what to apply
 
 # --- System logs: the app's own log, for an admin.
 settings.logs.title = System logs
@@ -5776,34 +5558,19 @@ unit.speaker.other = speakers
 unit.person.one = person
 unit.person.other = people
 
-# --- from settings ---
-# The toast that follows a backup offers the copy. "Export" is the neighbouring
-# verb and is a different act — this one hands you a file the server already has.
-common.action.download.label = Download
 
 # Updates.
 error.check.updates = couldn’t check for updates
 error.update.start = update failed to start
 # A clipboard write the browser refused — the command is still on screen.
 error.copy.manual = copy failed — select it manually
-error.load.changelog = could not load the changelog
 
-# Devices.
-error.load.devices = could not load devices
-error.pair.device = could not start pairing
-error.revoke.device = could not revoke device
-error.revoke.devices = could not revoke devices
 
 # Backup and restore. "data intact" is the load-bearing half: a restore that
 # failed changed nothing.
 error.backup.failed = Backup failed
-error.restore.intact = restore failed — data intact
 
 
-# The third validate reason the restore prompt needs. The other two already
-# exist (error.validate.password-required, error.validate.archive-passphrase-
-# required) and are reused. RESTORE is compared byte for byte and stays Latin.
-error.validate.restore-word = Type RESTORE to confirm
 
 # ===========================================================================
 # THE REST OF THE SHARED VOCABULARY — common.field.* and one shell key.
@@ -6553,23 +6320,9 @@ metadata.help.credit-separators.more = The stored author line is never changed, 
 
 # The Settings tile that opens the bin.
 
-settings.help.backup.term = Backup & restore
-settings.help.backup.what = Admin only: one dated, encrypted archive of everything, restored here or on another Tippani.
-settings.help.backup.more = On the server that made it, your current password opens it. Elsewhere it needs the password it was made with. A passphrase archive cannot be recovered without the passphrase.
 
-# The button that makes the archive.
-settings.help.backup-now.term = Back up now
-settings.help.backup-now.what = Makes the archive and keeps it here, on the server, ready to restore from.
-settings.help.backup-now.more = The confirmation offers a download if you want one.
 
-# The link that hands over the archive already on the server.
-settings.help.backup-download.term = Download the last one
-settings.help.backup-download.what = Downloads the archive stored on the server. It is a normal link, so “Save link as” works.
-settings.help.backup-download.more = Only the newest archive is kept — a new backup replaces it.
 
-settings.help.changelog.term = Changelog
-settings.help.changelog.what = Every release, newest first, built into the app — it works offline too.
-settings.help.changelog.more = Only the newest is open; the rest are folded. The version you're running is marked. For versions newer than yours, the version number links to the releases page.
 
 settings.help.updates.term = Updates
 settings.help.updates.what = Admin only, checked on demand — never in the background.
@@ -7542,28 +7295,6 @@ found.failed.one = {n} could not be attached
 found.failed.other = {n} could not be attached
 found.skipped.one = {n} belonged to the other group and was skipped
 found.skipped.other = {n} belonged to the other group and were skipped
-# Settings, Server: the folders a library lives in, and whether a backup carries attached files.
-settings.library.title = Library
-settings.library.folders.label = Library folders
-settings.library.folders.info = Mount the folders your books and films already live in, read-only, and add their paths inside the container here. Readers can then scan them from Checks for subtitle and ebook files. This app only ever reads from them.
-settings.library.folders.none = No folders yet.
-settings.library.folders.remove.aria = Stop using the folder {label}
-settings.library.add.label = Add a folder
-settings.library.add.path = Path in the container
-settings.library.add.name = Name
-settings.library.add.button = Add
-settings.library.backup.label = Include attached files in backups
-settings.library.backup.sub = Off by default: what was read from them is always kept, and the files can be attached again.
-# Settings, Server, Library: stored source files that nothing names, and rows whose file is gone.
-settings.library.tidy.label = Tidy attached files
-settings.library.tidy.info = Removes stored files that no work names any more. A work whose file is missing is only reported: what was read from it is kept, and the file can be added again.
-settings.library.tidy.orphans.one = {n} stored file belongs to no work.
-settings.library.tidy.orphans.other = {n} stored files belong to no work.
-settings.library.tidy.missing.one = {n} work is missing its file.
-settings.library.tidy.missing.other = {n} works are missing their files.
-settings.library.tidy.button = Remove them
-settings.library.tidy.done.one = Removed {n} file
-settings.library.tidy.done.other = Removed {n} files
 # The files attached to your works, and the prune: keep what was read, throw the file away.
 attached.title = Attached files
 attached.counts = {n} files · pruning frees about {frees}
@@ -7604,7 +7335,6 @@ common.source.why.nofolder = No library folder is set up, so there is nowhere to
 common.source.why.notscanned = Your library folders have not been scanned yet.
 common.source.why.partial = The last scan did not finish, so this work's file may not have been looked for yet.
 common.source.why.nomatch = The last scan found no file for this work in your library folders.
-settings.library.folders.scan = Scan these folders on Checks
 common.source.noanswer = The server did not answer. It may be busy. Try again in a minute.
 common.source.failed = Something went wrong: {error}
 common.source.failed.generic = Something went wrong on the server. Try again.
@@ -7628,7 +7358,6 @@ found.unclaimed.other = {n} files in your folders matched no work.
 files.found.label = Found files
 files.found.word = found
 attached.error.load = Could not read the attached files. {why}
-settings.library.error.load = Could not read the library folders. {why}
 files.error.load = Could not read the source files. {why}
 files.folders.title = Library folders
 files.folders.info = The folders the administrator mounted for this server. Scan reads them for subtitle and ebook files of your works. Nothing is attached until you accept.

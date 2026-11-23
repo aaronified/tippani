@@ -157,19 +157,6 @@ describe('InfoDot copy stays within its budget', () => {
     expect(IN_FILE.length, 'the key filter selected no dots').toBeGreaterThan(28)
   })
 
-  // A COUNT IS A WEAK GUARD FOR THIS, because the miss it is meant to catch was
-  // not "found nothing" — it was "found the short ones". Both of the shapes the
-  // long copy is actually written in have to be represented, or the widening
-  // above can rot back to the tag-only scan and the number will barely move.
-  it('reaches the two shapes the long copy is written in', () => {
-    // Named by their opening words rather than by a key or a marker, so this
-    // asserts the COPY is reached wherever it now lives — the source today, the
-    // locale file once Settings and BinPage are migrated. Both were over a
-    // thousand and eight hundred characters and invisible to this file until
-    // 1.14.1.
-    const reaches = (opening) => ALL.some((d) => d.text.startsWith(opening))
-    expect(reaches('One dated, encrypted archive'), 'the backup dot is not measured').toBe(true)
-  })
 
   it('names the dots by key once they are in the file', () => {
     // The whole point of selecting by namespace: a dot the migration moved is

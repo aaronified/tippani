@@ -9,7 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
-- **Settings on the web is Theme, Language, Server and Jobs only.** The font picker, Review
+- **Server settings lose backup and restore, library folders, paired devices, the release log
+  and the job queue cards from the web app.** Settings keeps the update control and the system
+  logs. (ADR-0936)
+
+- **Settings on the web is Theme, Language and Server only.** The font picker, Review
   settings, Sections, language marks and voices, and the reading fields are gone (ADR-0936); the
   Android app keeps them.
 

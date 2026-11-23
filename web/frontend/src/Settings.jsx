@@ -1,7 +1,6 @@
-import LibraryFoldersGroup from './libraryFolders.jsx'
 import { ScanShortcuts } from './SourceFilesConsole.jsx'
-import { useEffect, useRef, useState } from 'react'
-import { json, errText, copyText, apiURL, uploadWithProgress } from './api.js'
+import { useEffect, useState } from 'react'
+import { json, errText, copyText } from './api.js'
 import { ACCENTS, GROUNDS, paletteFor, applyColors, applyLabels, applyTheme, CAT_NAME_MAX, CATEGORY_PALETTE, categoryState, getResolvedTheme, labelsPref, MAT_SET_LABELS, MAT_SETS, SLOTS, UNSET_LABEL } from './theme.js'
 import PREF_DEFAULTS from './prefDefaults.json'
 import { CardHead, PrefColumns, PrefGroup, PrefRow } from './prefRow.jsx'
@@ -10,17 +9,12 @@ import { RESTART_FAILED, RESTART_NEW, RESTART_SAME, waitForRestart } from './upd
 import { LanguagePicker } from './locale.jsx'
 import { createPortal } from 'react-dom'
 import { fullKeys, t, tNodes } from './i18n.js'
-import { PASSPHRASE_MAX, PASSPHRASE_MIN, PASSWORD_MAX, passphraseProblem, sniffArchiveKey } from './secret.js'
-import { SafetyBackupStep } from './safetyBackup.jsx'
-import { ariaLabelText, backdropClose, Card, CloseButton, ErrorText, FieldIconButton, formatPartialDate, FormModal, ConfirmDialog, GhostButton, IconArchive, IconCheck, IconChevron, IconClose, IconCopy, IconDelete, IconDevice, IconExport, IconJobs, IconEye, IconEyeOff, IconKey, IconOpen, IconLanguages, IconMoveTo, IconPalette, IconQuiz, IconUpdate, IconRestore, IconReset, IconUpload, InfoDot, isPartialDate, MobileSheet, MonoLabel, SCRIM_CENTERED, SectionTitle, Select, Slider, StickerButton, toast, Toggle, Tooltip, useBackToClose, useBodyScrollLock, useConfirm, useFilePick, useIsMobileScreen, useScreenBar, useScreenSearch, usePersistedState } from './ui.jsx'
+import { ariaLabelText, backdropClose, Card, CloseButton, ErrorText, FieldIconButton, formatPartialDate, FormModal, ConfirmDialog, GhostButton, IconChevron, IconDelete, IconDevice, IconEye, IconEyeOff, IconOpen, IconLanguages, IconMoveTo, IconPalette, IconQuiz, IconUpdate, IconReset, InfoDot, isPartialDate, MobileSheet, MonoLabel, SCRIM_CENTERED, SectionTitle, Select, Slider, StickerButton, toast, Toggle, Tooltip, useBackToClose, useConfirm, useIsMobileScreen, useScreenBar, useScreenSearch, usePersistedState } from './ui.jsx'
 import { SectionRail } from './sectionRail.jsx'
-import { JobsCurrentCard, JobsPastCard, SystemLogsCard } from './jobsSection.jsx'
-import { CommonJobsCard } from './commonJobs.jsx'
-import { jobWaitingText, queueNotice, readJobsSummary, useKindJob } from './jobs.js'
+import { SystemLogsCard } from './jobsSection.jsx'
 
-// Settings (§8.11): Appearance, Metadata sources, review/credits prefs, and
-// (admin only) Updates + Backup. Library stats now live on their own Stats page
-// (StatsPage.jsx). Appearance applies instantly via applyTheme and persists via
+// Settings: Theme, Language, and (admin only) Server — the update control and the
+// system logs. Appearance applies instantly via applyTheme and persists via
 // PUT /auth/me/preferences.
 // Where the roadmap lives. It is a self-contained static page under docs/ and is
 // NOT embedded in the binary, so a self-hosted instance cannot serve it from its
@@ -52,12 +46,6 @@ const WIKI_BASE = 'https://github.com/aaronified/tippani/wiki/'
 // `OnboardingCard` is deleted rather than unregistered: unlike Devices, nothing is
 // coming back for it — Help's own button is a replacement, not a relocation.
 //
-// DEVICES IS BACK. It was hidden ("hide the devices settings. that was created for
-// the app. not required right now"), with the card, its strings and every
-// `/auth/devices` route kept so that putting it back was one word. The Android
-// app exists now (aaronified/tippani-app) and pairs with a code from this card, so
-// it is registered again, on the Server section, for EVERY reader: pairing a phone
-// is an account act and not an admin one, unlike the rest of that section.
 // 'trash' AND 'clean' LEFT THIS LIST, AND THEY LEFT THE PAGE LONG AGO. The note
 // above still explains why the bin and stray-marks TILES were removed; the two ids
 // stayed behind in this list and in the layout below, naming cards the `cards` object
@@ -69,10 +57,9 @@ const WIKI_BASE = 'https://github.com/aaronified/tippani/wiki/'
 // KIND of note a quote is, which is a fact about the library rather than a
 // preference about the app — the same reason the language table and the tags are
 // over there. The card itself is unchanged and is exported from this file.
-// THE FOUR JOBS CARDS ARE THE LAST FOUR, and 'logs' is built for an admin only,
-// exactly as 'server' is: registering it is what draws it, and a reader has no
-// business with the server's own log.
-export const SETTINGS_CARDS = ['server', 'devices', 'jobs-current', 'jobs-common', 'jobs-past', 'logs']
+// 'logs' is built for an admin only, exactly as 'server' is: registering it is
+// what draws it, and a reader has no business with the server's own log.
+export const SETTINGS_CARDS = ['server', 'logs']
 
 // ---- THE SIX SECTIONS -------------------------------------------------------
 //
@@ -97,11 +84,6 @@ export const SETTINGS_SECTIONS = [
   ['theme', 'settings.section.theme.label', 'palette'],
   ['lang', 'settings.section.lang.label', 'languages'],
   ['server', 'settings.section.server.label', 'device'],
-  // JOBS IS FOR EVERY READER, and last. Everybody's fills and lookups are jobs
-  // now, so everybody has a queue to look at and a Stop to press; an admin's copy
-  // of the section adds the system logs and everyone's queue rather than being a
-  // different section.
-  ['jobs', 'settings.section.jobs.label', 'jobs'],
 ]
 
 // What each section's info dot says. Derived from the id rather than kept as a
@@ -122,18 +104,14 @@ export const SECTION_GLYPH = {
   quiz: <IconQuiz />,
   move: <IconMoveTo />,
   device: <IconDevice />,
-  jobs: <IconJobs />,
 }
 
 export const SECTION_CARDS = {
   theme: ['appearance'],
   lang: ['language'],
-  // DEVICES AFTER THE ADMIN CARD, and drawn for everyone: a reader who is not an admin has no Server
-  // card, so for them this section is the pairing card alone.
-  server: ['server', 'devices'],
-  // COMMON JOBS SECOND, under what is running now: it is where a reader starts
-  // the jobs they run most, and what they start there appears in the card above.
-  jobs: ['jobs-current', 'jobs-common', 'jobs-past', 'logs'],
+  // Admin only: both cards are built for an admin, so a reader who is not one has
+  // no Server section at all.
+  server: ['server', 'logs'],
 }
 
 // ── WHICH PREFERENCES EACH SECTION OWNS, and why this table exists at all.
@@ -169,17 +147,10 @@ export const SECTION_PREFS = {
     'tileGround', 'tileShell', 'tileCard', 'tileCover',
   ],
   lang: ['locale', 'localeFallback'],
-  // SERVER OWNS NONE. `trashDays` was listed here and is not a Server control at
-  // all — it is set on the Bin, which is where a reader changes how long the bin
-  // keeps things. Counting it here put a "1 changed" on a tab for something not on
-  // it, and Reset section would have silently reset the Bin's retention from a
-  // screen that never showed it. What Server holds are ACTS (check, back up,
-  // restore) and one admin setting the server keeps itself (the release channel,
-  // via /admin/update/channel) — none of them a user preference this table is for.
+  // SERVER OWNS NONE. What it holds are ACTS (check, install) and one admin setting
+  // the server keeps itself (the release channel, via /admin/update/channel) —
+  // none of them a user preference this table is for.
   server: [],
-  // JOBS OWNS NONE EITHER, for Server's reason: what it holds are acts — stop,
-  // run again, export — and a filter on a list, none of them a stored preference.
-  jobs: [],
 }
 
 // NOT A SETTING A READER CHOSE, so not counted anywhere. Each of these is stored
@@ -318,17 +289,7 @@ export function sectionOfCard(cardKey) {
 // the reader nothing.
 const SETTINGS_PREFIX = {
   appearance: 'settings.appearance.',
-  // THREE PREFIXES FOR ONE CARD. Server is a single tile holding Updates, Backup
-  // and What changed, as the pack draws it — so the words a reader might search
-  // for live under three roots, and a card that could only declare one would go
-  // missing the moment somebody typed "backup".
-  server: ['settings.updates.', 'settings.backup.', 'settings.changelog.'],
-  devices: 'settings.devices.',
-  // One root per jobs card, so typing "stop" finds the card whose Stop all it is
-  // and "export" the two that export.
-  'jobs-current': 'settings.jobs.current.',
-  'jobs-common': 'settings.jobs.common.',
-  'jobs-past': 'settings.jobs.past.',
+  server: 'settings.updates.',
   logs: 'settings.logs.',
 }
 
@@ -351,21 +312,19 @@ export function settingsMatches(cardKey, query) {
   return false
 }
 
-export default function Settings({ user, onPreferences, update, onUpdateInfo, section: routed = null, onSection = null, onReviewJob = null }) {
+export default function Settings({ user, onPreferences, update, onUpdateInfo, section: routed = null, onSection = null }) {
   const mobile = useIsMobileScreen()
   
-  // ── THE PHONE'S TWO SEATS, and they are the two verbs on this page.
+  // ── THE PHONE'S SEAT, and it is the one verb on this page.
   //
   // Everything else in Settings is a preference — you change it where it is
-  // drawn, and a dock key pointing at a toggle would be a door to a switch. These
-  // two are ACTS: make an archive now, install the release now. Both live in
-  // admin-only cards six cards down a scroll on a phone, which is the distance
-  // this pair closes.
+  // drawn, and a dock key pointing at a toggle would be a door to a switch. The
+  // update is an ACT: install the release now. It lives in an admin-only card on
+  // the Server section, and this key closes the distance to it.
   //
-  // THE KEY DOES NOT SKIP THE DECISION. Backup still asks for the credential that
-  // seals the archive and the update still asks for the word UPDATE typed out —
-  // a one-tap update on a phone is precisely the accident that confirmation
-  // exists to prevent. What the key skips is the scrolling.
+  // THE KEY DOES NOT SKIP THE DECISION. The update still asks for the word UPDATE
+  // typed out — a one-tap update on a phone is precisely the accident that
+  // confirmation exists to prevent. What the key skips is the scrolling.
   // THE SECTION IS THE ADDRESS, AND THE LAST ONE IS REMEMBERED. Two facts, and
   // they used to be one: the section lived only in localStorage, so it pushed no
   // history — the dock's Back key walked out of the whole screen and the page grew
@@ -382,7 +341,6 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, se
   const known = (id) => SETTINGS_SECTIONS.some(([k]) => k === id)
   const section = known(routed) ? routed : known(remembered) ? remembered : 'theme'
   const setSection = (id) => { remember(id); if (onSection) onSection(id) }
-  const [backupNow, setBackupNow] = useState(false)
   const [updateNow, setUpdateNow] = useState(false)
   // WHAT THE SHELL'S FIELD IS ASKING ABOUT WHILE THIS SCREEN IS UP.
   const [q, setQ] = useState('')
@@ -397,7 +355,7 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, se
   // tabs; on a phone the index is drawn until a section is routed, and the bar
   // over the index is still Settings' own.
   const [logsQ, setLogsQ] = useState('')
-  const logsHere = !!user.is_admin && (mobile ? routed === 'jobs' : section === 'jobs')
+  const logsHere = !!user.is_admin && (mobile ? routed === 'server' : section === 'server')
   useScreenSearch(logsHere
     ? { key: 'settings-logs', label: t('shell.search.where.logs'), onQuery: setLogsQ }
     : { key: 'settings', label: t('shell.search.where.settings'), onQuery: setQ })
@@ -416,7 +374,6 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, se
     // sub-line under it, which is where a caption for a title belongs.
     sub: mobile ? (user.is_admin ? t('account.users.admin.chip') : user.username) : null,
     keys: mobile && user.is_admin ? [
-      { id: 'backup', label: t('settings.backup.now.label'), icon: <IconArchive />, onClick: () => setBackupNow(true) },
       { id: 'update', label: t('settings.updates.now.label'), icon: <IconUpdate />, onClick: () => setUpdateNow(true) },
     ] : null,
     // RESET EVERY SECTION — the one verb this screen has that no card can carry,
@@ -453,25 +410,6 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, se
     },
   })
   const cards = {
-    // THE BIN AND STRAY-MARKS TILES ARE GONE FROM HERE. Both were doors and
-    // nothing else — a count, a state, and a button to a page that already showed
-    // both. The rail and the ☰ menu now carry a counted row to each (stray marks
-    // as half of Checks), which is a door visible from every screen rather than
-    // one you have to remember lives in Settings. A tile that restates a page's
-    // own summary is a second copy to keep in step, and this pair had already
-    // drifted: the tile counted /cleanup's open bucket while the page counted
-    // whichever bucket you last looked at.
-    // EVERY READER'S QUEUE, and the past thirty days of it. The backup prompt is
-    // handed in so a backup run again asks for its credential through the prompt
-    // that sealed it the first time, not a second copy of it.
-    // PAIRING IS EVERY READER'S: the code is minted for the signed-in account, and revoking a phone is the
-    // account's own act. See SETTINGS_CARDS.
-    devices: <DevicesCard />,
-    'jobs-current': <JobsCurrentCard user={user} />,
-    // The four a reader runs most, each in a place of its own; Back up now asks
-    // for its credential through the same prompt the Server card uses.
-    'jobs-common': <CommonJobsCard user={user} credentialPrompt={(props) => <BackupPrompt {...props} />} />,
-    'jobs-past': <JobsPastCard user={user} onReview={onReviewJob} credentialPrompt={(props) => <BackupPrompt {...props} />} />,
     ...(user.is_admin
       ? {
           server: (
@@ -481,8 +419,6 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, se
               onUpdateInfo={onUpdateInfo}
               updateAsking={updateNow}
               onUpdateAsking={setUpdateNow}
-              backupAsking={backupNow}
-              onBackupAsking={setBackupNow}
             />
           ),
           logs: <SystemLogsCard q={logsQ} onQuery={setLogsQ} />,
@@ -593,27 +529,16 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, se
   const sectionActions = mobile ? {
     theme: <Appearance prefs={prefs} onPreferences={onPreferences} compact />,
     lang: <Appearance prefs={prefs} onPreferences={onPreferences} part="lang" compact />,
-    // THE SAME TWO VERBS THE DOCK CARRIES, through the same state, so the
-    // confirm a reader meets is the one they would have met from the dock. The
-    // version rides with them because it is the fact those two presses are about
-    // — "am I behind?" is the question, and a button with no version beside it
-    // cannot answer it.
+    // THE SAME VERB THE DOCK CARRIES, through the same state, so the confirm a
+    // reader meets is the one they would have met from the dock. The version rides
+    // with it because it is the fact that press is about — "am I behind?" is the
+    // question, and a button with no version beside it cannot answer it.
     ...(user.is_admin ? {
       server: (
         <>
-          {/* `keepLabel`, MATCHING THE SECTION'S OWN COPIES OF THESE TWO VERBS.
-              The Server section draws Back up now with `keepLabel` on the standing
-              reasoning that a primary or destructive act keeps its words at every
-              width — "neither 'save this' nor 'delete this permanently' is
-              something a person should have to have learned already". The same
-              verb on the index is the same decision, and the repo's rule is that
-              two things that look the same behave the same. Without it these two
-              would collapse to glyphs under the label preference while their twins
-              one press away kept their words. */}
+          {/* `keepLabel`, as the Server section's own copy of this verb draws it: a
+              primary act keeps its words at every width. */}
           <div className="section-index-verbs">
-            <GhostButton icon={<IconArchive />} keepLabel onClick={() => setBackupNow(true)}>
-              {t('settings.backup.now.label')}
-            </GhostButton>
             <GhostButton icon={<IconUpdate />} keepLabel onClick={() => setUpdateNow(true)}>
               {t('settings.updates.now.label')}
             </GhostButton>
@@ -627,11 +552,6 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, se
         </>
       ),
     } : {}),
-    // THE OWNER'S TILE: one red Stop all with its confirm, and how many jobs are
-    // running and how many queued (F11, ruled 28 September) — the Current jobs
-    // card itself, asked for its compact face, so the counts, the confirm and the
-    // request are the ones inside the section.
-    jobs: <JobsCurrentCard user={user} compact />,
   } : {}
 
   return (
@@ -977,26 +897,10 @@ function collect(rows) {
 // Exported for `update-released.test.jsx`, which drives the card from the fields
 // /auth/me actually sends. Mounting the whole Settings screen to read one row
 // would make the case fail for a dozen reasons that are not this row.
-// ── SERVER: ONE PANEL, THREE GROUPS, WHICH IS WHAT THE PACK DRAWS.
-//
-// WHAT THIS REPLACED. Server was the only section in Settings drawn as TWO tiles —
-// Updates and Backup, each with its own border and its own SectionTitle — where
-// every other section is one card of numbered groups and the pack draws this one
-// the same way: Updates, Backup, and "What changed" at the foot
-// (settings-restructured.dc.html:2749, :2754, :2760). Two bordered boxes for one
-// subject is the "tabbed vs single tile" call the owner's rule gives to the
-// prototype.
-//
-// AND IT IS ONE CARD KEY NOW, not two. The search index keys off a card's i18n
-// prefix, so a single tile covering three subjects declares three prefixes —
-// otherwise typing "backup" would hide the panel that holds it, which is the
-// disappearance `test/rules/settings-search-prefix.test.js` exists to catch.
-//
-// THE ADMIN GATE STAYS WHERE IT WAS: this whole panel is registered only for an
-// admin, the same as the two cards it replaces. Nothing here is drawn for anybody
-// else, so nothing here has to ask again.
-function ServerCard({ user, update, onUpdateInfo, updateAsking, onUpdateAsking, backupAsking, onBackupAsking }) {
-  const current = user?.version || t('settings.updates.version.dev')
+// ServerCard — the update control, admin only. It was one panel with Backup and
+// the release log beside it; both are gone, and the system logs are a card of
+// their own in the same section.
+function ServerCard({ user, update, onUpdateInfo, updateAsking, onUpdateAsking }) {
   return (
     <Card>
       <PrefColumns>
@@ -1007,15 +911,6 @@ function ServerCard({ user, update, onUpdateInfo, updateAsking, onUpdateAsking, 
           asking={updateAsking}
           onAsking={onUpdateAsking}
         />
-        <BackupCard user={user} asking={backupAsking} onAsking={onBackupAsking} />
-        {/* The folders the library already lives in, mounted read-only, and whether a backup
-            carries the files attached to works (libraryFolders.jsx). */}
-        <LibraryFoldersGroup />
-        {/* WIDE, because a release log is prose at full measure. A column of
-            entries broken to half a card is a changelog nobody finishes. */}
-        <PrefGroup title={t('settings.changelog.title')} wide>
-          <ChangelogList current={current} />
-        </PrefGroup>
       </PrefColumns>
     </Card>
   )
@@ -1466,191 +1361,6 @@ export function UpdatesCard({ user, update, onUpdateInfo, asking = false, onAski
   )
 }
 
-// ---- the changelog --------------------------------------------------------
-//
-// The release history the running binary was BUILT FROM, out of the binary. See
-// internal/changelog for why it is embedded rather than fetched: a changelog that
-// is blank on a LAN-only NAS is blank in exactly the situation this app is for.
-
-// MD_SPAN matches the three inline forms this file actually uses — **bold**,
-// `code` and [text](url) — in one pass, so the renderer below never has to
-// re-scan a string it has already split.
-//
-// This is deliberately NOT a markdown parser and must not grow into one. There is
-// no markdown dependency in this frontend and no dangerouslySetInnerHTML anywhere
-// in it; both would be a poor trade for a dialog opened twice a month. Anything
-// this does not recognise is shown verbatim, which for a changelog is a perfectly
-// honest failure — you see the asterisks.
-const MD_SPAN = /(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\([^)]+\))/g
-
-function inlineMarkdown(text) {
-  return text.split(MD_SPAN).map((part, i) => {
-    if (!part) return null
-    if (part.startsWith('**') && part.endsWith('**')) return <b key={i}>{part.slice(2, -2)}</b>
-    if (part.startsWith('`') && part.endsWith('`')) return <code key={i}>{part.slice(1, -1)}</code>
-    const link = /^\[([^\]]+)\]\(([^)]+)\)$/.exec(part)
-    if (link) {
-      // Only http(s). A changelog is trusted content — it ships inside the binary
-      // — but a link scheme is one of those things worth refusing by rule rather
-      // than by trust, since the rule costs a line and the trust costs an audit.
-      const href = /^https?:\/\//.test(link[2]) ? link[2] : null
-      return href ? (
-        <a key={i} className="tp-link" href={href} target="_blank" rel="noopener noreferrer">{link[1]}</a>
-      ) : (
-        <span key={i}>{link[1]}</span>
-      )
-    }
-    return <span key={i}>{part}</span>
-  })
-}
-
-// ChangelogEntry — one bullet, whose paragraphs the server kept together.
-function ChangelogEntry({ text }) {
-  return (
-    <li className="cl-entry">
-      {text.split('\n\n').map((para, i) => (
-        <p key={i}>{inlineMarkdown(para)}</p>
-      ))}
-    </li>
-  )
-}
-
-// THE RELEASE LOG, ON THE SCREEN. It was behind a button called "Changelog" that
-// opened a dialog; the pack gives it a group of its own at the foot of Server —
-// "What changed", a log column (settings-restructured.dc.html:2760). A door with
-// one thing behind it, on a screen with room under it, is the shape this sweep has
-// been taking apart everywhere else: "what is genuinely rare goes behind a door;
-// what is merely detailed goes lower on the same screen."
-//
-// IT STILL FETCHES ONLY WHEN IT IS DRAWN, which was the dialog's own reason for
-// being lazy — the history is a quarter of a megabyte of markdown. It is drawn
-// only on the Server section, which is admin-only and is not where Settings opens,
-// so the cost is the same as it was: paid by the reader who came to look.
-// HOW MANY RELEASES STAND AT REST. The pack's own tour of Server says it: "The
-// last two releases, with the rest behind Show more."
-const LOG_AT_REST = 2
-
-function ChangelogList({ current }) {
-  const [data, setData] = useState(null)
-  const [error, setError] = useState('')
-  // Only the newest is open on arrival. Seventy releases expanded is a scroll bar
-  // with no landmarks in it, and the one people came for is at the top anyway.
-  const [open, setOpen] = useState(() => new Set())
-
-  useEffect(() => {
-    json('GET', '/changelog').then((r) => {
-      if (!r.ok) return setError(errText(r, t('error.load.changelog')))
-      setData(r.data)
-      const first = r.data?.releases?.[0]?.version
-      if (first) setOpen(new Set([first]))
-    })
-  }, [])
-
-  const toggle = (v) =>
-    setOpen((prev) => {
-      const next = new Set(prev)
-      if (next.has(v)) next.delete(v)
-      else next.add(v)
-      return next
-    })
-
-  // AN ANSWER WITH NO RELEASES IN IT IS NOT A CRASH, and this was one until the
-  // log came out from behind its door. `!data` caught a response that had not
-  // arrived; it did not catch one that arrived shaped differently, so `{}` fell
-  // through to `data.releases.map` and threw. As a dialog that was survivable —
-  // nothing rendered until somebody pressed the button, and a reader who never
-  // pressed it never met the throw. On the screen it renders on every visit to
-  // Server, so an old build, a proxy returning an empty object or a changelog
-  // that failed to parse would take the whole section down rather than show one
-  // line saying there is nothing to show.
-  const releases = Array.isArray(data?.releases) ? data.releases : null
-  // TWO RELEASES, AND THE REST BEHIND A PRESS — the pack's own shape for this
-  // group, stated in its tour of Server ("The last two releases, with the rest
-  // behind Show more") and drawn as a "Read the whole log" button under the list
-  // (settings-restructured.dc.html:614, :3111).
-  //
-  // IT IS ALSO WHAT LETS THE LIST STOP SCROLLING ITSELF. As a dialog body this had
-  // `max-height: 62vh; overflow-y: auto`, which was the dialog. On a page that is a
-  // bare nested scroller with no fade and no way out — a hundred entries in 523px
-  // inside a phone that already scrolls. Bounding the list is the repair the rule
-  // asks for: what is merely detailed goes lower on the same screen, and what is
-  // long gets a control rather than a second scrollbar.
-  const [wholeLog, setWholeLog] = useState(false)
-  const shown = releases ? (wholeLog ? releases : releases.slice(0, LOG_AT_REST)) : []
-  const more = releases ? releases.length - shown.length : 0
-  const body = error ? (
-    <ErrorText>{error}</ErrorText>
-  ) : !data ? (
-    <p className="microcopy">{t('common.state.loading')}</p>
-  ) : !releases || releases.length === 0 ? (
-    <p className="microcopy">{t('settings.changelog.empty.prose')}</p>
-  ) : (
-    <div className="cl-list">
-      {shown.map((rel) => {
-        const isOpen = open.has(rel.version)
-        const running = rel.version === data.current
-        return (
-          <section key={rel.version} className={'cl-release' + (running ? ' is-running' : '')}>
-            <button
-              type="button"
-              className="cl-head"
-              aria-expanded={isOpen}
-              onClick={() => toggle(rel.version)}
-            >
-              <IconChevron open={isOpen} size={16} />
-              <span className="cl-version">{rel.version}</span>
-              {rel.date && <span className="cl-date">{rel.date}</span>}
-              {/* Which one you are actually running. The whole point of an
-                  in-app changelog over a link to GitHub is that it can say so. */}
-              {running && <span className="cl-running">{t('settings.changelog.running.label')}</span>}
-            </button>
-            {isOpen && (
-              <div className="cl-body">
-                {rel.sections.map((sec) => (
-                  <div key={sec.title} className="cl-section">
-                    <MonoLabel>{sec.title}</MonoLabel>
-                    <ul>
-                      {sec.entries.map((e, i) => (
-                        <ChangelogEntry key={i} text={e} />
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-        )
-      })}
-      {/* tNodes: the version is bold, and markup never goes in a locale value. */}
-      {data.current_listed === false && (
-        <p className="microcopy" style={{ color: 'var(--faint)' }}>
-          {tNodes('settings.changelog.unlisted.prose', {
-            version: <b key="version">{current}</b>,
-          })}
-        </p>
-      )}
-    </div>
-  )
-
-  return (
-    <>
-      {body}
-      {/* Only when there is something folded away. A button reading "Read the whole
-          log" over a log that is already whole is a press that does nothing. */}
-      {(more > 0 || wholeLog) && (
-        <GhostButton
-          icon={<IconChevron open={wholeLog} size={16} />}
-          keepLabel
-          className="wraps-to-fit"
-          onClick={() => setWholeLog((v) => !v)}
-        >
-          {wholeLog ? t('settings.changelog.fold.label') : t('settings.changelog.more.label', { n: more })}
-        </GhostButton>
-      )}
-    </>
-  )
-}
-
 // PromptFrame — the shape all four of this page's dialogs already were.
 //
 // FOUR COPIES OF ONE FRAME. The changelog, the restore prompt, the backup prompt
@@ -1701,799 +1411,6 @@ function PromptFrame({ title, closeLabel, closeTip, busy = false, maxWidth = 460
       </div>
     </div>,
     document.body,
-  )
-}
-
-// BackupCard (admin only) — server-side backup & restore (§ backup). Exactly one
-// dated, ENCRYPTED archive of the whole data dir is kept in <data>/backups: "Back
-// up now" builds a fresh one (older ones are dropped once it exists) and starts
-// the download; restoring replaces EVERYTHING on the server with its contents,
-// in-process — no Docker socket.
-//
-// 1.4.1 rewrote this card around three complaints, all of them fair.
-//
-// It was TWO restores. One button restored the archive on the server, a second
-// restored an archive from disk, each with its own warning paragraph and its own
-// typed confirmation — two of everything for one operation whose only real
-// variable is where the file is. It is one control now with a source picker: the
-// kept archive, or a file. Everything downstream reads that one choice.
-//
-// It was a WALL OF TEXT. Three red paragraphs saying much the same thing, above
-// the buttons, on a screen already dense. The consequences have not changed and
-// are not softened — but they are one line each now, in the dialog you are
-// standing in when they apply, which is where a warning is actually read.
-//
-// And it needs a KEY. The archive is sealed (backup_crypto.go), so backing up
-// asks for your password (or a passphrase you set), and restoring asks for
-// whatever the chosen archive's own header says it wants — which is why the
-// source picker resolves `keyOf` before the prompt opens rather than guessing.
-// The Reference card — two link-out buttons to the hand-written UI glossary and
-// the roadmap — was removed here and from the demo. The glossary it pointed at
-// is the one thing on this screen the "?" button on every screen now does
-// better: help that sits beside the control, cannot 404, and cannot lag the code
-// by a release. The roadmap link survives, in the Updates card, where "what
-// version am I on" and "what is coming" are the same question asked twice.
-
-// DevicesCard — pair a phone with this account, and revoke one.
-//
-// A paired device carries a bearer token, not a session cookie: no expiry, and
-// a password change deliberately does NOT revoke it (see auth.DeviceTokens), so
-// rotating your password can't silently unpair a phone with no signal on the
-// device. Revoking is its own explicit act, which is what this card is for.
-//
-// The code is shown as text rather than a QR: the QR only saves typing. The Android app
-// (aaronified/tippani-app) takes the code typed; a QR is a later nicety, and would need
-// a QR library against this repo's dependency budget (ADR-0005).
-// EXPORTED so `device-revoke.test.jsx` can mount it on its own; Settings draws it on the Server section.
-export function DevicesCard() {
-  const { ask, confirmDialog } = useConfirm()
-  const [devices, setDevices] = useState(null)
-  const [pair, setPair] = useState(null) // {code, expires_at} while pairing
-  const [busy, setBusy] = useState(false)
-  const [err, setErr] = useState('')
-
-  async function load() {
-    const r = await json('GET', '/auth/devices')
-    if (r.ok) setDevices(r.data.devices)
-    else setErr(errText(r, t('error.load.devices')))
-  }
-  useEffect(() => {
-    load()
-  }, [])
-
-  async function startPairing() {
-    setBusy(true)
-    const r = await json('POST', '/auth/devices/pair')
-    setBusy(false)
-    if (!r.ok) return setErr(errText(r, t('error.pair.device')))
-    setErr('')
-    setPair(r.data)
-  }
-
-  async function revoke(d) {
-    if (!(await ask(t('settings.devices.revoke.confirm', { name: d.name }), { danger: true, reversible: false }))) return
-    const r = await json('DELETE', `/auth/devices/${d.id}`)
-    if (!r.ok) return setErr(errText(r, t('error.revoke.device')))
-    setErr('')
-    toast(t('settings.devices.toast.unpaired'))
-    load()
-  }
-
-  async function revokeAll() {
-    if (!(await ask(t('settings.devices.revoke-all.confirm'), { danger: true, reversible: false }))) return
-    const r = await json('POST', '/auth/devices/revoke-all')
-    if (!r.ok) return setErr(errText(r, t('error.revoke.devices')))
-    setErr('')
-    toast(t('settings.devices.toast.all-unpaired'))
-    load()
-  }
-
-  return (
-    <Card>
-      {confirmDialog}
-      {/* ── THE LAST CARD IN SETTINGS DRAWING ITS OWN HEADING, and it kept a dot
-          up there with it. Every other card became `PrefGroup`s when the sections
-          were built; this one was missed, so the screen carried a heading in a
-          shape nothing else on it used, and a dot at the level the SECTION dot
-          already occupies.
-
-          THE DOT DID NOT GO — IT MOVED DOWN. What it says is a rule nobody can
-          see ("changing your password signs out browsers but deliberately leaves
-          phones alone"), and that rule is about the pairing control, not about a
-          heading. A dot on a heading is a dot nobody presses; a dot on the thing
-          it is about is read by the person deciding whether to press it. The
-          count moved to the group's aside, which is where a fact you glance at
-          goes. */}
-      <PrefGroup
-        title={t('settings.devices.title')}
-        aside={devices?.length ? t('settings.devices.paired.count', { n: devices.length }) : null}
-      >
-
-      {pair ? (
-        <div style={{ borderTop: '1px solid var(--line)', paddingTop: 12 }}>
-          <div className="flex items-center gap-1.5">
-            <MonoLabel>{t('settings.devices.code.label')}</MonoLabel>
-            <InfoDot title={t('settings.devices.code.info.title')} text={t('settings.devices.code.info.body')} />
-          </div>
-          <div
-            className="mt-1 select-all"
-            style={{
-              fontFamily: 'var(--font-mono)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)',
-              fontSize: 'var(--type-mono-30)',
-              letterSpacing: '0.18em',
-              fontWeight: 600,
-            }}
-          >
-            {pair.code}
-          </div>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <FieldIconButton
-              icon={<IconCopy />}
-              ariaLabel={t('settings.devices.code.copy.aria')}
-              onClick={() => copyText(pair.code)}
-              tooltip={t('settings.devices.code.copy.tip')}
-            />
-            <FieldIconButton
-              icon={<IconCheck />}
-              ariaLabel={t('settings.devices.code.done.aria')}
-              onClick={() => {
-                  setPair(null)
-                  load()
-                }}
-              tooltip={t('common.action.done.label')}
-              ok
-            />
-          </div>
-        </div>
-      ) : (
-        <PrefRow
-          label={t('settings.devices.pair.label')}
-          info={t('settings.devices.info.body')}
-          control={
-            <div className="flex flex-wrap items-center gap-2">
-              <StickerButton icon={<IconDevice />} keepLabel onClick={startPairing} disabled={busy}>
-                {t('settings.devices.pair.label')}
-              </StickerButton>
-              {devices?.length > 0 && (
-                <FieldIconButton
-                  icon={<IconDelete />}
-                  ariaLabel={t('settings.devices.revoke-all.aria')}
-                  onClick={revokeAll}
-                  danger
-                />
-              )}
-            </div>
-          }
-        />
-      )}
-
-      {devices?.length > 0 && (
-        <ul className="mt-4 space-y-2" style={{ borderTop: '1px solid var(--line)', paddingTop: 12 }}>
-          {devices.map((d) => (
-            <li key={d.id} className="flex items-center gap-3" style={{ fontSize: 'var(--type-ui-13)' }}>
-              <span>
-                <b>{d.name}</b>
-                <span style={{ color: 'var(--soft)' }}>
-                  {' — '}
-                  {d.last_seen_at
-                    ? t('settings.devices.last-seen.label', { when: fmtStamp(d.last_seen_at) })
-                    : t('settings.devices.never.label')}
-                </span>
-              </span>
-              <span className="ml-auto">
-                <FieldIconButton
-                  icon={<IconClose />}
-                  ariaLabel={t('settings.devices.revoke.aria', { name: d.name })}
-                  onClick={() => revoke(d)}
-                  danger
-                />
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-      {devices?.length === 0 && !pair && (
-        <p className="microcopy mt-3" style={{ fontSize: 'var(--type-ui-12)', color: 'var(--soft)' }}>
-          {t('settings.devices.empty.prose')}
-        </p>
-      )}
-      <ErrorText>{err}</ErrorText>
-      </PrefGroup>
-    </Card>
-  )
-}
-
-// fmtStamp renders a SQLite "YYYY-MM-DD HH:MM:SS" (UTC) as a local date-time.
-function fmtStamp(s) {
-  const d = new Date(String(s).replace(' ', 'T') + 'Z')
-  if (Number.isNaN(d.getTime())) return s
-  return d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
-}
-
-// RestorePrompt — the one dialog every restore goes through. Full-screen on a
-// phone (it is a form with a password in it, and a cramped centred card is how
-// people mistype passwords), a centred card on desktop, cancellable from either.
-//
-// It asks for exactly what the chosen archive needs and nothing else:
-//
-//   passphrase   one field.
-//   account, mine    one field — my password. The account is already known.
-//   account, theirs  two — whose account, and its password.
-//   none (pre-1.4.1) the typed RESTORE, because there is no key to stand for it.
-//
-// The consequence line lives here rather than on the card: this is the moment it
-// applies, and a warning you have to scroll past on the way to something else is
-// a warning nobody reads.
-function RestorePrompt({ meta, me, busyLabel, safe, onSafe, onCancel, onConfirm }) {
-   // The page behind an overlay does not move. Without this a wheel or a swipe
-  // running past the end of the dialog scrolls the page you cannot see, which is
-  // still scrolled when you close this. Ref-counted, so a dialog opened from
-  // inside a sheet does not unlock the sheet on its way out.
-  useBodyScrollLock(true)
-  const key = meta?.key || 'none'
-  // `recoverable` (from the server for the kept archive, sniffed from the header
-  // for a chosen file) means this box can open it with YOUR current password,
-  // whatever password sealed it. That is the difference between asking for a
-  // password and asking someone to remember one from six months ago, so it is
-  // worth saying out loud rather than letting them find out by trying.
-  const recoverable = !!meta?.recoverable
-  const era = key === 'password' && meta.account && meta.account !== me
-  const [password, setPassword] = useState('')
-  const [passphrase, setPassphrase] = useState('')
-  const [confirm, setConfirm] = useState('')
-  // STEP ONE IS A COPY OF WHAT IS HERE NOW — see SafetyBackupStep. Held by the
-  // card, so a refusal from the server (the copy is older than it accepts) can
-  // send the reader back to this step.
-  // The copy's password fills the restore's only when it can open the archive
-  // (`recoverable`): an archive sealed in another era wants THAT password, and a
-  // box filled with the wrong one reads as already answered.
-  const tookCopy = (creds) => {
-    onSafe(true)
-    if (key === 'password' && recoverable && creds?.password) setPassword(creds.password)
-  }
-  // The field the step hands focus to once the copy is down — see SafetyBackupStep.
-  const nextRef = useRef(null)
-  // THE QUEUE, READ WHEN THE PROMPT OPENS. A restore swaps the database under the
-  // job queue, so the server refuses it while a job runs and ends the ones still
-  // waiting — and a reader should learn that here, above step one, rather than
-  // from a refusal after downloading a safety copy.
-  const [queue, setQueue] = useState(null)
-  useEffect(() => {
-    let alive = true
-    readJobsSummary().then((r) => { if (alive && r.ok) setQueue(r) })
-    return () => { alive = false }
-  }, [])
-  const busyQueue = queueNotice(queue, { running: 'settings.restore.queue.running', waiting: 'settings.restore.queue.waiting' })
-
-  // The same three validate reasons the onboarding twin uses (App.jsx), through
-  // the same keys: two dialogs for one operation should not own two vocabularies
-  // for "you have not typed the thing yet".
-  const missing = !safe ? t('settings.safety.first.reason') :
-    key === 'passphrase'
-      ? passphrase ? '' : t('error.validate.archive-passphrase-required')
-      : key === 'password'
-        ? password ? '' : t('error.validate.password-required')
-        : confirm !== 'RESTORE'
-          ? t('error.validate.restore-word')
-          : ''
-
-  const submit = (e) => {
-    e.preventDefault()
-    if (missing || busyLabel) return
-    onConfirm(
-      key === 'passphrase' ? { passphrase } : key === 'password' ? { password } : { confirm: 'RESTORE' },
-    )
-  }
-
-  const body = (
-    <form onSubmit={submit} className="space-y-3">
-      {/* TWO WHOLE SENTENCES RATHER THAN ONE WITH A HOLE IN IT. The date clause
-          lands in the middle of the warning, and a locale value cannot begin with
-          the space that would need — the parser trims both halves — so the dated
-          and undated forms are two keys instead of a fragment glued in. */}
-      <p className="microcopy" style={{ color: 'var(--error)' }}>
-        {meta?.created
-          ? t('settings.restore.warn.dated.prose', { date: fmtWhen(meta.created) })
-          : t('settings.restore.warn.prose')}
-      </p>
-      {busyQueue && <p className="microcopy" role="status">{busyQueue}</p>}
-      <SafetyBackupStep done={safe} onDone={tookCopy} next={nextRef} />
-      {key === 'passphrase' && (
-        <label className="tp-field">
-          <MonoLabel>{t('common.field.passphrase.label')}</MonoLabel>
-          <input
-            className="tp-input"
-            type="password"
-            ref={nextRef}
-            maxLength={PASSPHRASE_MAX}
-            value={passphrase}
-            onChange={(e) => setPassphrase(e.target.value)}
-          />
-        </label>
-      )}
-      {key === 'password' && (
-        <label className="tp-field">
-          <MonoLabel>{t('settings.restore.password.label')}</MonoLabel>
-          <input
-            className="tp-input"
-            type="password"
-            ref={nextRef}
-            autoComplete="current-password"
-            maxLength={PASSWORD_MAX}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-          <p className="microcopy">
-            {recoverable
-              ? t('settings.restore.password.recoverable.prose')
-              : era
-                ? t('settings.restore.password.named.prose', { name: meta.account })
-                : t('settings.restore.password.era.prose')}
-          </p>
-        </label>
-      )}
-      {key !== 'passphrase' && key !== 'password' && (
-        <label className="tp-field">
-          {/* RESTORE stays Latin in every language: it is the word the server
-              compares byte for byte. */}
-          <MonoLabel>{t('settings.restore.confirm.label')}</MonoLabel>
-          <input
-            className="tp-input"
-            style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)' }}
-            ref={nextRef}
-            value={confirm}
-            onChange={(e) => setConfirm(e.target.value)}
-          />
-          <p className="microcopy">{t('settings.restore.confirm.prose')}</p>
-        </label>
-      )}
-      <div className="flex flex-wrap items-center gap-2">
-        {/* keepLabel on both, and here it is not a style choice: this button
-            replaces every user, library and setting on the server and logs
-            everyone out. Nothing about that is to be found out by pressing a
-            glyph you half-recognise. */}
-        <StickerButton icon={<IconRestore />} keepLabel disabled={!!missing || !!busyLabel} title={missing || undefined}>
-          {busyLabel || t('common.action.restore.label')}
-        </StickerButton>
-        <GhostButton type="button" icon={<IconClose />} keepLabel disabled={!!busyLabel} onClick={onCancel}>
-          {t('common.action.cancel.label')}
-        </GhostButton>
-      </div>
-      {/* The stop belongs to the sentence, not to the reason — Bengali ends on a
-          danda, which is why the frame is a key and not a '.' in the JSX. */}
-      {missing && <p className="microcopy" style={{ color: 'var(--faint)' }}>{t('common.form.reason.sentence', { reason: missing })}</p>}
-    </form>
-  )
-
-  return (
-    <PromptFrame
-      title={t('settings.restore.title')}
-      closeLabel={t('common.action.cancel.label')}
-      closeTip={t('settings.prompt.close.tip')}
-      busy={!!busyLabel}
-      dismissOnScrim={false}
-      onClose={onCancel}
-    >
-      {body}
-    </PromptFrame>
-  )
-}
-
-// BackupPrompt — the twin on the way in: seal this archive with my password, or
-// with a passphrase. Same framing as RestorePrompt, deliberately: the two are one
-// operation seen from either end, and they should not look like different
-// features.
-
-function BackupPrompt({ me, busy, onCancel, onConfirm }) {
-   // The page behind an overlay does not move. Without this a wheel or a swipe
-  // running past the end of the dialog scrolls the page you cannot see, which is
-  // still scrolled when you close this. Ref-counted, so a dialog opened from
-  // inside a sheet does not unlock the sheet on its way out.
-  useBodyScrollLock(true)
-  const [usePhrase, setUsePhrase] = useState(false)
-  const [password, setPassword] = useState('')
-  const [passphrase, setPassphrase] = useState('')
-  const missing = usePhrase ? passphraseProblem(passphrase) : password ? '' : t('error.validate.password-required')
-
-  const submit = (e) => {
-    e.preventDefault()
-    if (missing || busy) return
-    onConfirm(usePhrase ? { passphrase } : { password })
-  }
-
-  const body = (
-    <form onSubmit={submit} className="space-y-3">
-      <p className="microcopy">
-        {t('settings.backup.what.prose')}
-      </p>
-      {!usePhrase ? (
-        <label className="tp-field">
-          <MonoLabel>{t('settings.restore.password.label')}</MonoLabel>
-          <input
-            className="tp-input"
-            type="password"
-            autoFocus
-            autoComplete="current-password"
-            maxLength={PASSWORD_MAX}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-          <p className="microcopy">
-            {t('settings.backup.password.prose')}
-          </p>
-        </label>
-      ) : (
-        <label className="tp-field">
-          <MonoLabel>{t('settings.backup.passphrase.label', { min: PASSPHRASE_MIN, max: PASSPHRASE_MAX })}</MonoLabel>
-          <input
-            className="tp-input"
-            type="password"
-            autoFocus
-            maxLength={PASSPHRASE_MAX}
-            value={passphrase}
-            onChange={(e) => setPassphrase(e.target.value)}
-          />
-          <p className="microcopy">{t('settings.backup.passphrase.prose')}</p>
-        </label>
-      )}
-      {/* The key this archive will be sealed with is the single most consequential
-          choice on this form, so the control that switches it wears the key. */}
-      <button type="button" className="tp-link tp-link-icon" onClick={() => setUsePhrase((v) => !v)}>
-        <IconKey />
-        <span>{t(usePhrase ? 'settings.backup.use-password.label' : 'settings.backup.use-passphrase.label')}</span>
-      </button>
-      <div className="flex flex-wrap items-center gap-2">
-        {/* "Back up" — not "Back up & download", which is what it used to say and
-            used to do. The archive is kept on the server; taking a copy is a
-            separate act, offered by the toast and by the button on the card. A
-            label naming two acts for a button that should only do one is how the
-            second one got welded on in the first place. */}
-        <StickerButton icon={<IconArchive />} keepLabel disabled={!!missing || busy} title={missing || undefined}>
-          {busy ? t('settings.backup.now.busy') : t('settings.backup.prompt.title')}
-        </StickerButton>
-        <GhostButton type="button" icon={<IconClose />} keepLabel disabled={busy} onClick={onCancel}>
-          {t('common.action.cancel.label')}
-        </GhostButton>
-      </div>
-      {missing && <p className="microcopy" style={{ color: 'var(--faint)' }}>{t('common.form.reason.sentence', { reason: missing })}</p>}
-    </form>
-  )
-
-  return (
-    <PromptFrame
-      title={t('settings.backup.prompt.title')}
-      closeLabel={t('common.action.cancel.label')}
-      closeTip={t('settings.prompt.close.tip')}
-      busy={busy}
-      dismissOnScrim={false}
-      onClose={onCancel}
-    >
-      {body}
-    </PromptFrame>
-  )
-}
-
-const fmtWhen = (iso) => new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
-const fmtSize = (n) => (n >= 1 << 20 ? `${(n / (1 << 20)).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`)
-
-function BackupCard({ user, asking = false, onAsking }) {
-  const [backup, setBackup] = useState(null) // {name, created, size, key, account} | null
-  const [loaded, setLoaded] = useState(false)
-  const [busy, setBusy] = useState(false) // asking the server for the backup job
-  // CONTROLLED, because the phone's dock opens it too. "Back up now" is one of
-  // the two things somebody comes to this page on a phone to do, and it was six
-  // cards down a scroll.
-  const setAsking = (v) => onAsking?.(v)
-  // ONE restore, with a source. 'server' = the archive kept here; 'file' = one
-  // chosen from disk (from this server or another). The two used to be separate
-  // blocks with separate warnings and separate confirmations.
-  const [source, setSource] = useState('server')
-  const [file, setFile] = useState(null)
-  const [fileKey, setFileKey] = useState(null) // sniffArchiveKey result for `file`
-  const [prompt, setPrompt] = useState(false) // restore prompt open
-  const [phase, setPhase] = useState('idle') // idle | uploading | restoring
-  const [pct, setPct] = useState(0)
-  const [safe, setSafe] = useState(false) // step one of the restore, see SafetyBackupStep
-  // The restore picker, through the shared primitive: one input, one place the
-  // value is cleared so the same archive can be chosen twice.
-  const restorePick = useFilePick({
-    accept: '.tpbk,.tar.gz,.tgz,application/gzip,application/octet-stream',
-    ariaLabel: t('shell.restore.file.aria'),
-    onFiles: (f) => chooseFile(f || null),
-  })
-
-  useEffect(() => {
-    json('GET', '/admin/backup').then((r) => {
-      if (r.ok) setBackup(r.data.backup)
-      setLoaded(true)
-    })
-  }, [])
-
-  async function chooseFile(f) {
-    setFile(f)
-    setFileKey(f ? await sniffArchiveKey(f) : null)
-  }
-
-  // download is the ONE way the archive leaves the server, and it is now only ever
-  // reached by asking. Cookie-authed same-origin GET: the browser streams the file
-  // itself, which is why this is a location assignment and not a fetch.
-  const download = () => {
-    window.location.href = apiURL('/admin/backup/download')
-  }
-
-  // A BACKUP IS A JOB ON THE SERVER (3.1.0). The request that sealed the archive
-  // used to hold this card for as long as the seal took, and a reader who left
-  // the screen left with nothing to say whether it had worked. Now the press asks
-  // for a `backup` job — the server checks the credential there and then, so a
-  // wrong password is refused before anything queues — and the prompt closes;
-  // the card watches the job and says how it ended. Leaving does not stop it:
-  // Settings › Jobs has it, with its log.
-  //
-  // THE DOCK'S KEY AND THE PHONE INDEX'S BUTTON OPEN THIS SAME PROMPT, so all
-  // three presses are this one function.
-  const backupJob = useKindJob('backup', {
-    onSettled: async (job) => {
-      if (job.state === 'failed') return toast(job.error || t('error.backup.failed'))
-      if (job.state !== 'succeeded') {
-        return toast(t(job.state === 'stopped' ? 'settings.backup.toast.stopped' : 'settings.backup.toast.interrupted'))
-      }
-      // The card's own read of the kept archive, now that there is a new one.
-      const r = await json('GET', '/admin/backup')
-      if (r.ok) setBackup(r.data.backup)
-      // IT DOES NOT DOWNLOAD ITSELF. Making a backup and taking a copy of it are
-      // two different acts, and welding them together got both of them wrong:
-      //
-      //   - The archive is KEPT on the server. That is the point of the feature —
-      //     one dated archive, ready to restore from, and the restore reads it from
-      //     there. Somebody who wanted that got a multi-megabyte file in their
-      //     Downloads folder as well, every time, unasked.
-      //   - On a phone the navigation is worse than untidy: assigning
-      //     window.location while a dialog is closing takes the browser off the
-      //     page mid-transition, and what comes back is a download shelf over a
-      //     Settings screen that has lost its scroll position.
-      //   - And it happened on the FAILURE path's twin — a backup that succeeded
-      //     but that you only wanted server-side still cost you the bandwidth.
-      //
-      // So the toast offers it instead. One tap if you want the copy, nothing if
-      // you do not, and the button on the card is there either way.
-      toast(t('settings.backup.toast.created'), { label: t('common.action.download.label'), onClick: download })
-    },
-  })
-  const backingUp = busy || backupJob.live
-
-  async function create(creds) {
-    setBusy(true)
-    const r = await backupJob.start(creds, { reuse: false })
-    setBusy(false)
-    if (!r.ok) return toast(r.error)
-    setAsking(false)
-  }
-
-  // The archive the restore prompt is about, and therefore which credential it
-  // asks for: the kept one's metadata comes from the server, a chosen file's from
-  // its own first bytes.
-  const target = source === 'file' ? (file ? { ...fileKey, name: file.name } : null) : backup
-
-  async function restore(creds) {
-    if (!target) return
-    setPhase(source === 'file' ? 'uploading' : 'restoring')
-    setPct(0)
-    try {
-      let r
-      if (source === 'file') {
-        const form = new FormData()
-        for (const [k, v] of Object.entries(creds)) form.append(k, v)
-        form.append('file', file)
-        r = await uploadWithProgress('/admin/restore/upload', form, (f) => {
-          setPct(Math.round(f * 100))
-          if (f >= 1) setPhase('restoring') // upload done, server applying
-        })
-      } else {
-        r = await json('POST', '/admin/restore', creds)
-      }
-      if (!r.ok) {
-        setPhase('idle')
-        // 428: the server has no note of a recent download (it restarted, or the
-        // copy is older than it accepts), so the reader is back at step one.
-        if (r.status === 428) setSafe(false)
-        return toast(errText(r, t('error.restore.intact')))
-      }
-      toast(t('settings.backup.toast.restored'))
-      setTimeout(() => window.location.reload(), 1200)
-    } catch {
-      // A large restore can outlive the connection even when it succeeds
-      // server-side; reload rather than freeze on 'Applying…'.
-      setTimeout(() => window.location.reload(), 1200)
-    }
-  }
-
-  // The onboarding twin's own busy labels (App.jsx) — one upload, one word for
-  // it, whichever screen you started it from.
-  const busyLabel = phase === 'uploading' ? t('shell.restore.uploading.busy', { percent: pct }) : phase === 'restoring' ? t('common.action.apply.busy') : ''
-  // What the chosen source will ask for, said before you commit to it — so the
-  // prompt is never a surprise, and a file whose passphrase you do not have is
-  // obvious before the upload starts.
-  // An archive with no account named in its header used to read "asks for the
-  // password ‘it’ had" — a pronoun assembled in code, standing in for a name that
-  // is not there. It gets its own sentence now instead of a quoted 'it'.
-  const asks =
-    !target
-      ? ''
-      : target.key === 'passphrase'
-        ? t('settings.backup.asks.passphrase')
-        : target.key === 'password'
-          ? target.recoverable
-            ? t('settings.backup.asks.password')
-            : target.account
-              ? t('settings.backup.asks.password.named', { name: target.account })
-              : t('settings.backup.asks.password.era')
-          : target.key === 'unknown'
-            ? t('settings.backup.asks.unknown')
-            : t('settings.backup.asks.unkeyed')
-
-  // THE SECOND GROUP OF THE SERVER PANEL — see UpdatesCard for why this is a group
-  // and no longer a card of its own. `data-tour` sits on the rows rather than the
-  // group, so the tour's halo frames the controls and not the heading above them;
-  // an earlier draft of this comment said it had moved to the group, which it had
-  // not.
-  return (
-    <>
-      <PrefGroup
-        title={t('settings.backup.title')}
-      >
-      <div data-tour="backup">
-        {/* THE PACK'S THREE ROWS. It draws Backup as "Make a backup", "Nightly
-            backup" and "Restore from an archive", each a row with its own
-            sub-line and its own control (settings-restructured.dc.html:2754-2759);
-            this was two stacks of divs under one heading. The middle row is NOT
-            here and its absence is recorded rather than faked: a nightly backup
-            needs something that wakes up at four in the morning, and this repo's
-            standing invariant is that nothing wakes on a timer. See
-            docs/wiki/Plan-Nightly-Backup.md. */}
-        {/* THE DOT CAME DOWN FROM THE HEADING. What it says — one dated encrypted
-            archive, a passphrase one recoverable by nothing, and a restore that
-            replaces everything — is about the act this row performs, and it is the
-            kind of thing a reader wants in front of them at the moment they are
-            deciding to press, not one level up beside a title. */}
-        <PrefRow
-          label={t('settings.backup.make.label')}
-          info={t('settings.backup.info.body')}
-          said={loaded && (
-            <>
-              <p className="microcopy">
-                {backup ? (
-                  // tNodes: the date is bold, so the sentence carries a node. fmtSize
-                  // renders MB/KB, which are symbols rather than words (§8) and stay.
-                  tNodes('settings.backup.last.prose', {
-                    when: <b key="when">{fmtWhen(backup.created)}</b>,
-                    size: fmtSize(backup.size),
-                  })
-                ) : (
-                  t('settings.backup.empty.prose')
-                )}
-              </p>
-              {/* BEHIND ANOTHER JOB, where it stands — a busy button with no reason
-                  beside it reads as a stuck one. */}
-              {backupJob.job?.state === 'queued' && <p className="microcopy">{jobWaitingText(backupJob.job)}</p>}
-            </>
-          )}
-          control={
-        <div className="flex flex-wrap items-center gap-3">
-          <GhostButton
-            icon={<IconArchive />}
-            keepLabel
-            onClick={() => setAsking(true)}
-            disabled={backingUp || phase !== 'idle'}
-          >
-            {backingUp ? t('settings.backup.now.busy') : t('settings.backup.now.label')}
-          </GhostButton>
-          {/* THE DOWNLOAD IS A CONTROL NOW, not a `download` word in the corner.
-              It was a bare tp-link beside a button, which read as a footnote to the
-              backup rather than the other half of it — and it mattered less while
-              creating one downloaded it anyway. Now that it does not, this is how a
-              copy is taken, so it is the same size and shape as the button beside
-              it. Still an anchor rather than a button: a real href is what gives it
-              middle-click, "save link as", and a URL you can read before you
-              commit to a multi-megabyte file. */}
-          {backup && (
-            <a
-              className="tp-btn tp-btn-ghost tactile inline-flex items-center gap-2"
-              href={apiURL('/admin/backup/download')}
-            >
-              <IconExport />
-              {t('settings.backup.download.label')}
-            </a>
-          )}
-        </div>
-          }
-        />
-
-        {/* One label, no second dot. What this one said — restoring replaces
-            everything and logs everyone out — is said twice more already: once
-            in the heading's dot above, and once in red inside RestorePrompt,
-            which is the moment it applies and the only place it is certain to
-            be read. A card that explains the same consequence three times is
-            not being three times as careful. */}
-        <PrefRow label={t('settings.backup.restore-from.label')}>
-          <div className="space-y-2" style={{ flexBasis: '100%', minWidth: 0 }}>
-          {/* One control, two sources. Choosing the source is the whole difference
-              between what used to be two separate restore blocks. */}
-          {/* The picker's own words are the onboarding twin's (shell.restore.*):
-              it is one control rendered on two screens, and it should not read as
-              two features. The stored values never move. */}
-          <Toggle
-            ariaLabel={t('shell.restore.source.aria')}
-            value={source}
-            onChange={setSource}
-            options={[['server', t('shell.restore.source.server.label')], ['file', t('shell.restore.source.file.label')]]}
-          />
-          {/* Just what it will ask for. "the archive kept here" was the Toggle's
-              own "This server" said again in different words, one line below it. */}
-          {source === 'server' && (
-            <p className="microcopy">{backup ? asks : t('settings.backup.server.empty.prose')}</p>
-          )}
-          {source === 'file' && (
-            <>
-              {restorePick.input}
-              <div className="flex flex-wrap items-center gap-2">
-                {/* IconUpload: this file is going TO the server, which is the one
-                    thing that tells it apart from the download beside it. */}
-                <GhostButton
-                  icon={<IconUpload />}
-                  keepLabel
-                  onClick={restorePick.open}
-                  disabled={phase !== 'idle'}
-                >
-                  {t(file ? 'settings.backup.file.replace.label' : 'settings.backup.file.choose.label')}
-                </GhostButton>
-                <span className="microcopy">
-                  {file
-                    ? t('settings.backup.file.chosen.label', { name: file.name, size: fmtSize(file.size) })
-                    : t('settings.backup.file.none.label')}
-                </span>
-              </div>
-              {file && <p className="microcopy">{asks}</p>}
-            </>
-          )}
-          <div className="flex flex-wrap items-center gap-2">
-            <StickerButton
-              icon={<IconRestore />}
-              keepLabel
-              onClick={() => setPrompt(true)}
-              disabled={!target || backingUp || phase !== 'idle'}
-              title={!target ? t(source === 'file' ? 'error.validate.backup-file-required' : 'error.validate.backup-absent') : undefined}
-            >
-              {t('settings.backup.restore.label')}
-            </StickerButton>
-          </div>
-          {phase === 'uploading' && (
-            <div
-              aria-hidden="true"
-              style={{ height: 6, maxWidth: 280, background: 'var(--line)', borderRadius: 999, overflow: 'hidden' }}
-            >
-              <div style={{ height: '100%', width: `${pct}%`, background: 'currentColor', transition: 'width .15s' }} />
-            </div>
-          )}
-          </div>
-        </PrefRow>
-      </div>
-      </PrefGroup>
-
-      {asking && (
-        <BackupPrompt me={user.username} busy={busy} onCancel={() => setAsking(false)} onConfirm={create} />
-      )}
-      {prompt && target && (
-        <RestorePrompt
-          meta={target}
-          me={user.username}
-          busyLabel={busyLabel}
-          safe={safe}
-          onSafe={setSafe}
-          onCancel={() => { setPrompt(false); setPhase('idle'); setSafe(false) }}
-          onConfirm={restore}
-        />
-      )}
-    </>
   )
 }
 

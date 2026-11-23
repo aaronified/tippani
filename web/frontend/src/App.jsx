@@ -2659,9 +2659,6 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
               // because "go to Metadata" and "go to the language table" are
               // different asks and only one of them is a door.
               onGo={(nextTab, id = null) => go(nextTab, id ? { type: 'section', id } : null)}
-              // THE OTHER DOOR OUT: a past re-verify's Review opens Metadata on
-              // that job, because the flow that applies a review lives there.
-              onReviewJob={(id) => go('metadata', { type: 'reverify', id })}
             />
           </div>
         )}
