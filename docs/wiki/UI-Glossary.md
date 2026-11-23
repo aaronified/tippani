@@ -7,7 +7,7 @@ It is generated from the glossary catalogue, `web/frontend/scripts/glossary/cata
 when a component has no entry, so a rename or a new control updates this page or fails the build. Each entry names the file
 that defines it.
 
-221 entries in 22 sections.
+220 entries in 22 sections.
 
 ## Shell
 
@@ -1738,12 +1738,6 @@ The account. Phosphor `identification-card`. A card with a face on it, rather th
 *Defined in:* IconNavUsers — ui.jsx · rule 2 · names a place, not a job
 
 User management. Phosphor `users`. The widest glyph in the pack — 0.98 of its box before the crop, 0.82 after.
-
-### IconPractise
-
-*Defined in:* IconPractise — ui.jsx · rule 3 · a silhouette in life
-
-Practise. Phosphor `graduation-cap`. Nine call sites read practise and drew the quiz card, so the place you go to study and the card you are asked looked identical.
 
 ### IconPalette
 

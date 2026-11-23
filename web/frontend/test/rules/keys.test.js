@@ -36,7 +36,6 @@ describe('every binding can be spelled out', () => {
   // brackets read as optional.
   it('appending it to a label', () => {
     expect(withShortcut('Search', 'search')).toBe('Search · /')
-    expect(withShortcut('Got it', 'grade-got')).toBe('Got it · 2')
   })
 
   // An action with no binding must pass through unchanged, or every existing
@@ -102,31 +101,6 @@ describe('matching a key press', () => {
     // A prefix followed by nothing meaningful is simply not a shortcut — it must
     // not fall through to whatever the second key would have done alone.
     expect(matchShortcut('z', 'g')).toBeNull()
-  })
-
-  // THE CARD DECIDES WHAT A KEY MEANS. Binding 1 globally to "Forgot" would mean
-  // pressing it on a four-option question graded the card instead of answering
-  // it — a keystroke that silently marks you wrong.
-  it('and answers according to the card on screen', () => {
-    expect(matchShortcut('1', '', 'mcq')).toEqual({ id: 'pick-1', shift: false })
-    expect(matchShortcut('1', '', 'flip')).toEqual({ id: 'grade-forgot', shift: false })
-    expect(matchShortcut('space', '', 'flip')).toEqual({ id: 'reveal', shift: false })
-    expect(matchShortcut('space', '', 'cloze')).toEqual({ id: 'focus-blank', shift: false })
-    // Outside a quiz none of them exist.
-    expect(matchShortcut('1')).toBeNull()
-    expect(matchShortcut('space')).toBeNull()
-    // And a card cannot answer for a different card's key.
-    expect(matchShortcut('3', '', 'flip')).toBeNull()
-  })
-
-  // Practice and the Daily Quiz show the same card with the same buttons, and
-  // they are not the same act: the daily deck IS the schedule. Shift is the one
-  // deliberate finger between reflex and a permanent grade.
-  it('and reports Shift so the two decks can differ', () => {
-    expect(matchShortcut('shift+1', '', 'mcq')).toEqual({ id: 'pick-1', shift: true })
-    expect(matchShortcut('shift+space', '', 'flip')).toEqual({ id: 'reveal', shift: true })
-    // Shift only ever qualifies a card binding; it does not invent global ones.
-    expect(matchShortcut('shift+n')).toBeNull()
   })
 
   it('and answers nothing for an unbound key', () => {
@@ -259,7 +233,7 @@ describe('nothing is listed that does not work', () => {
     // The registry still owns the binding's NAME and label, which is what this
     // assertion is really about: an entry here is a promise printed on a button.
     // Where the promise is kept moved; that it must be kept did not.
-    const wired = read('App.jsx') + read('review.jsx') + read('suggest.jsx')
+    const wired = read('App.jsx') + read('suggest.jsx')
     for (const s of SHORTCUTS) {
       // A FAMILY COUNTS AS WIRED. pick-1..4 are dispatched by prefix rather than
       // by four identical cases, which is the right code and would otherwise

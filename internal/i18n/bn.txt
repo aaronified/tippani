@@ -75,7 +75,6 @@ settings.section.jobs.info.body = কী চলছে, কী অপেক্ষ
 settings.section.aria = কোন সেটিংস বদলাবেন
 settings.section.theme.label = থিম
 settings.section.lang.label = ভাষা ও ফন্ট
-settings.section.review.label = রিভিউ
 settings.section.sections.label = বিভাগ
 settings.section.server.label = সার্ভার
 # bn: "job" → কাজ, the everyday word; the Additions table already gives কাজ to an arithmetic "operation" in a mono Select, a different screen
@@ -383,9 +382,6 @@ common.action.reload.label = রিলোড করুন
 common.action.upload.busy = আপলোড হচ্ছে…
 common.action.load.busy = লোড হচ্ছে…
 common.action.fetch.busy = আনা হচ্ছে…
-# The verb on a button. The named MODE is quiz.practice.label — English tells the
-# two apart with an s and a c, which no other language can reproduce.
-common.action.practise.label = ঝালিয়ে নিন
 common.action.show.label = দেখান
 common.action.hide.label = লুকান
 common.action.show-less.label = কম দেখান
@@ -401,7 +397,6 @@ common.select.target.fallback = এটা
 
 # Tooltips on a table row's action cell. {noun} is what the row holds.
 common.action.copy.row.tip = এই {noun} কপি করুন
-common.action.practise.row.tip = এই {noun} ঝালিয়ে নিন
 common.action.share.row.tip = এই {noun} শেয়ার করুন
 common.action.edit.row.tip = এই {noun} এডিট করুন
 common.action.delete.row.tip = এই {noun} মুছুন
@@ -514,9 +509,6 @@ common.info.dot.aria = আরও জানুন: {name}
 
 # --- key caps. The joining word between two keys of a chord ("G then L").
 common.kbd.then.label = তারপর
-# The word between the two caps of one quiz action in the shortcut sheet, where the
-# daily key is followed by the Practice one. Lower case: it labels a cap, not a row.
-common.kbd.practice.label = ঝালাই
 
 # --- help, from any screen.
 common.help.sheet.title = সাহায্য
@@ -578,17 +570,6 @@ common.recall.mode.practice.label = ঝালাই
 common.recall.uncounted.label = বদলায়নি
 # Once, under a history that holds one of those.
 common.recall.uncounted.note = এগুলো রাখা থাকে, তবে এই উত্তরগুলোয় অর্ধায়ু বদলায় না।
-
-# --- the number beside a slider, in the quiz panel. THE WHOLE READOUT IS ONE
-# STRING rather than a number with a unit glued to it: the unit used to be written
-# ' days', with a leading space no line in this file can carry, and the number does
-# not come first in every language. {n} is already formatted to the slider's
-# decimals; the plural form is chosen by the same value.
-common.slider.multiplier.format = {n}×
-common.slider.days.format.one = {n} দিন
-common.slider.days.format.other = {n} দিন
-common.slider.words.format.one = {n} শব্দ
-common.slider.words.format.other = {n} শব্দ
 
 # --- the struck flash card on a row the quiz will not draw. {kind} is the word
 # for the work it hangs off — book, film, show.
@@ -727,8 +708,6 @@ shell.error.boundary.named.body = {name} — বাকি অ্যাপটা 
 # The legend for every keyboard shortcut at once, opened by `?`.
 shell.shortcuts.title = কীবোর্ড শর্টকাট
 shell.shortcuts.intro.prose = প্রতিটা শর্টকাট তার বোতামের গায়েই লেখা, তাই মুখস্থ রাখার দরকার নেই। টাইপ করার সময় শর্টকাট কাজ করে না।
-# {mode} is the name of the Practice mode, in bold; {key} is a drawn key cap.
-shell.shortcuts.practice.prose = অনুশীলনীর কার্ড তার প্রশ্নের ধরন অনুযায়ী শর্টকাট নেয়। {mode} মোডে সঙ্গে {key} চেপে রাখুন — দৈনিক ডেকের নম্বর পাকা থেকে যায়, তাই বাড়তি বোতামটা কম ঝুঁকির মোডেই।
 
 # ---------------------------------------------------------------------------
 # unit.* — EVERY COUNTABLE NOUN'S FORMS, and nothing else. The only namespace
@@ -1022,9 +1001,6 @@ vocab.key.alt.label = Alt
 # ---------------------------------------------------------------------------
 shell.shortcut.group.anywhere.label = সব জায়গায়
 shell.shortcut.group.go-to.label = যাতায়াত
-shell.shortcut.group.mcq.label = প্রশ্নোত্তর
-shell.shortcut.group.flip.label = উল্টে দেখার কার্ড
-shell.shortcut.group.cloze.label = শূন্যস্থান পূরণ
 shell.shortcut.group.offer.label = পাশে যা দেওয়া হচ্ছে
 shell.shortcut.search.label = খোঁজ
 shell.shortcut.capture.label = উদ্ধৃতি তুলে রাখুন
@@ -1037,20 +1013,10 @@ shell.shortcut.go-anthologies.label = সংকলনে যান
 shell.shortcut.go-metadata.label = মেটাডেটায় যান
 shell.shortcut.go-profile.label = প্রোফাইল খুলুন
 shell.shortcut.go-settings.label = সেটিংসে যান
-shell.shortcut.pick-1.label = প্রথম উত্তরটা বাছুন
-shell.shortcut.pick-2.label = দ্বিতীয়টা বাছুন
-shell.shortcut.pick-3.label = তৃতীয়টা বাছুন
-shell.shortcut.pick-4.label = চতুর্থটা বাছুন
-shell.shortcut.reveal.label = উত্তর দেখান
-shell.shortcut.grade-forgot.label = ভুলে গেছি
-shell.shortcut.grade-got.label = পেরেছি
-shell.shortcut.focus-blank.label = শূন্যস্থানে লিখুন
 shell.shortcut.offer-accept.label = যা দেওয়া হচ্ছে সেটাই নিন
 
 # A control's tooltip with its key appended. {name} is the tooltip, {key} the cap.
 common.shortcut.suffix.label = {name} · {key}
-# The Practice form of a quiz key, which asks for one extra finger.
-common.shortcut.shifted.label = Shift-{key}
 
 # ---------------------------------------------------------------------------
 # undo, and the last-resort failure.
@@ -1276,17 +1242,6 @@ settings.colours.unmake.cta = মুছে দিন
 settings.colours.reset.aria = এই রং আগের মতো করুন
 settings.colours.reset.tip = আগের রঙে ফিরুন
 
-# --- which quotes the quiz draws from. The chip names the SCREEN (nav.tab.*)
-# and the tooltip says what that screen's quotes are.
-settings.review-scope.title = যেখান থেকে নেওয়া
-settings.review-scope.info.title = যেখান থেকে নেওয়া
-settings.review-scope.info.body = দৈনিক অনুশীলনী আর ঝালাই কোন ধরনের উদ্ধৃতি থেকে প্রশ্ন নেবে, আলাদা আলাদা করে বাছুন। যে উদ্ধৃতিতে বক্তা বা প্রসঙ্গ নেই, আর গত এক সপ্তাহে যা রাখা হয়েছে, সেগুলো বাদ থাকে।
-settings.review-scope.books.tip = বইয়ের উদ্ধৃতি
-settings.review-scope.movies.tip = সিনেমা, শো আর গেমের সংলাপ
-settings.review-scope.quotes.tip = ভাষণ, চিঠি, আর বাকি সব
-# The last scope standing cannot be turned off, or the deck empties.
-settings.review-scope.stuck.tip = ডেকের অন্তত একটা লাগবে
-
 settings.type.own.title = আপনার নিজের ফন্ট
 settings.type.faces.title = ইন্টারফেসের ফন্ট
 settings.quote-faces.title = উদ্ধৃতির ফন্ট
@@ -1364,71 +1319,6 @@ settings.languages.reset.label = চিহ্ন আর নাম আগের �
 settings.languages.remove.label = ভাষাটা সরান
 settings.languages.remove.confirm.title = {name} সরাবেন?
 settings.languages.remove.confirm.body = এর চিহ্ন, নাম আর কোড মুছে যাবে। কোনও উক্তি বদলাবে না।
-
-# --- the quiz panel.
-settings.quiz.group.deck.title = অনুশীলনী আর তার প্রশ্ন
-settings.quiz.group.schedule.title = সময়সূচি
-settings.quiz.group.practice.title = অনুশীলন
-settings.quiz.skipped.aside = উদ্ধৃতি ধরে ধরে
-settings.quiz.per-day.label = দৈনিক ডেক
-settings.quiz.in-depth.tip = গুণক আর বাঁধা সিঁড়ি
-settings.quiz.panel.title = সময়সূচির পিছনের সংখ্যাগুলো
-settings.quiz.tuning.changed.aside = বদলানো
-# {name} is the deck — Daily quiz, or Practice.
-settings.quiz.deck.title = {name} যা জিজ্ঞেস করে
-settings.quiz.deck.question.aria = {question} — {name}
-settings.quiz.deck.daily.info.body = দৈনিক অনুশীলনীর প্রতিটা উত্তর সার্ভার মিলিয়ে দেখে, তাই নিজে নম্বর দেওয়ার ফ্লিপ কার্ড এখানে নেই।
-settings.quiz.deck.practice.info.body = ঝালাই শুরু হয় ফ্লিপ কার্ড দিয়ে, তারপর বাকিগুলো মিশিয়ে। “প্র্যাকটিস গোনা হয়” চালু থাকলে ফ্লিপ কার্ড বাদ যায়, কারণ নিজে দেওয়া নম্বর কেউ যাচাই করে না।
-settings.quiz.practice-counts.title = প্র্যাকটিস গোনা হয়
-settings.quiz.practice-counts.aria = ঝালাইতেও দিনপঞ্জি বদলায়
-settings.quiz.practice-counts.info.body = বন্ধ থাকলে ঝালাই শুধু পড়াশোনা। চালু করলে ঝালাইয়ের ঠিক উত্তরেও দৈনিক অনুশীলনীর মতো পরের বার আসার ফাঁক বাড়ে।
-settings.quiz.submit.title = প্রতিটা উত্তর নিশ্চিত করুন
-settings.quiz.submit.aria = প্রতিটা উত্তর নিশ্চিত করুন
-settings.quiz.submit.info.body = বন্ধ থাকলে ছুঁলেই উত্তর হয়ে যায়। চালু থাকলে ছুঁলে শুধু বাছা হয়, “জমা দিন” চাপলে তবে উত্তর — মত বদলানোর সুযোগ থাকে। ফ্লিপ কার্ডে কোনো তফাত নেই।
-# bn: অ্যাডাপ্টিভ is the word a Bengali actually says of a thing that adjusts to you;
-# the coinages (মানানসই, অভিযোজী) need decoding first.
-settings.quiz.adaptive.title = অ্যাডাপ্টিভ ফাঁক
-settings.quiz.adaptive.aria = অ্যাডাপ্টিভ ফাঁক
-settings.quiz.adaptive.info.body = অ্যাডাপ্টিভ (শুরুর ব্যবস্থা): ঠিক উত্তরে ফাঁক আড়াই গুণ হয়, ভুলে অর্ধেক। সিঁড়ি: বাঁধা ধাপ ৭ → ৩০ → ১০০ → ৩৬৫ দিন, আর ভুল হলেই আবার ৭-এ।
-settings.quiz.adaptive.ladder.label = সিঁড়ি
-settings.quiz.adaptive.on.label = অ্যাডাপ্টিভ
-settings.quiz.skipped.title = কখনও জিজ্ঞাসা করা হয় না
-settings.quiz.skipped.none = কিছুই বাদ পড়েনি। আপনার রাখা প্রতিটি উদ্ধৃতি ডেকে আছে।
-settings.quiz.skipped.word = বাদ
-settings.quiz.quotes.word.one = উক্তি
-settings.quiz.quotes.word.other = উক্তি
-settings.quiz.works.word.one = রচনা
-settings.quiz.works.word.other = রচনা
-settings.quiz.skipped.in = —
-settings.quiz.skipped.standalone = নিজের মতো
-settings.quiz.skipped.restore-work.label = {n}টি ফেরান
-settings.quiz.skipped.restore-one.aria = এটি ডেকে ফিরিয়ে দিন
-settings.quiz.skipped.chosen = {n}টি বাছা
-settings.quiz.skipped.clear.label = বাছাই মুছুন
-settings.quiz.skipped.pick-work.aria = {title} থেকে বাদ পড়া সবকিছু বাছুন
-settings.quiz.skipped.pick-one.aria = বাদ পড়া এই উদ্ধৃতিটি বাছুন
-
-settings.quiz.start.title = নতুন লাইন শুরু হয়
-settings.quiz.start.info.body = নতুন উদ্ধৃতি কোথা থেকে শুরু করবে। “দেখা হয়নি” হলে তাড়াতাড়ি আর ঘনঘন আসে; “আয়ত্ত” হলে কালেভদ্রে — আগে থেকে জানা সংগ্রহের জন্য। যেকোনোটাতেই ভুল করলে আবার ঘনঘন আসবে।
-settings.quiz.start.unseen.label = দেখা হয়নি
-settings.quiz.start.mastered.label = আয়ত্ত
-
-settings.quiz.tier.title = প্রশ্ন কতটা কঠিন
-settings.quiz.tier.info.body = মাঝারিই শুরুর মাত্রা। সহজে চারের বদলে দুটো, স্পষ্ট আলাদা বিকল্প; কঠিনে কথাগুলো বেশি টাইপ করতে হয়; এলোমেলোয় প্রতি কার্ডে আলাদা মাত্রা।
-settings.quiz.tier.easy.label = সহজ
-settings.quiz.tier.medium.label = মাঝারি
-settings.quiz.tier.hard.label = কঠিন
-settings.quiz.tier.random.label = এলোমেলো
-settings.quiz.tier.easy.note = চারের বদলে দুটো, স্পষ্ট আলাদা বিকল্প। কাছাকাছি ভুল বিকল্পগুলো থাকে না — অথচ ওগুলো থেকেই সবচেয়ে বেশি শেখা যায়।
-settings.quiz.tier.medium.note = চারটে বিকল্প, কয়েকটা কাছাকাছি; আর টাইপ করতে হয় শুধু ছোট লাইনে।
-settings.quiz.tier.hard.note = বেশিরভাগই কথাগুলো টাইপ করে লিখতে হয়; নইলে চারটে বিকল্প, সবকটাই ঠিক মনে হয়।
-settings.quiz.tier.random.note = প্রতি কার্ডে আলাদা মাত্রা, যাতে কোনো এক ধরনের প্রশ্নে অভ্যস্ত না হয়ে পড়েন।
-settings.quiz.seen.title = চোখে পড়লে অর্ধায়ু বাড়ে
-settings.quiz.seen.label = চোখে পড়লে অর্ধায়ু বাড়ে
-settings.quiz.seen.info.body = কোনো উদ্ধৃতি শেয়ার করলে, প্রিয়তে রাখলে, বা দৈনিক অনুশীলনীতে বিকল্পের মধ্যে চোখে পড়লে পরের বার আসার ফাঁক একটু বাড়ে। ঝালাই এখানে ধরা হয় না। 1.0× দিলে এটা বন্ধ।
-settings.quiz.tuning.info.body = প্রতিটা উত্তরে একটা উদ্ধৃতির ফাঁক কতটা বাড়বে বা কমবে। সীমা বাঁধা আছে, যাতে ভুল মানে একই উদ্ধৃতি নিঃশব্দে বারবার ফিরে না আসে।
-settings.quiz.reset.label = আগের মতো করুন
-settings.quiz.reset.tip = এই প্যানেলের সব বদল ফিরিয়ে দিন
 
 # --- Settings → Features. Hiding a section is cosmetic: it takes away the doors.
 settings.features.locked.prose = শেষ বিভাগটা থাকতেই হবে — আগে অন্য একটা চালু করুন।
@@ -1918,70 +1808,6 @@ greeting.dateline.format = {weekday} · {date}
 # book, a person and a tag, so its words belong to the mode.
 # ---------------------------------------------------------------------------
 
-# The two decks, named. "Practice" is the name of a FEATURE here, not the verb
-# on a button — that one is common.action.practise.label and will be a
-# different word.
-quiz.daily.label = দৈনিক অনুশীলনী
-quiz.practice.label = ঝালাই
-
-# The five question types. .label is the row in Settings, .hint its info dot.
-quiz.question.source.label = কোন উৎস?
-quiz.question.source.hint = উদ্ধৃতিটা দেখিয়ে জিজ্ঞেস করে কোথা থেকে এসেছে। কয়েকটা বিকল্প থেকে বাছতে হয়।
-quiz.question.quote.label = কোন বাক্যটা?
-quiz.question.quote.hint = বই বা সিনেমার নাম দেখিয়ে জিজ্ঞেস করে কোন লাইনটা ওখান থেকে। কয়েকটা বিকল্প থেকে বাছতে হয়।
-quiz.question.cloze.label = শূন্যস্থান পূরণ
-quiz.question.cloze.hint = একটা অংশ ফাঁকা রেখে আপনাকে টাইপ করে ভরতে বলে, শুধু সেই উদ্ধৃতিতে যা "শূন্যস্থান শুধু এত শব্দ পর্যন্ত"-এর চেয়ে লম্বা নয়। সার্ভার যাচাই করে, ছোটখাটো বানান ভুল ধরে না। ঠিক হলে বেশি নম্বর, ভুলে কম ক্ষতি।
-quiz.question.cloze-mcq.label = শূন্যস্থান পূরণ — বেছে নিয়ে
-quiz.question.cloze-mcq.hint = একই ফাঁকা জায়গা, তবে চারটে অংশ থেকে বাছতে হয়। ভুলগুলো আপনার অন্য উদ্ধৃতি থেকে নেওয়া। টাইপ করা শূন্যস্থানের মতোই, শুধু ছোট উদ্ধৃতিতে।
-quiz.question.speaker.label = কে বলেছে?
-quiz.question.speaker.hint = লাইনটা কে বলেছে জিজ্ঞেস করে — সিনেমা, শো, গেম বা বক্তৃতার উদ্ধৃতিতে। বইয়ের হাইলাইটে কখনো আসে না।
-quiz.question.author.label = কে লিখেছে?
-quiz.question.author.hint = শুধু বইয়ে: কে লিখেছেন জিজ্ঞেস করে। ভুল বিকল্পগুলো কাছাকাছি ধরনের বইয়ের লেখক।
-quiz.question.flip.label = উল্টে নিজে বিচার
-quiz.question.flip.hint = উদ্ধৃতি দেখায়, তারপর উৎস, আর আপনি বলেন জানতেন কি না। উত্তর কেউ যাচাই করে না, তাই শুধু ঝালাইয়ে আসে — আর ঝালাই গোনা হলে সেখানেও নয়।
-# The two axes every question type sits on, appended to its tooltip: WHAT is
-# being asked, and HOW you answer it. Two questions sharing a class are the same
-# question asked two ways — which is what a flat row of chips cannot show.
-quiz.class.work.label = কোন উৎস
-quiz.class.quote.label = কোন উদ্ধৃতি
-quiz.class.person.label = পিছনে কে
-quiz.class.words.label = শব্দগুলো নিজেই
-quiz.form.choose.label = চারটের একটা বাছুন
-quiz.form.type.label = টাইপ করে ফেরান
-quiz.form.self.label = নিজেই বিচার করুন
-quiz.taxonomy.line = {klass} · {form}
-
-# Appended to the hint of a question toggle that REFUSES to switch off,
-# because it is the last one the deck could ask of a book as well as a film.
-quiz.question.last-universal.info = প্রতিটা অনুশীলনীতে অন্তত একটা এমন প্রশ্ন থাকা চাই যা বই আর সিনেমা দুয়েই চলে। এটাই শেষটা।
-
-# The ten tuning sliders in Settings → Quiz. .label sits above the slider,
-# .hint is its info dot. Every one of these multiplies a half-life.
-quiz.tuning.grow.label = ঠিক উত্তরে বাড়ে
-quiz.tuning.grow.hint = শুধু অ্যাডাপ্টিভে। ঠিক উত্তরে পরের বার আসার ফাঁক এত গুণ হয়। ২.৫ চেনা মান; বেশি দিলে কার্ড তাড়াতাড়ি দূরে সরে।
-quiz.tuning.shrink.label = ভুল হলে কমে
-quiz.tuning.shrink.hint = শুধু অ্যাডাপ্টিভে। ভুল হলে ফাঁক একেবারে শূন্যে না নেমে এত গুণ হয়; ০.৫ মানে অর্ধেক। ১-এর কম হতেই হবে।
-quiz.tuning.cloze-grow.label = টাইপ করা উত্তরে বাড়ে
-quiz.tuning.cloze-grow.hint = বিকল্প বাছার চেয়ে টাইপ করে ঠিক উত্তর দিলে কত বেশি গোনা হবে।
-quiz.tuning.cloze-shrink.label = আর ভুল হলে খরচ
-quiz.tuning.cloze-shrink.hint = টাইপ করা উত্তর ভুল হলে কত কম ক্ষতি। সবচেয়ে কঠিন প্রশ্নে ভুল করা মানেই ভুলে যাওয়া নয় — বিকল্প বাছতে ভুল করাটা তার চেয়ে বড় লক্ষণ।
-quiz.tuning.cloze-synonym.label = সমার্থক শব্দের দাম
-quiz.tuning.cloze-synonym.hint = কাছাকাছি মানের শব্দ দিলেও ঠিক ধরা হয়, আর পুরো উত্তরের এতটা অংশ পায়। ০ দিলে ঠিক ধরা হয়, কিন্তু কার্ড নড়ে না।
-quiz.tuning.cloze-words.label = একাধিক শব্দের শূন্যস্থান কবে থেকে
-quiz.tuning.cloze-words.hint = উদ্ধৃতি এত দিন মনে থাকার আগে ফাঁকা জায়গায় একটাই শব্দ লুকোয়; তারপর পুরো অংশও লুকোতে পারে। ১ দিলে শুরু থেকেই পুরো অংশ।
-quiz.tuning.cloze-max.label = শূন্যস্থান শুধু এত শব্দ পর্যন্ত
-quiz.tuning.cloze-max.hint = যত শব্দের উদ্ধৃতি পর্যন্ত ফাঁকা জায়গার প্রশ্ন হবে, টাইপ করে বা বেছে নিয়ে। এর চেয়ে লম্বা উদ্ধৃতিতে একটা শব্দ মনে করা অনেকগুলোর মধ্যে আন্দাজ মাত্র, তাই সেখানে জিজ্ঞেস করা হয় কোন উৎস, কোন উদ্ধৃতি, বা কে লিখেছে বা বলেছে।
-quiz.tuning.ladder-1.label = সিঁড়ির ধাপ 1
-quiz.tuning.ladder-1.hint = প্রথম ধাপ, আর ভুল হলে কার্ড এখানেই ফেরে। শুধু সিঁড়ি বাছলে খাটে।
-quiz.tuning.ladder-2.label = সিঁড়ির ধাপ 2
-quiz.tuning.ladder-3.label = সিঁড়ির ধাপ 3
-quiz.tuning.ladder-4.label = সিঁড়ির ধাপ 4
-quiz.tuning.ladder-4.hint = শেষ ধাপ। ঠিক উত্তর দিয়ে যেতে থাকলে কার্ড এখানেই থাকে।
-
-# Under the four ladder sliders when they are not in ascending order. The
-# panel refuses rather than letting the server silently revert them.
-quiz.tuning.ladder.error = চারটে ধাপ উপরে উঠতে হবে — প্রতিটা আগেরটার চেয়ে লম্বা।
-
 # ---------------------------------------------------------------------------
 # THE FACET GRAMMAR (facets.js)
 #
@@ -2063,14 +1889,6 @@ common.action.delete.tip = {subject} মুছুন
 # Fetch only what is MISSING and touch nothing else.
 common.action.fill.label = শূন্যস্থান পূরণ
 common.action.fill.tip = ফাঁকা ঘরগুলো ভরান
-# While it is fetching.
-# A themed quiz round over one book or one title.
-common.action.practise.tip = {subject} নিয়ে ঝালিয়ে নিন
-# The quiz toggle, which flips to name what pressing it will do.
-common.action.review.add.label = অনুশীলনীতে দিন
-common.action.review.add.tip = আবার অনুশীলনীতে ফেরান
-common.action.review.skip.label = অনুশীলনী থেকে বাদ দিন
-common.action.review.skip.tip = অনুশীলনীর বাইরে রাখুন
 # The other flipping pair: .on when the row is NOT a favourite yet, .off when
 # it already is. Bengali negation is a different construction, so both are keys.
 common.action.favourite.menu.on.label = প্রিয়তে রাখুন
@@ -2126,8 +1944,6 @@ common.selection.toast.fields-set.one = 1টা রেকর্ড বদলা�
 common.selection.toast.fields-set.other = {n}টা রেকর্ড বদলাল
 common.selection.toast.favourited = {n}টা প্রিয়তে গেল
 common.selection.toast.moved = {n}টা পাঠানো হল
-common.selection.toast.back-in-quiz = আবার অনুশীলনীতে
-common.selection.toast.skipping = {n}টা অনুশীলনী থেকে বাদ
 # Gathering into an anthology. A quote already there is SKIPPED, not an error,
 # so the second form reports both numbers rather than claiming they all landed.
 common.selection.toast.gathered = {n}টা জড়ো হল
@@ -2165,9 +1981,6 @@ error.add.generic = ওগুলো যোগ করা গেল না
 # quote, which the text then flows around.
 # ---------------------------------------------------------------------------
 
-# The three lower-case word links on a small card — deliberately lower case, so
-# they are their own strings and not the Title Case buttons of the same name.
-common.link.practise.label = ঝালিয়ে নিন
 common.link.edit.label = এডিট
 common.link.delete.label = মুছুন
 
@@ -2302,13 +2115,6 @@ tour.step.share.title = একটা বাক্য শেয়ার কর�
 tour.step.share.prose = যে কোনও উদ্ধৃতি এক ট্যাপে শেয়ার হয় — লেখা হিসেবে, নয়তো আপনার নিজের সাজে আঁকা {em1} হিসেবে।
 tour.step.share.em1.label = ছবির কার্ড
 tour.step.share.more = শেয়ার করা যায় Markdown, WhatsApp, সাধারণ লেখা বা Reddit-এর ধাঁচে, কিংবা আপনার যন্ত্রেই তৈরি ছবি হিসেবে — আগেভাগে দেখে নিয়ে। একটা বই, ছেঁকে নেওয়া কয়েকটা, বা পুরো সংগ্রহ Markdown-এ এক্সপোর্ট করা যায়, আবার ঠিকঠাক ইমপোর্টও করা যায়।
-
-# Step "quiz".
-tour.step.quiz.name = দৈনিক অনুশীলনী আর ঝালাই
-tour.step.quiz.blurb = নিজের উদ্ধৃতি নিয়ে ফাঁক রেখে পুনরাবৃত্তি — ভুলতে শুরু করলেই কার্ড আবার সামনে আসে
-tour.step.quiz.title = দৈনিক অভ্যাস
-tour.step.quiz.prose = হোমে রোজ আপনার নিজের উদ্ধৃতি নিয়ে ছোট একটা অনুশীলনী — প্রতিটা ঠিক তখনই ফেরে যখন ভুলতে শুরু করবেন। দিনে দু-তিন মিনিট।
-tour.step.quiz.more = প্রতিটা উদ্ধৃতির পাশে একটা বিন্দু — মনে আছে, ভুলছেন, না সম্ভবত ভুলে গেছেন — আর আপনার উত্তরেই সেটা বদলায়। ঝালাই যত খুশি, যখন খুশি থামানো যায়, নিজের আলাদা স্কোর থাকে, আর সাধারণত সময়সূচিতে হাত দেয় না। কটা কার্ড ইত্যাদি সেটিংসে ঠিক করুন।
 
 # Step "search".
 tour.step.search.name = সঙ্গে সঙ্গে খোঁজ
@@ -3084,178 +2890,18 @@ error.render.image = এই যন্ত্রপাতিতে ছবিটা
 # work tile, a tag, a person or a colour. quiz.* is a MODE rather than a screen.
 # ---------------------------------------------------------------------------
 
-# What a card calls its own source in the question line. A standalone quote has
-# no work behind it, so its source is the OCCASION it was said on.
-quiz.noun.book.label = বই
-quiz.noun.film.label = সিনেমা
-quiz.noun.show.label = শো
-quiz.noun.occasion.label = উপলক্ষ
-
-# The prompt at the top of a card, one per question type. {kind} is a word from
-# quiz.noun.* above, so in Bengali the case marker belongs on the noun, not here.
-quiz.question.source.stem = এই উদ্ধৃতিটা কোন {kind} থেকে?
-quiz.question.quote.stem = এই {kind} থেকে কোন উদ্ধৃতিটা?
-quiz.question.cloze.stem = শূন্যস্থান পূরণ করুন
-quiz.question.cloze-mcq.stem = ফাঁকে কোন শব্দগুলো বসবে?
-quiz.question.speaker.stem = এটা কে বলছে?
-quiz.question.author.stem = এটা কে লিখেছেন?
-# A flip card, and any question type a newer server sends that this client has
-# never heard of: both are answered the same way.
-quiz.question.flip.stem = এটা কোথা থেকে?
-# Where the card is in the round.
-quiz.progress.label = {done} / {total}
-
-# The gap the server left in a cloze quote, announced to a screen reader.
-quiz.cloze.blank.aria = শূন্যস্থান
-quiz.cloze.field.label = যে শব্দগুলো নেই
-quiz.cloze.placeholder = শূন্যস্থানে যা বসবে, লিখুন
-# The same placeholder where there is a keyboard. {key} is a key cap.
-quiz.cloze.placeholder-key = শূন্যস্থানে যা বসবে, লিখুন · {key}
-quiz.cloze.check.label = মিলিয়ে দেখুন
-quiz.checking.label = মিলিয়ে দেখা হচ্ছে…
-# Above the right answer, once it has been checked.
-quiz.cloze.answer.label = যে শব্দগুলো ছিল
-quiz.cloze.yours.label = আপনি যা লিখেছেন
-# Under the revealed words when the attempt was a close synonym rather than the
-# word itself: it counted, and it earned less. See quiz.tuning.cloze-synonym.
-quiz.cloze.synonym.note = সমার্থক হিসেবে গোনা হল — আসল শব্দের চেয়ে কম দামে
-# Under each option of a "which quote?" card, once it has been answered: the
-# work that option came out of. {title} is a book, film, show, game or occasion.
-quiz.option.source.label = {title} থেকে
-# Between a person and the part they play, once a quiz card is answered: an
-# actor option's chip, then this, then the character's chip ("Al Pacino as
-# Vincent Hanna"); also between a film line's actor and character under the
-# card. One word, set small; bn names the role rather than translating "as".
-quiz.option.as.label = চরিত্র
-
-# A multiple-choice option that is longer than three lines.
-quiz.option.expand.aria = এই উত্তরটা পুরো দেখুন
-quiz.option.collapse.aria = এই উত্তরটা গুটিয়ে নিন
 quiz.option.expand.tip = গোটা উদ্ধৃতিটা দেখান
-
-# A FLIP CARD: reveal, then say whether you had it. The reveal posts nothing —
-# treating it as an answer would make self-grading a button you press to make
-# the card go away.
-# bn: First person, like the two grades under it — the reader asks to see, then says whether they had it.
-quiz.flip.reveal.label = দেখি
-quiz.flip.reveal.tip = উত্তরটা দেখান
-quiz.grade.forgot.label = ভুলে গেছি
-quiz.grade.got.label = পেরেছি
-
-# THE LEECH OFFER — a card forgotten over and over is costing a slot in every
-# deck and giving nothing back. It is an OFFER: nothing is ever suspended
-# automatically, and the card is still asked before it appears.
-quiz.leech.count.label = {n} বার ভুলে গেছেন
-quiz.leech.keep.label = জিজ্ঞেস করতে থাকুক
-quiz.leech.aside.action.label = সরিয়ে রাখুন
-quiz.leech.aside.label = অনুশীলনীর বাইরে
-
-# The verdict after an answer. A flip card was not right or wrong — it was
-# recalled or it was not, and the READER said so, which is why it gets its own
-# two words rather than the marked ones.
-quiz.verdict.correct.label = ঠিক
-quiz.verdict.wrong.label = ঠিক হল না
-quiz.verdict.recalled.label = মনে ছিল
-quiz.verdict.noted.label = লিখে রাখা হল
-quiz.verdict.kept.label = রাখা হল, পরে মিলিয়ে দেখা হবে
-quiz.kept.waiting.one = {n}টি উত্তর পাঠানোর অপেক্ষায়
-quiz.kept.waiting.other = {n}টি উত্তর পাঠানোর অপেক্ষায়
-quiz.next.label = পরেরটা
-quiz.finish.label = শেষ করুন
-# With the confirm step on: an option is chosen but nothing has been posted.
-quiz.submit.hint = বদলাতে হলে অন্যটায় ট্যাপ করুন
-quiz.submit.label = জমা দিন
-# Practice only. It advances locally and touches neither schedule nor score.
-quiz.skip.label = বাদ দিন
-
-# Fixing a quote from inside the card, after it has been answered.
-quiz.card.fix.label = ঠিক করুন বা ট্যাগ দিন
-quiz.card.tags.placeholder = কমা দিয়ে আলাদা করুন
-quiz.card.favourite.on.label = প্রিয়তে আছে
-quiz.card.favourite.off.label = প্রিয়তে রাখুন
-
-# A THEMED ROUND — "quiz me on this book / tag / colour / person".
-# Not an error: a theme with nothing behind it is the ordinary answer for a book
-# you have not quoted yet, or a colour you stopped using.
-quiz.practice.empty = এখানে ঝালিয়ে নেওয়ার মতো উদ্ধৃতি নেই
-quiz.practice.end.label = রাউন্ড শেষ করুন
-quiz.round.score.label = {done} / {total}
-quiz.round.summary.label = {got} মনে ছিল · {missed} পারেননি
-quiz.round.again.label = আরেক রাউন্ড
 
 # The page locator on a book card. Small caps in a narrow slot.
 common.locator.page.label = পৃ. {n}
 common.toast.saved = সেভ হয়েছে
 
-# ⚠ NEAR-DUPLICATES OF error.save.generic ("could not save"). Kept apart because
-# the shipped English used a contraction at these two sites and this pass is a
-# migration rather than a copy edit — collapse them if the copy is ever revised.
-error.save.quiz-card = সেভ করা গেল না
 error.load.quiz-card = এই উদ্ধৃতিটা আনা গেল না
-error.setaside.generic = সরিয়ে রাখা গেল না
 
 # ---------------------------------------------------------------------------
 # HOME (Home.jsx) — the daily ritual, and the two ways back into your own
 # library that are neither the quiz nor a search.
 # ---------------------------------------------------------------------------
-
-# THE DAILY QUIZ CARD.
-home.daily.title = দৈনিক অনুশীলনী
-# {n} consecutive days with a finished deck.
-home.daily.streak.label = টানা {n} দিন
-home.daily.loading = আজকের কার্ড জড়ো হচ্ছে…
-# A failed fetch must NOT masquerade as "all caught up".
-home.daily.error = আজকের অনুশীলনী আনা গেল না — রিলোড করে আবার দেখুন
-# Two different good outcomes: you finished today's deck, or there was none.
-home.daily.done.label = আজকের মতো শেষ ✓
-home.daily.done.summary = {got} মনে ছিল · {missed} আবার ফিরবে · কাল আবার
-home.daily.empty.label = আজ কিছু বাকি নেই
-home.daily.empty.summary = আরও উদ্ধৃতি জমান বা ঝালিয়ে নিন — দিনপঞ্জি তৈরি হবে
-# THE DECK BEFORE IT IS OPENED. The round runs in its own screen (a popup on a
-# desk, the whole screen on a phone); the card on Home says how many are due and
-# opens it. "Continue" once some of today's cards have been answered here.
-home.daily.due.label.one = আজ {n}টি কার্ড বাকি
-home.daily.due.label.other = আজ {n}টি কার্ড বাকি
-home.daily.start.label = শুরু করুন
-home.daily.resume.label = চালিয়ে যান
-
-# "WHERE YOU STAND" — a count per memory status, with the explainer under it.
-home.states.title = স্মৃতির হাল
-home.states.help.label = এগুলো কীভাবে চলে
-home.states.capacity.note = আপনার সংগ্রহ সময়সূচির চেয়ে বড় হয়ে গেছে: মোটামুটি {n}টা উদ্ধৃতি নিয়মিত ফেরানো যায়, আর আপনার আছে {total}টা। অনুশীলনী তবু আগে সেটাই জিজ্ঞেস করে যেটা ভোলার সবচেয়ে কাছে; সেটিংসে দিনে বেশি কার্ড দিলে আরও দূর পৌঁছবে।
-# THE EXPLAINER HAS TWO VERSIONS and the app shows whichever rule is actually in
-# force: describing the ladder to somebody who switched it off would make the one
-# piece of copy that explains the schedule the one piece that lies about it.
-# {curve} and {spaced} are links to Wikipedia; {remembered} {forgetting} and
-# {forgotten} are the three status words in bold, and they must match
-# common.status.*.label, which is what the dots on every card say.
-# ?? the owner's to confirm: "নতুন রাখা উদ্ধৃতি প্রথম সপ্তাহ দৈনিক অনুশীলনীতে আসে না" replaces "…মনে-থাকা বলেই ধরা হয়", which 3.0.3 made untrue (a new quote now reads "not yet reviewed")
-home.states.help.adaptive.prose = প্রতিটা উদ্ধৃতির একটা অর্ধায়ু থাকে: মনে করতে পারলে সেটা আড়াই গুণ বাড়ে, সর্বোচ্চ এক বছর; ভুলে গেলে অর্ধেক হয় — এর ভিত্তি {curve}, যার ওপর দাঁড়িয়ে {spaced}। মনে পড়ার সম্ভাবনা বেশি থাকলে উদ্ধৃতিটা {remembered}, কমতে থাকলে {forgetting}, আর অর্ধেকের নিচে নামলে {forgotten} — তখনই দৈনিক অনুশীলনী সেটা ফিরিয়ে আনে। নতুন রাখা উদ্ধৃতি প্রথম সপ্তাহ দৈনিক অনুশীলনীতে আসে না। অর্ধায়ু দেখতে যেকোনো বিন্দুর ওপর মাউস রাখুন।
-home.states.help.ladder.prose = প্রতিটা উদ্ধৃতির একটা অর্ধায়ু থাকে: মনে করতে পারলে সেটা বাঁধা ধাপে ওঠে — এক সপ্তাহ, তারপর ৩০, ১০০, ৩৬৫ দিন; ভুলে গেলে আবার এক সপ্তাহে নামে — এর ভিত্তি {curve}, যার ওপর দাঁড়িয়ে {spaced}। মনে পড়ার সম্ভাবনা বেশি থাকলে উদ্ধৃতিটা {remembered}, কমতে থাকলে {forgetting}, আর অর্ধেকের নিচে নামলে {forgotten} — তখনই দৈনিক অনুশীলনী সেটা ফিরিয়ে আনে। নতুন রাখা উদ্ধৃতি প্রথম সপ্তাহ দৈনিক অনুশীলনীতে আসে না। অর্ধায়ু দেখতে যেকোনো বিন্দুর ওপর মাউস রাখুন।
-# The two link texts inside those paragraphs.
-home.states.help.curve.label = ভুলে যাওয়ার রেখা
-home.states.help.spaced.label = ফাঁক রেখে পুনরাবৃত্তি
-# The three status words as they read INSIDE the paragraph — lower case, bold.
-home.states.help.remembered.label = মনে আছে
-home.states.help.forgetting.label = ভুলছেন
-home.states.help.forgotten.label = সম্ভবত ভুলে গেছেন
-
-# THE PRACTICE CARD — unlimited, skippable, and schedule-neutral by default.
-home.practice.title = ঝালাই
-home.practice.info.title = ঝালাই
-home.practice.info.body = পুরো সংগ্রহ থেকে যত খুশি ঝালাই; যেটা ইচ্ছে বাদ দিন। সেটিংসে না বদলালে এতে পুনরাবৃত্তির সময়সূচি নড়ে না, আর স্কোর মুছলেও শেখার ইতিহাস থেকে যায়।
-home.practice.unlimited.label = যত খুশি
-home.practice.start.label = ঝালাই শুরু করুন
-home.practice.start.busy = লোড হচ্ছে…
-# A round left open on Home, reopened in its own screen where it stopped.
-home.practice.resume.label = ঝালাই চালিয়ে যান
-# The lifetime practice score. {n} answered, {percent} of them recalled.
-home.practice.score.label = {n}টা উত্তর · {percent}% মনে ছিল
-home.practice.reset.aria = ঝালাইয়ের স্কোর মুছুন
-home.practice.reset.tip = ঝালাইয়ের স্কোর মুছে দিন
-home.practice.end.label = ঝালাই শেষ করুন
-home.practice.round.summary = রাউন্ড শেষ — {got} মনে ছিল · {missed} পারেননি
-home.practice.toast.reset = ঝালাইয়ের স্কোর মুছে গেল
 
 # THE TWO COUNT TILES, which are DOORS: pressing one opens that screen.
 home.tile.library.tip = গ্রন্থাগার খুলুন
@@ -3302,8 +2948,6 @@ home.favourites.delete.quote.confirm = এই উক্তিটা মুছব
 
 # The colour swatch row on a card.
 common.colour.category.aria = রঙের ঘর
-
-error.load.practice = আগে কয়েকটা উদ্ধৃতি রাখুন
 
 # ---------------------------------------------------------------------------
 # A WORK'S OWN DETAILS PANEL (WorkDetails.jsx)
@@ -5993,23 +5637,6 @@ common.favourite.filter.tip = শুধু প্রিয়
 # Heading: aliases nav.tab.home.label, so the screen has ONE name. Nothing to add here.
 
 
-home.help.daily-quiz.term = দৈনিক অনুশীলনী
-home.help.daily-quiz.what = আপনার নিজের উদ্ধৃতি নিয়ে ছোট একটা অনুশীলনী — প্রতিটা কার্ড ঠিক তখনই ফেরে যখন ভুলতে শুরু করবেন।
-home.help.daily-quiz.more = উত্তর দিলে ওই উদ্ধৃতির স্মৃতির অর্ধায়ু বদলে যায়।
-
-# The named mode beside the Daily Quiz — unlimited and off the schedule.
-home.help.practice.term = ঝালাই
-home.help.practice.what = যত খুশি ঝালাই, যেটা ইচ্ছে বাদ দিয়ে এগোনো যায়। নিজের আলাদা স্কোর থাকে, আর সেটিংসে না বদলালে সময়সূচিতে হাত দেয় না।
-
-# The verb on a button: a round about one book, person or tag.
-home.help.practise.term = ঝালিয়ে নিন
-home.help.practise.what = একটা জিনিস নিয়েই এক রাউন্ড।
-home.help.practise.more = বই বা সিনেমার মেনুতে, কারও পাতায়, ট্যাগের পাশে আর পরিসংখ্যানের রঙের সারিতে পাবেন। এখনকার স্ক্রিনের ওপরেই খোলে, শেষে সেখানেই ফেরায়। দৈনিক অনুশীলনী কোনো বিষয় ধরে ছাঁকা যায় না, কারণ সেটা সময়সূচি মেনে চলে।
-
-# The three grading buttons on a quiz card.
-home.help.grade.term = দেখি / পেরেছি / ভুলে গেছি
-home.help.grade.what = ফ্লিপ কার্ডে উত্তর দেখতে উল্টে দিন, তারপর সৎভাবে বলুন জানতেন কি না। সৎ উত্তরেই সময়সূচি ঠিক থাকে।
-
 # The edit link on an already-answered quiz card.
 home.help.fix-or-tag.term = ঠিক করুন বা ট্যাগ দিন
 home.help.fix-or-tag.what = উত্তর দেওয়ার পর: অনুশীলনী না ছেড়েই বানান ঠিক করুন, ট্যাগ বদলান বা ♥ দিন।
@@ -6582,15 +6209,6 @@ settings.help.upload-font.term = ফন্ট আপলোড
 settings.help.upload-font.what = অ্যাপের ফন্টগুলোর পাশে নিজের ফন্ট যোগ করুন। এটা আপনার সার্ভারে থাকে, আর শুধু ব্রাউজারই পড়ে।
 settings.help.upload-font.more = ফন্টটা ওই সারির লিপি লিখতে পারে কি না Tippani দেখে নেয়, না পারলে সতর্ক করে — নইলে সেই লিপির উদ্ধৃতি চৌকো ঘর হয়ে যায়। এটা শুধু সতর্কবার্তা; ফন্ট তবু বসে।
 
-settings.help.review.term = অনুশীলন
-settings.help.review.what = দিনে কটা কার্ড, কোন ধরনের উদ্ধৃতি থেকে প্রশ্ন, আর প্রশ্ন ও সময়সূচি কীভাবে চলবে।
-settings.help.review.more = তিন ধরনের উদ্ধৃতি আলাদা আলাদা করে বাছা যায়। বক্তা বা প্রসঙ্গহীন উদ্ধৃতি, আর গত এক সপ্তাহে রাখা উদ্ধৃতি সবসময় বাদ থাকে।
-
-# The folded second half of the Review card.
-settings.help.in-depth.term = অনুশীলনী আর তার প্রশ্ন
-settings.help.in-depth.what = প্রতিটা অনুশীলনীতে কোন কোন প্রশ্ন আসবে, সঙ্গে অ্যাডাপ্টিভ ফাঁক, উত্তর নিশ্চিত করার ধাপ, আর কোনো উদ্ধৃতি চোখে পড়লে কতটা গোনা হবে।
-settings.help.in-depth.more = “আগের মতো করুন” চাপলে সবগুলোই ফিরে যায়। কোনো ডেক একেবারে প্রশ্নহীন হতে পারে না।
-
 # Which characters split one author line into two people.
 metadata.help.credit-separators.term = একাধিক লেখকের নাম
 metadata.help.credit-separators.what = কোন চিহ্ন দেখে “Gaiman & Pratchett” দুজন আলাদা মানুষ হবে।
@@ -6764,11 +6382,6 @@ common.help.favourite.more = কার্ডের ♥ একই কাজ ক�
 common.help.cover-menu.term = কভারের নিজের মেনু
 common.help.cover-menu.what = কোনো বই, সিনেমা বা শো-তে ডান-ক্লিক করুন (ফোনে চেপে ধরুন): বাছুন, শূন্যস্থান পূরণ, অনুশীলনী, এডিট আর মুছুন পাবেন।
 common.help.cover-menu.more = বাছাইয়ের বারের কাজগুলোই, একটা জিনিসের জন্য। মোছার আগে জিজ্ঞেস করে, কটা উদ্ধৃতি সঙ্গে যাবে বলে দেয়, আর ফেরানোর সুযোগ থাকে।
-
-# The selection-bar toggle that takes things out of the Daily Quiz.
-common.help.skip-in-quiz.term = অনুশীলনী থেকে বাদ দিন
-common.help.skip-in-quiz.what = যা রেখেছেন কিন্তু অনুশীলনীতে চান না, তার জন্য — উদ্ধৃতি হিসেবে রাখা কোনো তালিকা, পাতার নম্বরে ভরা কোনো নির্দেশিকা।
-common.help.skip-in-quiz.more = সেগুলো বেছে “অনুশীলনী থেকে বাদ দিন” চাপুন; কিছুই মোছে না। কোনো বইয়ে করলে পরে যোগ করা হাইলাইটও বাদ থাকে। আগে থেকে বাদ থাকলে বোতামে লেখা থাকে “অনুশীলনীতে দিন”।
 
 # The selection-bar action that fetches only the EMPTY fields.
 common.help.fill-gaps.term = শূন্যস্থান পূরণ

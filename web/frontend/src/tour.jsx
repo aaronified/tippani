@@ -112,15 +112,6 @@ const TOUR_STEPS = [
     get more() { return t('tour.step.share.more') },
   },
   {
-    key: 'quiz',
-    tab: 'home',
-    get name() { return t('tour.step.quiz.name') },
-    get blurb() { return t('tour.step.quiz.blurb') },
-    get title() { return t('tour.step.quiz.title') },
-    get body() { return t('tour.step.quiz.prose') },
-    get more() { return t('tour.step.quiz.more') },
-  },
-  {
     key: 'search',
     anchor: '[data-tour="search"]',
     // NO `tab`, BECAUSE THE BOX IS IN THE SHELL and is on every screen already — but

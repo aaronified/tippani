@@ -48,7 +48,6 @@ import { quoteKindLabel } from './quoteKind.js'
 import { languageClass } from './fonts.js'
 import { ProseArea } from './proseField.jsx'
 import { categoryVar } from './theme.js'
-import { usePractice } from './review.jsx'
 import { SignatureInk } from './signature.jsx'
 import { useRowReorder } from './reorder.js'
 // THE SEARCH SCREEN'S OWN BOX, imported rather than rebuilt. See RuleDialog below:
@@ -76,7 +75,7 @@ import {
   IconGrip,
   IconLayers,
   useScreenBar,
-  IconQuiz, IconPractise, IconPrint, IconReading, IconSearch,
+  IconPrint, IconReading, IconSearch,
   MonoLabel,
   MoreMenu,
   Select,
@@ -2064,13 +2063,6 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
   // KEEP IT FED (0075), and it is a COUNT rather than an ARRIVAL — see the effect
   // below for why the plan's own two sentences could not both ship.
   const [waiting, setWaiting] = useState(null)
-  // A THEMED ROUND OVER THIS ANTHOLOGY. The engine has taken ?anthology= since
-  // 0043 — it narrows the deck by a join on anthology_entries and excludes no
-  // kind, so a mixed anthology practises as one deck — and for two releases there
-  // was no way to ask for it: themeQuery never put the parameter in the URL and no
-  // screen had the button. A feature the reader cannot reach is not shipped.
-  const { practise, practiceDialog } = usePractice(anthology?.title || t('anthologies.read.title.fallback'))
-
   const reload = useCallback(async () => {
     const r = await json('GET', `/anthologies/${id}`)
     if (!r.ok) return setError(errText(r, t('error.open.anthology')))
@@ -2317,17 +2309,12 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
   // from 3.0.0 an open anthology said "Anthologies" on a phone and drew no
   // breadcrumb at all on a desk. Its name was nowhere on the screen.
   useCrumb(anthology ? anthology.title || t('anthologies.read.title.fallback') : null)
-  // THE SAME FOUR THE HEADER ROW DRAWS, and deliberately the same four rather
-  // than a different set: the ⋯ is a menu bar, so it lists what the screen can do
-  // whether or not the control is also on the page. Practise is disabled there by
-  // being ABSENT here — a menu row cannot be greyed, and a round over an empty
-  // anthology is the one case the dialog can only answer with "nothing here".
+  // THE SAME ROWS THE HEADER DRAWS, and deliberately the same rather than a
+  // different set: the ⋯ is a menu bar, so it lists what the screen can do whether
+  // or not the control is also on the page.
   useScreenBar({
     actions: () => [
       { id: 'h-do', heading: t('common.mono.actions.label') },
-      ...(anthology && rows.length > 0
-        ? [{ id: 'practise', icon: <IconPractise />, label: t('common.action.practise.label'), onClick: () => practise({ anthology: id, label: anthology?.title || t('anthologies.read.title.fallback') }) }]
-        : []),
       ...(anthology ? [{ id: 'edit', icon: <IconEdit />, label: t('common.action.edit.label'), onClick: () => setEditing(true) }] : []),
       ...(DEMO ? [] : [{ id: 'export', icon: <IconExport />, label: t('common.action.export.label'), onClick: () => { window.location.href = exportHref(id) } }]),
       ...(DEMO ? [] : [{ id: 'epub', icon: <IconReading />, label: t('anthologies.action.epub.label'), onClick: () => { window.location.href = epubHref(id) } }]),
@@ -2365,17 +2352,6 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
         counts={entries ? t('common.count.phrase', { n: rows.length, noun: t('unit.entry', { count: rows.length }) }) : ''}
         right={
     <span className="flex items-center gap-2 no-print">
-      {/* Before Edit, because reading it back is what you do with an
-          anthology and editing it is what you do to one. Disabled while it
-          is empty: a round over nothing is the one case the dialog can only
-          answer with "nothing here". */}
-      <GhostButton
-        icon={<IconPractise />}
-        onClick={() => practise({ anthology: id, label: anthology?.title || t('anthologies.read.title.fallback') })}
-        disabled={!anthology || rows.length === 0}
-      >
-        {t('common.action.practise.label')}
-      </GhostButton>
       <GhostButton icon={<IconEdit />} onClick={() => setEditing(true)} disabled={!anthology}>
         {t('common.action.edit.label')}
       </GhostButton>
@@ -2384,7 +2360,7 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
       </GhostButton>
       {/* READ ALOUD: the whole anthology in the order the page draws it. Not drawn without voices. */}
       <RunButton id={`run:anthology:${id}`} segments={() => anthologyRun(anthology, slots)} disabled={!anthology || rows.length === 0} />
-      {/* THE REST ARE ONE MENU, NOT SEVEN BUTTONS. Practise, Read and Edit are what a reader does
+      {/* THE REST ARE ONE MENU, NOT SEVEN BUTTONS. Read and Edit are what a reader does
           every time this page is open; Export, EPUB, Print, Save PDF, the rule and Delete are
           once-in-a-while verbs, and a row of nine ghost buttons wrapped to three lines on a desk
           and ran off a phone. The rule stays findable: it is the first thing in the menu after
@@ -2695,11 +2671,6 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
           body={<p>{t('anthologies.section.delete.body')}</p>}
         />
       )}
-      {/* The round belongs to this page and unmounts with it — usePractice is a
-          hook rather than a global for exactly that reason: a round left running
-          behind a screen the reader navigated away from would keep posting grades
-          against a schedule they thought they had stopped touching. */}
-      {practiceDialog}
       {deleting && anthology && (
         <DeleteAnthologyDialog
           anthology={anthology}

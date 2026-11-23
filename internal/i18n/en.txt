@@ -70,7 +70,6 @@ settings.section.jobs.info.body = What is running, what is waiting its turn, and
 settings.section.aria = Which settings to change
 settings.section.theme.label = Theme
 settings.section.lang.label = Language and font
-settings.section.review.label = Review
 settings.section.sections.label = Sections
 settings.section.server.label = Server
 settings.section.jobs.label = Jobs
@@ -370,9 +369,6 @@ common.action.reload.label = Reload
 common.action.upload.busy = Uploading…
 common.action.load.busy = loading…
 common.action.fetch.busy = Fetching…
-# The verb on a button. The named MODE is quiz.practice.label — English tells the
-# two apart with an s and a c, which no other language can reproduce.
-common.action.practise.label = Practise
 common.action.show.label = Show
 common.action.hide.label = Hide
 common.action.show-less.label = Show less
@@ -388,7 +384,6 @@ common.select.target.fallback = this
 
 # Tooltips on a table row's action cell. {noun} is what the row holds.
 common.action.copy.row.tip = Copy this {noun}
-common.action.practise.row.tip = Quiz me on this {noun}
 common.action.share.row.tip = Share this {noun}
 common.action.edit.row.tip = Edit this {noun}
 common.action.delete.row.tip = Delete this {noun}
@@ -508,9 +503,6 @@ common.info.dot.aria = More information: {name}
 
 # --- key caps. The joining word between two keys of a chord ("G then L").
 common.kbd.then.label = then
-# The word between the two caps of one quiz action in the shortcut sheet, where the
-# daily key is followed by the Practice one. Lower case: it labels a cap, not a row.
-common.kbd.practice.label = practice
 
 # --- help, from any screen.
 common.help.sheet.title = Help
@@ -572,17 +564,6 @@ common.recall.mode.practice.label = practice
 common.recall.uncounted.label = no change
 # Once, under a history that holds one of those.
 common.recall.uncounted.note = Kept here, but these answers did not move the half-life.
-
-# --- the number beside a slider, in the quiz panel. THE WHOLE READOUT IS ONE
-# STRING rather than a number with a unit glued to it: the unit used to be written
-# ' days', with a leading space no line in this file can carry, and the number does
-# not come first in every language. {n} is already formatted to the slider's
-# decimals; the plural form is chosen by the same value.
-common.slider.multiplier.format = {n}×
-common.slider.days.format.one = {n} day
-common.slider.days.format.other = {n} days
-common.slider.words.format.one = {n} word
-common.slider.words.format.other = {n} words
 
 # --- the struck flash card on a row the quiz will not draw. {kind} is the word
 # for the work it hangs off — book, film, show.
@@ -728,8 +709,6 @@ shell.error.boundary.named.body = {name} — the rest of the app is fine.
 # The legend for every keyboard shortcut at once, opened by `?`.
 shell.shortcuts.title = Keyboard shortcuts
 shell.shortcuts.intro.prose = Each key is also printed on its button, so nothing needs memorising. Keys do nothing while you type.
-# {mode} is the name of the Practice mode, in bold; {key} is a drawn key cap.
-shell.shortcuts.practice.prose = A quiz card uses the keys for its question type. In {mode}, hold {key} with them — daily grades are permanent, so the low-stakes mode takes the extra key.
 
 # ---------------------------------------------------------------------------
 # unit.* — EVERY COUNTABLE NOUN'S FORMS, and nothing else. The only namespace
@@ -1021,9 +1000,6 @@ vocab.key.alt.label = Alt
 # ---------------------------------------------------------------------------
 shell.shortcut.group.anywhere.label = Anywhere
 shell.shortcut.group.go-to.label = Go to
-shell.shortcut.group.mcq.label = Multiple choice
-shell.shortcut.group.flip.label = Flip card
-shell.shortcut.group.cloze.label = Fill in the blank
 shell.shortcut.group.offer.label = An offer beside a field
 shell.shortcut.search.label = Search
 shell.shortcut.capture.label = Capture a quote
@@ -1036,20 +1012,10 @@ shell.shortcut.go-anthologies.label = Go to Anthologies
 shell.shortcut.go-metadata.label = Go to Metadata
 shell.shortcut.go-profile.label = Open your profile
 shell.shortcut.go-settings.label = Go to Settings
-shell.shortcut.pick-1.label = Choose the first answer
-shell.shortcut.pick-2.label = Choose the second
-shell.shortcut.pick-3.label = Choose the third
-shell.shortcut.pick-4.label = Choose the fourth
-shell.shortcut.reveal.label = Reveal the answer
-shell.shortcut.grade-forgot.label = Forgot
-shell.shortcut.grade-got.label = Got it
-shell.shortcut.focus-blank.label = Type in the blank
 shell.shortcut.offer-accept.label = Take the offered value
 
 # A control's tooltip with its key appended. {name} is the tooltip, {key} the cap.
 common.shortcut.suffix.label = {name} · {key}
-# The Practice form of a quiz key, which asks for one extra finger.
-common.shortcut.shifted.label = Shift-{key}
 
 # ---------------------------------------------------------------------------
 # undo, and the last-resort failure.
@@ -1278,17 +1244,6 @@ settings.colours.unmake.cta = Un-make
 settings.colours.reset.aria = Reset this colour
 settings.colours.reset.tip = Back to the original
 
-# --- which quotes the quiz draws from. The chip names the SCREEN (nav.tab.*)
-# and the tooltip says what that screen's quotes are.
-settings.review-scope.title = Drawn from
-settings.review-scope.info.title = Drawn from
-settings.review-scope.info.body = Which kinds of quote the Daily Quiz and Practice use, set separately. Quotes with no speaker or occasion, and anything saved in the last week, are left out.
-settings.review-scope.books.tip = Your book highlights
-settings.review-scope.movies.tip = Dialogue from films, shows and games
-settings.review-scope.quotes.tip = Speeches, letters, anything else
-# The last scope standing cannot be turned off, or the deck empties.
-settings.review-scope.stuck.tip = The deck needs one
-
 settings.type.own.title = Your own fonts
 settings.type.faces.title = Interface faces
 # --- Quote faces, one per language. The list is Metadata's language table; this
@@ -1372,85 +1327,6 @@ settings.languages.reset.label = Reset mark and name
 settings.languages.remove.label = Remove language
 settings.languages.remove.confirm.title = Remove {name}?
 settings.languages.remove.confirm.body = Its mark, name and code are forgotten. No quote changes.
-
-# --- the quiz panel.
-settings.quiz.group.deck.title = The deck and what it asks
-settings.quiz.group.schedule.title = Schedule
-settings.quiz.group.practice.title = Practice
-settings.quiz.skipped.aside = quote-level flags
-settings.quiz.per-day.label = Daily deck
-# THE NUMBERS ARE A GROUP ON THE SECTION, NOT A DOOR. `in-depth.title` and
-# `panel.title` were the same words twice — the door's name and the room's, which
-# is how a reader knew they had arrived somewhere. There is one place now, so
-# there is one name; `in-depth.label` was the door's verb and went with it.
-settings.quiz.panel.title = The numbers behind the schedule
-settings.quiz.in-depth.tip = Multipliers and the fixed ladder
-settings.quiz.tuning.changed.aside = edited
-# {name} is the deck — Daily quiz, or Practice.
-settings.quiz.deck.title = {name} asks
-settings.quiz.deck.question.aria = {question} — {name}
-settings.quiz.deck.daily.info.body = The server checks every daily answer, so the flip card — which you mark yourself — is not offered here.
-settings.quiz.deck.practice.info.body = Practice starts with the flip card and mixes in the rest. If Practice counts is on, the flip card is dropped, since nothing checks a self-marked answer.
-settings.quiz.practice-counts.title = Practice counts
-settings.quiz.practice-counts.aria = Practice affects schedule
-settings.quiz.practice-counts.info.body = Off: Practice is study only. On: correct Practice answers lengthen intervals just like the Daily Quiz.
-settings.quiz.submit.title = Confirm each answer
-settings.quiz.submit.aria = Confirm each answer
-settings.quiz.submit.info.body = Off: a tap answers. On: a tap selects, and Submit records it, so you can change your mind. Flip cards are unaffected.
-settings.quiz.adaptive.title = Adaptive intervals
-settings.quiz.adaptive.aria = Adaptive intervals
-settings.quiz.adaptive.info.body = Adaptive (default): a right answer multiplies the interval by 2.5, a miss halves it. Ladder: fixed steps of 7 → 30 → 100 → 365 days, and any miss goes back to 7.
-settings.quiz.adaptive.ladder.label = Ladder
-settings.quiz.adaptive.on.label = Adaptive
-# --- how hard the questions are. Three tiers plus Random; medium moves none of
-# the dials, so an account that never opens this is asked its questions the same
-# way. That is a claim about the TIER and not about the release: the round's
-# same-author lure cap applies at every tier. See review_tier.go.
-settings.quiz.skipped.title = Never asked about
-settings.quiz.skipped.none = Nothing skipped. Every quote you keep is in the deck.
-# THE NOUNS BEHIND THE GLYPHS on this list. A glyph is drawn; the word is what
-# everything that cannot see it gets, and what a subheader prints beside the
-# drawing so a reader learns which is which.
-settings.quiz.skipped.word = skipped
-settings.quiz.quotes.word.one = quote
-settings.quiz.quotes.word.other = quotes
-settings.quiz.works.word.one = work
-settings.quiz.works.word.other = works
-# The join between the two halves of the summary: "42 skipped in 2 works".
-settings.quiz.skipped.in = in
-settings.quiz.skipped.standalone = On its own
-settings.quiz.skipped.restore-work.label = Put {n} back
-settings.quiz.skipped.restore-one.aria = Put this one back in the deck
-settings.quiz.skipped.chosen = {n} chosen
-settings.quiz.skipped.clear.label = Clear
-settings.quiz.skipped.pick-work.aria = Choose everything skipped from {title}
-settings.quiz.skipped.pick-one.aria = Choose this skipped quote
-
-settings.quiz.start.title = New lines start at
-settings.quiz.start.info.body = Where a new quote enters the schedule. Not seen: asked soon and often; Mastered: asked rarely, for a library you already know. A wrong answer brings it back either way.
-settings.quiz.start.unseen.label = Not seen
-settings.quiz.start.mastered.label = Mastered
-
-settings.quiz.tier.title = How hard the questions are
-settings.quiz.tier.info.body = Medium is the default. Easy: two clearly different choices instead of four; Hard: more typing the words back; Random: a different level per card.
-settings.quiz.tier.easy.label = Easy
-settings.quiz.tier.medium.label = Medium
-settings.quiz.tier.hard.label = Hard
-settings.quiz.tier.random.label = Random
-# One line under the picker, for WHICHEVER tier is chosen — the owner's ask: a
-# toggle whose options are four adjectives says nothing about what any of them
-# does. Easy's line still carries the cost rather than only the benefit: a tier
-# that advertised one side of itself would be selling you something.
-settings.quiz.tier.easy.note = Two clearly different choices instead of four. You miss the close wrong answers, which teach the most.
-settings.quiz.tier.medium.note = Four choices, some of them close, and typing only for lines short enough to type.
-settings.quiz.tier.hard.note = Mostly typing the words back; otherwise four choices that all seem right.
-settings.quiz.tier.random.note = A different level on each card, so you don't get used to one kind of question.
-settings.quiz.seen.title = Seeing lengthens half-life by
-settings.quiz.seen.label = Seeing lengthens half-life by
-settings.quiz.seen.info.body = Sharing, favouriting, or seeing a quote among a Daily Quiz card's choices lengthens its interval a little. Practice does not count here. 1.0× turns this off.
-settings.quiz.tuning.info.body = How much each answer stretches or shrinks a quote's interval. The limits stop a setting that would quietly repeat the same quote forever.
-settings.quiz.reset.label = Back to defaults
-settings.quiz.reset.tip = Undo every change on this panel
 
 # --- Settings → Features. Hiding a section is cosmetic: it takes away the doors.
 settings.features.locked.prose = The last section has to stay — turn another one on first.
@@ -1936,71 +1812,6 @@ greeting.dateline.format = {weekday} · {date}
 # book, a person and a tag, so its words belong to the mode.
 # ---------------------------------------------------------------------------
 
-# The two decks, named. "Practice" is the name of a FEATURE here, not the verb
-# on a button — that one is common.action.practise.label and will be a
-# different word.
-quiz.daily.label = Daily quiz
-quiz.practice.label = Practice
-
-# The seven question types. .label is the chip in Settings, .hint its tooltip.
-quiz.question.source.label = Name the source
-quiz.question.source.hint = Shows the quote and asks where it came from. Multiple choice.
-quiz.question.quote.label = Pick the quote
-quiz.question.quote.hint = Shows the work and asks which line is from it. Multiple choice.
-quiz.question.cloze.label = Fill in the blank
-quiz.question.cloze.hint = Blanks out a phrase for you to type, on quotes no longer than your "Blanks only up to" setting. Checked by the server and forgiving about typos. Counts more when right and costs less when wrong.
-quiz.question.cloze-mcq.label = Fill in the blank — with choices
-quiz.question.cloze-mcq.hint = The same blank, but pick from four phrases. The wrong ones come from your other quotes. Short quotes only, as for the typed blank.
-quiz.question.speaker.label = Who said this?
-quiz.question.speaker.hint = Asks who said the line — for film, show, game and speech quotes. Never asked of book highlights.
-quiz.question.author.label = Who wrote this?
-quiz.question.author.hint = Books only: asks who wrote it. The wrong answers are authors of similar books.
-quiz.question.flip.label = Flip and self-mark
-quiz.question.flip.hint = Shows the quote, then its source, and you say whether you knew it. Nothing checks your answer, so it is offered in Practice only, and not when Practice counts.
-
-# The two axes every question type sits on, appended to its tooltip: WHAT is
-# being asked, and HOW you answer it. Two questions sharing a class are the same
-# question asked two ways — which is what a flat row of chips cannot show.
-quiz.class.work.label = Which work
-quiz.class.quote.label = Which quote
-quiz.class.person.label = Who is behind it
-quiz.class.words.label = The words themselves
-quiz.form.choose.label = pick one of four
-quiz.form.type.label = type it back
-quiz.form.self.label = mark yourself
-quiz.taxonomy.line = {klass} · {form}
-
-# Appended to the hint of a question toggle that REFUSES to switch off,
-# because it is the last one the deck could ask of a book as well as a film.
-quiz.question.last-universal.info = Every deck needs at least one question that works for books and films alike. This is the last one left.
-
-# The ten tuning sliders in Settings → Quiz. .label sits above the slider,
-# .hint is its info dot. Every one of these multiplies a half-life.
-quiz.tuning.grow.label = Correct answer stretches by
-quiz.tuning.grow.hint = Adaptive only. A right answer multiplies the interval by this. 2.5 is the classic value; higher spaces cards out faster.
-quiz.tuning.shrink.label = A lapse shortens by
-quiz.tuning.shrink.hint = Adaptive only. A miss multiplies the interval by this instead of resetting it; 0.5 halves it. Must be below 1.
-quiz.tuning.cloze-grow.label = Typed answers earn
-quiz.tuning.cloze-grow.hint = How much more a correct typed answer counts than a multiple-choice one.
-quiz.tuning.cloze-shrink.label = And cost
-quiz.tuning.cloze-shrink.hint = How much less a wrong typed answer costs. Missing the hardest question says less about forgetting than missing a multiple choice.
-quiz.tuning.cloze-synonym.label = A synonym is worth
-quiz.tuning.cloze-synonym.hint = A close synonym counts as right and earns this share of a full answer. 0 counts it without moving the card.
-quiz.tuning.cloze-words.label = Multi-word blanks from
-quiz.tuning.cloze-words.hint = A blank hides one word until the quote has been remembered this many days; after that it can hide a phrase. 1 allows phrases straight away.
-quiz.tuning.cloze-max.label = Blanks only up to
-quiz.tuning.cloze-max.hint = The longest quote, in words, a blank is cut out of, typed or chosen. In a longer quote one missing word is a guess among many, so it is asked which work, which quote, or who wrote or said it instead.
-quiz.tuning.ladder-1.label = Ladder rung 1
-quiz.tuning.ladder-1.hint = The first step, and where any miss drops a card back to. Used only with Ladder.
-quiz.tuning.ladder-2.label = Ladder rung 2
-quiz.tuning.ladder-3.label = Ladder rung 3
-quiz.tuning.ladder-4.label = Ladder rung 4
-quiz.tuning.ladder-4.hint = The top step. A card stays here as long as you keep answering it right.
-
-# Under the four ladder sliders when they are not in ascending order. The
-# panel refuses rather than letting the server silently revert them.
-quiz.tuning.ladder.error = The four rungs have to climb — each one longer than the one before it.
-
 # ---------------------------------------------------------------------------
 # THE FACET GRAMMAR (facets.js)
 #
@@ -2082,14 +1893,6 @@ common.action.delete.tip = Delete {subject}
 # Fetch only what is MISSING and touch nothing else.
 common.action.fill.label = Fill gaps
 common.action.fill.tip = Fill the empty fields
-# While it is fetching.
-# A themed quiz round over one book or one title.
-common.action.practise.tip = Quiz me on {subject}
-# The quiz toggle, which flips to name what pressing it will do.
-common.action.review.add.label = Add to quiz
-common.action.review.add.tip = Put it back in the quiz
-common.action.review.skip.label = Skip in quiz
-common.action.review.skip.tip = Keep it out of the quiz
 # The other flipping pair: .on when the row is NOT a favourite yet, .off when
 # it already is. Bengali negation is a different construction, so both are keys.
 common.action.favourite.menu.on.label = Favourite
@@ -2143,8 +1946,6 @@ common.selection.toast.fields-set.one = 1 record updated
 common.selection.toast.fields-set.other = {n} records updated
 common.selection.toast.favourited = favourited {n}
 common.selection.toast.moved = moved {n}
-common.selection.toast.back-in-quiz = back in the quiz
-common.selection.toast.skipping = skipping {n}
 # Gathering into an anthology. A quote already there is SKIPPED, not an error,
 # so the second form reports both numbers rather than claiming they all landed.
 common.selection.toast.gathered = {n} gathered
@@ -2180,9 +1981,6 @@ error.add.generic = could not add those
 # quote, which the text then flows around.
 # ---------------------------------------------------------------------------
 
-# The three lower-case word links on a small card — deliberately lower case, so
-# they are their own strings and not the Title Case buttons of the same name.
-common.link.practise.label = practise
 common.link.edit.label = edit
 common.link.delete.label = delete
 
@@ -2321,13 +2119,6 @@ tour.step.share.title = Share a line, export the lot
 tour.step.share.prose = Any quote shares in one tap — as text, or as an {em1} drawn in your own skin.
 tour.step.share.em1.label = image card
 tour.step.share.more = Share as Markdown, WhatsApp, plain text or Reddit, or as an image made on your device with a live preview. Export one work, a filtered set or the whole library as Markdown that imports back cleanly.
-
-# Step "quiz".
-tour.step.quiz.name = Daily Quiz & Practice
-tour.step.quiz.blurb = spaced repetition over your quotes — cards resurface as you start to forget
-tour.step.quiz.title = The daily ritual
-tour.step.quiz.prose = Home gives you a short daily quiz on your own quotes, each coming back just as you'd start to forget it. Two or three minutes a day.
-tour.step.quiz.more = Each quote has a status dot — remembered, forgetting or probably forgotten — and your answers move it. Practice is unlimited and skippable, with its own score, and leaves the schedule alone by default. Card count and the rest are in Settings.
 
 # Step "search".
 tour.step.search.name = Instant search
@@ -3144,188 +2935,18 @@ error.render.image = couldn't render the image on this device
 # work tile, a tag, a person or a colour. quiz.* is a MODE rather than a screen.
 # ---------------------------------------------------------------------------
 
-# What a card calls its own source in the question line. A standalone quote has
-# no work behind it, so its source is the OCCASION it was said on.
-quiz.noun.book.label = book
-quiz.noun.film.label = film
-quiz.noun.show.label = show
-quiz.noun.occasion.label = occasion
-
-# The prompt at the top of a card, one per question type. {kind} is a word from
-# quiz.noun.* above, so in Bengali the case marker belongs on the noun, not here.
-quiz.question.source.stem = Which {kind} is this quote from?
-quiz.question.quote.stem = Which quote is from this {kind}?
-quiz.question.cloze.stem = Fill in the blank
-quiz.question.cloze-mcq.stem = Which words belong in the blank?
-quiz.question.speaker.stem = Who says this?
-quiz.question.author.stem = Who wrote this?
-# A flip card, and any question type a newer server sends that this client has
-# never heard of: both are answered the same way.
-quiz.question.flip.stem = Where is this from?
-# Where the card is in the round.
-quiz.progress.label = {done} of {total}
-
-# The gap the server left in a cloze quote, announced to a screen reader.
-quiz.cloze.blank.aria = blank
-quiz.cloze.field.label = The missing words
-quiz.cloze.placeholder = type what belongs in the blank
-# The same placeholder where there is a keyboard. {key} is a key cap.
-quiz.cloze.placeholder-key = type what belongs in the blank · {key}
-quiz.cloze.check.label = Check
-# Beside Check while the server marks the attempt.
-quiz.checking.label = checking…
-# Above the right answer, once it has been checked.
-quiz.cloze.answer.label = the missing words
-# Above the reader's own attempt, when it could not be checked yet.
-quiz.cloze.yours.label = what you wrote
-# Under the revealed words when the attempt was a close synonym rather than the
-# word itself: it counted, and it earned less. See quiz.tuning.cloze-synonym.
-quiz.cloze.synonym.note = counted as a synonym — worth less than the words themselves
-
-# Under each option of a "which quote?" card, once it has been answered: the
-# work that option came out of. {title} is a book, film, show, game or occasion.
-quiz.option.source.label = from {title}
-# Between a person and the part they play, once a quiz card is answered: an
-# actor option's chip, then this, then the character's chip ("Al Pacino as
-# Vincent Hanna"); also between a film line's actor and character under the
-# card. One word, set small; bn names the role rather than translating "as".
-quiz.option.as.label = as
-
-# A multiple-choice option that is longer than three lines.
-quiz.option.expand.aria = Expand this option
-quiz.option.collapse.aria = Collapse this option
 quiz.option.expand.tip = Show the whole quote
-
-# A FLIP CARD: reveal, then say whether you had it. The reveal posts nothing —
-# treating it as an answer would make self-grading a button you press to make
-# the card go away.
-quiz.flip.reveal.label = Show me
-quiz.flip.reveal.tip = Reveal the answer
-quiz.grade.forgot.label = Forgot
-quiz.grade.got.label = Got it
-
-# THE LEECH OFFER — a card forgotten over and over is costing a slot in every
-# deck and giving nothing back. It is an OFFER: nothing is ever suspended
-# automatically, and the card is still asked before it appears.
-quiz.leech.count.label = forgotten {n} times
-quiz.leech.keep.label = Keep asking
-quiz.leech.aside.action.label = Set it aside
-quiz.leech.aside.label = out of the quiz
-
-# The verdict after an answer. A flip card was not right or wrong — it was
-# recalled or it was not, and the READER said so, which is why it gets its own
-# two words rather than the marked ones.
-quiz.verdict.correct.label = correct
-quiz.verdict.wrong.label = not quite
-quiz.verdict.recalled.label = recalled
-quiz.verdict.noted.label = noted
-# A cloze attempt that could not be checked yet: it is kept on the device and
-# marked once it reaches the server.
-quiz.verdict.kept.label = kept, to be marked
-# The answers kept on the device that the server has not taken yet, said only once
-# the oldest has waited a minute: a quick send is never mentioned.
-quiz.kept.waiting.one = {n} answer waiting to be sent
-quiz.kept.waiting.other = {n} answers waiting to be sent
-quiz.next.label = Next
-quiz.finish.label = Finish
-# With the confirm step on: an option is chosen but nothing has been posted.
-quiz.submit.hint = tap another to change
-quiz.submit.label = Submit
-# Practice only. It advances locally and touches neither schedule nor score.
-quiz.skip.label = skip
-
-# Fixing a quote from inside the card, after it has been answered.
-quiz.card.fix.label = fix or tag this
-quiz.card.tags.placeholder = comma separated
-quiz.card.favourite.on.label = Favourited
-quiz.card.favourite.off.label = Favourite
-
-# A THEMED ROUND — "quiz me on this book / tag / colour / person".
-# Not an error: a theme with nothing behind it is the ordinary answer for a book
-# you have not quoted yet, or a colour you stopped using.
-quiz.practice.empty = no quotes here to practise
-quiz.practice.end.label = End round
-quiz.round.score.label = {done} / {total}
-quiz.round.summary.label = {got} recalled · {missed} missed
-quiz.round.again.label = Another round
 
 # The page locator on a book card. Small caps in a narrow slot.
 common.locator.page.label = P. {n}
 common.toast.saved = saved
 
-# ⚠ NEAR-DUPLICATES OF error.save.generic ("could not save"). Kept apart because
-# the shipped English used a contraction at these two sites and this pass is a
-# migration rather than a copy edit — collapse them if the copy is ever revised.
-error.save.quiz-card = couldn’t save
 error.load.quiz-card = couldn’t load this quote
-error.setaside.generic = couldn’t set it aside
 
 # ---------------------------------------------------------------------------
 # HOME (Home.jsx) — the daily ritual, and the two ways back into your own
 # library that are neither the quiz nor a search.
 # ---------------------------------------------------------------------------
-
-# THE DAILY QUIZ CARD.
-home.daily.title = Daily quiz
-# {n} consecutive days with a finished deck.
-home.daily.streak.label = {n}-day streak
-home.daily.loading = gathering today’s cards…
-# A failed fetch must NOT masquerade as "all caught up".
-home.daily.error = couldn’t load today’s quiz — reload to try again
-# Two different good outcomes: you finished today's deck, or there was none.
-home.daily.done.label = all caught up ✓
-home.daily.done.summary = {got} recalled · {missed} to resurface · back tomorrow
-home.daily.empty.label = nothing due today
-home.daily.empty.summary = add or review more quotes to build your schedule
-# THE DECK BEFORE IT IS OPENED. The round runs in its own screen (a popup on a
-# desk, the whole screen on a phone); the card on Home says how many are due and
-# opens it. "Continue" once some of today's cards have been answered here.
-home.daily.due.label.one = {n} card due today
-home.daily.due.label.other = {n} cards due today
-home.daily.start.label = Start
-home.daily.resume.label = Continue
-
-# "WHERE YOU STAND" — a count per memory status, with the explainer under it.
-home.states.title = where you stand
-home.states.help.label = how these work
-# Shown under the status counts only when the library is larger than the
-# schedule can keep current — quota x the interval ceiling. NOT a warning:
-# the deck still leads with whatever is closest to forgotten, so this says
-# what the reader is not reaching and what the lever is. {n} is the capacity,
-# {total} the library.
-home.states.capacity.note = Your library is bigger than the schedule can keep up with: about {n} quotes stay current, and you have {total}. The quiz still asks what you're closest to forgetting first; more cards a day in Settings reaches further.
-# THE EXPLAINER HAS TWO VERSIONS and the app shows whichever rule is actually in
-# force: describing the ladder to somebody who switched it off would make the one
-# piece of copy that explains the schedule the one piece that lies about it.
-# {curve} and {spaced} are links to Wikipedia; {remembered} {forgetting} and
-# {forgotten} are the three status words in bold, and they must match
-# common.status.*.label, which is what the dots on every card say.
-home.states.help.adaptive.prose = Each quote has a memory half-life that grows 2.5× each time you remember it, up to a year, and halves when you forget — the {curve} behind {spaced}. A quote is {remembered} while you're likely to recall it, {forgetting} as that slips, and {forgotten} below half, when the Daily Quiz brings it back. New quotes wait a week before the Daily Quiz asks them. Hover a dot to see its half-life.
-home.states.help.ladder.prose = Each quote has a memory half-life that climbs fixed steps — a week, then 30, 100 and 365 days — each time you remember it, and drops back to a week when you forget — the {curve} behind {spaced}. A quote is {remembered} while you're likely to recall it, {forgetting} as that slips, and {forgotten} below half, when the Daily Quiz brings it back. New quotes wait a week before the Daily Quiz asks them. Hover a dot to see its half-life.
-# The two link texts inside those paragraphs.
-home.states.help.curve.label = forgetting curve
-home.states.help.spaced.label = spaced repetition
-# The three status words as they read INSIDE the paragraph — lower case, bold.
-home.states.help.remembered.label = remembered
-home.states.help.forgetting.label = forgetting
-home.states.help.forgotten.label = probably forgotten
-
-# THE PRACTICE CARD — unlimited, skippable, and schedule-neutral by default.
-home.practice.title = Practice
-home.practice.info.title = Practice
-home.practice.info.body = Unlimited recall practice across your library; skip whatever you like. It leaves your schedule alone unless you change that in Settings, and resetting its score keeps your history.
-home.practice.unlimited.label = unlimited
-home.practice.start.label = Start practice
-home.practice.start.busy = Loading…
-# A round left open on Home, reopened in its own screen where it stopped.
-home.practice.resume.label = Continue practice
-# The lifetime practice score. {n} answered, {percent} of them recalled.
-home.practice.score.label = {n} answered · {percent}% recalled
-home.practice.reset.aria = Reset practice score
-home.practice.reset.tip = Reset the practice score
-home.practice.end.label = End practice
-home.practice.round.summary = practice round done — {got} recalled · {missed} missed
-home.practice.toast.reset = practice score cleared
 
 # THE TWO COUNT TILES, which are DOORS: pressing one opens that screen.
 home.tile.library.tip = Open the Library
@@ -3375,8 +2996,6 @@ home.favourites.delete.quote.confirm = Delete this quote?
 
 # The colour swatch row on a card.
 common.colour.category.aria = Colour category
-
-error.load.practice = add a few quotes first
 
 # ---------------------------------------------------------------------------
 # A WORK'S OWN DETAILS PANEL (WorkDetails.jsx)
@@ -6193,23 +5812,6 @@ common.favourite.filter.tip = Only favourites
 # Heading: aliases nav.tab.home.label, so the screen has ONE name. Nothing to add here.
 
 
-home.help.daily-quiz.term = Daily Quiz
-home.help.daily-quiz.what = A short quiz on your own quotes; each card returns as you are about to forget it.
-home.help.daily-quiz.more = Answering moves that quote’s memory half-life.
-
-# The named mode beside the Daily Quiz — unlimited and off the schedule.
-home.help.practice.term = Practice
-home.help.practice.what = Unlimited quiz practice; skip any card. It keeps its own score and leaves your schedule alone unless Settings says otherwise.
-
-# The verb on a button: a round about one book, person or tag.
-home.help.practise.term = Practise
-home.help.practise.what = A round about one thing.
-home.help.practise.more = It's in a book or film's menu, on a person's panel, beside a tag and on the colour rows in Stats. It opens over your screen and returns you to it. The Daily Quiz can't be themed, since it follows the schedule.
-
-# The three grading buttons on a quiz card.
-home.help.grade.term = Reveal / Got it / Missed
-home.help.grade.what = On a flip card, Reveal shows the answer; then say honestly whether you knew it. Honest answers keep the schedule right.
-
 # The edit link on an already-answered quiz card.
 home.help.fix-or-tag.term = Fix or tag this
 home.help.fix-or-tag.what = After answering a card: fix a typo, change its tags or ♥ it, without leaving the round.
@@ -6781,15 +6383,6 @@ settings.help.upload-font.term = Upload a font
 settings.help.upload-font.what = Add your own font next to the bundled ones. It is stored on your server and only read by the browser.
 settings.help.upload-font.more = Tippani checks whether the font draws that row's script and warns you if not — otherwise quotes in that script turn into boxes. It is only a warning; the font is still used.
 
-settings.help.review.term = Review
-settings.help.review.what = How many cards a day, which kinds of quote to draw from, and how questions and the schedule work.
-settings.help.review.more = The three kinds of quote are set independently. Quotes with no speaker or occasion, and anything saved in the last week, are always left out.
-
-# The folded second half of the Review card.
-settings.help.in-depth.term = The deck and what it asks
-settings.help.in-depth.what = Which questions each deck can ask, plus adaptive intervals, the confirm step, and how much seeing a quote counts.
-settings.help.in-depth.more = Back to defaults resets all of them. No deck can be left with nothing to ask.
-
 # Which characters split one author line into two people.
 metadata.help.credit-separators.term = Multi-author credits
 metadata.help.credit-separators.what = Which separators split “Gaiman & Pratchett” into two people.
@@ -6962,11 +6555,6 @@ common.help.favourite.more = The ♥ on the card does the same but only shows on
 common.help.cover-menu.term = A cover’s own menu
 common.help.cover-menu.what = Right-click a book, film or show (long-press on a phone) for Select, Fill gaps, quiz, Edit and Delete.
 common.help.cover-menu.more = The same actions as the selection bar, for one item. Delete asks first, says how many quotes go with it, and offers Undo.
-
-# The selection-bar toggle that takes things out of the Daily Quiz.
-common.help.skip-in-quiz.term = Skip in quiz
-common.help.skip-in-quiz.what = For things you keep but don't want to be quizzed on — a list saved as a quote, a manual full of page numbers.
-common.help.skip-in-quiz.more = Select them and press Skip in quiz; nothing is deleted. On a book, it also covers highlights you add later. The button reads Add to quiz when they're already skipped.
 
 # The selection-bar action that fetches only the EMPTY fields.
 common.help.fill-gaps.term = Fill gaps

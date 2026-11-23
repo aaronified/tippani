@@ -35,7 +35,6 @@ import { LanguagePicker } from './locale.jsx'
 import { languageMarksState } from './languages.jsx'
 import { languageFor, scriptOf } from './iso639.js'
 import { cachedVocabulary, primeSearchVocabulary } from './vocabulary.js'
-import { lockedOff, parseQuestions, parseTuning, questionsBlob, questionsFor, REVIEW_DECKS, REVIEW_TIERS, taxonomy, toggle as toggleQuestion, TUNING_FIELDS, tuningBlob, tuningProblem } from './quiz.js'
 import { createPortal } from 'react-dom'
 import { fullKeys, localeActive, localeCatalogue, t, tNodes } from './i18n.js'
 import { PASSPHRASE_MAX, PASSPHRASE_MIN, PASSWORD_MAX, passphraseProblem, sniffArchiveKey } from './secret.js'
@@ -52,12 +51,10 @@ import {
   FormModal,
   frameCode,
   ConfirmDialog,
-  Cover,
   GhostButton,
   IconArchive,
   IconArrow,
   IconCheck,
-  IconButton,
   IconChevron,
   IconClose,
   IconCopy,
@@ -72,7 +69,6 @@ import {
   IconLanguages,
   IconMoveTo,
   IconPalette,
-  IconQuiz,
   IconUpdate,
   IconRestore,
   IconReset,
@@ -88,15 +84,9 @@ import {
   PageHeader,
   Placeholder,
   SCRIM_CENTERED,
-  Scroller,
   SectionTitle,
   Select,
-  Slider,
   StickerButton,
-  Tally,
-  IconQuizSkip,
-  IconNavQuotes,
-  IconNavLibrary,
   toast,
   Toggle,
   Tooltip,
@@ -111,12 +101,10 @@ import {
   IconGrip,
   useScreenBar,
   useScreenSearch,
-  usePanelStack,
-  PanelHost,
   usePersistedState,
 } from './ui.jsx'
-import { PersonChip } from './people.jsx'
-import { usePersonOpener } from './personOpen.jsx'
+import {  } from './people.jsx'
+import {  } from './personOpen.jsx'
 import { SectionRail } from './sectionRail.jsx'
 import { JobsCurrentCard, JobsPastCard, SystemLogsCard } from './jobsSection.jsx'
 import { CommonJobsCard } from './commonJobs.jsx'
@@ -190,7 +178,7 @@ function useColumnCount() {
 // THE FOUR JOBS CARDS ARE THE LAST FOUR, and 'logs' is built for an admin only,
 // exactly as 'server' is: registering it is what draws it, and a reader has no
 // business with the server's own log.
-export const SETTINGS_CARDS = ['features', 'sr', 'server', 'devices', 'jobs-current', 'jobs-common', 'jobs-past', 'logs']
+export const SETTINGS_CARDS = ['features', 'server', 'devices', 'jobs-current', 'jobs-common', 'jobs-past', 'logs']
 
 // ---- THE SIX SECTIONS -------------------------------------------------------
 //
@@ -214,7 +202,6 @@ export const SETTINGS_CARDS = ['features', 'sr', 'server', 'devices', 'jobs-curr
 export const SETTINGS_SECTIONS = [
   ['theme', 'settings.section.theme.label', 'palette'],
   ['lang', 'settings.section.lang.label', 'languages'],
-  ['review', 'settings.section.review.label', 'quiz'],
   ['sections', 'settings.section.sections.label', 'move'],
   ['server', 'settings.section.server.label', 'device'],
   // JOBS IS FOR EVERY READER, and last. Everybody's fills and lookups are jobs
@@ -239,7 +226,6 @@ export const sectionInfoKey = (id) => `settings.section.${id}.info.body`
 export const SECTION_GLYPH = {
   palette: <IconPalette />,
   languages: <IconLanguages />,
-  quiz: <IconQuiz />,
   move: <IconMoveTo />,
   device: <IconDevice />,
   jobs: <IconJobs />,
@@ -248,7 +234,6 @@ export const SECTION_GLYPH = {
 export const SECTION_CARDS = {
   theme: ['appearance'],
   lang: ['language'],
-  review: ['sr'],
   sections: ['features'],
   // DEVICES AFTER THE ADMIN CARD, and drawn for everyone: a reader who is not an admin has no Server
   // card, so for them this section is the pairing card alone.
@@ -299,10 +284,6 @@ export const SECTION_PREFS = {
     'fontBengaliStyle', 'fontDevanagariStyle',
     'sizeDisplay', 'sizeUi', 'sizeMono', 'sizeHand',
   ],
-  review: [
-    'srDaily', 'srReviewScope', 'srQuestions', 'srTuning', 'srSeen',
-    'srPracticeCounts', 'srLadder', 'srTier', 'srStart', 'srSubmit',
-  ],
   sections: [
     'hideLibrary', 'hideCatalogue', 'hideQuotes', 'showAnthologies', 'sectionOrder',
   ],
@@ -338,6 +319,12 @@ export const UNCOUNTED_PREFS = [
   // is not one of these five.
   'trashDays',
   'tour', 'tourStep', 'defaultBoardId', 'creditSeparators',
+  // THE REVIEW SCHEDULE'S OWN SETTINGS, stored by the server and read by it. The
+  // Review section that wrote them is cut from the web app (ADR-0936), so no screen
+  // here sets them and nothing here can reset them. Excused rather than dropped, so
+  // the server's keys stay accounted for by this file.
+  'srDaily', 'srReviewScope', 'srQuestions', 'srTuning', 'srSeen',
+  'srPracticeCounts', 'srLadder', 'srTier', 'srStart', 'srSubmit',
   ...[1, 2, 3, 4, 5, 6].flatMap((n) => [`catName${n}`, `catColor${n}`, `catHidden${n}`]),
 ]
 
@@ -446,7 +433,6 @@ export function sectionOfCard(cardKey) {
 const SETTINGS_PREFIX = {
   appearance: 'settings.appearance.',
   features: 'settings.features.',
-  sr: 'settings.quiz.',
   // THREE PREFIXES FOR ONE CARD. Server is a single tile holding Updates, Backup
   // and What changed, as the pack draws it — so the words a reader might search
   // for live under three roots, and a card that could only declare one would go
@@ -583,7 +569,6 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, se
   })
   const cards = {
     features: <FeaturesCard prefs={user.preferences} onSaved={onPreferences} />,
-    sr: <SRSettings user={user} onPreferences={onPreferences} />,
     // THE BIN AND STRAY-MARKS TILES ARE GONE FROM HERE. Both were doors and
     // nothing else — a count, a state, and a button to a page that already showed
     // both. The rail and the ☰ menu now carry a counted row to each (stray marks
@@ -728,7 +713,6 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, se
   const sectionActions = mobile ? {
     theme: <Appearance prefs={prefs} onPreferences={onPreferences} compact />,
     lang: <Appearance prefs={prefs} onPreferences={onPreferences} part="lang" compact />,
-    review: <SRSettings user={user} onPreferences={onPreferences} compact />,
     sections: <FeaturesCard prefs={prefs} onSaved={onPreferences} compact />,
     // THE SAME TWO VERBS THE DOCK CARRIES, through the same state, so the
     // confirm a reader meets is the one they would have met from the dock. The
@@ -1107,105 +1091,6 @@ function collect(rows) {
 
 // The eye pair: whether a category is offered in the pickers. Not a delete —
 // nothing about a quote changes — so an eye rather than a bin.
-// ReviewScope — which media the deck draws from, as three independent choices.
-//
-// It was a three-way Toggle: Books, Films & shows, and a third option labelled
-// "Both". Two things were wrong with that. "Both" named THREE media — standalone
-// quotes have been in the deck since they existed, and the server has accepted a
-// "quotes" scope all along — so the label undercounted what it did and there was
-// no way to ask for quotes at all. And because the choices were exclusive, "books
-// and quotes but not films" was unsayable: narrowing away one medium cost you
-// another one you had not mentioned.
-//
-// Chips rather than a dropdown, because three toggles are three toggles and a
-// popover to hold them is a click in the way. The stored value is a
-// comma-separated list, which the server has understood since this release and
-// which keeps every legacy single-word value working.
-//
-// You cannot turn the last one off. An empty scope is a deck with nothing in it,
-// which looks exactly like a deck you have finished — so the last remaining chip
-// says why it will not budge instead of leaving you to discover it.
-//
-// THE CHIPS ARE NAMED AFTER THE SCREENS THEY DRAW FROM (1.15.2), not after the
-// kind of thing on them. "Books" and "Films & shows" described the media; the
-// nav strip two inches away says Library, Catalogue and Quotes, and a setting
-// that renames the reader's own screens makes them work out which is which. The
-// second was also wrong on its face after 1.15.1: the Catalogue holds games too,
-// and their lines have always joined the deck through the same 'movies' scope,
-// so "Films & shows" undercounted what the chip actually turned off. The STORED
-// keys are untouched — they are a wire format the server parses (scopeFlags),
-// and renaming them would empty the deck of every account that had set one.
-const REVIEW_MEDIA = [
-  // The stored key, then the SCREEN's own name, then what that screen's quotes
-  // are. Both words are keys; the key on the left is a wire format and never moves.
-  ['books', 'nav.tab.library.label', 'settings.review-scope.books.tip'],
-  ['movies', 'nav.tab.movies.label', 'settings.review-scope.movies.tip'],
-  ['quotes', 'nav.tab.quotes.label', 'settings.review-scope.quotes.tip'],
-]
-
-export function parseScope(value) {
-  const raw = String(value || '').toLowerCase()
-  // 'both' predates the third medium and means everything; so does anything
-  // unrecognised, matching the server, because a scope that fails to parse must
-  // never silently empty the deck.
-  const toks = raw.split(',').map((tok) => tok.trim()).filter(Boolean)
-  const keys = new Set()
-  for (const tok of toks) {
-    if (tok === 'both' || tok === 'all') return REVIEW_MEDIA.map((m) => m[0])
-    if (tok === 'screen') keys.add('movies')
-    else if (REVIEW_MEDIA.some((m) => m[0] === tok)) keys.add(tok)
-  }
-  if (keys.size === 0) return REVIEW_MEDIA.map((m) => m[0])
-  return REVIEW_MEDIA.map((m) => m[0]).filter((k) => keys.has(k))
-}
-
-export function ReviewScope({ value, onChange }) {
-  const on = parseScope(value)
-  const last = on.length === 1
-  return (
-    /* A ROW, WITH THE CHIPS AS ITS SECOND LINE. This drew a mono label over a
-       wrapping row of chips, which is the shape every control on this section had
-       — so Review was the one screen in Settings where nothing lined up with
-       anything. The chips go under the name rather than beside it because there
-       are three of them and they wrap; the row's control slot is for a control
-       that fits. */
-    <PrefRow
-      label={t('settings.review-scope.title')}
-      info={t('settings.review-scope.info.body')}
-      infoTitle={t('settings.review-scope.info.title')}
-      changed={on.length !== REVIEW_MEDIA.length}
-    >
-      <div style={{ flexBasis: '100%' }}>
-      {/* THE CHIPS THEMSELVES ARE SHARED NOW. They were hand-rolled here from
-          filterChipClass and a Tooltip, and then the question toggles and the
-          Features switches became the same control — three copies of one widget,
-          one of which had already shipped a bug (t() around the hint and not
-          around the label). ChipSwitches holds the mechanism; this holds the
-          rule about which media a deck may be emptied of.
-
-          t() on BOTH slots. The comment on REVIEW_MEDIA says "both words are
-          keys" and only one of them was resolved, so these three chips read
-          `nav.tab.library.label` and its two siblings on screen — inside the
-          review card itself. */}
-      <ChipSwitches
-        ariaLabel={t('settings.review-scope.title')}
-        options={REVIEW_MEDIA.map(([key, label, hint]) => ({
-          key,
-          label: t(label),
-          on: on.includes(key),
-          hint: t(hint),
-          locked: on.includes(key) && last ? t('settings.review-scope.stuck.tip') : '',
-        }))}
-        onToggle={(key, next) => {
-          const picked = next ? [...on, key] : on.filter((k) => k !== key)
-          onChange(REVIEW_MEDIA.map((m) => m[0]).filter((k) => picked.includes(k)).join(','))
-        }}
-      />
-      </div>
-    </PrefRow>
-  )
-}
-
 // SizeDial — one role's scaling factor, or the global one.
 //
 // A Select rather than a slider, and rather than six chips. A slider suggests a
@@ -1874,877 +1759,6 @@ export function FontSections({ prefs, onSaved, onGo, compact = false, quoteDefau
 // the preferences themselves (`draft`), and applyFonts reads them the same way a
 // fresh login does. One shape, not two that have to agree.
 
-
-// SRSettings — the spaced-repetition knobs (v0.5.0 Daily Quiz & Practice): the
-// daily deck size, what the review covers (books / films & shows / both),
-// whether Practice is allowed to move the schedule, and which of the two
-// scheduling rules is in force. THE DEFAULT IS ADAPTIVE since 3.1.0 — a recall
-// multiplies the half-life by 2.5 and a lapse HALVES it, which is the real
-// subject of the rule; the fixed ladder (7 → 30 → 100 → 365 days,
-// review_handlers.go) is the opt-in, and the stored preference is srLadder
-// rather than srAdaptive for the reason that field's comment gives. Each knob
-// persists via the partial-merge preferences PUT.
-function SRSettings({ user, onPreferences, compact = false }) {
-  const p = user.preferences || {}
-  // WHETHER THE TEN NUMBERS HAVE BEEN MOVED, which is what the door's own dot
-  // answers. The blob is empty until somebody edits one, so its presence IS the
-  // change — no table of defaults to keep in step, which is the trap `changedIn`
-  // documents for the section counts.
-  const tuningTouched = !!String(p.srTuning || '').trim()
-  function set(patch) {
-    onPreferences?.(patch)
-    json('PUT', '/auth/me/preferences', patch)
-  }
-
-  // THE PHONE INDEX'S SLICE: how hard the questions are, and whether practice is
-  // allowed to move the schedule. The owner named both.
-  //
-  // WHY THESE TWO OUT OF THE SECTION'S TWENTY-ODD ROWS. They are the two that
-  // change what a session FEELS like — one decides whether you are recognising or
-  // typing, the other whether an idle ten minutes costs you your schedule — and
-  // they are the two a reader comes back to. Everything else here is either set
-  // once (the deck size, the repertoires) or arithmetic (the ten multipliers),
-  // and both belong on the section where there is room to read what they do.
-  //
-  // THEY ARE THE SECTION'S OWN ROWS, through the same `set`, so what a press
-  // writes and what the row says about being changed are one implementation.
-  // `PracticeCounts` is literally the same component the section draws.
-  if (compact) {
-    return (
-      <>
-        <PrefRow
-          label={t('settings.quiz.tier.title')}
-          info={t('settings.quiz.tier.info.body')}
-          changed={(p.srTier || 'medium') !== 'medium'}
-          control={
-            <Toggle
-              ariaLabel={t('settings.quiz.tier.title')}
-              value={p.srTier || 'medium'}
-              onChange={(v) => set({ srTier: v })}
-              options={REVIEW_TIERS.map((k) => [k, t(`settings.quiz.tier.${k}.label`)])}
-            />
-          }
-        />
-        <PracticeCounts p={p} set={set} />
-      </>
-    )
-  }
-
-  return (
-    <Card>
-      {/* THE SECTION IS THE HEADING — see AppearanceCard. The dot's words, which
-          are about how an interval moves, are on the rows they are about
-          (Adaptive intervals, The numbers behind the schedule) and in the section's own
-          dot; a third copy over the whole card is the thing being consolidated. */}
-      {/* EVERY CONTROL THIS SECTION HAS IS ON THIS SCREEN. There is no door left.
-          It began as two controls and a door — the right answer to a question that
-          has since changed: Settings was one column of nine cards, where every
-          extra row was a scroll past on the way to the fonts. Review is its own
-          screen now.
-
-          THE OWNER'S RULING, NOW THE REPO'S MANTRA: "Use the space available.
-          Think like the user. Whatever will be used more needs to be up front."
-
-          THE LINE MOVED TWICE. First the four switches came out of the door, on
-          the argument that "the schedule is one decision made once" is true of the
-          ten multipliers and not of them — "start new lines at mastered" is a
-          decision about a library you have already read, and "practice moves the
-          schedule" is one people change the first time practice stops feeling
-          free. Then the ten went too, because the surviving argument for keeping
-          them was about how OFTEN they are used, and the rule turns on something
-          else: what is genuinely RARE goes behind a door, what is merely DETAILED
-          goes lower on the same screen. The pack draws a door here
-          (settings-restructured.dc.html: "The numbers behind the schedule → Open
-          the numbers") and this screen does not; the pack's own reason for it was
-          the long scroll, which is the constraint this whole pass removed. */}
-      <PrefColumns>
-      {/* THE PACK'S TWO COLUMNS AND ITS THREE GROUPS: what the deck asks on the
-          left, how the schedule moves on the right, and what is never asked at
-          full width under both. This section was one column of stacked
-          label-over-control blocks — the only Settings section that had not been
-          given rows at all. */}
-      {/* THE DAILY DECK TAKES THE WHOLE WIDTH, on the owner's ask. It is the
-          longest group on the section — a slider, a scope chooser, a row of
-          question chips and the tier — and half a desktop column made every one
-          of those wrap where the schedule group beside it had rows to spare. */}
-      <PrefGroup title={t('settings.quiz.group.deck.title')} wide>
-        {/* 5 TO 20, widened from 2 to 10 on the owner's instruction; the v3 pack
-            draws 5 to 60. An account already holding 2, 3 or 4 keeps it — the
-            server validates what is written and rewrites nothing — but cannot get
-            back below five through this control. */}
-        <PrefRow
-          label={t('settings.quiz.per-day.label')}
-          changed={(p.srDaily || 8) !== 8}
-          control={
-            <Slider
-              label={t('settings.quiz.per-day.label')}
-              hideLabel
-              min={5}
-              max={20}
-              step={1}
-              value={p.srDaily || 8}
-              onCommit={(v) => set({ srDaily: v })}
-            />
-          }
-        />
-        <ReviewScope value={p.srReviewScope} onChange={(v) => set({ srReviewScope: v })} />
-        {/* THE PACK'S ORDER, WHICH THIS HAD INVERTED: what it draws from, then
-            what it asks, then how hard it asks it (settings-restructured.dc.html
-            :2688-2695). Difficulty came second here, which puts the narrowest
-            decision above the one that decides what there is to be asked about. */}
-        <QuestionKinds p={p} set={set} only="daily" />
-        <HowItAsks p={p} set={set} />
-      </PrefGroup>
-      <PrefGroup title={t('settings.quiz.group.schedule.title')}>
-        <ScheduleRows p={p} set={set} />
-      </PrefGroup>
-      {/* PRACTICE IS ITS OWN GROUP, because the heading has to name everything
-          under it. These two rows sat under "Schedule" — a heading that names
-          one of the three things it held — which is the same defect this pass
-          had already fixed once in group 1 and then reintroduced here to keep
-          the columns even. The pack's group 2 is the schedule and nothing else
-          (settings-restructured.dc.html:2698-2712); it has no practice deck to
-          place, because it has one deck and this app has two. So the second deck
-          gets a heading of its own rather than borrowing one that is not about
-          it. Column balance is not a reason to file a row under the wrong name:
-          a reader looking for what practice asks would not look under Schedule,
-          and a reader reading Schedule is told a thing that is not the schedule. */}
-      <PrefGroup title={t('settings.quiz.group.practice.title')}>
-        <PracticeCounts p={p} set={set} />
-        <QuestionKinds p={p} set={set} only="practice" />
-      </PrefGroup>
-      {/* ── THE NUMBERS, ON THE SCREEN. THE DOOR IS GONE ──
-          It held the ten schedule numbers, and the paragraph that stood here
-          argued it had earned that: "one decision, how the interval moves… a
-          reader who has made it does not come back". That argument is about how
-          OFTEN a control is used, and the repo's rule turns on something else —
-          the owner's, now the mantra: "Use the space available. Think like the
-          user. Whatever will be used more needs to be up front." What is GENUINELY
-          RARE goes behind a door; what is merely DETAILED goes lower on the same
-          screen. Ten sliders are detailed. They are not rare enough to cost four
-          presses, and there was half a screen of empty ground under the card that
-          hid them.
-
-          THE DOOR WAS A CONSTRAINT'S SHADOW. It was built when Settings was one
-          column of nine cards, where every extra row was a scroll past on the way
-          to the fonts. Review is its own screen now. CLAUDE.md names this exact
-          door as the worked example of one that survived the reason for it.
-
-          LAST, AND WIDE, WHICH IS WHERE DETAIL BELONGS. It is the group a reader
-          scrolls TO rather than past — everything above it is what they came for
-          — and at full measure each row is a name, a range and a readout on one
-          line instead of a slider wrapping under its own label.
-
-          AND THE PANEL'S "Done" WENT WITH THE PANEL. It closed the door; there is
-          no door. Every row here commits on release, as every other row in
-          Settings does, so there was never anything for it to confirm. */}
-      {/* ── THE ONE DOT IN SETTINGS STILL ON A HEADING, AND IT EARNS IT.
-          Every other group-level dot came down onto the control it was about, or
-          went: a dot on a heading is a dot nobody presses, and the section's own
-          dot already occupies that level. This one cannot come down, because what
-          it says is not true of any single row — it is the rule the whole group
-          obeys. Every one of the ten is BOUNDED rather than free, and the reason
-          is invisible at every slider: a multiplier below 1 would shorten a card
-          each time you got it right, which never looks broken, it just asks the
-          same quote for ever. Ten copies of that on ten rows is the repetition
-          this pass exists to remove. `settings-dots.test.js` names this group as
-          the one exception and fails on a second. */}
-      <PrefGroup
-        title={t('settings.quiz.panel.title')}
-        sub={t('settings.quiz.in-depth.tip')}
-        info={t('settings.quiz.tuning.info.body')}
-        aside={tuningTouched ? t('settings.quiz.tuning.changed.aside') : null}
-        wide
-      >
-        <SRTuning p={p} set={set} />
-      </PrefGroup>
-      {/* NEVER ASKED ABOUT: not a dial but a list of decisions the reader has
-          already made and may want back, and the only reason to look for it is
-          not remembering making them. It has never been behind a door, for the
-          same reason nothing here is now. */}
-      {/* NO DOT. Measured against the other twenty-three, this was the one whose
-          words a reader could get from the screen: "quotes you have told the deck
-          to skip, grouped under the work they came from… this is where to find
-          what you skipped and put any of it back" is a caption of the list
-          directly beneath it, which is grouped by work and carries the restore
-          controls. A dot that describes what is visible spends a press on
-          nothing, and teaches the reader that the dots here are decoration. */}
-      <PrefGroup
-        title={t('settings.quiz.skipped.title')}
-        aside={t('settings.quiz.skipped.aside')}
-        wide
-      >
-        <NeverAsked />
-      </PrefGroup>
-      </PrefColumns>
-    </Card>
-  )
-}
-
-// ScheduleRows — how the interval moves, on the section rather than behind the
-// door.
-//
-// THE PACK PUTS THEM ON THE SCREEN (settings-restructured.dc.html: group "2 ·
-// Schedule" — adaptive, practice, where a new line starts, how soon a seen one
-// comes back) and keeps ONE thing behind a door: the ten numbers, under "The
-// numbers behind the schedule → Open the numbers". This app had drawn the line
-// further out, with every schedule control inside the panel on the reasoning that
-// the schedule is "one decision a reader makes once and then lives inside".
-//
-// THAT READING LOSES THE FOUR CONTROLS SOMEBODY ACTUALLY COMES BACK FOR. "Start
-// new lines at mastered" is a decision about a library you have already read;
-// "practice moves the schedule" is one people change when practice stops feeling
-// free.
-//
-// AND THE TEN WENT OUT AFTER THEM, so this file no longer has a door at all —
-// see the head of the section. This paragraph ended "which is where the pack
-// puts it and where it stays", and it did not stay: the pack's door was drawn
-// against a single scrolling column, and that column is gone.
-function ScheduleRows({ p, set }) {
-  return (
-    <>
-      <PrefRow
-        label={t('settings.quiz.adaptive.title')}
-        info={t('settings.quiz.adaptive.info.body')}
-        changed={!!p.srLadder}
-        control={
-          /* THE STORED FLAG IS THE LADDER, not adaptive, so the zero value is the
-             default the way it is for every other switch here. `srAdaptive` was a
-             flat bool in a JSON blob with no omitempty, so every account already
-             carried `false` whether the reader chose the ladder or never opened
-             this panel — a default that cannot be flipped. The two option values
-             stay in the reader's terms: off is adaptive. */
-          <Toggle
-            ariaLabel={t('settings.quiz.adaptive.aria')}
-            value={p.srLadder ? 'ladder' : 'adaptive'}
-            onChange={(v) => set({ srLadder: v === 'ladder' })}
-            options={[['adaptive', t('settings.quiz.adaptive.on.label')], ['ladder', t('settings.quiz.adaptive.ladder.label')]]}
-          />
-        }
-      />
-      {/* WHERE A LINE ENTERS, which is not how hard it is asked. The tier row says
-          what KIND of question a line in the rotation gets; this says what rung a
-          line you have never been asked about starts on. The pack draws both and
-          this app had only the first — an audit of the two paired them as the same
-          control, which they are not.
-
-          TWO RUNGS, NOT THE PACK'S THREE. The pack offers Fresh, Known and
-          Mastered; the owner's ruling is "either at not seen or mastered (first
-          tier)", so the middle one is not offered — a reader who wants a line
-          treated as half known can answer it once. */}
-      <PrefRow
-        label={t('settings.quiz.start.title')}
-        info={t('settings.quiz.start.info.body')}
-        changed={(p.srStart || 'unseen') !== 'unseen'}
-        control={
-          <Toggle
-            ariaLabel={t('settings.quiz.start.title')}
-            value={p.srStart || 'unseen'}
-            onChange={(v) => set({ srStart: v })}
-            options={[
-              ['unseen', t('settings.quiz.start.unseen.label')],
-              ['mastered', t('settings.quiz.start.mastered.label')],
-            ]}
-          />
-        }
-      />
-      <PrefRow
-        label={t('settings.quiz.seen.title')}
-        info={t('settings.quiz.seen.info.body')}
-        changed={(p.srSeen || 1) !== 1}
-        control={
-          <Slider
-            label={t('settings.quiz.seen.label')}
-            hideLabel
-            min={1}
-            max={1.5}
-            step={0.05}
-            value={p.srSeen || 1}
-            format="common.slider.multiplier.format"
-            decimals={2}
-            onCommit={(v) => set({ srSeen: v })}
-          />
-        }
-      />
-    </>
-  )
-}
-
-// SRTuning — the ten numbers the schedule is made of, as rows on the section.
-//
-// IT WAS `SRDeepControls` AND IT WAS A POP-UP. Both halves of that name were
-// already stale before this change: the "controls" it held were down to the ten
-// numbers — the tier, the confirm switch, both repertoires, adaptive and the seen
-// multiplier had each moved out to a row of their own — and "deep" described a
-// door that no longer needed to exist. A name that describes where something used
-// to live is how the next reader learns the wrong shape of the screen.
-//
-// WHAT IS NEW HERE IS THE REPERTOIRE. Until 1.16.0 the deck's question types
-// were a constant: `directionsForMode` returned the same table for everybody,
-// and the only thing a reader could say about the review loop was how many cards
-// and which medium. That is a strange place to draw the line in the one part of
-// this app with no equivalent elsewhere — somebody who cannot bear multiple
-// choice, or who wants the daily deck to be nothing but fill-in-the-blank, had
-// no way to say so.
-//
-// THE RULES REFUSE RATHER THAN REVERT. quiz.js mirrors the server's normaliser,
-// so a switch that would leave a deck with no question it can ask of a book is
-// disabled WITH ITS REASON on screen. The alternative — accept it, PUT it, and
-// have the server hand back the defaults — is a control that flips back under
-// your finger and explains nothing.
-// ── NEVER ASKED ABOUT: every quote you have told the deck to skip.
-//
-// WHY THE SCREEN EXISTS. Excluding a quote is a decision made one at a time, on a
-// card the reader may never open again, and its only trace afterwards is a card
-// that stops coming round. A deck that feels thin has either run out of material
-// or been narrowed by twenty decisions nobody remembers making, and until now
-// nothing on any screen could tell those apart. The v3 pack draws it here, under
-// Review, grouped by work.
-//
-// IT UNDOES THROUGH THE SAME ENDPOINT THAT DID IT. `review.jsx` excludes a card
-// with POST /<kind>s/bulk {ids, review:false}; this sends the same call with
-// `review: true`, for one quote or for a whole work's worth. A second writer for
-// one column is how the two come to disagree about what "excluded" means — which
-// is the exact failure 0033's own header records from the first time this flag
-// had two readers.
-//
-// A WORK IS A ROW, AND THE QUOTES ARE BEHIND IT. The pack draws each work with
-// its cover or poster, the people behind it, a count, and a chevron
-// (settings-restructured.dc.html:381-403); this drew a mono label and nothing
-// else, which asks a reader to recognise their own books from a column of
-// strings. The tick boxes are the other half of the same ask: one press per
-// quote was the only way to put back a run of them, and a reader who skipped a
-// chapter's worth has no verb for what they actually want to say.
-// EXPORTED FOR ONE CASE, the way UpdatesCard is. What needs holding is that this
-// list hands each credit's PHOTOGRAPH down to the chip: the server sends a name
-// and a path, the chip draws `person.image_path`, and for as long as it was
-// handed a bare string every credit on this screen wore the grey stand-in — which
-// looks exactly like a person nobody has fetched yet, so nothing on the screen
-// said it was wrong. The journey beside it runs the real screen against a real
-// server, where the fixture has no portraits to draw (every image fetch in this
-// container answers 403), so the one tier that can put a path in front of this
-// component is the one that can invent the answer.
-export function NeverAsked() {
-  const [groups, setGroups] = useState(null)
-  const [total, setTotal] = useState(0)
-  const [busy, setBusy] = useState(false)
-  // WHICH WORKS ARE OPEN, AND NONE ARE AT FIRST. The pack draws this collapsed
-  // (settings-restructured.dc.html:2965) and the reason is the shape of the data:
-  // a reader who skipped forty quotes across six works meets six rows they can
-  // recognise, not forty lines of prose they have to read to find the one.
-  const [open, setOpen] = useState(() => new Set())
-  // THE PICKED SET IS QUOTES, NOT WORKS, even though a work's box ticks all of
-  // them. What the button does is restore quotes; a selection of works would
-  // have to be expanded into quotes before it could act, and then a work whose
-  // rows changed under it would restore something the reader never ticked.
-  const [picked, setPicked] = useState(() => new Set())
-  // A CREDIT IS A DOOR, everywhere in this app — the standing directive, and
-  // `person-router.test.jsx` holds every screen that draws one to it. A chip that
-  // named an author and did nothing would be the same picture as one that opens
-  // them, which is the failure that rule exists to prevent.
-  const personStack = usePanelStack()
-  const openPerson = usePersonOpener(personStack)
-
-  const load = useCallback(async () => {
-    const r = await json('GET', '/review/excluded')
-    if (r.ok) {
-      setGroups(r.data.groups || [])
-      setTotal(r.data.total || 0)
-    }
-  }, [])
-  useEffect(() => { load() }, [load])
-
-  // The endpoint is per kind, and a group is all one kind, so a work's worth is
-  // one call. `kind` comes back on the row rather than being derived from the
-  // shape of it — the server already knows which source a row came from and
-  // guessing here would be a fourth place that has to learn about a new quote
-  // kind.
-  const KIND_PATH = { book: 'annotations', screen: 'dialogues', utterance: 'quotes' }
-  // WHAT THE NAME UNDER A TITLE IS, per source: a book's is its author, a film's
-  // its director, and a standalone quote's the person who said it. The person
-  // screen is reached by kind and name, so a wrong kind here opens the wrong
-  // record rather than failing visibly.
-  const CREDIT_KIND = { book: 'author', screen: 'director', utterance: 'speaker' }
-  const restore = async (pairs) => {
-    setBusy(true)
-    // ONE CALL PER KIND, because the bulk route is per kind. A selection can
-    // span a book and a film, and sending the film's ids to /annotations/bulk
-    // would be a 404 on rows that exist — the scoping is by source table.
-    const byKind = new Map()
-    for (const [kind, id] of pairs) {
-      if (!byKind.has(kind)) byKind.set(kind, [])
-      byKind.get(kind).push(id)
-    }
-    for (const [kind, ids] of byKind) await json('POST', `/${KIND_PATH[kind]}/bulk`, { ids, review: true })
-    setPicked(new Set())
-    await load()
-    setBusy(false)
-  }
-
-  const mark = (g) => `${g.kind}:${g.work_id}:${g.quotes[0].id}`
-  const qMark = (q) => `${q.kind}:${q.id}`
-  const pick = (marks, on) => setPicked((was) => {
-    const next = new Set(was)
-    for (const m of marks) { if (on) next.add(m); else next.delete(m) }
-    return next
-  })
-  const chosen = () => [...picked].map((m) => {
-    const [kind, id] = m.split(':')
-    return [kind, Number(id)]
-  })
-
-  if (groups === null) return <p className="microcopy">{t('common.state.loading')}</p>
-  if (groups.length === 0) return <p className="microcopy">{t('settings.quiz.skipped.none')}</p>
-
-  return (
-    <div className="space-y-4">
-      {/* THE COUNT STAYS WHEN A SELECTION STARTS, and the chosen figure joins it
-          rather than replacing it. "12 chosen" alone cannot say chosen out of
-          what, and this list's whole job is telling a reader how much they have
-          quietly switched off. */}
-      <div className="skipped-bar">
-        {/* THE SUMMARY KEEPS ITS WORDS AND TAKES THE GLYPHS TOO. This is the
-            roomy half of the rule — a subheader is where a reader learns that
-            this drawing means a skip and that one means a work, which is what
-            lets the rows below print the glyph alone. */}
-        <p className="microcopy skipped-tally">
-          <Tally n={total} word={t('settings.quiz.skipped.word')} icon={<IconQuizSkip />} showWord tone="warn" />
-          {/* REAL SPACES, NOT A FLEX GAP. The row is a sentence — "42 skipped in
-              2 works" — and a gap puts air between boxes while leaving the text
-              itself joined: it reached `innerText` as "42 skippedin2 works",
-              which is what a reader copies and what find-in-page searches. */}
-          <span> {t('settings.quiz.skipped.in')} </span>
-          <Tally n={groups.length} word={t('settings.quiz.works.word', { count: groups.length })} icon={<IconNavLibrary />} showWord />
-        </p>
-        {picked.size > 0 && (
-          <>
-            <span className="grow" />
-            <span className="microcopy">{t('settings.quiz.skipped.chosen', { n: picked.size })}</span>
-            <GhostButton icon={<IconReset />} disabled={busy} onClick={() => restore(chosen())}>
-              {t('settings.quiz.skipped.restore-work.label', { n: picked.size })}
-            </GhostButton>
-            <GhostButton icon={<IconClose />} disabled={busy} onClick={() => setPicked(new Set())}>
-              {t('settings.quiz.skipped.clear.label')}
-            </GhostButton>
-          </>
-        )}
-      </div>
-      {groups.map((g) => {
-        const gk = mark(g)
-        const shown = open.has(gk)
-        const marks = g.quotes.map(qMark)
-        const all = marks.every((m) => picked.has(m))
-        // A STANDALONE QUOTE HAS NO WORK TO BE UNDER, and saying so is better
-        // than printing an empty heading that reads as a bug.
-        const title = g.title || t('settings.quiz.skipped.standalone')
-        return (
-          <div key={gk} className="skipped-group">
-            <div className="skipped-work">
-              <CheckBox
-                checked={all}
-                disabled={busy}
-                ariaLabel={t('settings.quiz.skipped.pick-work.aria', { title })}
-                onChange={(on) => pick(marks, on)}
-              />
-              {/* THE ART IS THE APP'S OWN COVER, hatch and all — a film's
-                  placeholder says POSTER and a book's says COVER, which is the
-                  one word that tells a reader what is missing. A standalone
-                  quote has no artwork at all and is sent none.
-
-                  AS TALL AS WHAT IS BESIDE IT. It was `h-14 w-10` — a 56px stamp
-                  against a title that wraps to three lines and a chip row under
-                  it, so the row read as a caption with a thumbnail rather than as
-                  a shelf. `hero` is the mode with no fixed size on it; the
-                  wrapper stretches to the row and the stylesheet drives the
-                  height from that, which is the only way the two can stay equal
-                  when the thing setting the height is a title nobody can
-                  measure in advance. */}
-              <span className="skipped-work-art">
-                <Cover
-                  hero
-                  path={g.art}
-                  title={g.title}
-                  badge={g.kind === 'screen' ? 'common.badge.poster' : 'common.badge.cover'}
-                />
-              </span>
-              <div className="skipped-work-said">
-                {/* THE TITLE IS THE DOOR. One control per row: a chevron beside a
-                    pressable title would be two ways to do one thing, and the
-                    repo's rule is that a control drawn twice is drawn once. */}
-                <button
-                  type="button"
-                  className="skipped-work-open"
-                  aria-expanded={shown}
-                  onClick={() => setOpen((was) => {
-                    const next = new Set(was)
-                    if (next.has(gk)) next.delete(gk); else next.add(gk)
-                    return next
-                  })}
-                >
-                  <span className="skipped-work-title">{title}</span>
-                  {/* THE FRACTION, NOT THE WORD. "27 SKIPPED" said one number and
-                      left the reader to guess whether that was most of the work or
-                      a corner of it — and this row already carries a tick box, a
-                      cover, a chevron and a chip row, which is exactly the
-                      crowding the glyph rule is for. So: how many are skipped, in
-                      the danger colour because that is the news, over how many the
-                      work has. The words are still in each half's name. */}
-                  <span className="skipped-work-count">
-                    <Tally n={g.quotes.length} word={t('settings.quiz.skipped.word')} icon={<IconQuizSkip />} tone="warn" />
-                    <span className="skipped-work-of" aria-hidden="true"> / </span>
-                    <Tally n={g.quotes_total || g.quotes.length} word={t('settings.quiz.quotes.word', { count: g.quotes_total || g.quotes.length })} icon={<IconNavQuotes />} />
-                  </span>
-                  <span className="skipped-work-chev" aria-hidden="true"><IconChevron open={shown} /></span>
-                </button>
-                {/* THE CHIPS SIT OUTSIDE THE BUTTON, not inside it as the pack
-                    draws them: a chip is itself a button here, and a button
-                    inside a button is markup no browser agrees about. */}
-                {(g.people || []).length > 0 && (
-                  <Scroller axis="x" className="skipped-work-people">
-                    {/* `person` RIDES ALONG, which is the whole of the fix: the
-                        chip draws `person.image_path` and was handed a bare
-                        string, so every credit on this screen wore the grey
-                        stand-in — on a list whose argument is that a reader
-                        should recognise their own shelf. The path comes off the
-                        people row now, looked up once for the list. */}
-                    {g.people.map((p) => (
-                      <PersonChip
-                        key={p.name}
-                        kind={CREDIT_KIND[g.kind]}
-                        name={p.name}
-                        person={p.image_path ? { image_path: p.image_path } : null}
-                        onOpen={openPerson}
-                      />
-                    ))}
-                  </Scroller>
-                )}
-              </div>
-            </div>
-            {shown && (
-              <>
-                {g.quotes.map((q) => (
-                  <div key={q.id} className="skipped-row">
-                    <CheckBox
-                      checked={picked.has(qMark(q))}
-                      disabled={busy}
-                      ariaLabel={t('settings.quiz.skipped.pick-one.aria')}
-                      onChange={(on) => pick([qMark(q)], on)}
-                    />
-                    {/* dir="auto": a skipped quote is in whatever language it was
-                        written in, and the first strong character decides. */}
-                    <p className="skipped-quote" dir="auto">{q.text}</p>
-                    <IconButton
-                      icon={<IconReset />}
-                      ariaLabel={t('settings.quiz.skipped.restore-one.aria')}
-                      tooltip={t('settings.quiz.skipped.restore-one.aria')}
-                      disabled={busy}
-                      onClick={() => restore([[q.kind, q.id]])}
-                    />
-                  </div>
-                ))}
-                {/* A WORK'S BUTTON IS NOT THE WORK'S FLAG. It clears the quotes
-                    listed under it, one bulk call with their ids, because that is
-                    what "put these back" means to somebody reading this list.
-                    Clearing the work's own column as well would also change what
-                    happens to quotes they add to it TOMORROW, which they have not
-                    asked for and could not see here. */}
-                <div className="skipped-work-foot">
-                  <GhostButton
-                    icon={<IconReset />}
-                    disabled={busy}
-                    onClick={() => restore(g.quotes.map((q) => [q.kind, q.id]))}
-                  >
-                    {t('settings.quiz.skipped.restore-work.label', { n: g.quotes.length })}
-                  </GhostButton>
-                </div>
-              </>
-            )}
-          </div>
-        )
-      })}
-      <PanelHost stack={personStack} />
-    </div>
-  )
-}
-
-// QuestionKinds — WHICH QUESTIONS EACH DECK MAY ASK, and it is on the Review
-// screen rather than behind a door.
-//
-// THE OWNER'S RULING, MADE THE REPO'S MANTRA: "Use the space available. Think like
-// the user. Whatever will be used more needs to be up front." This was the first
-// block inside "In-depth controls", and that door exists because Settings used to
-// be one column of nine cards where every extra row was a scroll past. Review is
-// its own screen now with most of a phone's height standing empty under three
-// controls — so the door was hiding things behind a constraint that no longer
-// exists.
-//
-// AND IT IS THE BLOCK WITH THE BEST CLAIM TO THE SPACE. Its own commit says why:
-// until 1.16.0 the deck's question types were a constant, so "somebody who cannot
-// bear multiple choice, or who wants the daily deck to be nothing but fill-in-the-
-// blank, had no way to say so." That is a want people actually have, and it was two
-// presses and a scroll away.
-//
-// ITS OWN COPY OF THE QUESTION SET, derived from the preferences it is handed —
-// which is what makes it drawable in two places without the two disagreeing. The
-// in-depth panel's "back to defaults" clears `srQuestions`, the optimistic apply
-// puts the cleared value on `p`, and this re-derives.
-function QuestionKinds({ p, set, only = null }) {
-  // ONE SOURCE OF TRUTH, DERIVED, AND THIS COST A READER THEIR CHANGE. It held
-  // the whole question map — both decks — in a useState initialised once from the
-  // preferences and never re-derived. That was survivable while ONE of these was
-  // drawn; the moment the daily row and the practice row became two instances,
-  // each held its own copy of BOTH decks and each wrote the whole blob. So
-  // toggling a daily question and then a practice one PUT a daily list that had
-  // never heard about the first press: the reader's first change came back, in
-  // silence, and the chip on screen went on saying it had been made.
-  //
-  // `p` is the parent's preferences and `set` lifts every change into them, so
-  // deriving per render is both correct and optimistic — the same thing every
-  // other row on this section already does with p.srTier, p.srSubmit and the
-  // rest. There is nothing left for two instances to disagree about.
-  const qs = parseQuestions(p.srQuestions)
-  const commit = (next) => set({ srQuestions: questionsBlob(next) })
-  return (
-    <>
-      {REVIEW_DECKS.filter(([deck]) => !only || deck === only).map(([deck, deckLabel]) => (
-        /* A ROW PER DECK, with its chips as the row's own second line — the shape
-           every other control on this section now has, and the shape the pack
-           draws ("What you get asked"). It was a mono label over a wrapping chip
-           row, twice, which read as two unlabelled blocks of accent. */
-        <PrefRow
-          key={deck}
-          label={t('settings.quiz.deck.title', { name: deckLabel })}
-          info={
-            deck === 'daily'
-              ? t('settings.quiz.deck.daily.info.body')
-              : t('settings.quiz.deck.practice.info.body')
-          }
-          changed={qs[deck].length !== questionsFor(deck).length}
-        >
-          <div style={{ flexBasis: '100%' }}>
-          {/* ONE ROW OF CHIPS, NOT FIVE ROWS OF YES/NO (1.17.0). Nine labelled
-              rows, each with its own segmented switch and its own dot, filled
-              this pop-up top to bottom — and the question they answered is a set
-              ("which of these does it ask?"), which a lit chip states and a
-              column of switches makes you read one line at a time. The dots went
-              with the rows: a chip's hint is its tooltip, which is what the
-              review-scope chips three lines up have always done.
-
-              The lock still speaks IN WORDS, under the row. lockedOff returns
-              the reason rather than a boolean precisely so it can be shown, and
-              only one chip per deck can ever be locked — the last universal
-              question standing — so one line says it without naming which. */}
-          <ChipSwitches
-            ariaLabel={t('settings.quiz.deck.title', { name: deckLabel })}
-            options={questionsFor(deck).map((q) => ({
-              key: q.id,
-              label: q.label,
-              // THE DECK IS PART OF THE NAME, because the words alone are not
-              // unique on this screen: the same six questions are offered to the
-              // daily deck and to practice, in two columns.
-              ariaLabel: t('settings.quiz.deck.question.aria', { question: q.label, name: deckLabel }),
-              on: qs[deck].includes(q.id),
-              // The hint, then the two axes the question sits on. Seven chips in
-              // a row is a list you read as arbitrary unless something says which
-              // of them are the same question asked another way — see taxonomy.
-              hint: q.hint + '\n\n' + taxonomy(q),
-              locked: lockedOff(qs, deck, q.id),
-            }))}
-            onToggle={(id) => commit(toggleQuestion(qs, deck, id))}
-          />
-          {(() => {
-            const stuck = questionsFor(deck).map((q) => lockedOff(qs, deck, q.id)).find(Boolean)
-            return stuck ? <p className="microcopy mt-1.5">{stuck}</p> : null
-          })()}
-          </div>
-        </PrefRow>
-      ))}
-    </>
-  )
-}
-
-// HowItAsks — the three dials about the QUESTION, on the screen rather than behind
-// the door. See QuestionKinds for the ruling; these are the same argument.
-//
-// "How hard the questions are" is the control a reader reaches for the moment the
-// deck feels wrong in either direction, and it was three presses away. "Confirm
-// each answer" is how the quiz FEELS under the thumb, set once on the first day.
-// "Practice counts" is the one question somebody asks before they practise at all.
-// None of the three is schedule maths, which is what is left behind the door.
-function HowItAsks({ p, set }) {
-  return (
-    <>
-      {/* A THIRD AXIS, and not the same as either of the others: srQuestions says
-          WHICH questions may be asked, srTuning says how much an answer moves the
-          schedule, and neither makes the same card easier or harder to get right.
-          Medium is what the quiz has always done. */}
-      <PrefRow
-        label={t('settings.quiz.tier.title')}
-        info={t('settings.quiz.tier.info.body')}
-        changed={(p.srTier || 'medium') !== 'medium'}
-        control={
-          <Toggle
-            ariaLabel={t('settings.quiz.tier.title')}
-            value={p.srTier || 'medium'}
-            onChange={(v) => set({ srTier: v })}
-            options={REVIEW_TIERS.map((k) => [k, t(`settings.quiz.tier.${k}.label`)])}
-          />
-        }
-      >
-        {/* A LINE FOR WHICHEVER TIER IS CHOSEN, on the owner's ask. Only Easy
-            carried one, which left three of the four options as adjectives: a
-            reader on Hard could read the whole row and not learn that it means
-            typing. The info dot says what the four are; this says what THIS one
-            does, which is the question a reader has while their finger is on the
-            control.
-
-            THE COST STAYS ON EASY'S LINE. Close wrong answers teach more than
-            obvious ones (Little et al., 2012); Easy gives that up on purpose, and
-            a tier that only advertised its benefit would be selling the reader
-            something. */}
-        <p className="microcopy" style={{ flexBasis: '100%', lineHeight: 1.6 }}>
-          {t(`settings.quiz.tier.${p.srTier || 'medium'}.note`)}
-        </p>
-      </PrefRow>
-      <PrefRow
-        label={t('settings.quiz.submit.title')}
-        info={t('settings.quiz.submit.info.body')}
-        changed={!!p.srSubmit}
-        control={
-          <Toggle
-            ariaLabel={t('settings.quiz.submit.aria')}
-            value={p.srSubmit ? 'on' : 'off'}
-            onChange={(v) => set({ srSubmit: v === 'on' })}
-            options={[['off', t('vocab.no.label')], ['on', t('vocab.yes.label')]]}
-          />
-        }
-      />
-    </>
-  )
-}
-
-// PracticeCounts — whether answering in Practice moves the schedule at all. It
-// is the switch people reach for the first time practice stops feeling free.
-//
-// IT IS IN THE PRACTICE GROUP, NOT THE SCHEDULE'S. This comment said the
-// opposite, and was left saying it for a commit after the row moved: the
-// argument was that a row about the schedule belongs with the schedule, which
-// reads well until you notice it puts the word "practice" under a heading that
-// says "Schedule". The row is about what PRACTICE does, and a reader looking for
-// it looks under practice.
-function PracticeCounts({ p, set }) {
-  return (
-    <PrefRow
-      label={t('settings.quiz.practice-counts.title')}
-      info={t('settings.quiz.practice-counts.info.body')}
-      changed={!!p.srPracticeCounts}
-      control={
-        <Toggle
-          ariaLabel={t('settings.quiz.practice-counts.aria')}
-          value={p.srPracticeCounts ? 'on' : 'off'}
-          onChange={(v) => set({ srPracticeCounts: v === 'on' })}
-          options={[['off', t('vocab.no.label')], ['on', t('vocab.yes.label')]]}
-        />
-      }
-    />
-  )
-}
-
-function SRTuning({ p, set }) {
-  // THE QUESTION MAP LEFT WITH THE REPERTOIRES. This panel held a copy of it long
-  // after the chips moved onto the section, along with the writer that went with
-  // it — a second writer for `srQuestions` that nothing on screen could reach,
-  // which is the shape of thing that comes back to life the day somebody adds a
-  // row here.
-  const [tune, setTune] = useState(() => parseTuning(p.srTuning))
-  // THE LADDER HAS TO CLIMB, and the server reverts one that does not — silently,
-  // which would be three sliders that move and then do nothing. So the panel
-  // refuses and says why, the same way a question toggle does, and the PUT is
-  // simply not sent until it is legal again.
-  const tuneErr = tuningProblem(tune)
-  const commitTune = (key, v) => {
-    const next = { ...tune, [key]: v }
-    setTune(next)
-    if (!tuningProblem(next)) set({ srTuning: tuningBlob(next) })
-  }
-  const reset = () => {
-    setTune(parseTuning(''))
-    // WHAT THIS GROUP HOLDS, AND NOTHING ELSE. It used to clear every review
-    // preference on the reasoning that "a reader who presses Back to defaults
-    // inside the in-depth panel means the panel" — which was true when the panel
-    // held the tier, the confirm switch, both repertoires, adaptive, the seen
-    // multiplier and the ten numbers. The panel is the ten numbers now; the rest
-    // are rows on the section, each with its own changed dot, and the section has
-    // its own Reset. A button that reached out of its panel and turned five
-    // visible rows back would be the least trustworthy control on the screen —
-    // which is the same sentence as before, pointing the other way.
-    //
-    // AND "THE SECTION HAS ITS OWN RESET" WAS NOT TRUE WHEN THIS WAS WRITTEN.
-    // The button existed; the write behind it did not — `resetSection` cleared
-    // the keys into App's local state and sent no PUT, so pressing it restored
-    // nothing past the next load. Narrowing this reset on the strength of that
-    // sentence left five review preferences with no working restore at all. The
-    // sentence is true now because the PUT was added, not because it was
-    // checked; it is recorded here because the cost of the next unchecked
-    // "something else covers this" is the same.
-    set({ srTuning: '' })
-  }
-  return (
-    <div className="space-y-6">
-      {/* THE ROOM IS ROWS TOO, which is where the last pass stopped. Sliders
-          rather than boxes because every one of these is bounded, and a bounded
-          value typed into a box is a value that can be refused after the fact —
-          but each one was drawn as an ALL-CAPS mono label over a full-width
-          slider, the exact label-over-block shape this section was just rid of,
-          ten times in a column. The pack draws them as rows: name in the UI face
-          at the left, the range beside it, the readout in mono at the end
-          (settings-restructured.dc.html:657-661). `PrefRow` is that shape and is
-          already what the section outside this door uses, so the room and the
-          screen it opened from now read as one thing.
-
-          AND THE GROUP HEADING IS GONE. "The numbers behind it" stood over its
-          only content, inside a panel already titled "The numbers behind the
-          schedule" — the same fact three times on one press. The panel's own
-          title is the heading; the door's info dot carries what the dot here
-          carried. The pack has no inner heading either, for the same reason. */}
-      <div>
-        {TUNING_FIELDS.map((f) => (
-          <PrefRow
-            key={f.key}
-            label={f.label}
-            info={f.hint}
-            control={
-              <Slider
-                label={f.label}
-                hideLabel
-                min={f.min}
-                max={f.max}
-                step={f.step}
-                format={f.format}
-                decimals={f.decimals}
-                value={tune[f.key]}
-                onCommit={(v) => commitTune(f.key, v)}
-              />
-            }
-          />
-        ))}
-        <ErrorText>{tuneErr}</ErrorText>
-      </div>
-      {/* THE RESET STAYS AND THE "Done" DOES NOT. Done closed the door, and there
-          is no door — every row here commits on release, the way every other row
-          in Settings does, so it never confirmed anything. The reset still has
-          work: ten sliders are ten things to put back by hand, and the blob's
-          absence is what lets a later change to the defaults reach an account
-          that never edited them. It sits at the start of the row rather than
-          across from a button that is gone. */}
-      <div className="flex gap-2 pt-1">
-        <Tooltip label={t('settings.quiz.reset.tip')}>
-          <GhostButton icon={<IconReset />} keepLabel onClick={reset}>{t('settings.quiz.reset.label')}</GhostButton>
-        </Tooltip>
-      </div>
-    </div>
-  )
-}
 
 // UpdatesCard (admin only) — the version + update control. "Check for updates"
 // queries GitHub on demand (never automatically); if a newer release exists it

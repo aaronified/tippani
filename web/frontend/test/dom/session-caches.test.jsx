@@ -38,13 +38,11 @@ vi.mock('../../src/api.js', async (orig) => ({
       if (holdVocab) return new Promise((resolve) => { holdVocab = () => resolve(answer) })
       return answer
     }
-    if (path.startsWith('/review/daily')) return { ok: true, data: { items: [], pending: 3, streak: 9 } }
     return { ok: true, data: {} }
   }),
 }))
 
 const { primeSearchVocabulary } = await import('../../src/SearchPage.jsx')
-const { dailyDeck } = await import('../../src/daily.js')
 const { forgetSessionCaches, sessionCacheCount } = await import('../../src/sessionCaches.js')
 
 const asked = (re) => calls.filter((c) => re.test(c)).length
@@ -65,18 +63,6 @@ describe('the caches a session leaves behind', () => {
     await primeSearchVocabulary()
     expect(asked(/\/search\/vocabulary/),
       'the second reader was served the first reader\'s authors, performers, tags and shelf names out of a cache nothing emptied')
-      .toBe(2)
-  })
-
-  it('empty the review deck the same way, which is the one that was noticed', async () => {
-    await dailyDeck(0)
-    expect(asked(/\/review\/daily/)).toBe(1)
-    await dailyDeck(0)
-    expect(asked(/\/review\/daily/), 'the deck is not cached at all, so this case is measuring nothing').toBe(1)
-    forgetSessionCaches()
-    await dailyDeck(0)
-    expect(asked(/\/review\/daily/),
-      'the second reader was served the first reader\'s deck, pending count and streak')
       .toBe(2)
   })
 

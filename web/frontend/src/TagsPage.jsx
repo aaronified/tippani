@@ -1,7 +1,6 @@
 import { forwardRef, useEffect, useMemo, useRef, useState } from 'react'
 import { json, errText } from './api.js'
 import { t } from './i18n.js'
-import { usePractice } from './review.jsx'
 import {
   ColorSwatches,
   EmptyState,
@@ -303,7 +302,6 @@ function CompactTagCard({ tag, index, dupe = false, onChanged }) {
   const { ask, confirmDialog } = useConfirm()
   const [editing, setEditing] = useState(false)
   const [error, setError] = useState('')
-  const { practise, practiceDialog } = usePractice(t('metadata.section.categories.label'))
   const uses = tagUses(tag)
 
   return (
@@ -332,14 +330,6 @@ function CompactTagCard({ tag, index, dupe = false, onChanged }) {
       {dupe && <p className="tag-dupe-note">{t('tags.dupe.row.note')}</p>}
       <ErrorText>{error}</ErrorText>
       <div className="mt-auto flex gap-3 pt-0.5">
-        {/* Only where there is something to ask about. A tag attached to nothing
-            would open a round with no cards in it, and an empty dialog is a
-            worse answer than an absent control. */}
-        {uses > 0 && (
-          <button className="tp-link" onClick={() => practise({ tag: tag.name, label: tag.name })}>
-            {t('common.link.practise.label')}
-          </button>
-        )}
         <button className="tp-link" onClick={() => setEditing(true)}>
           {t('common.link.edit.label')}
         </button>
@@ -347,7 +337,6 @@ function CompactTagCard({ tag, index, dupe = false, onChanged }) {
           {t('common.link.delete.label')}
         </button>
       </div>
-      {practiceDialog}
       {confirmDialog}
     </HandCard>
   )
@@ -360,7 +349,6 @@ function TagTable({ tags, dupIds, onChanged }) {
   const { sort, toggle, apply } = useSort('uses', 'desc')
   const [editingId, setEditingId] = useState(null)
   const [error, setError] = useState('')
-  const { practise, practiceDialog } = usePractice(t('metadata.section.categories.label'))
   const rows = apply(tags, {
     name: (row) => row.name.toLowerCase(),
     style: (row) => row.style,
@@ -402,11 +390,6 @@ function TagTable({ tags, dupIds, onChanged }) {
                 <td className="col-actions">
                   <TableActions
                     noun={t('unit.tag.one')}
-                    onPractise={
-                      tagUses(row) > 0
-                        ? () => practise({ tag: row.name, label: row.name })
-                        : undefined
-                    }
                     onEdit={() => setEditingId(row.id)}
                     onDelete={() => deleteTag(row, ask, onChanged, setError)}
                   />
@@ -432,7 +415,6 @@ function TagTable({ tags, dupIds, onChanged }) {
           />
         )}
       </FormModal>
-      {practiceDialog}
       {/* The table's confirm lives here and not on a row: a row is a <tr>, and a
           dialog is not a table cell. */}
       {confirmDialog}

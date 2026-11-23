@@ -3,7 +3,7 @@
 // WHY THIS EXISTS. The tag list gave one count for annotations and one for
 // dialogues, and the console added those two. A tag worn only by standalone quotes
 // summed to zero: its Delete said nothing about them, on a delete that cannot be
-// undone, and its Practise link was missing. The server now sends `utterances`
+// undone. The server now sends `utterances`
 // too, and this checks the console adds it.
 //
 // THE MUTATION: take `+ (tag.utterances || 0)` out of `tagUses` in TagsPage.jsx
@@ -36,10 +36,9 @@ vi.mock('../../src/api.js', async (orig) => ({
 const { default: TagsPage } = await import('../../src/TagsPage.jsx')
 
 describe('a tag only standalone quotes wear', () => {
-  it('asks before deleting what it is detached from, and offers to practise it', async () => {
+  it('asks before deleting what it is detached from', async () => {
     render(<TagsPage />)
     await screen.findByText(/proverbs · 3/)
-    expect(screen.getByRole('button', { name: /practise/i })).toBeTruthy()
 
     // the tag's Delete is the first on the page; the sticker's follows it
     fireEvent.click(screen.getAllByRole('button', { name: /delete/i })[0])

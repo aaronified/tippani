@@ -55,7 +55,6 @@ import {
 import { actionsFor } from './actions.jsx'
 import { ANTHOLOGY_KIND, useGatherDoor, workRule } from './anthologyGather.jsx'
 import { useSourceDoor } from './sources.jsx'
-import { usePractice } from './review.jsx'
 import { deletePhrase, useBulkOps } from './bulkOps.jsx'
 import { selectionClick, selectionMenuItems } from './selection.jsx'
 
@@ -1128,9 +1127,6 @@ export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps, sel
   const picked = !!selection?.isSelected(item.id)
   const ops = useBulkOps({ kind, ids: [item.id], onDone: onChanged })
   const [asking, setAsking] = useState(false)
-  // "Quiz me on this one." The dialog belongs to the tile that opened it, so it
-  // closes with the board rather than outliving it.
-  const { practise, practiceDialog } = usePractice(t(kind === 'book' ? 'nav.tab.library.label' : 'nav.tab.movies.label'))
   const gather = useGatherDoor()
   const source = useSourceDoor()
   const acts = actionsFor(kind, item, {
@@ -1142,19 +1138,6 @@ export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps, sel
     // it is what keeps this menu empty in a read-only context rather than
     // full of controls that appear to do nothing.
     fillGaps: onChanged ? () => ops.fillGaps() : undefined,
-    setReview: onChanged
-      ? (_, wasExcluded) =>
-          ops.post(
-            { review: wasExcluded },
-            // The bar's own two, at n = 1. Spelled in English here until now, which
-            // is a class of miss the pseudo-locale gate cannot catch: a toast is
-            // not on screen when a screen mounts.
-            wasExcluded
-              ? t('common.selection.toast.back-in-quiz')
-              : t('common.selection.toast.skipping', { n: 1, count: 1 }),
-          )
-      : undefined,
-    excluded: !!item.review_excluded,
     edit: onEdit ? () => onEdit(item.id) : undefined,
     // A WORK'S PASSAGES, NOT THE WORK. A book cannot be an anthology entry —
     // `quoteOwned` accepts book, screen and utterance and refuses everything else —
@@ -1169,11 +1152,6 @@ export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps, sel
     // nothing on this screen for a reload to catch up with.
     addToAnthology: () => gather.open({ rule: workRule(kind, item.id) }),
     remove: onChanged ? () => setAsking(true) : undefined,
-    // NOT gated on onChanged, unlike its neighbours. Every other action here
-    // writes, and a surface that cannot reload after a write should not offer
-    // one; a themed round only reads the pool, and grading inside it changes
-    // nothing this tile draws.
-    practise: () => practise({ [kind === 'book' ? 'book' : 'movie']: item.id, label: item.title }),
   })
   // SELECT FIRST, the same as a quote card's menu: the gesture that asks "what
   // can I do to this" is also how you start doing it to several. Select all
@@ -1299,7 +1277,6 @@ export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps, sel
         {tile}
         {menu}
         {confirm}
-        {practiceDialog}
         {gather.node}
         {source.node}
       </>
@@ -1315,7 +1292,6 @@ export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps, sel
       />
       {menu}
       {confirm}
-      {practiceDialog}
       {gather.node}
       {source.node}
     </div>

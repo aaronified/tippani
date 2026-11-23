@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- **The daily quiz, practice, and the Review screen are gone from the web app.** Home no longer
+  carries the quiz cards, the skip-in-quiz control, the review settings or the quiz tuning, and
+  Practise is gone from works, anthologies and tags. (ADR-0936)
+
 - **Settings › Theme is a dropdown on the web.** The material tiles, physics dials, true glass,
   per-surface materials, saved looks and cover-size sliders are gone; you pick a theme from a
   list, then light, dark or match system, and a colour (ADR-0936).

@@ -58,32 +58,6 @@ export const SHORTCUTS = [
   { id: 'go-profile', seq: ['g', 'p'], label: 'shell.shortcut.go-profile.label', group: 'shell.shortcut.group.go-to.label' },
   { id: 'go-settings', seq: ['g', ','], label: 'shell.shortcut.go-settings.label', group: 'shell.shortcut.group.go-to.label' },
 
-  // ---- review, and the two things that make it different --------------------
-  //
-  // THE SAME KEY DOES A DIFFERENT JOB PER CARD, which is why bindings carry a
-  // `ctx`. A quiz shows one of three kinds of question and they want different
-  // answers: an MCQ wants "which of these four", a flip card wants "did you have
-  // it", a cloze wants the caret in the blank. Binding 1 globally to "Forgot"
-  // would mean pressing 1 on a four-option question graded it instead of picking
-  // the first answer — a keystroke that silently marks a card wrong.
-  //
-  // So `ctx` is part of the identity of a binding: 1 is unique WITHIN mcq and
-  // within flip, and the two never coexist on screen.
-  { id: 'pick-1', ctx: 'mcq', keys: ['1'], label: 'shell.shortcut.pick-1.label', group: 'shell.shortcut.group.mcq.label' },
-  { id: 'pick-2', ctx: 'mcq', keys: ['2'], label: 'shell.shortcut.pick-2.label', group: 'shell.shortcut.group.mcq.label' },
-  { id: 'pick-3', ctx: 'mcq', keys: ['3'], label: 'shell.shortcut.pick-3.label', group: 'shell.shortcut.group.mcq.label' },
-  { id: 'pick-4', ctx: 'mcq', keys: ['4'], label: 'shell.shortcut.pick-4.label', group: 'shell.shortcut.group.mcq.label' },
-
-  { id: 'reveal', ctx: 'flip', keys: ['space'], label: 'shell.shortcut.reveal.label', group: 'shell.shortcut.group.flip.label' },
-  { id: 'grade-forgot', ctx: 'flip', keys: ['1'], label: 'shell.shortcut.grade-forgot.label', group: 'shell.shortcut.group.flip.label' },
-  { id: 'grade-got', ctx: 'flip', keys: ['2'], label: 'shell.shortcut.grade-got.label', group: 'shell.shortcut.group.flip.label' },
-
-  // Space again, and legitimately: on a cloze there is nothing to reveal, and
-  // "get on with this card" means put the caret where the typing goes. It only
-  // fires while the field is NOT focused, so it can never eat a space you meant
-  // to type.
-  { id: 'focus-blank', ctx: 'cloze', keys: ['space'], label: 'shell.shortcut.focus-blank.label', group: 'shell.shortcut.group.cloze.label' },
-
   // ---- the offer chip, and the one binding in this table that the dispatcher
   // ---- below DELIBERATELY CANNOT FIRE ------------------------------------------
   //
@@ -160,18 +134,10 @@ export function shortcutLabel(s) {
 
 // shortcutFor is what a control calls to find out what key it is.
 //
-// `shifted` renders the PRACTICE form of a review key. Practice and the Daily
-// Quiz show the same card with the same buttons, and the two are not the same
-// act: the daily deck is the schedule and its grades are permanent, while
-// Practice is study. A reader running through Practice on reflex with the daily
-// keys in their fingers should not be able to move a schedule by accident, so
-// Practice asks for Shift — one deliberate extra finger, on the mode where the
-// stakes are lower but the muscle memory is identical.
-export function shortcutFor(id, shifted = false) {
+export function shortcutFor(id) {
   const s = BY_ID.get(id)
   if (!s) return ''
-  const label = shortcutLabel(s)
-  return shifted && s.ctx ? t('common.shortcut.shifted.label', { key: label }) : label
+  return shortcutLabel(s)
 }
 
 // withShortcut appends the key to a tooltip label, and is the function that
@@ -181,8 +147,8 @@ export function shortcutFor(id, shifted = false) {
 // facts about a control everywhere else in this app, and because brackets read
 // as optional. Returns the label unchanged when the action has no binding, so
 // every existing Tooltip can pass an id it may not have one for.
-export function withShortcut(label, id, shifted = false) {
-  const k = shortcutFor(id, shifted)
+export function withShortcut(label, id) {
+  const k = shortcutFor(id)
   return k ? t('common.shortcut.suffix.label', { name: label, key: k }) : label
 }
 
@@ -217,9 +183,6 @@ export function groupedShortcuts(omit) {
       id: s.id,
       label: t(s.label),
       keys: shortcutLabel(s),
-      // A review key answers to two decks; the sheet says both rather than
-      // leaving somebody in Practice pressing a key that does nothing.
-      practiceKeys: s.ctx ? shortcutFor(s.id, true) : '',
     })
   }
   return out

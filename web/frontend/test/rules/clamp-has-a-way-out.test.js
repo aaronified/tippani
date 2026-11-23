@@ -78,8 +78,6 @@ const KNOWN = {
   // A CONTROL IN PLACE. The clamp collapses and a chevron beside it opens.
   'Home.jsx:clampLines':
     'the favourite tile’s quote — `ClampMore` under it, and the tile head toggles `open`',
-  'review.jsx:QUIZ_OPTION_LINES':
-    'a quiz option — a `FieldIconButton` wearing `ClampMore`, drawn only when something is hidden',
   'ui.jsx:lines':
     '`useClamped`, the shared fold — `canToggle` and `clampProps` make the text itself the control',
 

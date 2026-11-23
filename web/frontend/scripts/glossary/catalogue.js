@@ -710,8 +710,6 @@ export const SECTIONS = [
         desc: "The account. Phosphor `identification-card`. A card with a face on it, rather than the bare head IconPerson draws for a credit." },
       { name: "IconNavUsers", src: "IconNavUsers — ui.jsx · rule 2 · names a place, not a job",
         desc: "User management. Phosphor `users`. The widest glyph in the pack — 0.98 of its box before the crop, 0.82 after." },
-      { name: "IconPractise", src: "IconPractise — ui.jsx · rule 3 · a silhouette in life",
-        desc: "Practise. Phosphor `graduation-cap`. Nine call sites read practise and drew the quiz card, so the place you go to study and the card you are asked looked identical." },
       { name: "IconPalette", src: "IconPalette — ui.jsx · rule 4 · the fill carries information",
         desc: "The colour category. Phosphor `palette`. Replaces the ink drop: rule 4 is about a fill that holds the six category colours, and an outline has nowhere to put them." },
       { name: "IconReading", src: "IconReading — ui.jsx · rule 1 · the ON state of a pair",

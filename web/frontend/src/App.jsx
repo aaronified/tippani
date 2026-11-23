@@ -4,10 +4,7 @@ import { applyLanguageMarks } from './languages.jsx'
 import { applyFonts, registerUploads } from './fonts.js'
 import { setVoicePrefs } from './speech.js'
 import { applyTypeScale } from './type.js'
-import { applyReviewPrefs, tzOffsetMinutes } from './review.jsx'
-import { dailyDeck } from './daily.js'
 import { forgetSessionCaches } from './sessionCaches.js'
-import { startAnswerQueue, stopAnswerQueue } from './answerQueue.js'
 import { pickEpigraph } from './epigraphs.js'
 import { installShortcuts, shortcutFor } from './keys.js'
 import AddSurface from './AddSurface.jsx'
@@ -205,18 +202,6 @@ export default function App() {
     if (!checking && !user) loadStatus()
   }, [user]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // THE QUIZ ANSWERS KEPT ON THIS DEVICE go out while their reader is signed in,
-  // and wait, kept, while nobody is (answerQueue.js). Keyed on the reader's id,
-  // so signing in as someone else sends theirs and never this one's. And not
-  // while the password an admin chose still stands: the server lets nothing
-  // through until the reader picks their own, and the moment they have, the
-  // answers go.
-  const answersOpen = user?.id != null && !user?.must_change_password
-  useEffect(() => {
-    if (answersOpen) startAnswerQueue(user.id)
-    else stopAnswerQueue()
-  }, [user?.id, answersOpen]) // eslint-disable-line react-hooks/exhaustive-deps
-
   // Per-user appearance preferences apply on login and reset on logout (§4).
   //
   // applyColors is a SEPARATE call, not a field of applyTheme, and stays that
@@ -237,10 +222,6 @@ export default function App() {
       // writes the device-local mirror as a side effect, so the next boot's
       // pre-session screens open in the same language rather than in the default.
       applyLocale(user.preferences?.locale || '')
-      // And the one review preference a themed round cannot be handed as a prop.
-      // Same effect on purpose: it runs on login and on every Settings save, so
-      // there is no second place that has to remember to keep it current.
-      applyReviewPrefs(user.preferences || {})
       applyLanguageMarks(user.preferences || {})
       // AFTER applyLocale, and the order is load-bearing: the faces are per UI
       // LANGUAGE now, so applyFonts has to be told which language is rendering —
@@ -289,11 +270,6 @@ export default function App() {
       screen = (
         <Shell
           user={user}
-          // THE DECK IS SOMEBODY'S, and daily.js keys its five-second window on the
-          // timezone offset, which two people on one machine share. Signing out has
-          // to drop it or the next reader in this tab is served the last one's
-          // cards, pending count and streak — every query behind it is scoped by
-          // user_id, and a cache in front of one has to be too.
           // EVERY ENROLLED CACHE, not the one somebody remembered. Signing out
           // does not reload the document — this is `setUser(null)`, which swaps
           // the shell for the login screen in place — so a cache written by one
@@ -795,8 +771,7 @@ function SingleSignOnButton({ name }) {
 //
 // The drawer has answered this since it was written: a total for the collections, and
 // for the three that are not collections, the thing you would actually want to know —
-// how many records have a gap, whether the quiz streak is alive, which version is
-// running. The rail wanted the same answers, and the wrong way to give it them is a
+// how many records have a gap, and which version is running. The rail wanted the same answers, and the wrong way to give it them is a
 // second table: two lists of counts is how a rail and a drawer come to disagree about
 // how many books there are, on the same screen, at the same moment.
 //
@@ -814,7 +789,7 @@ function SingleSignOnButton({ name }) {
 // kind of fact: a container, and its contents.
 //
 // The three utility rows keep their single answer, because they are not containers
-// — a gap count, a streak, a version. Counting them the same way would mean
+// — a gap count, a version. Counting them the same way would mean
 // inventing a second number for a row that has one thing to say.
 // SPACED, and the space is not decoration. "22|13" reads as one token at the
 // size a rail count is drawn — a part number, not two facts — and the eye has to
@@ -858,7 +833,7 @@ export function checksBadge(pending, stray) {
   return pair(pending, stray)
 }
 
-export function navBadge(key, { stats, metaIssues, streak, version } = {}) {
+export function navBadge(key, { stats, metaIssues, version } = {}) {
   if (stats) {
     // stats.quotes counts the utterances table — the standalone quotes, which is
     // exactly what the Quotes row leads to; boards are the named groups they sit
@@ -1200,7 +1175,7 @@ function TopBarSearch({ scope, scopeLabel, onSearch, onDropScope }) {
 // right shape for a row of peers and the wrong one for a column of destinations:
 // a segment implies "one of these", and this column also holds a rule, the bin and
 // an account. The rows are buttons and the rule is a span — see below.
-export function NavRail({ tab, onChange, sections, order = null, user, onAccount, onChecks, brandDot = null, badges = {}, checkCount = 0, strayCount = 0 }) {
+export function NavRail({ tab, onChange, sections, order = null, user, onAccount, onChecks, badges = {}, checkCount = 0, strayCount = 0 }) {
   const dark = useResolvedDark()
   const railRef = useRef(null)
   // Nine destinations in a short window outrun the column, and the app's own rule
@@ -1246,10 +1221,6 @@ export function NavRail({ tab, onChange, sections, order = null, user, onAccount
         >
           <img src={dark ? '/mark-dark.svg' : '/mark.svg'} alt="" width="34" height="34" />
           <span className="rail-wordmark">{t('shell.wordmark.label')}</span>
-          {/* The pending-review dot rode the brand in the top bar. The brand moved, so
-              it moves with it — an indicator left behind on a retired control is an
-              indicator nobody sees. */}
-          {brandDot}
         </button>
       </div>
       <nav ref={railRef} className="rail-nav" aria-label={t('shell.nav.primary.aria')}>
@@ -1261,8 +1232,7 @@ export function NavRail({ tab, onChange, sections, order = null, user, onAccount
         {/* CHECKS — one door to the two lists that ask something of you: imports
             waiting to be approved, and quotes with something odd left in them. They
             were two tiles buried in Settings, which is where you go to change how the
-            app behaves, not to find out it is waiting on you. Deliberately NOT called
-            Review: that word is already the quiz and the practice deck. */}
+            app behaves, not to find out it is waiting on you. */}
         <button
           type="button"
           className="rail-row"
@@ -1336,8 +1306,8 @@ function rememberScroll(key) {
 
 // Drawer — the hamburger nav (§7 redesign): primary nav on mobile, opened by
 // the ☰ button or the avatar chip. Scrim tap / Escape / any navigation closes
-// it. Home carries the pending-review dot; Library/Catalogue show live counts.
-export function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccount, user, stats, pending, pendingImport, streak, metaIssues, dark, onUser, sections, order = null, checkCount = 0, strayCount = 0 }) {
+// it. Library/Catalogue show live counts.
+export function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccount, user, stats, pendingImport, metaIssues, dark, onUser, sections, order = null, checkCount = 0, strayCount = 0 }) {
   // Metadata "issues" = items the console flags (a book with no cover or no
   // ids; a film/show with no poster, cast or source) — the same predicate the
   // Metadata page uses. Fetched lazily the first time the drawer opens (it's a
@@ -1379,15 +1349,7 @@ export function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccou
   if (!open) return null
 
   const badge = (key) => {
-    if (key === 'home') {
-      return (
-        <span className="drawer-badge" style={{ fontSize: 'var(--type-ui-9)' }}>
-          {pending > 0 && <span className="review-dot" aria-hidden="true" />}
-          quiz · practice
-        </span>
-      )
-    }
-    const label = navBadge(key, { stats, metaIssues, streak, version: user.version })
+    const label = navBadge(key, { stats, metaIssues, version: user.version })
     return label ? <NavCount className="drawer-badge" value={label} /> : null
   }
 
@@ -1834,10 +1796,6 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
   // wants to hear about it too.
   const [dataNonce, setDataNonce] = useState(0)
   const bumpData = () => setDataNonce((n) => n + 1)
-  // pending = cards left in today's review deck; feeds the notification dot on
-  // the brand mark and the drawer's Home row. Seeded once here, then kept
-  // honest by the Home screen as answers land.
-  const [pending, setPending] = useState(0)
   // pendingImport = quotes sitting in the import staging queue. A half-finished
   // import must not be forgettable, so the count badges the ＋ Add control and
   // surfaces on Home until the queue is cleared.
@@ -1860,7 +1818,6 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
     // screen, not a live readout, and the screen recounts when you get there.
     json('GET', '/cleanup?counts=1').then((r) => { if (r.ok) setStrayCount(r.data?.counts?.open || 0) })
   }, [])
-  const [streak, setStreak] = useState(0) // daily-quiz streak — drawer Stats subtext
   const [stats, setStats] = useState(null) // drawer counts + Home stat tiles
   // metaIssues — records with a gap in them, badged on the rail's Metadata row and
   // the drawer's. IT LIVED IN THE DRAWER, which could afford to fetch it only when
@@ -1911,12 +1868,6 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
   }
   useEffect(() => {
     refreshStats()
-    // The SAME request Home's quiz card makes, shared rather than repeated — see
-    // daily.js. The shell wants two numbers off the deck and the card wants the
-    // deck; computing it twice on every load is the one duplicate read there was.
-    dailyDeck(tzOffsetMinutes()).then((r) => {
-      if (r.ok) { setPending((r.data.items || []).length); setStreak(r.data.streak || 0) }
-    })
     refreshPendingImport()
     // An old /import link lands here — open the Add surface on Import. /capture is
     // the icon shortcut's URL and does the same for the capture section.
@@ -1939,14 +1890,14 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
   // capability check the reader ever sees. Zero CLEARS the badge rather than showing
   // a nought, which is what setAppBadge(0) means and why it is not simply skipped.
   useEffect(() => {
-    const n = (pending || 0) + (pendingImport || 0)
+    const n = pendingImport || 0
     try {
       if (n > 0) navigator.setAppBadge?.(n)
       else navigator.clearAppBadge?.()
     } catch {
       /* not installed, or a platform without it — nothing to report */
     }
-  }, [pending, pendingImport])
+  }, [pendingImport])
 
   // Mirror tab/detail ↔ URL. popstate (back/forward) restores state from the
   // path; landing on an unknown path rewrites the bar to the canonical one.
@@ -2144,8 +2095,6 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
   // table rather than a chain of ifs — an action with no case here does nothing,
   // which is the right behaviour for a binding whose screen is not open.
   //
-  // The review actions are NOT here: a grade only means something to the card in
-  // front of you, so QuizRunner owns those and this dispatcher never sees them.
   useEffect(() => installShortcuts((id) => {
     switch (id) {
       case 'search': openSearch(); break
@@ -2179,7 +2128,6 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
 
   const logout = () => signOut(onLogout)
 
-  const brandDot = pending > 0 && <span className="review-dot" aria-hidden="true" />
   // The ＋ Add pill carries the staging count, because that is where imports
   // start and where the queue is reached from.
   const importBadge = pendingImport > 0 && <span className="add-badge">{pendingImport}</span>
@@ -2371,13 +2319,12 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
         user={user}
         onAccount={() => go('profile')}
         onChecks={() => go('checks', null)}
-        brandDot={brandDot}
         // Through visibleTabs like every other nav list: a badge computed for a
         // section the reader has switched off is work done for a row that will not
         // be drawn, and features-nav.test.js is right to refuse the bare list.
         badges={Object.fromEntries(
           [...visibleTabs(CONTENT_TABS, sections, order), ...visibleTabs(UTILITY_TABS, sections, order)]
-            .map(([k]) => [k, navBadge(k, { stats, metaIssues, streak, version: user.version })])
+            .map(([k]) => [k, navBadge(k, { stats, metaIssues, version: user.version })])
             .filter(([, v]) => v),
         )}
         // The import queue only. THE STRAY-MARKS COUNT IS DELIBERATELY ABSENT: that
@@ -2449,7 +2396,6 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
           <Tooltip label={t('shell.drawer.open.tip')} side="bottom" className="shrink-0">
             <button type="button" className="mobile-topbar-btn" aria-label={t('shell.drawer.open.aria')} onClick={() => setDrawerOpen(true)}>
               <IconMenu />
-              {brandDot}
             </button>
           </Tooltip>
           {/* THE SECTION IS THE TITLE AND THE SCREEN IS THE LINE UNDER IT, which is
@@ -2507,7 +2453,6 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
               onGoLibrary={sections.library ? () => selectTab('library') : null}
               onGoMovies={sections.movies ? () => selectTab('movies') : null}
               onGoQuotes={sections.quotes ? () => selectTab('quotes') : null}
-              onPending={setPending}
               pendingImport={pendingImport}
               onReviewImport={() => selectTab('staging')}
             />
@@ -2756,9 +2701,7 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
         onAccount={() => go('profile')}
         user={user}
         stats={stats}
-        pending={pending}
         pendingImport={pendingImport}
-        streak={streak}
         checkCount={pendingImport}
         strayCount={strayCount}
         dark={dark}

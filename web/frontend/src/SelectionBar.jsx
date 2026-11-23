@@ -152,12 +152,7 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
   // possible outcome is an error from the server.
   const none = count === 0
 
-  // Whether the selection is ALREADY out of the quiz, which is what decides the
-  // word (and now the glyph) on the button. Every-not-some on purpose: over a
-  // mixed selection the button should do the thing that changes something, and
-  // "skip these" changes something unless they are all skipped already.
   const picked = rows.filter((r) => selection.isSelected(r.id))
-  const allExcluded = picked.length > 0 && picked.every((r) => r.review_excluded)
 
   const phrase = deletePhrase(kind, count)
 
@@ -218,14 +213,6 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
     // simply does not pass onEdit, which is how the action stays absent rather
     // than dead.
     edit: onEdit ? (id) => onEdit(id) : undefined,
-    excluded: allExcluded,
-    setReview: (_, wasExcluded) =>
-      ops.post(
-        { review: wasExcluded },
-        wasExcluded
-          ? t('common.selection.toast.back-in-quiz')
-          : t('common.selection.toast.skipping', { n: count, count }),
-      ),
     remove: () => confirmedDelete(),
   })
   const byID = Object.fromEntries(acts.map((a) => [a.id, a]))

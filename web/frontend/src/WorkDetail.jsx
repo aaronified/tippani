@@ -44,7 +44,6 @@ import { t } from './i18n.js'
 import { nameFor } from './languages.jsx'
 import { TextOrderScope } from './textOrderHost.jsx'
 import { PersonChip, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
-import { usePractice } from './review.jsx'
 import {
   Cover,
   DetailFrame,
@@ -53,7 +52,6 @@ import {
   IconDetails,
   IconExport,
   IconFilter,
-  IconPractise,
   IconReadAgain,
   IconWatching,
   IconButton,
@@ -128,13 +126,7 @@ export default function WorkDetail({
   // ({ item, spec, mobileFilter, setMobileFilter, onStats, seps, creditMaps }) => node
   renderBoard,
 }) {
-  // A THEMED ROUND OVER THIS WORK. The engine has taken `?book=` and `?movie=`
-  // since themed practice shipped, and the action registry has carried a Practise
-  // entry for a work all along — it was only ever offered from a person's panel
-  // and from a colour on Stats, so the one screen where "quiz me on this" is the
-  // obvious thing to want had no way to ask.
   const [item, setItem] = useState(null)
-  const { practise, practiceDialog } = usePractice(item?.title)
   // Everything this screen says about its own kind. Resolved from the loaded row,
   // because only media_type tells a game from a film — before it lands the side's
   // own row stands in, which is what lets the frame draw while the fetch is out.
@@ -485,12 +477,6 @@ export default function WorkDetail({
         onClick: () => pick(activeWord),
       },
       { id: 'details', icon: <IconDetails />, label: t('common.work.details.title'), onClick: () => openDetails() },
-      {
-        id: 'practise',
-        icon: <IconPractise />,
-        label: t(spec.detail.practiseMenu),
-        onClick: () => item && practise({ [spec.practiseParam]: item.id, label: item.title }),
-      },
       ...(DEMO ? [] : [{
         id: 'export',
         icon: <IconExport />,
@@ -618,12 +604,6 @@ export default function WorkDetail({
         actions={
           (
             <>
-              {/* TWO VERBS, TWO WEIGHTS. A row of two identical buttons asks the
-                  same question twice; the pack raises one of them, and the raised
-                  one is Practise — it is what a reader opened this page to do,
-                  while Details is where you go to correct a year. Both stretch to
-                  half the column (`flex: 1 1 0` in the row's own rule) so the pair
-                  reads as a choice rather than as a list that ran out of room. */}
               {/* keepLabel, because the pack draws the WORDS on both. These two are
                   the page's only standing verbs and the phone comp gives each an
                   icon and its name in a 44px well; auto-hiding the label at 390px
@@ -636,15 +616,6 @@ export default function WorkDetail({
                 ariaLabel={t('common.work.details.title')}
                 onClick={() => openDetails()}
                 tooltip={t(spec.detail.detailsTip)}
-              />
-              <IconButton
-                icon={<IconPractise />}
-                label={t('common.action.practise.label')}
-                keepLabel
-                className="tp-btn-primary"
-                ariaLabel={t(spec.detail.practiseAria)}
-                onClick={() => practise({ [spec.practiseParam]: item.id, label: item.title })}
-                tooltip={t(spec.detail.practiseTip)}
               />
             </>
           )
@@ -782,7 +753,6 @@ export default function WorkDetail({
       {!wide && streamBlock}
       {/* Phone-only route into this screen's help: the sticky bar has no room for
           a "?", so the ⋯ menu opens the same panel the desktop button does. */}
-      {practiceDialog}
       {/* The board tile's dialog, not a second one that looks like it — deleting a
           work from its own screen and deleting it from its cover are one act and
           one door, phrase and all. */}

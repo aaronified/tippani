@@ -1,10 +1,9 @@
-// Home — the landing screen (mobile handoff §7 redesign, ROADMAP №2): a date +
-// greeting, the Daily Quiz card, the Practice card, two stat tiles, and the
-// most recent favourites. Reached by tapping the logo (every bar) or landing
+// Home — the landing screen (mobile handoff §7 redesign): a date + greeting, two
+// stat tiles, and the most recent favourites. Reached by tapping the logo (every bar) or landing
 // on "/". One narrow column on every screen size — the ritual reads the same
 // on a phone and a desktop. Quote capture is NOT here any more — it's the
 // "Capture quote" tab of the single ＋ Add surface (top bar + drawer).
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { coverImgURL, errText, json } from './api.js'
 import { QUOTE_TEXT, languageClass } from './fonts.js'
 import { chapterLabel, episodeLabel } from './text.js'
@@ -13,17 +12,13 @@ import { dateLine, greetingFor } from './greetings.js'
 import { AnnotationForm, annotationState, annDate, fmtDate } from './Library.jsx'
 import { DialogueForm, dialogueState } from './Movies.jsx'
 import { UtteranceForm, utteranceMeta, utteranceState } from './Quotes.jsx'
-import { t, tNodes } from './i18n.js'
+import { t } from './i18n.js'
 import { contextKind, useInContext } from './sources.jsx'
 import { GLYPH_NAME } from './identityLocal.jsx'
 import { openCharacterDoor } from './identity.jsx'
 import { usePersonOpener } from './personOpen.jsx'
 import { quoteKindMeta } from './quoteKind.js'
 import { PendingImportCard } from './StagingPage.jsx'
-import { overCapacity } from './quiz.js'
-import { QuizRunner, tzOffsetMinutes } from './review.jsx'
-import { dailyDeck } from './daily.js'
-import { keptAnswers, onAnswerQueue, sentThisPage, useKeptAnswers } from './answerQueue.js'
 import {
   CreditFaces,
   PersonCredit,
@@ -46,7 +41,6 @@ import {
   ColorSwatches,
   clampSequence,
   ErrorText,
-  FieldIconButton,
   formatPartialDate,
   formatYear,
   FormModal,
@@ -54,9 +48,7 @@ import {
   HandCard,
   HandNote,
   Hearts,
-  IconDelete,
   IconShuffle,
-  InfoDot,
   IconButton,
   Masonry,
   MonoLabel,
@@ -73,96 +65,13 @@ import {
   QuoteTools,
   shuffleSeeded,
   ReviewDot,
-  STATUS_META,
   toast,
   Tooltip,
   useConfirm,
   useCardMenu,
   useColumnsAt,
-  usePersistedState,
 } from './ui.jsx'
 
-
-// StatesRow — the "where you stand" breakdown: a count per repetition status
-// with its coloured dot, plus a toggle for the explainer.
-//
-// `adaptive` is the rule in force — the inverse of the srLadder opt-in — and
-// the explainer describes
-// whichever rule is actually in force. Describing the ladder to somebody who has
-// switched it off would make the one piece of copy that explains the schedule
-// the one piece of copy that lies about it.
-function StatesRow({ states, capacity, help, onToggleHelp, adaptive }) {
-  if (!states || states.total === 0) return null
-  // A LIBRARY CAN OUTGROW ITS SCHEDULE, and until now that happened in silence.
-  // See overCapacity in quiz.js: the deck goes on working and goes on leading
-  // with the stalest card, so this is a note about reach and not a warning about
-  // breakage — which is why it sits under the counts rather than behind the "how
-  // these work" fold, where a reader who never opens it would never learn it.
-  const outgrown = overCapacity(states, capacity)
-  const pips = [
-    ['remembered', states.remembered],
-    ['forgetting', states.forgetting],
-    ['probably-forgotten', states.probably_forgotten],
-    ['unseen', states.unseen],
-  ]
-  return (
-    <div style={{ borderTop: '1px solid var(--line)', paddingTop: 10 }} className="mt-3">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-        <span className="mono-label" style={{ color: 'var(--faint)' }}>{t('home.states.title')}</span>
-        {pips.map(([key, n]) => (
-          <span key={key} className="mono-label inline-flex items-center gap-1.5" style={{ fontSize: 'var(--type-ui-11)', opacity: n ? 1 : 0.45 }}>
-            <span
-              aria-hidden="true"
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: 999,
-                border: `1.5px solid ${STATUS_META[key].color}`,
-                background: STATUS_META[key].filled ? STATUS_META[key].color : 'transparent',
-              }}
-            />
-            <span style={{ fontWeight: 600 }}>{n}</span> {t(STATUS_META[key].label).toLowerCase()}
-          </span>
-        ))}
-        <button type="button" className="tp-link" style={{ fontSize: 'var(--type-ui-11)', marginLeft: 'auto' }} onClick={onToggleHelp}>
-          {t('home.states.help.label')}
-        </button>
-      </div>
-      {/* TWO NUMBERS, BOTH THE SERVER'S. The capacity is quota x the interval
-          ceiling and the total is the library; dividing one by the other to
-          recover the daily count would put the ceiling in the client, where the
-          next release to move it would leave this sentence quietly wrong. */}
-      {outgrown && (
-        <p className="microcopy mt-2" style={{ lineHeight: 1.6 }} data-outgrown="">
-          {t('home.states.capacity.note', { total: states.total, n: capacity })}
-        </p>
-      )}
-      {help && (
-        <p className="microcopy mt-2" style={{ lineHeight: 1.6 }}>
-          {/* ONE KEY PER RULE, holding the whole paragraph. It was five JSX
-              fragments around two links and three bold runs, which is a sentence
-              a translator cannot reorder — and this paragraph is the only place
-              the schedule is explained. */}
-          {tNodes(adaptive ? 'home.states.help.adaptive.prose' : 'home.states.help.ladder.prose', {
-            curve: (
-              <a key="curve" href="https://en.wikipedia.org/wiki/Forgetting_curve" target="_blank" rel="noopener noreferrer" className="tp-link">
-                {t('home.states.help.curve.label')}
-              </a>
-            ),
-            spaced: (
-              <a key="spaced" href="https://en.wikipedia.org/wiki/Spaced_repetition" target="_blank" rel="noopener noreferrer" className="tp-link">
-                {t('home.states.help.spaced.label')}
-              </a>
-            ),
-            remembered: <strong key="remembered">{t('home.states.help.remembered.label')}</strong>,
-            forgetting: <strong key="forgetting">{t('home.states.help.forgetting.label')}</strong>,
-            forgotten: <strong key="forgotten">{t('home.states.help.forgotten.label')}</strong>,
-          })}
-        </p>
-      )}
-    </div>
-  )
-}
 
 // [stats field, the medium's glyph, its noun family]. The glyphs are the ones the
 // app already draws for a work's medium — GLYPH_NAME through NavIcon, as the
@@ -173,401 +82,6 @@ const SCREEN_KINDS = [
   ['shows', <NavIcon name={GLYPH_NAME.show} />, 'unit.show'],
   ['games', <NavIcon name={GLYPH_NAME.game} />, 'unit.game'],
 ]
-
-// DailyQuizCard — the scheduled spaced-repetition session (ROADMAP №2): every
-// card due today, no skips, each grade folded into the schedule. Got it / Forgot
-// move the card's half-life; the deck drains as you go and the pending dot
-// follows. Records a permanent daily score + streak.
-function DailyQuizCard({ onPending, states, capacity, onStates, adaptive, submitStep }) {
-  const [data, setData] = useState(null)
-  const [phase, setPhase] = useState('loading') // loading | active | done | error
-  const [tally, setTally] = useState({ got: 0, forgot: 0 })
-  // Answers given today that the server had not taken when the deck came: the
-  // streak counts today from the first of them, as the server will.
-  const [answeredToday, setAnsweredToday] = useState(0)
-  const [help, setHelp] = useState(false)
-  // THE ROUND RUNS IN ITS OWN SCREEN — the owner's, 9 October: "the review /
-  // quiz should happen in a popup (a dedicated screen in phone) so that the user
-  // doesnt need to scroll up and down too much." This card is the launcher: what
-  // is due, and the press that opens it.
-  const [open, setOpen] = useState(false)
-  // Where the round is: the card on screen (`pos`, from each advance) and the
-  // card past the last one answered here (`given`, from each kept answer, a
-  // typed one the server has not marked included). A closed round reopens at
-  // the later of the two, so a card answered and then closed before Next is not
-  // asked again.
-  const [pos, setPos] = useState(0)
-  const [given, setGiven] = useState(0)
-
-  useEffect(() => {
-    dailyDeck(tzOffsetMinutes()).then((r) => {
-      // A failed fetch must NOT masquerade as "all caught up" — show an error and
-      // leave the pending dot as the shell seeded it.
-      if (!r.ok) return setPhase('error')
-      // THE ANSWERS THIS PAGE KNOWS ABOUT ARE ANSWERS, whether the server has
-      // them or not. A refresh draws the deck from a server that has not heard
-      // of a kept answer, so it would ask again a card the reader answered a
-      // minute ago — the owner's report ("Now on page refresh, that will come
-      // back"). And the deck can be older than an answer the server HAS taken:
-      // it is asked for as the app starts, the kept answers go out at the same
-      // moment, and either reply can land first. So the rule is about the deck,
-      // not about the clock: an answer this page knows about (kept, or sent from
-      // here) whose card the deck still holds is an answer the deck was drawn
-      // without. Its card leaves the deck, it counts in today's tally (a cloze
-      // the server has not marked counts as answered, neither right nor wrong),
-      // and the states the deck brought are moved for it before anyone sees
-      // them. A card the deck no longer holds was answered on the server's side
-      // and is in its counts already.
-      const sent = sentThisPage().filter((e) => e.mode === 'daily')
-      const kept = keptAnswers().filter((e) => e.mode === 'daily')
-      const dealt = new Set((r.data.items || []).map((c) => `${c.kind}:${c.id}`))
-      const seen = new Set()
-      const unknown = [...sent, ...kept].filter((e) => {
-        if (seen.has(e.key) || !dealt.has(`${e.kind}:${e.id}`)) return false
-        seen.add(e.key)
-        return true
-      })
-      const answered = new Set(unknown.map((e) => `${e.kind}:${e.id}`))
-      const items = (r.data.items || []).filter((c) => !answered.has(`${c.kind}:${c.id}`))
-      setData({ ...r.data, items })
-      // Only today's answers count today: one kept from yesterday leaves the deck
-      // (it was answered) and is filed on yesterday when it is sent.
-      const today = unknown.filter((e) => localDay(e.t, e.offset) === localDay(Date.now(), tzOffsetMinutes()))
-      setTally({
-        got: (r.data.got_today || 0) + today.filter((e) => e.attempt == null && e.result === 'got').length,
-        forgot: (r.data.forgot_today || 0) + today.filter((e) => e.attempt == null && e.result === 'forgot').length,
-      })
-      setAnsweredToday((r.data.answered_today || 0) + today.length)
-      // Home moves the states for answers still kept; the ones already sent are
-      // moved here, since nothing else will.
-      const keptKeys = new Set(kept.map((e) => e.key))
-      onStates?.(withKept(r.data.states, unknown.filter((e) => !keptKeys.has(e.key))), r.data.capacity)
-      onPending(items.length)
-      setPhase(items.length ? 'active' : 'done')
-    })
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Counted as the answer is kept: the server's own counts arrive as it takes
-  // each one (Home listens to the queue for them).
-  function onAnswered(result) {
-    setTally((prev) => ({
-      got: prev.got + (result === 'got' ? 1 : 0),
-      forgot: prev.forgot + (result === 'forgot' ? 1 : 0),
-    }))
-    setAnsweredToday((n) => n + 1)
-  }
-
-  // THE STREAK COUNTS TODAY FROM ITS FIRST ANSWER. The server's figure, read with
-  // the deck, ends yesterday until an answer of today reaches it; it read 54 on
-  // "all caught up" and 55 after a refresh, the owner's screenshots. A day the
-  // server already counted adds nothing.
-  const streak = (data?.streak || 0) + (data && !data.answered_today && answeredToday > 0 ? 1 : 0)
-  const total = data?.items?.length || 0
-  const next = Math.max(pos, given)
-  const left = Math.max(0, total - next)
-  // Closed part-way, the deck waits here; closed on its last answer, before
-  // Finish, the day is done all the same.
-  function close() {
-    setOpen(false)
-    onPending(left)
-    if (left === 0) setPhase('done')
-  }
-  return (
-    <HandCard variant={0} style={{ padding: '16px 18px 14px' }}>
-      <div className="mb-2.5 flex items-baseline justify-between gap-3">
-        <MonoLabel style={{ color: 'var(--accent-ui)' }}>{t('home.daily.title')}</MonoLabel>
-        {streak > 0 && (
-          <span className="mono-label" style={{ letterSpacing: '.06em' }}>
-            {t('home.daily.streak.label', { n: streak, count: streak })}
-          </span>
-        )}
-      </div>
-
-      {phase === 'error' ? (
-        <p className="microcopy py-6 text-center" style={{ color: 'var(--error)' }}>
-          {t('home.daily.error')}
-        </p>
-      ) : phase === 'loading' ? (
-        <p className="microcopy py-6 text-center">{t('home.daily.loading')}</p>
-      ) : phase === 'active' ? (
-        <div className="review-card-body flex flex-wrap items-center gap-3">
-          <button type="button" className="tp-btn tp-btn-primary tactile" onClick={() => setOpen(true)}>
-            {t(given > 0 ? 'home.daily.resume.label' : 'home.daily.start.label')}
-          </button>
-          <MonoLabel style={{ fontSize: 'var(--type-ui-11)' }}>{t('home.daily.due.label', { n: left, count: left })}</MonoLabel>
-          {open && (
-            <FormModal screen onClose={close} title={t('home.daily.title')} backTo={t('nav.tab.home.label')} maxWidth={640}>
-              <QuizRunner
-                mode="daily"
-                cards={data.items}
-                allowSkip={false}
-                submitStep={submitStep}
-                startIndex={Math.min(next, total - 1)}
-                onAnswered={onAnswered}
-                onKept={(i) => setGiven((g) => Math.max(g, i + 1))}
-                onIndex={(i) => { setPos(i); onPending(Math.max(0, total - i)) }}
-                onDone={() => { setOpen(false); onPending(0); setPhase('done') }}
-              />
-            </FormModal>
-          )}
-        </div>
-      ) : (
-        <div className="review-card-body py-4 text-center" style={{ padding: '18px 6px 12px' }}>
-          <p
-            aria-hidden="true"
-            style={{ fontFamily: 'var(--font-hand)', fontWeight: 'var(--font-hand-weight)', fontStyle: 'var(--font-hand-style)', fontVariantCaps: 'var(--font-hand-caps)', textTransform: 'var(--font-hand-case)', fontVariantNumeric: 'var(--font-hand-figures)', fontSize: 'var(--type-hand-26)', color: 'var(--accent-ui)', transform: 'rotate(-1.2deg)' }}
-          >
-            {t(tally.got || tally.forgot ? 'home.daily.done.label' : 'home.daily.empty.label')}
-          </p>
-          <p className="mono-label mt-1" style={{ letterSpacing: '.06em' }}>
-            {tally.got || tally.forgot
-              ? t('home.daily.done.summary', { got: tally.got, missed: tally.forgot })
-              : t('home.daily.empty.summary')}
-          </p>
-        </div>
-      )}
-
-      <KeptLine />
-
-      {states && (
-        <StatesRow states={states} capacity={capacity} help={help} onToggleHelp={() => setHelp((v) => !v)} adaptive={adaptive} />
-      )}
-    </HandCard>
-  )
-}
-
-// The reader's local date of a moment (epoch ms), at a UTC offset in minutes.
-const localDay = (ms, offset) => new Date(ms + (offset || 0) * 60000).toISOString().slice(0, 10)
-
-// KeptLine — the one place the sending is ever mentioned, and only once it is
-// slow: answers the server has not taken, after the oldest has waited a minute.
-// A quick send is not news. A long wait is, because nothing can be sent while the
-// app is closed, and an answer the reader thinks is safe should not be news later.
-const KEPT_QUIET_MS = 60000
-function KeptLine() {
-  const kept = useKeptAnswers()
-  const [, tick] = useState(0)
-  const oldest = kept.length ? kept[0].t : null
-  const late = oldest != null && Date.now() - oldest >= KEPT_QUIET_MS
-  useEffect(() => {
-    if (oldest == null || late) return undefined
-    const id = setTimeout(() => tick((n) => n + 1), oldest + KEPT_QUIET_MS - Date.now())
-    return () => clearTimeout(id)
-  }, [oldest, late])
-  if (!late) return null
-  return (
-    <p className="mono-label mt-2" style={{ color: 'var(--faint)', letterSpacing: '.06em' }}>
-      {t('quiz.kept.waiting', { n: kept.length, count: kept.length })}
-    </p>
-  )
-}
-
-// withKept — "where you stand" with the kept Daily answers already in it. A
-// Daily answer always moves its card, and where to depends only on the grade (a
-// card answered a moment ago is "remembered" if it was got and "probably
-// forgotten" if not; recallStatus on the server), so the move is known before the
-// server hears. The server's counts are the base, and as it takes each answer the
-// base moves and the answer leaves this list, so nothing is counted twice. A
-// Practice answer moves a card only when Practice is set to count, and a cloze's
-// grade is the server's, so both wait for its counts.
-const STATE_FIELD = { remembered: 'remembered', forgetting: 'forgetting', 'probably-forgotten': 'probably_forgotten', unseen: 'unseen' }
-function withKept(states, kept) {
-  if (!states) return states
-  const out = { ...states }
-  for (const e of kept) {
-    if (e.mode !== 'daily' || e.attempt != null) continue
-    const from = STATE_FIELD[e.from]
-    const to = e.result === 'got' ? 'remembered' : 'probably_forgotten'
-    if (!from || from === to || !(out[from] > 0)) continue
-    out[from] -= 1
-    out[to] = (out[to] || 0) + 1
-  }
-  return out
-}
-
-// PracticeCard — unlimited retrieval practice (ROADMAP №2): the same reveal/grade
-// flow as the Daily Quiz, but skippable and, by default, schedule-neutral (a
-// setting opts it into moving half-lives). Its score is separate and can be
-// reset without touching learning history.
-function PracticeCard({ onStates, userId, submitStep }) {
-  // The active deck + position + tally persist across reloads (localStorage),
-  // so a refresh resumes the round instead of dropping it — { cards, i, got,
-  // forgot }, cleared when the round finishes or is ended. The key is
-  // user-scoped so a shared browser never shows one account's private deck to
-  // the next (localStorage isn't cleared on logout). `phase` seeds from a live
-  // session so a reload comes back straight into 'active'.
-  const [session, setSession] = usePersistedState(`tippani:practice:session:${userId ?? 'me'}`, null)
-  const [phase, setPhase] = useState(session?.cards?.length ? 'active' : 'idle')
-  const [score, setScore] = useState(null) // lifetime practice score
-  const [lastRound, setLastRound] = useState({ got: 0, forgot: 0 }) // the finished round's tally, for the done screen
-  const [busy, setBusy] = useState(false)
-  // The round's own screen — see DailyQuizCard. A persisted round comes back
-  // closed, behind a Continue, rather than opening over Home on a reload.
-  const [open, setOpen] = useState(false)
-  const cards = session?.cards || []
-  // The next card to show: past the one on screen once it has been answered, so
-  // a round closed before Next does not ask that card again.
-  const next = Math.max(session?.i || 0, session?.next || 0)
-  // A KEPT ROUND WHOSE LAST CARD WAS ANSWERED IS OVER, reloaded or not: there is
-  // nothing left to continue, and reopening it would ask that card again.
-  useEffect(() => {
-    if (phase === 'active' && !open && cards.length > 0 && next >= cards.length) finishRound()
-  }, [phase, open, cards.length, next]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  function loadScore() {
-    json('GET', `/review/scores?offset=${tzOffsetMinutes()}`).then((r) => {
-      if (r.ok) setScore(r.data.practice)
-    })
-  }
-  useEffect(() => { loadScore() }, [])
-
-  async function start() {
-    setBusy(true)
-    const r = await json('GET', '/review/practice')
-    setBusy(false)
-    const items = r.ok ? r.data.items || [] : []
-    if (!items.length) return toast(t('error.load.practice'))
-    setSession({ cards: items, i: 0, got: 0, forgot: 0 })
-    setPhase('active')
-    setOpen(true)
-  }
-
-  // finishRound ends the current round (naturally or via End practice): stash
-  // its tally for the done screen, drop the persisted deck, refresh the score.
-  function finishRound() {
-    setOpen(false)
-    setLastRound({ got: session?.got || 0, forgot: session?.forgot || 0 })
-    loadScore()
-    setSession(null)
-    setPhase('done')
-  }
-
-  function onAnswered(result) {
-    // Tally lives in the persisted session so a reload doesn't lose the count.
-    // "Where you stand" follows the server's counts as it takes each answer
-    // (Home listens to the queue for them).
-    setSession((s) => (s ? {
-      ...s,
-      got: s.got + (result === 'got' ? 1 : 0),
-      forgot: s.forgot + (result === 'forgot' ? 1 : 0),
-    } : s))
-  }
-
-  // THE SCORE IS THE SERVER'S, so it is read again as the server takes each
-  // Practice answer: a round finished while answers were still on this device
-  // would otherwise show a score a few answers short until the next visit.
-  const idle = phase !== 'active'
-  useEffect(() => onAnswerQueue((e) => {
-    if (e.type === 'sent' && e.entry.mode === 'practice' && idle) loadScore()
-  }), [idle]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  async function reset() {
-    await json('DELETE', '/review/practice')
-    loadScore()
-    toast(t('home.practice.toast.reset'))
-  }
-
-  return (
-    <HandCard variant={3} style={{ padding: '16px 18px 14px' }}>
-      {/* The paragraph that used to explain Practice now hangs off this dot.
-          The card is two taps of a ritual you do daily — after the first week
-          the explanation is furniture, and on a phone it was four lines of
-          furniture above the only button that matters. */}
-      <div className="mb-2.5 flex items-center justify-between gap-3">
-        <span className="flex items-center gap-1.5">
-          <MonoLabel style={{ color: 'var(--accent-ui)' }}>{t('home.practice.title')}</MonoLabel>
-          <InfoDot title={t('home.practice.info.title')} text={t('home.practice.info.body')} />
-        </span>
-        {phase === 'active' && (
-          <span className="mono-label" style={{ letterSpacing: '.06em' }}>{t('home.practice.unlimited.label')}</span>
-        )}
-      </div>
-
-      {phase === 'idle' && (
-        <div className="review-card-body">
-          <div className="flex flex-wrap items-center gap-3">
-            <button type="button" className="tp-btn tp-btn-primary tactile" disabled={busy} onClick={start}>
-              {t(busy ? 'home.practice.start.busy' : 'home.practice.start.label')}
-            </button>
-            {score && score.answered > 0 && (
-              <>
-                <MonoLabel style={{ fontSize: 'var(--type-ui-11)' }}>
-                  {t('home.practice.score.label', {
-                    n: score.answered,
-                    count: score.answered,
-                    percent: Math.round(score.accuracy * 100),
-                  })}
-                </MonoLabel>
-                <FieldIconButton
-                  icon={<IconDelete />}
-                  ariaLabel={t('home.practice.reset.aria')}
-                  onClick={reset}
-                  tooltip={t('home.practice.reset.tip')}
-                />
-              </>
-            )}
-          </div>
-        </div>
-      )}
-
-      {phase === 'active' && cards.length > 0 && (
-        <div className="review-card-body flex flex-wrap items-center gap-3">
-          {/* Reopened where it stopped, and the session says so: the next answer
-              is counted against the card now on screen. */}
-          <button
-            type="button"
-            className="tp-btn tp-btn-primary tactile"
-            onClick={() => { setSession((s) => (s ? { ...s, i: next } : s)); setOpen(true) }}
-          >
-            {t('home.practice.resume.label')}
-          </button>
-          <button type="button" className="tp-link" onClick={finishRound}>{t('home.practice.end.label')}</button>
-          {open && (
-            <FormModal
-              screen
-              // Closed on its last answer, before Finish, the round is over.
-              onClose={() => (next >= cards.length ? finishRound() : setOpen(false))}
-              title={t('home.practice.title')}
-              backTo={t('nav.tab.home.label')}
-              maxWidth={640}
-            >
-              <QuizRunner
-                mode="practice"
-                cards={cards}
-                allowSkip
-                submitStep={submitStep}
-                startIndex={Math.min(next, cards.length - 1)}
-                onIndex={(i) => setSession((s) => (s ? { ...s, i } : s))}
-                onAnswered={onAnswered}
-                onKept={(i) => setSession((s) => (s ? { ...s, next: Math.max(s.next || 0, i + 1) } : s))}
-                onDone={finishRound}
-              />
-              <div className="mt-2 text-right">
-                <button type="button" className="tp-link" onClick={finishRound}>{t('home.practice.end.label')}</button>
-              </div>
-            </FormModal>
-          )}
-        </div>
-      )}
-
-      {phase === 'done' && (
-        <div className="review-card-body py-2 text-center">
-          <p aria-hidden="true" style={{ fontFamily: 'var(--font-hand)', fontWeight: 'var(--font-hand-weight)', fontStyle: 'var(--font-hand-style)', fontVariantCaps: 'var(--font-hand-caps)', textTransform: 'var(--font-hand-case)', fontVariantNumeric: 'var(--font-hand-figures)', fontSize: 'var(--type-hand-26)', color: 'var(--accent-ui)', transform: 'rotate(-1.2deg)' }}>
-            {t('quiz.round.score.label', { done: lastRound.got, total: lastRound.got + lastRound.forgot })}
-          </p>
-          <p className="mono-label mt-1 mb-3" style={{ letterSpacing: '.06em' }}>
-            {t('home.practice.round.summary', { got: lastRound.got, missed: lastRound.forgot })}
-          </p>
-          <button type="button" className="tp-btn tp-btn-primary tactile" disabled={busy} onClick={start}>
-            {t('quiz.round.again.label')}
-          </button>
-        </div>
-      )}
-    </HandCard>
-  )
-}
-
-const FAVS_INITIAL = 4 // tiles shown before "view more"
 
 // bookFav / screenFav flatten a book annotation and a screen dialogue into one
 // favourite-tile shape so the Home grid can mix both media. `text` is the line
@@ -770,7 +284,9 @@ const FAV_KINDS = {
   },
 }
 
-export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary, onGoMovies, onGoQuotes, onPending, pendingImport, onReviewImport }) {
+const FAVS_INITIAL = 4 // tiles shown before "view more"
+
+export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary, onGoMovies, onGoQuotes, pendingImport, onReviewImport }) {
   const { ask, confirmDialog } = useConfirm()
   // HOME OPENS PANELS NOW. `usePanelStack` is the app's one idiom for a surface
   // that opens another (Design-decisions.md: "a panel is a plain {title, render} descriptor,
@@ -804,29 +320,6 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
   // screen was reachable from Home and from nowhere else in the app.
   const openPerson = usePersonOpener(stack)
   const seps = parseCreditSeps(user?.preferences?.creditSeparators)
-  // "Where you stand" lives in the Daily Quiz card but is fed by BOTH cards —
-  // every /review/answer response carries fresh counts, so the row ticks live.
-  const [states, setStates] = useState(null)
-  // AND WHAT THE SCHEDULE CAN HOLD, which is quota x the interval ceiling and so
-  // is the server's number, not a product the client can work out for itself.
-  //
-  // A RESPONSE THAT OMITS IT LEAVES THE LAST ONE STANDING rather than clearing
-  // it. Every review response carries it today and a Go guard says so; the point
-  // of the check is what happens when one stops — a note that blinked out on the
-  // first answer of a session would read as a bug in the note.
-  const [capacity, setCapacity] = useState(0)
-  const takeStates = useCallback((s, cap) => {
-    setStates(s)
-    if (Number.isFinite(cap)) setCapacity(cap)
-  }, [])
-  // THE SERVER'S COUNTS ARRIVE AS IT TAKES EACH KEPT ANSWER, whichever card gave
-  // it and whether or not that card is still on screen; until then the kept Daily
-  // answers are moved on top of them (withKept), so the row moves when the reader
-  // answers, not when the network gets round to it.
-  useEffect(() => onAnswerQueue((e) => {
-    if (e.type === 'sent' && e.data?.states) takeStates(e.data.states, e.data.capacity)
-  }), [takeStates])
-  const kept = useKeptAnswers()
   // THE SCREEN TILE NAMES ITS KINDS. It printed every screen work as "films";
   // the owner: "the total section in the homepage lists games and shows as films
   // as well. That card show all three (without changing the card size)." So the
@@ -835,7 +328,6 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
   // needs no breakdown, and the caption names it instead of "titles".
   const screenKinds = stats ? SCREEN_KINDS.filter(([key]) => stats[key] > 0) : []
   const screenNoun = screenKinds.length === 1 ? screenKinds[0][2] : 'unit.title'
-  const shownStates = useMemo(() => withKept(states, kept), [states, kept])
   const { stickers, reload: reloadStickers } = useStickers()
   // Drawn once per mount, not per render: a greeting that reshuffled every time
   // a quiz card re-rendered would be a flicker, not a flourish. A reload picks
@@ -1058,10 +550,6 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
       {/* A staged import sits above the deck until it is dealt with: nothing has
           entered the library yet, and that is easy to forget. */}
       <PendingImportCard pending={pendingImport} onOpen={onReviewImport} />
-
-      <DailyQuizCard onPending={onPending} states={shownStates} capacity={capacity} onStates={takeStates} adaptive={!user?.preferences?.srLadder} submitStep={!!user?.preferences?.srSubmit} />
-
-      <PracticeCard onStates={takeStates} userId={user?.id} submitStep={!!user?.preferences?.srSubmit} />
 
       {/* THE TWO COUNT TILES ARE DOORS, and a reader who has switched a section
           off (Settings → Features) should not be looking at one. Gated on the

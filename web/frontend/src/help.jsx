@@ -227,7 +227,6 @@ const SHELL_COMMON = [
   entry('common.help.selecting', { how: 3, more: true }),
   entry('common.help.favourite', { more: true }),
   entry('common.help.cover-menu', { more: true }),
-  entry('common.help.skip-in-quiz', { more: true }),
   entry('common.help.fill-gaps', { more: true }),
   entry('common.help.info-dots', { more: true }),
 ]
@@ -258,10 +257,6 @@ const SHELL_POINTER = [
 
 export const HELP = {
   home: section('nav.tab.home.label', [
-    entry('home.help.daily-quiz', { more: true }),
-    entry('home.help.practice'),
-    entry('home.help.practise', { more: true }),
-    entry('home.help.grade'),
     entry('home.help.fix-or-tag'),
     entry('home.help.language-mark', { more: true }),
     entry('home.help.status-dot'),
@@ -407,8 +402,6 @@ export const HELP = {
     entry('settings.help.features', { more: true }),
     entry('settings.help.type', { icon: <IconType />, more: true }),
     entry('settings.help.upload-font', { more: true }),
-    entry('settings.help.review', { more: true }),
-    entry('settings.help.in-depth', { more: true }),
     entry('settings.help.backup', { more: true }),
     entry('settings.help.backup-now', { icon: <IconArchive />, more: true }),
     entry('settings.help.backup-download', { icon: <IconExport />, more: true }),

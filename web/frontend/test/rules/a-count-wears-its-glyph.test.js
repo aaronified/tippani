@@ -137,7 +137,7 @@ describe('the glyph rule reaches the screens it was asked for', () => {
   // the Tally that no longer exists.
   const CONVERTED = [
     'works.jsx', 'MetadataPage.jsx',
-    'identity.jsx', 'identityLocal.jsx', 'Movies.jsx', 'Settings.jsx',
+    'identity.jsx', 'identityLocal.jsx', 'Movies.jsx',
     'jobsSection.jsx',
   ]
   // `sourcesUnder` rather than a readdir of my own: the repo has ONE walk over

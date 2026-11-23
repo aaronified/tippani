@@ -11,8 +11,6 @@ import {
   IconOpen,
   IconMoveTo,
   IconPalette,
-  IconQuiz, IconPractise,
-  IconQuizSkip,
   IconSeal,
   IconShare,
   IconTag,
@@ -161,36 +159,6 @@ export function actionsFor(kind, item, ctx = {}) {
       single: true,
       available: !isWork && !!ctx.inContext,
       run: () => ctx.inContext(item),
-    },
-    {
-      id: 'practise',
-      label: t('common.action.practise.label'),
-      where: OVERFLOW,
-      icon: <IconPractise />,
-      tooltip: t('common.action.practise.tip', { subject }),
-      // A THEMED ROUND OVER ONE WORK. The endpoint takes a single book or movie
-      // id (review_theme.go), which is why this is `single` rather than absent
-      // from the bulk list: "practise these forty books" is not this action
-      // forty times, it is a round the server has no way to describe.
-      //
-      // Works only. "Practise this quote" would be a round of exactly one card,
-      // which is a flashcard with extra steps — and the thing a reader means by
-      // pointing at one quote is Favourite or Skip, both of which are here.
-      single: true,
-      available: isWork && !!ctx.practise,
-      run: () => ctx.practise(item),
-    },
-    {
-      id: 'review',
-      // Names the ACTION and flips, exactly as the bar's does. The card wears
-      // the matching mark since 1.14.2, so the menu that changes it and the
-      // glyph that reports it are the same drawing.
-      label: t(ctx.excluded ? 'common.action.review.add.label' : 'common.action.review.skip.label'),
-      where: OVERFLOW,
-      icon: ctx.excluded ? <IconQuiz /> : <IconQuizSkip />,
-      tooltip: t(ctx.excluded ? 'common.action.review.add.tip' : 'common.action.review.skip.tip'),
-      available: !!ctx.setReview,
-      run: () => ctx.setReview(item, !!ctx.excluded),
     },
     {
       id: 'edit',
@@ -602,21 +570,6 @@ export function bulkActionsFor(kind, items, ctx = {}) {
       run: (values) => ctx.setFields(items, values),
     },
     // ---- both ---------------------------------------------------------------
-    {
-      id: 'review',
-      // The label is the ACTION, not the state, and it flips — a bar that always
-      // said "Exclude" over a selection that already is excluded is a control
-      // nobody can read the state of. `ctx.excluded` is what the rows say.
-      //
-      // THE PICTURE FLIPS WITH IT, which stopped being optional the moment the
-      // bar became glyphs: a label carries state and a fixed glyph does not.
-      label: t(ctx.excluded ? 'common.action.review.add.label' : 'common.action.review.skip.label'),
-      where: ROW,
-      icon: ctx.excluded ? <IconQuiz /> : <IconQuizSkip />,
-      form: BULK_NONE,
-      available: !!ctx.setReview,
-      run: () => ctx.setReview(items, !!ctx.excluded),
-    },
     {
       id: 'edit',
       label: t('common.action.edit.label'),

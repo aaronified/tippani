@@ -95,7 +95,6 @@ const SHARED = /export function (\w+)\s*\([^)]*\)\s*\{\s*[^;{}]*\.focus\s*\??\.?
 //                   after naming a field. Two answers, so two calls.
 //   TagsPage.jsx    the new tag card's field, once the card is scrolled to
 //   identity.jsx    `focusField`, the identity screen's jump-to-a-field
-//   review.jsx      the cloze blank
 //   safetyBackup.jsx  the restore's or the reset's own field, once the safety
 //                   copy has downloaded — one call, whichever flow passed it
 //   tour.jsx        the tour card
@@ -123,7 +122,7 @@ const SHARED = /export function (\w+)\s*\([^)]*\)\s*\{\s*[^;{}]*\.focus\s*\??\.?
 // rule is that one verb lives in one function. Extracting `rovingFocusKey` for
 // both put this back at eleven, so the count FELL on a commit where a control
 // gained a keyboard. A number cannot say that and the list can.
-const DESTINATIONS = 12
+const DESTINATIONS = 11
 
 function counts() {
   let calls = 0

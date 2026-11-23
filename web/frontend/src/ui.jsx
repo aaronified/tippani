@@ -15,7 +15,7 @@ import { groupedShortcuts, withShortcut } from "./keys.js";
 // as a loader prop it would be a capability absent wherever a call site forgot it,
 // which is the failure `personOpen.jsx` documents at length.
 import { coverImgURL, json } from "./api.js";
-import { t, tNodes } from "./i18n.js";
+import { t } from "./i18n.js";
 import { anchorsFor, clampDrag, landing } from "./sheetAnchors.js";
 import { PROVIDER_MARKS } from "./providerMarks.js";
 import { Silhouette } from "./silhouette.jsx";
@@ -7509,12 +7509,6 @@ export function ShortcutSheet({ open, onClose, omit }) {
       <p className="microcopy" style={{ marginBottom: 14 }}>
         {t("shell.shortcuts.intro.prose")}
       </p>
-      <p className="microcopy" style={{ marginBottom: 14 }}>
-        {tNodes("shell.shortcuts.practice.prose", {
-          mode: <strong>{t("quiz.practice.label")}</strong>,
-          key: <kbd className="kbd">{t("vocab.key.shift.label")}</kbd>,
-        })}
-      </p>
       {groupedShortcuts(omit).map((g) => (
         // Keyed on g.key — the locale key — and not on the words: g.group is now
         // resolved copy, so keying on it would remount every group on a language
@@ -7525,16 +7519,8 @@ export function ShortcutSheet({ open, onClose, omit }) {
             {g.items.map((it) => (
               <li key={it.id} className="kbd-row">
                 <span>{it.label}</span>
-                {/* Both forms for a card key, so somebody in Practice is not left
-                    pressing one that does nothing. */}
                 <span className="kbd-pair">
                   <Kbd keys={it.keys} />
-                  {it.practiceKeys && (
-                    <>
-                      <span className="kbd-then">{t("common.kbd.practice.label")}</span>
-                      <Kbd keys={it.practiceKeys} />
-                    </>
-                  )}
                 </span>
               </li>
             ))}
@@ -10703,10 +10689,6 @@ export function IconNavWorks({ size = ICON_SIZE }) { return <svg {...iconFill} v
 // THE FAVOURITE, SET. review.jsx already flipped the LABEL between on and off while
 // drawing one icon, so the state lived in the words and nowhere else.
 export function IconHeartOn({ size = ICON_SIZE }) { return <svg {...iconFill} viewBox="-8.6 -0.6 273.2 273.2" width={size} height={size}><path d="M240,102c0,70-103.79,126.66-108.21,129a8,8,0,0,1-7.58,0C119.79,228.66,16,172,16,102A62.07,62.07,0,0,1,78,40c20.65,0,38.73,8.88,50,23.89C139.27,48.88,157.35,40,178,40A62.07,62.07,0,0,1,240,102Z"/></svg> }
-// PRACTISE, AND IT IS NOT THE QUIZ CARD. Nine call sites read practise and drew
-// IconQuiz, so the place you go to study and the card you are asked looked identical.
-// A mortarboard is recognised by its outer shape, which is the whole of rule 3.
-export function IconPractise({ size = ICON_SIZE }) { return <svg {...iconFill} viewBox="-28.1 -20.1 312.2 312.2" width={size} height={size}><path d="M176,207.24a119,119,0,0,0,16-7.73V240a8,8,0,0,1-16,0Zm11.76-88.43-56-29.87a8,8,0,0,0-7.52,14.12L171,128l17-9.06Zm64-29.87-120-64a8,8,0,0,0-7.52,0l-120,64a8,8,0,0,0,0,14.12L32,117.87v48.42a15.91,15.91,0,0,0,4.06,10.65C49.16,191.53,78.51,216,128,216a130,130,0,0,0,48-8.76V130.67L171,128l-43,22.93L43.83,106l0,0L25,96,128,41.07,231,96l-18.78,10-.06,0L188,118.94a8,8,0,0,1,4,6.93v73.64a115.63,115.63,0,0,0,27.94-22.57A15.91,15.91,0,0,0,224,166.29V117.87l27.76-14.81a8,8,0,0,0,0-14.12Z"/></svg> }
 // A GAME UNDERWAY. ReadingBadge computed isGame for its aria-label and then drew the
 // film glyph, so a game announced itself as a game and looked like a film.
 export function IconPlaying({ size = ICON_SIZE }) { return <svg {...iconFill} viewBox="-18.3 -18.3 292.6 292.6" width={size} height={size}><path d="M247.44,173.75a.68.68,0,0,0,0-.14L231.05,89.44c0-.06,0-.12,0-.18A60.08,60.08,0,0,0,172,40H83.89a59.88,59.88,0,0,0-59,49.52L8.58,173.61a.68.68,0,0,0,0,.14,36,36,0,0,0,60.9,31.71l.35-.37L109.52,160h37l39.71,45.09c.11.13.23.25.35.37A36.08,36.08,0,0,0,212,216a36,36,0,0,0,35.43-42.25ZM104,112H96v8a8,8,0,0,1-16,0v-8H72a8,8,0,0,1,0-16h8V88a8,8,0,0,1,16,0v8h8a8,8,0,0,1,0,16Zm40-8a8,8,0,0,1,8-8h24a8,8,0,0,1,0,16H152A8,8,0,0,1,144,104Zm84.37,87.47a19.84,19.84,0,0,1-12.9,8.23A20.09,20.09,0,0,1,198,194.31L167.8,160H172a60,60,0,0,0,51-28.38l8.74,45A19.82,19.82,0,0,1,228.37,191.47Z"/></svg> }
@@ -10739,7 +10721,6 @@ if (import.meta.env.DEV) {
   IconImport.glossary = { demo: (h) => h(IconImport, { size: 28 }) };
   IconNavProfile.glossary = { demo: (h) => h(IconNavProfile, { size: 28 }) };
   IconNavUsers.glossary = { demo: (h) => h(IconNavUsers, { size: 28 }) };
-  IconPractise.glossary = { demo: (h) => h(IconPractise, { size: 28 }) };
   IconPalette.glossary = { demo: (h) => h(IconPalette, { size: 28 }) };
   IconReading.glossary = { demo: (h) => h(IconReading, { size: 28 }) };
   IconWatching.glossary = { demo: (h) => h(IconWatching, { size: 28 }) };
@@ -11652,12 +11633,11 @@ export function PickMark({ picked, onChange, label }) {
 // The SET is still the same set, and that part does have to stay in step: a
 // table row offers copy, share, edit and delete because that is what the card
 // beside it offers, just laid flat in a cell that has the width for it.
-export function TableActions({ onCopy, onShare, onPractise, onEdit, onDelete, noun }) {
+export function TableActions({ onCopy, onShare, onEdit, onDelete, noun }) {
   const what = noun || t("unit.row.one")
   return (
     <span className="flex items-center justify-end gap-1">
       {onCopy && <FieldIconButton icon={<IconCopy />} ariaLabel={t("common.action.copy.label")} onClick={onCopy} tooltip={t("common.action.copy.row.tip", { noun: what })} />}
-      {onPractise && <FieldIconButton icon={<IconPractise />} ariaLabel={t("common.action.practise.label")} onClick={onPractise} tooltip={t("common.action.practise.row.tip", { noun: what })} />}
       {onShare && <FieldIconButton icon={<IconShare />} ariaLabel={t("common.action.share.label")} onClick={onShare} tooltip={t("common.action.share.row.tip", { noun: what })} />}
       {onEdit && <FieldIconButton icon={<IconEdit />} ariaLabel={t("common.action.edit.label")} onClick={onEdit} tooltip={t("common.action.edit.row.tip", { noun: what })} />}
       {onDelete && <FieldIconButton icon={<IconDelete />} ariaLabel={t("common.action.delete.label")} onClick={onDelete} tooltip={t("common.action.delete.row.tip", { noun: what })} danger />}

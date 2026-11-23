@@ -36,13 +36,6 @@ const SRC = process.env.TIPPANI_SRC
 // heading could grow a dot unseen.
 const FILE = ['Settings.jsx', 'jobsSection.jsx'].map((f) => readFileSync(join(SRC, f), 'utf8')).join('\n')
 
-// THE ONE GROUP-LEVEL DOT, AND THE REASON IT IS ALLOWED. What it says is not true
-// of any single row — it is the bound every one of the ten schedule numbers
-// obeys, and the reason is invisible at each slider. Ten copies of it on ten rows
-// is the repetition this whole pass removes. A new entry here needs the same
-// argument: a rule the GROUP obeys that no row of it can state.
-const ALLOWED = ['settings.quiz.tuning.info.body']
-
 // Every `<PrefGroup … >` opening tag, whole, however many lines it spans.
 const groups = () => [...FILE.matchAll(/<PrefGroup\b[\s\S]*?>/g)].map((m) => m[0])
 
@@ -50,23 +43,15 @@ describe('an info dot in Settings', () => {
   it('there are groups to check, so this test is testing something', () => {
     // The sweep's own failure mode: a regex that stops matching asserts nothing
     // about an empty list and passes for ever.
-    expect(groups().length).toBeGreaterThan(10)
+    expect(groups().length).toBeGreaterThan(9)
   })
 
   it('is never on a group heading, except the one group that earns it', () => {
     const onHeadings = groups()
       .map((g) => g.match(/info=\{t\('([^']+)'/)?.[1])
       .filter(Boolean)
-      .filter((k) => !ALLOWED.includes(k))
     expect(onHeadings, 'these put a dot on a heading rather than on the control it is about')
       .toEqual([])
-  })
-
-  it('and the exception is actually taken, so the list cannot rot unnoticed', () => {
-    // An allow-list nothing matches is an allow-list that has silently become
-    // dead text — and the next reader would take it as describing the screen.
-    const taken = groups().filter((g) => ALLOWED.some((k) => g.includes(k)))
-    expect(taken.length, 'the named exception is not on any group any more').toBe(ALLOWED.length)
   })
 
   it('and no card draws its own heading beside the section’s', () => {
