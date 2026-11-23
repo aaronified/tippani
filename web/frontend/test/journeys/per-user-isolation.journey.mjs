@@ -39,14 +39,23 @@
 // A switch that silently let any string through would still look, to a reader
 // skimming only the success path, like a working feature.
 //
+// THE SECOND ACCOUNT IS MADE THROUGH THE API. The Add-user form on Profile was
+// cut from the web app (ADR-0936: user management is the Android app's job), so
+// the account comes from `app.secondReader`, which is the admin's own API and
+// signs the browser in as the new reader through the sign-in form. Everything
+// this file ASSERTS still happens on screen: the sign-in, the wrong password
+// being refused, the switch back, and both libraries.
+//
 // ONE DECLARED EXCEPTION, per the repo's own rule that an exception must say
 // what it knows and why nothing observable could serve: switching back into
-// journey-reader means typing THAT account's own password, and this file reads
-// it from process.env.TIPPANI_JOURNEY_PASS — the same environment variable
-// world.mjs itself requires to perform the initial sign-in. Nothing on any
-// screen ever prints a password in the clear, so there is no observable
-// alternative; a signed-in reader is assumed to know their own password, and
-// this is that password, not a selector or a module name.
+// journey-reader means typing THAT account's own password, which the harness
+// hands the journey as `app.account.password` (the world keeps the variable's
+// name to itself). Nothing on any screen ever prints a password in the clear, so
+// there is no observable alternative; a signed-in reader is assumed to know their
+// own password, and this is that password, not a selector or a module name.
+//
+// It knows the addresses it opens, the words on the screen, and the API route
+// and fields `secondReader` uses to make the account (inside the harness).
 
 import { expect, it } from 'vitest'
 
@@ -62,46 +71,11 @@ it('a second account sees an empty notebook, and the first gets its own back', a
   await app.see('The Idiot')
   await app.see('27 BOOKS')
 
-  // ADD A SECOND ACCOUNT FROM THE ADMIN'S OWN PROFILE SCREEN, and both boxes can
-  // be named. THE FIRST DRAFT OF THIS JOURNEY COULD NOT DO THAT, and the reason
-  // was a real accessibility defect it found: the Add-user password box and the
-  // "new password" box under CHANGE PASSWORD above it computed to the SAME
-  // accessible name, so `type` refused the ambiguity — correctly — and the
-  // journey had to tab to the next box and type into whatever had focus, the
-  // only use of the `app.page` escape hatch in this whole directory. A screen
-  // reader user hit the same wall for real: one of those boxes changes your own
-  // login and one sets a stranger's, announced identically. The Add-user box has
-  // its own name now, so this reads the way it should have.
-  await app.press('Profile — journey-reader')
-  await app.type('username', 'second-reader')
-  await app.type('password for the new account', 'second-reader-pw')
-  await app.press('Add user')
-  await app.see('second-reader')
-
-  // SWITCHING ASKS FOR THE OTHER ACCOUNT'S OWN PASSWORD, AND MEANS IT. The
-  // wrong one is refused before the right one is tried.
-  await app.press('Switch')
-  await app.type('account name', 'second-reader')
-  await app.type('their password', 'not-the-right-password')
-  await app.press('Sign in')
-  await app.see('invalid credentials')
-
-  await app.type('their password', 'second-reader-pw')
-  await app.press('Sign in')
-
-  // THE ADMIN CHOSE THAT PASSWORD, SO IT IS TEMPORARY: the new reader picks
-  // their own before the library opens.
-  await app.see('Choose your own password')
-  await app.type('current password', 'second-reader-pw')
-  await app.type('new password (8–20)', 'second-own-pw')
-  await app.type('repeat new password', 'second-own-pw')
-  await app.press('Update password')
-
-  // NOW SIGNED IN AS THE SECOND ACCOUNT, on Home ("Daily quiz"), with the account's
-  // name in the page's own text — the greeting carries it, and nothing but an actual
-  // switch of session could put it there. The greeting's WORDING is not asserted:
-  // on 1 January, the harness's clock, it is one of several holiday lines.
-  await app.see('Daily quiz')
+  // A SECOND ACCOUNT, MADE BY THE ADMIN AND SIGNED IN THROUGH THE FORM. Its
+  // password is its own, so no temporary-password screen stands in the way; the
+  // password screen has its own file.
+  await app.secondReader({ username: 'second-reader', password: 'second-reader-pw' })
+  // The new account is who the browser is now, and its own name is on the page.
   await app.see('second-reader')
 
   // AND ITS LIBRARY IS EMPTY. Not "the count reads zero" alone, which a screen
@@ -111,15 +85,21 @@ it('a second account sees an empty notebook, and the first gets its own back', a
   await app.see('no books yet')
   await app.gone('The Idiot')
 
-  // BACK TO THE FIRST ACCOUNT, WITH ITS OWN PASSWORD.
+  // BACK TO THE FIRST ACCOUNT. Switching asks for that account's own password
+  // every time, so the wrong one is tried first and must be refused.
   await app.press('Profile — second-reader')
   await app.press('Switch')
   await app.type('account name', 'journey-reader')
+  await app.type('their password', 'not-the-right-password')
+  await app.press('Sign in')
+  await app.see('invalid credentials')
+
   await app.type('their password', app.account.password)
   await app.press('Sign in')
-  // Home, signed in as journey-reader. Not the greeting: on 1 January (the harness's
-  // clock) it is one of several holiday lines, and which one varies by run.
-  await app.see('Daily quiz')
+  // Home, signed in as journey-reader. Home is the start page now: its heading
+  // and its Add and Search doors, and the account's name in the page's own text,
+  // which nothing but an actual switch of session could put there.
+  await app.see('Home')
   await app.see('journey-reader')
 
   // AND THE FIRST ACCOUNT'S OWN SHELF IS EXACTLY WHAT IT WAS — not merely

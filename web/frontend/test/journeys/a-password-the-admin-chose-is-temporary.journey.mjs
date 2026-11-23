@@ -7,7 +7,7 @@
 // as the reader kept it, so the password is temporary until the reader replaces it.
 //
 // Mutations: with `press('Update password')` for the new password deleted, the
-// library never opens and "Daily quiz" waits in vain; with the Log out
+// library never opens and "Home" waits in vain; with the Log out
 // request removed, "Sign in" never appears; with the welcome toast allowed on
 // the locked screen, "welcome back" is on it; with the no-rail padding rule
 // removed, the frame sits off the page's middle.
@@ -17,7 +17,13 @@
 // reads as a frame — there are no words to check. The heading's painted box is
 // measured against the window's middle.
 //
-// It knows the words on the screen, and where the password frame is drawn.
+// THE ACCOUNT IS MADE THROUGH THE ADMIN'S API. The Add-user form was cut from the
+// web app (ADR-0936), so `app.setup` makes it: POST /admin/users with a username
+// and the password the admin chose. The reader then signs in through the kept
+// Switch form and meets the screen this file is about.
+//
+// It knows the words on the screen, where the password frame is drawn, and the
+// route and fields that make the account (/admin/users, username, password).
 
 import { expect, it } from 'vitest'
 
@@ -26,19 +32,15 @@ import { openApp } from './harness/world.mjs'
 const app = openApp()
 
 it('a reader given a password by the admin must choose their own before the library opens', async () => {
+  await app.setup('POST', '/admin/users', { username: 'friend-reader', password: 'from-the-admin' })
   await app.goto('/profile')
-  await app.type('username', 'friend-reader')
-  await app.type('password for the new account', 'from-the-admin')
-  await app.press('Add user')
-  await app.see('friend-reader')
-
   await app.press('Switch')
   await app.type('account name', 'friend-reader')
   await app.type('their password', 'from-the-admin')
   await app.press('Sign in')
 
   await app.see('Choose your own password')
-  await app.gone('Daily quiz')
+  await app.gone('Home')
 
   // IN THE MIDDLE OF THE PAGE. No rail is drawn here, so no room is kept for one.
   const offset = await app.page.evaluate(() => {
@@ -79,7 +81,7 @@ it('a reader given a password by the admin must choose their own before the libr
   await app.press('Update password')
   // Home, signed in as friend-reader. Not the greeting: on 1 January (the harness's
   // clock) it is one of several holiday lines, and which one varies by run.
-  await app.see('Daily quiz')
+  await app.see('Home')
   await app.see('friend-reader')
 
   expect(app.pageErrors(), 'the page threw on the way').toEqual([])
