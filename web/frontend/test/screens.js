@@ -40,7 +40,7 @@ const noop = () => {}
 // they are here because they are screens — the pre-auth pair, and the two whose
 // failure nobody can route around.
 export const SCREENS = {
-  home: [() => import('../src/Home.jsx'), 'default', { user: USER, stats: null, onOpenBook: noop, onOpenMovie: noop, onGoLibrary: noop, onGoMovies: noop, onGoQuotes: noop, onPending: noop, pendingImport: null, onReviewImport: noop }],
+  home: [() => import('../src/Home.jsx'), 'default', { onAdd: noop, onSearch: noop }],
   library: [() => import('../src/Library.jsx'), 'default', { openId: null, onOpen: noop, onClose: noop, onOpenMovie: noop, creditSeparators: ',;&', onAdd: noop, dataNonce: 0 }],
   movies: [() => import('../src/Movies.jsx'), 'default', { openId: null, onOpen: noop, onClose: noop, creditSeparators: ',;&', onAdd: noop, dataNonce: 0 }],
   metadata: [() => import('../src/MetadataPage.jsx'), 'default', { user: USER, onOpenBook: noop, onOpenMovie: noop, onSearch: noop }],

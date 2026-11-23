@@ -7,7 +7,7 @@ It is generated from the glossary catalogue, `web/frontend/scripts/glossary/cata
 when a component has no entry, so a rename or a new control updates this page or fails the build. Each entry names the file
 that defines it.
 
-220 entries in 22 sections.
+219 entries in 22 sections.
 
 ## Shell
 
@@ -1312,12 +1312,6 @@ The answer to "it fetched metadata and clobbered my author". A chosen match is n
 *Defined in:* ReadingBadge — ui.jsx · `.reading-badge`
 
 The open book / play triangle on a work you are part-way through. It used to be a bare blue glyph carrying a dark blur halo, which is the trick that fails at exactly the size it mattered: a halo is a soft gradient, so at the ~18px a phone cover gives it, it ate the thin strokes it existed to protect and the mark read as a smudge on anything but plain artwork. Now it is an **opaque disc** in the shelf blue with a white glyph and a hard rim — contrast from an edge that does not scale away, legible over busy art and pale art alike, and consistent with every other coloured chip instead of being the one thing with a glow. The rim flips light in dark mode, or a dark edge vanishes against a dark cover. 22px, growing to 24px on phones where covers shrink and this is the only in-progress signal.
-
-### Greeting
-
-*Defined in:* greetings.js — the Home header
-
-Was `Good ${morning|afternoon|evening}`: three strings for 365 days. Now a pool chosen from what the **device** knows — its clock (six buckets, because "Good evening" at 23:50 and at 17:05 are the same sentence for very different moments), its date, and its IANA time zone. All local: no locale asked of the server, nothing sent anywhere, no network call. A date earns a place only if it is the **same Gregorian month and day every year** or computable from an exact rule (Easter's computus; "the fourth Thursday in November") — so no Diwali, Eid or Lunar New Year, which move yearly and differ by country in the same year. National days beat international ones on a shared date (25 December is Quaid-e-Azam Day in Pakistan), and commemorations say **Marking …**, never *Happy*.
 
 ### Textured nav surfaces
 

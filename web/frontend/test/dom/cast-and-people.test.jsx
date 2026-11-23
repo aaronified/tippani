@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { SpeakerChips } from '../../src/people.jsx'
-import { FavouriteTile, quoteFav } from '../../src/Home.jsx'
 import { CharacterLocal } from '../../src/identityLocal.jsx'
 import { identityScope } from '../../src/identityScope.js'
 import { t } from '../../src/i18n.js'
@@ -132,116 +131,6 @@ describe('speaker chips row', () => {
   })
 })
 
-// A NAME IS PRINTED ONCE, AND THE OCCASION HAS ITS OWN LINE.
-//
-// THE REPORT, in the owner's words, of a standalone quote on Home's favourites
-// board: "why is albert einstein repeated in the prose? and the part about the
-// letter could be placed below/above the chip row, like notes or translation."
-//
-// TWO RULES FALL OUT OF IT, and neither needs a line of the source:
-//
-//   A FACT APPEARS ONCE PER CARD. The chip beside the quote carries the
-//   speaker's name AND their portrait; a line under it repeating that name in
-//   small caps is the same fact twice, and the second printing is the one that
-//   pushed the first out of its row. What the collapsed line is FOR is the one
-//   thing no chip and no header carries — where the line was said.
-//
-//   AND IT SITS ON ITS OWN LINE. Beside the chips it competes with them for one
-//   row's width, which is what clipped the chip to "Albert Ein…". Above or below
-//   them, the way a note or a translation sits.
-//
-// THE CARD IS BUILT FROM A STORED ROW, not handed a finished shape. Both facts
-// are decided in `quoteFav`, which turns the row into the card's shape, and a
-// test given that shape ready-made would assert only that the tile prints what
-// it was told to — the exact hole `credit-row.test.jsx` sat in for a week.
-//
-// WHAT A TEST WRITER NEEDS TO KNOW: the paragraphs above.
-describe('favourite occasion', () => {
-const ROW = {
-  id: 7,
-  quote: 'Everything should be made as simple as possible, but not simpler.',
-  note: '',
-  speaker: 'Albert Einstein',
-  occasion: 'writing to Carl Seelig',
-  kind: 'letter',
-  color: 'yellow',
-  tags: [],
-  created_at: '1946-03-11T00:00:00Z',
-  favorite: true,
-}
-
-const tile = (over = {}) => {
-  const f = quoteFav({ ...ROW, ...over })
-  render(
-    <FavouriteTile
-      f={f}
-      variant="a"
-      open={false}
-      editing={false}
-      onToggle={() => {}}
-      onOpen={() => {}}
-      speakerMap={{}}
-      seps={{}}
-    />,
-  )
-  return f
-}
-
-// The card's own body, so the edit modal's hidden copy of the same strings
-// cannot answer for the resting card.
-//
-// AND THE CLASS IS THE ONE THE APP WRITES. This named `.tp-hand-card`, which no
-// component in this app has ever had — `HandCard` writes `hand-card` — so every
-// case here has been measuring `document.body` and the scope in the sentence
-// above was not in force. It changed no verdict, because the tile is the only
-// thing rendered; it would have changed one the moment a case rendered the edit
-// modal it names, which is what the scope was written for.
-const card = () => document.querySelector('.hand-card') || document.body
-
-afterEach(() => cleanup())
-
-describe('a standalone quote on the favourites board', () => {
-  it('prints the speaker once, not once in a chip and again in the line beneath', () => {
-    tile()
-    const hits = [...card().querySelectorAll('*')]
-      .filter((el) => el.children.length === 0 && /Albert Einstein/.test(el.textContent))
-    expect(hits.length,
-      `the speaker is printed ${hits.length} times: ` + hits.map((h) => h.textContent).join(' | '))
-      .toBe(1)
-  })
-})
-})
-
-// A CREDIT ROW IS THREE DIFFERENT DOORS, and which one you press decides what
-// happens.
-//
-// THE SPECIFICATION, from the design pack. `character-popup.dc.html` splits the
-// row deliberately: the PORTRAIT opens the person picker to change who is on the
-// credit (`mode:'person'`, line 522) and wears a caret to say it is the thing
-// being replaced; the NAME opens that person's own record (line 529); the pencil
-// notes what is peculiar about this credit; the ✕ takes it off. `CreditRow`'s own
-// header in `characterRows.jsx` says the same thing in the same order.
-//
-// AND THE ROW'S SECOND LINE CARRIES BOTH FACTS: the pack builds it as
-// `[o.lang, o.note].filter(Boolean).join(' · ')` — the language first, "because
-// 'Hindi' is the thing that tells two dubs apart and the note is the gloss on it".
-//
-// WHY THESE ARE WORTH A TEST. Every one of them is invisible when broken. Two
-// controls that both open the same record look exactly like two controls that do
-// different things until you press them; a dub whose language has been swallowed
-// by its note still draws a full row; and a name with no record behind it looks
-// pressable right up until it isn't. The app shipped all three at once, with a
-// tooltip reading "Change who this is" over a control that could not.
-//
-// IT RENDERS THE SHEET, NOT THE ROW, and the difference is the whole reason this
-// file was rewritten. Every one of those three defects lived in `creditRows()` —
-// the function that BUILDS a row out of a served cast record — and the first
-// version of this file rendered `CreditRow` with the finished props typed in by
-// hand. So it asserted that a component calls the handler it was handed, which
-// no version of the app has ever got wrong, and all eight cases stayed green
-// while `note || lang` and a face wired to `onOpen` were live in the tree. A test
-// that feeds in the answer cannot see the step that computes it.
-//
 // WHAT A TEST WRITER NEEDS TO KNOW: the paragraphs above, and that the sheet is
 // handed a work, the cast row it is showing (`here`), and the server's list of
 // this character's appearances. Nothing about how the handlers are wired.

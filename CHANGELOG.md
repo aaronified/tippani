@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- **Home is now a start page: Add and Search.** The favourites wall, the serendipity card, the
+  on-this-day and shuffle lines, the count tiles, the greeting and the pending-import card are
+  gone from the web app. Home no longer loads anything. (ADR-0936)
+
 - **The daily quiz, practice, and the Review screen are gone from the web app.** Home no longer
   carries the quiz cards, the skip-in-quiz control, the review settings or the quiz tuning, and
   Practise is gone from works, anthologies and tags. (ADR-0936)

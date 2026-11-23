@@ -2438,23 +2438,9 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
         <Suspense fallback={null}>
         {tab === 'home' && (
           <div data-screen-label="home">
-            {/* THE THREE onGo* PROPS ARE DOORS, and each is passed only while the
-                section it opens has one (Settings → Features). Home draws every
-                one of those controls on the PROP being there, so an absent
-                callback removes the tile or the glyph rather than leaving a card
-                that answers a tap with nothing. onOpenBook / onOpenMovie beside
-                them are CONTENT LINKS and are never gated: a favourite still
-                opens the book it came from however the nav is configured. */}
             <Home
-              user={user}
-              stats={stats}
-              onOpenBook={openBook}
-              onOpenMovie={openMovie}
-              onGoLibrary={sections.library ? () => selectTab('library') : null}
-              onGoMovies={sections.movies ? () => selectTab('movies') : null}
-              onGoQuotes={sections.quotes ? () => selectTab('quotes') : null}
-              pendingImport={pendingImport}
-              onReviewImport={() => selectTab('staging')}
+              onAdd={() => openAdd()}
+              onSearch={openSearch}
             />
           </div>
         )}

@@ -76,8 +76,6 @@ function clamps() {
 // control that opens them in place; five give the text back on another screen.
 const KNOWN = {
   // A CONTROL IN PLACE. The clamp collapses and a chevron beside it opens.
-  'Home.jsx:clampLines':
-    'the favourite tile’s quote — `ClampMore` under it, and the tile head toggles `open`',
   'ui.jsx:lines':
     '`useClamped`, the shared fold — `canToggle` and `clampProps` make the text itself the control',
 
@@ -131,7 +129,7 @@ describe('every clamp says where the text comes back', () => {
     expect(all.filter((c) => c.startsWith('index.css:')).length,
       'no clamp found in the stylesheet; the CSS scan is broken, not the app').toBeGreaterThanOrEqual(3)
     expect(all.filter((c) => /\.jsx?:/.test(c)).length,
-      'no inline clamp found in any component; the JSX scan is broken, not the app').toBeGreaterThanOrEqual(2)
+      'no inline clamp found in any component; the JSX scan is broken, not the app').toBeGreaterThanOrEqual(1)
   })
 
   it('and a new one has to be argued for', () => {

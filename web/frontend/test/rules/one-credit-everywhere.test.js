@@ -35,7 +35,6 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
-import { quoteFav } from '../../src/Home.jsx'
 import { utteranceMeta } from '../../src/Quotes.jsx'
 
 const src = (f) => readFileSync(new URL(`../../src/${f}`, import.meta.url), 'utf8')
@@ -105,19 +104,6 @@ describe('every surface draws the same line for the same quote', () => {
   it('the search results row and the stored row agree', () => {
     expect(utteranceMeta(letterHit)).toBe(utteranceMeta(letterRow))
   })
-
-  // The Home favourite tile against the same card. `quoteFav` turns a row into
-  // the tile's shape, and `meta` is the line the expanded tile prints.
-  it('the Home favourite tile and the card agree', () => {
-    expect(quoteFav(letterRow).meta).toBe(utteranceMeta(letterRow))
-  })
-
-  // AND THE TILE NAMES THE RECIPIENT, stated on its own rather than left implicit
-  // in the equality above: if both sides regressed together the case above would
-  // still pass, and this one would not.
-  it('the Home tile names the recipient', () => {
-    expect(quoteFav(letterRow).meta).toContain('Carl Seelig')
-  })
 })
 
 // THE SOURCE GUARDS, because the failure this keeps meeting is a correct
@@ -139,18 +125,4 @@ describe('no screen keeps a second way to write a credit', () => {
     expect(body).not.toContain('h.occasion')
   })
 
-  it('the Home favourite tile composes through utteranceMeta and not by hand', () => {
-    const page = src('Home.jsx')
-    const start = page.indexOf('export function quoteFav(')
-    expect(start).toBeGreaterThan(-1)
-    const end = page.indexOf('\n}', start)
-    const body = page.slice(start, end)
-
-    expect(body).toContain('utteranceMeta(u)')
-    // The two halves of the old join. `quoteKindMeta` is the one that made the
-    // kind say its word twice, and `u.occasion` the one that put the recipient's
-    // job on the wrong field.
-    expect(body).not.toContain('quoteKindMeta(')
-    expect(body).not.toContain('u.occasion')
-  })
 })

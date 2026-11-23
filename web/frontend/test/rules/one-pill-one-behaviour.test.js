@@ -129,10 +129,12 @@ describe('the same pill on every board that draws it', () => {
     }
   })
 
+  // THE DECIDERS LIST IS EMPTY NOW. Home's favourite tiles were the last board
+  // that decided what its pill does, and the web app's start page does not draw
+  // them (ADR-0936). The door is still the one way in, so a new decider has to
+  // come through it; the scan is kept rather than deleted for that reason.
   it('and every one that decides goes through the door', async () => {
     const deciders = (await pillHandlers()).filter((h) => h.decides)
-    expect(deciders.length, 'no board decides what the pill does, so nothing is being checked')
-      .toBeGreaterThan(0)
     for (const h of deciders) {
       expect(h.expr, `${h.file} decides what <${h.owner}>'s pill does without going through openCharacterDoor`)
         .toMatch(/openCharacterDoor\s*\(/)

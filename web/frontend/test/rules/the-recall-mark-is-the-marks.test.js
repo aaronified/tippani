@@ -26,7 +26,7 @@ describe('the behaviour is the mark\'s', () => {
   it('is handed nothing by any screen that draws it', () => {
     const offenders = []
     const drawn = jsx().filter((f) => /<ReviewDot\b/.test(src(f)))
-    expect(drawn.length, 'no file in the tree draws the recall mark, so this sweep is passing over nothing').toBeGreaterThan(1)
+    expect(drawn.length, 'no file in the tree draws the recall mark, so this sweep is passing over nothing').toBeGreaterThan(0)
     for (const f of drawn) {
       const body = src(f)
       for (const m of body.matchAll(/<ReviewDot\b([^>]*)>/g)) {
@@ -102,7 +102,7 @@ describe('the behaviour is the mark\'s', () => {
       const body = src(f)
       return /<Hearts\b/.test(body) && /<QuoteActions\b/.test(body)
     })
-    expect(rows.length, 'no file draws that action row, so this sweep is measuring nothing').toBeGreaterThan(1)
+    expect(rows.length, 'no file draws that action row, so this sweep is measuring nothing').toBeGreaterThan(0)
     const missing = rows.filter((f) => !/<ReviewDot\b/.test(src(f)))
     expect(missing,
       'these draw a quote card\'s action row without the recall mark, so the history is reachable from some screens and not others')
