@@ -28,10 +28,10 @@ pickers, the **duplicate-merge panel** under Metadata, **Bengali**, and the **de
 | Settings | Font picker and uploads, Review section, Sections show/hide and reorder, language marks and voices, reading fields | Language |
 | Server settings | Backup and restore, library folders, paired devices, changelog list, Jobs cards (current, common, past) | Logs, Updates |
 | Home | Quiz, practice, favourites, serendipity, memory strip, count tiles, greetings | A start page: Add, Search, recent |
-| Lists | Group-by, table and grid variants, selection mode, bulk bar | Search, basic sort, one list view |
+| Lists | Group-by, table and grid variants, filters, multi-select and the bulk bar (the owner: "multi edit can go") | One list view, favourites toggle, basic sort |
 | Screens | Stats, Bin, Tags and colour categories, Review and its answer queue, Imports tab, file import | |
-| People, characters | Consoles, identity panels, portraits, merge and split | Names as plain text |
-| Work extras | Cast and character editing, links panel, series and read log, progress editor | The cast as fetched |
+| People, characters | Nothing: people and character editing stay (owner, 23 November) | Consoles, identity panels, portraits |
+| Work extras | Links panel, read log, progress editor | Cast and character editing, series fields |
 | Quote extras | Stickers, frame and crop editor, card-menu extras | Edit, context, share |
 | Metadata | Languages, categories, people, characters, source-files sections | Works, duplicate merge, keys |
 | Account | Avatar, single sign-on setup, notifications, widget key, user management, database reset | Sign in, sign out, password |
@@ -41,6 +41,19 @@ pickers, the **duplicate-merge panel** under Metadata, **Bengali**, and the **de
 ## Added
 
 A service worker (the app has none), `apple-mobile-web-app-capable` and its status-bar meta, and a splash image.
+
+## Status, 23 November
+
+Built on `claude/relaxed-hopper-15k6h7`: Stats, Bin, review and quiz, Home as a start page, Tags, Imports, the Theme page as a
+dropdown, Settings reduced to Theme, Language and Server, Server settings (backup, devices, folders, jobs, changelog), account
+extras, colour categories, multi-select and the bulk bar, list extras, quote-card menu extras (copy, duplicate, move), read log
+and progress editor, the tour, gestures and shortcut legend, bundled typefaces other than Noto Serif Bengali, unused textures,
+and a service worker with the iOS meta tags.
+
+**Left, and why:** stickers and the frame/crop editor (the editor also drives the cover picker and character portraits);
+the links panel (its form host also holds the external-id editor); demo mode (the public Pages demo builds from it, so
+removing it also removes that deploy); print styles (the anthology Print action uses them); OpenDyslexic (removed with the
+fonts, and it is an access option you may want back); `@fontsource` packages still listed in `package.json`.
 
 ## Tasks, in order
 

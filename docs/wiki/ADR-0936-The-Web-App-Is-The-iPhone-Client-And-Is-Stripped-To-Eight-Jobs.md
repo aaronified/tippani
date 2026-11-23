@@ -15,8 +15,10 @@ desktop layout. Everything else is removed, including the material toggles and t
 component files, about 80,000 lines and a 12 MB build for a phone that needs a fraction of it, and the code the owner no longer
 uses still has to be kept passing.
 
-**Decided by default, on the owner's "your decision".** The Imports tab and file import go. The Bin goes. Cast and character
-editing go.
+**Decided by default, on the owner's "your decision".** The Imports tab and file import go. The Bin goes.
+
+**Corrected by the owner the same day.** People, character, work and quote editing stay; only multi-edit (selection mode and the
+bulk bar) goes.
 
 **Rejected.** Rebuilding on Astryx first: the spike showed clipping at large text, no Bengali, and a larger bundle, and a rebuild
 is cheaper once the screens to rebuild are about twelve. Keeping everything and lazy-loading it, which leaves the maintenance cost.
