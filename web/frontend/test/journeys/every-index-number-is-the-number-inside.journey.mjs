@@ -210,6 +210,14 @@ it("a section's own door opens on everything, after a pill opened it on one issu
 })
 
 it('a pair of characters who may be one is merged from the Characters console', async () => {
+  // A CHARACTER IS LISTED ONCE ITS FILM'S CAST IS READ (cast_from_quotes.go).
+  // The pair's second name is only in the lines of "Reed in Sparrow", so the
+  // reader opens that film first, as a person would to see who is in it. Home
+  // used to do this read for its favourites; it is a bare start page now.
+  await app.goto('/movies')
+  await app.press('Reed in Sparrow')
+  await app.see('Perrin Pellworth')
+
   await app.goto('/metadata')
   await app.see('Fetch missing')
   const pill = (await indexPills()).find((p) => p.section === 'Characters' && / may be the same /.test(p.label))

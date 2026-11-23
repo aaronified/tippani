@@ -37,6 +37,16 @@ import { openApp } from './harness/world.mjs'
 const app = openApp()
 
 it('a reader presses the performer on a character row and lands on that person', async () => {
+  // A CHARACTER IS LISTED ONCE A WORK'S CAST IS READ, and a quote naming one is
+  // added to its film's cast when that read happens (cast_from_quotes.go). Home
+  // used to read the library for its favourites, which is what did it for most
+  // readers; it is a bare start page now, so the reader opens the film the
+  // character is in, which is the path a person takes to its cast anyway.
+  await app.goto('/')
+  await app.press('Catalogue')
+  await app.press('Shingle bene')
+  await app.see('Zeno Vallence')
+
   await app.goto('/')
 
   await app.press('Metadata')
