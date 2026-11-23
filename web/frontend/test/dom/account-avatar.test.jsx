@@ -10,17 +10,10 @@
 // six hashed silhouettes are wrong here — the initial is what this chip has
 // always drawn. What the chip may not do is treat a stored PATH as a picture.
 //
-// AND THE CARD AROUND IT HAS TO GO WITH IT. `AvatarRow` draws "Change photo" and
-// a Remove key off the STORED PATH, which is the same wrong question the chip
-// had just stopped asking — so a picture whose file has gone offered to remove
-// something that is not there. It listens to the chip now, and the second half
-// of this file is what says so: the rating that found the chip untested counted
-// three mutations and the first version of this file closed two.
-//
 // WHAT A TEST WRITER NEEDS TO KNOW: `UserAvatar` takes `{ user, onBroken }` and
 // draws through `Face`, which is the one component in this app that asks a
-// picture whether it arrived. `AvatarRow` is not exported — it is reached
-// through `Profile`, the way the screen reaches it.
+// picture whether it arrived. The avatar upload row was cut from Profile
+// (ADR-0936); the chip is what is left.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'

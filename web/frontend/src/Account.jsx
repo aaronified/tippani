@@ -1,16 +1,12 @@
-import { useEffect, useRef, useState } from 'react'
-import { json, errText, coverImgURL, upload } from './api.js'
-import { Card, ErrorText, Field, FieldIconButton, FilePick, GhostButton, IconDelete, IconKey, IconLogout, IconSwitchUser, IconUserPlus, InfoDot, MonoLabel, NameInput, StickerButton, Tooltip, useConfirm, IconClose } from './ui.jsx'
+import { useState } from 'react'
+import { json, errText } from './api.js'
+import { Card, ErrorText, Field, GhostButton, IconKey, IconLogout, IconSwitchUser, InfoDot, MonoLabel, NameInput, StickerButton } from './ui.jsx'
 import { PASSWORD_MAX, PASSWORD_MIN, passwordProblem } from './secret.js'
 import { t, tNodes } from './i18n.js'
 import { UserAvatar } from './avatar.jsx'
-import { useFraming } from './FrameEditor.jsx'
-import { SafetyBackupStep } from './safetyBackup.jsx'
-import { queueNotice, readJobsSummary } from './jobs.js'
-import { Notifications, SingleSignOn, WidgetKey } from './connections.jsx'
 
 // The display name's ceiling. Not a security bound — just the width the greeting
-// and the user list can lay out without wrapping into two lines.
+// can lay out without wrapping into two lines.
 const NAME_MAX = 40
 
 // Account.jsx — the ONE chip-reached account surface: Profile. On desktop it
@@ -21,84 +17,11 @@ const NAME_MAX = 40
 // dropdown offering Profile, User management (admins) and Log out, and the
 // drawer repeated the same three rows — so "my account" was a menu of screens
 // rather than a screen. The chip now opens Profile directly and everything that
-// menu offered is a section here: switching accounts, logging out, and, for an
-// admin, the user list. One tap instead of two, and one place to look.
+// menu offered is a section here: switching accounts and logging out. One tap
+// instead of two, and one place to look.
 
 function FieldLabel({ children }) {
   return <MonoLabel className="mb-1.5 block">{children}</MonoLabel>
-}
-
-// ---- Profile: photo, display name, password ----
-
-// AvatarRow uploads / clears the caller's avatar (≤5 MB). Upload is immediate
-// (its own endpoint); on success the new path is lifted to App so the chip and
-// every avatar re-render. Moved here from the old chip menu / drawer footer.
-function AvatarRow({ user, onUser }) {
-  const [busy, setBusy] = useState(false)
-  const [err, setErr] = useState('')
-  // A PICTURE THAT NEVER ARRIVED IS NOT A PICTURE TO CHANGE OR REMOVE. Both
-  // controls below read the stored PATH, so an avatar whose file has gone said
-  // "Change photo" and offered a Remove key for something that is not there —
-  // the same mistake the chip beside them had just stopped making, one line up.
-  const [gone, setGone] = useState(false)
-  useEffect(() => { setGone(false) }, [user.avatar_path])
-  const has = !!user.avatar_path && !gone
-  // TAKES A FILE, not an event: FilePick reads the input, clears it so the same
-  // file can be picked twice, and hands over what was chosen.
-  async function keepAvatar(f) {
-    setBusy(true)
-    setErr('')
-    const r = await upload('/auth/me/avatar', f)
-    setBusy(false)
-    if (r.ok) onUser({ avatar_path: r.data.avatar_path })
-    else setErr(r.data?.error || t('error.upload.failed'))
-  }
-  // The profile photo is drawn as a circle, so it takes the same framing as any face.
-  const framer = useFraming({ frame: 'face', name: user.username || '', onKeep: keepAvatar })
-  async function onFile(f) {
-    if (!f) return
-    if ((await framer.frameFile(f)) === 'fits') keepAvatar(f)
-  }
-  async function remove() {
-    const r = await json('DELETE', '/auth/me/avatar')
-    if (r.ok) onUser({ avatar_path: '' })
-    else setErr(errText(r, t('error.remove.photo')))
-  }
-  return (
-    <div className="flex items-center gap-4">
-      <span className="user-chip" style={{ width: 56, height: 56, fontSize: 'var(--type-ui-22)' }} aria-hidden="true">
-        <UserAvatar user={user} onBroken={() => setGone(true)} />
-      </span>
-      <div className="flex flex-col gap-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <FilePick className="tp-btn tp-btn-primary" accept="image/*" disabled={busy} onFiles={onFile}>
-            {busy
-              ? t('common.action.upload.busy')
-              : has
-                ? t('account.photo.change')
-                : t('account.photo.upload')}
-          </FilePick>
-          <InfoDot title={t('account.photo.info.title')} text={t('account.photo.info.body')} />
-          {has && (
-            <GhostButton type="button" disabled={busy} onClick={() => framer.reframe(coverImgURL(user.avatar_path))}>
-              {t('frame.reframe.label')}
-            </GhostButton>
-          )}
-          {has && (
-            <FieldIconButton
-              icon={<IconDelete />}
-              ariaLabel={t('account.photo.remove.aria')}
-              onClick={remove}
-              tooltip={t('account.photo.remove.tip')}
-              danger
-            />
-          )}
-        </div>
-        <ErrorText>{err}</ErrorText>
-      </div>
-      {framer.dialog}
-    </div>
-  )
 }
 
 function NameForm({ user, onUser }) {
@@ -315,68 +238,26 @@ function SwitchAccount({ me }) {
   )
 }
 
-// MaintenanceCard (admin only) — recovery tools that live in Profile: a
-// non-destructive search-index rebuild (the fix for "search failed / internal
-// error" from a corrupt full-text index) and the factory reset that wipes
-// everything back to first-run onboarding.
+// MaintenanceCard (admin only) — the search-index rebuild, the fix for "search
+// failed / internal error" from a corrupt full-text index. Non-destructive. The
+// factory reset that used to sit beside it is cut from the web app (ADR-0936).
 function MaintenanceCard() {
-  const [busy, setBusy] = useState('') // 'reindex' | 'reset' | ''
+  const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
   const [err, setErr] = useState('')
-  const [showReset, setShowReset] = useState(false)
-  const [confirm, setConfirm] = useState('')
-  const [safe, setSafe] = useState(false)
-  // The word box waits for the copy: focused on open it took the keyboard past a
-  // step that must come first. The step hands focus to it once the copy is down.
-  const confirmRef = useRef(null)
-  // THE QUEUE, READ WHEN THE RESET OPENS. A reset replaces the database the job
-  // queue lives in, so the server refuses it while a job runs, and deletes the
-  // ones still waiting with everything else. Said above step one, before the
-  // reader downloads a copy for a reset the server is about to refuse.
-  const [queue, setQueue] = useState(null)
-  useEffect(() => {
-    if (!showReset) {
-      setQueue(null)
-      return undefined
-    }
-    let alive = true
-    readJobsSummary().then((r) => { if (alive && r.ok) setQueue(r) })
-    return () => { alive = false }
-  }, [showReset])
-  const busyQueue = queueNotice(queue, { running: 'account.reset.queue.running', waiting: 'account.reset.queue.waiting' })
 
   async function reindex() {
-    setBusy('reindex')
+    setBusy(true)
     setErr('')
     setMsg('')
     const r = await json('POST', '/admin/search/reindex')
-    setBusy('')
+    setBusy(false)
     if (r.ok && r.data.ok) setMsg(t('account.reindex.done'))
     else if (r.ok)
       setErr(t('account.reindex.partial', { failed: (r.data.failed || []).join(', ') }))
     else setErr(errText(r, t('error.reindex.failed')))
   }
 
-  async function reset() {
-    if (confirm !== 'RESET') return
-    setBusy('reset')
-    setErr('')
-    setMsg('')
-    const r = await json('POST', '/admin/reset', { confirm: 'RESET' })
-    if (r.ok) {
-      // Fresh, empty database → reload into first-run onboarding.
-      window.location.href = '/'
-      return
-    }
-    setBusy('')
-    if (r.status === 428) setSafe(false) // the server holds no recent download: step one again
-    setErr(errText(r, t('error.reset.failed')))
-  }
-
-  // Both explanations moved into InfoDots. The reset one is deliberately still
-  // long — a wall of consequences is the right amount of words for a button that
-  // deletes an instance — but it now sits one tap behind a dot instead of
-  // standing permanently between you and the harmless button above it.
   return (
     <Card pad="p-5">
       <FieldLabel>{t('account.maintenance.label')}</FieldLabel>
@@ -389,63 +270,9 @@ function MaintenanceCard() {
               text={t('account.reindex.info.body')}
             />
           </div>
-          <GhostButton disabled={busy === 'reindex'} onClick={reindex}>
-            {busy === 'reindex' ? t('account.reindex.busy') : t('account.reindex.action')}
+          <GhostButton disabled={busy} onClick={reindex}>
+            {busy ? t('account.reindex.busy') : t('account.reindex.action')}
           </GhostButton>
-        </div>
-
-        <hr style={{ border: 'none', borderTop: '1px dashed var(--line)' }} />
-
-        <div>
-          <div className="flex items-center gap-1.5">
-            <p className="text-sm font-semibold" style={{ color: 'var(--error)' }}>
-              {t('account.reset.title')}
-            </p>
-            <InfoDot
-              title={t('account.reset.info.title')}
-              text={t('account.reset.info.body')}
-            />
-          </div>
-          {!showReset ? (
-            <GhostButton icon={<IconDelete />} keepLabel className="mt-2" onClick={() => setShowReset(true)}>
-              {t('account.reset.open')}
-            </GhostButton>
-          ) : (
-            <div className="mt-2 space-y-2">
-              {busyQueue && <p className="microcopy" role="status">{busyQueue}</p>}
-              <SafetyBackupStep done={safe} onDone={() => setSafe(true)} next={confirmRef} />
-              <p className="microcopy">
-                {/* RESET is the word the server compares — never translated. */}
-                {tNodes('account.reset.confirm.prose', { word: <b>RESET</b> })}
-              </p>
-              <input
-                className="tp-input"
-                ref={confirmRef}
-                value={confirm}
-                placeholder="RESET"
-                onChange={(e) => setConfirm(e.target.value)}
-              />
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  // IT FITS THE ROW (#46): at 390 wide and the largest type, "Delete
-                  // everything & restart" on one line slid the whole page sideways.
-                  // `wraps-to-fit` is the one rule for a button whose words can
-                  // outgrow a phone; the release log's button (#51) wears it too.
-                  className="tp-btn wraps-to-fit"
-                  style={{ background: 'var(--error)', color: '#fff', opacity: safe && confirm === 'RESET' && busy !== 'reset' ? 1 : 0.55 }}
-                  disabled={!safe || confirm !== 'RESET' || busy === 'reset'}
-                  title={!safe ? t('settings.safety.first.reason') : undefined}
-                  onClick={reset}
-                >
-                  {busy === 'reset' ? t('account.reset.busy') : t('account.reset.submit')}
-                </button>
-                <GhostButton onClick={() => { setShowReset(false); setConfirm(''); setSafe(false) }}>
-                  {t('common.action.cancel.label')}
-                </GhostButton>
-              </div>
-            </div>
-          )}
         </div>
 
         {msg && <p className="microcopy" style={{ color: 'var(--accent-ui)' }}>{msg}</p>}
@@ -461,9 +288,8 @@ function MaintenanceCard() {
 export function Profile({ user, onUser, logout }) {
   return (
     <div className="space-y-5">
-      <Card pad="p-5"><AvatarRow user={user} onUser={onUser} /></Card>
       <Card pad="p-5"><NameForm user={user} onUser={onUser} /></Card>
-      {/* Session: the two things the avatar chip's dropdown used to be for. */}
+      {/* Session: switching accounts and logging out. */}
       <Card pad="p-5">
         <div className="space-y-4">
           <SwitchAccount me={user} />
@@ -482,177 +308,8 @@ export function Profile({ user, onUser, logout }) {
         </div>
       </Card>
       <Card pad="p-5"><PasswordForm /></Card>
-      {/* The account's own connections: the other way in, beside the password;
-          what reaches the reader's phone; and the key their dashboard reads. */}
-      <SingleSignOn user={user} />
-      <Notifications user={user} />
-      <WidgetKey />
-      {/* Admin sections. User management was its own chip-menu destination until
-          1.4.1; it is a section here because "the accounts on this server" is
-          part of the same answer as "my account", and a menu of two screens is
-          not worth a menu. */}
-      {user?.is_admin && (
-        <Card pad="p-5">
-          <span className="flex items-center gap-1.5">
-            <FieldLabel>{t('account.users.label')}</FieldLabel>
-            <InfoDot title={t('account.users.info.title')} text={t('account.users.info.body')} />
-          </span>
-          <UserManagement me={user} />
-        </Card>
-      )}
       {user?.is_admin && <MaintenanceCard />}
     </div>
   )
 }
 
-// ---- User management (admin only): add / remove / grant-revoke admin ----
-// Rendered as a section INSIDE Profile (see above), so it supplies no card of
-// its own — the heading and the surrounding Card belong to its host.
-
-export function UserManagement({ me }) {
-  const { ask, confirmDialog } = useConfirm()
-  const [users, setUsers] = useState([])
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
-  const [busyId, setBusyId] = useState(null)
-
-  async function load() {
-    const r = await json('GET', '/admin/users')
-    if (r.ok) setUsers(r.data.users)
-    else setError(errText(r, t('error.load.users')))
-  }
-  useEffect(() => { load() }, [])
-
-  const adminCount = users.filter((u) => u.is_admin).length
-
-  async function addUser(e) {
-    e.preventDefault()
-    setError('')
-    const r = await json('POST', '/admin/users', { username, password })
-    if (r.ok) {
-      setUsername('')
-      setPassword('')
-      load()
-    } else {
-      setError(errText(r, t('error.add.user')))
-    }
-  }
-
-  async function setAdmin(u, is_admin) {
-    setError('')
-    setBusyId(u.id)
-    const r = await json('PATCH', `/admin/users/${u.id}`, { is_admin })
-    setBusyId(null)
-    if (r.ok) load()
-    else setError(errText(r, t('error.save.role')))
-  }
-
-  async function removeUser(u) {
-    if (!(await ask(t('account.users.delete.confirm', { name: u.username }), { danger: true, reversible: true, note: t('account.users.delete.note') }))) return
-    setError('')
-    const r = await json('DELETE', `/admin/users/${u.id}`)
-    if (r.ok) load()
-    else setError(errText(r, t('error.delete.user')))
-  }
-
-  // A new account needs both fields, and the password has to be one the server
-  // will take — greying the button is how that is said, rather than a 400.
-  const addMissing = !username.trim()
-    ? t('error.validate.username-required-add')
-    : passwordProblem(password)
-
-  return (
-    <div>
-      {confirmDialog}
-      <ul className="space-y-1">
-        {users.map((u) => {
-          const isMe = u.id === me.id
-          const lastAdmin = u.is_admin && adminCount <= 1
-          // Granting is something you do to others; revoking is something you
-          // do to yourself. So the button on an admin row is only ever yours,
-          // and an admin row that is not yours carries no role control and no
-          // delete — their account can only be removed once they have stepped
-          // down. The server enforces all three; this is so the page stops
-          // offering actions it is about to be refused for.
-          const canSetRole = u.is_admin ? isMe && !lastAdmin : true
-          const canDelete = !isMe && !u.is_admin
-          return (
-            <li key={u.id} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 py-2" style={{ borderBottom: '1px solid var(--line)' }}>
-              <span className="user-chip" style={{ width: 30, height: 30, fontSize: 'var(--type-ui-13)' }} aria-hidden="true">
-                <UserAvatar user={u} />
-              </span>
-              <span style={{ fontWeight: 600 }}>{u.username}</span>
-              {u.is_admin && (
-                <span className="tp-chip" style={{ color: 'var(--accent-ui)' }}>
-                  {t('account.users.admin.chip')}
-                </span>
-              )}
-              {isMe && <span className="mono-label">{t('account.users.you.chip')}</span>}
-              <span className="ml-auto flex items-center gap-2">
-                {canSetRole ? (
-                  <button
-                    type="button"
-                    className="tp-chip tp-chip-btn"
-                    disabled={busyId === u.id}
-                    title={
-                      u.is_admin
-                        ? t('account.users.step-down.tip')
-                        : t('account.users.make-admin.tip', { name: u.username })
-                    }
-                    onClick={() => setAdmin(u, !u.is_admin)}
-                  >
-                    {u.is_admin ? t('account.users.step-down') : t('account.users.make-admin')}
-                  </button>
-                ) : (
-                  u.is_admin && (
-                    <span className="mono-label" style={{ color: 'var(--faint)' }}>
-                      {lastAdmin && isMe ? t('account.users.only-admin') : t('account.users.their-own')}
-                    </span>
-                  )
-                )}
-                {canDelete && (
-                  <Tooltip label={t('account.users.delete.tip', { name: u.username })} side="top">
-                    <button
-                      type="button"
-                      onClick={() => removeUser(u)}
-                      aria-label={t('account.users.delete.aria', { name: u.username })}
-                      style={{ background: 'none', border: 'none', color: 'var(--error)', display: 'inline-flex', padding: 4, lineHeight: 1, cursor: 'pointer' }}
-                    >
-                      {/* The app's cross, not the character. A typed ✕ is the
-                          reader's font's — it changes weight with their font and
-                          sits off the baseline every other glyph in this row
-                          shares. Same rule, same fix, as the credit row's. */}
-                      <IconClose size={17} />
-                    </button>
-                  </Tooltip>
-                )}
-              </span>
-            </li>
-          )
-        })}
-      </ul>
-
-      <form onSubmit={addUser} className="mt-4 flex flex-wrap items-center gap-2">
-        <input className="tp-input" style={{ flex: 1, minWidth: 130 }} placeholder={t('common.field.username.placeholder')} value={username} autoComplete="off" onChange={(e) => setUsername(e.target.value)} />
-        <input
-          className="tp-input"
-          style={{ flex: 1, minWidth: 130 }}
-          placeholder={t('account.users.add.password.placeholder', { min: PASSWORD_MIN, max: PASSWORD_MAX })}
-          type="password"
-          value={password}
-          autoComplete="new-password"
-          maxLength={PASSWORD_MAX}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-        <StickerButton icon={<IconUserPlus />} keepLabel disabled={!!addMissing} title={addMissing || undefined}>
-          {t('account.users.add')}
-        </StickerButton>
-      </form>
-      {addMissing && password.length > 0 && (
-        <p className="microcopy mt-1" style={{ color: 'var(--faint)' }}>{addMissing}.</p>
-      )}
-      <ErrorText>{error}</ErrorText>
-    </div>
-  )
-}

@@ -4148,23 +4148,6 @@ error.import.failed = import failed
 # place is called.
 staging.title = Pending import
 
-# ---------------------------------------------------------------------------
-# PROFILE — Account.jsx. Everything about “you on this server”, in the order you
-# would ask it: who you are, which account you are in, your password, and — for
-# an admin — everyone else's accounts and the recovery tools.
-#
-# RESET IS NOT TRANSLATED. The reset confirmation asks you to type RESET and the
-# client sends that exact word to the server, which compares it. Translating the
-# word the reader must type would make the instruction unfollowable, exactly as
-# with the bulk-delete phrase (§8). The prose around it translates; {word} is
-# supplied by the code and is always RESET.
-# ---------------------------------------------------------------------------
-account.photo.upload = Upload photo
-account.photo.change = Change photo
-account.photo.info.title = Profile photo
-account.photo.info.body = Shown in the top bar, the menu and the user list. Square images look best; up to 5 MB.
-account.photo.remove.aria = Remove photo
-account.photo.remove.tip = Remove the photo
 
 account.name.label = Display name
 account.name.save = Save name
@@ -4197,61 +4180,8 @@ account.logout.info.title = Log out
 account.logout.info.body = Signs out this browser only. Other browsers stay signed in.
 account.logout.action = Log out
 
-# Single sign-on — the operator's OpenID Connect provider, named {name}.
-account.sso.label = Single sign-on
-account.sso.info.body = Sign in with your {name} account instead of a password. Linking needs you signed in here and at {name}, so nobody can attach an account they do not own.
-account.sso.linked = Linked to {name}. You can sign in with either.
-account.sso.unlinked = Not linked. Link it to sign in with {name}.
-account.sso.link.action = Link {name}
-account.sso.unlink.action = Unlink
-account.sso.linked.flash = Linked.
-account.sso.off = Not set up on this server.
-account.sso.off.info = Single sign-on is switched on by the operator with the TIPPANI_OIDC_* settings; the README's "Single sign-on" section walks through Authelia.
-account.sso.unlink.confirm.title = Unlink {name}?
-account.sso.unlink.confirm.body = You will need this account's password to sign in. An account {name} created has no password you know — ask an admin to set one first.
 
-# A read-only key for a dashboard widget (gethomepage's Custom API widget).
-account.widget.label = Dashboard widget
-account.widget.info.body = A key a dashboard such as gethomepage uses to show four numbers from your library: works, quotes, forgotten and mastered. It opens nothing else.
-account.widget.none = No key yet.
-account.widget.exists = A key is active.
-account.widget.once = Copy it now — the key is shown only once.
-account.widget.yaml.aria = gethomepage services.yaml entry
-account.widget.copy = Copy YAML
-account.widget.copied = Copied
-account.widget.make.action = Make a key
-account.widget.rotate.action = Replace key
-account.widget.rotate.confirm.title = Replace the widget key?
-account.widget.rotate.confirm.body = The old key stops working at once; update your dashboard with the new one.
-account.widget.revoke.action = Revoke
-account.widget.field.works = Works
-account.widget.field.quotes = Quotes
-account.widget.field.forgot = Forgot
-account.widget.field.mastered = Mastered
 
-# Pushover messages on the reader's phone.
-account.notify.label = Notifications
-account.notify.info.body = Messages on your phone through Pushover: when the day's review is ready, and when a long import, fetch or backup finishes. Your user key is on pushover.net after you sign in.
-account.notify.user.label = Pushover user key
-account.notify.user.placeholder = Pushover user key
-account.notify.token.label = Pushover application token
-account.notify.token.placeholder = application token
-account.notify.token.placeholder.set = application token (saved — type to replace)
-account.notify.token.placeholder.server = application token (optional — the server has one)
-account.notify.save = Save keys
-account.notify.saved = Saved.
-account.notify.token.clear = Use the server's token
-account.notify.token.cleared = Your own token is removed.
-account.notify.test.action = Send a test
-account.notify.test.sent = Sent — check your phone.
-account.notify.event.daily.title = Daily review ready
-account.notify.event.daily.sub = Once a day, when your deck has cards. Needs the server's daily job.
-account.notify.event.import.title = Large imports
-account.notify.event.import.sub = When 50 or more quotes wait for review, and when they land.
-account.notify.event.fetch.title = Long metadata fetches
-account.notify.event.fetch.sub = When a fetch over 20 or more works finishes.
-account.notify.event.backup.title = Backups
-account.notify.event.backup.sub = When a backup archive has been written.
 
 account.maintenance.label = Maintenance
 account.reindex.title = Rebuild search index
@@ -4262,43 +4192,8 @@ account.reindex.busy = Rebuilding…
 account.reindex.done = Search index rebuilt — search should work again.
 account.reindex.partial = Some indexes were too damaged to rebuild ({failed}). If search still fails, a full reset is the last option.
 
-account.reset.title = Reset all data
-account.reset.info.title = Reset all data
-account.reset.info.body = Permanently deletes everything — every account, work, quote, tag, person, sticker, cover, key and setting — and returns to first-time setup. No backup is made. This cannot be undone.
-account.reset.open = Reset all data…
-account.reset.confirm.prose = Type {word} to confirm you want to delete everything:
-account.reset.submit = Delete everything & restart
-account.reset.busy = Resetting…
-# Above step one of the factory reset, read when it opens: the same refusal as
-# the restore's, and the waiting jobs go with everything else.
-account.reset.queue.running = {title} is running. The reset is refused until it stops or finishes — stop it in Settings → Jobs first.
-account.reset.queue.waiting.one = One job is waiting; a reset deletes it with everything else.
-account.reset.queue.waiting.other = {n} jobs are waiting; a reset deletes them with everything else.
 
-# The admin's list of everyone on the server. Granting is something you do to
-# others; revoking is something you do only to yourself.
-account.users.label = Users on this server
-account.users.info.title = User management
-account.users.info.body = Every user has a separate library. You can make someone an admin, but only they can give it up; the last admin cannot.
 account.users.admin.chip = admin
-account.users.you.chip = you
-account.users.step-down = Step down
-account.users.step-down.tip = Give up your own admin rights
-account.users.make-admin = Make admin
-account.users.make-admin.tip = Make {name} an admin
-account.users.only-admin = only admin
-account.users.their-own = their own
-account.users.delete.tip = Delete {name} and their library
-account.users.delete.aria = Delete {name}
-account.users.delete.confirm = Delete user "{name}" and their library?
-account.users.delete.note = The account waits in your bin, sealed, for as long as the bin keeps anything else. Restoring it gives it back to its owner, whole.
-account.users.add = Add user
-# ITS OWN PLACEHOLDER, AND THE REASON IS NOT COSMETIC. This box and the "new
-# password" box under CHANGE PASSWORD above it computed to the SAME accessible
-# name, so a screen reader announced both as "new password (8-20)" — one of which
-# changes the reader's own login and one of which sets a stranger's. The headings
-# separate them for eyes and for nobody else.
-account.users.add.password.placeholder = password for the new account ({min}–{max})
 
 # What went wrong, keyed by what failed.
 error.validate.name-cannot-be-blank = name cannot be blank
@@ -4307,20 +4202,13 @@ error.validate.password-mismatch = The new passwords do not match
 error.validate.switch-name-required = Enter the account name
 error.validate.switch-same = That is the account you are already in
 error.validate.switch-password-required = Enter that account’s password
-error.validate.username-required-add = Enter a username
 error.upload.failed = upload failed
-error.remove.photo = could not remove photo
 error.save.name = could not change name
 error.save.password = could not change password
 error.switch.account = could not switch account
 error.reindex.failed = could not rebuild the search index
-error.reset.failed = could not reset the database
-error.load.users = could not load users
 error.open.person = could not open this person
 person.opening = Opening…
-error.add.user = could not add user
-error.save.role = could not change role
-error.delete.user = could not delete user
 
 # ---------------------------------------------------------------------------
 # PEOPLE — people.jsx. The panel behind every credited name: bio, portrait,
@@ -5193,26 +5081,7 @@ settings.updates.toast.copied = command copied
 # ---------------------------------------------------------------------------
 # {count} arrives already counted, through common.count.phrase + unit.quote.
 
-settings.backup.use-passphrase.label = Set a separate passphrase instead
-settings.backup.use-password.label = Use my account password instead
 
-settings.safety.why.prose = First, download a copy of everything on this server as it is now. It is sealed like any backup and is not kept here.
-settings.safety.done.prose = Copy downloaded. Keep it until you are sure the new data is right.
-settings.safety.action = Download a backup first
-settings.safety.busy = Preparing the copy…
-settings.safety.first.reason = Download a backup first
-settings.safety.password.label = Your password, to seal the copy
-settings.safety.passphrase.label = Passphrase, to seal the copy
-# While the copy's job waits or runs (3.1.0: the safety copy is a job on the
-# server's queue). The step downloads the file itself once the job has sealed it,
-# so the dialog has to stay open until then.
-settings.safety.wait.prose = The copy is sealed on the server as a job, and downloads here when it is ready. Keep this open until then.
-# The Stop beside that line, named for what it stops; the button itself says Stop
-# (settings.jobs.current.stop.label).
-settings.safety.stop.aria = Stop the copy
-# A copy stopped before it was sealed: its job leaves nothing on the server, and
-# the step offers the button again.
-settings.safety.stopped = Stopped: no copy was made, and nothing of it is left on the server. Take it again when you are ready.
 # The close on both prompts: backing out of a form is not the same as closing a
 # window you were only reading.
 settings.prompt.close.tip = Cancel and close
@@ -5566,9 +5435,6 @@ error.update.start = update failed to start
 error.copy.manual = copy failed — select it manually
 
 
-# Backup and restore. "data intact" is the load-bearing half: a restore that
-# failed changed nothing.
-error.backup.failed = Backup failed
 
 
 
@@ -6334,8 +6200,6 @@ settings.help.updates.what = Admin only, checked on demand — never in the back
 # The help panel’s heading on the profile panel.
 profile.help.title = Profile
 
-profile.help.photo.term = Photo
-profile.help.photo.what = Your avatar chip. A square image reads best.
 
 profile.help.display-name.term = Display name
 profile.help.display-name.what = What the greeting and the user list call you.
@@ -6351,14 +6215,7 @@ profile.help.password.term = Password
 profile.help.password.what = 8–20 characters — letters, digits and punctuation, no accents.
 profile.help.password.more = It also opens your backups, so it must be typeable on any machine. Changing it signs out other browsers, and your current password still opens every archive this server made.
 
-# The admin-only user list, on the profile panel.
-profile.help.users.term = Users on this server
-profile.help.users.what = Admin only: add an account, grant or revoke admin, or delete an account and everything in its library.
-profile.help.users.more = To hand over, grant another user admin first, then revoke your own.
 
-# The admin-only rebuild-index and reset-instance pair.
-profile.help.maintenance.term = Maintenance
-profile.help.maintenance.what = Admin only: rebuild the search index if search fails, or wipe the server back to first-time setup.
 
 # ---------------------------------------------------------------------------
 # capture.help.* — the "?" panel’s section for Add & capture.

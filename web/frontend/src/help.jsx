@@ -20,7 +20,6 @@ import {
   HelpButton,
   HelpList,
   HelpSheet,
-  IconArchive,
   IconCalendar,
   IconCopy,
   IconDelete,
@@ -412,13 +411,10 @@ export const HELP = {
     entry('settings.help.updates'),
   ]),
   profile: section('profile.help.title', [
-    entry('profile.help.photo', { icon: <IconUpload /> }),
     entry('profile.help.display-name'),
     entry('profile.help.switch-account', { more: true }),
     entry('profile.help.log-out'),
     entry('profile.help.password', { more: true }),
-    entry('profile.help.users', { icon: <IconPlus />, more: true }),
-    entry('profile.help.maintenance'),
   ]),
   capture: section('capture.help.title', [
     entry('capture.help.no-work'),
