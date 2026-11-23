@@ -75,8 +75,6 @@ settings.section.jobs.info.body = কী চলছে, কী অপেক্ষ
 settings.section.aria = কোন সেটিংস বদলাবেন
 settings.section.theme.label = থিম
 settings.section.lang.label = ভাষা ও ফন্ট
-settings.section.review.label = রিভিউ
-settings.section.sections.label = বিভাগ
 settings.section.server.label = সার্ভার
 # bn: "job" → কাজ, the everyday word; the Additions table already gives কাজ to an arithmetic "operation" in a mono Select, a different screen
 settings.section.jobs.label = কাজ
@@ -626,16 +624,6 @@ common.filmstrip.edge.label = TIPPANI · SAFETY FILM
 # keeps its script because changing that is a branding decision, not a translation.
 shell.wordmark.label = tippani
 
-# --- THE THREE THINGS ON THIS SCREEN THAT ARE NOT COPY.
-#
-# Each goes through the resolver anyway, because the alternative is an exemption
-# in the pseudo-locale gate and a gate with exemptions in it stops being a gate.
-# Each carries the SAME VALUE IN EVERY LANGUAGE, exactly as
-# common.filmstrip.edge.label does and as §6.3's "unchanged" rows do.
-#
-# The size readout beside the Type card's slider. A unit symbol next to a Western
-# digit, in the same class as {n}h / {n}d / ×{n} — not a word.
-settings.type.size.format = {n}px
 # The four credit separators, as the chip DRAWS them. These are the characters the
 # splitter actually matches, so translating one would name a separator nothing
 # splits on: an author line reads "Gaiman & Pratchett" or "Gaiman and Pratchett"
@@ -1276,181 +1264,22 @@ settings.colours.unmake.cta = মুছে দিন
 settings.colours.reset.aria = এই রং আগের মতো করুন
 settings.colours.reset.tip = আগের রঙে ফিরুন
 
-# --- which quotes the quiz draws from. The chip names the SCREEN (nav.tab.*)
-# and the tooltip says what that screen's quotes are.
-settings.review-scope.title = যেখান থেকে নেওয়া
-settings.review-scope.info.title = যেখান থেকে নেওয়া
-settings.review-scope.info.body = দৈনিক অনুশীলনী আর ঝালাই কোন ধরনের উদ্ধৃতি থেকে প্রশ্ন নেবে, আলাদা আলাদা করে বাছুন। যে উদ্ধৃতিতে বক্তা বা প্রসঙ্গ নেই, আর গত এক সপ্তাহে যা রাখা হয়েছে, সেগুলো বাদ থাকে।
-settings.review-scope.books.tip = বইয়ের উদ্ধৃতি
-settings.review-scope.movies.tip = সিনেমা, শো আর গেমের সংলাপ
-settings.review-scope.quotes.tip = ভাষণ, চিঠি, আর বাকি সব
-# The last scope standing cannot be turned off, or the deck empties.
-settings.review-scope.stuck.tip = ডেকের অন্তত একটা লাগবে
 
-settings.type.own.title = আপনার নিজের ফন্ট
-settings.type.faces.title = ইন্টারফেসের ফন্ট
-settings.quote-faces.title = উদ্ধৃতির ফন্ট
-settings.quote-faces.link.prose = প্রতিটা ভাষার উদ্ধৃতির ফন্ট ঠিক হয় মেটাডেটা › ভাষা-তে, সেই ভাষার বাকি সেটিংসের পাশে।
-settings.quote-faces.add.open = ভাষার তালিকা খুলুন
-settings.type.added.title = যোগ করা ফন্ট
-settings.type.added.sub = প্রতিটা নিজের চেহারাতেই দেখানো
-settings.type.added.none = এখনও কিছু নেই — নিচে একটা আপলোড করুন
-settings.type.add.title = একটা ফন্ট যোগ করুন
-settings.type.add.sub = woff2, woff, otf বা ttf — এটা এই সার্ভারেই থাকে
-settings.type.add.action = ফন্ট আপলোড করুন
-settings.type.style.aria = {name}-এর স্টাইল
-# WHOSE INTERFACE these faces are for. '' is the answer every UI language
-# inherits; a code is that language's own. Not "English" — the inherited answer
-# applies in every language, and English can overrule it like any other.
-settings.type.faces.sub = {language} যে হরফে লেখা হয়। অন্য ভাষার জন্য উপরে ভাষা বদলান।
-settings.type.scope.revert.aria = {name}-এর জন্য সব ভাষার ফন্টেই ফিরুন
-settings.type.scope.revert.tip = সবার জন্য যেটা, সেটাতেই ফিরুন
-settings.type.style.title = স্টাইল
-settings.type.face.aria = {name} লেখার ফন্ট
-settings.type.face.filter.placeholder = ফন্টের নাম লিখুন
-settings.type.font.remove.tip = এই ফন্ট সরান
-settings.type.font.remove.confirm = {name} সরাবেন? যে কাজে এটা বসানো আছে, সেখানে অ্যাপের নিজের ফন্ট ফিরে আসবে।
-# Shown when an uploaded face measures as though it does not draw the script the
-# role needs. A warning and not a refusal. {field} is the script's name.
-settings.type.script-warning.prose = এই ফন্টে হয়তো {field} লেখা যায় না। তবু বসানো হলো — নিচের লেখায় চৌকো ঘর দেখা গেলে কারণ এটাই।
-# The script a role needs when the role does not name one.
-vocab.script.latin.label = রোমান
 
-# --- Settings → Language marks. The mark a proverb board wears.
-# মেটাডেটা উৎস পাতার কার্ড: দরজাটা কীসের জন্য, আর দরজার নিজের কথা।
-settings.languages.glyphs.aria = {name} ভাষার লিপির অক্ষর
-settings.languages.no-script.prose = {name} ভাষার জন্য কোনও লিপির অক্ষর নেই — নিচে নিজের একটা চিহ্ন দিন।
-# The reader's own marks, and how many of the allowance are used. {done}/{total}.
-settings.languages.mark.remove.aria = {field} থেকে {name} সরান
-settings.languages.full.prose = {name} ভাষার নিজের চিহ্ন বড়জোর {n}টা — নতুন দিতে হলে একটা সরান।
-settings.languages.order.title = মূলের কতটা
-settings.languages.order.custom.tip = কিছু ভাষার আলাদা সেটিং আছে; এটা বদলালে সেগুলোও এর সঙ্গে মিলে যাবে।
 vocab.textorder.trans-only.label = শুধু অনুবাদ
 vocab.textorder.trans-first.label = আগে অনুবাদ
 vocab.textorder.quote-first.label = আগে উদ্ধৃতি
 vocab.textorder.quote-only.label = শুধু উদ্ধৃতি
-settings.languages.remove.in-use.tip = {name} ব্যবহারে আছে — আপনার উদ্ধৃতি বা বই এই ভাষায় রয়েছে
-# Renaming a language is a DISPLAY name. The stored name stays and is shown
-# beside it, so "why does my Bangla board say Bengali" stays answerable.
-# What this language's QUOTES are set in — every face the app ships, because the
-# question is "what does my German look like" and the answer may be a sans or a
-# hand. "Follows the card" is a real answer and so is an option, not a clear button.
-settings.languages.face.inherit = উদ্ধৃতির ফন্ট মেনে চলে
-settings.languages.face.aria = {name} ভাষার উদ্ধৃতির ফন্ট
-settings.languages.add.label = ভাষা যোগ করুন
-settings.languages.name.label = ভাষার নাম
-settings.languages.order.all.label = সব ভাষা
-settings.languages.order.own.label = নিজস্ব সেটিং
-settings.languages.key.quote = উদ্ধৃতি, যেমন লেখা
-settings.languages.key.trans = অনুবাদ
-settings.languages.edit.aria = {name} এডিট করুন: নাম, কোড আর চিহ্ন
-settings.languages.iso.label = ISO 639-3 কোড
-settings.languages.iso.none = ISO কোড নেই
-settings.languages.iso.link.label = কোড যুক্ত করুন
-settings.languages.iso.change.label = বদলান
-settings.languages.iso.clear.aria = ISO কোড সরিয়ে দিন
-settings.languages.iso.search.placeholder = নাম বা কোড, যেমন Sylheti বা syl
-settings.languages.iso.nomatch = ISO 639-3-এ এর সঙ্গে মেলে এমন কোনও ভাষা নেই।
-settings.languages.iso.type.extinct = বিলুপ্ত
-settings.languages.iso.type.ancient = প্রাচীন
-settings.languages.iso.type.historical = ঐতিহাসিক
-settings.languages.iso.type.constructed = কৃত্রিম
-settings.languages.iso.type.macro = ভাষাগুচ্ছ
-settings.languages.add.search.label = ভাষা খুঁজুন
-settings.languages.add.free = কোড ছাড়াই “{name}” যোগ করুন
-settings.languages.mark.title = উক্তির কার্ডে এর চিহ্ন
-settings.languages.add-mark.aria = নিজের একটা চিহ্ন যোগ করুন
-settings.languages.reset.label = চিহ্ন আর নাম আগের মতো করুন
-settings.languages.remove.label = ভাষাটা সরান
-settings.languages.remove.confirm.title = {name} সরাবেন?
-settings.languages.remove.confirm.body = এর চিহ্ন, নাম আর কোড মুছে যাবে। কোনও উক্তি বদলাবে না।
 
-# --- the quiz panel.
-settings.quiz.group.deck.title = অনুশীলনী আর তার প্রশ্ন
-settings.quiz.group.schedule.title = সময়সূচি
-settings.quiz.group.practice.title = অনুশীলন
-settings.quiz.skipped.aside = উদ্ধৃতি ধরে ধরে
-settings.quiz.per-day.label = দৈনিক ডেক
-settings.quiz.in-depth.tip = গুণক আর বাঁধা সিঁড়ি
-settings.quiz.panel.title = সময়সূচির পিছনের সংখ্যাগুলো
-settings.quiz.tuning.changed.aside = বদলানো
-# {name} is the deck — Daily quiz, or Practice.
-settings.quiz.deck.title = {name} যা জিজ্ঞেস করে
-settings.quiz.deck.question.aria = {question} — {name}
-settings.quiz.deck.daily.info.body = দৈনিক অনুশীলনীর প্রতিটা উত্তর সার্ভার মিলিয়ে দেখে, তাই নিজে নম্বর দেওয়ার ফ্লিপ কার্ড এখানে নেই।
-settings.quiz.deck.practice.info.body = ঝালাই শুরু হয় ফ্লিপ কার্ড দিয়ে, তারপর বাকিগুলো মিশিয়ে। “প্র্যাকটিস গোনা হয়” চালু থাকলে ফ্লিপ কার্ড বাদ যায়, কারণ নিজে দেওয়া নম্বর কেউ যাচাই করে না।
-settings.quiz.practice-counts.title = প্র্যাকটিস গোনা হয়
-settings.quiz.practice-counts.aria = ঝালাইতেও দিনপঞ্জি বদলায়
-settings.quiz.practice-counts.info.body = বন্ধ থাকলে ঝালাই শুধু পড়াশোনা। চালু করলে ঝালাইয়ের ঠিক উত্তরেও দৈনিক অনুশীলনীর মতো পরের বার আসার ফাঁক বাড়ে।
-settings.quiz.submit.title = প্রতিটা উত্তর নিশ্চিত করুন
-settings.quiz.submit.aria = প্রতিটা উত্তর নিশ্চিত করুন
-settings.quiz.submit.info.body = বন্ধ থাকলে ছুঁলেই উত্তর হয়ে যায়। চালু থাকলে ছুঁলে শুধু বাছা হয়, “জমা দিন” চাপলে তবে উত্তর — মত বদলানোর সুযোগ থাকে। ফ্লিপ কার্ডে কোনো তফাত নেই।
-# bn: অ্যাডাপ্টিভ is the word a Bengali actually says of a thing that adjusts to you;
-# the coinages (মানানসই, অভিযোজী) need decoding first.
-settings.quiz.adaptive.title = অ্যাডাপ্টিভ ফাঁক
-settings.quiz.adaptive.aria = অ্যাডাপ্টিভ ফাঁক
-settings.quiz.adaptive.info.body = অ্যাডাপ্টিভ (শুরুর ব্যবস্থা): ঠিক উত্তরে ফাঁক আড়াই গুণ হয়, ভুলে অর্ধেক। সিঁড়ি: বাঁধা ধাপ ৭ → ৩০ → ১০০ → ৩৬৫ দিন, আর ভুল হলেই আবার ৭-এ।
-settings.quiz.adaptive.ladder.label = সিঁড়ি
-settings.quiz.adaptive.on.label = অ্যাডাপ্টিভ
-settings.quiz.skipped.title = কখনও জিজ্ঞাসা করা হয় না
-settings.quiz.skipped.none = কিছুই বাদ পড়েনি। আপনার রাখা প্রতিটি উদ্ধৃতি ডেকে আছে।
-settings.quiz.skipped.word = বাদ
-settings.quiz.quotes.word.one = উক্তি
-settings.quiz.quotes.word.other = উক্তি
-settings.quiz.works.word.one = রচনা
-settings.quiz.works.word.other = রচনা
-settings.quiz.skipped.in = —
-settings.quiz.skipped.standalone = নিজের মতো
-settings.quiz.skipped.restore-work.label = {n}টি ফেরান
-settings.quiz.skipped.restore-one.aria = এটি ডেকে ফিরিয়ে দিন
-settings.quiz.skipped.chosen = {n}টি বাছা
-settings.quiz.skipped.clear.label = বাছাই মুছুন
-settings.quiz.skipped.pick-work.aria = {title} থেকে বাদ পড়া সবকিছু বাছুন
-settings.quiz.skipped.pick-one.aria = বাদ পড়া এই উদ্ধৃতিটি বাছুন
 
-settings.quiz.start.title = নতুন লাইন শুরু হয়
-settings.quiz.start.info.body = নতুন উদ্ধৃতি কোথা থেকে শুরু করবে। “দেখা হয়নি” হলে তাড়াতাড়ি আর ঘনঘন আসে; “আয়ত্ত” হলে কালেভদ্রে — আগে থেকে জানা সংগ্রহের জন্য। যেকোনোটাতেই ভুল করলে আবার ঘনঘন আসবে।
-settings.quiz.start.unseen.label = দেখা হয়নি
-settings.quiz.start.mastered.label = আয়ত্ত
 
-settings.quiz.tier.title = প্রশ্ন কতটা কঠিন
-settings.quiz.tier.info.body = মাঝারিই শুরুর মাত্রা। সহজে চারের বদলে দুটো, স্পষ্ট আলাদা বিকল্প; কঠিনে কথাগুলো বেশি টাইপ করতে হয়; এলোমেলোয় প্রতি কার্ডে আলাদা মাত্রা।
-settings.quiz.tier.easy.label = সহজ
-settings.quiz.tier.medium.label = মাঝারি
-settings.quiz.tier.hard.label = কঠিন
-settings.quiz.tier.random.label = এলোমেলো
-settings.quiz.tier.easy.note = চারের বদলে দুটো, স্পষ্ট আলাদা বিকল্প। কাছাকাছি ভুল বিকল্পগুলো থাকে না — অথচ ওগুলো থেকেই সবচেয়ে বেশি শেখা যায়।
-settings.quiz.tier.medium.note = চারটে বিকল্প, কয়েকটা কাছাকাছি; আর টাইপ করতে হয় শুধু ছোট লাইনে।
-settings.quiz.tier.hard.note = বেশিরভাগই কথাগুলো টাইপ করে লিখতে হয়; নইলে চারটে বিকল্প, সবকটাই ঠিক মনে হয়।
-settings.quiz.tier.random.note = প্রতি কার্ডে আলাদা মাত্রা, যাতে কোনো এক ধরনের প্রশ্নে অভ্যস্ত না হয়ে পড়েন।
-settings.quiz.seen.title = চোখে পড়লে অর্ধায়ু বাড়ে
-settings.quiz.seen.label = চোখে পড়লে অর্ধায়ু বাড়ে
-settings.quiz.seen.info.body = কোনো উদ্ধৃতি শেয়ার করলে, প্রিয়তে রাখলে, বা দৈনিক অনুশীলনীতে বিকল্পের মধ্যে চোখে পড়লে পরের বার আসার ফাঁক একটু বাড়ে। ঝালাই এখানে ধরা হয় না। 1.0× দিলে এটা বন্ধ।
-settings.quiz.tuning.info.body = প্রতিটা উত্তরে একটা উদ্ধৃতির ফাঁক কতটা বাড়বে বা কমবে। সীমা বাঁধা আছে, যাতে ভুল মানে একই উদ্ধৃতি নিঃশব্দে বারবার ফিরে না আসে।
-settings.quiz.reset.label = আগের মতো করুন
-settings.quiz.reset.tip = এই প্যানেলের সব বদল ফিরিয়ে দিন
 
-# --- Settings → Features. Hiding a section is cosmetic: it takes away the doors.
-settings.features.locked.prose = শেষ বিভাগটা থাকতেই হবে — আগে অন্য একটা চালু করুন।
-settings.features.show.label = দেখান
-settings.features.hide.label = লুকান
 
-settings.features.order.title = আমাকে দেখাও, এই ক্রমে
-settings.features.order.prose = সাইডবার, মেনু আর ＋ বোতামে এই ক্রমই থাকে। সবার ওপরেরটায় অ্যাপ খোলে।
-settings.features.order.drag.aria = {name} সরাতে টানুন
-settings.features.order.up.aria = {name} উপরে নিন
-settings.features.order.down.aria = {name} নিচে নিন
 
-# --- button labels: whether a glyph shows its words.
-settings.labels.title = বোতামের লেখা
-settings.labels.info.title = বোতামের লেখা
-settings.labels.info.body = আইকনওয়ালা বোতামে লেখাটাও দেখাবে কি না। অটো হলে ডেস্কটপে দেখায়, ফোনে লুকায়। লুকোনো লেখা স্ক্রিন রিডার তবু পড়ে, আর মাউস রাখলে বা চেপে ধরলে প্রতিটা আইকন নিজের নাম বলে।
-settings.labels.auto.label = অটো
 
 # --- Appearance.
 settings.search.none = “{q}”-এর সঙ্গে সেটিংসের কিছু মিলছে না।
 settings.appearance.group.material.title = কী দিয়ে গড়া
-settings.appearance.matset.info.body = প্রতিটা সেট চারটে তলের জমিন ঠিক করে, হালকা-গাঢ় দুটোতেই চলে। অলিন্দে কোনো জমিন নেই, তাই সবচেয়ে দ্রুত।
 
 settings.appearance.theme.title = আপনি কোনটা দেখেন
 settings.appearance.theme.light.label = হালকা
@@ -1468,28 +1297,7 @@ settings.appearance.colours.light.title = দিনের জমি
 settings.appearance.colours.dark.title = রাতের জমি
 settings.appearance.colours.accent.title = বাঁধাইয়ের রং
 settings.appearance.colours.hide.aria = বিকল্পগুলো লুকোন
-settings.features.covers.title = বইয়ের প্রচ্ছদ
-settings.features.posters.title = ক্যাটালগের পোস্টার
-settings.features.sizes.aside = শুধু এই ডিভাইসে
 
-settings.appearance.ground.info.body = পেছনের রং তিন পরতে: পুরো পাতা, প্যানেল, আর যে কার্ডে উদ্ধৃতি থাকে। হালকা আর গাঢ় আলাদা করে ঠিক হয়; এখন যেটা স্ক্রিনে আছে, এই সারি সেটাই বদলায়।
-settings.appearance.phys.info.body = আপনার সেটের চারটে উপাদান আলোয় কেমন সাড়া দেবে, প্রত্যেকটার জন্য আলাদা। পাথরে ছোট উজ্জ্বল ঝলক, পশমে ছড়ানো ম্লান আলো।
-settings.appearance.phys.hard.label = কাঠিন্য
-settings.appearance.phys.sss.label = ভিতর দিয়ে দীপ্তি
-settings.appearance.phys.diff.label = রঙের বিস্তার
-settings.appearance.phys.refl.label = ঘর প্রতিফলন
-settings.appearance.slots.info.body = সেট প্রতিটা তলে একটি করে উপকরণ দেয়। চাইলে যেকোনো একটির জন্য অন্যটি বেছে নিন; সেটের নিজেরটি তালিকার প্রথমেই থাকে, আর ফাঁকা পছন্দের মানেও তা-ই।
-settings.appearance.saved.info.body = দুটো ব্যাকগ্রাউন্ড, অ্যাকসেন্ট রং, উপাদান-সেট আর তার সব মাপ একসঙ্গে রাখা থাকে — এক ছোঁয়ায় চেহারা বদলানো যায়। প্রতি প্রোফাইলে চারটে পর্যন্ত।
-settings.appearance.saved.export.default = আমার চেহারা
-settings.appearance.saved.import.label = ইমপোর্ট
-settings.appearance.saved.import.unnamed = ইমপোর্ট করা
-settings.appearance.glass.info.body = পেছনের জিনিস ঝাপসা না করে বাঁকিয়ে দেখায় এমন কাচ। প্রতিবার স্ক্রল করতে যন্ত্রকে খাটতে হয়, তাই শুরুতে বন্ধ।
-settings.appearance.glass.clarity.label = কতটা স্বচ্ছ
-settings.appearance.glass.refract.label = কতটা বাঁকায়
-settings.appearance.glass.bevel.label = কিনারা কত চওড়া
-settings.appearance.glass.fringe.label = ধারে রামধনু
-settings.appearance.glass.gain.label = বাঁক কত খাড়া
-settings.appearance.glass.blur.label = পিছনের কোমলতা
 vocab.ground.cream.label = ক্রিম
 vocab.ground.white.label = সাদা
 vocab.ground.sepia.label = সেপিয়া
@@ -1498,21 +1306,6 @@ vocab.ground.night.label = রাত
 vocab.ground.ink.label = কালি
 vocab.ground.soot.label = কাজল
 vocab.ground.tobacco.label = তামাক
-settings.appearance.contrast.aria = কনট্রাস্ট
-# --- চেহারা -> উদ্ধৃতির নিজের দুটি পড়ার ডায়াল (§৬ প্রবেশগম্যতা)।
-settings.appearance.quote-leading.label = উদ্ধৃতির লাইনগুলির মধ্যে ফাঁক
-settings.appearance.quote-leading.aria = উদ্ধৃতির লাইনগুলোর মধ্যে ফাঁক
-settings.appearance.quote-leading.tight = ঠাসা
-settings.appearance.quote-leading.snug = ঘন
-settings.appearance.quote-leading.normal = স্বাভাবিক
-settings.appearance.quote-leading.relaxed = খোলা
-settings.appearance.quote-leading.loose = ঢিলা
-settings.appearance.quote-measure.label = উদ্ধৃতি কত চওড়ায় চলে
-settings.appearance.quote-measure.aria = উদ্ধৃতির একটি লাইন কত লম্বা হতে পারে
-settings.appearance.quote-measure.full = পুরো চওড়া
-settings.appearance.quote-measure.chars = {n}টি অক্ষর
-settings.appearance.quote-leading.info.body = উদ্ধৃতির লাইনগুলোর মধ্যে ফাঁক। শুধু উদ্ধৃতিতেই খাটে, অ্যাপের বাকি লেখায় নয়।
-settings.appearance.quote-measure.info.body = উদ্ধৃতির এক লাইনে কটা অক্ষর ধরবে, তারপর পরের লাইনে যাবে। লম্বা লেখার জন্য ৪৫ থেকে ৭৫ পড়তে সবচেয়ে আরাম।
 # --- Appearance -> Material. Seven sets, each naming what four surfaces are
 # made of: the desk under everything, the furniture, the page you read, the
 # binding on a cover. Independent of light/dark -- every set works in both -- so
@@ -1526,26 +1319,12 @@ settings.material.atelier.label = তাঁতঘর
 settings.material.bindery.label = বাঁধাইয়ের দোকান
 settings.material.quarry.label = খাদান
 settings.material.atrium.label = অলিন্দ
-# {name} is one of the vocab.accent.* words.
-settings.appearance.accent.aria = {name} অ্যাকসেন্ট
-settings.features.book-size.label = গ্রন্থাগারের কভারের মাপ
-settings.features.film-size.label = ক্যাটালগের পোস্টারের মাপ
 
-# The global dial. It RENORMALISES rather than multiplying: moving it writes
-# itself into all four kinds (type.js).
-settings.appearance.text-size.label = লেখার মাপ
-settings.appearance.text-size.info.body = সব লেখা একসঙ্গে বড়-ছোট করে। তারপর “ফন্ট”-এ গিয়ে আলাদা আলাদা করে ঠিক করা যায়।
-settings.type.size.factor = {n}%
-# What the global dial reads when the four kinds no longer agree. An em dash,
-# deliberately not a word: it is the absence of one answer, not a state.
-settings.type.size.mixed = —
-settings.type.size.aria = {name} লেখার মাপ
 
 # --- yes / no, the two words every switch in the quiz panel uses.
 vocab.yes.label = হ্যাঁ
 vocab.no.label = না
 
-error.delete.font = ফন্টটা সরানো গেল না
 # A language may keep only so many marks of its own. {name} is the language,
 # {n} the allowance.
 
@@ -5853,8 +5632,6 @@ error.revoke.devices = যন্ত্রপাতি আনপেয়ার �
 error.backup.failed = ব্যাকআপ হল না
 error.restore.intact = ফিরিয়ে আনা গেল না — ডেটা যেমন ছিল তেমনই আছে
 
-# An uploaded typeface the server would not take.
-error.upload.font = ফন্টটা আপলোড করা গেল না
 
 # The third validate reason the restore prompt needs. The other two already
 # exist (error.validate.password-required, error.validate.archive-passphrase-
@@ -7371,10 +7148,6 @@ context.rule.ask.leave = আগের উদ্ধৃতিগুলো যে�
 context.rule.ask.clear.work = এই কাজের প্রতিটি উদ্ধৃতির আলাদা বদল মুছে দিন
 context.rule.ask.clear.board = এই বোর্ডের প্রতিটি উদ্ধৃতির আলাদা বদল মুছে দিন
 context.rule.ask.cancel = বাতিল
-settings.context.before.label = উদ্ধৃতির আগের প্রসঙ্গ
-settings.context.before.info.body = প্রসঙ্গসহ খুললে উদ্ধৃতির আগে কাজের ফাইলের কতটা দেখানো হবে। কাজ বা বোর্ড নিজের মান ঠিক করতে পারে, উদ্ধৃতিও পারে।
-settings.context.after.label = উদ্ধৃতির পরের প্রসঙ্গ
-settings.context.after.info.body = প্রসঙ্গসহ খুললে উদ্ধৃতির পরে কাজের ফাইলের কতটা দেখানো হবে। কাজ বা বোর্ড নিজের মান ঠিক করতে পারে, উদ্ধৃতিও পারে।
 # Checks: times a work's subtitle proposes for its film lines. Nothing is written until you press.
 locators.title = ফাইল থেকে সময় ও স্থান
 locators.counts = {exact}টি হুবহু · {review}টি দেখার মতো

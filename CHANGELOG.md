@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- **Settings on the web is Theme, Language, Server and Jobs only.** The font picker, Review
+  settings, Sections, language marks and voices, and the reading fields are gone (ADR-0936); the
+  Android app keeps them.
+
 - **Settings › Theme is a dropdown on the web.** The material tiles, physics dials, true glass,
   per-surface materials, saved looks and cover-size sliders are gone; you pick a theme from a
   list, then light, dark or match system, and a colour (ADR-0936).

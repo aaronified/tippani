@@ -3,7 +3,6 @@ import { join } from 'node:path'
 import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { QuoteReadingFields } from '../../src/Settings.jsx'
 import { applyTypeScale } from '../../src/type.js'
 import { SRC } from '../src-files.js'
 import { QUOTE_TEXT } from '../../src/fonts.js'
@@ -79,46 +78,6 @@ beforeEach(() => {
 afterEach(() => {
   vi.restoreAllMocks()
   applyTypeScale({})
-})
-
-describe('the two reading dials, as a reader meets them', () => {
-  it('send the one field they are for, and apply it before the server answers', async () => {
-    const onPreferences = vi.fn()
-    const user = userEvent.setup()
-    render(<QuoteReadingFields prefs={{ quoteLeading: 0, quoteMeasure: 0 }} onPreferences={onPreferences} />)
-
-    await pick(user, triggers()[1], say('settings.appearance.quote-measure.chars', { n: 66 }))
-
-    await waitFor(() => expect(sent.length).toBe(1))
-    // ONE FIELD. The Appearance card's own hazard, which its comments keep
-    // warning about: a preference riding in a full-state object is wiped by an
-    // unrelated click. This control writes what it is for and nothing else.
-    expect(sent[0].body).toEqual({ quoteMeasure: 66 })
-    expect(sent[0].url).toContain('/auth/me/preferences')
-    // And the page already answers, without waiting for the round trip.
-    expect(document.documentElement.style.getPropertyValue('--quote-measure')).toBe('66ch')
-    await waitFor(() => expect(onPreferences).toHaveBeenCalledWith({ quoteMeasure: 66 }))
-  })
-
-  it('put the old setting back when the server refuses', async () => {
-    // The other half of applying early: a reader must never be left looking at a
-    // setting their account does not have.
-    applyTypeScale({ quoteLeading: 190 })
-    vi.mocked(globalThis.fetch).mockResolvedValue(
-      new Response('{"error":"nope"}', { status: 400, headers: { 'content-type': 'application/json' } }),
-    )
-    const onPreferences = vi.fn()
-    const user = userEvent.setup()
-    render(<QuoteReadingFields prefs={{ quoteLeading: 190 }} onPreferences={onPreferences} />)
-
-    await pick(user, triggers()[0], say('settings.appearance.quote-leading.tight'))
-
-    await waitFor(() =>
-      expect(document.documentElement.style.getPropertyValue('--quote-leading'),
-        'a refused save left the reader looking at a setting they do not have').toBe('1.9'))
-    expect(onPreferences, 'a refused save was reported upward as though it took').not.toHaveBeenCalled()
-  })
-})
 })
 
 // THE TWO DIALS REACH A QUOTE, AND SURVIVE A RELOAD.
@@ -521,4 +480,5 @@ describe('material sets', () => {
       expect(prop('--tile-cover')).toBe('var(--tile-wood)')
     })
   })
+})
 })

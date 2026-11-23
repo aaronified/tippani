@@ -44,8 +44,6 @@ const STANDALONE = new RegExp(`^([a-z0-9._-]+) = (\\{n\\} ${DRAWN})$`, 'gm')
 // one of these is a place a glyph cannot go rather than a place it was not worth
 // putting.
 const KEPT = {
-  'settings.appearance.quote-measure.chars':
-    'the "characters" here are LETTERS, not people — a measure in ems. The word is the only thing that says so, and the person glyph beside it would say the opposite.',
   'staging.flash.approved.skipped':
     'a flash message: one line of prose that appears and goes. A drawing in a sentence is a rebus.',
   'metadata.prune.confirm.people':
@@ -137,7 +135,7 @@ describe('the glyph rule reaches the screens it was asked for', () => {
   // the Tally that no longer exists.
   const CONVERTED = [
     'works.jsx', 'MetadataPage.jsx',
-    'identity.jsx', 'identityLocal.jsx', 'Movies.jsx', 'Settings.jsx',
+    'identity.jsx', 'identityLocal.jsx', 'Movies.jsx',
     'jobsSection.jsx',
   ]
   // `sourcesUnder` rather than a readdir of my own: the repo has ONE walk over

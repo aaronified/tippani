@@ -70,8 +70,6 @@ settings.section.jobs.info.body = What is running, what is waiting its turn, and
 settings.section.aria = Which settings to change
 settings.section.theme.label = Theme
 settings.section.lang.label = Language and font
-settings.section.review.label = Review
-settings.section.sections.label = Sections
 settings.section.server.label = Server
 settings.section.jobs.label = Jobs
 # The information dot beside that row.
@@ -616,16 +614,6 @@ common.filmstrip.edge.label = TIPPANI · SAFETY FILM
 # somewhere to say so.
 shell.wordmark.label = tippani
 
-# --- THE THREE THINGS ON THIS SCREEN THAT ARE NOT COPY.
-#
-# Each goes through the resolver anyway, because the alternative is an exemption
-# in the pseudo-locale gate and a gate with exemptions in it stops being a gate.
-# Each carries the SAME VALUE IN EVERY LANGUAGE, exactly as
-# common.filmstrip.edge.label does and as §6.3's "unchanged" rows do.
-#
-# The size readout beside the Type card's slider. A unit symbol next to a Western
-# digit, in the same class as {n}h / {n}d / ×{n} — not a word.
-settings.type.size.format = {n}px
 # The four credit separators, as the chip DRAWS them. These are the characters the
 # splitter actually matches, so translating one would name a separator nothing
 # splits on: an author line reads "Gaiman & Pratchett" or "Gaiman and Pratchett"
@@ -1278,201 +1266,22 @@ settings.colours.unmake.cta = Un-make
 settings.colours.reset.aria = Reset this colour
 settings.colours.reset.tip = Back to the original
 
-# --- which quotes the quiz draws from. The chip names the SCREEN (nav.tab.*)
-# and the tooltip says what that screen's quotes are.
-settings.review-scope.title = Drawn from
-settings.review-scope.info.title = Drawn from
-settings.review-scope.info.body = Which kinds of quote the Daily Quiz and Practice use, set separately. Quotes with no speaker or occasion, and anything saved in the last week, are left out.
-settings.review-scope.books.tip = Your book highlights
-settings.review-scope.movies.tip = Dialogue from films, shows and games
-settings.review-scope.quotes.tip = Speeches, letters, anything else
-# The last scope standing cannot be turned off, or the deck empties.
-settings.review-scope.stuck.tip = The deck needs one
 
-settings.type.own.title = Your own fonts
-settings.type.faces.title = Interface faces
-# --- Quote faces, one per language. The list is Metadata's language table; this
-# only says what each language's QUOTES are set in.
-settings.quote-faces.title = Quote fonts
-settings.quote-faces.link.prose = Each language’s quote font is set in Metadata › Languages, beside its other settings.
-settings.quote-faces.add.open = Open the language table
-# Your own faces: the list, and the way one more gets in.
-settings.type.added.title = Added fonts
-settings.type.added.sub = Each one shown in its own face
-settings.type.added.none = None yet — upload one below
-settings.type.add.title = Add a font
-settings.type.add.sub = woff2, woff, otf or ttf — it stays on this server
-settings.type.add.action = Upload a font
-settings.type.style.aria = Style modifiers for {name}
-# WHOSE INTERFACE these faces are for. '' is the answer every UI language
-# inherits; a code is that language's own. Not "English" — the inherited answer
-# applies in every language, and English can overrule it like any other.
-# WHOSE FACES THESE ARE — said under the heading, not asked in a row. The chooser
-# that used to ask it sat under the card that picks the interface language, which
-# is the same question twice.
-settings.type.faces.sub = The faces {language} is set in. Switch language above to set another one’s.
-settings.type.scope.revert.aria = Follow every language for {name}
-settings.type.scope.revert.tip = Back to the shared answer
-settings.type.style.title = style
-settings.type.face.aria = Typeface for {name}
-settings.type.face.filter.placeholder = Type a typeface name
-settings.type.font.remove.tip = Remove this font
-settings.type.font.remove.confirm = Remove {name}? Any role using it goes back to its built-in.
-# Shown when an uploaded face measures as though it does not draw the script the
-# role needs. A warning and not a refusal. {field} is the script's name.
-settings.type.script-warning.prose = This font may not support {field}. It is applied anyway — if the text below shows boxes, this is why.
-# The script a role needs when the role does not name one.
-vocab.script.latin.label = Latin
 
-# --- Settings → Language marks. The mark a proverb board wears.
-# The card on Metadata sources: what the door is for, and the door's own word.
-settings.languages.glyphs.aria = Script letters for {name}
-settings.languages.no-script.prose = No script letters for {name} — give it a mark of your own below.
-# The reader's own marks, and how many of the allowance are used. {done}/{total}.
-settings.languages.mark.remove.aria = Remove {name} from {field}
-settings.languages.full.prose = {name} keeps {n} marks of its own — remove one to add another.
-settings.languages.order.title = how much of the original
-settings.languages.order.custom.tip = Some languages have their own setting; changing this resets them to match.
 vocab.textorder.trans-only.label = translation only
 vocab.textorder.trans-first.label = translation first
 vocab.textorder.quote-first.label = quotation first
 vocab.textorder.quote-only.label = quotation only
-settings.languages.remove.in-use.tip = {name} is in use — quotes or books of yours are in it
-# Renaming a language is a DISPLAY name. The stored name stays and is shown
-# beside it, so "why does my Bangla board say Bengali" stays answerable.
-# What this language's QUOTES are set in — every face the app ships, because the
-# question is "what does my German look like" and the answer may be a sans or a
-# hand. "Follows the card" is a real answer and so is an option, not a clear button.
-settings.languages.face.inherit = Follows the Quotes face
-settings.languages.face.aria = Typeface for quotes in {name}
-settings.languages.add.label = Add a language
-settings.languages.name.label = Language name
-settings.languages.order.all.label = All languages
-settings.languages.order.own.label = own setting
-settings.languages.key.quote = quotation, as written
-settings.languages.key.trans = translation
-settings.languages.edit.aria = Edit {name}: name, code and mark
-settings.languages.iso.label = ISO 639-3 code
-settings.languages.iso.none = no ISO code
-settings.languages.iso.link.label = Link a code
-settings.languages.iso.change.label = Change
-settings.languages.iso.clear.aria = Unlink the ISO code
-settings.languages.iso.search.placeholder = name or code, e.g. Sylheti or syl
-settings.languages.iso.nomatch = No ISO 639-3 language matches that.
-settings.languages.iso.type.extinct = extinct
-settings.languages.iso.type.ancient = ancient
-settings.languages.iso.type.historical = historical
-settings.languages.iso.type.constructed = constructed
-settings.languages.iso.type.macro = macrolanguage
-settings.languages.add.search.label = Find a language
-settings.languages.add.free = Add “{name}” without a code
-settings.languages.mark.title = mark on its quote cards
-settings.languages.add-mark.aria = Add a mark of your own
-settings.languages.reset.label = Reset mark and name
-settings.languages.remove.label = Remove language
-settings.languages.remove.confirm.title = Remove {name}?
-settings.languages.remove.confirm.body = Its mark, name and code are forgotten. No quote changes.
 
-# --- the quiz panel.
-settings.quiz.group.deck.title = The deck and what it asks
-settings.quiz.group.schedule.title = Schedule
-settings.quiz.group.practice.title = Practice
-settings.quiz.skipped.aside = quote-level flags
-settings.quiz.per-day.label = Daily deck
-# THE NUMBERS ARE A GROUP ON THE SECTION, NOT A DOOR. `in-depth.title` and
-# `panel.title` were the same words twice — the door's name and the room's, which
-# is how a reader knew they had arrived somewhere. There is one place now, so
-# there is one name; `in-depth.label` was the door's verb and went with it.
-settings.quiz.panel.title = The numbers behind the schedule
-settings.quiz.in-depth.tip = Multipliers and the fixed ladder
-settings.quiz.tuning.changed.aside = edited
-# {name} is the deck — Daily quiz, or Practice.
-settings.quiz.deck.title = {name} asks
-settings.quiz.deck.question.aria = {question} — {name}
-settings.quiz.deck.daily.info.body = The server checks every daily answer, so the flip card — which you mark yourself — is not offered here.
-settings.quiz.deck.practice.info.body = Practice starts with the flip card and mixes in the rest. If Practice counts is on, the flip card is dropped, since nothing checks a self-marked answer.
-settings.quiz.practice-counts.title = Practice counts
-settings.quiz.practice-counts.aria = Practice affects schedule
-settings.quiz.practice-counts.info.body = Off: Practice is study only. On: correct Practice answers lengthen intervals just like the Daily Quiz.
-settings.quiz.submit.title = Confirm each answer
-settings.quiz.submit.aria = Confirm each answer
-settings.quiz.submit.info.body = Off: a tap answers. On: a tap selects, and Submit records it, so you can change your mind. Flip cards are unaffected.
-settings.quiz.adaptive.title = Adaptive intervals
-settings.quiz.adaptive.aria = Adaptive intervals
-settings.quiz.adaptive.info.body = Adaptive (default): a right answer multiplies the interval by 2.5, a miss halves it. Ladder: fixed steps of 7 → 30 → 100 → 365 days, and any miss goes back to 7.
-settings.quiz.adaptive.ladder.label = Ladder
-settings.quiz.adaptive.on.label = Adaptive
-# --- how hard the questions are. Three tiers plus Random; medium moves none of
-# the dials, so an account that never opens this is asked its questions the same
-# way. That is a claim about the TIER and not about the release: the round's
-# same-author lure cap applies at every tier. See review_tier.go.
-settings.quiz.skipped.title = Never asked about
-settings.quiz.skipped.none = Nothing skipped. Every quote you keep is in the deck.
-# THE NOUNS BEHIND THE GLYPHS on this list. A glyph is drawn; the word is what
-# everything that cannot see it gets, and what a subheader prints beside the
-# drawing so a reader learns which is which.
-settings.quiz.skipped.word = skipped
-settings.quiz.quotes.word.one = quote
-settings.quiz.quotes.word.other = quotes
-settings.quiz.works.word.one = work
-settings.quiz.works.word.other = works
-# The join between the two halves of the summary: "42 skipped in 2 works".
-settings.quiz.skipped.in = in
-settings.quiz.skipped.standalone = On its own
-settings.quiz.skipped.restore-work.label = Put {n} back
-settings.quiz.skipped.restore-one.aria = Put this one back in the deck
-settings.quiz.skipped.chosen = {n} chosen
-settings.quiz.skipped.clear.label = Clear
-settings.quiz.skipped.pick-work.aria = Choose everything skipped from {title}
-settings.quiz.skipped.pick-one.aria = Choose this skipped quote
 
-settings.quiz.start.title = New lines start at
-settings.quiz.start.info.body = Where a new quote enters the schedule. Not seen: asked soon and often; Mastered: asked rarely, for a library you already know. A wrong answer brings it back either way.
-settings.quiz.start.unseen.label = Not seen
-settings.quiz.start.mastered.label = Mastered
 
-settings.quiz.tier.title = How hard the questions are
-settings.quiz.tier.info.body = Medium is the default. Easy: two clearly different choices instead of four; Hard: more typing the words back; Random: a different level per card.
-settings.quiz.tier.easy.label = Easy
-settings.quiz.tier.medium.label = Medium
-settings.quiz.tier.hard.label = Hard
-settings.quiz.tier.random.label = Random
-# One line under the picker, for WHICHEVER tier is chosen — the owner's ask: a
-# toggle whose options are four adjectives says nothing about what any of them
-# does. Easy's line still carries the cost rather than only the benefit: a tier
-# that advertised one side of itself would be selling you something.
-settings.quiz.tier.easy.note = Two clearly different choices instead of four. You miss the close wrong answers, which teach the most.
-settings.quiz.tier.medium.note = Four choices, some of them close, and typing only for lines short enough to type.
-settings.quiz.tier.hard.note = Mostly typing the words back; otherwise four choices that all seem right.
-settings.quiz.tier.random.note = A different level on each card, so you don't get used to one kind of question.
-settings.quiz.seen.title = Seeing lengthens half-life by
-settings.quiz.seen.label = Seeing lengthens half-life by
-settings.quiz.seen.info.body = Sharing, favouriting, or seeing a quote among a Daily Quiz card's choices lengthens its interval a little. Practice does not count here. 1.0× turns this off.
-settings.quiz.tuning.info.body = How much each answer stretches or shrinks a quote's interval. The limits stop a setting that would quietly repeat the same quote forever.
-settings.quiz.reset.label = Back to defaults
-settings.quiz.reset.tip = Undo every change on this panel
 
-# --- Settings → Features. Hiding a section is cosmetic: it takes away the doors.
-settings.features.locked.prose = The last section has to stay — turn another one on first.
-settings.features.show.label = Show
-settings.features.hide.label = Hide
 
-settings.features.order.title = Show me, in this order
-settings.features.order.prose = This order is used in the sidebar, the menu and the ＋ button. The top one is where the app opens.
-settings.features.order.drag.aria = Drag to move {name}
-settings.features.order.up.aria = Move {name} up
-settings.features.order.down.aria = Move {name} down
 
-# --- button labels: whether a glyph shows its words.
-settings.labels.title = Button labels
-settings.labels.info.title = Button labels
-settings.labels.info.body = Show or hide the words on buttons that have an icon. Auto shows them on desktop and hides them on a phone. Screen readers still read hidden words, and every icon names itself on hover or long-press.
-settings.labels.auto.label = Auto
 
 # --- Appearance.
 settings.search.none = Nothing in Settings matches “{q}”.
 settings.appearance.group.material.title = What it is made of
-settings.appearance.matset.info.body = Each set covers four surfaces and works in light and dark. Atrium has no material and is the fastest.
 
 settings.appearance.theme.title = Which one you see
 settings.appearance.theme.light.label = Light
@@ -1490,28 +1299,7 @@ settings.appearance.colours.light.title = The light ground
 settings.appearance.colours.dark.title = The dark ground
 settings.appearance.colours.accent.title = The accent
 settings.appearance.colours.hide.aria = Hide the options
-settings.features.covers.title = Library covers
-settings.features.posters.title = Catalogue posters
-settings.features.sizes.aside = this device only
 
-settings.appearance.ground.info.body = The background in three shades: the page behind, the panels, and the card a quote sits on. Light and dark are set separately; this row edits the one on screen.
-settings.appearance.phys.info.body = How each material reacts to light, set per material for the four in your set. Stone gives a small bright highlight; wool a wide, dim one.
-settings.appearance.phys.hard.label = Hardness
-settings.appearance.phys.sss.label = Glow through
-settings.appearance.phys.diff.label = Colour spread
-settings.appearance.phys.refl.label = Reflects the room
-settings.appearance.slots.info.body = The set gives every surface a material. Pick another for any one of them; the set's own is always the first choice, and it is what an empty choice means.
-settings.appearance.saved.info.body = Saves both backgrounds, the accent, the material set and its settings together, so you can switch looks in one tap. Up to four per profile.
-settings.appearance.saved.export.default = My look
-settings.appearance.saved.import.label = Import
-settings.appearance.saved.import.unnamed = Imported
-settings.appearance.glass.info.body = Glass that bends what is behind it instead of blurring it. It costs the device work on every scroll, so it is off by default.
-settings.appearance.glass.clarity.label = How clear it is
-settings.appearance.glass.refract.label = How much it bends
-settings.appearance.glass.bevel.label = How wide the rim is
-settings.appearance.glass.fringe.label = Rainbow at the edge
-settings.appearance.glass.gain.label = How steep the bend
-settings.appearance.glass.blur.label = Softness behind it
 vocab.ground.cream.label = Cream
 vocab.ground.white.label = White
 vocab.ground.sepia.label = Sepia
@@ -1520,23 +1308,6 @@ vocab.ground.night.label = Night
 vocab.ground.ink.label = Ink
 vocab.ground.soot.label = Soot
 vocab.ground.tobacco.label = Tobacco
-settings.appearance.contrast.aria = Contrast
-# --- Appearance -> the quote's own two reading dials (§6 access). They set the
-# QUOTE text and nothing else: the interface has its own size dial above, and a
-# reader narrowing a column of prose is not asking for a narrower app.
-settings.appearance.quote-leading.label = Space between a quote's lines
-settings.appearance.quote-leading.aria = Space between the lines of a quote
-settings.appearance.quote-leading.tight = Tight
-settings.appearance.quote-leading.snug = Snug
-settings.appearance.quote-leading.normal = Normal
-settings.appearance.quote-leading.relaxed = Relaxed
-settings.appearance.quote-leading.loose = Loose
-settings.appearance.quote-measure.label = How wide a quote runs
-settings.appearance.quote-measure.aria = How long a line of a quote is allowed to be
-settings.appearance.quote-measure.full = Full width
-settings.appearance.quote-measure.chars = {n} characters
-settings.appearance.quote-leading.info.body = Space between the lines of a quote. It affects quotes only, not the rest of the app.
-settings.appearance.quote-measure.info.body = How many characters a line of a quote can hold before it wraps. 45–75 is easiest for long passages.
 # --- Appearance -> Material. Seven sets, each naming what four surfaces are
 # made of: the desk under everything, the furniture, the page you read, the
 # binding on a cover. Independent of light/dark -- every set works in both -- so
@@ -1550,26 +1321,12 @@ settings.material.atelier.label = Atelier
 settings.material.bindery.label = Bindery
 settings.material.quarry.label = Quarry
 settings.material.atrium.label = Atrium
-# {name} is one of the vocab.accent.* words.
-settings.appearance.accent.aria = {name} accent
-settings.features.book-size.label = Library cover size
-settings.features.film-size.label = Catalogue poster size
 
-# The global dial. It RENORMALISES rather than multiplying: moving it writes
-# itself into all four kinds (type.js).
-settings.appearance.text-size.label = Text size
-settings.appearance.text-size.info.body = Scales all text at once. You can then adjust each kind separately under Type.
-settings.type.size.factor = {n}%
-# What the global dial reads when the four kinds no longer agree. An em dash,
-# deliberately not a word: it is the absence of one answer, not a state.
-settings.type.size.mixed = —
-settings.type.size.aria = Size of {name} text
 
 # --- yes / no, the two words every switch in the quiz panel uses.
 vocab.yes.label = Yes
 vocab.no.label = No
 
-error.delete.font = could not remove that font
 # A language may keep only so many marks of its own. {name} is the language,
 # {n} the allowance.
 
@@ -6042,8 +5799,6 @@ error.revoke.devices = could not revoke devices
 error.backup.failed = Backup failed
 error.restore.intact = restore failed — data intact
 
-# An uploaded typeface the server would not take.
-error.upload.font = could not upload that font
 
 # The third validate reason the restore prompt needs. The other two already
 # exist (error.validate.password-required, error.validate.archive-passphrase-
@@ -7731,10 +7486,6 @@ context.rule.ask.leave = Leave existing quotes as they are
 context.rule.ask.clear.work = Clear the per-quote adjustments on this work
 context.rule.ask.clear.board = Clear the per-quote adjustments on this board
 context.rule.ask.cancel = Cancel
-settings.context.before.label = Context before a quote
-settings.context.before.info.body = How much of a work’s file shows before a quote when you open it in context. A work or board can set its own, and a quote its own.
-settings.context.after.label = Context after a quote
-settings.context.after.info.body = How much of a work’s file shows after a quote when you open it in context. A work or board can set its own, and a quote its own.
 # Checks: times a work's subtitle proposes for its film lines. Nothing is written until you press.
 locators.title = Times and places from files
 locators.counts = {exact} exact · {review} to look at
