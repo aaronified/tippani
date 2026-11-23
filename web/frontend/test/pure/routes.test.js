@@ -25,7 +25,6 @@ describe('routes', () => {
       ['movies', null],
       ['staging', null],
       ['search', null],
-      ['tags', null],
       ['metadata', null],
       ['settings', null],
       ['anthologies', null],

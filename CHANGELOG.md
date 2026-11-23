@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- **The Tags screen is gone from the web app.** Tags are plain text on the quotes that wear
+  them; the tag list, its merge and its style pickers are no longer offered. The colour labels
+  stay on the Metadata Categories section. (ADR-0936)
+
 - **Home is now a start page: Add and Search.** The favourites wall, the serendipity card, the
   on-this-day and shuffle lines, the count tiles, the greeting and the pending-import card are
   gone from the web app. Home no longer loads anything. (ADR-0936)

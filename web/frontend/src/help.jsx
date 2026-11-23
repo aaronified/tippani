@@ -355,11 +355,6 @@ export const HELP = {
     entry('anthologies.help.export', { icon: <IconExport /> }),
     entry('anthologies.help.feature-switch', { more: true }),
   ]),
-  tags: section('tags.help.title', [
-    entry('tags.help.tags'),
-    entry('tags.help.style'),
-    entry('tags.help.stickers', { icon: <IconUpload />, more: true }),
-  ]),
   metadata: section('nav.tab.metadata.label', [
     entry('metadata.help.fetch', { icon: <IconMetadata /> }),
     entry('metadata.help.reverify'),
@@ -490,7 +485,6 @@ const GUIDE_ORDER = [
   // is, and each of those answers what its list means.
   'checks',
   'staging',
-  'tags',
   'metadata',
   'cleanup',
   'settings',

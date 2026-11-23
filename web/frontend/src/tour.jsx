@@ -128,25 +128,6 @@ const TOUR_STEPS = [
     get more() { return t('tour.step.search.more') },
   },
   {
-    key: 'tags',
-    // TAGS IS A SECTION OF THE METADATA CONSOLE NOW, so this step navigates there and
-    // joins that screen's own walk. Left as `tab: 'tags'` it would still have worked —
-    // /tags redirects — but the per-screen walk is keyed on what `helpScreen` answers,
-    // which for that section is 'metadata', and the step would have belonged to a
-    // screen no "?" can name.
-    tab: 'metadata',
-    section: 'tags',
-    get name() { return t('tour.step.tags.name') },
-    get blurb() { return t('tour.step.tags.blurb') },
-    get title() { return t('tour.step.tags.title') },
-    get body() {
-      return tNodes('tour.step.tags.prose', {
-        em1: <b key="em1">{t('tour.step.tags.em1.label')}</b>,
-      })
-    },
-    get more() { return t('tour.step.tags.more') },
-  },
-  {
     key: 'metadata',
     tab: 'metadata',
     get name() { return t('tour.step.metadata.name') },
@@ -465,8 +446,7 @@ export function FeatureTour({ user, startStep = 0, onlyTab = null, onNavigate, o
     // tab lands on whichever door that screen was last left at — so the step titled
     // "Tags & stickers" opened the metadata console on its OVERVIEW and talked about
     // a list the reader could not see. `section` is written before the navigation,
-    // into the key that screen remembers its own door in, which is the same thing
-    // `TagsRedirect` does and for the same reason.
+    // into the key that screen remembers its own door in.
     if (step.section) {
       try { localStorage.setItem('tippani:metasection', JSON.stringify(step.section)) } catch { /* private mode: the console opens where it last was */ }
     }

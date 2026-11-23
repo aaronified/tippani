@@ -122,7 +122,7 @@ const SHARED = /export function (\w+)\s*\([^)]*\)\s*\{\s*[^;{}]*\.focus\s*\??\.?
 // rule is that one verb lives in one function. Extracting `rovingFocusKey` for
 // both put this back at eleven, so the count FELL on a commit where a control
 // gained a keyboard. A number cannot say that and the list can.
-const DESTINATIONS = 11
+const DESTINATIONS = 10
 
 function counts() {
   let calls = 0

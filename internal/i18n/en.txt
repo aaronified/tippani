@@ -302,20 +302,6 @@ vocab.gesture.swipe-down.label = Swipe down
 vocab.gesture.pinch-in.label = Pinch in
 vocab.gesture.pinch-out.label = Pinch out
 
-# --- vocab.tag-style.* — the five shapes a tag chip can take, offered as live
-# previews in TagsPage's StylePicker. TAG_STYLES in ui.jsx holds the storage
-# tokens and the picker used to draw the token itself, so the chip and its
-# tooltip both read the stored word.
-#
-# EACH NAMES ITS SHAPE, which is what makes them translatable at all: a banner
-# is notched on the right, a flyout comes to a point underneath, tape has torn
-# edges, a reel is round with sprockets.
-vocab.tag-style.sticker.label = sticker
-vocab.tag-style.banner.label = banner
-vocab.tag-style.flyout.label = flyout
-vocab.tag-style.tape.label = tape
-vocab.tag-style.reel.label = reel
-
 # ---------------------------------------------------------------------------
 # common.action.* — THE SHARED VERBS. One key per act, however many objects it
 # is performed on: 24 copies of "could not save" is 24 chances for a translator
@@ -751,8 +737,6 @@ unit.anthology.one = anthology
 unit.anthology.other = anthologies
 unit.board.one = board
 unit.board.other = boards
-unit.tag.one = tag
-unit.tag.other = tags
 unit.sticker.one = sticker
 unit.sticker.other = stickers
 unit.item.one = item
@@ -1655,53 +1639,12 @@ error.add.generic = could not add those
 # quote, which the text then flows around.
 # ---------------------------------------------------------------------------
 
-common.link.edit.label = edit
 common.link.delete.label = delete
 
-# Under the page title. {n} tags, and a reminder that one vocabulary serves both
-# sides of the library.
-tags.header.counts = {n} {noun} · shared by books & films
-tags.board.empty = no tags yet — create one above, or tag an annotation
-
-# The new-tag form at the head of the Tags card. The title is the ⋯ row that
-# goes to it, and the form's name for a screen reader; nothing paints it.
-tags.new.title = New tag
-tags.new.submit.label = Create tag
-tags.form.edit.title = Edit tag
-# The radio group of live chip previews, one per tag style.
-tags.form.style.aria = Tag style
-
-# The chip on a tag card: the tag's own name, then how many quotes wear it.
-tags.card.chip.label = {name} · {n}
-
-# The sortable table behind "more". {n} is how many rows are NOT in the top five.
-tags.table.more.label = More tags ({n})…
 tags.table.hide.label = Hide table
 # How many quotes wear this tag / this sticker. A derived count, not a column.
 tags.table.uses.label = Uses
 
-# Deleting a tag. The second form is used when the tag is actually on something:
-# nothing is lost but the tag itself, and saying so is what makes it safe to say
-# yes to. {noun} arrives from unit.item.
-tags.delete.confirm.body = Delete tag "{name}"?
-tags.delete.confirm.body-used = Delete tag "{name}"? It will be detached from {n} {noun} — they keep working, just untagged.
-
-# THE STICKER LIBRARY, lower half of the same screen.
-# --- TAGS THAT LOOK LIKE ONE TAG. A vocabulary grows by being typed, so it grows
-# duplicates; the console leads with them because they are the only thing on the
-# screen that is wrong rather than merely present.
-tags.dupe.row.note = Looks like a duplicate — merge it
-tags.dupe.count.label.one = {n} tag looks like a duplicate
-tags.dupe.count.label.other = {n} tags look like duplicates
-tags.dupe.pick.prose = Keep which one? Every quote under the others moves to it.
-tags.dupe.keep.aria.one = Keep {name} and merge the rest into it — {n} quote
-tags.dupe.keep.aria.other = Keep {name} and merge the rest into it — {n} quotes
-tags.dupe.merge.confirm.title = Keep {name} and merge the rest into it?
-tags.dupe.merge.confirm.body.one = {losers} goes, and its {n} quote is tagged {keep} instead. Nothing loses a tag; the name does.
-tags.dupe.merge.confirm.body.other = {losers} go, and their {n} quotes are tagged {keep} instead. Nothing loses a tag; the names do.
-tags.dupe.merge.cta = Merge
-error.merge.tag = could not merge the tags
-tags.sticker.section.title = Stickers
 tags.sticker.board.empty = no stickers yet — upload a transparent PNG or SVG above
 tags.sticker.new.title = ＋ New sticker
 tags.sticker.new.body = transparent PNG or SVG images — attach one to any quote in its add/edit form
@@ -1731,12 +1674,8 @@ common.sticker.upload.tip = Upload a new sticker
 # Failures.
 error.upload.sticker = could not upload sticker
 error.delete.sticker = could not delete sticker
-error.delete.tag = could not delete tag
-error.save.tag = could not save tag
-error.create.tag = could not create tag
 error.rename.generic = could not rename
 error.validate.name-required = A name is required
-error.validate.name-blank = name is required
 
 # ---------------------------------------------------------------------------
 # THE GUIDED TOUR (tour.jsx)
@@ -1801,14 +1740,6 @@ tour.step.search.title = Find any line again
 tour.step.search.prose = Instant, {em1} search over everything you've kept, with results grouped by what matched. From the Library or Catalogue it searches that side only.
 tour.step.search.em1.label = typo-tolerant
 tour.step.search.more = It searches titles, people, genres, series, quotes, notes, tags and dialogue. A decade (“1990s”) or a date (“2026-07-14”) finds what you saved then. Open a result to share or edit it, or select several to tag or edit together.
-
-# Step "tags".
-tour.step.tags.name = Tags & stickers
-tour.step.tags.blurb = cross-cutting tags with styles; pin your own PNG/SVG stickers to quotes
-tour.step.tags.title = Tags & stickers
-tour.step.tags.prose = Tags work across books and films, each with its own look. {em1} are your own images, pinned to a quote like a seal.
-tour.step.tags.em1.label = Stickers
-tour.step.tags.more = A tag can look like a sticker, banner, flyout, tape or reel, in any colour; renaming it updates every quote. Stickers are PNG or SVG files you upload; the quote's text flows around them, and you can drag them anywhere on the card.
 
 # Step "metadata".
 tour.step.metadata.name = Metadata console & People
@@ -5836,20 +5767,6 @@ anthologies.help.feature-switch.more = Turning it off only removes the tab. Your
 # ---------------------------------------------------------------------------
 # tags.help.* — the "?" panel’s section for Tags & stickers.
 # ---------------------------------------------------------------------------
-
-# The help panel’s heading on the Tags screen. Longer than the tab’s own word, which is just “Tags”.
-tags.help.title = Tags & stickers
-
-tags.help.tags.term = Tags
-tags.help.tags.what = Cut across books and films alike. Rename one here and every quote follows.
-
-# How a tag draws on a quote card: sticker, banner, flyout, tape or reel.
-tags.help.style.term = Tag style
-tags.help.style.what = Sticker, banner, flyout, tape or reel — how the tag draws on a quote card.
-
-tags.help.stickers.term = Stickers
-tags.help.stickers.what = A heart, a star and three faces to start with, plus any transparent PNG or SVG you upload.
-tags.help.stickers.more = Pin one to a quote and drag it into place; the text wraps around it. The built-in stickers can be renamed or deleted like any other.
 
 # ---------------------------------------------------------------------------
 # metadata.help.* — the "?" panel’s section for Metadata.

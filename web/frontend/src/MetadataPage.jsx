@@ -4,7 +4,6 @@ import { CATEGORY_SLOTS, categoryHidden, categoryName, categoryVar } from './the
 import { languageMarksState } from './languages.jsx'
 import { cachedVocabulary, primeSearchVocabulary } from './vocabulary.js'
 import { coverImgURL, errText, json } from './api.js'
-import TagsPage from './TagsPage.jsx'
 import { t } from './i18n.js'
 import { BookLookupPicker, MovieLookupPicker } from './CoverPicker.jsx'
 import { bookState, EditBook } from './Library.jsx'
@@ -86,9 +85,6 @@ const WORKS_DOOR = { type: 'all', filter: 'flagged' }
 // eight times is eight chances to typo one into a key that resolves to nothing.
 const metadataSectionInfoKey = (id) => `metadata.section.${id}.info.body`
 
-// An address for a section that was folded into another.
-const SECTION_ALIASES = { tags: 'categories' }
-
 const METADATA_SECTIONS = [
   ['works', 'metadata.section.works.label', <IconNavWorks />],
   ['people', 'metadata.section.people.label', <IconNavUsers />],
@@ -101,14 +97,8 @@ const METADATA_SECTIONS = [
   // table was a FormModal behind a button inside Sources, which is not somewhere
   // another screen can send a reader.
   ['languages', 'metadata.section.languages.label', <IconLanguages />],
-  // CATEGORIES: THE COLOURS AND THE TAGS, ONE SECTION. The owner: "merge the tags
-  // and the colours metadata pages into one". Both are labels a reader makes and
-  // files quotes under — a colour says what KIND of note a quote is, a tag what it
-  // is ABOUT — and stickers ride with the tags as they always have. Tags had been a
-  // section of its own since it left the nav ("tags should be a section within
-  // metadata"); colour categories came over from Settings. The id stays
-  // `categories`, so the colours' address still works and /metadata/tags is an
-  // alias of it (SECTION_ALIASES).
+  // CATEGORIES: THE COLOURS. Tags left this section with the Tags screen (ADR-0936);
+  // the id stays `categories`, so the colours' address still works.
   ['categories', 'metadata.section.categories.label', <IconNavTags />],
   ['sources', 'metadata.section.sources.label', <IconNavSources />],
   // SOURCE FILES: every work with quotes and the file they came from, with the library
@@ -296,10 +286,7 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
   // its Fetch is the header's, and library-wide Re-verify is Works' select-all.
   const [remembered, remember] = usePersistedState('tippani:metasection', 'works')
   const known = (id) => METADATA_SECTIONS.some(([k]) => k === id)
-  // A SECTION FOLDED INTO ANOTHER LANDS ON THE ONE THAT HOLDS IT: Tags is part of
-  // Categories now, so an old /metadata/tags goes there rather than to Works.
-  const aliased = (id) => SECTION_ALIASES[id] || id
-  const sect = known(aliased(routed)) ? aliased(routed) : known(aliased(remembered)) ? aliased(remembered) : 'works'
+  const sect = known(routed) ? routed : known(remembered) ? remembered : 'works'
   // AN ADDRESS FOR A SECTION THAT NO LONGER EXISTS IS REPLACED, not pushed over —
   // a bookmarked /metadata/overview lands on the section it resolves to, and Back
   // from there leaves Metadata instead of walking into a dead address.
@@ -366,9 +353,7 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
     // The sources row carries no number. Every other door counts records or gaps;
     // this one is a set of settings, and "5 keys" answers a question nobody has.
     sources: null,
-    // NOR DOES CATEGORIES, whose tags are fetched by the screen behind the door —
-    // counting them here would be a second fetch of the same list and two numbers
-    // that can disagree, the trap the character and people counts are lifted to avoid.
+    // NOR DOES CATEGORIES: the colours are named on the card beneath it.
     categories: null,
     // Nor Source files, whose list is fetched by the section behind the door.
     files: null,
@@ -579,9 +564,7 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
               />
             </>
           ) : sect === 'categories' ? (
-            // THE TAGS SCREEN WITH THE COLOURS AS ITS FIRST CARD, packed as
-            // masonry like every other section's cards.
-            <TagsPage embedded lead={<ColourCategoriesCard prefs={user.preferences} onSaved={onPreferences} />} />
+            <ColourCategoriesCard prefs={user.preferences} onSaved={onPreferences} />
           ) : sect === 'languages' ? (
             // THE PANEL ITSELF, not a door to it. It was a FormModal behind a
             // button on Sources; Settings now points at this section for what a

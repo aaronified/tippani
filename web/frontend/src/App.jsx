@@ -34,7 +34,6 @@ import AnthologiesPage from './anthologies.jsx'
 // personOpen.jsx. A leaf module, so this is not a lazy chunk.
 import { SearchDoor, WorkDoor } from './personOpen.jsx'
 import { TextOrderHost, textOrderFrom } from './textOrderHost.jsx'
-const TagsPage = lazy(() => import('./TagsPage.jsx'))
 const SearchPage = lazy(() => import('./SearchPage.jsx'))
 const StagingPage = lazy(() => import('./StagingPage.jsx'))
 const Settings = lazy(() => import('./Settings.jsx'))
@@ -948,25 +947,6 @@ function ScreenMenu({ screen, className, glyph = 22, withHelp = true, onTour = n
       />
     </div>
   )
-}
-
-// TagsRedirect — /tags lands on the metadata console, open at Tags.
-//
-// A COMPONENT RATHER THAN A BRANCH IN THE SHELL'S BODY, because the redirect is an
-// EFFECT and the shell's body is a render. Writing the console's remembered section
-// during a render would be a side effect in the middle of one, and React is entitled
-// to run that twice.
-//
-// IT WRITES THE KEY THE CONSOLE ALREADY READS rather than taking a prop through three
-// components: `usePersistedState('tippani:metasection', …)` is where that screen keeps
-// which door it was last at, and arriving from /tags IS a reader choosing that door.
-// The shape has to match what the hook stores, which is JSON.
-function TagsRedirect({ onGo }) {
-  useEffect(() => {
-    try { localStorage.setItem('tippani:metasection', JSON.stringify('categories')) } catch { /* private mode: the console opens where it last was */ }
-    onGo('metadata')
-  }, [onGo])
-  return null
 }
 
 // Breadcrumb — where you are, in the bar the rail left empty.
@@ -2019,22 +1999,6 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
     setDetail(null)
   }
   function selectTab(key) { go(key, null) }
-  // REDIRECT, NOT NAVIGATION — and the difference is the reader's Back button.
-  //
-  // /tags is an address that resolves to somewhere else, so the entry it landed on
-  // must be REPLACED rather than pushed on top of. Pushed, the stack reads
-  // library → tags → metadata with /tags still in the middle answering with the
-  // console: measured, three Back presses from there gave /metadata, /metadata,
-  // /metadata and the shelf was unreachable. `seedRoute` is the existing replace —
-  // the same call a typed path that resolves elsewhere already goes through at boot,
-  // which is exactly what this is, one navigation later.
-  function redirectTab(key) {
-    if (!detail) rememberScroll(statePath(tab, null))
-    setTab(key)
-    setDetail(null)
-    if (DEMO) return
-    seedRoute(statePath(key, null))
-  }
   function openBook(id) { go('library', { type: 'book', id }) }
   function openMovie(id) { go('movies', { type: 'movie', id }) }
   // THE SAME TWO DOORS IN THE PANELS' OWN VOCABULARY. A person's screen and a
@@ -2498,7 +2462,7 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
               section={detail?.type === 'section' ? detail.id : null}
               onSection={(id) => go('metadata', id ? { type: 'section', id } : null)}
               // A retired section's address resolves to a live one by REPLACING
-              // the entry, the same way /tags does — see redirectTab.
+              // the entry rather than pushing over it.
               onRedirectSection={(id) => {
                 setDetail({ type: 'section', id })
                 if (!DEMO) seedRoute(statePath('metadata', { type: 'section', id }))
@@ -2543,13 +2507,6 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
             />
           </div>
         )}
-        {/* /tags IS A REDIRECT NOW, NOT A SCREEN. Tags became a section of the
-            metadata console — the owner: "tags should be a section within metadata"
-            — and the address survives it, because people bookmark and link to
-            addresses and a dead one is worse than the nav row it replaced.
-            `TagsRedirect` writes the console's own remembered section and steps
-            sideways; see routes.js, which keeps `tags` in ROUTE_TABS for this. */}
-        {tab === 'tags' && <TagsRedirect onGo={redirectTab} />}
         {tab === 'staging' && (
           <div data-screen-label="staging">
             <StagingPage

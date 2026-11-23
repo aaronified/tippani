@@ -318,22 +318,6 @@ vocab.gesture.swipe-down.label = নিচে সোয়াইপ
 vocab.gesture.pinch-in.label = পিঞ্চ ইন
 vocab.gesture.pinch-out.label = পিঞ্চ আউট
 
-# --- vocab.tag-style.* — the five shapes a tag chip can take, offered as live
-# previews in TagsPage's StylePicker. TAG_STYLES in ui.jsx holds the storage
-# tokens and the picker used to draw the token itself, so the chip and its
-# tooltip both read the stored word.
-#
-# EACH NAMES ITS SHAPE, which is what makes them translatable at all: a banner
-# is notched on the right, a flyout comes to a point underneath, tape has torn
-# edges, a reel is round with sprockets.
-# bn: Each names its SHAPE, so the flyout — a pennant notched to a point — is
-# নিশান, the word a Bengali reader has for exactly that shape.
-vocab.tag-style.sticker.label = স্টিকার
-vocab.tag-style.banner.label = ব্যানার
-vocab.tag-style.flyout.label = নিশান
-vocab.tag-style.tape.label = টেপ
-vocab.tag-style.reel.label = রিল
-
 # ---------------------------------------------------------------------------
 # common.action.* — THE SHARED VERBS. One key per act, however many objects it
 # is performed on: 24 copies of "could not save" is 24 chances for a translator
@@ -752,8 +736,6 @@ unit.anthology.one = সংকলন
 unit.anthology.other = সংকলন
 unit.board.one = বোর্ড
 unit.board.other = বোর্ড
-unit.tag.one = ট্যাগ
-unit.tag.other = ট্যাগ
 unit.sticker.one = স্টিকার
 unit.sticker.other = স্টিকার
 unit.item.one = জিনিস
@@ -1651,49 +1633,12 @@ error.add.generic = ওগুলো যোগ করা গেল না
 # quote, which the text then flows around.
 # ---------------------------------------------------------------------------
 
-common.link.edit.label = এডিট
 common.link.delete.label = মুছুন
 
-# Under the page title. {n} tags, and a reminder that one vocabulary serves both
-# sides of the library.
-tags.header.counts = {n} {noun} · বই আর সিনেমায় একই ট্যাগ চলে
-tags.board.empty = এখনও কোনও ট্যাগ নেই — উপরে একটা তৈরি করুন, বা কোনও উদ্ধৃতিতে ট্যাগ বসান
-
-# The new-tag form at the head of the Tags card; the title is the ⋯ row's name.
-tags.new.title = নতুন ট্যাগ
-tags.new.submit.label = ট্যাগ তৈরি করুন
-tags.form.edit.title = ট্যাগ এডিট করুন
-# The radio group of live chip previews, one per tag style.
-tags.form.style.aria = ট্যাগের চেহারা
-
-# The chip on a tag card: the tag's own name, then how many quotes wear it.
-tags.card.chip.label = {name} · {n}
-
-# The sortable table behind "more". {n} is how many rows are NOT in the top five.
-tags.table.more.label = আরও ট্যাগ ({n})…
 tags.table.hide.label = টেবিল লুকান
 # How many quotes wear this tag / this sticker. A derived count, not a column.
 tags.table.uses.label = ব্যবহার
 
-# Deleting a tag. The second form is used when the tag is actually on something:
-# nothing is lost but the tag itself, and saying so is what makes it safe to say
-# yes to. {noun} arrives from unit.item.
-tags.delete.confirm.body = “{name}” ট্যাগটা মুছবেন?
-tags.delete.confirm.body-used = “{name}” ট্যাগটা মুছবেন? {n} {noun} থেকে খুলে যাবে — সেগুলো যেমন আছে থাকবে, শুধু ট্যাগটা থাকবে না।
-
-# THE STICKER LIBRARY, lower half of the same screen.
-tags.dupe.row.note = দেখে মনে হচ্ছে একই জিনিস — মিলিয়ে দিন
-tags.dupe.count.label.one = {n}টা ট্যাগ দেখে মনে হচ্ছে একই
-tags.dupe.count.label.other = {n}টা ট্যাগ দেখে মনে হচ্ছে একই
-tags.dupe.pick.prose = কোনটা রাখবেন? বাকিগুলোর সব উদ্ধৃতি সেটাতেই চলে যাবে।
-tags.dupe.keep.aria.one = {name} রাখুন, বাকিগুলো এতে মিলিয়ে দিন — {n}টা উদ্ধৃতি
-tags.dupe.keep.aria.other = {name} রাখুন, বাকিগুলো এতে মিলিয়ে দিন — {n}টা উদ্ধৃতি
-tags.dupe.merge.confirm.title = {name} রেখে বাকিগুলো এতে মিলিয়ে দেব?
-tags.dupe.merge.confirm.body.one = {losers} চলে যাবে, আর তার {n}টা উদ্ধৃতিতে বদলে {keep} বসবে। কোনও উদ্ধৃতি ট্যাগ হারাবে না, শুধু নামটা যাবে।
-tags.dupe.merge.confirm.body.other = {losers} চলে যাবে, আর তাদের {n}টা উদ্ধৃতিতে বদলে {keep} বসবে। কোনও উদ্ধৃতি ট্যাগ হারাবে না, শুধু নামগুলো যাবে।
-tags.dupe.merge.cta = মিলিয়ে দিন
-error.merge.tag = ট্যাগ মেলানো গেল না
-tags.sticker.section.title = স্টিকার
 tags.sticker.board.empty = এখনও কোনও স্টিকার নেই — উপরে একটা স্বচ্ছ PNG বা SVG আপলোড করুন
 tags.sticker.new.title = ＋ নতুন স্টিকার
 tags.sticker.new.body = স্বচ্ছ PNG বা SVG ছবি — যোগ বা এডিটের ফর্ম থেকে যে কোনও উদ্ধৃতিতে একটা লাগিয়ে দিন
@@ -1723,12 +1668,8 @@ common.sticker.upload.tip = নতুন স্টিকার আপলোড �
 # Failures.
 error.upload.sticker = স্টিকার আপলোড করা গেল না
 error.delete.sticker = স্টিকার মোছা গেল না
-error.delete.tag = ট্যাগ মোছা গেল না
-error.save.tag = ট্যাগ সেভ করা গেল না
-error.create.tag = ট্যাগ তৈরি করা গেল না
 error.rename.generic = নাম বদলানো গেল না
 error.validate.name-required = একটা নাম দিতে হবে
-error.validate.name-blank = নাম দিতে হবে
 
 # ---------------------------------------------------------------------------
 # THE GUIDED TOUR (tour.jsx)
@@ -1793,14 +1734,6 @@ tour.step.search.title = যে কোনও বাক্য আবার খু
 tour.step.search.prose = যা কিছু রেখেছেন, সব কিছুর মধ্যে মুহূর্তে খোঁজ — {em1}; কী মিলেছে সেই ধরে ফল সাজানো। গ্রন্থাগার বা ক্যাটালগ থেকে খুঁজলে শুধু সেই দিকেই খোঁজে।
 tour.step.search.em1.label = বানান ভুল হলেও চলে
 tour.step.search.more = নাম, মানুষ, ধরন, সিরিজ, উদ্ধৃতি, নোট, ট্যাগ আর সংলাপ — সবেতেই খোঁজে। একটা দশক (“1990s”) বা তারিখ (“2026-07-14”) লিখলে তখন যা রেখেছিলেন তা পাবেন। কোনো ফল খুলে শেয়ার বা সম্পাদনা করুন, বা কয়েকটা বেছে একসঙ্গে ট্যাগ দিন বা বদলান।
-
-# Step "tags".
-tour.step.tags.name = ট্যাগ আর স্টিকার
-tour.step.tags.blurb = বই-সিনেমা জুড়ে এক ট্যাগ, প্রত্যেকের নিজের চেহারা; নিজের PNG/SVG স্টিকার উদ্ধৃতিতে লাগান
-tour.step.tags.title = ট্যাগ আর স্টিকার
-tour.step.tags.prose = ট্যাগ বই আর সিনেমা দুদিকেই চলে, প্রতিটার নিজের চেহারা। {em1} হলো আপনার নিজের ছবি, উদ্ধৃতিতে সিলমোহরের মতো সাঁটা।
-tour.step.tags.em1.label = স্টিকার
-tour.step.tags.more = ট্যাগ দেখতে হতে পারে স্টিকার, ব্যানার, ঝুলন্ত পতাকা, টেপ বা রিলের মতো, যেকোনো রঙে; নাম বদলালে সব উদ্ধৃতিতেই বদলায়। স্টিকার হলো আপনার আপলোড করা PNG বা SVG ফাইল; উদ্ধৃতির লেখা তার চারপাশ দিয়ে বয়ে যায়, আর কার্ডের যেকোনো জায়গায় টেনে সরানো যায়।
 
 # Step "metadata".
 tour.step.metadata.name = মেটাডেটা আর মানুষ
@@ -5660,20 +5593,6 @@ anthologies.help.feature-switch.more = বন্ধ করলে শুধু �
 # ---------------------------------------------------------------------------
 # tags.help.* — the "?" panel’s section for Tags & stickers.
 # ---------------------------------------------------------------------------
-
-# The help panel’s heading on the Tags screen. Longer than the tab’s own word, which is just “Tags”.
-tags.help.title = ট্যাগ আর স্টিকার
-
-tags.help.tags.term = ট্যাগ
-tags.help.tags.what = বই হোক বা সিনেমা, একই ট্যাগ দুটোতেই চলে। এখানে একটার নাম বদলালে প্রতিটা উদ্ধৃতিতেই বদলে যায়।
-
-# How a tag draws on a quote card: sticker, banner, flyout, tape or reel.
-tags.help.style.term = ট্যাগের স্টাইল
-tags.help.style.what = স্টিকার, ব্যানার, নিশান, টেপ বা রিল — উদ্ধৃতির কার্ডে ট্যাগটা কীভাবে আঁকা হবে।
-
-tags.help.stickers.term = স্টিকার
-tags.help.stickers.what = শুরুতে একটা হার্ট, একটা তারা আর তিনটে মুখ — আর আপনার আপলোড করা যে কোনও স্বচ্ছ PNG বা SVG।
-tags.help.stickers.more = উদ্ধৃতিতে একটা সেঁটে টেনে জায়গামতো বসান; লেখা তার চারপাশ দিয়ে বইবে। অ্যাপের সঙ্গে আসা স্টিকারগুলোও অন্যগুলোর মতোই নাম বদলানো বা মোছা যায়।
 
 # ---------------------------------------------------------------------------
 # metadata.help.* — the "?" panel’s section for Metadata.
