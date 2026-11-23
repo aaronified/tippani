@@ -41,10 +41,8 @@ import {
   useScrolledPast,
   useScreenBar,
   ReadingBadge,
-  Toggle,
   Tooltip,
   filterChipClass,
-  formatPartialDate,
   seriesLabel,
   shelfLabel,
   toast,
@@ -444,261 +442,6 @@ export function ShelfProgress({ kind, status, progress = 0, pos }) {
   )
 }
 
-// ShelfControl — a work's shelf state on its detail: the state chip (whose
-// popover holds the transitions and, while in progress, the progress field), the
-// ×N read-count chip whose popover lists the history, and — for anything in
-// progress — the progress track. Purely presentational: the page owns the cap
-// check, the date prompt and the save.
-//
-// `onSelect(next)` takes the status the user picked; `onProgress(patch)` takes
-// either { progress } or a position ({ pos_unit, pos, pos_total, … }).
-// `wishlist` is the derived fallback shown when a work has no status of its own.
-// ProgressEditor — the progress field inside the state chip's popover. Two ways
-// to say the same thing, one visible at a time so there is never a question about
-// which number is authoritative:
-//
-//   %      a plain percentage, the only option for a film
-//   pages  the page you are on out of the book's pages — what a physical book
-//          actually gives you, and no arithmetic to do in your head
-//   eps    season + episode for a show, since a series has both
-//
-// The percentage is DERIVED from a unit position server-side (see position.percent
-// in shelf.go), so the bar under every cover keeps reading one number.
-function ProgressEditor({ kind, unit, status, progress, pos, busy, onSave }) {
-  const tracking = pos?.pos_unit === unit && unit !== ''
-  const [mode, setMode] = useState(tracking ? 'unit' : 'pct')
-  const [pct, setPct] = useState(String(progress || 0))
-  const [at, setAt] = useState(String(pos?.pos || ''))
-  const [total, setTotal] = useState(String(pos?.pos_total || ''))
-  const [season, setSeason] = useState(String(pos?.season || ''))
-  const [seasonTotal, setSeasonTotal] = useState(String(pos?.season_total || ''))
-  const num = (s) => Math.max(0, Number(s || 0))
-  const digits = (v, max = 5) => v.replace(/\D/g, '').slice(0, max)
-  const episodes = unit === 'episode'
-  // A count needs something to count towards, which is the same rule the server
-  // enforces — caught here so the message arrives beside the empty field.
-  const missingTotal = mode === 'unit' && num(at) > 0 && num(total) === 0
-  const preview =
-    mode === 'unit' && num(total) > 0
-      ? Math.round(
-          (episodes && num(seasonTotal) > 0
-            ? (Math.max(1, num(season)) - 1 + num(at) / num(total)) / num(seasonTotal)
-            : num(at) / num(total)) * 100,
-        )
-      : Math.min(100, num(pct))
-  const save = () => {
-    if (mode === 'pct') return onSave({ progress: Math.min(100, num(pct)) })
-    if (missingTotal) return
-    onSave({
-      pos_unit: unit,
-      pos: num(at),
-      pos_total: num(total),
-      ...(episodes ? { season: num(season), season_total: num(seasonTotal) } : {}),
-    })
-  }
-  const field = (label, value, set, max) => (
-    <label style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-      <span style={{ fontSize: 'var(--type-ui-13)', color: 'var(--soft)' }}>{label}</span>
-      <input
-        className="tp-input"
-        inputMode="numeric"
-        style={{ width: 58 }}
-        aria-label={label}
-        value={value}
-        onChange={(e) => set(digits(e.target.value, max))}
-      />
-    </label>
-  )
-  return (
-    <div style={{ padding: '4px 6px 8px' }}>
-      <MonoLabel className="mb-1.5 block">{t('common.progress.editor.title')}</MonoLabel>
-      {unit !== '' && (
-        <div className="mb-2">
-          <Toggle
-            ariaLabel={t('common.progress.unit.aria')}
-            value={mode}
-            onChange={setMode}
-            options={[['pct', t('common.progress.unit.percent.label')], ['unit', t(episodes ? 'common.progress.unit.episodes.label' : 'common.progress.unit.pages.label')]]}
-          />
-        </div>
-      )}
-      {mode === 'pct' ? (
-        <div className="flex items-center gap-2">
-          {field(t('common.progress.unit.percent.label'), pct, setPct, 3)}
-        </div>
-      ) : (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-          {episodes && field(t('common.progress.field.season.label'), season, setSeason, 3)}
-          {episodes && field(t('common.progress.field.of.label'), seasonTotal, setSeasonTotal, 3)}
-          {field(t(episodes ? 'common.progress.field.episode.label' : 'common.progress.field.page.label'), at, setAt, 5)}
-          {field(t('common.progress.field.of.label'), total, setTotal, 5)}
-        </div>
-      )}
-      {missingTotal && (
-        <span style={{ display: 'block', marginTop: 5, fontSize: 'var(--type-ui-12)', color: 'var(--error)' }}>
-          {t(episodes ? 'error.validate.episodes-total' : 'error.validate.pages-total')}
-        </span>
-      )}
-      <div className="mt-2 flex items-center gap-2">
-        <span className="flex-1">
-          <StatusBar state={status} kind={kind} progress={preview} radius={3} />
-        </span>
-        <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 'var(--type-mono-11)', color: 'var(--faint)' }}>{preview}%</span>
-        <button type="button" className="tp-chip tp-chip-btn" disabled={busy || missingTotal} onClick={save}>
-          {t('common.action.set.label')}
-        </button>
-      </div>
-    </div>
-  )
-}
-
-// ReadLog — the read/watch history, editable.
-//
-// work_reads could only ever be written as a side effect of a status change,
-// which records what is happening now and is hopeless for what happened before.
-// A book read three times over fifteen years had one row at best, and there was
-// no way to say "I finished this in 2009" about something already on the shelf.
-// 1.7.2 then made the Library sortable by that log, which turned it from a
-// curiosity into something the shelf order depends on — and a sort you cannot
-// correct is worse than no sort.
-//
-// THE OPEN READ IS NOT EDITABLE HERE, and that is the design rather than a
-// shortcut. The status control and the log are kept consistent by one path, and
-// the open row IS that consistency: it exists exactly while the work is in
-// progress. Deleting it would leave a book reading with nothing being read.
-// Both things you might want to do to it — finish it, abandon it — are already
-// one tap away in the status menu above, so the row says so instead of offering
-// a second route to an inconsistent state.
-export function ReadLog({ kind, workId, reads = [], onChanged }) {
-  const [editing, setEditing] = useState(null) // a read id, or 'new'
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-  const path = kind === 'movie' ? 'movies' : 'books'
-
-  async function run(method, url, body) {
-    setBusy(true)
-    setError('')
-    const r = await json(method, url, body)
-    setBusy(false)
-    if (!r.ok) {
-      setError(errText(r, t(kind === 'movie' ? 'error.save.watch' : 'error.save.read')))
-      return false
-    }
-    setEditing(null)
-    onChanged?.()
-    return true
-  }
-
-  return (
-    <div className="read-log-wrap">
-      <ul className="read-log">
-        {reads.map((r, i) => (
-          <li key={r.id ?? i}>
-            <span className="read-n">{i + 1}</span>
-            {editing === r.id ? (
-              <ReadForm
-                initial={r}
-                busy={busy}
-                onCancel={() => setEditing(null)}
-                onSave={(body) => run('PUT', `/reads/${r.id}`, body)}
-                onDelete={() => run('DELETE', `/reads/${r.id}`)}
-              />
-            ) : (
-              <>
-                <span>
-                  {r.outcome === 'open'
-                    ? t('common.read-log.range.open.label', { a: formatPartialDate(r.started_at) || t('common.read-log.unknown.label') })
-                    : t('common.read-log.range.label', {
-                        a: formatPartialDate(r.started_at) || t('common.read-log.unknown.label'),
-                        b: formatPartialDate(r.finished_at) || t('common.read-log.unknown.label'),
-                      })}
-                  {r.outcome === 'abandoned' && <span className="read-open">{t('common.read-log.abandoned.label')}</span>}
-                </span>
-                {r.outcome === 'open' ? (
-                  <span className="read-hint">{t('common.read-log.open.hint')}</span>
-                ) : (
-                  <button type="button" className="read-edit" onClick={() => setEditing(r.id)}>
-                    {t('common.read-log.edit.label')}
-                  </button>
-                )}
-              </>
-            )}
-          </li>
-        ))}
-      </ul>
-      {editing === 'new' ? (
-        <ReadForm
-          initial={{ started_at: '', finished_at: '', outcome: 'finished' }}
-          busy={busy}
-          onCancel={() => setEditing(null)}
-          onSave={(body) => run('POST', `/${path}/${workId}/reads`, body)}
-        />
-      ) : (
-        <button type="button" className="read-add" onClick={() => setEditing('new')}>
-          {t(kind === 'movie' ? 'common.read-log.add.film.label' : 'common.read-log.add.book.label')}
-        </button>
-      )}
-      {error && <p className="tp-error">{error}</p>}
-    </div>
-  )
-}
-
-// ReadForm — two partial dates and an outcome.
-//
-// The dates stay partial on purpose. "I read it in 2009" is a real answer, and
-// padding it to a January morning would invent a precision nobody had — the same
-// reasoning the schema has carried since 0024. So these are text inputs with a
-// shape hint rather than date pickers, which cannot express a bare year.
-function ReadForm({ initial, busy, onCancel, onSave, onDelete }) {
-  const [started, setStarted] = useState(initial.started_at || '')
-  const [finished, setFinished] = useState(initial.finished_at || '')
-  const [outcome, setOutcome] = useState(initial.outcome === 'abandoned' ? 'abandoned' : 'finished')
-  return (
-    <span className="read-form">
-      <input
-        className="tp-input read-date"
-        value={started}
-        onChange={(e) => setStarted(e.target.value)}
-        placeholder={t('common.read-log.started.placeholder')}
-        aria-label={t('common.field.started.label')}
-      />
-      <input
-        className="tp-input read-date"
-        value={finished}
-        onChange={(e) => setFinished(e.target.value)}
-        placeholder={t('common.read-log.finished.placeholder')}
-        aria-label={t('common.field.finished.label')}
-      />
-      <Select
-        className="read-outcome"
-        value={outcome}
-        onChange={setOutcome}
-        ariaLabel={t('common.field.outcome.label')}
-        options={[
-          ['finished', t('common.read-log.outcome.finished.label')],
-          ['abandoned', t('common.read-log.outcome.abandoned.label')],
-        ]}
-      />
-      <button
-        type="button"
-        className="read-edit"
-        disabled={busy}
-        onClick={() => onSave({ started_at: started.trim(), finished_at: finished.trim(), outcome })}
-      >
-        {t('common.read-log.save.label')}
-      </button>
-      <button type="button" className="read-edit" disabled={busy} onClick={onCancel}>
-        {t('common.read-log.cancel.label')}
-      </button>
-      {onDelete && (
-        <button type="button" className="read-edit read-danger" disabled={busy} onClick={onDelete}>
-          {t('common.read-log.delete.label')}
-        </button>
-      )}
-    </span>
-  )
-}
-
 // `compact` is the PHONE HEADER'S shape, and it is one row rather than three.
 // The pack's stateRow is a single chip reading "Reading · 62% · 2×" with the last
 // read's date quiet beside it; at rest this control draws a state chip, a ×N chip
@@ -707,7 +450,7 @@ function ReadForm({ initial, busy, onCancel, onSave, onDelete }) {
 // holds the progress editor and the transitions, and the date opens the same read
 // log the ×N did — the facts are folded into the label instead of being spelled
 // out as separate objects.
-export function ShelfControl({ kind, item = {}, status, progress = 0, pos, reads = [], wishlist, onSelect, onProgress, onReadsChanged, busy, compact = false }) {
+export function ShelfControl({ kind, item = {}, status, progress = 0, pos, wishlist, onSelect, onProgress, busy, compact = false }) {
   // Per ROW, not per kind: this control is what offers "start playing" on a game
   // and "start watching" on a film, and both are movies-table rows.
   const active = activeStatusFor(kind, item)
@@ -719,7 +462,6 @@ export function ShelfControl({ kind, item = {}, status, progress = 0, pos, reads
     status === 'completed'
       ? [active, '']
       : [active, 'paused', 'abandoned', 'completed', ''].filter((s) => s !== status)
-  const finished = reads.filter((r) => r.outcome === 'finished').length
   const state = status || (wishlist ? 'wishlist' : null)
 
   // Untracked and already quoted from: no state to show, but every state has to
@@ -760,54 +502,19 @@ export function ShelfControl({ kind, item = {}, status, progress = 0, pos, reads
   const figure = inFlight ? positionLabel(pos) || `${progress}%` : ''
   // The most recent read with an end. The pack puts its date at the right of the
   // state row, one step further back than the shelf itself.
-  const lastFinished = [...reads].reverse().find((r) => r.outcome === 'finished' && r.finished_at)
-  const lastRead = lastFinished ? formatPartialDate(lastFinished.finished_at) : ''
 
   return (
     <>
       <StateTag
         state={state}
-        label={compact
-          ? [shelfLabel(state, kind), figure, finished > 0 ? t('common.shelf.reads.label', { n: finished }) : '']
-              .filter(Boolean)
-              .join(' · ')
-          : shelfLabel(state, kind)}
+        label={compact ? [shelfLabel(state, kind), figure].filter(Boolean).join(' · ') : shelfLabel(state, kind)}
         tip={t('common.shelf.change.tip')}
       >
         {(close) => (
           <>
-            {status === active && (
-              <ProgressEditor
-                kind={kind}
-                unit={unit}
-                status={status}
-                progress={progress}
-                pos={pos}
-                busy={busy}
-                onSave={onProgress}
-              />
-            )}
             {transitionItems(kind, item, status, moves, busy, close, onSelect)}
           </>
         )}
-      </StateTag>
-      {/* The log is always reachable, not only once something has been finished.
-          Recording that you read a book in 2009 is the whole point of editing
-          history, and gating the way in on the history already existing made it
-          impossible for exactly the books it matters for.
-
-          COMPACT WEARS THE DATE INSTEAD OF THE COUNT, because the count has moved
-          into the chip beside it and a control that repeats its neighbour is
-          furniture. Same popover, same log — only the word on the door changes,
-          and it falls back to ×N where nothing has been finished yet. */}
-      <StateTag
-        state={state}
-        label={compact && lastRead ? lastRead : t('common.shelf.reads.label', { n: finished })}
-        tip={t('common.shelf.read-log.tip')}
-        className={compact ? 'shelf-last-read' : undefined}
-        quiet={compact}
-      >
-        <ReadLog kind={kind} workId={item.id} reads={reads} onChanged={onReadsChanged} />
       </StateTag>
       {/* Any in-progress work shows its track, in its own units.
           LAST, and on its own line. It used to sit BETWEEN the state chip and the

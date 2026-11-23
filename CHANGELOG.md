@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- **The read log and the progress editor.** A work's shelf chip no longer opens an editor for
+  progress or for the dates it was read; the state and the change of state stay. (ADR-0936)
+
 - **Copy, duplicate, move to board and gather on a quote's menu.** A quote's ⋯ keeps Edit,
   Share, Context, Favourite and Delete; the other actions a quote card offered are gone from the
   web app. (ADR-0936)

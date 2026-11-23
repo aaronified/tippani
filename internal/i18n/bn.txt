@@ -821,40 +821,7 @@ common.position.episode.label = E{a}
 common.position.episode-season.label = {a} · S{b}
 common.position.page.label = পৃ. {a}/{b}
 
-# --- the progress editor under a work's state chip.
-common.progress.editor.title = কতদূর
-common.progress.unit.aria = কীসে মাপবেন
-common.progress.unit.percent.label = %
-common.progress.unit.pages.label = পৃষ্ঠা
-common.progress.unit.episodes.label = এপিসোড
-common.progress.field.season.label = সিজন
-common.progress.field.episode.label = এপিসোড
-common.progress.field.page.label = পৃষ্ঠা
-# The word between "episode 6" and "10" — 6 OF 10.
-# bn: No Bengali word sits between two numerals here; a slash is what a Bengali writes.
-common.progress.field.of.label = /
-common.action.set.label = রাখুন
 
-# --- the read / watch log.
-common.read-log.unknown.label = জানা নেই
-# A finished read, as a date range.
-common.read-log.range.label = {a} – {b}
-# One still open. {a} is the date it was started.
-common.read-log.range.open.label = {a} – এখনও চলছে
-common.read-log.abandoned.label = (ছেড়ে দেওয়া)
-# Why the open row cannot be edited here: the status control above sets it.
-common.read-log.open.hint = উপর থেকে বদলায়
-# The log's own small lower-case buttons. Lower case is the slot, not a mistake.
-common.read-log.edit.label = এডিট
-common.read-log.save.label = সেভ
-common.read-log.cancel.label = বাতিল
-common.read-log.delete.label = মুছুন
-common.read-log.add.book.label = আগের একটা পড়া যোগ করুন
-common.read-log.add.film.label = আগের একটা দেখা যোগ করুন
-common.read-log.started.placeholder = 2009 বা 2009-06-14
-common.read-log.finished.placeholder = 2009-06
-common.read-log.outcome.finished.label = শেষ হয়েছে
-common.read-log.outcome.abandoned.label = ছেড়ে দেওয়া
 common.field.started.label = শুরু
 common.field.finished.label = শেষ
 common.field.outcome.label = কী হল
@@ -875,11 +842,6 @@ common.shelf.shelve.label = তাকে তুলুন
 common.shelf.wishlist.tip = উইশলিস্টে কেন
 common.shelf.wishlist.explainer.prose = এখান থেকে এখনো কোনো উদ্ধৃতি নেই, তাই ইচ্ছে-তালিকায় আছে। উদ্ধৃতি যোগ করলেই নিজে থেকে সরে যাবে। নিচে কোনো তাকে রাখা আলাদা ব্যাপার।
 common.shelf.change.tip = তাকের অবস্থা বদলান
-# How many times it has been finished, as a multiplier.
-common.shelf.reads.label = ×{n}
-# bn: The one tip serves books and films alike, so it names the ledger by what it
-# records — starts and finishes — rather than by reading or watching.
-common.shelf.read-log.tip = শুরু-শেষের খাতা খুলুন
 
 # --- the shelf transitions, named by what pressing one will DO. The word follows
 # the medium: a book is read, a film watched, a game played.
@@ -946,12 +908,8 @@ common.action.export.shown.tip = যা দেখা যাচ্ছে, এক�
 # deliberate one.
 # ---------------------------------------------------------------------------
 error.save.generic = সেভ করা গেল না
-error.save.read = পড়ার খাতায় এটা সেভ করা গেল না
-error.save.watch = দেখার খাতায় এটা সেভ করা গেল না
 error.validate.partial-date = YYYY, YYYY-MM বা YYYY-MM-DD — এই তিন আকারের একটায় লিখুন
 error.validate.historical-date = সাল, সাল-মাস, বা পুরো তারিখ — "399 BCE" আর "c. 40" দুটোই চলে
-error.validate.episodes-total = এই সিজনে কটা এপিসোড?
-error.validate.pages-total = বইটায় মোট কটা পৃষ্ঠা?
 
 # ---------------------------------------------------------------------------
 # vocab.key.* — the words on a key cap. keys.js draws these; a keyboard's own

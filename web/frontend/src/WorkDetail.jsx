@@ -579,8 +579,6 @@ export default function WorkDetail({
             status={item.status}
             progress={item.progress}
             pos={item}
-            reads={item.reads}
-            onReadsChanged={load}
             wishlist={quoteCount === 0}
             busy={shelfBusy}
             onSelect={pick}

@@ -822,39 +822,7 @@ common.position.episode.label = E{a}
 common.position.episode-season.label = {a} · S{b}
 common.position.page.label = p. {a} of {b}
 
-# --- the progress editor under a work's state chip.
-common.progress.editor.title = progress
-common.progress.unit.aria = Progress unit
-common.progress.unit.percent.label = %
-common.progress.unit.pages.label = pages
-common.progress.unit.episodes.label = episodes
-common.progress.field.season.label = season
-common.progress.field.episode.label = episode
-common.progress.field.page.label = page
-# The word between "episode 6" and "10" — 6 OF 10.
-common.progress.field.of.label = of
-common.action.set.label = set
 
-# --- the read / watch log.
-common.read-log.unknown.label = unknown
-# A finished read, as a date range.
-common.read-log.range.label = {a} – {b}
-# One still open. {a} is the date it was started.
-common.read-log.range.open.label = {a} – still going
-common.read-log.abandoned.label = (abandoned)
-# Why the open row cannot be edited here: the status control above sets it.
-common.read-log.open.hint = set above
-# The log's own small lower-case buttons. Lower case is the slot, not a mistake.
-common.read-log.edit.label = edit
-common.read-log.save.label = save
-common.read-log.cancel.label = cancel
-common.read-log.delete.label = delete
-common.read-log.add.book.label = add a past read
-common.read-log.add.film.label = add a past watch
-common.read-log.started.placeholder = 2009 or 2009-06-14
-common.read-log.finished.placeholder = 2009-06
-common.read-log.outcome.finished.label = finished
-common.read-log.outcome.abandoned.label = abandoned
 common.field.started.label = Started
 common.field.finished.label = Finished
 common.field.outcome.label = Outcome
@@ -873,9 +841,6 @@ common.shelf.shelve.label = Shelve
 common.shelf.wishlist.tip = Why this is on the wishlist
 common.shelf.wishlist.explainer.prose = On the wishlist because nothing is quoted from it yet. It leaves by itself when you add a quote. Putting it on a shelf below is separate.
 common.shelf.change.tip = Change the shelf state
-# How many times it has been finished, as a multiplier.
-common.shelf.reads.label = ×{n}
-common.shelf.read-log.tip = Open the read log
 
 # --- the shelf transitions, named by what pressing one will DO. The word follows
 # the medium: a book is read, a film watched, a game played.
@@ -946,12 +911,8 @@ common.action.export.shown.tip = Export what is shown
 # deliberate one.
 # ---------------------------------------------------------------------------
 error.save.generic = could not save
-error.save.read = could not save this read
-error.save.watch = could not save this watch
 error.validate.partial-date = needs to be YYYY, YYYY-MM or YYYY-MM-DD
 error.validate.historical-date = needs to be a year, a year and month, or a full date — "399 BCE" and "c. 40" both work
-error.validate.episodes-total = how many episodes in this season?
-error.validate.pages-total = how many pages in the book?
 
 # ---------------------------------------------------------------------------
 # vocab.key.* — the words on a key cap. keys.js draws these; a keyboard's own
