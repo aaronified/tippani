@@ -26,6 +26,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   carries the quiz cards, the skip-in-quiz control, the review settings or the quiz tuning, and
   Practise is gone from works, anthologies and tags. (ADR-0936)
 
+- **The bundled typefaces, except Noto Serif Bengali, and the unused paper, fabric and leather
+  textures are gone from the web app.** Latin text is set in the device's own faces, so a reader
+  who chose a removed face gets the built-in. (ADR-0936)
+
+- **The guided tour, the per-screen tour, the gesture drawings and the keyboard shortcut legend
+  are gone from the web app.** Help keeps its per-control text; the keys still work. (ADR-0936)
+
 - **Settings › Theme is a dropdown on the web.** The material tiles, physics dials, true glass,
   per-surface materials, saved looks and cover-size sliders are gone; you pick a theme from a
   list, then light, dark or match system, and a colour (ADR-0936).
@@ -36,6 +43,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The Stats screen is gone from the web app.** The web app is being cut down to what an iPhone
   needs (ADR-0936); the Android app and the API keep their statistics. A bookmark to /stats
   opens Home.
+
+### Added
+
+- **The web app works as an iPhone home-screen app with no signal.** A service worker caches the
+  app shell, never the API, and the home-screen title and status bar are set. (ADR-0936)
 
 ## [3.10.1] - 2026-11-15
 

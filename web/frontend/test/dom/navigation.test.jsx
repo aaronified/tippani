@@ -3,7 +3,6 @@ import { canGoBack, historyDepth, historySeq, jumpBack, navigateBack, noteRoute,
 import { RAIL_WORDS_MAX, TYPE_FACTORS, TYPE_FACTOR_MAX, applyTypeScale } from '../../src/type.js'
 import { Drawer, navBadge } from '../../src/App.jsx'
 import { cleanup, render } from '@testing-library/react'
-import { ShortcutSheet } from '../../src/ui.jsx'
 import { SHORTCUTS, shortcutFor } from '../../src/keys.js'
 import { t } from '../../src/i18n.js'
 
@@ -284,10 +283,7 @@ describe('nav counts', () => {
 //
 // THE RULE. Settings → Features lets a reader switch whole sections off. What that
 // has to mean is not "the tab stops working" — it is that the app stops offering
-// it: no row on the drawer, and no key legend on the shortcut sheet promising a
-// destination that is not there. The sheet is generated from the key table so it
-// cannot fall behind it, which is exactly why it has to be TOLD; without that it
-// advertises a screen the reader has hidden.
+// it: no row on the drawer offering a key that goes nowhere.
 //
 // WHY THIS IS A RENDER. `test/pure/features-nav.test.js` guarded the second half
 // with `/ShortcutSheet[\s\S]{0,240}?omit=\{/` — a 240-character window of hope,
@@ -353,7 +349,6 @@ const sheet = (...ids) => {
 // single cap like "L" occurs inside the sheet's own prose and inside other
 // destinations' sequences, so its presence says nothing.
 const LIBRARY_KEYS = shortcutFor('go-library').split(/\s+then\s+/)
-const LIBRARY_ROW = t(SHORTCUTS.find((s) => s.id === 'go-library').label)
 
 describe('with the shelf put away', () => {
   it('the drawer stops offering it', () => {
@@ -364,11 +359,6 @@ describe('with the shelf put away', () => {
     // is the one that distinguishes G-then-L from G-then-H.
     expect(caps, 'a hidden section still has a drawer row with its key on it')
       .not.toContain(LIBRARY_KEYS[LIBRARY_KEYS.length - 1])
-  })
-
-  it('and the sheet stops promising a key that goes nowhere', () => {
-    expect(sheet('go-library'), 'the sheet still advertises a hidden section')
-      .not.toContain(LIBRARY_ROW)
   })
 
 })

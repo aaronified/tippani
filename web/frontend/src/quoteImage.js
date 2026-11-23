@@ -1,4 +1,4 @@
-import { fontChoice, languageFamily } from './fonts.js'
+import { cssName, fontChoice, languageFamily } from './fonts.js'
 import { t } from './i18n.js'
 
 // Quote-card images (ROADMAP §10). Render a highlight as a shareable PNG,
@@ -43,16 +43,16 @@ let FONTS = buildFonts()
 // same rule the card follows, where `quoteTexts` tags the slot holding `a.quote`
 // and leaves the other alone.
 function buildFonts(language) {
-  const fam = (role) => fontChoice(role).family
+  const fam = (role) => cssName(fontChoice(role).family)
   const disp = fam('display')
   const mono = fam('mono')
   const hand = fam('hand')
   const bn = fam('bengali')
   const dv = fam('devanagari')
-  const serif = `"${disp}", "${bn}", "${dv}", Georgia, serif`
-  const own = languageFamily(language)
-  const quoteStack = own ? `"${own}", "${bn}", "${dv}", Georgia, serif` : serif
-  const code = `"${mono}", ui-monospace, monospace`
+  const serif = `${disp}, ${bn}, ${dv}, Georgia, serif`
+  const own = cssName(languageFamily(language))
+  const quoteStack = own ? `${own}, ${bn}, ${dv}, Georgia, serif` : serif
+  const code = `${mono}, ui-monospace, monospace`
   return {
     quote: `italic 400 27px ${quoteStack}`,
     // The translation: the quote's face, upright and two sizes down. Upright
@@ -66,11 +66,11 @@ function buildFonts(language) {
     attrItalic: `italic 400 15px ${serif}`,
     attrPlain: `400 15px ${serif}`,
     meta: `500 11.5px ${code}`,
-    note: `400 22px "${hand}", "${bn}", "${dv}", cursive`,
+    note: `400 22px ${hand}, ${bn}, ${dv}, cursive`,
     tag: `600 11px ${code}`,
     foot: `600 14px ${serif}`,
     credit: `500 11px ${code}`,
-    bengali: `400 12px "${bn}", serif`,
+    bengali: `400 12px ${bn}, serif`,
   }
 }
 
@@ -90,17 +90,17 @@ export function ensureFonts(sample) {
   // awaits — so a face changed in Settings is in the next image without the
   // module having to be told about it.
   FONTS = buildFonts(sample?.language)
-  const fam = (role) => fontChoice(role).family
+  const fam = (role) => cssName(fontChoice(role).family)
   // The quote's own face is asked for BESIDE the display one rather than instead
   // of it: the translation, the attribution and the footer are all still set in
   // the display face, so a card whose quote has a face of its own needs both
   // loaded or half of it falls back on the first paint.
-  const own = languageFamily(sample?.language)
+  const own = cssName(languageFamily(sample?.language))
   const faces = [
-    ...(own ? [`italic 27px "${own}"`] : []),
-    `italic 27px "${fam('display')}"`, `600 15px "${fam('display')}"`,
-    `italic 15px "${fam('display')}"`, `600 14px "${fam('display')}"`,
-    `500 12px "${fam('mono')}"`, `600 11px "${fam('mono')}"`, `500 11px "${fam('mono')}"`,
+    ...(own ? [`italic 27px ${own}`] : []),
+    `italic 27px ${fam('display')}`, `600 15px ${fam('display')}`,
+    `italic 15px ${fam('display')}`, `600 14px ${fam('display')}`,
+    `500 12px ${fam('mono')}`, `600 11px ${fam('mono')}`, `500 11px ${fam('mono')}`,
   ]
   // THE THREE THAT ARE NOT ALWAYS NEEDED, AND WERE ALWAYS FETCHED.
   //
@@ -117,10 +117,10 @@ export function ensureFonts(sample) {
   // asked for only when their script is actually present, and the hand face
   // only when there is a note to write in it.
   const all = sample === undefined
-  if (all || sample.hand) faces.push(`22px "${fam('hand')}"`)
+  if (all || sample.hand) faces.push(`22px ${fam('hand')}`)
   const text = all ? '' : String(sample.text || '')
-  if (all || BENGALI.test(text)) faces.push(`12px "${fam('bengali')}"`)
-  if (all || DEVANAGARI.test(text)) faces.push(`12px "${fam('devanagari')}"`)
+  if (all || BENGALI.test(text)) faces.push(`12px ${fam('bengali')}`)
+  if (all || DEVANAGARI.test(text)) faces.push(`12px ${fam('devanagari')}`)
   // The second argument narrows the request to the characters that will be
   // drawn, so a family with a dozen unicode-range subsets sends the one needed
   // rather than all of them.

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, test, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
-import { Field, Kbd, NameInput, PartialDateField, ShortcutSheet, ToastHost, TokenInput, Tooltip, YearField, parseYearInput, yearInputValue } from '../../src/ui.jsx'
+import { Field, Kbd, NameInput, PartialDateField, ToastHost, TokenInput, Tooltip, YearField, parseYearInput, yearInputValue } from '../../src/ui.jsx'
 import { useState } from 'react'
 import userEvent from '@testing-library/user-event'
 import { LanguagePicker } from '../../src/locale.jsx'
@@ -406,16 +406,4 @@ const hover = (mobile) => {
   return document.querySelector('.hint-bubble, .tp-hint, [data-hint]')?.textContent || ''
 }
 
-describe('ShortcutSheet — the whole legend', () => {
-  it('does not open on a phone', () => {
-    setViewport(true)
-    render(<ShortcutSheet open onClose={() => {}} />)
-    // Asserted against the DOCUMENT, not the render container: HelpSheet mounts in
-    // a portal, so `container.firstChild` is null whether the sheet opened or not —
-    // which is a check that cannot fail, and did not.
-    expect(screen.queryAllByText('Keyboard shortcuts')).toHaveLength(0)
-    expect(document.querySelectorAll('kbd')).toHaveLength(0)
-  })
-
-})
 })

@@ -119,19 +119,15 @@
        merged again the first time somebody reaches for a title face and finds
        something that answers. `test/rules/chrome-is-not-a-quote.test.js` fails on
        one, and on the old name appearing anywhere at all. */
-    --font-quote-base: 'Newsreader', 'Noto Serif Bengali', 'Noto Serif Devanagari', Georgia, 'Times New Roman', serif;
-    --font-ui: 'Hanken Grotesk', 'Noto Serif Bengali', 'Noto Serif Devanagari', system-ui, sans-serif;
-    --font-mono: 'IBM Plex Mono', ui-monospace, 'Cascadia Mono', monospace;
-    --font-hand: 'Caveat', 'Noto Serif Bengali', 'Noto Serif Devanagari', 'Segoe Script', cursive;
-    /* THE BENGALI FACE CHANGED IN 1.15.0, on the reader's judgement. Tiro Bangla
-       was chosen here for a good stated reason — a text face with real Bengali
-       letterforms rather than a pan-script fallback — and the person who reads
-       Bengali in this app called it horrible, which is the only evidence that
-       counts about type you have to read. Both are still on the list in
-       Settings → Type; what changed is which one arrives. Devanagari moved the
-       same way on the same reader's milder version of the same note. */
+    --font-quote-base: Georgia, 'Noto Serif Bengali', serif;
+    --font-ui: system-ui, 'Noto Serif Bengali', serif, sans-serif;
+    --font-mono: ui-monospace, 'Noto Serif Bengali', serif, 'Cascadia Mono', monospace;
+    --font-hand: cursive, 'Noto Serif Bengali', serif, 'Segoe Script', cursive;
+    /* THE BENGALI FACE IS NOTO SERIF BENGALI, the only one bundled. It became the
+       built-in in 1.15.0, on the reader's judgement of Tiro Bangla, which is no
+       longer shipped: a reader who chose it falls back to this face. */
     --font-bengali: 'Noto Serif Bengali', serif;
-    --font-devanagari: 'Noto Serif Devanagari', serif;
+    --font-devanagari: serif;
 
     /* THE STYLE MODIFIERS, one set per role (Settings → Type). Every rule that
        sets `font-family: var(--font-X)` sets these four beside it, so a modifier
@@ -460,21 +456,14 @@
     --tile-matte: url("./textures/matte.png");
     --tile-satin: url("./textures/satin.png");
     --tile-glass: url("./textures/glass.webp");
-    --tile-glass-soft: url("./textures/glass-soft.png");
     --tile-rubber-flat: url("./textures/rubber-flat.png");
-    --tile-fabric: url("./textures/fabric.webp");
-    --tile-walnut: url("./textures/walnut.png");
-    --tile-pine: url("./textures/pine.png");
     --tile-marble: url("./textures/marble.png");
     --tile-granite: url("./textures/granite.png");
     --tile-sandstone: url("./textures/sandstone.png");
     --tile-concrete: url("./textures/concrete.png");
-    --tile-cardboard: url("./textures/cardboard.png");
     --tile-paper-photo: url("./textures/paper-photo.png");
-    --tile-leather-004: url("./textures/leather-004.png");
     --tile-leather-021: url("./textures/leather-021.png");
     --tile-leather-034d: url("./textures/leather-034d.png");
-    --tile-leather-037: url("./textures/leather-037.png");
   }
 
   /* ---- grain (§5): fixed overlay tile ----
@@ -3925,16 +3914,6 @@
   /* ---- help popover contents ---- */
   .help-sheet-body { font-size: var(--type-ui-13); line-height: 1.6; color: var(--soft); }
   .help-body { font-size: var(--type-ui-15); line-height: 1.6; color: var(--soft); }
-  /* THE SCREEN'S OWN WALKTHROUGH, above the glossary it sits on top of. It is one
-     button and it had no rule at all for a release — the class was in the markup,
-     matched nothing, and the button landed flush against the first entry of the
-     list, which reads as the first row of the list rather than as the offer it is.
-     A rule separates the two halves of the sheet: a verb, then the reference. */
-  .help-lead {
-    margin-bottom: 14px;
-    padding-bottom: 14px;
-    border-bottom: 1px solid var(--line);
-  }
   .help-list { display: flex; flex-direction: column; gap: 14px; }
   .help-row { display: flex; align-items: flex-start; gap: 11px; }
   .help-row-icon {
@@ -7869,64 +7848,6 @@ html[data-theme="dark"] .to-top { box-shadow: 0 12px 26px -14px rgba(0, 0, 0, .7
    slide, and useHideOnScrollDown opts out of hiding entirely under the same
    query, so the bar simply stays put. */
 
-/* ---- guided feature tour (tour.jsx; Settings → Onboarding) ---- */
-/* The spotlight ring's giant box-shadow doubles as the scrim, and the layer is
-   pointer-events: none, so the highlighted control stays fully usable — the
-   metadata-keys step invites pasting keys mid-tour. z 80/81: above the drawer,
-   account overlay and toast (all ≤ 70), below the lightbox (90). */
-.tour-spotlight {
-  position: fixed;
-  z-index: 80;
-  pointer-events: none;
-  border-radius: 14px;
-  border: 2px solid var(--accent-ui);
-  box-shadow: 0 0 0 200vmax color-mix(in srgb, var(--ink) 42%, transparent);
-  transition: top .25s ease, left .25s ease, width .25s ease, height .25s ease;
-}
-.tour-scrim {
-  position: fixed;
-  inset: 0;
-  z-index: 80;
-  pointer-events: none;
-  background: color-mix(in srgb, var(--ink) 42%, transparent);
-}
-.tour-card {
-  overscroll-behavior: contain;
-  position: fixed;
-  z-index: 81;
-  width: min(400px, calc(100vw - 24px));
-  max-height: min(72vh, 560px);
-  overflow-y: auto;
-  box-shadow: 0 18px 40px -12px rgba(0, 0, 0, .5);
-  animation: tour-card-in .22s ease;
-}
-.tour-card:focus { outline: none; }
-/* Opacity only — the centered placement rides on an inline transform, which an
-   animated transform would override mid-flight. */
-@keyframes tour-card-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-/* Phone: a bottom sheet regardless of anchor (the spotlight still points). */
-.tour-card.mobile {
-  left: 10px;
-  right: 10px;
-  top: auto;
-  width: auto;
-  max-height: 58vh;
-  bottom: 10px;
-  bottom: max(10px, env(safe-area-inset-bottom));
-}
-/* The built-in sample quote (SAMPLE_QUOTES) rendered as a quote callout. */
-.tour-demo {
-  margin-top: 12px;
-  padding: 12px 14px;
-  background: var(--raised);
-  border: 1px solid var(--line);
-  border-left: 3px solid var(--accent-ui);
-  border-radius: 10px;
-}
-
 /* ---- cover Lightbox (full-screen cover/poster viewer) ---- */
 /* The zoom trigger is a bare button wrapping the hero image — strip chrome so
    it reads exactly as the cover, but keep the pointer + focus ring. */
@@ -9300,23 +9221,8 @@ html[data-theme="dark"] .board-cover {
     font-family: var(--font-mono); font-size: var(--type-mono-9); color: var(--faint);
     text-transform: lowercase;
   }
-  /* One row of the sheet: what it does on the left, the key on the right, and a
-     dotted rule between them so the eye can cross a wide sheet without losing
-     the line — the same job a table of contents' leader dots do. */
-  .kbd-row {
-    display: flex; align-items: baseline; gap: 8px;
-    padding: 5px 0;
-  }
-  .kbd-row > span:first-child { flex: none; }
-  .kbd-row::before { content: ""; }
-  .kbd-row > .kbd-legend { margin-left: auto; }
-  .kbd-row > span:first-child::after {
-    content: "";
-    display: inline-block;
-  }
   /* The menu-row variant: no rule, just the cap pushed to the end. */
   .menu-item .kbd-legend { margin-left: auto; padding-left: 12px; }
-  .kbd-pair { display: inline-flex; align-items: center; gap: 5px; margin-left: auto; }
 
 /* A share format's mark and its name, on one line.
    inline-flex with a real gap, and the glyph centred rather than on the baseline:
@@ -9326,73 +9232,11 @@ html[data-theme="dark"] .board-cover {
 .share-format-option { display: inline-flex; align-items: center; gap: 7px; }
 .share-format-option > svg { align-self: center; flex: none; }
 
-/* ---- gesture drawings (help) ----
-   A touch gesture drawn instead of described. Vendored from Atlas Icons'
-   hand-gesture pack (MIT, Ramy Wafaa) — see gestures.jsx and
-   docs/wiki/Provider-marks.md. Every stroke is currentColor, so one drawing is
-   right in both themes.
-
-   THESE WERE ANIMATED AND THE WHOLE APPARATUS IS GONE: five keyframe blocks, the
-   per-class animation rules, and the prefers-reduced-motion branch that stopped
-   them all. A still drawing needs none of it, and the reduced-motion rule is moot
-   rather than missing — there is nothing left to stop. (`--gdy` survives further
-   up this file and is NOT the gesture one: it belongs to the pressed-key nudge
-   around line 2229, which is why this says what went rather than naming a
-   property somebody would then grep and find alive.) The owner: "the static icons look better than our
-   existing animations. retire them." */
-.gesture { color: var(--ink); flex: none; overflow: visible; }
-/* The clip with its name beside it — how a gesture appears in a help entry. The
-   label is the gesture's NAME, never an instruction; the outcome is the sentence
-   the caller writes after it. */
-.gesture-chip {
-  display: inline-flex; align-items: center; gap: 6px;
-  vertical-align: middle;
-}
-.gesture-chip-label {
-  font-family: var(--font-mono); font-size: var(--type-mono-11); letter-spacing: 0.02em;
-  text-transform: uppercase; color: var(--faint); white-space: nowrap;
-}
-
 /* An entry's asset sits under its words, not beside its name: `icon` is the glyph
    the screen uses and helps you find the row, an asset is part of the answer. Under
    the words is right for the WIDE assets — a swatch row, the 240px import
    schematic — because text beside a picture that wide is a ribbon. */
 .help-row-asset { margin-top: 8px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-
-/* A gesture clip is the exception: square, finger-sized, and something you watch
-   while reading the sentence it belongs to. So it is floated into the answer and
-   the prose wraps around it — one paragraph with a picture in it, rather than a
-   caption above a picture. A float and not a flex row or a grid column: only a
-   float reflows the text around the clip, and only a float lets a short entry keep
-   its full measure below it.
-
-   Its SIZE is the Gesture `size` prop (68) and is deliberately not repeated here,
-   so the two can never disagree. */
-.help-row-asset.is-clip {
-  float: left;
-  /* Replaces the base rule's margin-top: on a float that top gap would drop the
-     clip a line below the term and read as a misalignment, not as a wrap. The 14px
-     gutter is the clip's own overflow budget as well as optical space — `.gesture`
-     is overflow: visible and the travel keyframe pushes the fingertip up to 14px
-     outside its box, so a rightward clip cannot land on the wrapped text. */
-  margin: 2px 14px 4px 0;
-  /* A float is shrink-to-fit, i.e. max-content, so `wrap` can never fire; saying so
-     stops a two-part asset silently eating the measure if one is ever floated. */
-  flex-wrap: nowrap;
-}
-
-/* WHAT WRAPS IS THE SENTENCE, AND ONLY THE SENTENCE. Everything after the `what`
-   clears the clip, because a float shortens LINE boxes and leaves BLOCK boxes at
-   full width — so any block with a mark of its own on its left edge draws that mark
-   behind the clip while its text sits to the right of it.
-
-   Both of the two entries that carry a clip today are `what` + `more` with no `how`,
-   so `.help-more` is the live case and the ▸ disclosure is what would otherwise land
-   82px in from the left on a phone; `.help-how`'s dash is the same failure waiting
-   for the first clip entry that grows verb lines. One rule for both, because the
-   reason is one reason. */
-.help-row-asset.is-clip ~ .help-how,
-.help-row-asset.is-clip ~ .help-more { clear: left; }
 
 /* The words of an entry. flow-root, so a floated clip is contained HERE by rule:
    being a flex item of `.help-row` already makes this a formatting context, but that

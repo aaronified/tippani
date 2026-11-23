@@ -1,62 +1,11 @@
 import React from 'react'
 import { createRoot } from 'react-dom/client'
-// Self-hosted fonts (instructions §3) — display / ui / mono / hand + Bengali
-// for the auth-screen brand line only.
-import '@fontsource/newsreader/400.css'
-import '@fontsource/newsreader/500.css'
-import '@fontsource/newsreader/600.css'
-import '@fontsource/newsreader/400-italic.css'
-import '@fontsource/newsreader/500-italic.css'
-import '@fontsource/newsreader/600-italic.css'
-import '@fontsource/hanken-grotesk/400.css'
-import '@fontsource/hanken-grotesk/500.css'
-import '@fontsource/hanken-grotesk/600.css'
-import '@fontsource/hanken-grotesk/700.css'
-import '@fontsource/ibm-plex-mono/400.css'
-import '@fontsource/ibm-plex-mono/500.css'
-import '@fontsource/caveat/500.css'
-import '@fontsource/caveat/600.css'
-import '@fontsource/tiro-bangla/400.css'
-import '@fontsource/tiro-devanagari-hindi/400.css'
-// The alternates offered in Settings → Type (fonts.js). BUNDLED, NOT FETCHED:
-// the browser talks to nobody but this server, and a type picker that loaded
-// Google Fonts would be the first thing in the app to reach a third party from
-// it — on a screen about how your own words look. @fontsource splits every
-// face by unicode-range, so a subset is only DOWNLOADED when a codepoint in its
-// range is actually drawn; what grows unconditionally is the CSS and the image
-// on disk. All OFL-1.1.
-// OPENDYSLEXIC IS THE ONE FACE HERE CHOSEN FOR WHO CAN READ IT rather than for
-// how it looks, which is why it is offered on BOTH the reading role and the
-// interface role below. It ships 400 and 700 only — no 500 or 600 — so a heading
-// asking for 600 gets 700, which is the browser's own rule and the right answer.
-import '@fontsource/opendyslexic/400.css'
-import '@fontsource/opendyslexic/700.css'
-import '@fontsource/opendyslexic/400-italic.css'
-import '@fontsource/opendyslexic/700-italic.css'
-import '@fontsource/source-serif-4/400.css'
-import '@fontsource/source-serif-4/600.css'
-import '@fontsource/source-serif-4/400-italic.css'
-import '@fontsource/literata/400.css'
-import '@fontsource/literata/600.css'
-import '@fontsource/literata/400-italic.css'
-import '@fontsource/inter/400.css'
-import '@fontsource/inter/500.css'
-import '@fontsource/inter/600.css'
-import '@fontsource/public-sans/400.css'
-import '@fontsource/public-sans/500.css'
-import '@fontsource/public-sans/600.css'
-import '@fontsource/jetbrains-mono/400.css'
-import '@fontsource/jetbrains-mono/500.css'
-import '@fontsource/source-code-pro/400.css'
-import '@fontsource/source-code-pro/500.css'
-import '@fontsource/kalam/400.css'
-import '@fontsource/gloria-hallelujah/400.css'
+// The one bundled face: Noto Serif Bengali, the built-in for Bengali since 1.15.0.
+// Every Latin role draws in the device's own face (fonts.js FONT_FACES), so no
+// other family is shipped. @fontsource splits the face by unicode-range, so a
+// subset is only downloaded when a codepoint in its range is drawn.
 import '@fontsource/noto-serif-bengali/400.css'
 import '@fontsource/noto-serif-bengali/600.css'
-import '@fontsource/hind-siliguri/400.css'
-import '@fontsource/noto-serif-devanagari/400.css'
-import '@fontsource/noto-serif-devanagari/600.css'
-import '@fontsource/hind/400.css'
 import './index.css'
 import App from './App.jsx'
 import { applyColors, applyLabels, applyTheme } from './theme.js'
@@ -111,4 +60,15 @@ if (import.meta.env.VITE_DEMO) {
   })
 } else {
   boot()
+}
+
+// The app shell is cached by a service worker, so the installed iPhone app opens
+// with no signal. Production builds only: in development the worker would serve a
+// stale module over Vite's hot reload. The demo build never registers one, because
+// its data is a fetch shim the worker cannot see. `sw.js` is served from the root
+// with no-cache, which is what lets it control the whole site.
+if (import.meta.env.PROD && !import.meta.env.VITE_DEMO && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {})
+  })
 }

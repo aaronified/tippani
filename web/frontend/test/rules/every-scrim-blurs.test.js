@@ -52,12 +52,7 @@ const decl = (sel, prop) => {
 // stylesheet rather than from a list somebody has to remember to extend.
 // The exceptions, each with the ruling that granted it — the shape
 // `no-truncated-names.test.js` uses, so an exception stays visible as one.
-const EXCEPTED = {
-  // The tour dims the page to point AT something on it. A blur would soften the
-  // very thing the spotlight is drawing the reader to, which is the opposite of
-  // what this one cover is for.
-  'tour-scrim': 'a spotlight, not a curtain',
-}
+const EXCEPTED = {}
 
 const translucent = (v) => /rgba\(|color-mix\([^)]*transparent/.test(String(v || ''))
 

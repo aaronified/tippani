@@ -255,47 +255,14 @@ vocab.font-role.devanagari.what = ইন্টারফেস যেখানে
 # Already Devanagari on the English side, for the same reason.
 vocab.font-role.devanagari.sample = जो बीत गई सो बात गई
 
-# --- vocab.face.* — the eighteen bundled typefaces, in Settings → Type.
-# `.name` is the face's own name: DO NOT TRANSLATE it, though transliterating it
-# into the reader's script is fine. `.note` is the one-line reason to pick it.
-vocab.face.newsreader.name = Newsreader
-vocab.face.newsreader.note = সঙ্গে যেটা আসে
-vocab.face.source-serif-4.name = Source Serif 4
-vocab.face.source-serif-4.note = আরও পরিষ্কার, একটু চওড়া
-vocab.face.literata.name = Literata
-vocab.face.literata.note = অনেকক্ষণ পড়ার জন্য তৈরি
-vocab.face.hanken-grotesk.name = Hanken Grotesk
-vocab.face.hanken-grotesk.note = সঙ্গে যেটা আসে
-vocab.face.inter.name = Inter
-vocab.face.inter.note = সাদামাটা, ছোট মাপেও স্পষ্ট
-vocab.face.opendyslexic.name = OpenDyslexic
-vocab.face.opendyslexic.note = ভারী পা, ডিসলেক্সিয়ার জন্য
-vocab.face.public-sans.name = Public Sans
-vocab.face.public-sans.note = আরও সাদামাটা, চৌকো ধাঁচ
-vocab.face.ibm-plex-mono.name = IBM Plex Mono
-vocab.face.ibm-plex-mono.note = সঙ্গে যেটা আসে
-vocab.face.jetbrains-mono.name = JetBrains Mono
-vocab.face.jetbrains-mono.note = লম্বাটে, বেশি খোলামেলা
-vocab.face.source-code-pro.name = Source Code Pro
-vocab.face.source-code-pro.note = শান্ত ধাঁচ
-vocab.face.caveat.name = Caveat
-vocab.face.caveat.note = সঙ্গে যেটা আসে
-vocab.face.kalam.name = Kalam
-vocab.face.kalam.note = গোলগাল — দেবনাগরীও লেখে
-vocab.face.gloria-hallelujah.name = Gloria Hallelujah
-vocab.face.gloria-hallelujah.note = ঢিলেঢালা, আরও আটপৌরে
+vocab.face.system-serif.name = System serif
+vocab.face.system-sans.name = System sans
+vocab.face.system-mono.name = System mono
+vocab.face.system-hand.name = System hand
+vocab.face.system-script.name = System script
+vocab.face.system.note = সঙ্গে যেটা আসে
 vocab.face.noto-serif-bengali.name = Noto Serif Bengali
 vocab.face.noto-serif-bengali.note = সঙ্গে যেটা আসে
-vocab.face.hind-siliguri.name = Hind Siliguri
-vocab.face.hind-siliguri.note = স্যান্স — সাদামাটা, লাইনে বড় দেখায়
-vocab.face.tiro-bangla.name = Tiro Bangla
-vocab.face.tiro-bangla.note = চেনা ধাঁচ; 1.15-এর আগে এটাই আসত
-vocab.face.noto-serif-devanagari.name = Noto Serif Devanagari
-vocab.face.noto-serif-devanagari.note = সঙ্গে যেটা আসে
-vocab.face.hind.name = Hind
-vocab.face.hind.note = স্যান্স — সাদামাটা, লাইনে বড় দেখায়
-vocab.face.tiro-devanagari-hindi.name = Tiro Devanagari Hindi
-vocab.face.tiro-devanagari-hindi.note = চেনা ধাঁচ; 1.15-এর আগে এটাই আসত
 # A face the reader uploaded themselves, in the same slot as a bundled one's note.
 vocab.face.upload.note = নিজের আপলোড
 
@@ -307,16 +274,6 @@ vocab.font-style.allcaps.label = অল ক্যাপস
 # `font-variant-numeric: tabular-nums` — figures that line up in a column.
 vocab.font-style.figures.label = সারিবদ্ধ সংখ্যা
 
-# --- vocab.gesture.* — the seven touch gestures, drawn as a hand with the word
-# beside it. It names the gesture, never the instruction: "Long press", not
-# "press and hold for half a second".
-vocab.gesture.long-press.label = চেপে ধরা
-vocab.gesture.swipe-left.label = বাঁয়ে সোয়াইপ
-vocab.gesture.swipe-right.label = ডাইনে সোয়াইপ
-vocab.gesture.swipe-up.label = উপরে সোয়াইপ
-vocab.gesture.swipe-down.label = নিচে সোয়াইপ
-vocab.gesture.pinch-in.label = পিঞ্চ ইন
-vocab.gesture.pinch-out.label = পিঞ্চ আউট
 
 # ---------------------------------------------------------------------------
 # common.action.* — THE SHARED VERBS. One key per act, however many objects it
@@ -689,9 +646,6 @@ shell.error.boundary.body = বাকি অ্যাপটা ঠিকই চ�
 # The same line when the crashed area has a name. {name} is that name.
 shell.error.boundary.named.body = {name} — বাকি অ্যাপটা ঠিকই চলছে।
 
-# The legend for every keyboard shortcut at once, opened by `?`.
-shell.shortcuts.title = কীবোর্ড শর্টকাট
-shell.shortcuts.intro.prose = প্রতিটা শর্টকাট তার বোতামের গায়েই লেখা, তাই মুখস্থ রাখার দরকার নেই। টাইপ করার সময় শর্টকাট কাজ করে না।
 
 # ---------------------------------------------------------------------------
 # unit.* — EVERY COUNTABLE NOUN'S FORMS, and nothing else. The only namespace
@@ -986,7 +940,6 @@ shell.shortcut.group.go-to.label = যাতায়াত
 shell.shortcut.group.offer.label = পাশে যা দেওয়া হচ্ছে
 shell.shortcut.search.label = খোঁজ
 shell.shortcut.capture.label = উদ্ধৃতি তুলে রাখুন
-shell.shortcut.help.label = কীবোর্ড শর্টকাট
 shell.shortcut.go-home.label = হোমে যান
 shell.shortcut.go-library.label = গ্রন্থাগারে যান
 shell.shortcut.go-catalogue.label = ক্যাটালগে যান
@@ -1685,192 +1638,31 @@ error.validate.name-required = একটা নাম দিতে হবে
 # it needs to; the words inside them are translated like any others.
 # ---------------------------------------------------------------------------
 
-# Step "welcome".
-tour.step.welcome.title = টিপ্পনীতে স্বাগত
-tour.step.welcome.prose = যে লাইনগুলো মনে রাখার মতো — বইয়ের হাইলাইট, সিনেমার সংলাপ — Tippani সেগুলো সাজিয়ে রাখে: কভার, ট্যাগ, মুহূর্তে খোঁজা আর মনে রাখার জন্য দৈনিক অনুশীলনী সমেত। এই ট্যুরে সব কিছু এক এক করে দেখানো হবে।
-tour.step.welcome.more = “পরেরটা” চাপলে এগোবে, “ট্যুর বাদ দিন” চাপলে শেষ, আর “বাকিটা পরে” চাপলে যেখানে ছিলেন মনে রাখবে। উদাহরণগুলো অ্যাপেই আছে, আপনার কোনো ফাইল লাগবে না। ওপরের বারের “?” চাপলে এখনকার স্ক্রিনের প্রতিটা নিয়ন্ত্রণের মানে জানা যায়, আর সেখান থেকে ট্যুরটা আবার দেখাও যায়।
-
-# Step "add".
-tour.step.add.name = যোগ আর ইমপোর্ট
-tour.step.add.blurb = ＋ বোতাম দিয়ে বই, সিনেমা আর শো যোগ করুন, উদ্ধৃতি তুলে রাখুন, বা একসঙ্গে অনেক হাইলাইট ইমপোর্ট করুন
-tour.step.add.title = সবকিছুর জন্য একটাই ＋
-tour.step.add.prose = সবকিছু যোগ করা হয় ＋ বোতাম দিয়ে, আর আপনি কোথায় আছেন সেই বুঝে বদলায়: গ্রন্থাগারে {em1}, ক্যাটালগে {em2}, কোনো বই বা সিনেমা খোলা থাকলে {em3}। একসঙ্গে অনেক {em4} করা সেই প্যানেলেরই একটা ট্যাব।
-tour.step.add.em1.label = বই
-tour.step.add.em2.label = সিনেমা বা শো
-tour.step.add.em3.label = উদ্ধৃতি
-tour.step.add.em4.label = ইমপোর্ট
-tour.step.add.more = বই খোঁজা যায় নাম, লেখক বা ISBN দিয়ে, সিনেমা TMDB আর TheTVDB-তে — কভার আর বিবরণ নিজে থেকে ভরে যায়। ইমপোর্ট পড়তে পারে Markdown, Readest, কিন্ডল, Goodreads, Hardcover আর IMDb-র উদ্ধৃতির পাতা; সব আগে “যাচাই বাকি ইমপোর্ট”-এ জমা হয়, ওখানে মেনে না নেওয়া পর্যন্ত। একই ফাইল দুবার আনলেও কিছু দ্বিগুণ হয় না।
-
-# Step "library".
-tour.step.library.name = গ্রন্থাগার — বই আর উদ্ধৃতি
-tour.step.library.blurb = কভার, সিরিজ, রং, ট্যাগ আর প্রিয় — টাইল, তালিকা বা টেবিলে, যেমন খুশি ভাগ করে
-tour.step.library.title = গ্রন্থাগার
-tour.step.library.prose = আপনার বইগুলো, কভার আর রেখে দেওয়া সব হাইলাইট সমেত। একটা হাইলাইট দেখতে এরকম:
-tour.step.library.more = প্রতিটা হাইলাইটের একটা রং, ট্যাগ, অধ্যায় আর অবস্থান, আর একটা ♥ থাকে। দেখা যায় গাদা করা কার্ডে, তালিকায় বা সারণিতে; ছাঁকা যায় ধরন, তাক, প্রিয়, ট্যাগ বা নোট দিয়ে; সাজানো যায় সিরিজ, লেখক, দশক বা ধরন ধরে।
-
-# Step "catalogue".
-tour.step.catalogue.name = ক্যাটালগ — সিনেমা আর সংলাপ
-tour.step.catalogue.blurb = মনে রাখার মতো বাক্য — সঙ্গে সময়, চরিত্র, আর আপনা থেকে বসে যাওয়া অভিনেতার নাম
-tour.step.catalogue.title = ক্যাটালগ
-tour.step.catalogue.prose = সিনেমা আর শো-এর সংলাপও এভাবেই থাকে — প্রতিটা লাইনের সঙ্গে সময় আর চরিত্রের নাম। একটা লাইন দেখতে এরকম:
-tour.step.catalogue.more = অভিনেতার নাম অভিনেতাদের তালিকা থেকে নিজেই বসে, আপনি শুধু চরিত্রের নাম লেখেন। শো-তে সিজন আর পর্বও থাকে। ট্যাগ, প্রিয়, দেখার ধরন আর সাজানো — সবই গ্রন্থাগারের মতো।
-
-# Step "share".
-tour.step.share.name = শেয়ার আর এক্সপোর্ট
-tour.step.share.blurb = শেয়ার প্যানেল (WhatsApp/Markdown/ছবির কার্ড), আর Obsidian-এ খাপ খাওয়া এক্সপোর্ট
-tour.step.share.title = একটা বাক্য শেয়ার করুন, গোটাটা এক্সপোর্ট
-tour.step.share.prose = যে কোনও উদ্ধৃতি এক ট্যাপে শেয়ার হয় — লেখা হিসেবে, নয়তো আপনার নিজের সাজে আঁকা {em1} হিসেবে।
-tour.step.share.em1.label = ছবির কার্ড
-tour.step.share.more = শেয়ার করা যায় Markdown, WhatsApp, সাধারণ লেখা বা Reddit-এর ধাঁচে, কিংবা আপনার যন্ত্রেই তৈরি ছবি হিসেবে — আগেভাগে দেখে নিয়ে। একটা বই, ছেঁকে নেওয়া কয়েকটা, বা পুরো সংগ্রহ Markdown-এ এক্সপোর্ট করা যায়, আবার ঠিকঠাক ইমপোর্টও করা যায়।
-
-# Step "search".
-tour.step.search.name = সঙ্গে সঙ্গে খোঁজ
-tour.step.search.blurb = বানান ভুল হলেও চলে — উদ্ধৃতি, বই-সিনেমা, মানুষ আর নোটের ভিতর পর্যন্ত খোঁজে
-tour.step.search.title = যে কোনও বাক্য আবার খুঁজে পান
-tour.step.search.prose = যা কিছু রেখেছেন, সব কিছুর মধ্যে মুহূর্তে খোঁজ — {em1}; কী মিলেছে সেই ধরে ফল সাজানো। গ্রন্থাগার বা ক্যাটালগ থেকে খুঁজলে শুধু সেই দিকেই খোঁজে।
-tour.step.search.em1.label = বানান ভুল হলেও চলে
-tour.step.search.more = নাম, মানুষ, ধরন, সিরিজ, উদ্ধৃতি, নোট, ট্যাগ আর সংলাপ — সবেতেই খোঁজে। একটা দশক (“1990s”) বা তারিখ (“2026-07-14”) লিখলে তখন যা রেখেছিলেন তা পাবেন। কোনো ফল খুলে শেয়ার বা সম্পাদনা করুন, বা কয়েকটা বেছে একসঙ্গে ট্যাগ দিন বা বদলান।
-
-# Step "metadata".
-tour.step.metadata.name = মেটাডেটা আর মানুষ
-tour.step.metadata.blurb = কোন ঘরে কত ঘাটতি, একসঙ্গে সারাই, ডুপ্লিকেট এক করা; মানুষ — মুখের ছবি আর লিংক সমেত
-tour.step.metadata.title = তাক গুছিয়ে রাখুন
-tour.step.metadata.prose = সংগ্রহে কী কী নেই দেখায়, আর একসঙ্গে ঠিক করে দেয়। {em1} পান ছবি আর তথ্যসূত্রের লিংক — যেকোনো লেখক বা অভিনেতার নামে চাপুন।
-tour.step.metadata.em1.label = মানুষ
-tour.step.metadata.more = প্রতিটা হিসেবই একটা ছাঁকনি: “কভার নেই”-তে চাপলে শুধু সেই বইগুলো দেখাবে। তারপর বাছাইগুলো একসঙ্গে ঠিক করুন, একই জিনিসের দুটো কপি এক করুন, বক্তার নাম অভিনেতার সঙ্গে জুড়ুন, বা কিছু বদলানোর আগে উৎসের সঙ্গে আবার মিলিয়ে নিন।
 
 
 
-# Step "keys".
-# bn: An API key is a চাবি — the thing that opens a door — here and in every other
-# key about them. কী would collide with the question word, and কি with the particle.
-tour.step.keys.name = মেটাডেটার চাবি আর Amazon কুকি
-tour.step.keys.blurb = TMDB/TheTVDB/Google Books-এর চাবি, আর ইচ্ছে হলে Amazon কুকি (অ্যাডমিন)
-tour.step.keys.title = মেটাডেটার চাবি আর Amazon কুকি
-tour.step.keys.prose = খোঁজার কাজ চলে উজ্জ্বল করা কার্ডের কী দিয়ে। প্রতিটা ঘর আলাদা করে সেভ হয়, আর তার তথ্য-বিন্দুতে লেখা থাকে কী কোথায় পাবেন। এখনই বসান, বা “পরেরটা” চেপে পরে যোগ করুন।
-tour.step.keys.more = TMDB (সিনেমা আর শো) সাধারণত শুরু থেকেই ভাগ করা একটা কী-তে চলে। TheTVDB ঐচ্ছিক, লম্বা চলা শো-এর জন্য প্রায়ই ভালো। Google Books-এ দিনে প্রায় ১,০০০ খোঁজের বেশি হলে তবেই কী লাগে। Amazon কুকি ঐচ্ছিক। বইয়ের জন্য কোনো কী-ই লাগে না।
-
-# Step "backup".
-tour.step.backup.name = ব্যাকআপ, ফিরিয়ে আনা আর আপডেট
-tour.step.backup.blurb = তারিখ-দেওয়া একটা এনক্রিপ্ট করা আর্কাইভ, এখানে বা অন্য সার্ভারে ফেরানো যায়; চাইলে তবেই হালনাগাদ (অ্যাডমিন)
-tour.step.backup.title = নিশ্চিন্তে ঘুমোন
-tour.step.backup.prose = এক ক্লিকে সবকিছুর একটা তারিখ-দেওয়া আর্কাইভ তৈরি হয়, আপনার পাসওয়ার্ড দিয়ে {em1}। এখানে ফেরাতে পারেন, বা অন্য Tippani-তে নিয়ে গিয়ে সেখানে।
-tour.step.backup.em1.label = এনক্রিপ্ট করা
-tour.step.backup.more = আর্কাইভে পাসওয়ার্ডের হ্যাশ আর API কী-ও থাকে, তাই এনক্রিপ্ট করা হয়। আপনার পাসওয়ার্ডে যেকোনো Tippani-তে খোলে, চাইলে আলাদা পাসফ্রেজও দিতে পারেন। চাবিটা কোথাও রাখা হয় না, তাই নিজে যত্নে রাখুন। হালনাগাদ খোঁজা হয় শুধু আপনি চাইলে।
-
-# Step "account".
-tour.step.account.name = প্রোফাইল আর ইউজার
-tour.step.account.blurb = আপনার ছবি, নাম আর পাসওয়ার্ড, অ্যাকাউন্ট বদল, আর অ্যাডমিনের জন্য ইউজার সামলানো। প্রত্যেকের গ্রন্থাগার আলাদা
-tour.step.account.title = আপনার, আর বাকি সবার
-tour.step.account.prose = ছবিতে চাপলে আপনার {em1} খোলে — ছবি, নাম, পাসওয়ার্ড, অন্য অ্যাকাউন্টে যাওয়া আর লগ আউট। প্রত্যেকের সংগ্রহ আলাদা।
-tour.step.account.em1.label = প্রোফাইল
-tour.step.account.more = অ্যাডমিন এখান থেকেই ব্যবহারকারী যোগ করেন, সরান, অ্যাডমিন করেন। শেষ অ্যাডমিন পদ ছাড়তে পারেন না; দায়িত্ব দিতে হলে আগে অন্য কাউকে অ্যাডমিন করুন। অন্য অ্যাকাউন্টে যেতে প্রতিবারই সেই অ্যাকাউন্টের পাসওয়ার্ড লাগে।
-
-# Step "boards" — the Quotes screen.
-tour.step.boards.name = বোর্ড
-tour.step.boards.blurb = যে লাইনগুলো কোনো বই বা ছবির নয়, সেগুলো বোর্ডে রাখা
-tour.step.boards.title = বাকি সব জায়গার লাইন
-tour.step.boards.prose = একটা ভাষণ, চিঠি, গান, প্রবাদ, বন্ধুর বলা কোনো কথা। এগুলো এখানে {em1} থাকে — লাইনটা রাখার সময়েই বোর্ড বেছে নেন।
-tour.step.boards.em1.label = বোর্ডে
-tour.step.boards.more = সাধারণ বোর্ডে যা খুশি রাখা যায়; প্রবাদের বোর্ডে মূল লেখার পাশে থাকে প্রতিবর্ণীকরণ আর অনুবাদ। একটা বোর্ড আলাদা করে ছাঁকা, সাজানো আর এক্সপোর্ট করা যায়। বোর্ড মুছতে গেলে জিজ্ঞেস করে তার উদ্ধৃতিগুলোর কী হবে।
-
-# Step "anthologies" — the Anthologies screen.
-tour.step.anthologies.name = সংকলন
-tour.step.anthologies.blurb = উদ্ধৃতিগুলো একটা পড়ার ক্রমে সাজানো, মাঝে আপনার নিজের কথা
-tour.step.anthologies.title = এগুলো দিয়ে কিছু একটা বানান
-tour.step.anthologies.prose = সংকলন কোনো তাক নয়, বরং {em1}: আপনার পছন্দের ক্রমে উদ্ধৃতি, মাঝে মাঝে আপনার নিজের কথা। কোনো বই, ট্যাগ, লেখক বা রঙের দিকে দেখিয়ে দিলে নিজেই ভরে ওঠে।
-tour.step.anthologies.em1.label = লেখা
-tour.step.anthologies.more = একটা উদ্ধৃতি যত খুশি সংকলনে থাকতে পারে, নিজের জায়গা থেকে সরে না। প্রতিটা অংশে কী দেখাবে বেছে নিন; নিজে ভরতে দিলে পরে খুললেই নতুন মিলগুলো তৈরি থাকবে। Markdown বা EPUB হিসেবে এক্সপোর্ট করুন।
-
-# Step "filters" — the Search screen.
-tour.step.filters.name = সার্চের ছাঁকনি
-tour.step.filters.blurb = ফলাফলের উপর ফিল্ড-চিপ, পরিধি আর তারিখ
-tour.step.filters.title = আরও ছোট করে আনুন
-tour.step.filters.prose = একটা ঘরের নাম আর কোলন লিখুন — tag, author, colour — বাক্সটাই আপনার যা আছে তা সাজিয়ে দেবে। চিপ একটার পর একটা জমে, তাই {em1} ফল আরও ছোট করে; ওপরের সারি দেখায় সংগ্রহের কোন অংশে খুঁজছেন।
-tour.step.filters.em1.label = দুটো চিপ
-tour.step.filters.more = সত্যিকারের কোলন লিখতে হলে আগে একটা ব্যাকস্ল্যাশ দিন। রঙের নাম, তারিখ আর দশক — সবই চলে, আর ছাঁকা কোনো তাক থেকে এলে তার ছাঁকনিও সঙ্গে আসে। ফলগুলো বেছে ট্যাগ দিন, রং বদলান বা কোনো সংকলনে যোগ করুন।
 
 
-# Step "checks" — the Checks screen.
-tour.step.checks.name = যাচাইকরণ
-tour.step.checks.blurb = আপনার দেখার বাকি দুটো তালিকা — ইমপোর্ট, আর যেসব উদ্ধৃতিতে গোলমাল আছে
-tour.step.checks.title = কী কী আপনার দেখার বাকি
-tour.step.checks.prose = এক স্ক্রিনে দুটো তালিকা: ইমপোর্ট করা উদ্ধৃতি যেগুলো এখনও মেনে নেওয়া হয়নি, আর যেসব উদ্ধৃতিতে কিছু একটা {em1} লাগছে।
-tour.step.checks.em1.label = গোলমেলে
-tour.step.checks.more = প্রতিটা তালিকার নিজের স্ক্রিন আর লিংকও আছে। এখানে দেখা হয় লেখাটা ঠিক আছে কি না — মনে রাখার ব্যাপার নয়।
 
-# Step "cleanup" — the Cleanup screen.
-tour.step.cleanup.name = পরিষ্কার
-tour.step.cleanup.blurb = পাতা যা ছেড়ে গেছে — পৃষ্ঠাসংখ্যা, ভাঙা হাইফেন, পাদটীকার চিহ্ন
-tour.step.cleanup.title = পাতা যা ফেলে রেখে গেছে
-tour.step.cleanup.prose = প্রতিটা উদ্ধৃতি পড়ে দেখে কোনটা লেখকের নয়, বরং {em1} থেকে এসেছে: ভুল করে ঢুকে পড়া পাতার নম্বর, লাইন ভাঙার হাইফেন, পাদটীকার চিহ্ন।
-tour.step.cleanup.em1.label = পাতা
-tour.step.cleanup.more = যা পায় শুধু তালিকা করে; নিজে থেকে কিছু বদলায় না। নিয়ম ধরে ছাঁকুন, সারি খুলে ঠিক করুন, আর সংগ্রহ খুব বড় হলে বাকিটার জন্য আবার চালান।
 
-# Step "book" — a book's own page.
-tour.step.book.name = বইয়ের নিজের পাতা
-tour.step.book.blurb = তার খুঁটিনাটি, তার দাগানো অংশ, আর দুটোতেই যা করা যায়
-tour.step.book.title = একটা বই সম্পর্কে সব কিছু
-tour.step.book.prose = ওপরে বইয়ের তথ্য, নিচে সব হাইলাইট। এখানে ＋ চাপলে {em1} যোগ হয়, আরেকটা বই নয়।
-tour.step.book.em1.label = এই বই থেকে একটা উদ্ধৃতি
-tour.step.book.more = হিসেবগুলোয় চাপলে ছাঁকা যায়, ♥ দিয়ে বই বা আলাদা উদ্ধৃতি চিহ্নিত হয়, আর তাকের চিপ দেখায় বইটা পড়ছেন কি না। কপি, শেয়ার আর এক্সপোর্ট — একটা হাইলাইটে বা কয়েকটা বেছে নিয়ে।
 
-# Step "film" — a film's own page.
-tour.step.film.name = ছবির নিজের পাতা
-tour.step.film.blurb = কুশীলব, কৃতজ্ঞতা আর আপনার তুলে রাখা প্রতিটি লাইন
-tour.step.film.title = একটা ছবি সম্পর্কে সব কিছু
-tour.step.film.prose = স্টুডিও, প্রকাশক আর অভিনেতাদের তালিকা — যার সঙ্গে {em1} নাম মেলানো হয় — আর নিচে আপনার রাখা সব লাইন।
-tour.step.film.em1.label = বক্তাদের
-tour.step.film.more = নাম হিসেবে লেখা বক্তাকে অভিনেতাদের তালিকার সঙ্গে জুড়ে দেওয়া যায়, তখন তাঁর চিপে চাপলে মানুষটার পাতা খোলে। কণ্ঠশিল্পীদের তালিকা আলাদা থাকে। এখানে ＋ চাপলে এই সিনেমায় একটা লাইন যোগ হয়।
 
-# Step "done".
-tour.step.done.title = ট্যুর এই পর্যন্তই
-tour.step.done.prose = এই হলো সব। যেকোনো স্ক্রিনের {em2} সেখানকার নিয়ন্ত্রণগুলো বুঝিয়ে দেয়, আর সেখানেই ট্যুরটা আবার দেখায় — ট্যুর এখন চলে {em1}। উপভোগ করুন।
-tour.step.done.em1.label = এক-একটা স্ক্রিন ধরে
-tour.step.done.em2.label = ?
 
-# The tour's own chrome. {done} of {total} counts steps, and {total} varies: an
-# admin sees two steps nobody else does, and a switched-off section drops its own.
-tour.progress.label = {done} / {total}
-# Saves your place and closes. Escape does the same thing.
-tour.later.label = বাকিটা পরে
-# Ends the tour for good.
-tour.skip.label = ট্যুর বাদ দিন
-help.tour.label.one = এই পাতাটা ঘুরে দেখুন (১টি ধাপ)
-help.tour.label.other = এই পাতাটা ঘুরে দেখুন ({n}টি ধাপ)
-tour.reenable.label = ট্যুর আবার চালু করুন
-tour.toast.reenabled = ট্যুর আবার চালু হল।
-tour.back.aria = আগের ধাপ
-tour.next.label = পরেরটা
-# The last step's Next.
-tour.finish.label = শেষ করুন
-# One toast per way out, so which one you took is never in doubt.
-tour.toast.done = ট্যুর শেষ · প্রতিটা স্ক্রিনের ? থেকে সেই স্ক্রিনের ট্যুর দেখা যায়
-tour.toast.skipped = ট্যুর বাদ · প্রতিটা স্ক্রিনের ? থেকে সেই স্ক্রিনের ট্যুর দেখা যায়
-tour.toast.postponed = পরের জন্য রাখা হল · প্রতিটা স্ক্রিনের ? থেকে সেই স্ক্রিনের ট্যুর দেখা যায়
 
-# THE BUILT-IN SAMPLE QUOTES, rendered under the Library and Catalogue steps so
-# an empty library still shows what a captured quote looks like. Both are public
-# domain. A LANGUAGE MAY REPLACE THEM WITH ITS OWN: the point is to show the
-# shape of a kept line, and a line nobody in the room can read does not.
-# Leave the titles and the names alone if you keep these two.
-# bn: The book specimen is Bengali — the first song of গীতাঞ্জলি (1910), public
-# domain, and known to every reader in the room. The film line stays Casablanca: a
-# Bengali library of kept lines has English films in it, and no Bengali film line
-# of that fame is out of copyright.
-tour.demo.book.quote.prose = আমার মাথা নত করে দাও হে তোমার চরণধুলার তলে।
-tour.demo.book.title = গীতাঞ্জলি
-tour.demo.book.author.label = রবীন্দ্রনাথ ঠাকুর
-tour.demo.book.meta.label = গান 1
-# The credit line under the sample book highlight. {title} arrives italicised.
-tour.demo.book.credit.label = — {name}, {title} · {meta}
-tour.demo.film.quote.prose = Here's looking at you, kid.
-tour.demo.film.title = Casablanca
-tour.demo.film.character.label = Rick Blaine
-tour.demo.film.actor.label = Humphrey Bogart
-tour.demo.film.meta.label = 01:15:00
-# The credit line under the sample film line. {title} arrives italicised.
-tour.demo.film.credit.label = — {character} ({actor}), {title} ({year}) · {meta}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # ---------------------------------------------------------------------------
 # THE QUOTES SCREEN AND ITS BOARDS (boards.jsx)

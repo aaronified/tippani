@@ -239,47 +239,16 @@ vocab.font-role.devanagari.what = Devanagari letters anywhere the interface draw
 # Already Devanagari on the English side, for the same reason.
 vocab.font-role.devanagari.sample = जो बीत गई सो बात गई
 
-# --- vocab.face.* — the eighteen bundled typefaces, in Settings → Type.
-# `.name` is the face's own name: DO NOT TRANSLATE it, though transliterating it
-# into the reader's script is fine. `.note` is the one-line reason to pick it.
-vocab.face.newsreader.name = Newsreader
-vocab.face.newsreader.note = The built-in
-vocab.face.source-serif-4.name = Source Serif 4
-vocab.face.source-serif-4.note = Cleaner, a little wider
-vocab.face.literata.name = Literata
-vocab.face.literata.note = Made for long reading
-vocab.face.hanken-grotesk.name = Hanken Grotesk
-vocab.face.hanken-grotesk.note = The built-in
-vocab.face.inter.name = Inter
-vocab.face.inter.note = Neutral, very legible small
-vocab.face.public-sans.name = Public Sans
-vocab.face.public-sans.note = Plainer, squarer
-vocab.face.opendyslexic.name = OpenDyslexic
-vocab.face.opendyslexic.note = Weighted feet, for dyslexia
-vocab.face.ibm-plex-mono.name = IBM Plex Mono
-vocab.face.ibm-plex-mono.note = The built-in
-vocab.face.jetbrains-mono.name = JetBrains Mono
-vocab.face.jetbrains-mono.note = Taller, more open
-vocab.face.source-code-pro.name = Source Code Pro
-vocab.face.source-code-pro.note = Quieter
-vocab.face.caveat.name = Caveat
-vocab.face.caveat.note = The built-in
-vocab.face.kalam.name = Kalam
-vocab.face.kalam.note = Rounder — and writes Devanagari too
-vocab.face.gloria-hallelujah.name = Gloria Hallelujah
-vocab.face.gloria-hallelujah.note = Looser, more casual
+# --- vocab.face.* — the faces Settings → Type offers. `.name` is the face's own name:
+# DO NOT TRANSLATE it. `.note` is the one-line reason to pick it.
+vocab.face.system-serif.name = System serif
+vocab.face.system-sans.name = System sans
+vocab.face.system-mono.name = System mono
+vocab.face.system-hand.name = System hand
+vocab.face.system-script.name = System script
+vocab.face.system.note = The built-in
 vocab.face.noto-serif-bengali.name = Noto Serif Bengali
 vocab.face.noto-serif-bengali.note = The built-in
-vocab.face.hind-siliguri.name = Hind Siliguri
-vocab.face.hind-siliguri.note = Sans — plainer and larger on the line
-vocab.face.tiro-bangla.name = Tiro Bangla
-vocab.face.tiro-bangla.note = Traditional; the built-in before 1.15
-vocab.face.noto-serif-devanagari.name = Noto Serif Devanagari
-vocab.face.noto-serif-devanagari.note = The built-in
-vocab.face.hind.name = Hind
-vocab.face.hind.note = Sans — plainer and larger on the line
-vocab.face.tiro-devanagari-hindi.name = Tiro Devanagari Hindi
-vocab.face.tiro-devanagari-hindi.note = Traditional; the built-in before 1.15
 # A face the reader uploaded themselves, in the same slot as a bundled one's note.
 vocab.face.upload.note = Yours
 
@@ -291,16 +260,6 @@ vocab.font-style.allcaps.label = All caps
 # `font-variant-numeric: tabular-nums` — figures that line up in a column.
 vocab.font-style.figures.label = Tabular figures
 
-# --- vocab.gesture.* — the seven touch gestures, drawn as a hand with the word
-# beside it. It names the gesture, never the instruction: "Long press", not
-# "press and hold for half a second".
-vocab.gesture.long-press.label = Long press
-vocab.gesture.swipe-left.label = Swipe left
-vocab.gesture.swipe-right.label = Swipe right
-vocab.gesture.swipe-up.label = Swipe up
-vocab.gesture.swipe-down.label = Swipe down
-vocab.gesture.pinch-in.label = Pinch in
-vocab.gesture.pinch-out.label = Pinch out
 
 # ---------------------------------------------------------------------------
 # common.action.* — THE SHARED VERBS. One key per act, however many objects it
@@ -692,9 +651,6 @@ shell.error.boundary.body = the rest of the app is fine.
 # The same line when the crashed area has a name. {name} is that name.
 shell.error.boundary.named.body = {name} — the rest of the app is fine.
 
-# The legend for every keyboard shortcut at once, opened by `?`.
-shell.shortcuts.title = Keyboard shortcuts
-shell.shortcuts.intro.prose = Each key is also printed on its button, so nothing needs memorising. Keys do nothing while you type.
 
 # ---------------------------------------------------------------------------
 # unit.* — EVERY COUNTABLE NOUN'S FORMS, and nothing else. The only namespace
@@ -987,7 +943,6 @@ shell.shortcut.group.go-to.label = Go to
 shell.shortcut.group.offer.label = An offer beside a field
 shell.shortcut.search.label = Search
 shell.shortcut.capture.label = Capture a quote
-shell.shortcut.help.label = Keyboard shortcuts
 shell.shortcut.go-home.label = Go to Home
 shell.shortcut.go-library.label = Go to Library
 shell.shortcut.go-catalogue.label = Go to Catalogue
@@ -1691,190 +1646,31 @@ error.validate.name-required = A name is required
 # it needs to; the words inside them are translated like any others.
 # ---------------------------------------------------------------------------
 
-# Step "welcome".
-tour.step.welcome.title = Welcome to tippani
-tour.step.welcome.prose = Tippani keeps the lines worth keeping — book highlights and film dialogue — with covers, tags, instant search and a daily memory quiz. This tour shows every feature.
-tour.step.welcome.more = Next moves on, “skip tour” ends it, and “finish later” saves your place. The examples are built in, so none of your files are needed. The “?” in the top bar explains every control on the current screen and can replay the tour there.
-
-# Step "add".
-tour.step.add.name = Add & import
-tour.step.add.blurb = The ＋ button adds books, films and shows, captures quotes, and imports highlights in bulk
-tour.step.add.title = One ＋ Add for everything
-tour.step.add.prose = The ＋ button adds everything, and adapts to where you are: a {em1} on Library, a {em2} on the Catalogue, a {em3} on an open work. Bulk {em4} is a tab of the same panel.
-tour.step.add.em1.label = book
-tour.step.add.em2.label = film or show
-tour.step.add.em3.label = quote
-tour.step.add.em4.label = import
-tour.step.add.more = Books are looked up by title, author or ISBN, films on TMDB and TheTVDB, with covers and details filled in. Imports read Markdown, Readest, Kindle, Goodreads, Hardcover and IMDb quote pages, and land in Pending import until you approve them there. Importing the same file twice never duplicates anything.
-
-# Step "library".
-tour.step.library.name = Library — books & annotations
-tour.step.library.blurb = Covers, series, colours, tags and favourites, shown as tiles, a list or a table, and grouped as you like
-tour.step.library.title = The Library
-tour.step.library.prose = Your books, with their covers and every highlight you've kept. A highlight looks like this:
-tour.step.library.more = Each highlight has a colour, tags, a chapter and location, and a ♥. View as masonry, list or table; filter by genre, shelf, favourites, tags or notes; group by series, author, decade or genre.
-
-# Step "catalogue".
-tour.step.catalogue.name = Catalogue — films & dialogues
-tour.step.catalogue.blurb = memorable lines with timestamp, character and auto-filled actor
-tour.step.catalogue.title = The Catalogue
-tour.step.catalogue.prose = Films and shows keep their dialogue the same way, each line with its timestamp and character. A line looks like this:
-tour.step.catalogue.more = The actor is filled in from the cast, so you only type the character. Shows add a season and episode. Tags, favourites, views and grouping work as in the Library.
-
-# Step "share".
-tour.step.share.name = Share & export
-tour.step.share.blurb = share sheet (WhatsApp/Markdown/image cards) + Obsidian-friendly export
-tour.step.share.title = Share a line, export the lot
-tour.step.share.prose = Any quote shares in one tap — as text, or as an {em1} drawn in your own skin.
-tour.step.share.em1.label = image card
-tour.step.share.more = Share as Markdown, WhatsApp, plain text or Reddit, or as an image made on your device with a live preview. Export one work, a filtered set or the whole library as Markdown that imports back cleanly.
-
-# Step "search".
-tour.step.search.name = Instant search
-tour.step.search.blurb = typo-tolerant full-text search across quotes, works, people and notes
-tour.step.search.title = Find any line again
-tour.step.search.prose = Instant, {em1} search over everything you've kept, with results grouped by what matched. From the Library or Catalogue it searches that side only.
-tour.step.search.em1.label = typo-tolerant
-tour.step.search.more = It searches titles, people, genres, series, quotes, notes, tags and dialogue. A decade (“1990s”) or a date (“2026-07-14”) finds what you saved then. Open a result to share or edit it, or select several to tag or edit together.
-
-# Step "metadata".
-tour.step.metadata.name = Metadata console & People
-tour.step.metadata.blurb = coverage per field, bulk fixes, duplicate merges; people with portraits & links
-tour.step.metadata.title = Keep the shelves tidy
-tour.step.metadata.prose = Shows what the library is missing and fixes it in bulk. {em1} get photos and reference links — tap any author or actor name.
-tour.step.metadata.em1.label = People
-tour.step.metadata.more = Each coverage count is a filter: tap “no cover” to list just those books. Then correct a selection at once, merge duplicates, map speaker labels onto a cast, or re-check works against their sources before anything changes.
 
 
 
-# Step "keys".
-tour.step.keys.name = Metadata keys & Amazon cookie
-tour.step.keys.blurb = TMDB/TheTVDB/Google Books keys and the optional Amazon cookie (admin)
-tour.step.keys.title = Metadata keys & the Amazon cookie
-tour.step.keys.prose = Lookups use the keys in the highlighted card. Each field saves on its own, and its info dot says where to get that key. Paste them now or press Next and add them later.
-tour.step.keys.more = TMDB (films and shows) usually works out of the box on a shared key. TheTVDB is optional and often better for long-running shows. Google Books only needs a key past about 1,000 lookups a day. The Amazon cookie is optional. Books need no key at all.
-
-# Step "backup".
-tour.step.backup.name = Backup, restore & updates
-tour.step.backup.blurb = one dated, encrypted archive, restored here or on another server; updates on demand (admin)
-tour.step.backup.title = Sleep well
-tour.step.backup.prose = One click makes a dated archive of everything, {em1} with your password. Restore it here, or on another Tippani to move.
-tour.step.backup.em1.label = encrypted
-tour.step.backup.more = The archive includes password hashes and API keys, so it is encrypted. Your password opens it on any Tippani, or set a separate passphrase. The key is never stored, so keep it safe. Updates are checked only when you ask.
-
-# Step "account".
-tour.step.account.name = Profile & users
-tour.step.account.blurb = Your photo, name and password, switching accounts, and — for admins — managing users. Each user has their own library
-tour.step.account.title = Yours, and everyone else’s
-tour.step.account.prose = The avatar opens your {em1} — photo, name, password, switching accounts and logging out. Every user has a separate library.
-tour.step.account.em1.label = Profile
-tour.step.account.more = Admins add and remove users and grant admin here. The last admin cannot step down; to hand over, make someone else admin first. Switching accounts always asks for that account's password.
-
-# Step "boards" — the Quotes screen.
-tour.step.boards.name = Boards
-tour.step.boards.blurb = lines that belong to no book and no film, filed on boards
-tour.step.boards.title = Lines from everywhere else
-tour.step.boards.prose = A speech, a letter, a song, a proverb, something a friend said. They go on {em1} here — you choose the board as you save the line.
-tour.step.boards.em1.label = boards
-tour.step.boards.more = A plain board holds anything; a proverb board pairs the original with a transliteration and a translation. Filter, group and export one board at a time. Deleting a board asks what to do with its quotes.
-
-# Step "anthologies" — the Anthologies screen.
-tour.step.anthologies.name = Anthologies
-tour.step.anthologies.blurb = quotes gathered into a reading order, with your own words between them
-tour.step.anthologies.title = Make something out of them
-tour.step.anthologies.prose = An anthology is {em1}, not a shelf: quotes in your chosen order, with your own words between them. Point one at a book, tag, author or colour and it fills itself.
-tour.step.anthologies.em1.label = writing
-tour.step.anthologies.more = A quote can be in any number of anthologies and stays where it lives. Choose what each passage shows; let it keep filling and new matches are waiting when you open it. Export as Markdown or EPUB.
-
-# Step "filters" — the Search screen.
-tour.step.filters.name = Search filters
-tour.step.filters.blurb = field chips, scopes and dates over the results
-tour.step.filters.title = Narrow it down
-tour.step.filters.prose = Type a field and a colon — tag, author, colour — and the box suggests what you have. Chips stack, so {em1} narrow the results; the row above shows which part of the library you're searching.
-tour.step.filters.em1.label = two chips
-tour.step.filters.more = Type a backslash before a colon you mean literally. Colour names, a date and a decade all work, and coming from a filtered shelf brings its filters along. Select results to tag, recolour or add to an anthology.
 
 
-# Step "checks" — the Checks screen.
-tour.step.checks.name = Checks
-tour.step.checks.blurb = the two lists waiting on you — imports, and quotes that look odd
-tour.step.checks.title = What is waiting on you
-tour.step.checks.prose = Two lists on one screen: imported quotes waiting for approval, and quotes where something looks {em1}.
-tour.step.checks.em1.label = odd
-tour.step.checks.more = Each list also has its own screen and link. This is about whether the text is right, not about remembering it.
 
-# Step "cleanup" — the Cleanup screen.
-tour.step.cleanup.name = Cleanup
-tour.step.cleanup.blurb = what the page left on your quotes — page numbers, broken hyphens, footnote marks
-tour.step.cleanup.title = What the page left behind
-tour.step.cleanup.prose = Reads every quote for things that came from the {em1}, not the writer: a stray page number, a hyphen from a line break, a footnote mark.
-tour.step.cleanup.em1.label = page
-tour.step.cleanup.more = It only lists what it finds; nothing changes by itself. Filter by rule, open a row to fix it, and run again for the rest of a very large library.
 
-# Step "book" — a book's own page.
-tour.step.book.name = A book's own page
-tour.step.book.blurb = its details, its highlights, and what you can do to both
-tour.step.book.title = Everything about one book
-tour.step.book.prose = The book's details at the top and every highlight below. ＋ here adds {em1}, not another book.
-tour.step.book.em1.label = a quote against this book
-tour.step.book.more = The counts are filters, the ♥ marks the book or a single quote, and the shelf chip shows whether you're reading it. Copy, share and export work on one highlight or a selection.
 
-# Step "film" — a film's own page.
-tour.step.film.name = A film's own page
-tour.step.film.blurb = cast, credits and every line you kept
-tour.step.film.title = Everything about one film
-tour.step.film.prose = Studio, publisher and the cast that {em1} match against, with every line you've kept below.
-tour.step.film.em1.label = the speakers
-tour.step.film.more = A speaker typed as a name can be mapped onto the cast, so their chip opens a person. Voice cast is kept separate. ＋ here adds a line to this film.
 
-# Step "done".
-tour.step.done.title = That’s the tour
-tour.step.done.prose = That's everything. The {em2} on any screen explains its controls, and replays the tour there — it now runs {em1}. Enjoy.
-tour.step.done.em1.label = one screen at a time
-tour.step.done.em2.label = ?
 
-# The tour's own chrome. {done} of {total} counts steps, and {total} varies: an
-# admin sees two steps nobody else does, and a switched-off section drops its own.
-tour.progress.label = {done} of {total}
-# Saves your place and closes. Escape does the same thing.
-tour.later.label = finish later
-# Ends the tour for good.
-tour.skip.label = skip tour
-# THE WALKTHROUGH FOR ONE SCREEN, offered at the top of that screen's help. Plural
-# because the count is the honest thing to promise: "Tour this page (3 steps)" tells
-# a reader what they are committing to, which a bare "Tour this page" does not.
-help.tour.label.one = Tour this page (1 step)
-help.tour.label.other = Tour this page ({n} steps)
-# Where they skipped the tour and want it back — the same slot the skip was in.
-tour.reenable.label = Turn the tour back on
-tour.toast.reenabled = The tour is back on.
-tour.back.aria = Previous step
-tour.next.label = Next
-# The last step's Next.
-tour.finish.label = Finish
-# One toast per way out, so which one you took is never in doubt.
-tour.toast.done = tour complete · each screen's ? has its own walkthrough
-tour.toast.skipped = tour skipped · each screen's ? has its own walkthrough
-tour.toast.postponed = saved for later · each screen's ? has its own walkthrough
 
-# THE BUILT-IN SAMPLE QUOTES, rendered under the Library and Catalogue steps so
-# an empty library still shows what a captured quote looks like. Both are public
-# domain. A LANGUAGE MAY REPLACE THEM WITH ITS OWN: the point is to show the
-# shape of a kept line, and a line nobody in the room can read does not.
-# Leave the titles and the names alone if you keep these two.
-tour.demo.book.quote.prose = It is a truth universally acknowledged, that a single man in possession of a good fortune, must be in want of a wife.
-tour.demo.book.title = Pride and Prejudice
-tour.demo.book.author.label = Jane Austen
-tour.demo.book.meta.label = Chapter 1
-# The credit line under the sample book highlight. {title} arrives italicised.
-tour.demo.book.credit.label = — {name}, {title} · {meta}
-tour.demo.film.quote.prose = Here's looking at you, kid.
-tour.demo.film.title = Casablanca
-tour.demo.film.character.label = Rick Blaine
-tour.demo.film.actor.label = Humphrey Bogart
-tour.demo.film.meta.label = 01:15:00
-# The credit line under the sample film line. {title} arrives italicised.
-tour.demo.film.credit.label = — {character} ({actor}), {title} ({year}) · {meta}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # ---------------------------------------------------------------------------
 # THE QUOTES SCREEN AND ITS BOARDS (boards.jsx)
