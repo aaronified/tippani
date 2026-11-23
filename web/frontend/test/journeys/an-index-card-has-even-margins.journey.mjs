@@ -15,10 +15,15 @@
 // on a card holding a row that scrolls sideways — a row of chips there runs under
 // a fade on purpose, so its right edge is the card's border by design.
 //
+// THE SETTINGS CARD HERE IS THE UPDATE CARD, ALONE. The System logs card sits in
+// the same section, but its log lines are a scrolling list that paints well past
+// its own box, so "the lowest painted thing" is a line far below the card and
+// the measure says nothing about the card's edge. The Theme section draws no
+// bordered card at all — its rows are ruled, not boxed — so there is no edge to
+// measure there.
+//
 // Mutations: with the row's pull-up removed (the rule that makes the drawing, not the
-// box, sit at the inset), the top reads about 25px against 19 and this fails; with
-// the range input left inline, Review's "Schedule" card is about 7px heavier at the
-// bottom and the second case fails.
+// box, sit at the inset), the top reads about 25px against 19 and this fails.
 
 import { expect, it } from 'vitest'
 
@@ -67,7 +72,7 @@ async function insets(names) {
 }
 
 it('every section card on the phone index has even margins', async () => {
-  for (const [where, names] of [['/metadata', ['Works', 'People', 'Characters', 'Sources']], ['/settings', ['Theme', 'Review', 'Sections']]]) {
+  for (const [where, names] of [['/metadata', ['Works', 'People', 'Characters', 'Sources']], ['/settings', ['Theme', 'Language and font', 'Server']]]) {
     await app.goto(where)
     await app.see(names[0])
     for (const c of await insets(names)) {
@@ -81,13 +86,13 @@ it('every section card on the phone index has even margins', async () => {
   expect(app.pageErrors(), 'the page threw on the way').toEqual([])
 })
 
-it('every card in a Settings section has even margins, a card ending on a slider too', async () => {
-  await app.goto('/settings/review')
-  await app.see('Schedule')
-  for (const c of await insets(['The deck and what it asks', 'Schedule', 'Practice'])) {
-    expect(c.missing, `${c.name} is not on Review`).toBeFalsy()
-    expect(Math.abs(c.top - c.left), `Review ${c.name}: top ${c.top.toFixed(1)} against left ${c.left.toFixed(1)}`).toBeLessThanOrEqual(3)
-    expect(Math.abs(c.bottom - c.left), `Review ${c.name}: bottom ${c.bottom.toFixed(1)} against left ${c.left.toFixed(1)}`).toBeLessThanOrEqual(3)
+it('every card in a Settings section has even margins, a card ending on a control too', async () => {
+  await app.goto('/settings/server')
+  await app.see('Updates')
+  for (const c of await insets(['Updates'])) {
+    expect(c.missing, `${c.name} is not on Server`).toBeFalsy()
+    expect(Math.abs(c.top - c.left), `Server ${c.name}: top ${c.top.toFixed(1)} against left ${c.left.toFixed(1)}`).toBeLessThanOrEqual(3)
+    expect(Math.abs(c.bottom - c.left), `Server ${c.name}: bottom ${c.bottom.toFixed(1)} against left ${c.left.toFixed(1)}`).toBeLessThanOrEqual(3)
   }
   expect(app.pageErrors(), 'the page threw on the way').toEqual([])
 })

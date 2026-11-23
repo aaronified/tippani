@@ -14,8 +14,11 @@
 // count.
 //
 // THE MUTATIONS: make the counter write nothing and the first two tests fail on
-// "1 · light and dark"; drop the one-card rule (number whenever there is a card)
-// and the third fails on "1 · duplicate works".
+// "1 · Updates" and "1 · All sources"; drop the one-card rule (number whenever
+// there is a card) and the third fails on "1 · Duplicate works".
+//
+// The Theme section draws a single card (its rows are ruled, not boxed), so it
+// is no longer a place a count can be seen; Server and Sources hold two each.
 
 import { expect, it } from 'vitest'
 
@@ -24,16 +27,16 @@ import { openApp } from './harness/world.mjs'
 const app = openApp()
 
 it('Settings counts its cards in order', async () => {
-  await app.goto('/settings/theme')
-  await app.see('1 · Light and dark')
-  await app.see('2 · What it is made of')
+  await app.goto('/settings/server')
+  await app.see('1 · Updates')
+  await app.see('2 · System logs')
   expect(app.pageErrors(), 'the page threw on the way').toEqual([])
 })
 
 it('Metadata counts its cards the same way', async () => {
-  await app.goto('/metadata/categories')
-  await app.see('1 · Tags')
-  await app.see('2 · Stickers')
+  await app.goto('/metadata/sources')
+  await app.see('1 · All sources')
+  await app.see('2 · Multi-author credits')
   expect(app.pageErrors(), 'the page threw on the way').toEqual([])
 })
 

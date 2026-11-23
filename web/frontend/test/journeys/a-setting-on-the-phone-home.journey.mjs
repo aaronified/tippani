@@ -47,8 +47,8 @@ it('a reader changes the theme from the phone settings home, without opening a s
 
   // The doors are all still there — the cards are a shortcut, not a replacement.
   await app.see('Theme')
-  await app.see('Review')
   await app.see('Language and font')
+  await app.see('Server')
 
   // AND THE CONTROL IS ON THE INDEX, with nothing pressed to reveal it. This is
   // the whole of what changed: before, reaching this toggle meant pressing Theme.
@@ -59,9 +59,9 @@ it('a reader changes the theme from the phone settings home, without opening a s
 
   // STILL ON THE INDEX. If the control were nested inside the row's button the
   // press would have walked into Theme instead, and the assertion above could
-  // still have passed — the section draws the same toggle. The other four doors
+  // still have passed — the section draws the same toggle. The other doors
   // being on screen is what says we did not go anywhere.
-  await app.see('Review')
+  await app.see('Language and font')
   await app.see('Server')
 
   // AND THE COLOURS OPEN, WHICH THEY DID NOT. The first cut of this card drew the

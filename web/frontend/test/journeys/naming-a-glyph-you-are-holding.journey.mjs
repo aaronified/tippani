@@ -10,11 +10,14 @@
 // was listening for a hold. A phone has no hover, so on the surface the owner
 // actually uses there was no way to learn a glyph at all.
 //
-// WHY THE LABELS GO OFF FIRST, AND IT IS THE WHOLE INTEGRITY OF THIS CASE. With
-// words showing, "Back up now" is on the screen already — so a `see` after the
-// hold would pass over an app that does nothing when held, which is exactly the
-// state before this change. Turning them off is what makes the words ABSENT, so
-// the only way they can appear is the hold.
+// WHY THE LABELS ARE OFF, AND IT IS THE WHOLE INTEGRITY OF THIS CASE. With words
+// showing, a button's name is already on the screen, so a count taken after the
+// hold would pass over an app that does nothing when held. The Button labels
+// choice was cut from the web app (ADR-0936), but its default on a phone is
+// already "off": `labelsPref()` is 'auto' and auto clips the words under the
+// 768px breakpoint. So the phone this journey runs on has no words to show, and
+// the only way the name can appear is the hold. The journey does not touch the
+// preference at all, because there is no control left to touch it with.
 //
 // WHAT NO OTHER TIER CAN SEE. The words are clipped in CSS, not removed: they
 // stay in the DOM and in the accessibility tree on purpose, so every tier that
@@ -23,11 +26,8 @@
 // — to tell a clipped word from a drawn one, and a real touch to fire the hold.
 //
 // THE MUTATION: drop the `hold` spread from PlayfulButton — or change its gate
-// from `icon && !keepLabel` to `keepLabel` — and this goes red at the `see`
-// after the hold, because nothing answers the press.
-//
-// It puts the preference back at the end: this is a shared fixture, and a reader
-// who did not ask for this journey should not find their buttons wordless.
+// from `icon && !keepLabel` to `keepLabel` — and this goes red at the count after
+// the hold, because nothing answers the press.
 //
 // It knows only the words on the screen and nothing else.
 
@@ -38,19 +38,11 @@ import { PHONE, openApp } from './harness/world.mjs'
 const app = openApp({ viewport: PHONE })
 
 it('a reader holds a glyph button with its words hidden, and it names itself', async () => {
-  await app.goto('/settings')
-  await app.press('Theme')
-
-  // Words off, which is the state this whole case is about.
-  await app.press('Hide')
-  expect(await app.chosen('Hide'), 'the label preference did not change').toBe(true)
-
-  // A COLLAPSIBLE VERB, WHICH IS NOT THE SAME AS ANY OLD BUTTON. The Server
-  // section's Back up now was the first target here and it was the WRONG one:
-  // that button carries `keepLabel`, so it keeps its words at every width on the
-  // standing rule that a primary or destructive act does. It never collapses, so
-  // it has nothing to name and correctly answers no hold. Checks' "Look again" is
-  // an ordinary verb and does collapse, which is the case this is about.
+  // A COLLAPSIBLE VERB, WHICH IS NOT THE SAME AS ANY OLD BUTTON. A button that
+  // carries `keepLabel` keeps its words at every width on the standing rule that
+  // a primary or destructive act does, so it has nothing to name and correctly
+  // answers no hold. Checks' "Look again" is an ordinary verb and does collapse,
+  // which is the case this is about.
   await app.goto('/cleanup')
 
   // THE WORDS ARE CLIPPED, NOT REMOVED, AND THAT IS WHY THIS COUNTS RATHER THAN
@@ -69,12 +61,6 @@ it('a reader holds a glyph button with its words hidden, and it names itself', a
 
   await app.hold('Look again')
   expect(await times(), 'holding the glyph did not put its name on the screen').toBe(before + 1)
-
-  // Leave the world as it was found.
-  await app.goto('/settings')
-  await app.press('Theme')
-  await app.press('Auto')
-  expect(await app.chosen('Auto'), 'the label preference was not put back').toBe(true)
 
   expect(app.pageErrors(), 'the page threw on the way').toEqual([])
 })
