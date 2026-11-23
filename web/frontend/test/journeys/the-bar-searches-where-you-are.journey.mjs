@@ -16,8 +16,8 @@
 // THREE CLAIMS, AND EACH IS A DIFFERENT WAY THIS COULD BE WRONG:
 //   - THE FIELD SAYS WHERE IT IS. The words are in the field itself, not only in a
 //     pill, because that is what the owner asked for twice.
-//   - IT NARROWS AS YOU TYPE, AND ON THIS SCREEN. The Backup card is admin-only and
-//     always present for this reader; "backup" must leave it standing and take
+//   - IT NARROWS AS YOU TYPE, AND ON THIS SCREEN. The Server card is admin-only and
+//     always present for this reader; "update" must leave it standing and take
 //     Appearance away. Asserting BOTH matters: a filter that hid nothing would pass
 //     on the first half alone.
 //   - AND THE READER IS STILL IN SETTINGS. A bar that navigated on Enter would also
@@ -44,25 +44,21 @@ it('a reader searches Settings from the top bar and stays in Settings', async ()
   // what they are doing it to. An earlier cut of this journey typed into the
   // placeholder and passed, because the field's name was wrongly the same string.
   await app.see('Which one you see')
-  await app.type('Search settings', 'backup')
+  await app.type('Search settings', 'update')
 
   // NARROWED, AND IT IS THIS SCREEN THAT NARROWED.
   //
-  // THE WORD "BACKUP" IS NOT THE ASSERTION, and for a while it was. When nothing
+  // THE WORD "UPDATE" IS NOT THE ASSERTION, and for a while it was. When nothing
   // matches, Settings says so in a sentence that QUOTES what was typed — "Nothing
-  // in Settings matches “backup”" — and `see` folds case, so a screen that found
-  // the card and a screen that found nothing both contain the word. This passed
-  // with the Backup card's own search prefix deleted. What only the card itself
-  // shows is the control on it.
-  await app.see('Back up now')
-  // Appearance is gone with the rest: its words are not about backups.
+  // in Settings matches “update”" — and `see` folds case, so a screen that found
+  // the card and a screen that found nothing both contain the word. What only the
+  // card itself shows is the control on it.
+  await app.see('Check for updates')
+  // Appearance is gone with the rest: its words are not about updates.
   //
   // BY A ROW OF ITS OWN, NOT BY THE WORD "THEME". This watched for "Theme" to go,
-  // and the card that stays — Server — carries the release log, whose newest
-  // release mentions the Theme section more than once. The log loads after the
-  // card, so the check passed only while it ran first: a race that went on
-  // winning until the day it did not. "Which one you see" is drawn by the Theme
-  // card and nowhere else.
+  // and a card that stays can carry the word in its prose. "Which one you see" is
+  // drawn by the Theme card and nowhere else.
   await app.gone('Which one you see')
 
   // AND NOBODY WENT ANYWHERE. Settings draws the signed-in account beside its own
@@ -110,11 +106,11 @@ it('the bar and the metadata console are one field, not two', async () => {
 // and `see` could not tell this from any other empty screen.
 //
 // THE MUTATION: drop the effect that clears `q` on a context change and this fails
-// with 'backup' still in the box.
+// with 'update' still in the box.
 it('what was typed for one screen does not follow the reader to the next', async () => {
   await app.goto('/settings')
-  await app.type('Search settings', 'backup')
-  await app.see('Back up now')
+  await app.type('Search settings', 'update')
+  await app.see('Check for updates')
 
   await app.press('Home')
 

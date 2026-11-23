@@ -51,8 +51,16 @@ it('after tapping Back on Settings, scrolling a section still slides the bar awa
   await app.goto('/settings/theme')
   await app.press('Back')
   await app.see('Language and font')
-  await app.press('Theme')
+  // THE SERVER SECTION, WHICH IS LONG ENOUGH TO SCROLL. The Theme section now holds
+  // two rows and a set of doors, shorter than the phone, so a wheel over it moves
+  // nothing and there is no slide to see.
+  await app.press('Server')
+  await app.see('System logs')
 
+  // THE POINTER IS PUT OVER THE PAGE FIRST. A wheel fired at the pointer's
+  // starting point, the corner over the top bar, scrolls nothing, and the bar
+  // then stays up for a reason that has nothing to do with the fix.
+  await app.page.mouse.move(195, 400)
   await app.page.mouse.wheel({ deltaY: 1200 })
   await new Promise((r) => setTimeout(r, 600))
 
@@ -96,8 +104,13 @@ it('after pressing Back with the keyboard, a tapped section still slides the bar
   expect(await tabBackTo('Back'), 'Tab never reached the bar').toBe(true)
   await app.pressKey('Enter')
   await app.see('Language and font')
-  await app.press('Theme')
+  // THE SERVER SECTION, WHICH IS LONG ENOUGH TO SCROLL. The Theme section now holds
+  // two rows and a set of doors, shorter than the phone, so a wheel over it moves
+  // nothing and there is no slide to see.
+  await app.press('Server')
+  await app.see('System logs')
 
+  await app.page.mouse.move(195, 400)
   await app.page.mouse.wheel({ deltaY: 1200 })
   await new Promise((r) => setTimeout(r, 600))
 
