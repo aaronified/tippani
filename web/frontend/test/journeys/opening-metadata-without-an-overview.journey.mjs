@@ -31,7 +31,7 @@ const phone = openApp({ viewport: PHONE })
 it('a reader on a phone opening Metadata sees its sections, not one of them', async () => {
   await phone.goto('/metadata')
   await phone.see('Works')
-  await phone.see('Languages')
+  await phone.see('Characters')
   await phone.gone('flagged')
   await phone.gone('Overview')
   expect(phone.pageErrors(), 'the page threw on the way').toEqual([])

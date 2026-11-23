@@ -104,6 +104,14 @@ it('a character’s row counts its works and its quotes', async () => {
 })
 
 it('a filter leaves exactly as many characters as it promised', async () => {
+  // THE CHARACTERS ARE THE ONES A FILM'S CAST NAMES (cast_from_quotes.go), read
+  // when the film is opened. Home used to open them for its favourites; it is a
+  // bare start page now, so the reader opens a film with quoted characters.
+  await app.goto('/')
+  await app.press('Catalogue')
+  await app.press('Shingle bene')
+  await app.see('Zeno Vallence')
+
   await app.goto('/')
   await app.press('Metadata')
   await app.press('Characters')

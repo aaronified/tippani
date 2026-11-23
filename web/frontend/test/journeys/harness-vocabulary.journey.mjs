@@ -28,13 +28,14 @@ const nothingThrew = () =>
 it('refuses to press when several things share the name, rather than guessing', async () => {
   await app.goto('/')
 
-  // Every card on Home carries a Copy. Which one a journey meant is not knowable,
-  // so the only honest answer is to refuse and say so.
-  await expect(app.press('Copy', shortWait)).rejects.toThrow(/are named exactly "Copy"/)
+  // The wordmark is drawn twice on every screen (the top bar and the drawer), so
+  // which one a journey meant is not knowable, and the only honest answer is to
+  // refuse and say so. Home is a bare start page now, with no card to repeat.
+  await expect(app.press('tippani', shortWait)).rejects.toThrow(/are named exactly "tippani"/)
 
   // AND THE ERROR NAMES THEM, because "ambiguous" without the list sends somebody
   // to read the markup, which is the thing a journey is not supposed to do.
-  await expect(app.press('Copy', shortWait)).rejects.toThrow(/They are: /)
+  await expect(app.press('tippani', shortWait)).rejects.toThrow(/They are: /)
 
   nothingThrew()
 })
@@ -133,13 +134,13 @@ it('reports a control that says nothing about itself as null, not as off', async
   await app.press('Hide the options')
   // The section rail's rows are tabs, and a tab announces itself the same way.
   expect(await app.chosen('Theme')).toBe(true)
-  // A one-shot verb is not a toggle and must not pretend to be one. Opening the
-  // language table is a verb with nowhere to be on or off, and it lives on the
-  // next section along. (It was the Type door, then the Quote fonts door; both
-  // have been dissolved onto the section, and the verb this case is about has
-  // moved with them. What it asserts about `chosen` is unchanged.)
+  // A one-shot verb is not a toggle and must not pretend to be one. Choosing a
+  // language is a verb with nowhere to be on or off, and it lives on the next
+  // section along. (The language table it opened was cut from the web app, and
+  // the button that replaced it draws the same way; what this asserts about
+  // `chosen` is unchanged.)
   await app.press('Language and font')
-  expect(await app.chosen('Open the language table')).toBe(null)
+  expect(await app.chosen('Choose a language')).toBe(null)
 })
 
 // `choose` REFUSES AN OPTION THAT IS NOT OFFERED, rather than leaving the list on
