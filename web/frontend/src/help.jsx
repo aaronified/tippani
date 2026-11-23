@@ -379,14 +379,6 @@ export const HELP = {
     entry('metadata.help.credit-separators', { more: true }),
     entry('metadata.help.colour-categories', { asset: <HelpSwatches />, more: true }),
   ]),
-  stats: section('nav.tab.stats.label', [
-    entry('stats.help.calendar', { icon: <IconCalendar />, more: true }),
-    entry('stats.help.memory'),
-    entry('stats.help.breakdowns', { more: true }),
-    entry('stats.help.timeline', { more: true }),
-    entry('stats.help.superlatives'),
-    entry('stats.help.counts', { more: true }),
-  ]),
   staging: section('staging.help.title', [
     entry('staging.help.why'),
     entry('staging.help.bulk-fix', { icon: <IconEdit /> }),
@@ -516,7 +508,6 @@ const GUIDE_ORDER = [
   'staging',
   'tags',
   'metadata',
-  'stats',
   'bin',
   'cleanup',
   'settings',

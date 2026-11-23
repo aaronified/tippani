@@ -40,7 +40,6 @@ import { TextOrderHost, textOrderFrom } from './textOrderHost.jsx'
 const TagsPage = lazy(() => import('./TagsPage.jsx'))
 const SearchPage = lazy(() => import('./SearchPage.jsx'))
 const StagingPage = lazy(() => import('./StagingPage.jsx'))
-const StatsPage = lazy(() => import('./StatsPage.jsx'))
 const Settings = lazy(() => import('./Settings.jsx'))
 const BinPage = lazy(() => import('./BinPage.jsx'))
 const CleanupPage = lazy(() => import('./CleanupPage.jsx'))
@@ -145,7 +144,6 @@ const DRAWER_SHORTCUTS = {
   movies: 'go-catalogue',
   quotes: 'go-quotes',
   anthologies: 'go-anthologies',
-  stats: 'go-stats',
   metadata: 'go-metadata',
   settings: 'go-settings',
   search: 'search',
@@ -887,7 +885,6 @@ export function navBadge(key, { stats, metaIssues, streak, version } = {}) {
       ? t('common.count.phrase', { n: metaIssues, noun: t('unit.issue', { count: metaIssues }) })
       : t('shell.drawer.metadata.clear.label')
   }
-  if (key === 'stats' && streak > 0) return t('shell.drawer.stats.streak.label', { n: streak })
   if (key === 'settings') return t('shell.drawer.settings.version.label', { version: version || 'dev' })
   return null
 }
@@ -1739,7 +1736,6 @@ function MobileDock({ keys, hidden, canBack, onBack, onJumpBack, onSearch, onAdd
 // four rows would make it "the rest of the drawer" instead of a group.
 const HOME_TOOLS = [
   ['settings', 'nav.tab.settings.label'],
-  ['stats', 'nav.tab.stats.label'],
   ['metadata', 'nav.tab.metadata.label'],
 ]
 
@@ -2187,7 +2183,6 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
       case 'go-catalogue': go('movies'); break
       case 'go-quotes': go('quotes'); break
       case 'go-anthologies': go('anthologies'); break
-      case 'go-stats': go('stats'); break
       case 'go-metadata': go('metadata'); break
       case 'go-settings': go('settings'); break
       // Profile is a panel rather than a tab — the account chip opens it in both
@@ -2654,11 +2649,6 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
             `TagsRedirect` writes the console's own remembered section and steps
             sideways; see routes.js, which keeps `tags` in ROUTE_TABS for this. */}
         {tab === 'tags' && <TagsRedirect onGo={redirectTab} />}
-        {tab === 'stats' && (
-          <div data-screen-label="stats">
-            <StatsPage onSearch={searchFor} />
-          </div>
-        )}
         {tab === 'staging' && (
           <div data-screen-label="staging">
             <StagingPage

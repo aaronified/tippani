@@ -59,7 +59,6 @@ export const SCREENS = [
   { name: 'tags', path: '/metadata/tags', label: 'metadata' },
   { name: 'metadata', path: '/metadata' },
   { name: 'search', path: '/search' },
-  { name: 'stats', path: '/stats' },
   { name: 'staging', path: '/pending' },
   { name: 'checks', path: '/checks' },
   { name: 'settings', path: '/settings' },

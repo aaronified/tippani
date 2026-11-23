@@ -58,7 +58,6 @@ const KEPT = {
   'identity.crumb.works': 'the same crumb, its last segment.',
   'common.work-card.count.quote': 'the WORD a work card\'s Tally is given; the card draws the glyph.',
   'common.work-card.count.dialogue': 'the same, for a film.',
-  'stats.super.quotes.label': 'a SuperTile takes its count as a string and prints it under a title; the tile is the one place on Stats that is a headline rather than a row.',
   'settings.jobs.count.skipped':
     'a finished job\'s summary joins its counts with " · " into one string before it reaches the screen, like the identity crumb — and the rows a cover fetch skipped are not the quiz\'s skipped cards the glyph means.',
 }
@@ -137,7 +136,7 @@ describe('the glyph rule reaches the screens it was asked for', () => {
   // the locale table above would not notice because the WORD is still passed to
   // the Tally that no longer exists.
   const CONVERTED = [
-    'works.jsx', 'MetadataPage.jsx', 'BinPage.jsx', 'StatsPage.jsx',
+    'works.jsx', 'MetadataPage.jsx', 'BinPage.jsx',
     'identity.jsx', 'identityLocal.jsx', 'Movies.jsx', 'Settings.jsx',
     'jobsSection.jsx',
   ]

@@ -27,7 +27,6 @@ describe('routes', () => {
       ['search', null],
       ['tags', null],
       ['metadata', null],
-      ['stats', null],
       ['settings', null],
       ['bin', null],
       ['anthologies', null],

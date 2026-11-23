@@ -52,7 +52,6 @@ export const SCREENS = {
   // names it. It is still mounted and still exercised: MetadataPage renders it, and
   // that row above covers the frame it now lives in. The address survives as a
   // redirect, which `tags-moved-in-with-metadata` holds in a browser.
-  stats: [() => import('../src/StatsPage.jsx'), 'default', { onSearch: noop }],
   staging: [() => import('../src/StagingPage.jsx'), 'default', { onPending: noop, onOpenBook: noop, onOpenMovie: noop, onApproved: noop }],
   settings: [() => import('../src/Settings.jsx'), 'default', { user: USER, onPreferences: noop, update: null, onUpdateInfo: noop, onStartTour: noop }],
   // SETTINGS OPEN ON JOBS, AS AN ADMIN — a section, not a screen App routes to, and

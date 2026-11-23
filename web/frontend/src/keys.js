@@ -54,7 +54,6 @@ export const SHORTCUTS = [
   { id: 'go-catalogue', seq: ['g', 'c'], label: 'shell.shortcut.go-catalogue.label', group: 'shell.shortcut.group.go-to.label' },
   { id: 'go-quotes', seq: ['g', 'q'], label: 'shell.shortcut.go-quotes.label', group: 'shell.shortcut.group.go-to.label' },
   { id: 'go-anthologies', seq: ['g', 'a'], label: 'shell.shortcut.go-anthologies.label', group: 'shell.shortcut.group.go-to.label' },
-  { id: 'go-stats', seq: ['g', 's'], label: 'shell.shortcut.go-stats.label', group: 'shell.shortcut.group.go-to.label' },
   { id: 'go-metadata', seq: ['g', 'm'], label: 'shell.shortcut.go-metadata.label', group: 'shell.shortcut.group.go-to.label' },
   { id: 'go-profile', seq: ['g', 'p'], label: 'shell.shortcut.go-profile.label', group: 'shell.shortcut.group.go-to.label' },
   { id: 'go-settings', seq: ['g', ','], label: 'shell.shortcut.go-settings.label', group: 'shell.shortcut.group.go-to.label' },

@@ -160,8 +160,6 @@ nav.tab.anthologies.tip = Quotes you have gathered
 nav.tab.tags.label = Tags
 nav.tab.metadata.label = Metadata
 nav.tab.metadata.tip = Covers, people and duplicates
-nav.tab.stats.label = Stats
-nav.tab.stats.tip = Calendar, memory, breakdowns
 nav.tab.settings.label = Settings
 nav.tab.settings.tip = Appearance, keys, backups
 nav.tab.search.label = Search
@@ -1040,7 +1038,6 @@ shell.shortcut.go-library.label = Go to Library
 shell.shortcut.go-catalogue.label = Go to Catalogue
 shell.shortcut.go-quotes.label = Go to Quotes
 shell.shortcut.go-anthologies.label = Go to Anthologies
-shell.shortcut.go-stats.label = Go to Stats
 shell.shortcut.go-metadata.label = Go to Metadata
 shell.shortcut.go-profile.label = Open your profile
 shell.shortcut.go-settings.label = Go to Settings
@@ -1191,7 +1188,6 @@ shell.drawer.tagline.label = টিপ্পনী · a marginal annotation
 shell.drawer.pending.label = Pending import
 # The Metadata row's badge when the console has nothing to fix.
 shell.drawer.metadata.clear.label = all clear
-shell.drawer.stats.streak.label = {n}-day streak
 shell.drawer.settings.version.label = v{version}
 shell.drawer.role.admin.label = admin · self-hosted
 shell.drawer.role.user.label = self-hosted
@@ -2444,12 +2440,6 @@ tour.step.metadata.prose = Shows what the library is missing and fixes it in bul
 tour.step.metadata.em1.label = People
 tour.step.metadata.more = Each coverage count is a filter: tap “no cover” to list just those books. Then correct a selection at once, merge duplicates, map speaker labels onto a cast, or re-check works against their sources before anything changes.
 
-# Step "stats".
-tour.step.stats.name = Stats
-tour.step.stats.blurb = capture calendar, memory health, and author/actor/director/tag breakdowns
-tour.step.stats.title = Your library in numbers
-tour.step.stats.prose = A calendar of what you've saved, how well you remember it, and the people and tags you return to most.
-tour.step.stats.more = Everything here opens something: a calendar dot shows that day's additions in Search, and any book, person or tag opens the same way.
 
 # Step "appearance".
 tour.step.appearance.name = Appearance
@@ -3798,176 +3788,17 @@ common.field.character.placeholder = who says it
 # a breakdown row, a superlative tile and a top tag all click through to Search.
 # ---------------------------------------------------------------------------
 
-# Under the page title: how many quotes of all three kinds are kept.
-stats.header.counts = {n} saved
 
-# The overview tiles. "Annotations" is what the API, the database and the README
-# call a book highlight; "Quotes" here is the standalone kind, the same thing the
-# Quotes tab means. Naming them the same would count two different things.
-stats.overview.books.label = Books
-stats.overview.annotations.label = Annotations
-stats.overview.movies.label = Films
-stats.overview.dialogues.label = Dialogues
-stats.overview.quotes.label = Quotes
-stats.overview.genres.label = Genres
-stats.overview.tags.label = Tags
-stats.overview.favourites.label = Favourites
 
-# THE ACTIVITY CALENDAR. Three streams over one heatmap.
-# {n} is the total for the stream, {noun} the stream's own verb below.
-stats.activity.title = Activity · {n} {noun}
-stats.activity.stream.aria = Activity stream
-stats.activity.saves.label = Saves
-stats.activity.saves.noun = saved
-stats.activity.saves.empty = nothing saved yet
-stats.activity.quiz.label = Quiz
-stats.activity.quiz.noun = reviewed
-stats.activity.quiz.empty = no quiz answers yet
-stats.activity.practice.label = Practice
-stats.activity.practice.noun = practised
-# Practice is the one stream a reader can empty on purpose, so its empty state
-# has to read as the reset having worked rather than as a chart that failed.
-stats.activity.practice.empty = no practice history
-stats.activity.practice.reset.label = reset practice
-# What one day says on hover. {date} is already formatted by the device.
-stats.activity.day.saves.tip = {date}: {n} {noun}
-# The two review streams count ANSWERS, where the tally alone is the less
-# interesting half — so they report the ratio too.
-stats.activity.day.none.tip = {date}: no answers
-stats.activity.day.answers.one = {n} answer
-stats.activity.day.answers.other = {n} answers
-stats.activity.day.tally.tip = {date}: {answers}
-stats.activity.day.accuracy.tip = {date}: {answers} · {percent}% correct
-# Appended to a day that is a doorway into Search.
-stats.activity.day.search.tip = {label} — view in search
-# The heatmap legend, least to most.
-stats.activity.legend.less.label = less
-stats.activity.legend.more.label = more
 
-# WHERE THE WHOLE LIBRARY STANDS ON THE FORGETTING CURVE.
-stats.memory.title = Memory
-stats.memory.rotation.label = {done} of {total} in rotation
-stats.memory.half-life.label = Avg half-life
-stats.memory.streak.label = longest streak
-# {n} is a number of days; the tile prints it big, so this is the unit beside it.
-stats.memory.streak.value = {n}d
-stats.memory.streak.current = {n} now
 
-# THE PER-KIND RECALL BREAKDOWN. A dropdown picks the dimension.
-stats.breakdown.title = Breakdown · {n}
-stats.breakdown.kind.aria = Breakdown kind
-stats.breakdown.authors.label = Authors
-stats.breakdown.books.label = Books
-stats.breakdown.series.label = Series
-stats.breakdown.films.label = Films
-stats.breakdown.shows.label = Shows
-stats.breakdown.directors.label = Directors
-stats.breakdown.actors.label = Actors
-# Beside Actors, never instead of it: one actor plays several characters, one
-# character is played by several actors, and a book has characters and no actors.
-stats.breakdown.characters.label = Characters
-stats.breakdown.speakers.label = Speakers
-stats.breakdown.people.label = People
-# The headline above the rows. {name} is a person, a title or a series.
-stats.breakdown.best.label = best remembered: {name} · {n}
-stats.breakdown.worst.label = most forgotten: {name} · {n}
-# How many WORKS an entity spans — an author's books, a series' volumes.
-# One status and its count, spelled out under the bar. Never colour alone.
-stats.breakdown.status.label = {n} {name}
-stats.breakdown.name.tip = Search for this name
 
-# THE COLOUR CATEGORIES — the fourth theme, and the only one with no page of its
-# own, which is why "quiz me on the ones I marked Disagreed" lives here.
-stats.colours.title = Colour categories
-stats.colours.empty = no highlights yet
-# One magnitude row. {name} is the category as the READER named it.
-stats.bar.tip = {name}: {n}
-stats.bar.practise.aria = Practise {name}
-stats.bar.practise.tip = Quiz me on {name}
 
-# Top tags, and what any ranked list says when it holds nothing.
-stats.top-tags.title = Top tags
-stats.list.empty = nothing yet
-stats.tag.tip = Search for this tag
 
-# THE TIMELINE — when the works you quote were written, and the gaps between.
-stats.timeline.title = Timeline
-stats.timeline.counts.title = Timeline · {n}
-stats.timeline.scale.aria = Timeline scale
-stats.timeline.decade.label = Decades
-stats.timeline.century.label = Centuries
-stats.timeline.year.label = Years
-# One column on hover: how many works, and how many quotes out of them.
-stats.timeline.column.tip = {label}: {a} works, {b} quotes
-# A stretch with nothing in it, {a} to {b}.
-stats.timeline.gap.aria = {a} to {b}: nothing
-stats.timeline.gap.tick.label = {a}–{b}
-stats.timeline.key.quotes.label = quotes
-stats.timeline.key.works.label = works
 
-# A YEAR AND A DECADE, WRITTEN THE WAY THEY ARE SAID. The "s" on a decade is an
-# English plural and a BCE decade is named by the START of it as spoken — the
-# 480s BCE runs from 489 to 480. These sit in narrow ticks under a chart.
-common.year.decade.label = {year}s
-common.year.decade.bce.label = {year}s BCE
 
-# THE GAP LINES. Four bands by width, four lines in each, drawn WITHOUT
-# REPLACEMENT so a band is exhausted before anything repeats. THEY ARE A VOICE
-# RATHER THAN A MESSAGE: dry, lower case, no full stop capital, and they are
-# about the reading rather than about history. Write your own; do not translate
-# these literally. Band 1 is the narrowest gap and has the least room.
-stats.timeline.gap.1.1 = a long quiet.
-stats.timeline.gap.1.2 = nothing quoted here.
-stats.timeline.gap.1.3 = the shelf skips this.
-stats.timeline.gap.1.4 = no lines from in here.
-stats.timeline.gap.2.1 = plenty was written. none of it is here.
-stats.timeline.gap.2.2 = a gap this wide is not history’s fault.
-stats.timeline.gap.2.3 = centuries pass. the shelf does not notice.
-stats.timeline.gap.2.4 = the years go by. the shelf has nothing to say.
-stats.timeline.gap.3.1 = history happened. you were reading something else.
-stats.timeline.gap.3.2 = somebody was writing through all of this. you kept none of it.
-stats.timeline.gap.3.3 = a stretch with no quotes in it is still a stretch you lived past.
-stats.timeline.gap.3.4 = the era had its arguments. none of them are on this shelf.
-stats.timeline.gap.4.1 = no quotes, no covers, no year worth marking — which says more about the reading than about the era.
-stats.timeline.gap.4.2 = the width of this gap is measured in centuries. the reason for it is measured in evenings.
-stats.timeline.gap.4.3 = every year in here had its writers, its arguments and its best sentence. your copy of that sentence is missing.
-stats.timeline.gap.4.4 = this stretch is not empty because nothing was written in it. it is empty because you have not got round to any of it yet.
 
-# THE SUPERLATIVES — one row of tiles, each a doorway.
-stats.super.title = Superlatives
-stats.super.most-annotated.label = Most annotated book
-stats.super.most-quoted-work.label = Most quoted film/show
-stats.super.most-quoted-person.label = Most quoted person
-stats.super.most-favourited-person.label = Most favourited person
-stats.super.most-quoted-decade.label = Most quoted decade
-stats.super.busiest-month.label = Busiest month
-stats.super.best-remembered.label = Best remembered
-stats.super.most-forgotten.label = Most forgotten
-stats.super.since.label = Collecting since
-# The small line under a superlative tile.
-stats.super.quotes.label = {n} quotes
-stats.super.saved.label = {n} saved
-stats.super.of.label = {done} of {total}
-stats.super.title.tip = Search for this title
-# "Month YYYY" — the month a busiest-month tile names.
-stats.month.label = {name} {n}
-# The twelve months, spelled out, for that tile. (The calendar’s x axis takes its own
-# short forms from common.month.*, so nothing is sliced from these.)
-vocab.month.1.label = January
-vocab.month.2.label = February
-vocab.month.3.label = March
-vocab.month.4.label = April
-vocab.month.5.label = May
-vocab.month.6.label = June
-vocab.month.7.label = July
-vocab.month.8.label = August
-vocab.month.9.label = September
-vocab.month.10.label = October
-vocab.month.11.label = November
-vocab.month.12.label = December
 
-stats.toast.practice-reset = practice history cleared
-error.reset.practice = could not reset practice
 
 # ---------------------------------------------------------------------------
 # SEARCH (SearchPage.jsx)
@@ -6329,7 +6160,6 @@ settings.logs.export.all.aria = Export all the logs kept (30 days)
 # --- from staging ---
 error.load.import-queue = could not read the import queue
 error.load.bin = could not read the bin
-error.load.stats = could not load your statistics
 error.load.favourites = could not read your favourites
 error.load.recall = could not read this quote's answers
 error.load.shuffle = could not fetch a line
@@ -6995,30 +6825,11 @@ metadata.help.bulk-edit.what = Applies an author, series or set of genres to eve
 
 # Heading: aliases nav.tab.stats.label, so the screen has ONE name. Nothing to add here.
 
-stats.help.calendar.term = Calendar
-stats.help.calendar.what = A dot per day you captured something. Tapping a day opens exactly those captures in Search.
-stats.help.calendar.more = Switch to Quiz or Practice to count answers instead — each day shows how many you answered and how many were right. Resetting your practice score clears that history.
 
-stats.help.memory.term = Memory
-stats.help.memory.what = From the quiz: how many quotes are remembered, forgetting or probably forgotten, and your streak.
 
-# The most-quoted lists: authors, speakers, actors, directors, tags.
-stats.help.breakdowns.term = Breakdowns
-stats.help.breakdowns.what = The authors, speakers, actors, directors and tags your library leans on — plus People, one row each however you credited them.
-stats.help.breakdowns.more = Everything is a doorway — tap through to the works.
 
-# When the works are FROM, by decade, century or year.
-stats.help.timeline.term = Timeline
-stats.help.timeline.what = When your works are from, not when you saved them.
-stats.help.timeline.more = View it by decade, century or year.
 
-stats.help.superlatives.term = Superlatives
-stats.help.superlatives.what = The most annotated book, the most quoted film, the person you quote most, your busiest month, and who keeps slipping away.
 
-# The header totals, one per kind of quote.
-stats.help.counts.term = Counts
-stats.help.counts.what = All three kinds counted separately: annotations from books, dialogues from films and shows, quotes from no work at all.
-stats.help.counts.more = The header total is the three added up.
 
 # ---------------------------------------------------------------------------
 # staging.help.* — the "?" panel’s section for Pending import.

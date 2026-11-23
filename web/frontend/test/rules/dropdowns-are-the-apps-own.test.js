@@ -90,6 +90,6 @@ describe('every dropdown the app draws', () => {
     // and this reports no violations over nothing. `sourcesUnder` throws below
     // its floor; this names the file, which a count cannot.
     expect(sourcesUnder((n) => n.endsWith('.jsx'), 20), 'the walk is not reaching the app')
-      .toContain('StatsPage.jsx')
+      .toContain('Settings.jsx')
   })
 })

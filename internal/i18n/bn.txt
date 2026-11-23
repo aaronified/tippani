@@ -166,8 +166,6 @@ nav.tab.anthologies.tip = বেছে বেছে জড়ো করা উ�
 nav.tab.tags.label = ট্যাগ
 nav.tab.metadata.label = মেটাডেটা
 nav.tab.metadata.tip = কভার, মানুষ আর ডুপ্লিকেট
-nav.tab.stats.label = পরিসংখ্যান
-nav.tab.stats.tip = ক্যালেন্ডার, স্মৃতি, কে কত
 nav.tab.settings.label = সেটিংস
 # bn: "keys" here is the API-key card, not the keyboard.
 nav.tab.settings.tip = চেহারা, API চাবি, ব্যাকআপ
@@ -1041,7 +1039,6 @@ shell.shortcut.go-library.label = গ্রন্থাগারে যান
 shell.shortcut.go-catalogue.label = ক্যাটালগে যান
 shell.shortcut.go-quotes.label = উক্তিতে যান
 shell.shortcut.go-anthologies.label = সংকলনে যান
-shell.shortcut.go-stats.label = পরিসংখ্যানে যান
 shell.shortcut.go-metadata.label = মেটাডেটায় যান
 shell.shortcut.go-profile.label = প্রোফাইল খুলুন
 shell.shortcut.go-settings.label = সেটিংসে যান
@@ -1192,7 +1189,6 @@ shell.drawer.tagline.label = টিপ্পনী · মার্জিনে �
 shell.drawer.pending.label = যাচাই বাকি ইমপোর্ট
 # The Metadata row's badge when the console has nothing to fix.
 shell.drawer.metadata.clear.label = সব ঠিক আছে
-shell.drawer.stats.streak.label = টানা {n} দিন
 shell.drawer.settings.version.label = v{version}
 shell.drawer.role.admin.label = অ্যাডমিন · নিজের সার্ভারে
 shell.drawer.role.user.label = নিজের সার্ভারে
@@ -2422,12 +2418,6 @@ tour.step.metadata.prose = সংগ্রহে কী কী নেই দে�
 tour.step.metadata.em1.label = মানুষ
 tour.step.metadata.more = প্রতিটা হিসেবই একটা ছাঁকনি: “কভার নেই”-তে চাপলে শুধু সেই বইগুলো দেখাবে। তারপর বাছাইগুলো একসঙ্গে ঠিক করুন, একই জিনিসের দুটো কপি এক করুন, বক্তার নাম অভিনেতার সঙ্গে জুড়ুন, বা কিছু বদলানোর আগে উৎসের সঙ্গে আবার মিলিয়ে নিন।
 
-# Step "stats".
-tour.step.stats.name = পরিসংখ্যান
-tour.step.stats.blurb = কবে কী তুলেছেন তার ক্যালেন্ডার, স্মৃতির হাল, আর লেখক/অভিনেতা/পরিচালক/ট্যাগে কে কত
-tour.step.stats.title = সংখ্যায় আপনার গ্রন্থাগার
-tour.step.stats.prose = কবে কী রেখেছেন তার একটা ক্যালেন্ডার, কতটা মনে আছে, আর কোন মানুষ আর ট্যাগে বারবার ফেরেন।
-tour.step.stats.more = এখানে সবকিছুতেই চাপা যায়: ক্যালেন্ডারের বিন্দুতে চাপলে সেদিন যা যোগ হয়েছিল খোঁজে দেখায়, আর যেকোনো বই, মানুষ বা ট্যাগও এভাবেই খোলে।
 
 # Step "appearance".
 tour.step.appearance.name = চেহারা
@@ -3703,176 +3693,17 @@ common.field.character.placeholder = কে বলছে
 # a breakdown row, a superlative tile and a top tag all click through to Search.
 # ---------------------------------------------------------------------------
 
-# Under the page title: how many quotes of all three kinds are kept.
-stats.header.counts = {n}টা জমা আছে
 
-# The overview tiles. "Annotations" is what the API, the database and the README
-# call a book highlight; "Quotes" here is the standalone kind, the same thing the
-# Quotes tab means. Naming them the same would count two different things.
-stats.overview.books.label = বই
-stats.overview.annotations.label = উদ্ধৃতি
-stats.overview.movies.label = সিনেমা
-stats.overview.dialogues.label = সংলাপ
-stats.overview.quotes.label = উক্তি
-stats.overview.genres.label = ঘরানা
-stats.overview.tags.label = ট্যাগ
-stats.overview.favourites.label = প্রিয়
 
-# THE ACTIVITY CALENDAR. Three streams over one heatmap.
-# {n} is the total for the stream, {noun} the stream's own verb below.
-stats.activity.title = ক্যালেন্ডার · {n} {noun}
-stats.activity.stream.aria = ক্যালেন্ডারে কী দেখাবে
-stats.activity.saves.label = জমা
-stats.activity.saves.noun = জমা
-stats.activity.saves.empty = এখনও কিছু জমা হয়নি
-stats.activity.quiz.label = অনুশীলনী
-stats.activity.quiz.noun = অনুশীলন
-stats.activity.quiz.empty = অনুশীলনীর কোনও উত্তর এখনও নেই
-stats.activity.practice.label = ঝালাই
-stats.activity.practice.noun = ঝালাই
-# Practice is the one stream a reader can empty on purpose, so its empty state
-# has to read as the reset having worked rather than as a chart that failed.
-stats.activity.practice.empty = ঝালাইয়ের কোনও হিসেব নেই
-stats.activity.practice.reset.label = ঝালাইয়ের হিসেব মুছুন
-# What one day says on hover. {date} is already formatted by the device.
-stats.activity.day.saves.tip = {date}: {n} {noun}
-# The two review streams count ANSWERS, where the tally alone is the less
-# interesting half — so they report the ratio too.
-stats.activity.day.none.tip = {date}: কোনও উত্তর নেই
-stats.activity.day.answers.one = {n}টা উত্তর
-stats.activity.day.answers.other = {n}টা উত্তর
-stats.activity.day.tally.tip = {date}: {answers}
-stats.activity.day.accuracy.tip = {date}: {answers} · {percent}% ঠিক
-# Appended to a day that is a doorway into Search.
-stats.activity.day.search.tip = {label} — খোঁজে দেখুন
-# The heatmap legend, least to most.
-stats.activity.legend.less.label = কম
-stats.activity.legend.more.label = বেশি
 
-# WHERE THE WHOLE LIBRARY STANDS ON THE FORGETTING CURVE.
-stats.memory.title = স্মৃতি
-stats.memory.rotation.label = {total}-এর {done}টা অনুশীলনীতে ঘুরছে
-stats.memory.half-life.label = গড় অর্ধায়ু
-stats.memory.streak.label = দীর্ঘতম ধারা
-stats.memory.streak.value = {n} দিন
-stats.memory.streak.current = এখন {n}
 
-# THE PER-KIND RECALL BREAKDOWN. A dropdown picks the dimension.
-stats.breakdown.title = কে কত · {n}
-stats.breakdown.kind.aria = কীসের হিসেব
-stats.breakdown.authors.label = লেখক
-stats.breakdown.books.label = বই
-stats.breakdown.series.label = সিরিজ
-stats.breakdown.films.label = সিনেমা
-stats.breakdown.shows.label = শো
-stats.breakdown.directors.label = পরিচালক
-stats.breakdown.actors.label = অভিনেতা
-# Beside Actors, never instead of it: one actor plays several characters, one
-# character is played by several actors, and a book has characters and no actors.
-stats.breakdown.characters.label = চরিত্র
-stats.breakdown.speakers.label = বক্তা
-stats.breakdown.people.label = মানুষ
-# The headline above the rows. {name} is a person, a title or a series.
-stats.breakdown.best.label = সবচেয়ে ভালো মনে আছে: {name} · {n}
-stats.breakdown.worst.label = সবচেয়ে বেশি ভুলেছেন: {name} · {n}
-# How many WORKS an entity spans — an author's books, a series' volumes.
-# One status and its count, spelled out under the bar. Never colour alone.
-stats.breakdown.status.label = {n} {name}
-stats.breakdown.name.tip = এই নামটা খুঁজুন
 
-# THE COLOUR CATEGORIES — the fourth theme, and the only one with no page of its
-# own, which is why "quiz me on the ones I marked Disagreed" lives here.
-stats.colours.title = রঙের ঘর
-stats.colours.empty = এখনও কোনও উদ্ধৃতি নেই
-# One magnitude row. {name} is the category as the READER named it.
-stats.bar.tip = {name}: {n}
-stats.bar.practise.aria = {name} ঝালিয়ে নিন
-stats.bar.practise.tip = {name} নিয়ে অনুশীলনী হোক
 
-# Top tags, and what any ranked list says when it holds nothing.
-stats.top-tags.title = সবচেয়ে চলা ট্যাগ
-stats.list.empty = এখনও কিছু নেই
-stats.tag.tip = এই ট্যাগটা খুঁজুন
 
-# THE TIMELINE — when the works you quote were written, and the gaps between.
-stats.timeline.title = সময়রেখা
-stats.timeline.counts.title = সময়রেখা · {n}
-stats.timeline.scale.aria = সময়রেখার মাপ
-stats.timeline.decade.label = দশক
-stats.timeline.century.label = শতক
-stats.timeline.year.label = সাল
-# One column on hover: how many works, and how many quotes out of them.
-stats.timeline.column.tip = {label}: {a}টা উৎস, {b}টা উদ্ধৃতি
-# A stretch with nothing in it, {a} to {b}.
-stats.timeline.gap.aria = {a} থেকে {b}: কিছু নেই
-stats.timeline.gap.tick.label = {a}–{b}
-stats.timeline.key.quotes.label = উদ্ধৃতি
-stats.timeline.key.works.label = উৎস
 
-# A YEAR AND A DECADE, WRITTEN THE WAY THEY ARE SAID. The "s" on a decade is an
-# English plural and a BCE decade is named by the START of it as spoken — the
-# 480s BCE runs from 489 to 480. These sit in narrow ticks under a chart.
-# bn: The spoken short form — ৮০-র দশক — which is also the one that fits a tick.
-common.year.decade.label = {year}-র দশক
-common.year.decade.bce.label = খ্রি.পূ. {year}-র দশক
 
-# THE GAP LINES. Four bands by width, four lines in each, drawn WITHOUT
-# REPLACEMENT so a band is exhausted before anything repeats. THEY ARE A VOICE
-# RATHER THAN A MESSAGE: dry, lower case, no full stop capital, and they are
-# about the reading rather than about history. Write your own; do not translate
-# these literally. Band 1 is the narrowest gap and has the least room.
-stats.timeline.gap.1.1 = দীর্ঘ নীরবতা।
-stats.timeline.gap.1.2 = এখান থেকে কিছু তোলা হয়নি।
-stats.timeline.gap.1.3 = তাক এটুকু টপকে গেছে।
-stats.timeline.gap.1.4 = এর ভিতর থেকে একটা বাক্যও নেই।
-stats.timeline.gap.2.1 = লেখা তো ঢের হয়েছিল। এখানে তার একটাও নেই।
-stats.timeline.gap.2.2 = এত চওড়া ফাঁকটা ইতিহাসের দোষ নয়।
-stats.timeline.gap.2.3 = শতক পেরিয়ে যায়। তাক টেরও পায় না।
-stats.timeline.gap.2.4 = বছর গড়িয়ে যায়। তাকের কিছু বলার নেই।
-stats.timeline.gap.3.1 = ইতিহাস ঘটে গেল। আপনি তখন অন্য কিছু পড়ছিলেন।
-stats.timeline.gap.3.2 = এই গোটা সময়টা কেউ না কেউ লিখে চলেছিল। আপনি তার কিছুই রাখেননি।
-stats.timeline.gap.3.3 = যে সময় থেকে একটাও উদ্ধৃতি নেই, সেটাও আপনি পেরিয়েই এসেছেন।
-stats.timeline.gap.3.4 = যুগটার নিজের তর্ক ছিল। তার একটাও এই তাকে ওঠেনি।
-stats.timeline.gap.4.1 = উদ্ধৃতি নেই, কভার নেই, দাগ দেওয়ার মতো একটা সালও নেই — এতে যুগের কথা যত, পড়ার কথা তার চেয়ে বেশি বোঝা যায়।
-stats.timeline.gap.4.2 = এই ফাঁকের চওড়াই মাপা হয় শতকে। এর কারণ মাপা হয় সন্ধেবেলাগুলোয়।
-stats.timeline.gap.4.3 = এর প্রতিটা বছরে লেখক ছিল, তর্ক ছিল, আর ছিল সেই বছরের সেরা বাক্যটা। ওই বাক্যের আপনার কপিটাই নেই।
-stats.timeline.gap.4.4 = এই সময়টা ফাঁকা এই জন্য নয় যে তখন কিছু লেখা হয়নি। ফাঁকা, কারণ তার কোনওটাতেই আপনার এখনও হাত পড়েনি।
 
-# THE SUPERLATIVES — one row of tiles, each a doorway.
-stats.super.title = সবচেয়ে
-stats.super.most-annotated.label = সবচেয়ে বেশি উদ্ধৃতি তোলা বই
-stats.super.most-quoted-work.label = সবচেয়ে বেশি সংলাপ তোলা সিনেমা/শো
-stats.super.most-quoted-person.label = যাঁর কথা সবচেয়ে বেশি তুলেছেন
-stats.super.most-favourited-person.label = যাঁর বাক্য সবচেয়ে বেশি প্রিয়তে
-stats.super.most-quoted-decade.label = সবচেয়ে বেশি তোলা দশক
-stats.super.busiest-month.label = সবচেয়ে ব্যস্ত মাস
-stats.super.best-remembered.label = সবচেয়ে ভালো মনে আছে
-stats.super.most-forgotten.label = সবচেয়ে বেশি ভুলেছেন
-stats.super.since.label = জমানো শুরু
-# The small line under a superlative tile.
-stats.super.quotes.label = {n}টা উদ্ধৃতি
-stats.super.saved.label = {n}টা জমা
-stats.super.of.label = {done} / {total}
-stats.super.title.tip = এই টাইটেলটা খুঁজুন
-# "Month YYYY" — the month a busiest-month tile names.
-stats.month.label = {name} {n}
-# The twelve months, spelled out, for that tile. (The calendar’s x axis takes its own
-# short forms from common.month.*, so nothing is sliced from these.)
-vocab.month.1.label = জানুয়ারি
-vocab.month.2.label = ফেব্রুয়ারি
-vocab.month.3.label = মার্চ
-vocab.month.4.label = এপ্রিল
-vocab.month.5.label = মে
-vocab.month.6.label = জুন
-vocab.month.7.label = জুলাই
-vocab.month.8.label = আগস্ট
-vocab.month.9.label = সেপ্টেম্বর
-vocab.month.10.label = অক্টোবর
-vocab.month.11.label = নভেম্বর
-vocab.month.12.label = ডিসেম্বর
 
-stats.toast.practice-reset = ঝালাইয়ের হিসেব মুছে গেল
-error.reset.practice = ঝালাইয়ের হিসেব মোছা গেল না
 # The box itself. Note that tag: author: colour: are GRAMMAR, not copy — the box
 # parses them, so they stay as they are in the placeholder too.
 search.clear.label = খোঁজা মুছে দিন
@@ -6137,7 +5968,6 @@ settings.logs.export.all.aria = রাখা সব লগ এক্সপোর
 # --- from staging ---
 error.load.import-queue = ইমপোর্টের অপেক্ষার তালিকা পড়া গেল না
 error.load.bin = রিসাইকল বিন পড়া গেল না
-error.load.stats = আপনার পরিসংখ্যান লোড করা গেল না
 error.load.favourites = আপনার পছন্দের লেখাগুলো পড়া গেল না
 error.load.recall = এই উদ্ধৃতির উত্তরগুলো পড়া গেল না
 error.load.shuffle = একটা বাক্য আনা গেল না
@@ -6792,30 +6622,11 @@ metadata.help.bulk-edit.what = বাছা প্রতিটা সারি�
 
 # Heading: aliases nav.tab.stats.label, so the screen has ONE name. Nothing to add here.
 
-stats.help.calendar.term = ক্যালেন্ডার
-stats.help.calendar.what = যেদিন কিছু তুলে রেখেছেন সেদিনে একটা ডট। একটা দিনে ট্যাপ করলে সেদিনের তোলা জিনিসগুলোই খোঁজে খুলে যায়।
-stats.help.calendar.more = অনুশীলনী বা ঝালাইয়ে বদলালে উত্তর গোনে — প্রতিটা দিনে কটা উত্তর দিয়েছেন আর কটা ঠিক, দুটোই দেখায়। ঝালাইয়ের স্কোর রিসেট করলে সেই হিসেব মুছে যায়।
 
-stats.help.memory.term = স্মৃতি
-stats.help.memory.what = অনুশীলনী থেকে: কটা উদ্ধৃতি মনে আছে, কটা ভুলছেন, কটা সম্ভবত ভুলে গেছেন, আর টানা কদিন চলছে।
 
-# The most-quoted lists: authors, speakers, actors, directors, tags.
-stats.help.breakdowns.term = কে কত
-stats.help.breakdowns.what = গ্রন্থাগার যাঁদের উপর ভর করে — লেখক, বক্তা, অভিনেতা, পরিচালক আর ট্যাগ — সঙ্গে মানুষ: যে যত ভূমিকায় থাকুন, এক জনের এক সারি।
-stats.help.breakdowns.more = প্রতিটাই একটা দরজা — ট্যাপ করলে উৎসগুলোয় পৌঁছে যাবেন।
 
-# When the works are FROM, by decade, century or year.
-stats.help.timeline.term = সময়রেখা
-stats.help.timeline.what = উৎসগুলো কোন সময়ের, আপনি কবে তুলে রেখেছিলেন তা নয়।
-stats.help.timeline.more = দশক, শতক বা সাল ধরে দেখুন।
 
-stats.help.superlatives.term = সবচেয়ে
-stats.help.superlatives.what = সবচেয়ে বেশি উদ্ধৃতি তোলা বই, সবচেয়ে বেশি সংলাপ তোলা সিনেমা, যাঁর কথা সবচেয়ে বেশি রাখেন, সবচেয়ে ব্যস্ত মাস, আর যিনি বারবার হাত ফসকান।
 
-# The header totals, one per kind of quote.
-stats.help.counts.term = সংখ্যা
-stats.help.counts.what = তিন রকম আলাদা করে গোনা: বইয়ের উদ্ধৃতি, সিনেমা আর শোয়ের সংলাপ, আর কোনও উৎসেরই নয় এমন উক্তি।
-stats.help.counts.more = উপরের মোট সংখ্যাটা এই তিনটে যোগ করলে যা হয়।
 
 # ---------------------------------------------------------------------------
 # staging.help.* — the "?" panel’s section for Pending import.

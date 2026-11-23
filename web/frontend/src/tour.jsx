@@ -169,15 +169,6 @@ const TOUR_STEPS = [
     get more() { return t('tour.step.metadata.more') },
   },
   {
-    key: 'stats',
-    tab: 'stats',
-    get name() { return t('tour.step.stats.name') },
-    get blurb() { return t('tour.step.stats.blurb') },
-    get title() { return t('tour.step.stats.title') },
-    get body() { return t('tour.step.stats.prose') },
-    get more() { return t('tour.step.stats.more') },
-  },
-  {
     key: 'appearance',
     tab: 'settings',
     anchor: '[data-tour="appearance"]',

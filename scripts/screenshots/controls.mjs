@@ -181,7 +181,6 @@ const SURFACES = [
   { route: '/anthologies', name: 'Anthologies' },
   { route: '/bin', name: 'Bin' },
   { route: '/tags', name: 'Tags' },
-  { route: '/stats', name: 'Stats' },
   { route: '/checks', name: 'Checks' },
   { route: '/settings', name: 'Settings' },
   // THE IDS ARE THE LIBRARY'S, NOT THE FIXTURE'S. These were `/books/1` and

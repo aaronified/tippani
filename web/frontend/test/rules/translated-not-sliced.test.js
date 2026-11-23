@@ -32,31 +32,6 @@ const read = (f) => readFileSync(join(SRC, f), 'utf8')
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
 const graphemes = (s) => [...new Intl.Segmenter('bn', { granularity: 'grapheme' }).segment(s)].length
 
-describe('the stats calendar axis', () => {
-  const stats = read('StatsPage.jsx')
-
-  it('takes its month names from the shared table, not from a cut', () => {
-    // `toContain('MONTH_KEYS')` used to stand here and was satisfied by this
-    // file's own COMMENT about MONTH_KEYS — so the guard would have survived the
-    // import being deleted. `dom/month-axis.test.jsx` renders the calendar IN
-    // BENGALI and looks at the labels, which is where the damage is: in English a
-    // cut and the table produce the same "Jan" and no render can tell them apart.
-    // What is left here is the narrower thing a render cannot state — that the cut
-    // is not written anywhere in this file at all, in any of its spellings.
-    expect(stats).not.toMatch(/monthName\([^)]*\)\s*\.\s*(?:slice|substring|substr)/)
-    expect(stats, 'a month name is being cut to a fixed number of code units')
-      .not.toMatch(/month[A-Za-z]*\([^)]*\)[^\n]{0,40}\.(?:slice|substring|substr)\(/)
-  })
-
-  it('and ui.jsx still owns that table, so there is one of it', () => {
-    const ui = read('ui.jsx')
-    expect(ui).toMatch(/export const MONTH_KEYS = \[/)
-    // Every month, in calendar order — the order IS the calendar, per ui.jsx.
-    const table = ui.slice(ui.indexOf('export const MONTH_KEYS = ['))
-    const found = [...table.slice(0, table.indexOf(']')).matchAll(/common\.month\.([a-z]+)\.label/g)].map((m) => m[1])
-    expect(found).toEqual(MONTHS)
-  })
-})
 
 describe('no interface string is cut to a fixed length', () => {
   it('nothing slices the result of a t() call', () => {
@@ -64,7 +39,7 @@ describe('no interface string is cut to a fixed length', () => {
     // — through a helper, which is how this one hid — is what the assertion above
     // pins for the one place it happened.
     const hits = []
-    for (const file of ['StatsPage.jsx', 'ui.jsx', 'help.jsx', 'text.js']) {
+    for (const file of ['ui.jsx', 'help.jsx', 'text.js']) {
       read(file)
         .split('\n')
         .forEach((line, i) => {

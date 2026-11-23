@@ -263,7 +263,6 @@ async function main() {
       ['anthologies', '/anthologies'],
       ['tags', '/tags'],
       ['search', '/search'],
-      ['stats', '/stats'],
       ['settings', '/settings'],
       ['bin', '/bin'],
     ]

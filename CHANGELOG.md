@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- **The Stats screen is gone from the web app.** The web app is being cut down to what an iPhone
+  needs (ADR-0936); the Android app and the API keep their statistics. A bookmark to /stats
+  opens Home.
+
 ## [3.10.1] - 2026-11-15
 
 ### Fixed
