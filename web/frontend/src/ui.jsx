@@ -4,9 +4,8 @@ import { CATEGORY_DEFAULT_HEX, CATEGORY_SLOTS, categoryDotClass, categoryHidden,
 // replaces those call sites, then the compat block can shrink.
 import { Children, Component, Fragment, createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { isGestureClip } from "./gestures.jsx";
 import { stampPush } from "./history.js";
-import { groupedShortcuts, withShortcut } from "./keys.js";
+import { withShortcut } from "./keys.js";
 // Cover/Placeholder resolve stored cover/poster paths to the local /covers URL.
 // `json` FOR ONE COMPONENT, AND IT IS THE RECALL PANEL. Nothing else in this file
 // talks to the server, deliberately — these are primitives a screen composes. The
@@ -15,7 +14,7 @@ import { groupedShortcuts, withShortcut } from "./keys.js";
 // as a loader prop it would be a capability absent wherever a call site forgot it,
 // which is the failure `personOpen.jsx` documents at length.
 import { coverImgURL, json } from "./api.js";
-import { t, tNodes } from "./i18n.js";
+import { t } from "./i18n.js";
 import { anchorsFor, clampDrag, landing } from "./sheetAnchors.js";
 import { PROVIDER_MARKS } from "./providerMarks.js";
 import { Silhouette } from "./silhouette.jsx";
@@ -7485,66 +7484,6 @@ export function Kbd({ keys }) {
   );
 }
 
-// ShortcutSheet — the legend for every binding at once, opened by `?`.
-//
-// It reads groupedShortcuts() rather than a list of its own, which is the whole
-// point: the sheet cannot fall behind the table, and a key added to keys.js
-// appears here without anybody remembering to document it. That is the failure
-// this replaces — a shortcut legend maintained by hand is a legend that is wrong
-// by the second release.
-// `omit` is the set of action ids whose row this reader should not be shown —
-// the Go-to keys for sections they have hidden. Passed in rather than derived
-// here, because this component knows how to draw a key cap and nothing about
-// preferences.
-export function ShortcutSheet({ open, onClose, omit }) {
-  // A sheet whose entire content is keys is nothing on a phone. Refused here as
-  // well as hidden at its two entry points, so the one that opens it cannot come
-  // back on a screen where every row of it is unreachable — `?` is itself a key,
-  // but a Bluetooth keyboard on a narrow window would otherwise open a panel the
-  // rest of the app has stopped mentioning.
-  if (useIsMobileScreen()) return null;
-  if (!open) return null;
-  return (
-    <HelpSheet open={open} title={t("shell.shortcuts.title")} onClose={onClose}>
-      <p className="microcopy" style={{ marginBottom: 14 }}>
-        {t("shell.shortcuts.intro.prose")}
-      </p>
-      <p className="microcopy" style={{ marginBottom: 14 }}>
-        {tNodes("shell.shortcuts.practice.prose", {
-          mode: <strong>{t("quiz.practice.label")}</strong>,
-          key: <kbd className="kbd">{t("vocab.key.shift.label")}</kbd>,
-        })}
-      </p>
-      {groupedShortcuts(omit).map((g) => (
-        // Keyed on g.key — the locale key — and not on the words: g.group is now
-        // resolved copy, so keying on it would remount every group on a language
-        // change.
-        <div key={g.key} style={{ marginBottom: 16 }}>
-          <MonoLabel className="mb-2 block">{g.group}</MonoLabel>
-          <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-            {g.items.map((it) => (
-              <li key={it.id} className="kbd-row">
-                <span>{it.label}</span>
-                {/* Both forms for a card key, so somebody in Practice is not left
-                    pressing one that does nothing. */}
-                <span className="kbd-pair">
-                  <Kbd keys={it.keys} />
-                  {it.practiceKeys && (
-                    <>
-                      <span className="kbd-then">{t("common.kbd.practice.label")}</span>
-                      <Kbd keys={it.practiceKeys} />
-                    </>
-                  )}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ))}
-    </HelpSheet>
-  );
-}
-
 export function HelpSheet({ open, title, wide = false, onClose, children }) {
   const mobile = useIsMobileScreen();
   useBodyScrollLock(open);
@@ -7634,7 +7573,6 @@ export function HelpList({ entries = [] }) {
 // findable by the browser's own in-page search even while closed, and it needs no
 // hook.
 function HelpRow({ e }) {
-  const clip = isGestureClip(e.asset);
   return (
     <div className="help-row">
       {e.icon && (
@@ -7642,15 +7580,7 @@ function HelpRow({ e }) {
           {e.icon}
         </span>
       )}
-      {/* The words, and — for a clip — the block whose formatting context holds the
-          float, so a tall clip on a short entry can never reach the entry below. */}
       <div className="help-row-text">
-        {/* FIRST, and only for a clip. A float shortens the line boxes of what
-            follows it and nothing else, so an asset left in its old place after the
-            words would have nothing left to wrap. `.help-row` is a flex row, and a
-            float on a flex item is ignored — which is why the clip floats in here
-            with the text rather than beside the icon as a third column. */}
-        {clip && <div className="help-row-asset is-clip">{e.asset}</div>}
         <dt>{e.term}</dt>
         <dd>{e.what}</dd>
         {e.how?.length > 0 && (
@@ -7660,7 +7590,7 @@ function HelpRow({ e }) {
             ))}
           </ul>
         )}
-        {e.asset && !clip && <div className="help-row-asset">{e.asset}</div>}
+        {e.asset && <div className="help-row-asset">{e.asset}</div>}
         {e.more && (
           <details className="help-more">
             <summary>{t("common.help.more.label")}</summary>
@@ -7770,7 +7700,7 @@ export function HelpGuide({ sections = [], active }) {
 // the avatar read as a control from a different set. The default ring is for the
 // two places the bar is not on screen: the work-detail ⋯ menu and the full-screen
 // Profile page.
-export function HelpButton({ title, entries = [], sections = null, active, side = "bottom", variant = "ring", lead = null }) {
+export function HelpButton({ title, entries = [], sections = null, active, side = "bottom", variant = "ring" }) {
   const [open, setOpen] = useState(false);
   // `sections` is the navigable guide; `entries` is the flat list. Both are
   // supported because two callers want each: the shell's "?" opens the guide, and a
@@ -7793,12 +7723,6 @@ export function HelpButton({ title, entries = [], sections = null, active, side 
         </button>
       </Tooltip>
       <HelpSheet open={open} title={title} wide={!!sections} onClose={() => setOpen(false)}>
-        {/* `lead` IS DRAWN ABOVE THE LIST AND CLOSES THE SHEET. The screen's own
-            walkthrough belongs at the top of its help, because a reader who opened
-            help wanted to be shown rather than to read a glossary — and it cannot
-            run underneath the sheet that launched it, which would spotlight
-            controls behind a scrim. */}
-        {lead ? <div className="help-lead">{lead(() => setOpen(false))}</div> : null}
         {sections ? <HelpGuide sections={sections} active={active} /> : <HelpList entries={entries} />}
       </HelpSheet>
     </>
@@ -10336,7 +10260,7 @@ export function IconRestore({ size = ICON_SIZE }) { return <svg {...iconStroke} 
 //
 // IT MEANT FOUR MORE THINGS UNTIL THE VERBS WERE SPLIT, and this comment said so:
 // "re-verify, look up, refetch links, check for updates". Those are IconFetch and
-// IconUpdate now. The tour's replay is IconTour and always was.
+// IconUpdate now.
 // A framed picture, for the control that attaches one. The mountain-and-sun
 // shape is what every photo picker in the world uses, which is the whole reason
 // to draw it rather than reuse the refresh arrow this control used to wear — an
@@ -10344,12 +10268,6 @@ export function IconRestore({ size = ICON_SIZE }) { return <svg {...iconStroke} 
 export function IconPicture({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><circle cx="8.8" cy="9.6" r="1.6"/><path d="m4.5 17 4.6-4.6a1.6 1.6 0 0 1 2.3 0l3 3"/><path d="m13.7 14.2 1.9-1.9a1.6 1.6 0 0 1 2.3 0l2.1 2.1"/></svg> }
 
 export function IconRefresh({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M20.5 12a8.5 8.5 0 1 1-2.9-6.4"/><path d="M20.5 3.5V9.2h-5.7"/></svg> }
-// IconTour — a plane, banking: the per-screen "Tour this page" button in each
-// screen's help (help.jsx, tourLead) is what draws it. The owner's pick at 3.0.3,
-// Tabler's plane-tilt in the app's own stroke, in place of IconReading, the open
-// book that button wore. It was a pennant on a pole, drawn only by Settings'
-// tour-replay card (OnboardingCard), which 3ae85d7f deleted. Not a circular
-// arrow, because IconRefresh means the narrower thing, from the beginning.
 // ---- the three verbs, and the eight roles -----------------------------------
 //
 // THE VERBS WERE ONE CIRCULAR ARROW DOING THREE JOBS. `IconRefresh` sat on every
@@ -10445,7 +10363,6 @@ export function IconRoleTranslator({ size = ICON_SIZE }) { return <svg {...trace
 const studioBox = { ...tracedStroke, viewBox: "2.43 0 24 24" }
 export function IconRoleStudio({ size = ICON_SIZE }) { return <svg {...studioBox} width={size} height={size}><path d="M8.88 22.21C8.84 22.19 8.79 22.15 8.77 22.12C8.75 22.09 8.75 19.72 8.75 13.98L8.75 5.90L8.97 6.02L9.20 6.14L9.20 14.09C9.20 19.29 9.19 22.06 9.18 22.11C9.16 22.14 9.12 22.19 9.06 22.21C8.96 22.25 8.98 22.25 8.88 22.21ZM14.76 13.11C13.77 12.48 12.94 11.54 12.45 10.45C12.21 9.93 12.05 9.41 11.94 8.80C11.90 8.53 11.89 8.38 11.89 7.82C11.89 7.05 11.92 6.74 12.10 6.10C12.23 5.64 12.22 5.66 12.35 5.92C12.96 7.05 14.48 8.42 16.47 9.60C16.68 9.72 16.86 9.83 16.86 9.84C16.86 9.85 16.73 10.08 16.59 10.35C16.44 10.62 16.26 10.95 16.18 11.08C15.81 11.76 15.00 13.23 14.99 13.24C14.99 13.24 14.88 13.18 14.76 13.11ZM16.72 9.20C14.37 7.83 12.58 6.04 12.59 5.05C12.59 4.70 12.79 4.51 13.27 4.41C13.56 4.35 14.25 4.37 14.68 4.45C15.64 4.62 16.71 4.97 17.83 5.49C18.28 5.70 18.94 6.04 18.94 6.06C18.94 6.07 18.90 6.15 18.85 6.24C18.81 6.32 18.58 6.73 18.36 7.14C17.31 9.04 17.10 9.41 17.09 9.41C17.08 9.41 16.91 9.31 16.72 9.20ZM11.00 6.60C10.97 6.58 10.70 6.44 10.41 6.28C8.69 5.33 8.40 5.17 8.26 5.04C7.94 4.75 7.81 4.28 7.92 3.85C7.95 3.76 8.09 3.46 8.32 3.05C8.51 2.69 8.75 2.27 8.84 2.10C9.18 1.50 9.53 1.27 10.10 1.30C10.28 1.31 10.35 1.33 10.51 1.40C10.71 1.50 13.09 2.81 13.13 2.85C13.15 2.87 13.16 2.85 12.28 4.45C11.92 5.10 11.50 5.86 11.35 6.13C11.20 6.41 11.07 6.64 11.06 6.64C11.05 6.64 11.02 6.62 11.00 6.60ZM18.61 5.35C17.15 4.62 15.82 4.16 14.61 3.96C14.26 3.91 13.52 3.88 13.30 3.92L13.19 3.94L13.31 3.79C13.49 3.56 14.09 2.98 14.38 2.77C14.63 2.58 15.07 2.30 15.33 2.17C15.60 2.04 16.14 1.83 16.47 1.74C17.95 1.33 19.42 1.46 20.85 2.12C20.96 2.17 21.05 2.22 21.05 2.24C21.05 2.25 21.03 2.30 21.00 2.34C20.98 2.39 20.67 2.94 20.33 3.57C19.69 4.73 19.19 5.63 19.19 5.63C19.18 5.64 18.92 5.51 18.61 5.35Z"/></svg> }
 
-export function IconTour({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M14.5 6.5l3 -2.9a2.05 2.05 0 0 1 2.9 2.9l-2.9 3l2.5 7.5l-2.5 2.55l-3.5 -6.55l-3 3v3l-2 2l-1.5 -4.5l-4.5 -1.5l2 -2h3l3 -3l-6.5 -3.5l2.5 -2.5l7.5 2.5"/></svg> }
 // IconType — a serifed capital T: the Type panel, where every face the app uses
 // is chosen. A letterform rather than a slider or a page, because the subject is
 // the drawing of the letters themselves and nothing else on this screen is.

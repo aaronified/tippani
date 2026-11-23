@@ -104,12 +104,6 @@ it('a second account sees an empty notebook, and the first gets its own back', a
   await app.see('Daily quiz')
   await app.see('second-reader')
 
-  // A FRESH ACCOUNT OPENS ON THE WELCOME TOUR, AND THE TOUR KEEPS PULLING THE
-  // ROUTE BACK TO HOME FOR AS LONG AS IT IS OPEN — a `goto('/library')` lands
-  // there for a moment and then is bounced back. Dismissing it first, before
-  // trying to look at Library at all, is what makes the next navigation stick.
-  await app.press('skip tour')
-
   // AND ITS LIBRARY IS EMPTY. Not "the count reads zero" alone, which a screen
   // that failed to load anything at all would also show — the app's own empty
   // state, and the specific title from the OTHER account's shelf, checked gone.

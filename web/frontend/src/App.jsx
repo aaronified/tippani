@@ -88,7 +88,6 @@ import {
   IconTools,
   Kbd,
   NavIcon,
-  ShortcutSheet,
   Sprockets,
   StickerButton,
   ActionMenu,
@@ -122,7 +121,6 @@ import { PageHelp, ScreenHelpSheet } from './help.jsx'
 import { t, tNodes } from './i18n.js'
 import { UserAvatar } from './avatar.jsx'
 import { PASSPHRASE_MAX, PASSWORD_MAX, PASSWORD_MIN, passwordProblem, sniffArchiveKey } from './secret.js'
-import { FeatureTour, tourStepsForTab } from './tour.jsx'
 import { bookPasses, moviePasses } from './libraryGaps.js'
 
 // DEMO: the read-only GitHub Pages build (VITE_DEMO=1). A fetch shim (demo/
@@ -911,7 +909,7 @@ export function navBadge(key, { stats, metaIssues, streak, version } = {}) {
 // twice in one corner of one bar. The phone bar has no room for a ? and keeps the
 // row, which is why this is a prop the CALLER answers rather than a media query:
 // each bar knows what else it is drawing.
-function ScreenMenu({ screen, className, glyph = 22, withHelp = true, onTour = null, tourSteps = 0 }) {
+function ScreenMenu({ screen, className, glyph = 22, withHelp = true }) {
   const [open, setOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
   const ref = useRef(null)
@@ -968,8 +966,6 @@ function ScreenMenu({ screen, className, glyph = 22, withHelp = true, onTour = n
         screen={screen}
         open={helpOpen}
         onClose={() => setHelpOpen(false)}
-        onTour={onTour}
-        tourSteps={tourSteps}
       />
     </div>
   )
@@ -1806,13 +1802,6 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
   // were three surfaces for one job. Those call sites open this, with `sec` and
   // `target` carrying the context they used to imply.
   const [addOpen, setAddOpen] = useState(false)
-  // The legend for every binding at once, opened by `?`. Discovery is the help
-  // sheet's Keyboard entry, which is in the pointer-only shell list — so it is
-  // named on every screen a keyboard is plausible on, and on none where it is not.
-  // (This comment used to claim a drawer row opened it too. There has never been
-  // one, and the drawer is the phone's shell, which is now the one place the app
-  // deliberately says nothing about keys.)
-  const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [addSec, setAddSec] = useState('book')
   const [addTarget, setAddTarget] = useState(null) // {type:'book'|'movie', id} | null
   // A DRAFT THE SURFACE OPENS ON, and only Duplicate ever sets one. Everything
@@ -1882,11 +1871,6 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
   const [update, setUpdate] = useState(null)
   const dark = useResolvedDark()
 
-  // Guided feature tour (tour.jsx): null | {step}. Auto-opens once per user —
-  // preferences.tour is "" until they finish, skip or postpone it — and can be
-  // started/resumed from Settings → Onboarding. Not in the demo build (its
-  // read-only shim can't persist the "seen" state, so it would nag every load).
-  const [tourState, setTourState] = useState(null)
   // Floating phone bottom bar: a second, thumb-reachable route to the four main
   // screens. The mobile gate is only for the scroll listener — the bar's
   // visibility is CSS (display:none above the breakpoint), so rotating a tablet
@@ -1897,14 +1881,9 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
   const { show: showTop, toTop } = useBackToTop({ enabled: mobile })
   const navHidden = useHideOnScrollDown({
     enabled: mobile,
-    forceShow: drawerOpen || addOpen || !!tourState,
+    forceShow: drawerOpen || addOpen,
     resetKey: tab,
   })
-  useEffect(() => {
-    if (DEMO || user.preferences?.tour) return
-    const id = setTimeout(() => setTourState({ step: 0 }), 800)
-    return () => clearTimeout(id)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const refreshStats = () => {
     json('GET', '/stats').then((r) => { if (r.ok) setStats(r.data) })
@@ -2160,7 +2139,6 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
       // Profile is a panel rather than a tab — the account chip opens it in both
       // bars — so this opens the panel rather than navigating.
       case 'go-profile': go('profile'); break
-      case 'help': setShortcutsOpen(true); break
       default: break
     }
   }), [tab, detail, globalSearch]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -2191,14 +2169,6 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
   const sections = visibleSections(user.preferences)
   // The order the reader put them in, read once and handed to every nav list.
   const order = sectionOrder(user.preferences)
-  // The Go-to keys whose destination has no visible door. The KEY still works —
-  // hiding is cosmetic and G-then-C is the URL typed — it just stops being
-  // advertised in a legend beside a tab that is not on screen. This is the only
-  // place that knows both halves: DRAWER_SHORTCUTS maps a tab to its action, and
-  // keys.js deliberately knows nothing about tabs.
-  const omitShortcuts = new Set(
-    SECTIONS.filter((sec) => !sections[sec.tab]).map((sec) => DRAWER_SHORTCUTS[sec.tab]).filter(Boolean),
-  )
   // The three context-aware shell controls, resolved once per render off the
   // route (see helpScreen / addSection / searchScope above the Shell).
   const help = helpScreen(tab, detail)
@@ -2420,12 +2390,7 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
                 {importBadge}
               </button>
             </Tooltip>
-            <PageHelp
-              screen={help}
-              variant="pill"
-              onTour={(screenKey) => setTourState({ step: 0, onlyTab: screenKey })}
-              tourSteps={tourStepsForTab(user.is_admin, sections, help).length}
-            />
+            <PageHelp screen={help} variant="pill" />
             {/* ＋ Add · ? · ⋯ — the thing you do most, the thing that explains the
                 screen, and everything else. Help keeps its own pill rather than
                 folding into the menu: it is one press from every screen today and
@@ -2478,12 +2443,7 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
               does NOT carry it, for the reason it already passes `withHelp={false}`:
               its own pill is two controls away and the same door twice in one
               corner of one bar is clutter. */}
-          <ScreenMenu
-            screen={help}
-            className="mobile-topbar-btn"
-            onTour={(screenKey) => setTourState({ step: 0, onlyTab: screenKey })}
-            tourSteps={tourStepsForTab(user.is_admin, sections, help).length}
-          />
+          <ScreenMenu screen={help} className="mobile-topbar-btn" />
         </header>
         <ErrorBoundary key={tab} label={t('shell.error.boundary.screen.label', { name: tab })}>
         <div className="tab-panel">
@@ -2764,7 +2724,6 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
         dark={dark}
         onUser={onUser}
       />
-      <ShortcutSheet open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} omit={omitShortcuts} />
       <AddSurface
         open={addOpen}
         initialSection={addSec}
@@ -2805,16 +2764,6 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
         onWorkCreated={refreshStats}
         onOpenMovie={openMovie}
       />
-      {tourState && (
-        <FeatureTour
-          user={user}
-          startStep={tourState.step}
-          onlyTab={tourState.onlyTab || null}
-          onNavigate={selectTab}
-          onPreferences={onPreferences}
-          onClose={() => setTourState(null)}
-        />
-      )}
     </div>
     </TextOrderHost>
     </SearchDoor>

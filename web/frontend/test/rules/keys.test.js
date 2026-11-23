@@ -10,7 +10,6 @@ import { describe, expect, it } from 'vitest'
 import {
   SHORTCUTS,
   eventCombo,
-  groupedShortcuts,
   isTypingTarget,
   matchShortcut,
   shortcutFor,
@@ -145,11 +144,10 @@ describe('reading a keydown', () => {
   })
 
   // `?` is Shift-/ on most layouts and `/` is not. Folding Shift into the combo
-  // would make the help sheet open when somebody meant to search.
+  // would make search open on a `?` typed as a question.
   it('keeping ? and / apart', () => {
     expect(eventCombo({ key: '?', shiftKey: true })).toBe('?')
     expect(eventCombo({ key: '/' })).toBe('/')
-    expect(matchShortcut('?')).toEqual({ id: 'help', shift: false })
     expect(matchShortcut('/')).toEqual({ id: 'search', shift: false })
   })
 })
@@ -170,42 +168,6 @@ describe('typing is not a shortcut', () => {
     expect(isTypingTarget({ tagName: 'DIV', isContentEditable: true })).toBe(true)
     expect(isTypingTarget({ tagName: 'DIV' })).toBe(false)
     expect(isTypingTarget(null)).toBe(false)
-  })
-})
-
-describe('the help sheet’s view', () => {
-  it('buckets every binding under a heading, losing none', () => {
-    const groups = groupedShortcuts()
-    expect(groups.length).toBeGreaterThan(1)
-    expect(groups.flatMap((g) => g.items).length).toBe(SHORTCUTS.length)
-    for (const g of groups) {
-      expect(g.group).toBeTruthy()
-      for (const i of g.items) expect(i.keys).toBeTruthy()
-    }
-  })
-
-  // THE HEADING WAS THE KEY ITSELF, and for as long as the sheet existed. `label`
-  // went through t() on its way out of here and `group` did not, so pressing ?
-  // showed five headings reading `shell.shortcut.group.anywhere.label`,
-  // `…go-to.label` and so on — in English and in Bengali alike.
-  //
-  // It survived because locale-complete.test.js cannot see it. That file asks
-  // whether every key the code names exists and whether every key in the file is
-  // named, and `shell.shortcut.group.anywhere.label` passes both: it is right
-  // there in keys.js as a literal. What no scan of the source can tell is whether
-  // the value ever reached t(). Its own header says so. This is that assertion,
-  // made where the answer is a value rather than a grep.
-  it('resolves the heading, and does not hand out the key', () => {
-    const KEYSHAPE = /^[a-z][a-z0-9-]*(?:\.[a-z0-9-]+)+$/
-    for (const g of groupedShortcuts()) {
-      expect(KEYSHAPE.test(g.group), `heading is an unresolved key: ${g.group}`).toBe(false)
-      // The key is still exposed, deliberately — React needs a stable identity
-      // that does not move when the language does.
-      expect(KEYSHAPE.test(g.key), `${g.key} should be the locale key`).toBe(true)
-      for (const i of g.items) {
-        expect(KEYSHAPE.test(i.label), `label is an unresolved key: ${i.label}`).toBe(false)
-      }
-    }
   })
 })
 
@@ -286,60 +248,5 @@ describe('nothing is listed that does not work', () => {
     // nowhere would pass the assertion above through App.jsx's text alone.
     expect(read('suggest.jsx'), 'OfferChip no longer listens for its own key')
       .toMatch(/addEventListener\('keydown'/)
-  })
-})
-
-// ---- the legend and a section the reader has put away ----
-//
-// Settings -> Features hides a whole section, and the sheet is generated from this
-// table precisely so it cannot fall behind it. That is the right property and it
-// has one consequence nobody wanted: a reader who has hidden the Catalogue would
-// still be shown "G then C - Go to Catalogue", beside a strip with no Catalogue in
-// it. So the sheet can be asked to leave rows out.
-//
-// The asymmetry is deliberate and is the thing to keep straight: the BINDING stays.
-// Hiding is cosmetic, and G-then-C is the URL typed, so the key still works. This
-// file's rule is that nothing may be LISTED that does not work; a key that works
-// and is not listed breaks no promise.
-describe('the legend can leave out a door that is not on screen', () => {
-  const idsOf = (groups) => groups.flatMap((g) => g.items.map((i) => i.id))
-
-  it('drops exactly the rows it is asked for, and keeps the rest in order', () => {
-    const all = idsOf(groupedShortcuts())
-    const some = idsOf(groupedShortcuts(new Set(['go-catalogue', 'go-quotes'])))
-    expect(all).toContain('go-catalogue')
-    expect(some).not.toContain('go-catalogue')
-    expect(some).not.toContain('go-quotes')
-    // Asserted as the whole remaining list rather than as a count: "two fewer" is
-    // just as true when the two are the wrong two.
-    expect(some).toEqual(all.filter((id) => id !== 'go-catalogue' && id !== 'go-quotes'))
-  })
-
-  it('leaves the binding itself working', () => {
-    expect(SHORTCUTS.some((s) => s.id === 'go-catalogue')).toBe(true)
-    expect(shortcutFor('go-catalogue')).toBe('G then C')
-    expect(matchShortcut('c', 'g')).toEqual({ id: 'go-catalogue', shift: false })
-  })
-
-  it('is a no-op for every caller that asks for nothing', () => {
-    expect(groupedShortcuts(undefined)).toEqual(groupedShortcuts())
-    expect(groupedShortcuts(new Set())).toEqual(groupedShortcuts())
-  })
-
-  it('takes the heading with the last row under it', () => {
-    // A group is built when its first surviving row arrives, so emptying one leaves
-    // no heading behind. Nothing can empty the go-to group today - Home, Stats,
-    // Metadata, your profile and Settings are all unhideable - but a bare heading
-    // over nothing is the kind of thing a later section would introduce silently.
-    //
-    // MATCHED ON THE KEY. This read `s.group === 'Go to'` and passed for the wrong
-    // reason for as long as the i18n migration has existed: `group` became a locale
-    // key, the filter matched nothing, `gone` was empty, and the assertion that a
-    // heading had DISAPPEARED was satisfied by a heading that had never been asked
-    // to go. It only went red when the heading started resolving to real words.
-    const GO_TO = 'shell.shortcut.group.go-to.label'
-    const gone = new Set(SHORTCUTS.filter((s) => s.group === GO_TO).map((s) => s.id))
-    expect(gone.size, 'the go-to group has rows to remove').toBeGreaterThan(1)
-    expect(groupedShortcuts(gone).some((g) => g.key === GO_TO)).toBe(false)
   })
 })

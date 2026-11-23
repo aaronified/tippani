@@ -104,7 +104,7 @@ Element.prototype.getBoundingClientRect = function () {
   return { ...DEFAULT_RECT, toJSON: () => DEFAULT_RECT }
 }
 
-// ---- scrollIntoView / scrollTo: not implemented; the tour and scroll memory
+// ---- scrollIntoView / scrollTo: not implemented; scroll memory
 // call them and jsdom logs a "not implemented" error per call. ----
 Element.prototype.scrollIntoView = function () {}
 window.scrollTo = () => {}

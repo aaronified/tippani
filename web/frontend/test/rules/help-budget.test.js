@@ -43,13 +43,10 @@
 // wrote and a `.what` no row asks for are both failures, and the first one is how
 // a screen ends up with a heading and no sentence.
 
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { HELP, helpFor, helpGuide } from '../../src/help.jsx'
 import { BUILTINS, EN, enKeys } from '../locale-file.js'
 
-const SRC = process.env.TIPPANI_SRC || join(process.cwd(), 'src')
 
 // WHAT_MAX — one sentence, front-loaded. 160: tight enough that it cannot become a
 // paragraph, loose enough for the clause after an em dash, which is usually where
@@ -297,19 +294,5 @@ describe('the guide', () => {
       .map((s) => s.titleKey)
       .filter((k) => !EN.keys[k])
     expect(missing, 'section headings with no string').toEqual([])
-  })
-})
-
-describe('assets', () => {
-  const src = readFileSync(join(SRC, 'help.jsx'), 'utf8')
-
-  it('draws a gesture only where the app has one', () => {
-    // gestures.test.jsx owns the library's own rules; this owns the help file's use
-    // of it. Anything referenced here has to be in IMPLEMENTED.
-    const used = [...src.matchAll(/<Gesture kind="([^"]+)"/g)].map((m) => m[1])
-    expect(used.length).toBeGreaterThan(0)
-    for (const k of used) {
-      expect(['long-press', 'swipe-left'], `${k} is not a gesture the app binds`).toContain(k)
-    }
   })
 })
