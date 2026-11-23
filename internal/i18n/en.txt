@@ -240,47 +240,16 @@ vocab.font-role.devanagari.what = Devanagari letters anywhere the interface draw
 # Already Devanagari on the English side, for the same reason.
 vocab.font-role.devanagari.sample = जो बीत गई सो बात गई
 
-# --- vocab.face.* — the eighteen bundled typefaces, in Settings → Type.
-# `.name` is the face's own name: DO NOT TRANSLATE it, though transliterating it
-# into the reader's script is fine. `.note` is the one-line reason to pick it.
-vocab.face.newsreader.name = Newsreader
-vocab.face.newsreader.note = The built-in
-vocab.face.source-serif-4.name = Source Serif 4
-vocab.face.source-serif-4.note = Cleaner, a little wider
-vocab.face.literata.name = Literata
-vocab.face.literata.note = Made for long reading
-vocab.face.hanken-grotesk.name = Hanken Grotesk
-vocab.face.hanken-grotesk.note = The built-in
-vocab.face.inter.name = Inter
-vocab.face.inter.note = Neutral, very legible small
-vocab.face.public-sans.name = Public Sans
-vocab.face.public-sans.note = Plainer, squarer
-vocab.face.opendyslexic.name = OpenDyslexic
-vocab.face.opendyslexic.note = Weighted feet, for dyslexia
-vocab.face.ibm-plex-mono.name = IBM Plex Mono
-vocab.face.ibm-plex-mono.note = The built-in
-vocab.face.jetbrains-mono.name = JetBrains Mono
-vocab.face.jetbrains-mono.note = Taller, more open
-vocab.face.source-code-pro.name = Source Code Pro
-vocab.face.source-code-pro.note = Quieter
-vocab.face.caveat.name = Caveat
-vocab.face.caveat.note = The built-in
-vocab.face.kalam.name = Kalam
-vocab.face.kalam.note = Rounder — and writes Devanagari too
-vocab.face.gloria-hallelujah.name = Gloria Hallelujah
-vocab.face.gloria-hallelujah.note = Looser, more casual
+# --- vocab.face.* — the faces Settings → Type offers. `.name` is the face's own name:
+# DO NOT TRANSLATE it. `.note` is the one-line reason to pick it.
+vocab.face.system-serif.name = System serif
+vocab.face.system-sans.name = System sans
+vocab.face.system-mono.name = System mono
+vocab.face.system-hand.name = System hand
+vocab.face.system-script.name = System script
+vocab.face.system.note = The built-in
 vocab.face.noto-serif-bengali.name = Noto Serif Bengali
 vocab.face.noto-serif-bengali.note = The built-in
-vocab.face.hind-siliguri.name = Hind Siliguri
-vocab.face.hind-siliguri.note = Sans — plainer and larger on the line
-vocab.face.tiro-bangla.name = Tiro Bangla
-vocab.face.tiro-bangla.note = Traditional; the built-in before 1.15
-vocab.face.noto-serif-devanagari.name = Noto Serif Devanagari
-vocab.face.noto-serif-devanagari.note = The built-in
-vocab.face.hind.name = Hind
-vocab.face.hind.note = Sans — plainer and larger on the line
-vocab.face.tiro-devanagari-hindi.name = Tiro Devanagari Hindi
-vocab.face.tiro-devanagari-hindi.note = Traditional; the built-in before 1.15
 # A face the reader uploaded themselves, in the same slot as a bundled one's note.
 vocab.face.upload.note = Yours
 

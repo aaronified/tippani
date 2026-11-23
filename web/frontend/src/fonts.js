@@ -1,20 +1,13 @@
 // The type.
 //
-// Six ROLES — the jobs type does in this app — and three faces offered for each:
-// the built-in and two alternates. A role is not a font; it is what the font is
+// Six ROLES — the jobs type does in this app — and the faces each one offers: the
+// device's own for the Latin roles, one bundled Bengali face. A role is not a font; it is what the font is
 // FOR, which is why swapping one is a one-line change here and not a search for
 // every place a family name was written down.
 //
-// EVERY FACE IS BUNDLED, NOT FETCHED, and that is not an optimisation. The
-// browser talks to nobody but the server it came from, and the server looks
-// outward only when a person or its own lookup asks — no telemetry, no CDN, no
-// phone-home — so a type picker that loaded Google Fonts would be the first
-// thing in the app to reach a third party from a reader's browser, on a screen
-// about how your own words look. The cost is stated and accepted: twelve more
-// families in the build. It is smaller than it sounds,
-// because @fontsource splits every face by unicode-range, so a subset is only
-// DOWNLOADED when a codepoint in its range is actually drawn. What grows
-// unconditionally is the CSS and the image on disk, not what a browser fetches.
+// NO FACE IS FETCHED. The browser talks to nobody but the server it came from. The
+// Latin roles use the device's own faces, and the one bundled Bengali face is
+// @fontsource's, split by unicode-range so a subset downloads only when drawn.
 //
 // Every one is OFL-1.1: free to use, embed, modify and redistribute.
 //
@@ -97,60 +90,41 @@ export const FONT_ROLES = [
 // FACES — what each role offers. The first is the built-in and the one an
 // unrecognised preference falls back to.
 //
-// THE BENGALI DEFAULT CHANGED IN 1.15.0, on the reader's judgement rather than
-// on a design argument. Tiro Bangla was chosen in an earlier release for a good
-// stated reason — a text face with real Bengali letterforms rather than a
-// pan-script fallback — and the person reading Bengali in this app called it
-// horrible, which is the only evidence that counts about type you have to read.
-// Noto Serif Bengali takes the default; Tiro Bangla stays on the list, because
-// reversing somebody's choice is not the same as deleting it. Devanagari moves
-// the same way, on the same reader's milder version of the same complaint.
+// THE LATIN ROLES ARE THE DEVICE'S OWN FACES, AND ONE BENGALI FACE IS BUNDLED.
+// The iPhone PWA draws every Latin role in the system face it already has, so the
+// build no longer carries a dozen families the reader never asked for. The one
+// Bengali face is Noto Serif Bengali, the built-in since 1.15.0 (Tiro Bangla was
+// the built-in before it, and the reader who called that horrible is the reason it
+// moved). A preference naming a face that is gone resolves to the built-in, which
+// is what faceFor does for every unknown token.
+//
+// The `family` of a system face is a CSS generic or a system name: cssName leaves a
+// generic keyword unquoted, because a quoted `'system-ui'` names a family nobody has.
 export const FONT_FACES = {
-  // OPENDYSLEXIC IS LAST IN BOTH LISTS AND IS IN BOTH ON PURPOSE — the only face
-  // that appears twice. §6 access asks for it on the QUOTE text specifically, and
-  // the display role is what a quote reads; but a reader who needs it to read a
-  // quote needs it to read the navigation too, and offering it on one role only
-  // would be half a feature. Last because the lists are ordered by how often a
-  // reader wants them and this is a particular need, not a default.
-  //
-  // ITS LETTERFORMS ARE THE POINT: weighted bottoms, so a b and a d cannot be
-  // rotations of each other. The evidence that this speeds up reading is contested
-  // and that is not the argument for shipping it — the argument is that a reader
-  // who wants it should not have to know to go and find a font file. Uploading one
-  // has worked since 0039; being OFFERED is what was missing.
   display: [
-    { id: 'newsreader', name: 'vocab.face.newsreader.name', family: 'Newsreader', note: 'vocab.face.newsreader.note' },
-    { id: 'source-serif-4', name: 'vocab.face.source-serif-4.name', family: 'Source Serif 4', note: 'vocab.face.source-serif-4.note' },
-    { id: 'literata', name: 'vocab.face.literata.name', family: 'Literata', note: 'vocab.face.literata.note' },
-    { id: 'opendyslexic', name: 'vocab.face.opendyslexic.name', family: 'OpenDyslexic', note: 'vocab.face.opendyslexic.note' },
+    { id: 'system-serif', name: 'vocab.face.system-serif.name', family: 'Georgia', note: 'vocab.face.system.note' },
   ],
   ui: [
-    { id: 'hanken-grotesk', name: 'vocab.face.hanken-grotesk.name', family: 'Hanken Grotesk', note: 'vocab.face.hanken-grotesk.note' },
-    { id: 'inter', name: 'vocab.face.inter.name', family: 'Inter', note: 'vocab.face.inter.note' },
-    { id: 'public-sans', name: 'vocab.face.public-sans.name', family: 'Public Sans', note: 'vocab.face.public-sans.note' },
-    { id: 'opendyslexic', name: 'vocab.face.opendyslexic.name', family: 'OpenDyslexic', note: 'vocab.face.opendyslexic.note' },
+    { id: 'system-sans', name: 'vocab.face.system-sans.name', family: 'system-ui', note: 'vocab.face.system.note' },
   ],
   mono: [
-    { id: 'ibm-plex-mono', name: 'vocab.face.ibm-plex-mono.name', family: 'IBM Plex Mono', note: 'vocab.face.ibm-plex-mono.note' },
-    { id: 'jetbrains-mono', name: 'vocab.face.jetbrains-mono.name', family: 'JetBrains Mono', note: 'vocab.face.jetbrains-mono.note' },
-    { id: 'source-code-pro', name: 'vocab.face.source-code-pro.name', family: 'Source Code Pro', note: 'vocab.face.source-code-pro.note' },
+    { id: 'system-mono', name: 'vocab.face.system-mono.name', family: 'ui-monospace', note: 'vocab.face.system.note' },
   ],
   hand: [
-    { id: 'caveat', name: 'vocab.face.caveat.name', family: 'Caveat', note: 'vocab.face.caveat.note' },
-    { id: 'kalam', name: 'vocab.face.kalam.name', family: 'Kalam', note: 'vocab.face.kalam.note' },
-    { id: 'gloria-hallelujah', name: 'vocab.face.gloria-hallelujah.name', family: 'Gloria Hallelujah', note: 'vocab.face.gloria-hallelujah.note' },
+    { id: 'system-hand', name: 'vocab.face.system-hand.name', family: 'cursive', note: 'vocab.face.system.note' },
   ],
   bengali: [
     { id: 'noto-serif-bengali', name: 'vocab.face.noto-serif-bengali.name', family: 'Noto Serif Bengali', note: 'vocab.face.noto-serif-bengali.note' },
-    { id: 'hind-siliguri', name: 'vocab.face.hind-siliguri.name', family: 'Hind Siliguri', note: 'vocab.face.hind-siliguri.note' },
-    { id: 'tiro-bangla', name: 'vocab.face.tiro-bangla.name', family: 'Tiro Bangla', note: 'vocab.face.tiro-bangla.note' },
   ],
   devanagari: [
-    { id: 'noto-serif-devanagari', name: 'vocab.face.noto-serif-devanagari.name', family: 'Noto Serif Devanagari', note: 'vocab.face.noto-serif-devanagari.note' },
-    { id: 'hind', name: 'vocab.face.hind.name', family: 'Hind', note: 'vocab.face.hind.note' },
-    { id: 'tiro-devanagari-hindi', name: 'vocab.face.tiro-devanagari-hindi.name', family: 'Tiro Devanagari Hindi', note: 'vocab.face.tiro-devanagari-hindi.note' },
+    { id: 'system-script', name: 'vocab.face.system-script.name', family: 'serif', note: 'vocab.face.system.note' },
   ],
 }
+
+// cssName is a family as a CSS font-family item: quoted, unless it is a generic
+// keyword, which a quote would turn into a family name that does not exist.
+const GENERIC_FAMILIES = new Set(['serif', 'sans-serif', 'system-ui', 'ui-monospace', 'monospace', 'cursive'])
+export const cssName = (family) => (!family ? '' : GENERIC_FAMILIES.has(family) ? family : `'${family}'`)
 
 // STYLE MODIFIERS, per role, default none.
 //
@@ -326,11 +300,6 @@ export function verifyUpload(family, roleKey) {
 // whether it can draw anything.
 export const FACE_NAME_IN = {
   'noto-serif-bengali': { bengali: 'নোটো সেরিফ বাংলা' },
-  'hind-siliguri': { bengali: 'হিন্দ শিলিগুড়ি' },
-  'tiro-bangla': { bengali: 'টিরো বাংলা' },
-  'noto-serif-devanagari': { devanagari: 'नोटो सेरिफ़ देवनागरी' },
-  hind: { devanagari: 'हिंद' },
-  'tiro-devanagari-hindi': { devanagari: 'टिरो देवनागरी हिंदी' },
 }
 
 // nativeFaceName — '' where this app does not know one, which every caller reads
@@ -446,7 +415,7 @@ export function fontStylesOn(roleKey) {
 // are editing rather than what the app happens to be set to. Everything else calls
 // it with one argument and gets the reader's live choice, as before.
 export function stackFor(roleKey, pick = fontChoice) {
-  const q = (f) => `'${f.family}'`
+  const q = (f) => cssName(f.family)
   const latin = q(pick(roleKey))
   const bn = q(pick('bengali'))
   const dv = q(pick('devanagari'))
@@ -650,7 +619,7 @@ function applyQuoteFonts(prefs) {
 // the same trick stackFor explains: a Latin face chosen for German has no Bengali
 // in it, and a card is not always only one language.
 function quoteStack(face) {
-  const q = (f) => `'${f.family}'`
+  const q = (f) => cssName(f.family)
   return `${q(face)}, ${q(fontChoice('bengali'))}, ${q(fontChoice('devanagari'))}, serif`
 }
 

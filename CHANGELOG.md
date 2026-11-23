@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- **The bundled typefaces, except Noto Serif Bengali, and the unused paper, fabric and leather
+  textures are gone from the web app.** Latin text is set in the device's own faces, so a reader
+  who chose a removed face gets the built-in. (ADR-0936)
+
 - **The guided tour, the per-screen tour, the gesture drawings and the keyboard shortcut legend
   are gone from the web app.** Help keeps its per-control text; the keys still work. (ADR-0936)
 

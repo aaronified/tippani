@@ -203,19 +203,12 @@ const TEXTILES = {
   wood: ['wood', 300, 97, 0.12], metal: ['metal', 260, 84, 0.09],
   brushed: ['brushed', 240, 78, 0.08], matte: ['matte', 200, 65, 0.07],
   satin: ['satin', 210, 68, 0.07], glass: ['glass', 280, 90, 0.06],
-  // GLASS WITH THE CREASES TAKEN OUT, and it cannot be made to read as loud as
-  // glass.webp does. Its sd is 6.32 against glass's 42.61, so matching that tile's
-  // 2.56 levels would need a strength of .40 — three times the pack's own .12
-  // ceiling. Capped, it lands at 0.76 levels: a pane that has been cleaned.
-  'glass-soft': ['glass-soft', 280, 90, 0.12],
-  rubber: ['rubber-flat', 230, 74, 0.10], fabric: ['fabric', 260, 84, 0.11],
-  walnut: ['walnut', 300, 97, 0.09], pine: ['pine', 340, 109, 0.09],
+  rubber: ['rubber-flat', 230, 74, 0.10],
   marble: ['marble', 360, 116, 0.08], granite: ['granite', 280, 90, 0.08],
   sandstone: ['sandstone', 300, 97, 0.09], concrete: ['concrete', 320, 103, 0.08],
-  cardboard: ['cardboard', 280, 90, 0.10], 'paper-photo': ['paper-photo', 300, 97, 0.07],
-  leather: ['leather-004', 260, 84, 0.10], 'leather-suede': ['leather-021', 240, 78, 0.11],
+  'paper-photo': ['paper-photo', 300, 97, 0.07],
+  'leather-suede': ['leather-021', 240, 78, 0.11],
   'leather-pebbled': ['leather-034d', 280, 90, 0.09],
-  'leather-tooled': ['leather-037', 320, 103, 0.06],
 }
 
 // The four slots, in order: the desk, the furniture, what you write on, what the book
@@ -302,20 +295,14 @@ export const MAT_SET_LABELS = {
 export const PHYS = {
   paper: { hard: 34, sss: 62, diff: 0, refl: 4 },
   'paper-photo': { hard: 58, sss: 34, diff: 14, refl: 20 },
-  cardboard: { hard: 30, sss: 48, diff: 0, refl: 10 },
   linen: { hard: 20, sss: 74, diff: 5, refl: 0 },
   cotton: { hard: 14, sss: 80, diff: 0, refl: 0 },
   canvas: { hard: 26, sss: 58, diff: 0, refl: 9 },
   denim: { hard: 24, sss: 42, diff: 0, refl: 8 },
   wool: { hard: 6, sss: 66, diff: 0, refl: 2 },
-  fabric: { hard: 18, sss: 70, diff: 4, refl: 6 },
-  leather: { hard: 44, sss: 52, diff: 6, refl: 15 },
   'leather-suede': { hard: 12, sss: 72, diff: 0, refl: 4 },
   'leather-pebbled': { hard: 50, sss: 46, diff: 8, refl: 18 },
-  'leather-tooled': { hard: 56, sss: 40, diff: 10, refl: 20 },
   wood: { hard: 62, sss: 22, diff: 10, refl: 22 },
-  walnut: { hard: 66, sss: 20, diff: 12, refl: 23 },
-  pine: { hard: 54, sss: 30, diff: 8, refl: 19 },
   marble: { hard: 88, sss: 44, diff: 18, refl: 30 },
   granite: { hard: 92, sss: 10, diff: 14, refl: 16 },
   sandstone: { hard: 70, sss: 26, diff: 0, refl: 25 },
@@ -326,7 +313,6 @@ export const PHYS = {
   matte: { hard: 46, sss: 8, diff: 4, refl: 5 },
   rubber: { hard: 36, sss: 6, diff: 10, refl: 13 },
   glass: { hard: 100, sss: 0, diff: 54, refl: 66 },
-  'glass-soft': { hard: 82, sss: 10, diff: 30, refl: 38 },
   flat: { hard: 0, sss: 0, diff: 0, refl: 0 },
 }
 // The window is up and to the left, and it is the only one in the app.
@@ -414,7 +400,7 @@ export function lightLayers(name, tweaks, dark) {
   return { layers, modes }
 }
 
-const GLASSY = new Set(['glass', 'glass-soft'])
+const GLASSY = new Set(['glass'])
 // A surface with nothing on it. See TEXTILES.flat and the Atrium set.
 const FLAT = new Set(['flat'])
 const METALLIC = new Set(['metal', 'brushed'])

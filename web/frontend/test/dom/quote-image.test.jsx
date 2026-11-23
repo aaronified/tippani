@@ -738,18 +738,15 @@ function lineContrasts(canvas, dark) {
   })
 }
 
-// THE CARD IS DRAWN WITH THE PROJECT'S OWN FACES, registered here, and not with whatever the machine
-// has. @napi-rs/canvas paints with system fonts, so a runner image that lacks the card's serif drew
+// THE CARD IS DRAWN WITH FACES REGISTERED HERE, and not with whatever the machine has.
+// @napi-rs/canvas paints with system fonts, so a runner image that lacks the card's serif drew
 // no type at all: the band finder then found 0 or 1 lines and the guard below failed on identical
-// code, on some nightly runs and not others. The files are the ones the app ships, from @fontsource.
+// code, on some nightly runs and not others. The app's Latin roles are now the device's own faces,
+// which this runner does not have, so the one face the app ships stands in under the serif's name.
 const requireFont = createRequire(import.meta.url)
 for (const [pkg, file, family] of [
-  ['newsreader', 'newsreader-latin-400-normal', 'Newsreader'],
-  ['newsreader', 'newsreader-latin-400-italic', 'Newsreader'],
-  ['newsreader', 'newsreader-latin-700-normal', 'Newsreader'],
-  ['ibm-plex-mono', 'ibm-plex-mono-latin-500-normal', 'IBM Plex Mono'],
-  ['ibm-plex-mono', 'ibm-plex-mono-latin-600-normal', 'IBM Plex Mono'],
-  ['caveat', 'caveat-latin-400-normal', 'Caveat'],
+  ['noto-serif-bengali', 'noto-serif-bengali-latin-400-normal', 'Georgia'],
+  ['noto-serif-bengali', 'noto-serif-bengali-latin-600-normal', 'Georgia'],
 ]) {
   GlobalFonts.registerFromPath(requireFont.resolve(`@fontsource/${pkg}/files/${file}.woff2`), family)
 }

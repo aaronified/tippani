@@ -119,19 +119,15 @@
        merged again the first time somebody reaches for a title face and finds
        something that answers. `test/rules/chrome-is-not-a-quote.test.js` fails on
        one, and on the old name appearing anywhere at all. */
-    --font-quote-base: 'Newsreader', 'Noto Serif Bengali', 'Noto Serif Devanagari', Georgia, 'Times New Roman', serif;
-    --font-ui: 'Hanken Grotesk', 'Noto Serif Bengali', 'Noto Serif Devanagari', system-ui, sans-serif;
-    --font-mono: 'IBM Plex Mono', ui-monospace, 'Cascadia Mono', monospace;
-    --font-hand: 'Caveat', 'Noto Serif Bengali', 'Noto Serif Devanagari', 'Segoe Script', cursive;
-    /* THE BENGALI FACE CHANGED IN 1.15.0, on the reader's judgement. Tiro Bangla
-       was chosen here for a good stated reason — a text face with real Bengali
-       letterforms rather than a pan-script fallback — and the person who reads
-       Bengali in this app called it horrible, which is the only evidence that
-       counts about type you have to read. Both are still on the list in
-       Settings → Type; what changed is which one arrives. Devanagari moved the
-       same way on the same reader's milder version of the same note. */
+    --font-quote-base: Georgia, 'Noto Serif Bengali', serif;
+    --font-ui: system-ui, 'Noto Serif Bengali', serif, sans-serif;
+    --font-mono: ui-monospace, 'Noto Serif Bengali', serif, 'Cascadia Mono', monospace;
+    --font-hand: cursive, 'Noto Serif Bengali', serif, 'Segoe Script', cursive;
+    /* THE BENGALI FACE IS NOTO SERIF BENGALI, the only one bundled. It became the
+       built-in in 1.15.0, on the reader's judgement of Tiro Bangla, which is no
+       longer shipped: a reader who chose it falls back to this face. */
     --font-bengali: 'Noto Serif Bengali', serif;
-    --font-devanagari: 'Noto Serif Devanagari', serif;
+    --font-devanagari: serif;
 
     /* THE STYLE MODIFIERS, one set per role (Settings → Type). Every rule that
        sets `font-family: var(--font-X)` sets these four beside it, so a modifier
@@ -460,21 +456,14 @@
     --tile-matte: url("./textures/matte.png");
     --tile-satin: url("./textures/satin.png");
     --tile-glass: url("./textures/glass.webp");
-    --tile-glass-soft: url("./textures/glass-soft.png");
     --tile-rubber-flat: url("./textures/rubber-flat.png");
-    --tile-fabric: url("./textures/fabric.webp");
-    --tile-walnut: url("./textures/walnut.png");
-    --tile-pine: url("./textures/pine.png");
     --tile-marble: url("./textures/marble.png");
     --tile-granite: url("./textures/granite.png");
     --tile-sandstone: url("./textures/sandstone.png");
     --tile-concrete: url("./textures/concrete.png");
-    --tile-cardboard: url("./textures/cardboard.png");
     --tile-paper-photo: url("./textures/paper-photo.png");
-    --tile-leather-004: url("./textures/leather-004.png");
     --tile-leather-021: url("./textures/leather-021.png");
     --tile-leather-034d: url("./textures/leather-034d.png");
-    --tile-leather-037: url("./textures/leather-037.png");
   }
 
   /* ---- grain (§5): fixed overlay tile ----

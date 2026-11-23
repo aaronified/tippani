@@ -256,47 +256,14 @@ vocab.font-role.devanagari.what = ইন্টারফেস যেখানে
 # Already Devanagari on the English side, for the same reason.
 vocab.font-role.devanagari.sample = जो बीत गई सो बात गई
 
-# --- vocab.face.* — the eighteen bundled typefaces, in Settings → Type.
-# `.name` is the face's own name: DO NOT TRANSLATE it, though transliterating it
-# into the reader's script is fine. `.note` is the one-line reason to pick it.
-vocab.face.newsreader.name = Newsreader
-vocab.face.newsreader.note = সঙ্গে যেটা আসে
-vocab.face.source-serif-4.name = Source Serif 4
-vocab.face.source-serif-4.note = আরও পরিষ্কার, একটু চওড়া
-vocab.face.literata.name = Literata
-vocab.face.literata.note = অনেকক্ষণ পড়ার জন্য তৈরি
-vocab.face.hanken-grotesk.name = Hanken Grotesk
-vocab.face.hanken-grotesk.note = সঙ্গে যেটা আসে
-vocab.face.inter.name = Inter
-vocab.face.inter.note = সাদামাটা, ছোট মাপেও স্পষ্ট
-vocab.face.opendyslexic.name = OpenDyslexic
-vocab.face.opendyslexic.note = ভারী পা, ডিসলেক্সিয়ার জন্য
-vocab.face.public-sans.name = Public Sans
-vocab.face.public-sans.note = আরও সাদামাটা, চৌকো ধাঁচ
-vocab.face.ibm-plex-mono.name = IBM Plex Mono
-vocab.face.ibm-plex-mono.note = সঙ্গে যেটা আসে
-vocab.face.jetbrains-mono.name = JetBrains Mono
-vocab.face.jetbrains-mono.note = লম্বাটে, বেশি খোলামেলা
-vocab.face.source-code-pro.name = Source Code Pro
-vocab.face.source-code-pro.note = শান্ত ধাঁচ
-vocab.face.caveat.name = Caveat
-vocab.face.caveat.note = সঙ্গে যেটা আসে
-vocab.face.kalam.name = Kalam
-vocab.face.kalam.note = গোলগাল — দেবনাগরীও লেখে
-vocab.face.gloria-hallelujah.name = Gloria Hallelujah
-vocab.face.gloria-hallelujah.note = ঢিলেঢালা, আরও আটপৌরে
+vocab.face.system-serif.name = System serif
+vocab.face.system-sans.name = System sans
+vocab.face.system-mono.name = System mono
+vocab.face.system-hand.name = System hand
+vocab.face.system-script.name = System script
+vocab.face.system.note = সঙ্গে যেটা আসে
 vocab.face.noto-serif-bengali.name = Noto Serif Bengali
 vocab.face.noto-serif-bengali.note = সঙ্গে যেটা আসে
-vocab.face.hind-siliguri.name = Hind Siliguri
-vocab.face.hind-siliguri.note = স্যান্স — সাদামাটা, লাইনে বড় দেখায়
-vocab.face.tiro-bangla.name = Tiro Bangla
-vocab.face.tiro-bangla.note = চেনা ধাঁচ; 1.15-এর আগে এটাই আসত
-vocab.face.noto-serif-devanagari.name = Noto Serif Devanagari
-vocab.face.noto-serif-devanagari.note = সঙ্গে যেটা আসে
-vocab.face.hind.name = Hind
-vocab.face.hind.note = স্যান্স — সাদামাটা, লাইনে বড় দেখায়
-vocab.face.tiro-devanagari-hindi.name = Tiro Devanagari Hindi
-vocab.face.tiro-devanagari-hindi.note = চেনা ধাঁচ; 1.15-এর আগে এটাই আসত
 # A face the reader uploaded themselves, in the same slot as a bundled one's note.
 vocab.face.upload.note = নিজের আপলোড
 
