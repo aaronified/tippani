@@ -8,14 +8,14 @@
 // from the screen opening to a control that is genuinely on another section.
 //
 // THE MUTATION. Delete `press('Server')` and it goes red: Settings opens on
-// Theme, and nothing about backups is on that section. That is a real mutation
+// Theme, and nothing about updates is on that section. That is a real mutation
 // rather than a decorative one, because the two words either side of the press —
 // the screen's own name and the control's — are both real and neither is enough
 // on its own.
 //
 // AND IT PRESSES TWO SECTIONS, NOT ONE, because a rail that can only reach the
 // section it starts nearest is a rail that half works. Going to Server and then
-// to Review is the shape of a reader actually using the thing.
+// to Language and font is the shape of a reader actually using the thing.
 //
 // It knows the words on the screen and nothing else — no route, no component, no
 // class, no preference key.
@@ -34,25 +34,20 @@ it('a reader opens Settings and reaches a control on another section', async () 
   // NOT an assertion on the word "Settings" — the rail item just pressed carries
   // it, so it was on screen before the press. The theme control is what only
   // arriving here shows, and it is on the section this screen opens to.
-  await app.see('Material')
+  await app.see('Colours')
 
-  // The archive lives on Server, which is somewhere else entirely.
+  // The update check lives on Server, which is somewhere else entirely.
   await app.press('Server')
-  await app.see('Back up now')
+  await app.see('Check for updates')
   // And the theme control is gone, because a section replaces a section rather
   // than adding to a scroll — which is the difference between this and the page
   // it replaced.
-  await app.gone('Material')
+  await app.gone('Colours')
 
   // A second hop, to prove the rail is a rail rather than one door.
-  await app.press('Review')
-  // "How hard the questions are" rather than the door that used to be here. The
-  // door was called "In-depth controls" and held everything this section could be
-  // told — because Settings was one long scroll and every extra row was something
-  // to scroll past. Review is its own screen now, so what a reader comes here to
-  // change is ON it; the door keeps the schedule's arithmetic and nothing else.
-  await app.see('How hard the questions are')
-  await app.gone('Back up now')
+  await app.press('Language and font')
+  await app.see('Language')
+  await app.gone('Check for updates')
 
   expect(app.pageErrors(), 'the page threw on the way').toEqual([])
 })

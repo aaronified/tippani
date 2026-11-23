@@ -21,7 +21,7 @@
 // THE MUTATION. Delete the `see` on the second section name before anything is
 // pressed and it goes green against the dropdown design too — which is exactly why
 // that assertion is the first one and not an afterthought. Delete the `press` on
-// 'Review' and the drill-down assertion goes red.
+// 'Server' and the drill-down assertion goes red.
 //
 // It knows the words on the screen and nothing else — no route, no component, no
 // preference key, no class.
@@ -39,21 +39,19 @@ it('a reader on a phone sees every settings section at once, opens one, and come
   // reveal. Under a dropdown only the current one is on screen, so this is the
   // assertion the old design cannot pass.
   await app.see('Theme')
-  await app.see('Review')
+  await app.see('Server')
   await app.see('Language and font')
 
-  await app.press('Review')
+  await app.press('Server')
 
-  // Inside the section: its own name, now in the bar that names the screen rather
-  // than in a header of its own, and the other sections gone — so this cannot pass
-  // by the index still being on screen.
-  await app.see('Review')
-  // THE OTHER SECTION NAMED BY A PHRASE, not by a word. This asserted 'Server'
-  // was gone and started failing the day Review's own copy gained the pack's line
-  // about the ten numbers being "all mirrored by the server" — `gone` folds case,
-  // as it must, because innerText reports a label the stylesheet uppercases as
-  // shouting. A one-word section name is a word the app is free to use in a
-  // sentence; "Language and font" is not.
+  // Inside the section: its own content, now in the bar that names the screen
+  // rather than in a header of its own, and the other sections gone — so this
+  // cannot pass by the index still being on screen.
+  await app.see('Check for updates')
+  // THE OTHER SECTION NAMED BY A PHRASE, not by a word. `gone` folds case, as it
+  // must, because innerText reports a label the stylesheet uppercases as shouting.
+  // A one-word section name is a word the app is free to use in a sentence;
+  // "Language and font" is not.
   await app.gone('Language and font')
 
   // AND A WAY BACK, which is the half a drill-down gets wrong. It used to be a

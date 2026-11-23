@@ -4,13 +4,9 @@
 // typeface row could not fit a 390px screen, so the style gear was pushed outside
 // the card and the whole page slid left and right under a thumb — the top bar, the
 // dock, every card and every row together, with the left edge of every heading cut
-// off. "No out of bounds elements, please."
-//
-// THE CAUSE WAS A CASCADE TIE, which is why reading the rule did not show it. The
-// face chooser is `.tp-select.font-row-face` and the stylesheet said two things
-// about it at the same specificity: the face gives up width, and every Select in
-// the row holds its size. The later one won, the chooser kept its 228px, and the
-// row overflowed. Both rules looked right on their own.
+// off. "No out of bounds elements, please." The typeface row was cut from the web
+// app (ADR-0936), so the first two cases below that measured it are gone; the
+// index case and the System logs case stay, because that card is kept.
 //
 // WHY THIS IS A JOURNEY AND NOT A SCANNER. Nothing in the source is wrong to look
 // at: it is what the two rules do TOGETHER, in a browser, at a width, with a face
@@ -19,24 +15,17 @@
 // the shot is taken at the viewport and everything in it is merely positioned
 // wrong. That is why `sideways` is a number: there is nothing on screen to read.
 //
-// THE MUTATION. Take the `:not(.font-row-face)` back out of index.css, run
-// `make frontend`, and BOTH cases go red with what the page slid past this
-// fixture's 390: 23 pixels on the index, 35 inside the section.
-//
-// THE INDEX GOING RED IS THE POINT, and a first draft of this comment said it
-// would stay green. It does not, and the reason is the whole of why the owner saw
-// this at all: the phone's Settings index carries each section's controls under
-// its door, so the typeface row is drawn TWICE — once on the index and once in the
-// section — and the card version overflows first, which is exactly where the
-// photograph was taken. A claim about which case a mutation kills is worth nothing
-// unless the mutation was actually run.
-//
-// The two cases still earn their places separately: the index measures the compact
-// card, the section measures the full row, and the press is what tells them apart.
-//
 // AND IT HAS TO BE BUILT. This tier runs the real binary with `web/dist/` embedded,
 // so a stylesheet edit that has not been through `make frontend` is not in the
 // thing being measured.
+//
+// THE TEXT SIZE IS SET THROUGH THE API, NOT THE DIAL. The Text size dial was cut
+// from the web app, but the app still applies whatever size the server holds
+// (`applyTypeScale` on load), so the cases that need a size arrange it with the
+// preferences endpoint and then read the page. That is setup, and the header names
+// it: `PUT /auth/me/preferences` with `sizeDisplay`, `sizeUi`, `sizeMono` and
+// `sizeHand`, each a percentage on the dial (75, 100, 125, 150, 175). Each case
+// that changes the size puts it back to 100 when it has finished.
 //
 // THE THIRD CASE IS THE SYSTEM LOGS CARD AT THE LARGEST TYPE (3.1.0's card), ON THE
 // SMALLEST PHONE, 320 wide. Its export row once held "Everything kept (30 days)",
@@ -54,18 +43,14 @@
 // moved the glyph out of its label and the case stayed green, because with no
 // label wrapping there is no second line for the glyph to fall between.
 //
-// THE FOURTH AND FIFTH CASES ARE THE RELEASE LOG ON SERVER (#51). Its door, "Read
-// the whole log", is a sentence on a button that ran 61px past a 390 screen at 175%.
-// THE MUTATIONS, run: the `wraps-to-fit` class off that button and the fourth goes red,
-// "expected 61 to be +0"; the glyph's one-line box (`.btn-icon { height: 1lh }`)
-// taken out and it goes red at the chevron, 11px above its line; the first repair's
-// rule put back (the glyph pinned to the top of a flex row) and the fifth goes red at
-// 75% type, 4px above a one-line label, which offTheLine's quarter-line slack let
-// through and its `slack: 2` does not.
+// THE RELEASE LOG'S TWO CASES (#51, its door "Read the whole log" at 175% and 75%)
+// were cut with the release log itself: the web app's Server section draws the
+// update card and the system logs, and nothing else about releases beyond the
+// version line. They are gone rather than pointed at another button, because the
+// chevron rule they guarded belonged to that door.
 //
-// It knows the words on the screen and nothing else, and two numbers: how far the
-// page slides (`sideways`) and which glyphs beside a label are off its lines
-// (`offTheLine`).
+// It knows the words on the screen and nothing else, and one number: how far the
+// page slides (`sideways`). The size setup above is the one thing it knows beyond that.
 
 import { beforeEach, expect, it } from 'vitest'
 
@@ -77,67 +62,31 @@ const app = openApp({ viewport: PHONE })
 // limit, and the ones after it were measured at 390.
 beforeEach(async () => { await app.page.setViewport(PHONE) })
 
+// THE TYPE DIAL, SET THROUGH THE API (see the header). All four roles at once, the
+// way the cut dial used to write them.
+async function setType(factor) {
+  await app.setup('PUT', '/auth/me/preferences', {
+    sizeDisplay: factor, sizeUi: factor, sizeMono: factor, sizeHand: factor,
+  })
+}
+
 it('the settings index does not slide sideways on a phone', async () => {
   await app.goto('/settings')
   await app.see('Language and font')
   expect(await app.sideways()).toBe(0)
 })
 
-// THE SECTION IS OPEN, not the index: the typeface row is inside the section, so a
-// measurement taken on the index alone would pass over the broken build. The word
-// is one the section carries and the index does not — proof the press arrived.
-it('the typeface row keeps its buttons inside the card on a phone', async () => {
-  await app.goto('/settings')
-  await app.press('Language and font')
-  await app.see('Interface')
-  expect(await app.sideways()).toBe(0)
-})
-
-// AFTER THE FIRST TWO, because it leaves the reader's type at the top of the dial;
-// the cases after it set the dial themselves. A fresh page after the choice, so the
-// size is the one the server kept, not only the one the dial applied to the page it
-// was on.
+// AFTER THE FIRST CASE, because it leaves the reader's type at the top of the
+// dial; the cases after it set the dial themselves. A fresh page after the choice,
+// so the size is the one the server kept, not only the one the page was drawn at.
 it('the System logs card keeps its export buttons inside it at the largest type', async () => {
-  await app.goto('/settings')
-  await app.press('Language and font')
-  await app.choose('Text size', '175%')
-  await app.see('175%')
+  await setType(175)
   // THE SMALLEST PHONE, 320 wide, where the pair is wider than the card at 175% and
   // has to wrap onto two lines rather than slide.
   await app.page.setViewport({ width: 320, height: 720 })
-  await app.goto('/settings/jobs')
+  await app.goto('/settings/server')
   await app.see('System logs')
   await app.see('What is shown')
-  expect(await app.sideways(), 'the Jobs section slides sideways at 175% type').toBe(0)
-})
-
-// THE RELEASE LOG ON SERVER, AT THE SAME TYPE (#51). Its door is a sentence on a
-// button, "Read the whole log (104 more)", and at 175% on a 390 screen it ended 61px
-// past the screen and the page slid under it. Its chevron is drawn beside the words,
-// so once they wrap it has to stay on the first line of them rather than between
-// the two. The reader turns the type up with the same dial, then opens Server.
-it('the release log keeps its door inside the phone at the largest type', async () => {
-  await app.goto('/settings')
-  await app.press('Language and font')
-  await app.choose('Text size', '175%')
-  await app.see('175%')
-  await app.goto('/settings/server')
-  await app.see('Read the whole log')
   expect(await app.sideways(), 'the Server section slides sideways at 175% type').toBe(0)
-  expect(await app.offTheLine('Read the whole log'), 'the chevron beside a label that wrapped').toEqual([])
-})
-
-// AND AT THE SMALLEST TYPE THE CHEVRON STAYS ON ITS ONE LINE. The first repair
-// pinned the glyph's box to the top of the button, which put it on the first line
-// of a wrapped label and 3.6px above a one-line label at 75%, where the line is
-// shorter than the room the button's 44px floor leaves. offTheLine's own slack, a
-// quarter of a line, is 4.3px there, so this asks for 2.
-it('the release log keeps its chevron on its line at the smallest type', async () => {
-  await app.goto('/settings')
-  await app.press('Language and font')
-  await app.choose('Text size', '75%')
-  await app.see('75%')
-  await app.goto('/settings/server')
-  await app.see('Read the whole log')
-  expect(await app.offTheLine('Read the whole log', { slack: 2 }), 'the chevron beside a one-line label').toEqual([])
+  await setType(100)
 })
