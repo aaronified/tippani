@@ -51,11 +51,6 @@ _name = বাংলা
 # meet it — the frame, then the screens, then the help panel.
 # ===========================================================================
 
-# The Settings row that changes the language, in the Appearance card.
-settings.language.fallback.en.label = English
-settings.language.fallback.bn.label = বাংলা
-settings.language.fallback.title = ফিরে যায়
-settings.language.fallback.hint = যে লাইনের অনুবাদ এখনো হয়নি, সেটা এই ভাষায় দেখাবে।
 
 settings.language.title = ভাষা
 settings.changed.count = {n}টি বদলানো
@@ -1292,10 +1287,6 @@ settings.review-scope.quotes.tip = ভাষণ, চিঠি, আর বাক�
 # The last scope standing cannot be turned off, or the deck empties.
 settings.review-scope.stuck.tip = ডেকের অন্তত একটা লাগবে
 
-# --- Settings → Language and font. Four interface roles, three faces each; a
-# quote's own face is per language and lives under quote-faces below.
-# ভাষা ও ফন্ট পর্দার দলগুলোর নাম।
-settings.lang.group.interface.title = ইন্টারফেস
 settings.type.own.title = আপনার নিজের ফন্ট
 settings.type.faces.title = ইন্টারফেসের ফন্ট
 settings.quote-faces.title = উদ্ধৃতির ফন্ট
@@ -1458,23 +1449,15 @@ settings.labels.auto.label = অটো
 
 # --- Appearance.
 settings.search.none = “{q}”-এর সঙ্গে সেটিংসের কিছু মিলছে না।
-settings.appearance.group.light.title = আলো আর অন্ধকার
 settings.appearance.group.material.title = কী দিয়ে গড়া
-settings.appearance.matset.title = উপকরণের সেট
-settings.appearance.matset.hint = চারটে তল: পেছনের পাতা, প্যানেল, লেখার পাতা আর মলাট।
 settings.appearance.matset.info.body = প্রতিটা সেট চারটে তলের জমিন ঠিক করে, হালকা-গাঢ় দুটোতেই চলে। অলিন্দে কোনো জমিন নেই, তাই সবচেয়ে দ্রুত।
-settings.appearance.group.saved.title = আপনার নিজের থিম
-settings.appearance.group.saved.aside = {cap}-এর মধ্যে {n}টি সংরক্ষিত
 
 settings.appearance.theme.title = আপনি কোনটা দেখেন
-settings.appearance.theme.hint = “সিস্টেম যেমন” বাছলে আপনার যন্ত্রের সেটিং মেনে চলে।
 settings.appearance.theme.light.label = হালকা
 settings.appearance.theme.dark.label = গাঢ়
 settings.appearance.match.label = সিস্টেম যেমন
 settings.appearance.match.aria = সিস্টেমের থিম মেনে চলুন
-settings.appearance.contrast.title = কনট্রাস্ট
 settings.appearance.colours.title = রং
-settings.appearance.colours.hint = একটা হালকা ব্যাকগ্রাউন্ড, একটা গাঢ়, আর দুটোর একই অ্যাকসেন্ট রং। এখন স্ক্রিনে যেটা, সেটাই বদলাচ্ছেন।
 settings.appearance.colours.light.label = দিন
 settings.appearance.colours.dark.label = রাত
 settings.appearance.colours.accent.label = বাঁধাই
@@ -1485,93 +1468,28 @@ settings.appearance.colours.light.title = দিনের জমি
 settings.appearance.colours.dark.title = রাতের জমি
 settings.appearance.colours.accent.title = বাঁধাইয়ের রং
 settings.appearance.colours.hide.aria = বিকল্পগুলো লুকোন
-settings.group.access.title = অভিগম্যতা
 settings.features.covers.title = বইয়ের প্রচ্ছদ
 settings.features.posters.title = ক্যাটালগের পোস্টার
 settings.features.sizes.aside = শুধু এই ডিভাইসে
 
 settings.appearance.ground.info.body = পেছনের রং তিন পরতে: পুরো পাতা, প্যানেল, আর যে কার্ডে উদ্ধৃতি থাকে। হালকা আর গাঢ় আলাদা করে ঠিক হয়; এখন যেটা স্ক্রিনে আছে, এই সারি সেটাই বদলায়।
-settings.appearance.phys.title = উপকরণ আলো নিয়ে যা করে
-settings.appearance.phys.readout = {n}%
-settings.appearance.phys.open.tip = কোনো উপকরণ কীভাবে আলো ধরে তা বদলান
 settings.appearance.phys.info.body = আপনার সেটের চারটে উপাদান আলোয় কেমন সাড়া দেবে, প্রত্যেকটার জন্য আলাদা। পাথরে ছোট উজ্জ্বল ঝলক, পশমে ছড়ানো ম্লান আলো।
 settings.appearance.phys.hard.label = কাঠিন্য
 settings.appearance.phys.sss.label = ভিতর দিয়ে দীপ্তি
 settings.appearance.phys.diff.label = রঙের বিস্তার
 settings.appearance.phys.refl.label = ঘর প্রতিফলন
-settings.appearance.phys.reset.aria = {name} কারখানার মানে ফেরান
-settings.appearance.phys.none = এই সেটের কোনো খাঁজে উপকরণ নেই, তাই বদলানোর কিছু নেই।
-settings.appearance.glass.title = সত্যিকারের কাচ
-settings.appearance.saved.title = আপনার সংরক্ষিত চেহারা
-settings.appearance.saved.hint = দুটো ব্যাকগ্রাউন্ড, অ্যাকসেন্ট রং আর উপাদান-সেট একসঙ্গে রাখা।
-settings.appearance.saved.file.title = থিম ফাইল
-settings.appearance.saved.file.hint = এখনকার চেহারাটা ফাইলে নিন, বা অন্য কারোটা বসিয়ে দিন।
-settings.appearance.phys.open.sub = {what} — {dials}
-settings.appearance.phys.count.aside.one = {n}টা ডায়াল
-settings.appearance.phys.count.aside.other = {n}টা ডায়াল
-settings.appearance.phys.open.label = নবগুলো খুলুন
-settings.appearance.slots.title = একটি তল নিজে বদলান
-settings.appearance.slots.hint = সেট যেমন আছে থাক; শুধু পটভূমি, প্যানেল, কার্ড বা মলাটের উপকরণ বদলান।
 settings.appearance.slots.info.body = সেট প্রতিটা তলে একটি করে উপকরণ দেয়। চাইলে যেকোনো একটির জন্য অন্যটি বেছে নিন; সেটের নিজেরটি তালিকার প্রথমেই থাকে, আর ফাঁকা পছন্দের মানেও তা-ই।
-settings.appearance.slots.open.label = উপকরণ খুলুন
-settings.appearance.slots.own = সেটের নিজেরটি ({name})
-settings.appearance.slots.ground.label = পটভূমি
-settings.appearance.slots.shell.label = প্যানেল
-settings.appearance.slots.card.label = কার্ড
-settings.appearance.slots.cover.label = মলাট
 settings.appearance.saved.info.body = দুটো ব্যাকগ্রাউন্ড, অ্যাকসেন্ট রং, উপাদান-সেট আর তার সব মাপ একসঙ্গে রাখা থাকে — এক ছোঁয়ায় চেহারা বদলানো যায়। প্রতি প্রোফাইলে চারটে পর্যন্ত।
-settings.appearance.saved.none = এখনও কিছু সংরক্ষিত নেই। যা পরে আছেন তার নাম দিন, এখানে থাকবে।
-settings.appearance.saved.name.placeholder = এই চেহারার নাম
-settings.appearance.saved.name.aria = আপনি যা পরে আছেন তার নাম
-settings.appearance.saved.save.label = এই চেহারা সংরক্ষণ
-settings.appearance.saved.full = চারটিই সীমা। আরেকটি রাখতে একটি সরান।
-settings.appearance.saved.remove.aria = {name} সরান
-settings.appearance.saved.export.label = এক্সপোর্ট
 settings.appearance.saved.export.default = আমার চেহারা
 settings.appearance.saved.import.label = ইমপোর্ট
 settings.appearance.saved.import.unnamed = ইমপোর্ট করা
-settings.appearance.saved.import.parse = ফাইলটি থিম হিসেবে পড়া যাচ্ছে না।
-settings.appearance.saved.import.kind = এটি JSON, কিন্তু তিপ্পনীর থিম নয়।
-settings.appearance.saved.import.version = থিমটি নতুন তিপ্পনীর লেখা।
-settings.appearance.saved.import.shape = থিম ফাইলে কিছু নেই।
-settings.appearance.glass.on.label = চালু
-settings.appearance.glass.off.label = বন্ধ
-settings.appearance.glass.hint = বন্ধ রাখলে যন্ত্রের ওপর চাপ কম। যন্ত্রে নড়াচড়া কমানোর সেটিং চালু থাকলে এটা সবসময় বন্ধ থাকে।
 settings.appearance.glass.info.body = পেছনের জিনিস ঝাপসা না করে বাঁকিয়ে দেখায় এমন কাচ। প্রতিবার স্ক্রল করতে যন্ত্রকে খাটতে হয়, তাই শুরুতে বন্ধ।
-settings.appearance.glass.dials.title = কাচ নিজে
 settings.appearance.glass.clarity.label = কতটা স্বচ্ছ
 settings.appearance.glass.refract.label = কতটা বাঁকায়
 settings.appearance.glass.bevel.label = কিনারা কত চওড়া
 settings.appearance.glass.fringe.label = ধারে রামধনু
 settings.appearance.glass.gain.label = বাঁক কত খাড়া
 settings.appearance.glass.blur.label = পিছনের কোমলতা
-vocab.tile.paper.label = কাগজ
-vocab.tile.paper-photo.label = ফোটো কাগজ
-vocab.tile.cardboard.label = কার্ডবোর্ড
-vocab.tile.linen.label = লিনেন
-vocab.tile.cotton.label = সুতি
-vocab.tile.canvas.label = ক্যানভাস
-vocab.tile.denim.label = ডেনিম
-vocab.tile.wool.label = উল
-vocab.tile.fabric.label = কাপড়
-vocab.tile.leather.label = চামড়া
-vocab.tile.leather-suede.label = সুয়েড
-vocab.tile.leather-pebbled.label = দানাদার চামড়া
-vocab.tile.leather-tooled.label = খোদাই চামড়া
-vocab.tile.wood.label = কাঠ
-vocab.tile.walnut.label = আখরোট কাঠ
-vocab.tile.pine.label = পাইন
-vocab.tile.marble.label = মার্বেল
-vocab.tile.granite.label = গ্রানাইট
-vocab.tile.sandstone.label = বেলেপাথর
-vocab.tile.concrete.label = কংক্রিট
-vocab.tile.metal.label = ধাতু
-vocab.tile.brushed.label = ব্রাশ করা ইস্পাত
-vocab.tile.satin.label = সাটিন
-vocab.tile.matte.label = ম্যাট
-vocab.tile.rubber.label = রাবার
-vocab.tile.glass.label = কাচ
-vocab.tile.glass-soft.label = নরম কাচ
 vocab.ground.cream.label = ক্রিম
 vocab.ground.white.label = সাদা
 vocab.ground.sepia.label = সেপিয়া
@@ -1581,8 +1499,6 @@ vocab.ground.ink.label = কালি
 vocab.ground.soot.label = কাজল
 vocab.ground.tobacco.label = তামাক
 settings.appearance.contrast.aria = কনট্রাস্ট
-settings.appearance.contrast.more.label = বেশি
-settings.appearance.contrast.hint = বেশি কনট্রাস্টে রেখাগুলো গাঢ় হয়, কাগজের দানা সরে যায়। “সিস্টেম যেমন” বাছলে যন্ত্রের সেটিং মেনে চলে।
 # --- চেহারা -> উদ্ধৃতির নিজের দুটি পড়ার ডায়াল (§৬ প্রবেশগম্যতা)।
 settings.appearance.quote-leading.label = উদ্ধৃতির লাইনগুলির মধ্যে ফাঁক
 settings.appearance.quote-leading.aria = উদ্ধৃতির লাইনগুলোর মধ্যে ফাঁক
@@ -2419,11 +2335,6 @@ tour.step.metadata.em1.label = মানুষ
 tour.step.metadata.more = প্রতিটা হিসেবই একটা ছাঁকনি: “কভার নেই”-তে চাপলে শুধু সেই বইগুলো দেখাবে। তারপর বাছাইগুলো একসঙ্গে ঠিক করুন, একই জিনিসের দুটো কপি এক করুন, বক্তার নাম অভিনেতার সঙ্গে জুড়ুন, বা কিছু বদলানোর আগে উৎসের সঙ্গে আবার মিলিয়ে নিন।
 
 
-# Step "appearance".
-tour.step.appearance.name = চেহারা
-tour.step.appearance.blurb = কাগজ না ফিল্ম, হালকা/গাঢ়/সিস্টেম, চারটে অ্যাকসেন্ট — প্রত্যেক ইউজারের নিজের
-tour.step.appearance.title = নিজের মতো সাজিয়ে নিন
-tour.step.appearance.prose = হালকা, গাঢ় বা সিস্টেম যেমন, নিজের পছন্দের রং, উপাদান-সেট আর কভারের মাপ — প্রত্যেক ব্যবহারকারীর নিজের নিজের।
 
 # Step "keys".
 # bn: An API key is a চাবি — the thing that opens a door — here and in every other
@@ -5320,9 +5231,6 @@ settings.credits.sep.and.aria = “and” শব্দটা
 # --- Language marks: the standing paragraph above the rows. The rest of this
 # panel was migrated earlier; this line was missed.
 
-# The specimen inside the little callout — a line of the app's own display face
-# doing its job, not a pangram. Write one a reader of this language would keep.
-settings.appearance.preset.specimen.label = মার্জিন, লেখার চেয়েও চওড়া…
 
 # ---------------------------------------------------------------------------
 # UPDATES (admin only). Checked on demand, never in the background.

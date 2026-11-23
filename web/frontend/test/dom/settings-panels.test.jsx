@@ -124,37 +124,3 @@ describe('the language editor', () => {
   })
 
 })
-
-describe('the faces, on the section that shows them', () => {
-  // THE PANEL IS THE SECTION NOW. Every case below used to open a dialog and then
-  // expand a role inside it; the rows are on the page, so what they drive is the
-  // row itself. What each one asserts about the app is unchanged — the shape of
-  // the gesture is what got shorter.
-  const rowFor = (label) => screen.getByText(label).closest('.pref-row')
-  // The modifiers are one press off the row they modify: five chips across six
-  // rows is thirty chips on a screen whose job is showing four typefaces.
-  const openStyles = (label) => {
-    fireEvent.click(within(rowFor(label)).getByRole('button', { name: new RegExp(`Style modifiers for ${label}`, 'i') }))
-    return rowFor(label)
-  }
-
-  it('narrows the list as you type, and Enter takes what is left', async () => {
-    // The reason it is typeable at all: three bundled faces per role plus every
-    // font you have ever uploaded is a list you cannot read your way down.
-    await page()
-    fireEvent.click(within(rowFor('Labels')).getByRole('button', { name: /Typeface for Labels/i }))
-    const all = screen.getAllByRole('option').length
-    const box = screen.getByPlaceholderText(/Type a typeface name/i)
-    fireEvent.change(box, { target: { value: 'jet' } }) // JetBrains Mono
-    const narrowed = screen.getAllByRole('option')
-    expect(narrowed.length).toBeLessThan(all)
-    expect(narrowed.length).toBe(1)
-    // Matched on the words on screen, not on the value token behind them.
-    fireEvent.keyDown(document, { key: 'Enter' })
-    await waitFor(() => {
-      const put = PUTS.filter(([p]) => p === '/auth/me/preferences').at(-1)
-      expect(JSON.parse(put[1].fontsByLocale).en.mono).toBe('jetbrains-mono')
-    })
-  })
-
-})

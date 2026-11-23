@@ -42,11 +42,6 @@ _name = English
 # meet it — the frame, then the screens, then the help panel.
 # ===========================================================================
 
-# The Settings row that changes the language, in the Appearance card.
-settings.language.fallback.en.label = English
-settings.language.fallback.bn.label = বাংলা
-settings.language.fallback.title = Fall back to
-settings.language.fallback.hint = Used for any line not yet translated.
 
 settings.language.title = Language
 # THE NUMBER ON A SECTION, and the one word for when there is no number. The pack
@@ -1294,13 +1289,6 @@ settings.review-scope.quotes.tip = Speeches, letters, anything else
 # The last scope standing cannot be turned off, or the deck empties.
 settings.review-scope.stuck.tip = The deck needs one
 
-# --- Settings → Language and font. Four interface roles, three faces each, all
-# bundled; a quote's own face is per LANGUAGE and lives under quote-faces below.
-# THE GROUP HEADS OF THAT SECTION, in the pack's own order: what the interface
-# speaks, the faces you added yourself, the faces it is set in, and the quote
-# face each language carries. Numbered from position in prefRow.jsx, never typed
-# into these strings.
-settings.lang.group.interface.title = Interface
 settings.type.own.title = Your own fonts
 settings.type.faces.title = Interface faces
 # --- Quote faces, one per language. The list is Metadata's language table; this
@@ -1483,23 +1471,15 @@ settings.labels.auto.label = Auto
 
 # --- Appearance.
 settings.search.none = Nothing in Settings matches “{q}”.
-settings.appearance.group.light.title = Light and dark
 settings.appearance.group.material.title = What it is made of
-settings.appearance.matset.title = Material set
-settings.appearance.matset.hint = The surfaces: background, panels, page and binding.
 settings.appearance.matset.info.body = Each set covers four surfaces and works in light and dark. Atrium has no material and is the fastest.
-settings.appearance.group.saved.title = A theme of your own
-settings.appearance.group.saved.aside = {n} of {cap} saved
 
 settings.appearance.theme.title = Which one you see
-settings.appearance.theme.hint = Match system follows your device's setting.
 settings.appearance.theme.light.label = Light
 settings.appearance.theme.dark.label = Dark
 settings.appearance.match.label = Match system
 settings.appearance.match.aria = Match system theme
-settings.appearance.contrast.title = Contrast
 settings.appearance.colours.title = Colours
-settings.appearance.colours.hint = A light background, a dark one, and the accent they share. You are editing the one on screen.
 settings.appearance.colours.light.label = Light
 settings.appearance.colours.dark.label = Dark
 settings.appearance.colours.accent.label = Accent
@@ -1510,93 +1490,28 @@ settings.appearance.colours.light.title = The light ground
 settings.appearance.colours.dark.title = The dark ground
 settings.appearance.colours.accent.title = The accent
 settings.appearance.colours.hide.aria = Hide the options
-settings.group.access.title = Accessibility
 settings.features.covers.title = Library covers
 settings.features.posters.title = Catalogue posters
 settings.features.sizes.aside = this device only
 
 settings.appearance.ground.info.body = The background in three shades: the page behind, the panels, and the card a quote sits on. Light and dark are set separately; this row edits the one on screen.
-settings.appearance.phys.title = What the materials do with light
-settings.appearance.phys.readout = {n}%
-settings.appearance.phys.open.tip = Change how a material catches the light
 settings.appearance.phys.info.body = How each material reacts to light, set per material for the four in your set. Stone gives a small bright highlight; wool a wide, dim one.
 settings.appearance.phys.hard.label = Hardness
 settings.appearance.phys.sss.label = Glow through
 settings.appearance.phys.diff.label = Colour spread
 settings.appearance.phys.refl.label = Reflects the room
-settings.appearance.phys.reset.aria = Put {name} back to the factory
-settings.appearance.phys.none = This set has no material in any slot, so there is nothing here to change.
-settings.appearance.glass.title = True glass
-settings.appearance.saved.title = Your saved looks
-settings.appearance.saved.hint = Both backgrounds, the accent and the material set, saved together.
-settings.appearance.saved.file.title = Theme file
-settings.appearance.saved.file.hint = Export your current look, or paste in someone else's.
-settings.appearance.phys.open.sub = {what} — {dials}
-settings.appearance.phys.count.aside.one = {n} dial
-settings.appearance.phys.count.aside.other = {n} dials
-settings.appearance.phys.open.label = Open the dials
-settings.appearance.slots.title = Change one surface yourself
-settings.appearance.slots.hint = Keep the set and swap just the background, the bars, the cards or the covers.
 settings.appearance.slots.info.body = The set gives every surface a material. Pick another for any one of them; the set's own is always the first choice, and it is what an empty choice means.
-settings.appearance.slots.open.label = Open the materials
-settings.appearance.slots.own = The set's own ({name})
-settings.appearance.slots.ground.label = Background
-settings.appearance.slots.shell.label = Bars
-settings.appearance.slots.card.label = Cards
-settings.appearance.slots.cover.label = Covers
 settings.appearance.saved.info.body = Saves both backgrounds, the accent, the material set and its settings together, so you can switch looks in one tap. Up to four per profile.
-settings.appearance.saved.none = Nothing saved yet. Name what you are wearing and it will be here.
-settings.appearance.saved.name.placeholder = Name this look
-settings.appearance.saved.name.aria = Name for the look you are wearing
-settings.appearance.saved.save.label = Save this look
-settings.appearance.saved.full = Four is the limit. Remove one to save another.
-settings.appearance.saved.remove.aria = Remove {name}
-settings.appearance.saved.export.label = Export
 settings.appearance.saved.export.default = My look
 settings.appearance.saved.import.label = Import
 settings.appearance.saved.import.unnamed = Imported
-settings.appearance.saved.import.parse = That file is not readable as a theme.
-settings.appearance.saved.import.kind = That is a JSON file, but not a tippani theme.
-settings.appearance.saved.import.version = That theme was written by a newer tippani.
-settings.appearance.saved.import.shape = That theme file has nothing in it.
-settings.appearance.glass.on.label = On
-settings.appearance.glass.off.label = Off
-settings.appearance.glass.hint = Off is lighter on the device. Your device's reduced-motion setting always turns it off.
 settings.appearance.glass.info.body = Glass that bends what is behind it instead of blurring it. It costs the device work on every scroll, so it is off by default.
-settings.appearance.glass.dials.title = The glass itself
 settings.appearance.glass.clarity.label = How clear it is
 settings.appearance.glass.refract.label = How much it bends
 settings.appearance.glass.bevel.label = How wide the rim is
 settings.appearance.glass.fringe.label = Rainbow at the edge
 settings.appearance.glass.gain.label = How steep the bend
 settings.appearance.glass.blur.label = Softness behind it
-vocab.tile.paper.label = Paper
-vocab.tile.paper-photo.label = Photo paper
-vocab.tile.cardboard.label = Cardboard
-vocab.tile.linen.label = Linen
-vocab.tile.cotton.label = Cotton
-vocab.tile.canvas.label = Canvas
-vocab.tile.denim.label = Denim
-vocab.tile.wool.label = Wool
-vocab.tile.fabric.label = Fabric
-vocab.tile.leather.label = Leather
-vocab.tile.leather-suede.label = Suede
-vocab.tile.leather-pebbled.label = Pebbled leather
-vocab.tile.leather-tooled.label = Tooled leather
-vocab.tile.wood.label = Wood
-vocab.tile.walnut.label = Walnut
-vocab.tile.pine.label = Pine
-vocab.tile.marble.label = Marble
-vocab.tile.granite.label = Granite
-vocab.tile.sandstone.label = Sandstone
-vocab.tile.concrete.label = Concrete
-vocab.tile.metal.label = Metal
-vocab.tile.brushed.label = Brushed steel
-vocab.tile.satin.label = Satin
-vocab.tile.matte.label = Matte
-vocab.tile.rubber.label = Rubber
-vocab.tile.glass.label = Glass
-vocab.tile.glass-soft.label = Soft glass
 vocab.ground.cream.label = Cream
 vocab.ground.white.label = White
 vocab.ground.sepia.label = Sepia
@@ -1606,8 +1521,6 @@ vocab.ground.ink.label = Ink
 vocab.ground.soot.label = Soot
 vocab.ground.tobacco.label = Tobacco
 settings.appearance.contrast.aria = Contrast
-settings.appearance.contrast.more.label = More
-settings.appearance.contrast.hint = More contrast darkens lines and removes the paper texture. Match system follows your device.
 # --- Appearance -> the quote's own two reading dials (§6 access). They set the
 # QUOTE text and nothing else: the interface has its own size dial above, and a
 # reader narrowing a column of prose is not asking for a narrower app.
@@ -2441,11 +2354,6 @@ tour.step.metadata.em1.label = People
 tour.step.metadata.more = Each coverage count is a filter: tap “no cover” to list just those books. Then correct a selection at once, merge duplicates, map speaker labels onto a cast, or re-check works against their sources before anything changes.
 
 
-# Step "appearance".
-tour.step.appearance.name = Appearance
-tour.step.appearance.blurb = paper or film, light/dark/system, four accents — per user
-tour.step.appearance.title = Make it yours
-tour.step.appearance.prose = Light, dark or match your system, your colours, a material set and cover sizes — each user keeps their own.
 
 # Step "keys".
 tour.step.keys.name = Metadata keys & Amazon cookie
@@ -5454,11 +5362,6 @@ settings.credits.sep.and.aria = and
 # --- Language marks: the standing paragraph above the rows. The rest of this
 # panel was migrated earlier; this line was missed.
 
-# --- Appearance → the seven material specimens. Each card is drawn in
-# the materials it offers; this is the line of type inside it.
-# The specimen inside the little callout — a line of the app's own display face
-# doing its job, not a pangram. Write one a reader of this language would keep.
-settings.appearance.preset.specimen.label = the margins, wider than the text…
 
 # ---------------------------------------------------------------------------
 # UPDATES (admin only). Checked on demand, never in the background.

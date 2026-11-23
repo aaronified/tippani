@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- **Settings › Theme is a dropdown on the web.** The material tiles, physics dials, true glass,
+  per-surface materials, saved looks and cover-size sliders are gone; you pick a theme from a
+  list, then light, dark or match system, and a colour (ADR-0936).
+
 - **The Bin screen is gone from the web app.** Deleting still parks the item with an Undo, and
   the Android app restores from the bin; the web no longer lists or restores it (ADR-0936).
 
