@@ -414,6 +414,8 @@ common.clamp.text.more.tip = পুরো লেখাটা দেখান
 # --- shared field chrome.
 common.field.token.placeholder = যোগ করুন…
 common.field.select.placeholder = বাছুন…
+# One line at the foot of every screen the web strip cut something from.
+shell.fullfeatures.note = অ্যান্ড্রয়েড অ্যাপ ও ডেস্কটপ অ্যাপে সব সুবিধাই আছে।
 # A typeable Select: the box at the top of the panel, and the line it shows
 # when the typing matches nothing.
 common.field.filter.placeholder = লিখে খুঁজুন

@@ -414,6 +414,8 @@ common.clamp.text.more.tip = Show the full text
 # --- shared field chrome.
 common.field.token.placeholder = add…
 common.field.select.placeholder = Select…
+# One line at the foot of every screen the web strip cut something from.
+shell.fullfeatures.note = The Android app and the desktop app have every feature.
 # A typeable Select: the box at the top of the panel, and the line it shows
 # when the typing matches nothing.
 common.field.filter.placeholder = Type to narrow

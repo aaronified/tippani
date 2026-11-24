@@ -1610,6 +1610,9 @@ function MobileDock({ keys, hidden, canBack, onBack, onJumpBack, onSearch, onAdd
   )
 }
 
+// The screens that lost features in the web strip; each wears the one-line pointer to the apps that kept them.
+const CUT_DOWN_TABS = ['home', 'library', 'movies', 'quotes', 'metadata', 'settings', 'profile', 'checks', 'cleanup']
+
 // HOME_TOOLS — the three screens ABOUT the library rather than in it, behind the
 // dock's second key. Tags is deliberately not among them: a tag is a thing you
 // file quotes under, so its page belongs with the boards conceptually and with
@@ -2453,6 +2456,11 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
           </div>
         )}
         </Suspense>
+        {/* THE WEB APP IS THE iPHONE CLIENT AND HAS BEEN CUT DOWN (ADR-0936). Every
+            screen that lost something says where it went, once, at its foot. */}
+        {CUT_DOWN_TABS.includes(tab) && (
+          <p className="microcopy" style={{ marginTop: 24, textAlign: 'center' }}>{t('shell.fullfeatures.note')}</p>
+        )}
         </div>
         </ErrorBoundary>
       </main>
