@@ -77,6 +77,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A waiting quote's words can be edited.** `PATCH /import/staged/quotes/{id}` changes one
+  staged quote's quote, note and translation, so the Android app can trim a transcript before it
+  is approved. The staged bulk endpoint still never changes words. API revision 13, feature
+  `staged-text-edit`.
+
 - **The web app works as an iPhone home-screen app with no signal.** A service worker caches the
   app shell, never the API, and the home-screen title and status bar are set. (ADR-0936)
 

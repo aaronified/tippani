@@ -130,7 +130,14 @@ import (
 // `fields` gains `note`, `translation`, `language`, `tags` and `context`; and
 // PUT /anthologies/{id}/entries/{kind}/{item}/display sets an entry's `fields` and
 // `edits` without touching the quote. An older client reads the new names as absent.
-const apiRevision = 12
+//
+// Revision 13: a staged quote's words can be edited, one row at a time. PATCH
+// /import/staged/quotes/{id} takes `quote`, `note` and `translation` (any of them, none
+// required), moves the row's dedupe hash with the text, and answers 409 when the new
+// words equal another waiting quote's in the same work. The bulk door still never takes
+// words. Feature `staged-text-edit`. An older server answers 404 to the route, and a
+// client reads that as "not offered".
+const apiRevision = 13
 
 // apiFeatures names what this server can do, so a client can light up or hide a
 // screen instead of probing for a 404. Names are stable once published: an old
@@ -225,6 +232,7 @@ var apiFeatures = []string{
 	"anthology-poster",        // poster_path and description on an anthology; POST/DELETE /anthologies/{id}/poster
 	"idempotency-key",         // a repeated Idempotency-Key on a create route answers the first answer and changes nothing
 	"voice-source",            // a quote's source may be "voice"
+	"staged-text-edit",        // PATCH /import/staged/quotes/{id} changes one staged quote's quote, note and translation
 }
 
 // minClientRevision is the oldest client API revision this server still serves

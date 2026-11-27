@@ -703,6 +703,7 @@ func (s *Server) Handler() http.Handler {
 	// reaches the library until it is approved (ROADMAP 1.2.0).
 	mux.Handle("GET /import/staged", s.requireAuth(s.handleListStaged))
 	mux.Handle("POST /import/staged/bulk", s.requireAuth(s.handleBulkStaged))
+	mux.Handle("PATCH /import/staged/quotes/{id}", s.requireAuth(s.handleEditStagedQuoteText)) // one row's words; the bulk door never takes them
 	mux.Handle("POST /import/staged/approve", s.requireAuth(s.handleApproveStaged))
 	mux.Handle("DELETE /import/staged", s.requireAuth(s.handleDiscardStaged))
 	mux.Handle("GET /covers/{file}", s.requireAuth(s.handleCover))
