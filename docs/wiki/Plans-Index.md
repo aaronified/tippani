@@ -18,6 +18,7 @@ A plan that is partly built is cut down to the part that is not, and says so at 
 The order work is taken in, one plan at a time, each its own release. It is the owner's order and is not reordered by whoever
 builds.
 
+0. [The web pages on Astryx](Plan-Astryx-Redesign.md): the strip's screens rebuilt on Astryx, desktop and PWA, in the app's own materials. Put first by the owner on 27 November: the next server release waits for it.
 1. [Tile slots](Plan-Tile-Slots.md): the machinery for choosing one surface of a material set exists and nothing reaches it.
 2. [Episodes](Plan-Episodes.md): episode names, and up to three orderings of a series. The drag it was to extend now exists
    (`reorder.js`, built with the anthologies); reuse it.
