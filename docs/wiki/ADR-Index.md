@@ -1136,5 +1136,6 @@ My asks of 28 September, as the build was being merged, and my answers to the tw
 - [ADR-0935](ADR-0935-The-AI-Census-Is-Retired-For-A-Plain-Disclosure.md): The AI census is retired for a plain disclosure
 - [ADR-0936](ADR-0936-The-Web-App-Is-The-iPhone-Client-And-Is-Stripped-To-Eight-Jobs.md): The web app is the iPhone client and is stripped to eight jobs
 - [ADR-0937](ADR-0937-A-Staged-Quotes-Words-Can-Be-Edited-One-Row-At-A-Time.md): A staged quote's words can be edited, one row at a time
+- [ADR-0938](ADR-0938-Astryx-Is-Dropped-The-Spike-Was-Not-Worth-What-It-Cost.md): Astryx is dropped; the spike was not worth what it cost
 
 See also: [Design decisions](Design-decisions.md) · [Home](Home.md)

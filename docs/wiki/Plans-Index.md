@@ -18,7 +18,6 @@ A plan that is partly built is cut down to the part that is not, and says so at 
 The order work is taken in, one plan at a time, each its own release. It is the owner's order and is not reordered by whoever
 builds.
 
-0. [Standard elements on Astryx](Plan-Astryx-Redesign.md): the strip's screens keep their look and behaviour and take standard elements underneath, desktop and PWA, in the app's own materials. A standardisation and not a redesign (the owner, 28 November). Put first by the owner: the next server release waits for it.
 1. [Tile slots](Plan-Tile-Slots.md): the machinery for choosing one surface of a material set exists and nothing reaches it.
 2. [Episodes](Plan-Episodes.md): episode names, and up to three orderings of a series. The drag it was to extend now exists
    (`reorder.js`, built with the anthologies); reuse it.
